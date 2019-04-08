@@ -1,29 +1,13 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.time">
 
   <refentryinfo>
     <title>systemd.time</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -63,7 +47,7 @@
     understood:</para>
 
     <itemizedlist>
-      <listitem><para>usec, us</para></listitem>
+      <listitem><para>usec, us, µs</para></listitem>
       <listitem><para>msec, ms</para></listitem>
       <listitem><para>seconds, second, sec, s</para></listitem>
       <listitem><para>minutes, minute, min, m</para></listitem>
@@ -87,6 +71,10 @@
 1y 12month
 55s500ms
 300ms20s 5day</programlisting>
+
+    <para>One can use the <command>timespan</command> command of
+    <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    to normalise a textual time span for testing and validation purposes.</para>
   </refsect1>
 
   <refsect1>

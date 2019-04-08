@@ -1,29 +1,13 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_journal_get_fd" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_get_fd</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -199,22 +183,27 @@ else {
     immediately for all journal changes. Returns 0 if there might be a
     latency involved.</para>
 
-    <para><function>sd_journal_process()</function> and
-    <function>sd_journal_wait()</function> return one of
-    <constant>SD_JOURNAL_NOP</constant>,
-    <constant>SD_JOURNAL_APPEND</constant> or
-    <constant>SD_JOURNAL_INVALIDATE</constant> on success or a
-    negative errno-style error code. If
-    <constant>SD_JOURNAL_NOP</constant> is returned, the journal did
-    not change since the last invocation. If
-    <constant>SD_JOURNAL_APPEND</constant> is returned, new entries
-    have been appended to the end of the journal. If
-    <constant>SD_JOURNAL_INVALIDATE</constant>, journal files were
-    added or removed (possibly due to rotation). In the latter event,
-    live-view UIs should probably refresh their entire display, while
-    in the case of <constant>SD_JOURNAL_APPEND</constant>, it is
-    sufficient to simply continue reading at the previous end of the
-    journal.</para>
+    <para><function>sd_journal_process()</function> and <function>sd_journal_wait()</function> return a negative
+    errno-style error code, or one of <constant>SD_JOURNAL_NOP</constant>, <constant>SD_JOURNAL_APPEND</constant> or
+    <constant>SD_JOURNAL_INVALIDATE</constant> on success:</para>
+
+    <itemizedlist>
+      <listitem><para>If <constant>SD_JOURNAL_NOP</constant> is returned, the journal did not change since the last
+      invocation.</para></listitem>
+
+      <listitem><para>If <constant>SD_JOURNAL_APPEND</constant> is returned, new entries have been appended to the end
+      of the journal. In this case it is sufficient to simply continue reading at the previous end location of the
+      journal, to read the newly added entries.</para></listitem>
+
+      <listitem><para>If <constant>SD_JOURNAL_INVALIDATE</constant>, journal files were added to or removed from the
+      set of journal files watched (e.g. due to rotation or vacuuming), and thus entries might have appeared or
+      disappeared at arbitrary places in the log stream, possibly before or after the previous end of the log
+      stream. If <constant>SD_JOURNAL_INVALIDATE</constant> is returned, live-view UIs that want to reflect on screen
+      the precise state of the log data on disk should probably refresh their entire display (relative to the cursor of
+      the log entry on the top of the screen). Programs only interested in a strictly sequential stream of log data may
+      treat <constant>SD_JOURNAL_INVALIDATE</constant> the same way as <constant>SD_JOURNAL_APPEND</constant>, thus
+      ignoring any changes to the log view earlier than the old end of the log stream.</para></listitem>
+    </itemizedlist>
   </refsect1>
 
   <refsect1>
@@ -234,14 +223,9 @@ else {
   <refsect1>
     <title>Notes</title>
 
-    <para>The <function>sd_journal_get_fd()</function>,
-    <function>sd_journal_get_events()</function>,
-    <function>sd_journal_reliable_fd()</function>,
-    <function>sd_journal_process()</function> and
-    <function>sd_journal_wait()</function> interfaces are available as
-    a shared library, which can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>

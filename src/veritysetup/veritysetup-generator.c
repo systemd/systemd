@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stdbool.h>
@@ -18,6 +13,7 @@
 #include "generator.h"
 #include "hexdecoct.h"
 #include "id128-util.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
@@ -27,11 +23,15 @@
 
 #define SYSTEMD_VERITYSETUP_SERVICE "systemd-veritysetup@root.service"
 
-static char *arg_dest = NULL;
+static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static char *arg_root_hash = NULL;
 static char *arg_data_what = NULL;
 static char *arg_hash_what = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_data_what, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_hash_what, freep);
 
 static int create_device(void) {
         _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL, *u_escaped = NULL, *v_escaped = NULL, *root_hash_escaped = NULL;
@@ -123,7 +123,7 @@ static int create_device(void) {
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
-        if (streq(key, "systemd.verity")) {
+        if (proc_cmdline_key_streq(key, "systemd.verity")) {
 
                 r = value ? parse_boolean(value) : 1;
                 if (r < 0)
@@ -131,7 +131,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         arg_enabled = r;
 
-        } else if (streq(key, "roothash")) {
+        } else if (proc_cmdline_key_streq(key, "roothash")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -140,7 +140,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         return log_oom();
 
-        } else if (streq(key, "systemd.verity_root_data")) {
+        } else if (proc_cmdline_key_streq(key, "systemd.verity_root_data")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -149,7 +149,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         return log_oom();
 
-        } else if (streq(key, "systemd.verity_root_hash")) {
+        } else if (proc_cmdline_key_streq(key, "systemd.verity_root_hash")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -204,52 +204,26 @@ static int determine_devices(void) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r;
 
-        if (argc > 1 && argc != 4) {
-                log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
-        }
-
-        if (argc > 1)
-                arg_dest = argv[1];
-
-        log_set_prohibit_ipc(true);
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
-
-        umask(0022);
+        assert_se(arg_dest = dest);
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to parse kernel command line: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse kernel command line: %m");
 
         /* For now we only support the root device on verity. Later on we might want to add support for /etc/veritytab
          * or similar to define additional mappings */
 
-        if (!arg_enabled) {
-                r = 0;
-                goto finish;
-        }
+        if (!arg_enabled)
+                return 0;
 
         r = determine_devices();
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = create_device();
-        if (r < 0)
-                goto finish;
-
-        r = 0;
-
-finish:
-        free(arg_root_hash);
-        free(arg_data_what);
-        free(arg_hash_what);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return create_device();
 }
+
+DEFINE_MAIN_GENERATOR_FUNCTION(run);

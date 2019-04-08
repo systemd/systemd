@@ -1,29 +1,13 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
--->
-
-<refentry id="sd_journal_get_data">
+<refentry id="sd_journal_get_data" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_get_data</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -172,15 +156,9 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>The <function>sd_journal_get_data()</function>,
-    <function>sd_journal_enumerate_data()</function>,
-    <function>sd_journal_restart_data()</function>,
-    <function>sd_journal_set_data_threshold()</function> and
-    <function>sd_journal_get_data_threshold()</function> interfaces
-    are available as a shared library, which can be compiled and
-    linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>
@@ -204,7 +182,6 @@ int print_fields(sd_journal *j) {
     printf("%.*s\n", (int) length, data);
 }
 …</programlisting>
-
   </refsect1>
 
   <refsect1>

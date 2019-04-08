@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
-***/
 
 #include <errno.h>
 #include <stddef.h>
@@ -11,7 +6,8 @@
 #include <string.h>
 
 #include "alloc-util.h"
-#include "libudev-private.h"
+#include "libudev-list-internal.h"
+#include "memory-util.h"
 
 /**
  * SECTION:libudev-list
@@ -35,34 +31,25 @@ struct udev_list_entry {
 };
 
 /* the list's head points to itself if empty */
-void udev_list_node_init(struct udev_list_node *list)
-{
+static void udev_list_node_init(struct udev_list_node *list) {
         list->next = list;
         list->prev = list;
 }
 
-int udev_list_node_is_empty(struct udev_list_node *list)
-{
+static int udev_list_node_is_empty(struct udev_list_node *list) {
         return list->next == list;
 }
 
 static void udev_list_node_insert_between(struct udev_list_node *new,
                                           struct udev_list_node *prev,
-                                          struct udev_list_node *next)
-{
+                                          struct udev_list_node *next) {
         next->prev = new;
         new->next = next;
         new->prev = prev;
         prev->next = new;
 }
 
-void udev_list_node_append(struct udev_list_node *new, struct udev_list_node *list)
-{
-        udev_list_node_insert_between(new, list->prev, list);
-}
-
-void udev_list_node_remove(struct udev_list_node *entry)
-{
+static void udev_list_node_remove(struct udev_list_node *entry) {
         struct udev_list_node *prev = entry->prev;
         struct udev_list_node *next = entry->next;
 
@@ -74,43 +61,37 @@ void udev_list_node_remove(struct udev_list_node *entry)
 }
 
 /* return list entry which embeds this node */
-static inline struct udev_list_entry *list_node_to_entry(struct udev_list_node *node)
-{
+static struct udev_list_entry *list_node_to_entry(struct udev_list_node *node) {
         return container_of(node, struct udev_list_entry, node);
 }
 
-void udev_list_init(struct udev *udev, struct udev_list *list, bool unique)
-{
+void udev_list_init(struct udev_list *list, bool unique) {
         memzero(list, sizeof(struct udev_list));
-        list->udev = udev;
         list->unique = unique;
         udev_list_node_init(&list->node);
 }
 
 /* insert entry into a list as the last element  */
-static void udev_list_entry_append(struct udev_list_entry *new, struct udev_list *list)
-{
+static void udev_list_entry_append(struct udev_list_entry *new, struct udev_list *list) {
         /* inserting before the list head make the node the last node in the list */
         udev_list_node_insert_between(&new->node, list->node.prev, &list->node);
         new->list = list;
 }
 
 /* insert entry into a list, before a given existing entry */
-static void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry)
-{
+static void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry) {
         udev_list_node_insert_between(&new->node, entry->node.prev, &entry->node);
         new->list = entry->list;
 }
 
 /* binary search in sorted array */
-static int list_search(struct udev_list *list, const char *name)
-{
-        unsigned int first, last;
+static int list_search(struct udev_list *list, const char *name) {
+        unsigned first, last;
 
         first = 0;
         last = list->entries_cur;
         while (first < last) {
-                unsigned int i;
+                unsigned i;
                 int cmp;
 
                 i = (first + last)/2;
@@ -170,7 +151,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                 /* allocate or enlarge sorted array if needed */
                 if (list->entries_cur >= list->entries_max) {
                         struct udev_list_entry **entries;
-                        unsigned int add;
+                        unsigned add;
 
                         add = list->entries_max;
                         if (add < 1)
@@ -189,7 +170,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                 i = (-i)-1;
 
                 /* insert into sorted list */
-                if ((unsigned int)i < list->entries_cur)
+                if ((unsigned)i < list->entries_cur)
                         udev_list_entry_insert_before(entry, list->entries[i]);
                 else
                         udev_list_entry_append(entry, list);
@@ -205,9 +186,8 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
         return entry;
 }
 
-void udev_list_entry_delete(struct udev_list_entry *entry)
-{
-        if (entry->list->entries != NULL) {
+static void udev_list_entry_delete(struct udev_list_entry *entry) {
+        if (entry->list->entries) {
                 int i;
                 struct udev_list *list = entry->list;
 
@@ -226,8 +206,12 @@ void udev_list_entry_delete(struct udev_list_entry *entry)
         free(entry);
 }
 
-void udev_list_cleanup(struct udev_list *list)
-{
+#define udev_list_entry_foreach_safe(entry, tmp, first) \
+        for (entry = first, tmp = udev_list_entry_get_next(entry); \
+             entry; \
+             entry = tmp, tmp = udev_list_entry_get_next(tmp))
+
+void udev_list_cleanup(struct udev_list *list) {
         struct udev_list_entry *entry_loop;
         struct udev_list_entry *entry_tmp;
 
@@ -238,8 +222,7 @@ void udev_list_cleanup(struct udev_list *list)
                 udev_list_entry_delete(entry_loop);
 }
 
-struct udev_list_entry *udev_list_get_entry(struct udev_list *list)
-{
+struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
         if (udev_list_node_is_empty(&list->node))
                 return NULL;
         return list_node_to_entry(list->node.next);
@@ -253,11 +236,10 @@ struct udev_list_entry *udev_list_get_entry(struct udev_list *list)
  *
  * Returns: udev_list_entry, #NULL if no more entries are available.
  */
-_public_ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry *list_entry)
-{
+_public_ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry *list_entry) {
         struct udev_list_node *next;
 
-        if (list_entry == NULL)
+        if (!list_entry)
                 return NULL;
         next = list_entry->node.next;
         /* empty list or no more entries */
@@ -275,11 +257,10 @@ _public_ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry
  *
  * Returns: udev_list_entry, #NULL if no matching entry is found.
  */
-_public_ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list_entry, const char *name)
-{
+_public_ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list_entry, const char *name) {
         int i;
 
-        if (list_entry == NULL)
+        if (!list_entry)
                 return NULL;
 
         if (!list_entry->list->unique)
@@ -299,9 +280,8 @@ _public_ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_en
  *
  * Returns: the name string of this entry.
  */
-_public_ const char *udev_list_entry_get_name(struct udev_list_entry *list_entry)
-{
-        if (list_entry == NULL)
+_public_ const char *udev_list_entry_get_name(struct udev_list_entry *list_entry) {
+        if (!list_entry)
                 return NULL;
         return list_entry->name;
 }
@@ -314,23 +294,8 @@ _public_ const char *udev_list_entry_get_name(struct udev_list_entry *list_entry
  *
  * Returns: the value string of this entry.
  */
-_public_ const char *udev_list_entry_get_value(struct udev_list_entry *list_entry)
-{
-        if (list_entry == NULL)
+_public_ const char *udev_list_entry_get_value(struct udev_list_entry *list_entry) {
+        if (!list_entry)
                 return NULL;
         return list_entry->value;
-}
-
-int udev_list_entry_get_num(struct udev_list_entry *list_entry)
-{
-        if (list_entry == NULL)
-                return -EINVAL;
-        return list_entry->num;
-}
-
-void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num)
-{
-        if (list_entry == NULL)
-                return;
-        list_entry->num = num;
 }

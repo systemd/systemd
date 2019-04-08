@@ -1,11 +1,7 @@
-/***
-  This file is part of systemd.
-
-  Copyright 2017 Dmitry Rozhkov
-***/
 
 #include "alloc-util.h"
 #include "bus-util.h"
+#include "missing_capability.h"
 #include "resolved-dnssd.h"
 #include "resolved-dnssd-bus.h"
 #include "resolved-link.h"

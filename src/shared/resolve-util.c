@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-***/
 
 #include "conf-parser.h"
 #include "resolve-util.h"
@@ -11,6 +6,7 @@
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_resolve_support, resolve_support, ResolveSupport, "Failed to parse resolve support setting");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dnssec_mode, dnssec_mode, DnssecMode, "Failed to parse DNSSEC mode setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_over_tls_mode, dns_over_tls_mode, DnsOverTlsMode, "Failed to parse DNS-over-TLS mode setting");
 
 static const char* const resolve_support_table[_RESOLVE_SUPPORT_MAX] = {
         [RESOLVE_SUPPORT_NO] = "no",
@@ -25,3 +21,9 @@ static const char* const dnssec_mode_table[_DNSSEC_MODE_MAX] = {
         [DNSSEC_YES] = "yes",
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dnssec_mode, DnssecMode, DNSSEC_YES);
+
+static const char* const dns_over_tls_mode_table[_DNS_OVER_TLS_MODE_MAX] = {
+        [DNS_OVER_TLS_NO] = "no",
+        [DNS_OVER_TLS_OPPORTUNISTIC] = "opportunistic",
+};
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_over_tls_mode, DnsOverTlsMode, _DNS_OVER_TLS_MODE_INVALID);

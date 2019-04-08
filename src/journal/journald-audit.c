@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include "alloc-util.h"
 #include "audit-type.h"
@@ -167,7 +162,7 @@ static int map_generic_field(const char *prefix, const char **p, struct iovec **
         if (e <= *p || e >= *p + 16)
                 return 0;
 
-        c = alloca(strlen(prefix) + (e - *p) + 2);
+        c = newa(char, strlen(prefix) + (e - *p) + 2);
 
         t = stpcpy(c, prefix);
         for (f = *p; f < e; f++) {
@@ -318,7 +313,7 @@ static int map_all_fields(
         }
 }
 
-static void process_audit_string(Server *s, int type, const char *data, size_t size) {
+void process_audit_string(Server *s, int type, const char *data, size_t size) {
         size_t n_iov_allocated = 0, n_iov = 0, z;
         _cleanup_free_ struct iovec *iov = NULL;
         uint64_t seconds, msec, id;
@@ -326,7 +321,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         char id_field[sizeof("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)],
              type_field[sizeof("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)],
              source_time_field[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
-        char *m;
+        char *m, *type_field_name;
         int k;
 
         assert(s);
@@ -346,11 +341,12 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         if (!p)
                 return;
 
+        k = 0;
         if (sscanf(p, "(%" PRIu64 ".%" PRIu64 ":%" PRIu64 "):%n",
                    &seconds,
                    &msec,
                    &id,
-                   &k) != 3)
+                   &k) != 3 || k == 0)
                 return;
 
         p += k;
@@ -359,7 +355,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         if (isempty(p))
                 return;
 
-        n_iov_allocated = N_IOVEC_META_FIELDS + 7;
+        n_iov_allocated = N_IOVEC_META_FIELDS + 8;
         iov = new(struct iovec, n_iov_allocated);
         if (!iov) {
                 log_oom();
@@ -383,6 +379,9 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         iov[n_iov++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=audit");
 
         type_name = audit_type_name_alloca(type);
+
+        type_field_name = strjoina("_AUDIT_TYPE_NAME=", type_name);
+        iov[n_iov++] = IOVEC_MAKE_STRING(type_field_name);
 
         m = strjoina("MESSAGE=", type_name, " ", p);
         iov[n_iov++] = IOVEC_MAKE_STRING(m);
@@ -446,8 +445,8 @@ void server_process_audit_message(
         if (IN_SET(nl->nlmsg_type, NLMSG_NOOP, NLMSG_ERROR))
                 return;
 
-        /* Below AUDIT_FIRST_USER_MSG theer are only control messages, let's ignore those */
-        if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG)
+        /* Except AUDIT_USER, all messsages below AUDIT_FIRST_USER_MSG are control messages, let's ignore those */
+        if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG && nl->nlmsg_type != AUDIT_USER)
                 return;
 
         process_audit_string(s, nl->nlmsg_type, NLMSG_DATA(nl), nl->nlmsg_len - ALIGN(sizeof(struct nlmsghdr)));
@@ -499,7 +498,6 @@ static int enable_audit(int fd, bool b) {
 }
 
 int server_open_audit(Server *s) {
-        static const int one = 1;
         int r;
 
         if (s->audit_fd < 0) {
@@ -528,11 +526,11 @@ int server_open_audit(Server *s) {
                         return 0;
                 }
         } else
-                fd_nonblock(s->audit_fd, 1);
+                (void) fd_nonblock(s->audit_fd, true);
 
-        r = setsockopt(s->audit_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        r = setsockopt_int(s->audit_fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return log_error_errno(errno, "Failed to set SO_PASSCRED on audit socket: %m");
+                return log_error_errno(r, "Failed to set SO_PASSCRED on audit socket: %m");
 
         r = sd_event_add_io(s->event, &s->audit_event_source, s->audit_fd, EPOLLIN, server_process_datagram, s);
         if (r < 0)

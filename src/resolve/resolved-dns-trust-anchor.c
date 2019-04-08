@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 #include "sd-messages.h"
 
@@ -14,10 +9,12 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
-#include "resolved-dns-trust-anchor.h"
 #include "resolved-dns-dnssec.h"
+#include "resolved-dns-trust-anchor.h"
 #include "set.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -223,7 +220,10 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
         if (r < 0)
                 return log_warning_errno(r, "Unable to parse domain in line %s:%u: %m", path, line);
 
-        if (!dns_name_is_valid(domain)) {
+        r = dns_name_is_valid(domain);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to chack validity of domain name '%s', at line %s:%u, ignoring line: %m", domain, path, line);
+        if (r == 0) {
                 log_warning("Domain name %s is invalid, at line %s:%u, ignoring line.", domain, path, line);
                 return -EINVAL;
         }
@@ -390,7 +390,10 @@ static int dns_trust_anchor_load_negative(DnsTrustAnchor *d, const char *path, u
         if (r < 0)
                 return log_warning_errno(r, "Unable to parse line %s:%u: %m", path, line);
 
-        if (!dns_name_is_valid(domain)) {
+        r = dns_name_is_valid(domain);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to chack validity of domain name '%s', at line %s:%u, ignoring line: %m", domain, path, line);
+        if (r == 0) {
                 log_warning("Domain name %s is invalid, at line %s:%u, ignoring line.", domain, path, line);
                 return -EINVAL;
         }
@@ -432,7 +435,6 @@ static int dns_trust_anchor_load_files(
 
         STRV_FOREACH(f, files) {
                 _cleanup_fclose_ FILE *g = NULL;
-                char line[LINE_MAX];
                 unsigned n = 0;
 
                 g = fopen(*f, "r");
@@ -440,12 +442,21 @@ static int dns_trust_anchor_load_files(
                         if (errno == ENOENT)
                                 continue;
 
-                        log_warning_errno(errno, "Failed to open %s: %m", *f);
+                        log_warning_errno(errno, "Failed to open '%s', ignoring: %m", *f);
                         continue;
                 }
 
-                FOREACH_LINE(line, g, log_warning_errno(errno, "Failed to read %s, ignoring: %m", *f)) {
+                for (;;) {
+                        _cleanup_free_ char *line = NULL;
                         char *l;
+
+                        r = read_line(g, LONG_LINE_MAX, &line);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to read '%s', ignoring: %m", *f);
+                                break;
+                        }
+                        if (r == 0)
+                                break;
 
                         n++;
 
@@ -463,10 +474,8 @@ static int dns_trust_anchor_load_files(
         return 0;
 }
 
-static int domain_name_cmp(const void *a, const void *b) {
-        char **x = (char**) a, **y = (char**) b;
-
-        return dns_name_compare_func(*x, *y);
+static int domain_name_cmp(char * const *a, char * const *b) {
+        return dns_name_compare_func(*a, *b);
 }
 
 static int dns_trust_anchor_dump(DnsTrustAnchor *d) {
@@ -496,7 +505,7 @@ static int dns_trust_anchor_dump(DnsTrustAnchor *d) {
                 if (!l)
                         return log_oom();
 
-                qsort_safe(l, set_size(d->negative_by_name), sizeof(char*), domain_name_cmp);
+                typesafe_qsort(l, set_size(d->negative_by_name), domain_name_cmp);
 
                 j = strv_join(l, " ");
                 if (!j)
@@ -630,9 +639,10 @@ static int dns_trust_anchor_remove_revoked(DnsTrustAnchor *d, DnsResourceRecord 
         /* We found the key! Warn the user */
         log_struct(LOG_WARNING,
                    "MESSAGE_ID=" SD_MESSAGE_DNSSEC_TRUST_ANCHOR_REVOKED_STR,
-                   LOG_MESSAGE("DNSSEC Trust anchor %s has been revoked. Please update the trust anchor, or upgrade your operating system."), strna(dns_resource_record_to_string(rr)),
-                   "TRUST_ANCHOR=%s", dns_resource_record_to_string(rr),
-                   NULL);
+                   LOG_MESSAGE("DNSSEC trust anchor %s has been revoked.\n"
+                               "Please update the trust anchor, or upgrade your operating system.",
+                               strna(dns_resource_record_to_string(rr))),
+                   "TRUST_ANCHOR=%s", dns_resource_record_to_string(rr));
 
         if (dns_answer_size(new_answer) <= 0) {
                 assert_se(hashmap_remove(d->positive_by_key, rr->key) == old_answer);

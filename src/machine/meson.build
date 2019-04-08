@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 systemd_machined_sources = files('''
         machined.c
@@ -11,6 +9,7 @@ libmachine_core_sources = files('''
         machine.c
         machine.h
         machined-dbus.c
+        machined-core.c
         machine-dbus.c
         machine-dbus.h
         image-dbus.c

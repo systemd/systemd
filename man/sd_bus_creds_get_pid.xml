@@ -1,29 +1,13 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
--->
-
-<refentry id="sd_bus_creds_get_pid">
+<refentry id="sd_bus_creds_get_pid" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_creds_get_pid</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>A monkey with a typewriter</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -471,74 +455,56 @@
     <para>On success, these calls return 0 or a positive integer. On
     failure, these calls return a negative errno-style error code.
     </para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ENODATA</constant></term>
+
+          <listitem><para>The given field is not available in the credentials object
+          <parameter>c</parameter>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
+
+          <listitem><para>The given field is not specified for the described process or peer. This will be
+          returned by <function>sd_bus_creds_get_unit()</function>,
+          <function>sd_bus_creds_get_slice()</function>, <function>sd_bus_creds_get_user_unit()</function>,
+          <function>sd_bus_creds_get_user_slice()</function>, and
+          <function>sd_bus_creds_get_session()</function> if the process is not part of a systemd system
+          unit, systemd user unit, systemd slice, or logind session. It will be returned by
+          <function>sd_bus_creds_get_owner_uid()</function> if the process is not part of a systemd user unit
+          or logind session. It will also be returned by <function>sd_bus_creds_get_exe()</function> and
+          <function>sd_bus_creds_get_cmdline()</function> for kernel threads (since these are not started
+          from an executable binary, nor have a command line), and by
+          <function>sd_bus_creds_get_audit_session_id()</function> and
+          <function>sd_bus_creds_get_audit_login_uid()</function> when the process is not part of an audit
+          session, and <function>sd_bus_creds_get_tty()</function> if the process has no controlling
+          TTY.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>Specified pointer parameter is <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
-
-    <para>Returned errors may indicate the following problems:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><constant>-ENODATA</constant></term>
-
-        <listitem><para>The given field is not available in the
-        credentials object <parameter>c</parameter>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><constant>-ENXIO</constant></term>
-
-        <listitem><para>The given field is not specified for the described
-        process or peer. This will be returned by
-        <function>sd_bus_creds_get_unit()</function>,
-        <function>sd_bus_creds_get_slice()</function>,
-        <function>sd_bus_creds_get_user_unit()</function>,
-        <function>sd_bus_creds_get_user_slice()</function>, and
-        <function>sd_bus_creds_get_session()</function> if the process is
-        not part of a systemd system unit, systemd user unit, systemd
-        slice, or logind session. It will be returned by
-        <function>sd_bus_creds_get_owner_uid()</function> if the process is
-        not part of a systemd user unit or logind session. It will also be
-        returned by <function>sd_bus_creds_get_exe()</function> and
-        <function>sd_bus_creds_get_cmdline()</function> for kernel
-        threads (since these are not started from an executable binary,
-        nor have a command line), and by
-        <function>sd_bus_creds_get_audit_session_id()</function> and
-        <function>sd_bus_creds_get_audit_login_uid()</function> when
-        the process is not part of an audit session, and
-        <function>sd_bus_creds_get_tty()</function> if the process has
-        no controlling TTY.
-        </para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
-
-        <listitem><para>Specified pointer parameter is <constant>NULL</constant>.
-        </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
-
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
-    <title>Notes</title>
-
-    <para><function>sd_bus_creds_get_pid()</function> and the other
-    functions described here are available as a shared library, which
-    can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry
-    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>

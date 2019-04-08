@@ -1,10 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-  Copyright 2012 Michael Olbrich
-***/
 
 #include <sys/reboot.h>
 
@@ -16,18 +10,22 @@
 #include "special.h"
 #include "string-table.h"
 #include "terminal-util.h"
+#include "virt.h"
 
-static void log_and_status(Manager *m, const char *message, const char *reason) {
-        log_warning("%s: %s", message, reason);
-        manager_status_printf(m, STATUS_TYPE_EMERGENCY,
-                              ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
-                              "%s: %s", message, reason);
+static void log_and_status(Manager *m, bool warn, const char *message, const char *reason) {
+        log_full(warn ? LOG_WARNING : LOG_DEBUG, "%s: %s", message, reason);
+        if (warn)
+                manager_status_printf(m, STATUS_TYPE_EMERGENCY,
+                                      ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
+                                      "%s: %s", message, reason);
 }
 
-int emergency_action(
+void emergency_action(
                 Manager *m,
                 EmergencyAction action,
+                EmergencyActionFlags options,
                 const char *reboot_arg,
+                int exit_status,
                 const char *reason) {
 
         assert(m);
@@ -35,42 +33,34 @@ int emergency_action(
         assert(action < _EMERGENCY_ACTION_MAX);
 
         if (action == EMERGENCY_ACTION_NONE)
-                return -ECANCELED;
+                return;
 
-        if (!m->service_watchdogs) {
+        if (FLAGS_SET(options, EMERGENCY_ACTION_IS_WATCHDOG) && !m->service_watchdogs) {
                 log_warning("Watchdog disabled! Not acting on: %s", reason);
-                return -ECANCELED;
+                return;
         }
 
-        if (!MANAGER_IS_SYSTEM(m)) {
-                /* Downgrade all options to simply exiting if we run
-                 * in user mode */
-
-                log_warning("Exiting: %s", reason);
-                m->exit_code = MANAGER_EXIT;
-                return -ECANCELED;
-        }
+        bool warn = FLAGS_SET(options, EMERGENCY_ACTION_WARN);
 
         switch (action) {
 
         case EMERGENCY_ACTION_REBOOT:
-                log_and_status(m, "Rebooting", reason);
+                log_and_status(m, warn, "Rebooting", reason);
 
-                (void) update_reboot_parameter_and_warn(reboot_arg);
-                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
-
+                (void) update_reboot_parameter_and_warn(reboot_arg, true);
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL, NULL);
                 break;
 
         case EMERGENCY_ACTION_REBOOT_FORCE:
-                log_and_status(m, "Forcibly rebooting", reason);
+                log_and_status(m, warn, "Forcibly rebooting", reason);
 
-                (void) update_reboot_parameter_and_warn(reboot_arg);
-                m->exit_code = MANAGER_REBOOT;
+                (void) update_reboot_parameter_and_warn(reboot_arg, true);
+                m->objective = MANAGER_REBOOT;
 
                 break;
 
         case EMERGENCY_ACTION_REBOOT_IMMEDIATE:
-                log_and_status(m, "Rebooting immediately", reason);
+                log_and_status(m, warn, "Rebooting immediately", reason);
 
                 sync();
 
@@ -84,18 +74,46 @@ int emergency_action(
                 (void) reboot(RB_AUTOBOOT);
                 break;
 
+        case EMERGENCY_ACTION_EXIT:
+
+                if (exit_status >= 0)
+                        m->return_value = exit_status;
+
+                if (MANAGER_IS_USER(m) || detect_container() > 0) {
+                        log_and_status(m, warn, "Exiting", reason);
+                        (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL, NULL);
+                        break;
+                }
+
+                log_notice("Doing \"poweroff\" action instead of an \"exit\" emergency action.");
+                _fallthrough_;
+
         case EMERGENCY_ACTION_POWEROFF:
-                log_and_status(m, "Powering off", reason);
-                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
+                log_and_status(m, warn, "Powering off", reason);
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL, NULL);
                 break;
 
+        case EMERGENCY_ACTION_EXIT_FORCE:
+
+                if (exit_status >= 0)
+                        m->return_value = exit_status;
+
+                if (MANAGER_IS_USER(m) || detect_container() > 0) {
+                        log_and_status(m, warn, "Exiting immediately", reason);
+                        m->objective = MANAGER_EXIT;
+                        break;
+                }
+
+                log_notice("Doing \"poweroff-force\" action instead of an \"exit-force\" emergency action.");
+                _fallthrough_;
+
         case EMERGENCY_ACTION_POWEROFF_FORCE:
-                log_and_status(m, "Forcibly powering off", reason);
-                m->exit_code = MANAGER_POWEROFF;
+                log_and_status(m, warn, "Forcibly powering off", reason);
+                m->objective = MANAGER_POWEROFF;
                 break;
 
         case EMERGENCY_ACTION_POWEROFF_IMMEDIATE:
-                log_and_status(m, "Powering off immediately", reason);
+                log_and_status(m, warn, "Powering off immediately", reason);
 
                 sync();
 
@@ -106,8 +124,6 @@ int emergency_action(
         default:
                 assert_not_reached("Unknown emergency action");
         }
-
-        return -ECANCELED;
 }
 
 static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {
@@ -117,6 +133,26 @@ static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {
         [EMERGENCY_ACTION_REBOOT_IMMEDIATE] = "reboot-immediate",
         [EMERGENCY_ACTION_POWEROFF] = "poweroff",
         [EMERGENCY_ACTION_POWEROFF_FORCE] = "poweroff-force",
-        [EMERGENCY_ACTION_POWEROFF_IMMEDIATE] = "poweroff-immediate"
+        [EMERGENCY_ACTION_POWEROFF_IMMEDIATE] = "poweroff-immediate",
+        [EMERGENCY_ACTION_EXIT] = "exit",
+        [EMERGENCY_ACTION_EXIT_FORCE] = "exit-force",
 };
 DEFINE_STRING_TABLE_LOOKUP(emergency_action, EmergencyAction);
+
+int parse_emergency_action(
+                const char *value,
+                bool system,
+                EmergencyAction *ret) {
+
+        EmergencyAction x;
+
+        x = emergency_action_from_string(value);
+        if (x < 0)
+                return -EINVAL;
+
+        if (!system && x != EMERGENCY_ACTION_NONE && x < _EMERGENCY_ACTION_FIRST_USER_ACTION)
+                return -EOPNOTSUPP;
+
+        *ret = x;
+        return 0;
+}

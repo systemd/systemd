@@ -1,27 +1,17 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  This file is part of systemd.
-
-  Copyright 2014 Didier Roche
+  Copyright © 2014 Didier Roche
 -->
 <refentry id="systemd-machine-id-commit.service">
 
   <refentryinfo>
     <title>systemd-machine-id-commit.service</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Didier</firstname>
-        <surname>Roche</surname>
-        <email>didrocks@ubuntu.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

@@ -1,16 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "env-file.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -20,6 +18,7 @@
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -60,7 +59,7 @@ void inhibitor_free(Inhibitor *i) {
         free(i->why);
 
         if (i->state_file) {
-                unlink(i->state_file);
+                (void) unlink(i->state_file);
                 free(i->state_file);
         }
 
@@ -174,7 +173,7 @@ int inhibitor_stop(Inhibitor *i) {
                           inhibit_mode_to_string(i->mode));
 
         if (i->state_file)
-                unlink(i->state_file);
+                (void) unlink(i->state_file);
 
         i->started = false;
 
@@ -198,15 +197,14 @@ int inhibitor_load(Inhibitor *i) {
         char *cc;
         int r;
 
-        r = parse_env_file(i->state_file, NEWLINE,
+        r = parse_env_file(NULL, i->state_file,
                            "WHAT", &what,
                            "UID", &uid,
                            "PID", &pid,
                            "WHO", &who,
                            "WHY", &why,
                            "MODE", &mode,
-                           "FIFO", &i->fifo_path,
-                           NULL);
+                           "FIFO", &i->fifo_path);
         if (r < 0)
                 return r;
 
@@ -322,7 +320,7 @@ void inhibitor_remove_fifo(Inhibitor *i) {
         i->fifo_fd = safe_close(i->fifo_fd);
 
         if (i->fifo_path) {
-                unlink(i->fifo_path);
+                (void) unlink(i->fifo_path);
                 i->fifo_path = mfree(i->fifo_path);
         }
 }

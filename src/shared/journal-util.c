@@ -1,10 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-  Copyright 2015 Lennart Poettering
-***/
 
 #include "acl-util.h"
 #include "fs-util.h"

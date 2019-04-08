@@ -1,14 +1,7 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010-2013 Kay Sievers
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-udevd.service"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -16,14 +9,6 @@
   <refentryinfo>
     <title>systemd-udevd.service</title>
     <productname>systemd</productname>
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Kay</firstname>
-        <surname>Sievers</surname>
-        <email>kay@vrfy.org</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -180,6 +165,26 @@
         <listitem>
           <para>Network interfaces are renamed to give them predictable names
           when possible. It is enabled by default; specifying 0 disables it.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>net.naming-scheme=</varname></term>
+        <listitem>
+          <para>Network interfaces are renamed to give them predictable names when possible (unless
+          <varname>net.ifnames=0</varname> is specified, see above). The names are derived from various
+          device metadata fields. Newer versions of <filename>systemd-udevd.service</filename> take more of
+          these fields into account, improving (and thus possibly changing) the names used for the same
+          devices. With this kernel command line option it is possible to pick a specific version of this
+          algorithm. It expects a naming scheme identifier as argument. Currently the following identifiers
+          are known: <literal>v238</literal>, <literal>v239</literal>, <literal>v240</literal> which each
+          implement the naming scheme that was the default in the indicated systemd version. In addition,
+          <literal>latest</literal> may be used to designate the latest scheme known (to this particular
+          version of <filename>systemd-udevd.service</filename>).</para>
+
+          <para>Note that selecting a specific scheme is not sufficient to fully stabilize interface naming:
+          the naming is generally derived from driver attributes exposed by the kernel. As the kernel is
+          updated, previously missing attributes <filename>systemd-udevd.service</filename> is checking might
+          appear, which affects older name derivation algorithms, too.</para>
         </listitem>
       </varlistentry>
     </variablelist>

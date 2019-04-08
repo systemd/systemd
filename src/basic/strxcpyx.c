@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Kay Sievers
-***/
 
 /*
  * Concatenates/copies strings. In any case, terminates in all cases
@@ -36,12 +31,11 @@ size_t strpcpy(char **dest, size_t size, const char *src) {
                 if (size > 1)
                         *dest = mempcpy(*dest, src, size-1);
                 size = 0;
-        } else {
-                if (len > 0) {
-                        *dest = mempcpy(*dest, src, len);
-                        size -= len;
-                }
+        } else if (len > 0) {
+                *dest = mempcpy(*dest, src, len);
+                size -= len;
         }
+
         *dest[0] = '\0';
         return size;
 }
@@ -61,9 +55,8 @@ size_t strpcpyf(char **dest, size_t size, const char *src, ...) {
         if (i < (int)size) {
                 *dest += i;
                 size -= i;
-        } else {
+        } else
                 size = 0;
-        }
         va_end(va);
         return size;
 }
@@ -78,7 +71,7 @@ size_t strpcpyl(char **dest, size_t size, const char *src, ...) {
         do {
                 size = strpcpy(dest, size, src);
                 src = va_arg(va, char *);
-        } while (src != NULL);
+        } while (src);
         va_end(va);
         return size;
 }
@@ -105,7 +98,7 @@ size_t strscpyl(char *dest, size_t size, const char *src, ...) {
         do {
                 size = strpcpy(&s, size, src);
                 src = va_arg(va, char *);
-        } while (src != NULL);
+        } while (src);
         va_end(va);
 
         return size;

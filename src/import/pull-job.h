@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
-
 #include <gcrypt.h>
 
 #include "curl-util.h"
@@ -85,9 +79,6 @@ struct PullJob {
         gcry_md_hd_t checksum_context;
 
         char *checksum;
-
-        bool grow_machine_directory;
-        uint64_t written_since_last_grow;
 
         VerificationStyle style;
 };

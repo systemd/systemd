@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2010 Maarten Lankhorst
+  Copyright © 2010 Maarten Lankhorst
 ***/
 
 #include "bus-util.h"
@@ -14,54 +11,22 @@
 #include "swap.h"
 #include "unit.h"
 
-static int property_get_priority(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Swap *s = SWAP(userdata);
-        int p;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
+static int swap_get_priority(Swap *s) {
         if (s->from_proc_swaps)
-                p = s->parameters_proc_swaps.priority;
-        else if (s->from_fragment)
-                p = s->parameters_fragment.priority;
-        else
-                p = -1;
-
-        return sd_bus_message_append(reply, "i", p);
-}
-
-static int property_get_options(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Swap *s = SWAP(userdata);
-        const char *options = NULL;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
+                return s->parameters_proc_swaps.priority;
         if (s->from_fragment)
-                options = s->parameters_fragment.options;
-
-        return sd_bus_message_append(reply, "s", options);
+                return s->parameters_fragment.priority;
+        return -1;
 }
 
+static const char *swap_get_options(Swap *s) {
+        if (s->from_fragment)
+                return s->parameters_fragment.options;
+        return NULL;
+}
+
+static BUS_DEFINE_PROPERTY_GET(property_get_priority, "i", Swap, swap_get_priority);
+static BUS_DEFINE_PROPERTY_GET(property_get_options, "s", Swap, swap_get_options);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, swap_result, SwapResult);
 
 const sd_bus_vtable bus_swap_vtable[] = {
@@ -98,7 +63,7 @@ int bus_swap_set_property(
 int bus_swap_commit_properties(Unit *u) {
         assert(u);
 
-        unit_update_cgroup_members_masks(u);
+        unit_invalidate_cgroup_members_masks(u);
         unit_realize_cgroup(u);
 
         return 0;

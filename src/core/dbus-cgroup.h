@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
-
 #include "sd-bus.h"
+#include "sd-bus-vtable.h"
 
+#include "unit.h"
 #include "cgroup.h"
 
 extern const sd_bus_vtable bus_cgroup_vtable[];

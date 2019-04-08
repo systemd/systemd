@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <stdbool.h>
 
 #include "sd-event.h"
@@ -86,7 +80,7 @@ enum JobMode {
 };
 
 enum JobResult {
-        JOB_DONE,                /* Job completed successfully */
+        JOB_DONE,                /* Job completed successfully (or skipped due to a failed ConditionXYZ=) */
         JOB_CANCELED,            /* Job canceled by a conflicting job installation or by explicit cancel request */
         JOB_TIMEOUT,             /* Job timeout elapsed */
         JOB_FAILED,              /* Job failed */
@@ -166,11 +160,12 @@ struct Job {
 
 Job* job_new(Unit *unit, JobType type);
 Job* job_new_raw(Unit *unit);
-void job_free(Job *job);
+void job_unlink(Job *job);
+Job* job_free(Job *job);
 Job* job_install(Job *j);
 int job_install_deserialized(Job *j);
 void job_uninstall(Job *j);
-void job_dump(Job *j, FILE*f, const char *prefix);
+void job_dump(Job *j, FILE *f, const char *prefix);
 int job_serialize(Job *j, FILE *f);
 int job_deserialize(Job *j, FILE *f);
 int job_coldplug(Job *j);
@@ -226,6 +221,8 @@ void job_add_to_gc_queue(Job *j);
 
 int job_get_before(Job *j, Job*** ret);
 int job_get_after(Job *j, Job*** ret);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Job*, job_free);
 
 const char* job_type_to_string(JobType t) _const_;
 JobType job_type_from_string(const char *s) _pure_;

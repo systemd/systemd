@@ -1,15 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <stdint.h>
 
 #include "alloc-util.h"
 #include "macro.h"
-#include "util.h"
+#include "memory-util.h"
 
 static void test_alloca(void) {
         static const uint8_t zero[997] = { };
@@ -22,6 +17,25 @@ static void test_alloca(void) {
         t = alloca0_align(997, 1024);
         assert_se(!((uintptr_t)t & 0x1ff));
         assert_se(!memcmp(t, zero, 997));
+}
+
+static void test_GREEDY_REALLOC(void) {
+        _cleanup_free_ int *a = NULL, *b = NULL;
+        size_t n_allocated = 0, i;
+
+        /* Give valgrind a chance to verify our realloc operations */
+
+        for (i = 0; i < 2048; i++) {
+                assert_se(GREEDY_REALLOC(a, n_allocated, i + 1));
+                a[i] = i;
+                assert_se(GREEDY_REALLOC(a, n_allocated, i / 2));
+        }
+
+        for (i = 30, n_allocated = 0; i < 2048; i+=7) {
+                assert_se(GREEDY_REALLOC(b, n_allocated, i + 1));
+                b[i] = i;
+                assert_se(GREEDY_REALLOC(b, n_allocated, i / 2));
+        }
 }
 
 static void test_memdup_multiply_and_greedy_realloc(void) {
@@ -57,9 +71,31 @@ static void test_memdup_multiply_and_greedy_realloc(void) {
                 assert_se(p[i] == 0);
 }
 
+static void test_bool_assign(void) {
+        bool b, c, *cp = &c, d, e, f, g, h;
+
+        b = 123;
+        *cp = -11;
+        d = 0xF & 0xFF;
+        e = b & d;
+        f = 0x0;
+        g = cp;    /* cast from pointer */
+        h = NULL;  /* cast from pointer */
+
+        assert(b);
+        assert(c);
+        assert(d);
+        assert(e);
+        assert(!f);
+        assert(g);
+        assert(!h);
+}
+
 int main(int argc, char *argv[]) {
         test_alloca();
+        test_GREEDY_REALLOC();
         test_memdup_multiply_and_greedy_realloc();
+        test_bool_assign();
 
         return 0;
 }

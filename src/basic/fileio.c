@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
-***/
-
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -13,33 +9,22 @@
 #include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "ctype.h"
-#include "def.h"
-#include "env-util.h"
-#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "hexdecoct.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "process-util.h"
-#include "random-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "strv.h"
-#include "time-util.h"
-#include "umask-util.h"
-#include "utf8.h"
+#include "tmpfile-util.h"
 
 #define READ_FULL_BYTES_MAX (4U*1024U*1024U)
 
@@ -165,13 +150,13 @@ int write_string_file_ts(
 
                 /* We manually build our own version of fopen(..., "we") that
                  * works without O_CREAT */
-                fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY);
+                fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY | ((flags & WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (fd < 0) {
                         r = -errno;
                         goto fail;
                 }
 
-                f = fdopen(fd, "we");
+                f = fdopen(fd, "w");
                 if (!f) {
                         r = -errno;
                         safe_close(fd);
@@ -206,9 +191,27 @@ fail:
         return 0;
 }
 
+int write_string_filef(
+                const char *fn,
+                WriteStringFileFlags flags,
+                const char *format, ...) {
+
+        _cleanup_free_ char *p = NULL;
+        va_list ap;
+        int r;
+
+        va_start(ap, format);
+        r = vasprintf(&p, format, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        return write_string_file(fn, p, flags);
+}
+
 int read_one_line_file(const char *fn, char **line) {
         _cleanup_fclose_ FILE *f = NULL;
-        int r;
 
         assert(fn);
         assert(line);
@@ -219,8 +222,7 @@ int read_one_line_file(const char *fn, char **line) {
 
         (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
-        r = read_line(f, LONG_LINE_MAX, line);
-        return r < 0 ? r : 0;
+        return read_line(f, LONG_LINE_MAX, line);
 }
 
 int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
@@ -262,30 +264,40 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         return 1;
 }
 
-int read_full_stream(FILE *f, char **contents, size_t *size) {
-        size_t n, l;
+int read_full_stream(
+                FILE *f,
+                char **ret_contents,
+                size_t *ret_size) {
+
         _cleanup_free_ char *buf = NULL;
         struct stat st;
+        size_t n, l;
+        int fd;
 
         assert(f);
-        assert(contents);
+        assert(ret_contents);
 
-        if (fstat(fileno(f), &st) < 0)
-                return -errno;
+        n = LINE_MAX; /* Start size */
 
-        n = LINE_MAX;
+        fd = fileno(f);
+        if (fd >= 0) { /* If the FILE* object is backed by an fd (as opposed to memory or such, see fmemopen(), let's
+                        * optimize our buffering) */
 
-        if (S_ISREG(st.st_mode)) {
+                if (fstat(fileno(f), &st) < 0)
+                        return -errno;
 
-                /* Safety check */
-                if (st.st_size > READ_FULL_BYTES_MAX)
-                        return -E2BIG;
+                if (S_ISREG(st.st_mode)) {
 
-                /* Start with the right file size, but be prepared for files from /proc which generally report a file
-                 * size of 0. Note that we increase the size to read here by one, so that the first read attempt
-                 * already makes us notice the EOF. */
-                if (st.st_size > 0)
-                        n = st.st_size + 1;
+                        /* Safety check */
+                        if (st.st_size > READ_FULL_BYTES_MAX)
+                                return -E2BIG;
+
+                        /* Start with the right file size, but be prepared for files from /proc which generally report a file
+                         * size of 0. Note that we increase the size to read here by one, so that the first read attempt
+                         * already makes us notice the EOF. */
+                        if (st.st_size > 0)
+                                n = st.st_size + 1;
+                }
         }
 
         l = 0;
@@ -321,11 +333,20 @@ int read_full_stream(FILE *f, char **contents, size_t *size) {
                 n = MIN(n * 2, READ_FULL_BYTES_MAX);
         }
 
-        buf[l] = 0;
-        *contents = TAKE_PTR(buf);
+        if (!ret_size) {
+                /* Safety check: if the caller doesn't want to know the size of what we just read it will rely on the
+                 * trailing NUL byte. But if there's an embedded NUL byte, then we should refuse operation as otherwise
+                 * there'd be ambiguity about what we just read. */
 
-        if (size)
-                *size = l;
+                if (memchr(buf, 0, l))
+                        return -EBADMSG;
+        }
+
+        buf[l] = 0;
+        *ret_contents = TAKE_PTR(buf);
+
+        if (ret_size)
+                *ret_size = l;
 
         return 0;
 }
@@ -343,557 +364,6 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
         (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         return read_full_stream(f, contents, size);
-}
-
-static int parse_env_file_internal(
-                FILE *f,
-                const char *fname,
-                const char *newline,
-                int (*push) (const char *filename, unsigned line,
-                             const char *key, char *value, void *userdata, int *n_pushed),
-                void *userdata,
-                int *n_pushed) {
-
-        size_t key_alloc = 0, n_key = 0, value_alloc = 0, n_value = 0, last_value_whitespace = (size_t) -1, last_key_whitespace = (size_t) -1;
-        _cleanup_free_ char *contents = NULL, *key = NULL, *value = NULL;
-        unsigned line = 1;
-        char *p;
-        int r;
-
-        enum {
-                PRE_KEY,
-                KEY,
-                PRE_VALUE,
-                VALUE,
-                VALUE_ESCAPE,
-                SINGLE_QUOTE_VALUE,
-                SINGLE_QUOTE_VALUE_ESCAPE,
-                DOUBLE_QUOTE_VALUE,
-                DOUBLE_QUOTE_VALUE_ESCAPE,
-                COMMENT,
-                COMMENT_ESCAPE
-        } state = PRE_KEY;
-
-        assert(newline);
-
-        if (f)
-                r = read_full_stream(f, &contents, NULL);
-        else
-                r = read_full_file(fname, &contents, NULL);
-        if (r < 0)
-                return r;
-
-        for (p = contents; *p; p++) {
-                char c = *p;
-
-                switch (state) {
-
-                case PRE_KEY:
-                        if (strchr(COMMENTS, c))
-                                state = COMMENT;
-                        else if (!strchr(WHITESPACE, c)) {
-                                state = KEY;
-                                last_key_whitespace = (size_t) -1;
-
-                                if (!GREEDY_REALLOC(key, key_alloc, n_key+2))
-                                        return -ENOMEM;
-
-                                key[n_key++] = c;
-                        }
-                        break;
-
-                case KEY:
-                        if (strchr(newline, c)) {
-                                state = PRE_KEY;
-                                line++;
-                                n_key = 0;
-                        } else if (c == '=') {
-                                state = PRE_VALUE;
-                                last_value_whitespace = (size_t) -1;
-                        } else {
-                                if (!strchr(WHITESPACE, c))
-                                        last_key_whitespace = (size_t) -1;
-                                else if (last_key_whitespace == (size_t) -1)
-                                         last_key_whitespace = n_key;
-
-                                if (!GREEDY_REALLOC(key, key_alloc, n_key+2))
-                                        return -ENOMEM;
-
-                                key[n_key++] = c;
-                        }
-
-                        break;
-
-                case PRE_VALUE:
-                        if (strchr(newline, c)) {
-                                state = PRE_KEY;
-                                line++;
-                                key[n_key] = 0;
-
-                                if (value)
-                                        value[n_value] = 0;
-
-                                /* strip trailing whitespace from key */
-                                if (last_key_whitespace != (size_t) -1)
-                                        key[last_key_whitespace] = 0;
-
-                                r = push(fname, line, key, value, userdata, n_pushed);
-                                if (r < 0)
-                                        return r;
-
-                                n_key = 0;
-                                value = NULL;
-                                value_alloc = n_value = 0;
-
-                        } else if (c == '\'')
-                                state = SINGLE_QUOTE_VALUE;
-                        else if (c == '\"')
-                                state = DOUBLE_QUOTE_VALUE;
-                        else if (c == '\\')
-                                state = VALUE_ESCAPE;
-                        else if (!strchr(WHITESPACE, c)) {
-                                state = VALUE;
-
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
-                                        return  -ENOMEM;
-
-                                value[n_value++] = c;
-                        }
-
-                        break;
-
-                case VALUE:
-                        if (strchr(newline, c)) {
-                                state = PRE_KEY;
-                                line++;
-
-                                key[n_key] = 0;
-
-                                if (value)
-                                        value[n_value] = 0;
-
-                                /* Chomp off trailing whitespace from value */
-                                if (last_value_whitespace != (size_t) -1)
-                                        value[last_value_whitespace] = 0;
-
-                                /* strip trailing whitespace from key */
-                                if (last_key_whitespace != (size_t) -1)
-                                        key[last_key_whitespace] = 0;
-
-                                r = push(fname, line, key, value, userdata, n_pushed);
-                                if (r < 0)
-                                        return r;
-
-                                n_key = 0;
-                                value = NULL;
-                                value_alloc = n_value = 0;
-
-                        } else if (c == '\\') {
-                                state = VALUE_ESCAPE;
-                                last_value_whitespace = (size_t) -1;
-                        } else {
-                                if (!strchr(WHITESPACE, c))
-                                        last_value_whitespace = (size_t) -1;
-                                else if (last_value_whitespace == (size_t) -1)
-                                        last_value_whitespace = n_value;
-
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
-                                        return -ENOMEM;
-
-                                value[n_value++] = c;
-                        }
-
-                        break;
-
-                case VALUE_ESCAPE:
-                        state = VALUE;
-
-                        if (!strchr(newline, c)) {
-                                /* Escaped newlines we eat up entirely */
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
-                                        return -ENOMEM;
-
-                                value[n_value++] = c;
-                        }
-                        break;
-
-                case SINGLE_QUOTE_VALUE:
-                        if (c == '\'')
-                                state = PRE_VALUE;
-                        else if (c == '\\')
-                                state = SINGLE_QUOTE_VALUE_ESCAPE;
-                        else {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
-                                        return -ENOMEM;
-
-                                value[n_value++] = c;
-                        }
-
-                        break;
-
-                case SINGLE_QUOTE_VALUE_ESCAPE:
-                        state = SINGLE_QUOTE_VALUE;
-
-                        if (!strchr(newline, c)) {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
-                                        return -ENOMEM;
-
-                                value[n_value++] = c;
-                        }
-                        break;
-
-                case DOUBLE_QUOTE_VALUE:
-                        if (c == '\"')
-                                state = PRE_VALUE;
-                        else if (c == '\\')
-                                state = DOUBLE_QUOTE_VALUE_ESCAPE;
-                        else {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
-                                        return -ENOMEM;
-
-                                value[n_value++] = c;
-                        }
-
-                        break;
-
-                case DOUBLE_QUOTE_VALUE_ESCAPE:
-                        state = DOUBLE_QUOTE_VALUE;
-
-                        if (!strchr(newline, c)) {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
-                                        return -ENOMEM;
-
-                                value[n_value++] = c;
-                        }
-                        break;
-
-                case COMMENT:
-                        if (c == '\\')
-                                state = COMMENT_ESCAPE;
-                        else if (strchr(newline, c)) {
-                                state = PRE_KEY;
-                                line++;
-                        }
-                        break;
-
-                case COMMENT_ESCAPE:
-                        state = COMMENT;
-                        break;
-                }
-        }
-
-        if (IN_SET(state,
-                   PRE_VALUE,
-                   VALUE,
-                   VALUE_ESCAPE,
-                   SINGLE_QUOTE_VALUE,
-                   SINGLE_QUOTE_VALUE_ESCAPE,
-                   DOUBLE_QUOTE_VALUE,
-                   DOUBLE_QUOTE_VALUE_ESCAPE)) {
-
-                key[n_key] = 0;
-
-                if (value)
-                        value[n_value] = 0;
-
-                if (state == VALUE)
-                        if (last_value_whitespace != (size_t) -1)
-                                value[last_value_whitespace] = 0;
-
-                /* strip trailing whitespace from key */
-                if (last_key_whitespace != (size_t) -1)
-                        key[last_key_whitespace] = 0;
-
-                r = push(fname, line, key, value, userdata, n_pushed);
-                if (r < 0)
-                        return r;
-
-                value = NULL;
-        }
-
-        return 0;
-}
-
-static int check_utf8ness_and_warn(
-                const char *filename, unsigned line,
-                const char *key, char *value) {
-
-        if (!utf8_is_valid(key)) {
-                _cleanup_free_ char *p = NULL;
-
-                p = utf8_escape_invalid(key);
-                log_error("%s:%u: invalid UTF-8 in key '%s', ignoring.", strna(filename), line, p);
-                return -EINVAL;
-        }
-
-        if (value && !utf8_is_valid(value)) {
-                _cleanup_free_ char *p = NULL;
-
-                p = utf8_escape_invalid(value);
-                log_error("%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.", strna(filename), line, key, p);
-                return -EINVAL;
-        }
-
-        return 0;
-}
-
-static int parse_env_file_push(
-                const char *filename, unsigned line,
-                const char *key, char *value,
-                void *userdata,
-                int *n_pushed) {
-
-        const char *k;
-        va_list aq, *ap = userdata;
-        int r;
-
-        r = check_utf8ness_and_warn(filename, line, key, value);
-        if (r < 0)
-                return r;
-
-        va_copy(aq, *ap);
-
-        while ((k = va_arg(aq, const char *))) {
-                char **v;
-
-                v = va_arg(aq, char **);
-
-                if (streq(key, k)) {
-                        va_end(aq);
-                        free(*v);
-                        *v = value;
-
-                        if (n_pushed)
-                                (*n_pushed)++;
-
-                        return 1;
-                }
-        }
-
-        va_end(aq);
-        free(value);
-
-        return 0;
-}
-
-int parse_env_file(
-                const char *fname,
-                const char *newline, ...) {
-
-        va_list ap;
-        int r, n_pushed = 0;
-
-        if (!newline)
-                newline = NEWLINE;
-
-        va_start(ap, newline);
-        r = parse_env_file_internal(NULL, fname, newline, parse_env_file_push, &ap, &n_pushed);
-        va_end(ap);
-
-        return r < 0 ? r : n_pushed;
-}
-
-static int load_env_file_push(
-                const char *filename, unsigned line,
-                const char *key, char *value,
-                void *userdata,
-                int *n_pushed) {
-        char ***m = userdata;
-        char *p;
-        int r;
-
-        r = check_utf8ness_and_warn(filename, line, key, value);
-        if (r < 0)
-                return r;
-
-        p = strjoin(key, "=", value);
-        if (!p)
-                return -ENOMEM;
-
-        r = strv_env_replace(m, p);
-        if (r < 0) {
-                free(p);
-                return r;
-        }
-
-        if (n_pushed)
-                (*n_pushed)++;
-
-        free(value);
-        return 0;
-}
-
-int load_env_file(FILE *f, const char *fname, const char *newline, char ***rl) {
-        char **m = NULL;
-        int r;
-
-        if (!newline)
-                newline = NEWLINE;
-
-        r = parse_env_file_internal(f, fname, newline, load_env_file_push, &m, NULL);
-        if (r < 0) {
-                strv_free(m);
-                return r;
-        }
-
-        *rl = m;
-        return 0;
-}
-
-static int load_env_file_push_pairs(
-                const char *filename, unsigned line,
-                const char *key, char *value,
-                void *userdata,
-                int *n_pushed) {
-        char ***m = userdata;
-        int r;
-
-        r = check_utf8ness_and_warn(filename, line, key, value);
-        if (r < 0)
-                return r;
-
-        r = strv_extend(m, key);
-        if (r < 0)
-                return -ENOMEM;
-
-        if (!value) {
-                r = strv_extend(m, "");
-                if (r < 0)
-                        return -ENOMEM;
-        } else {
-                r = strv_push(m, value);
-                if (r < 0)
-                        return r;
-        }
-
-        if (n_pushed)
-                (*n_pushed)++;
-
-        return 0;
-}
-
-int load_env_file_pairs(FILE *f, const char *fname, const char *newline, char ***rl) {
-        char **m = NULL;
-        int r;
-
-        if (!newline)
-                newline = NEWLINE;
-
-        r = parse_env_file_internal(f, fname, newline, load_env_file_push_pairs, &m, NULL);
-        if (r < 0) {
-                strv_free(m);
-                return r;
-        }
-
-        *rl = m;
-        return 0;
-}
-
-static int merge_env_file_push(
-                const char *filename, unsigned line,
-                const char *key, char *value,
-                void *userdata,
-                int *n_pushed) {
-
-        char ***env = userdata;
-        char *expanded_value;
-
-        assert(env);
-
-        if (!value) {
-                log_error("%s:%u: invalid syntax (around \"%s\"), ignoring.", strna(filename), line, key);
-                return 0;
-        }
-
-        if (!env_name_is_valid(key)) {
-                log_error("%s:%u: invalid variable name \"%s\", ignoring.", strna(filename), line, key);
-                free(value);
-                return 0;
-        }
-
-        expanded_value = replace_env(value, *env,
-                                     REPLACE_ENV_USE_ENVIRONMENT|
-                                     REPLACE_ENV_ALLOW_BRACELESS|
-                                     REPLACE_ENV_ALLOW_EXTENDED);
-        if (!expanded_value)
-                return -ENOMEM;
-
-        free_and_replace(value, expanded_value);
-
-        return load_env_file_push(filename, line, key, value, env, n_pushed);
-}
-
-int merge_env_file(
-                char ***env,
-                FILE *f,
-                const char *fname) {
-
-        /* NOTE: this function supports braceful and braceless variable expansions,
-         * plus "extended" substitutions, unlike other exported parsing functions.
-         */
-
-        return parse_env_file_internal(f, fname, NEWLINE, merge_env_file_push, env, NULL);
-}
-
-static void write_env_var(FILE *f, const char *v) {
-        const char *p;
-
-        p = strchr(v, '=');
-        if (!p) {
-                /* Fallback */
-                fputs_unlocked(v, f);
-                fputc_unlocked('\n', f);
-                return;
-        }
-
-        p++;
-        fwrite_unlocked(v, 1, p-v, f);
-
-        if (string_has_cc(p, NULL) || chars_intersect(p, WHITESPACE SHELL_NEED_QUOTES)) {
-                fputc_unlocked('\"', f);
-
-                for (; *p; p++) {
-                        if (strchr(SHELL_NEED_ESCAPE, *p))
-                                fputc_unlocked('\\', f);
-
-                        fputc_unlocked(*p, f);
-                }
-
-                fputc_unlocked('\"', f);
-        } else
-                fputs_unlocked(p, f);
-
-        fputc_unlocked('\n', f);
-}
-
-int write_env_file(const char *fname, char **l) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
-        char **i;
-        int r;
-
-        assert(fname);
-
-        r = fopen_temporary(fname, &f, &p);
-        if (r < 0)
-                return r;
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
-        (void) fchmod_umask(fileno(f), 0644);
-
-        STRV_FOREACH(i, l)
-                write_env_var(f, *i);
-
-        r = fflush_and_check(f);
-        if (r >= 0) {
-                if (rename(p, fname) >= 0)
-                        return 0;
-
-                r = -errno;
-        }
-
-        unlink(p);
-        return r;
 }
 
 int executable_is_script(const char *path, char **interpreter) {
@@ -1101,39 +571,6 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *root
         return search_and_fopen_internal(path, mode, root, s, _f);
 }
 
-int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
-        FILE *f;
-        char *t;
-        int r, fd;
-
-        assert(path);
-        assert(_f);
-        assert(_temp_path);
-
-        r = tempfn_xxxxxx(path, NULL, &t);
-        if (r < 0)
-                return r;
-
-        fd = mkostemp_safe(t);
-        if (fd < 0) {
-                free(t);
-                return -errno;
-        }
-
-        f = fdopen(fd, "we");
-        if (!f) {
-                unlink_noerrno(t);
-                free(t);
-                safe_close(fd);
-                return -errno;
-        }
-
-        *_f = f;
-        *_temp_path = t;
-
-        return 0;
-}
-
 int fflush_and_check(FILE *f) {
         assert(f);
 
@@ -1162,134 +599,6 @@ int fflush_sync_and_check(FILE *f) {
         if (r < 0)
                 return r;
 
-        return 0;
-}
-
-/* This is much like mkostemp() but is subject to umask(). */
-int mkostemp_safe(char *pattern) {
-        _cleanup_umask_ mode_t u = 0;
-        int fd;
-
-        assert(pattern);
-
-        u = umask(077);
-
-        fd = mkostemp(pattern, O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        return fd;
-}
-
-int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
-        const char *fn;
-        char *t;
-
-        assert(p);
-        assert(ret);
-
-        /*
-         * Turns this:
-         *         /foo/bar/waldo
-         *
-         * Into this:
-         *         /foo/bar/.#<extra>waldoXXXXXX
-         */
-
-        fn = basename(p);
-        if (!filename_is_valid(fn))
-                return -EINVAL;
-
-        extra = strempty(extra);
-
-        t = new(char, strlen(p) + 2 + strlen(extra) + 6 + 1);
-        if (!t)
-                return -ENOMEM;
-
-        strcpy(stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn), "XXXXXX");
-
-        *ret = path_kill_slashes(t);
-        return 0;
-}
-
-int tempfn_random(const char *p, const char *extra, char **ret) {
-        const char *fn;
-        char *t, *x;
-        uint64_t u;
-        unsigned i;
-
-        assert(p);
-        assert(ret);
-
-        /*
-         * Turns this:
-         *         /foo/bar/waldo
-         *
-         * Into this:
-         *         /foo/bar/.#<extra>waldobaa2a261115984a9
-         */
-
-        fn = basename(p);
-        if (!filename_is_valid(fn))
-                return -EINVAL;
-
-        extra = strempty(extra);
-
-        t = new(char, strlen(p) + 2 + strlen(extra) + 16 + 1);
-        if (!t)
-                return -ENOMEM;
-
-        x = stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn);
-
-        u = random_u64();
-        for (i = 0; i < 16; i++) {
-                *(x++) = hexchar(u & 0xF);
-                u >>= 4;
-        }
-
-        *x = 0;
-
-        *ret = path_kill_slashes(t);
-        return 0;
-}
-
-int tempfn_random_child(const char *p, const char *extra, char **ret) {
-        char *t, *x;
-        uint64_t u;
-        unsigned i;
-        int r;
-
-        assert(ret);
-
-        /* Turns this:
-         *         /foo/bar/waldo
-         * Into this:
-         *         /foo/bar/waldo/.#<extra>3c2b6219aa75d7d0
-         */
-
-        if (!p) {
-                r = tmp_dir(&p);
-                if (r < 0)
-                        return r;
-        }
-
-        extra = strempty(extra);
-
-        t = new(char, strlen(p) + 3 + strlen(extra) + 16 + 1);
-        if (!t)
-                return -ENOMEM;
-
-        x = stpcpy(stpcpy(stpcpy(t, p), "/.#"), extra);
-
-        u = random_u64();
-        for (i = 0; i < 16; i++) {
-                *(x++) = hexchar(u & 0xF);
-                u >>= 4;
-        }
-
-        *x = 0;
-
-        *ret = path_kill_slashes(t);
         return 0;
 }
 
@@ -1356,195 +665,53 @@ int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space)
         return fputs(s, f);
 }
 
-int open_tmpfile_unlinkable(const char *directory, int flags) {
-        char *p;
-        int fd, r;
+/* A bitmask of the EOL markers we know */
+typedef enum EndOfLineMarker {
+        EOL_NONE     = 0,
+        EOL_ZERO     = 1 << 0,  /* \0 (aka NUL) */
+        EOL_TEN      = 1 << 1,  /* \n (aka NL, aka LF)  */
+        EOL_THIRTEEN = 1 << 2,  /* \r (aka CR)  */
+} EndOfLineMarker;
 
-        if (!directory) {
-                r = tmp_dir(&directory);
-                if (r < 0)
-                        return r;
+static EndOfLineMarker categorize_eol(char c, ReadLineFlags flags) {
+
+        if (!IN_SET(flags, READ_LINE_ONLY_NUL)) {
+                if (c == '\n')
+                        return EOL_TEN;
+                if (c == '\r')
+                        return EOL_THIRTEEN;
         }
 
-        /* Returns an unlinked temporary file that cannot be linked into the file system anymore */
+        if (c == '\0')
+                return EOL_ZERO;
 
-        /* Try O_TMPFILE first, if it is supported */
-        fd = open(directory, flags|O_TMPFILE|O_EXCL, S_IRUSR|S_IWUSR);
-        if (fd >= 0)
-                return fd;
-
-        /* Fall back to unguessable name + unlinking */
-        p = strjoina(directory, "/systemd-tmp-XXXXXX");
-
-        fd = mkostemp_safe(p);
-        if (fd < 0)
-                return fd;
-
-        (void) unlink(p);
-
-        return fd;
-}
-
-int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
-        _cleanup_free_ char *tmp = NULL;
-        int r, fd;
-
-        assert(target);
-        assert(ret_path);
-
-        /* Don't allow O_EXCL, as that has a special meaning for O_TMPFILE */
-        assert((flags & O_EXCL) == 0);
-
-        /* Creates a temporary file, that shall be renamed to "target" later. If possible, this uses O_TMPFILE – in
-         * which case "ret_path" will be returned as NULL. If not possible a the tempoary path name used is returned in
-         * "ret_path". Use link_tmpfile() below to rename the result after writing the file in full. */
-
-        {
-                _cleanup_free_ char *dn = NULL;
-
-                dn = dirname_malloc(target);
-                if (!dn)
-                        return -ENOMEM;
-
-                fd = open(dn, O_TMPFILE|flags, 0640);
-                if (fd >= 0) {
-                        *ret_path = NULL;
-                        return fd;
-                }
-
-                log_debug_errno(errno, "Failed to use O_TMPFILE on %s: %m", dn);
-        }
-
-        r = tempfn_random(target, NULL, &tmp);
-        if (r < 0)
-                return r;
-
-        fd = open(tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|flags, 0640);
-        if (fd < 0)
-                return -errno;
-
-        *ret_path = TAKE_PTR(tmp);
-
-        return fd;
-}
-
-int open_serialization_fd(const char *ident) {
-        int fd = -1;
-
-        fd = memfd_create(ident, MFD_CLOEXEC);
-        if (fd < 0) {
-                const char *path;
-
-                path = getpid_cached() == 1 ? "/run/systemd" : "/tmp";
-                fd = open_tmpfile_unlinkable(path, O_RDWR|O_CLOEXEC);
-                if (fd < 0)
-                        return fd;
-
-                log_debug("Serializing %s to %s.", ident, path);
-        } else
-                log_debug("Serializing %s to memfd.", ident);
-
-        return fd;
-}
-
-int link_tmpfile(int fd, const char *path, const char *target) {
-
-        assert(fd >= 0);
-        assert(target);
-
-        /* Moves a temporary file created with open_tmpfile() above into its final place. if "path" is NULL an fd
-         * created with O_TMPFILE is assumed, and linkat() is used. Otherwise it is assumed O_TMPFILE is not supported
-         * on the directory, and renameat2() is used instead.
-         *
-         * Note that in both cases we will not replace existing files. This is because linkat() does not support this
-         * operation currently (renameat2() does), and there is no nice way to emulate this. */
-
-        if (path) {
-                if (rename_noreplace(AT_FDCWD, path, AT_FDCWD, target) < 0)
-                        return -errno;
-        } else {
-                char proc_fd_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
-
-                xsprintf(proc_fd_path, "/proc/self/fd/%i", fd);
-
-                if (linkat(AT_FDCWD, proc_fd_path, AT_FDCWD, target, AT_SYMLINK_FOLLOW) < 0)
-                        return -errno;
-        }
-
-        return 0;
-}
-
-int read_nul_string(FILE *f, char **ret) {
-        _cleanup_free_ char *x = NULL;
-        size_t allocated = 0, n = 0;
-
-        assert(f);
-        assert(ret);
-
-        /* Reads a NUL-terminated string from the specified file. */
-
-        for (;;) {
-                int c;
-
-                if (!GREEDY_REALLOC(x, allocated, n+2))
-                        return -ENOMEM;
-
-                c = fgetc(f);
-                if (c == 0) /* Terminate at NUL byte */
-                        break;
-                if (c == EOF) {
-                        if (ferror(f))
-                                return -errno;
-                        break; /* Terminate at EOF */
-                }
-
-                x[n++] = (char) c;
-        }
-
-        if (x)
-                x[n] = 0;
-        else {
-                x = new0(char, 1);
-                if (!x)
-                        return -ENOMEM;
-        }
-
-        *ret = TAKE_PTR(x);
-
-        return 0;
-}
-
-int mkdtemp_malloc(const char *template, char **ret) {
-        char *p;
-
-        assert(template);
-        assert(ret);
-
-        p = strdup(template);
-        if (!p)
-                return -ENOMEM;
-
-        if (!mkdtemp(p)) {
-                free(p);
-                return -errno;
-        }
-
-        *ret = p;
-        return 0;
+        return EOL_NONE;
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, funlockfile);
 
-int read_line(FILE *f, size_t limit, char **ret) {
-        _cleanup_free_ char *buffer = NULL;
+int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
         size_t n = 0, allocated = 0, count = 0;
+        _cleanup_free_ char *buffer = NULL;
+        int r;
 
         assert(f);
 
         /* Something like a bounded version of getline().
          *
-         * Considers EOF, \n and \0 end of line delimiters, and does not include these delimiters in the string
-         * returned.
+         * Considers EOF, \n, \r and \0 end of line delimiters (or combinations of these), and does not include these
+         * delimiters in the string returned. Specifically, recognizes the following combinations of markers as line
+         * endings:
+         *
+         *     • \n        (UNIX)
+         *     • \r        (old MacOS)
+         *     • \0        (C strings)
+         *     • \n\0
+         *     • \r\0
+         *     • \r\n      (Windows)
+         *     • \n\r
+         *     • \r\n\0
+         *     • \n\r\0
          *
          * Returns the number of bytes read from the files (i.e. including delimiters — this hence usually differs from
          * the number of characters in the returned string). When EOF is hit, 0 is returned.
@@ -1561,34 +728,55 @@ int read_line(FILE *f, size_t limit, char **ret) {
 
         {
                 _unused_ _cleanup_(funlockfilep) FILE *flocked = f;
+                EndOfLineMarker previous_eol = EOL_NONE;
                 flockfile(f);
 
                 for (;;) {
-                        int c;
+                        EndOfLineMarker eol;
+                        char c;
 
                         if (n >= limit)
                                 return -ENOBUFS;
 
-                        errno = 0;
-                        c = fgetc_unlocked(f);
-                        if (c == EOF) {
-                                /* if we read an error, and have no data to return, then propagate the error */
-                                if (ferror_unlocked(f) && n == 0)
-                                        return errno > 0 ? -errno : -EIO;
+                        if (count >= INT_MAX) /* We couldn't return the counter anymore as "int", hence refuse this */
+                                return -ENOBUFS;
 
+                        r = safe_fgetc(f, &c);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) /* EOF is definitely EOL */
+                                break;
+
+                        eol = categorize_eol(c, flags);
+
+                        if (FLAGS_SET(previous_eol, EOL_ZERO) ||
+                            (eol == EOL_NONE && previous_eol != EOL_NONE) ||
+                            (eol != EOL_NONE && (previous_eol & eol) != 0)) {
+                                /* Previous char was a NUL? This is not an EOL, but the previous char was? This type of
+                                 * EOL marker has been seen right before?  In either of these three cases we are
+                                 * done. But first, let's put this character back in the queue. (Note that we have to
+                                 * cast this to (unsigned char) here as ungetc() expects a positive 'int', and if we
+                                 * are on an architecture where 'char' equals 'signed char' we need to ensure we don't
+                                 * pass a negative value here. That said, to complicate things further ungetc() is
+                                 * actually happy with most negative characters and implicitly casts them back to
+                                 * positive ones as needed, except for \xff (aka -1, aka EOF), which it refuses. What a
+                                 * godawful API!) */
+                                assert_se(ungetc((unsigned char) c, f) != EOF);
                                 break;
                         }
 
                         count++;
 
-                        if (IN_SET(c, '\n', 0)) /* Reached a delimiter */
-                                break;
+                        if (eol != EOL_NONE) {
+                                previous_eol |= eol;
+                                continue;
+                        }
 
                         if (ret) {
                                 if (!GREEDY_REALLOC(buffer, allocated, n + 2))
                                         return -ENOMEM;
 
-                                buffer[n] = (char) c;
+                                buffer[n] = c;
                         }
 
                         n++;
@@ -1602,4 +790,31 @@ int read_line(FILE *f, size_t limit, char **ret) {
         }
 
         return (int) count;
+}
+
+int safe_fgetc(FILE *f, char *ret) {
+        int k;
+
+        assert(f);
+
+        /* A safer version of plain fgetc(): let's propagate the error that happened while reading as such, and
+         * separate the EOF condition from the byte read, to avoid those confusion signed/unsigned issues fgetc()
+         * has. */
+
+        errno = 0;
+        k = fgetc(f);
+        if (k == EOF) {
+                if (ferror(f))
+                        return errno > 0 ? -errno : -EIO;
+
+                if (ret)
+                        *ret = 0;
+
+                return 0;
+        }
+
+        if (ret)
+                *ret = k;
+
+        return 1;
 }

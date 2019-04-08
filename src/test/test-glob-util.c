@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <glob.h>
@@ -12,11 +7,11 @@
 
 #include "alloc-util.h"
 #include "dirent-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "macro.h"
 #include "rm-rf.h"
+#include "tmpfile-util.h"
 
 static void test_glob_exists(void) {
         char name[] = "/tmp/test-glob_exists.XXXXXX";

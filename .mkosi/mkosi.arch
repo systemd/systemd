@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
-# This file is part of systemd.
-#
-# Copyright 2016 Zeal Jagannatha
+# Copyright © 2016 Zeal Jagannatha
 
 # This is a settings file for OS image generation using mkosi (https://github.com/systemd/mkosi).
 # Simply invoke "mkosi" in the project directory to build an OS image.
@@ -15,7 +13,7 @@ Format=raw_btrfs
 Bootable=yes
 
 [Partitions]
-RootSize=2G
+RootSize=3G
 
 [Packages]
 Cache=/var/cache/pacman/pkg/
@@ -56,3 +54,4 @@ BuildPackages=
 
 Packages=
         libidn2
+        qrencode

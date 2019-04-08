@@ -1,27 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2013 Tom Gundersen
-***/
-
+#include "device-util.h"
 #include "alloc-util.h"
 #include "link-config.h"
 #include "log.h"
-#include "udev.h"
+#include "string-util.h"
+#include "udev-builtin.h"
 
 static link_config_ctx *ctx = NULL;
 
-static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv, bool test) {
+static int builtin_net_setup_link(sd_device *dev, int argc, char **argv, bool test) {
         _cleanup_free_ char *driver = NULL;
         const char *name = NULL;
         link_config *link;
         int r;
 
-        if (argc > 1) {
-                log_error("This program takes no arguments.");
-                return EXIT_FAILURE;
-        }
+        if (argc > 1)
+                return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         r = link_get_driver(ctx, dev, &driver);
         if (r >= 0)
@@ -29,28 +24,25 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
 
         r = link_config_get(ctx, dev, &link);
         if (r < 0) {
-                if (r == -ENOENT) {
-                        log_debug("No matching link configuration found.");
-                        return EXIT_SUCCESS;
-                } else {
-                        log_error_errno(r, "Could not get link config: %m");
-                        return EXIT_FAILURE;
-                }
+                if (r == -ENOENT)
+                        return log_device_debug_errno(dev, r, "No matching link configuration found.");
+
+                return log_device_error_errno(dev, r, "Failed to get link config: %m");
         }
 
         r = link_config_apply(ctx, link, dev, &name);
         if (r < 0)
-                log_warning_errno(r, "Could not apply link config to %s, ignoring: %m", udev_device_get_sysname(dev));
+                log_device_warning_errno(dev, r, "Could not apply link config, ignoring: %m");
 
         udev_builtin_add_property(dev, test, "ID_NET_LINK_FILE", link->filename);
 
         if (name)
                 udev_builtin_add_property(dev, test, "ID_NET_NAME", name);
 
-        return EXIT_SUCCESS;
+        return 0;
 }
 
-static int builtin_net_setup_link_init(struct udev *udev) {
+static int builtin_net_setup_link_init(void) {
         int r;
 
         if (ctx)
@@ -68,13 +60,13 @@ static int builtin_net_setup_link_init(struct udev *udev) {
         return 0;
 }
 
-static void builtin_net_setup_link_exit(struct udev *udev) {
+static void builtin_net_setup_link_exit(void) {
         link_config_ctx_free(ctx);
         ctx = NULL;
         log_debug("Unloaded link configuration context.");
 }
 
-static bool builtin_net_setup_link_validate(struct udev *udev) {
+static bool builtin_net_setup_link_validate(void) {
         log_debug("Check if link configuration needs reloading.");
         if (!ctx)
                 return false;

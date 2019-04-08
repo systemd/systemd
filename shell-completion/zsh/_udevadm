@@ -1,6 +1,7 @@
 #compdef udevadm
 # SPDX-License-Identifier: LGPL-2.1+
 
+(( $+functions[_udevadm_info] )) ||
 _udevadm_info(){
     _arguments \
         '--query=[Query the database for specified type of device data. It needs the --path or --name to identify the specified device.]:type:(name symlink path property all)' \
@@ -15,6 +16,7 @@ _udevadm_info(){
         '--cleanup-db[Cleanup the udev database.]'
 }
 
+(( $+functions[_udevadm_trigger] )) ||
 _udevadm_trigger(){
     _arguments \
         '--verbose[Print the list of devices which will be triggered.]' \
@@ -31,6 +33,7 @@ _udevadm_trigger(){
         '--parent-match=[Trigger events for all children of a given device.]'
 }
 
+(( $+functions[_udevadm_settle] )) ||
 _udevadm_settle(){
     _arguments \
        '--timeout=[Maximum number of seconds to wait for the event queue to become empty.]' \
@@ -41,6 +44,7 @@ _udevadm_settle(){
        '--help[Print help text.]'
 }
 
+(( $+functions[_udevadm_control] )) ||
 _udevadm_control(){
     _arguments \
         '--exit[Signal and wait for systemd-udevd to exit.]' \
@@ -54,6 +58,7 @@ _udevadm_control(){
         '--help[Print help text.]'
 }
 
+(( $+functions[_udevadm_monitor] )) ||
 _udevadm_monitor(){
     _arguments \
         '--kernel[Print the kernel uevents.]' \
@@ -64,6 +69,7 @@ _udevadm_monitor(){
         '--help[Print help text.]'
 }
 
+(( $+functions[_udevadm_test] )) ||
 _udevadm_test(){
     _arguments \
         '--action=[The action string.]:actions:(add change remove)' \
@@ -72,6 +78,7 @@ _udevadm_test(){
         '*::devpath:_files -P /sys/ -W /sys'
 }
 
+(( $+functions[_udevadm_test-builtin] )) ||
 _udevadm_test-builtin(){
     if (( CURRENT == 2 )); then
     _arguments \
@@ -87,6 +94,7 @@ _udevadm_test-builtin(){
     fi
 }
 
+(( $+functions[_udevadm_mounts] )) ||
 _udevadm_mounts(){
   local dev_tmp dpath_tmp mp_tmp mline
 
@@ -104,8 +112,8 @@ _udevadm_mounts(){
     'directories:mount point:compadd -a mp_tmp'
 }
 
-
-_udevadm_command(){
+(( $+functions[_udevadm_commands] )) ||
+_udevadm_commands(){
     local -a _udevadm_cmds
     _udevadm_cmds=(
         'info:query sysfs or the udev database'
@@ -139,4 +147,4 @@ _arguments \
     '--debug[Print debug messages to stderr]' \
     '--version[Print version number]' \
     '--help[Print help text]' \
-    '*::udevadm commands:_udevadm_command'
+    '*::udevadm commands:_udevadm_commands'

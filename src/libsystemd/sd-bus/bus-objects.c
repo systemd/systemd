@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include "alloc-util.h"
 #include "bus-internal.h"
@@ -14,6 +9,7 @@
 #include "bus-slot.h"
 #include "bus-type.h"
 #include "bus-util.h"
+#include "missing_capability.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
@@ -160,16 +156,16 @@ static int add_enumerated_to_set(
 
 enum {
         /* if set, add_subtree() works recursively */
-        CHILDREN_RECURSIVE              = (1U << 1),
+        CHILDREN_RECURSIVE      = 1 << 0,
         /* if set, add_subtree() scans object-manager hierarchies recursively */
-        CHILDREN_SUBHIERARCHIES         = (1U << 0),
+        CHILDREN_SUBHIERARCHIES = 1 << 1,
 };
 
 static int add_subtree_to_set(
                 sd_bus *bus,
                 const char *prefix,
                 struct node *n,
-                unsigned int flags,
+                unsigned flags,
                 Set *s,
                 sd_bus_error *error) {
 
@@ -218,7 +214,7 @@ static int get_child_nodes(
                 sd_bus *bus,
                 const char *prefix,
                 struct node *n,
-                unsigned int flags,
+                unsigned flags,
                 Set **_s,
                 sd_bus_error *error) {
 
@@ -740,7 +736,8 @@ static int vtable_append_all_properties(
         if (c->vtable[0].flags & SD_BUS_VTABLE_HIDDEN)
                 return 1;
 
-        for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+        v = c->vtable;
+        for (v = bus_vtable_next(c->vtable, v); v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(c->vtable, v)) {
                 if (!IN_SET(v->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY))
                         continue;
 
@@ -1137,7 +1134,8 @@ static int object_manager_serialize_path_and_fallbacks(
                 const char *path,
                 sd_bus_error *error) {
 
-        char *prefix;
+        _cleanup_free_ char *prefix = NULL;
+        size_t pl;
         int r;
 
         assert(bus);
@@ -1153,7 +1151,12 @@ static int object_manager_serialize_path_and_fallbacks(
                 return 0;
 
         /* Second, add fallback vtables registered for any of the prefixes */
-        prefix = alloca(strlen(path) + 1);
+        pl = strlen(path);
+        assert(pl <= BUS_PATH_SIZE_MAX);
+        prefix = new(char, pl + 1);
+        if (!prefix)
+                return -ENOMEM;
+
         OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
                 r = object_manager_serialize_path(bus, reply, prefix, path, true, error);
                 if (r < 0)
@@ -1349,6 +1352,7 @@ static int object_find_and_run(
 }
 
 int bus_process_object(sd_bus *bus, sd_bus_message *m) {
+        _cleanup_free_ char *prefix = NULL;
         int r;
         size_t pl;
         bool found_object = false;
@@ -1373,9 +1377,12 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
         assert(m->member);
 
         pl = strlen(m->path);
-        do {
-                char prefix[pl+1];
+        assert(pl <= BUS_PATH_SIZE_MAX);
+        prefix = new(char, pl + 1);
+        if (!prefix)
+                return -ENOMEM;
 
+        do {
                 bus->nodes_modified = false;
 
                 r = object_find_and_run(bus, m, m->path, false, &found_object);
@@ -1502,9 +1509,15 @@ static int bus_find_parent_object_manager(sd_bus *bus, struct node **out, const 
 
         n = hashmap_get(bus->nodes, path);
         if (!n) {
-                char *prefix;
+                _cleanup_free_ char *prefix = NULL;
+                size_t pl;
 
-                prefix = alloca(strlen(path) + 1);
+                pl = strlen(path);
+                assert(pl <= BUS_PATH_SIZE_MAX);
+                prefix = new(char, pl + 1);
+                if (!prefix)
+                        return -ENOMEM;
+
                 OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
                         n = hashmap_get(bus->nodes, prefix);
                         if (n)
@@ -1587,9 +1600,7 @@ _public_ int sd_bus_add_fallback(
         return bus_add_object(bus, slot, true, prefix, callback, userdata);
 }
 
-static void vtable_member_hash_func(const void *a, struct siphash *state) {
-        const struct vtable_member *m = a;
-
+static void vtable_member_hash_func(const struct vtable_member *m, struct siphash *state) {
         assert(m);
 
         string_hash_func(m->path, state);
@@ -1597,8 +1608,7 @@ static void vtable_member_hash_func(const void *a, struct siphash *state) {
         string_hash_func(m->member, state);
 }
 
-static int vtable_member_compare_func(const void *a, const void *b) {
-        const struct vtable_member *x = a, *y = b;
+static int vtable_member_compare_func(const struct vtable_member *x, const struct vtable_member *y) {
         int r;
 
         assert(x);
@@ -1615,10 +1625,100 @@ static int vtable_member_compare_func(const void *a, const void *b) {
         return strcmp(x->member, y->member);
 }
 
-static const struct hash_ops vtable_member_hash_ops = {
-        .hash = vtable_member_hash_func,
-        .compare = vtable_member_compare_func
+DEFINE_PRIVATE_HASH_OPS(vtable_member_hash_ops, struct vtable_member, vtable_member_hash_func, vtable_member_compare_func);
+
+typedef enum {
+        NAMES_FIRST_PART        = 1 << 0, /* first part of argument name list (input names). It is reset by names_are_valid() */
+        NAMES_PRESENT           = 1 << 1, /* at least one argument name is present, so the names will checked.
+                                             This flag is set and used internally by names_are_valid(), but needs to be stored across calls for 2-parts list  */
+        NAMES_SINGLE_PART       = 1 << 2, /* argument name list consisting of a single part */
+} names_flags;
+
+static bool names_are_valid(const char *signature, const char **names, names_flags *flags) {
+        int r;
+
+        if ((*flags & NAMES_FIRST_PART || *flags & NAMES_SINGLE_PART) && **names != '\0')
+                *flags |= NAMES_PRESENT;
+
+        for (;*flags & NAMES_PRESENT;) {
+                size_t l;
+
+                if (!*signature)
+                        break;
+
+                r = signature_element_length(signature, &l);
+                if (r < 0)
+                        return false;
+
+                if (**names != '\0') {
+                        if (!member_name_is_valid(*names))
+                                return false;
+                        *names += strlen(*names) + 1;
+                } else if (*flags & NAMES_PRESENT)
+                        return false;
+
+                signature += l;
+        }
+        /* let's check if there are more argument names specified than the signature allows */
+        if (*flags & NAMES_PRESENT && **names != '\0' && !(*flags & NAMES_FIRST_PART))
+                return false;
+        *flags &= ~NAMES_FIRST_PART;
+        return true;
+}
+
+/* the current version of this struct is defined in sd-bus-vtable.h, but we need to list here the historical versions
+   to make sure the calling code is compatible with one of these */
+struct sd_bus_vtable_original {
+        uint8_t type:8;
+        uint64_t flags:56;
+        union {
+                struct {
+                        size_t element_size;
+                } start;
+                struct {
+                        const char *member;
+                        const char *signature;
+                        const char *result;
+                        sd_bus_message_handler_t handler;
+                        size_t offset;
+                } method;
+                struct {
+                        const char *member;
+                        const char *signature;
+                } signal;
+                struct {
+                        const char *member;
+                        const char *signature;
+                        sd_bus_property_get_t get;
+                        sd_bus_property_set_t set;
+                        size_t offset;
+                } property;
+        } x;
 };
+/* Structure size up to v241 */
+#define VTABLE_ELEMENT_SIZE_ORIGINAL sizeof(struct sd_bus_vtable_original)
+/* Current structure size */
+#define VTABLE_ELEMENT_SIZE sizeof(struct sd_bus_vtable)
+
+static int vtable_features(const sd_bus_vtable *vtable) {
+        if (vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_ORIGINAL)
+                return 0;
+        return vtable[0].x.start.features;
+}
+
+bool bus_vtable_has_names(const sd_bus_vtable *vtable) {
+        return vtable_features(vtable) & _SD_BUS_VTABLE_PARAM_NAMES;
+}
+
+const sd_bus_vtable* bus_vtable_next(const sd_bus_vtable *vtable, const sd_bus_vtable *v) {
+        if (vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_ORIGINAL) {
+                const struct sd_bus_vtable_original *v2 = (const struct sd_bus_vtable_original *)v;
+                v2++;
+                v = (const sd_bus_vtable*)v2;
+        } else /* current version */
+                v++;
+        return v;
+}
 
 static int add_object_vtable_internal(
                 sd_bus *bus,
@@ -1635,6 +1735,8 @@ static int add_object_vtable_internal(
         const sd_bus_vtable *v;
         struct node *n;
         int r;
+        const char *names = "";
+        names_flags nf;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
@@ -1642,7 +1744,9 @@ static int add_object_vtable_internal(
         assert_return(interface_name_is_valid(interface), -EINVAL);
         assert_return(vtable, -EINVAL);
         assert_return(vtable[0].type == _SD_BUS_VTABLE_START, -EINVAL);
-        assert_return(vtable[0].x.start.element_size == sizeof(struct sd_bus_vtable), -EINVAL);
+        assert_return(vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_ORIGINAL ||
+                      vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE,
+                      -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!streq(interface, "org.freedesktop.DBus.Properties") &&
                       !streq(interface, "org.freedesktop.DBus.Introspectable") &&
@@ -1694,16 +1798,23 @@ static int add_object_vtable_internal(
                 goto fail;
         }
 
-        for (v = s->node_vtable.vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+        v = s->node_vtable.vtable;
+        for (v = bus_vtable_next(vtable, v); v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(vtable, v)) {
 
                 switch (v->type) {
 
                 case _SD_BUS_VTABLE_METHOD: {
                         struct vtable_member *m;
+                        nf = NAMES_FIRST_PART;
+
+                        if (bus_vtable_has_names(vtable))
+                                names = strempty(v->x.method.names);
 
                         if (!member_name_is_valid(v->x.method.member) ||
                             !signature_is_valid(strempty(v->x.method.signature), false) ||
                             !signature_is_valid(strempty(v->x.method.result), false) ||
+                            !names_are_valid(strempty(v->x.method.signature), &names, &nf) ||
+                            !names_are_valid(strempty(v->x.method.result), &names, &nf) ||
                             !(v->x.method.handler || (isempty(v->x.method.signature) && isempty(v->x.method.result))) ||
                             v->flags & (SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE|SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)) {
                                 r = -EINVAL;
@@ -1780,9 +1891,14 @@ static int add_object_vtable_internal(
                 }
 
                 case _SD_BUS_VTABLE_SIGNAL:
+                        nf = NAMES_SINGLE_PART;
+
+                        if (bus_vtable_has_names(vtable))
+                                names = strempty(v->x.signal.names);
 
                         if (!member_name_is_valid(v->x.signal.member) ||
                             !signature_is_valid(strempty(v->x.signal.signature), false) ||
+                            !names_are_valid(strempty(v->x.signal.signature), &names, &nf) ||
                             v->flags & SD_BUS_VTABLE_UNPRIVILEGED) {
                                 r = -EINVAL;
                                 goto fail;
@@ -1987,7 +2103,8 @@ static int emit_properties_changed_on_interface(
                          * we include all properties that are marked
                          * as changing in the message. */
 
-                        for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+                        v = c->vtable;
+                        for (v = bus_vtable_next(c->vtable, v); v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(c->vtable, v)) {
                                 if (!IN_SET(v->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY))
                                         continue;
 
@@ -2058,7 +2175,8 @@ static int emit_properties_changed_on_interface(
                         } else {
                                 const sd_bus_vtable *v;
 
-                                for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+                                v = c->vtable;
+                                for (v = bus_vtable_next(c->vtable, v); v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(c->vtable, v)) {
                                         if (!IN_SET(v->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY))
                                                 continue;
 
@@ -2093,9 +2211,9 @@ _public_ int sd_bus_emit_properties_changed_strv(
                 const char *interface,
                 char **names) {
 
-        BUS_DONT_DESTROY(bus);
+        _cleanup_free_ char *prefix = NULL;
         bool found_interface = false;
-        char *prefix;
+        size_t pl;
         int r;
 
         assert_return(bus, -EINVAL);
@@ -2114,6 +2232,14 @@ _public_ int sd_bus_emit_properties_changed_strv(
         if (names && names[0] == NULL)
                 return 0;
 
+        BUS_DONT_DESTROY(bus);
+
+        pl = strlen(path);
+        assert(pl <= BUS_PATH_SIZE_MAX);
+        prefix = new(char, pl + 1);
+        if (!prefix)
+                return -ENOMEM;
+
         do {
                 bus->nodes_modified = false;
 
@@ -2123,7 +2249,6 @@ _public_ int sd_bus_emit_properties_changed_strv(
                 if (bus->nodes_modified)
                         continue;
 
-                prefix = alloca(strlen(path) + 1);
                 OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
                         r = emit_properties_changed_on_interface(bus, prefix, path, interface, true, &found_interface, names);
                         if (r != 0)
@@ -2255,7 +2380,8 @@ static int object_added_append_all_prefix(
 
 static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *path) {
         _cleanup_set_free_ Set *s = NULL;
-        char *prefix;
+        _cleanup_free_ char *prefix = NULL;
+        size_t pl;
         int r;
 
         assert(bus);
@@ -2300,7 +2426,12 @@ static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *p
         if (bus->nodes_modified)
                 return 0;
 
-        prefix = alloca(strlen(path) + 1);
+        pl = strlen(path);
+        assert(pl <= BUS_PATH_SIZE_MAX);
+        prefix = new(char, pl + 1);
+        if (!prefix)
+                return -ENOMEM;
+
         OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
                 r = object_added_append_all_prefix(bus, m, s, prefix, path, true);
                 if (r < 0)
@@ -2313,8 +2444,6 @@ static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *p
 }
 
 _public_ int sd_bus_emit_object_added(sd_bus *bus, const char *path) {
-        BUS_DONT_DESTROY(bus);
-
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         struct node *object_manager;
         int r;
@@ -2343,6 +2472,8 @@ _public_ int sd_bus_emit_object_added(sd_bus *bus, const char *path) {
                 return r;
         if (r == 0)
                 return -ESRCH;
+
+        BUS_DONT_DESTROY(bus);
 
         do {
                 bus->nodes_modified = false;
@@ -2439,7 +2570,8 @@ static int object_removed_append_all_prefix(
 
 static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char *path) {
         _cleanup_set_free_ Set *s = NULL;
-        char *prefix;
+        _cleanup_free_ char *prefix = NULL;
+        size_t pl;
         int r;
 
         assert(bus);
@@ -2471,7 +2603,12 @@ static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char 
         if (bus->nodes_modified)
                 return 0;
 
-        prefix = alloca(strlen(path) + 1);
+        pl = strlen(path);
+        assert(pl <= BUS_PATH_SIZE_MAX);
+        prefix = new(char, pl + 1);
+        if (!prefix)
+                return -ENOMEM;
+
         OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
                 r = object_removed_append_all_prefix(bus, m, s, prefix, path, true);
                 if (r < 0)
@@ -2484,8 +2621,6 @@ static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char 
 }
 
 _public_ int sd_bus_emit_object_removed(sd_bus *bus, const char *path) {
-        BUS_DONT_DESTROY(bus);
-
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         struct node *object_manager;
         int r;
@@ -2514,6 +2649,8 @@ _public_ int sd_bus_emit_object_removed(sd_bus *bus, const char *path) {
                 return r;
         if (r == 0)
                 return -ESRCH;
+
+        BUS_DONT_DESTROY(bus);
 
         do {
                 bus->nodes_modified = false;
@@ -2621,7 +2758,8 @@ static int interfaces_added_append_one(
                 const char *path,
                 const char *interface) {
 
-        char *prefix;
+        _cleanup_free_ char *prefix = NULL;
+        size_t pl;
         int r;
 
         assert(bus);
@@ -2635,7 +2773,12 @@ static int interfaces_added_append_one(
         if (bus->nodes_modified)
                 return 0;
 
-        prefix = alloca(strlen(path) + 1);
+        pl = strlen(path);
+        assert(pl <= BUS_PATH_SIZE_MAX);
+        prefix = new(char, pl + 1);
+        if (!prefix)
+                return -ENOMEM;
+
         OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
                 r = interfaces_added_append_one_prefix(bus, m, prefix, path, interface, true);
                 if (r != 0)
@@ -2648,8 +2791,6 @@ static int interfaces_added_append_one(
 }
 
 _public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, char **interfaces) {
-        BUS_DONT_DESTROY(bus);
-
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         struct node *object_manager;
         char **i;
@@ -2671,6 +2812,8 @@ _public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, ch
                 return r;
         if (r == 0)
                 return -ESRCH;
+
+        BUS_DONT_DESTROY(bus);
 
         do {
                 bus->nodes_modified = false;

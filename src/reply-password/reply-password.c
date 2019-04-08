@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stddef.h>
@@ -11,39 +6,41 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "log.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "util.h"
 
 static int send_on_socket(int fd, const char *socket_name, const void *packet, size_t size) {
-        union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-        };
+        union sockaddr_union sa = {};
+        int salen;
 
         assert(fd >= 0);
         assert(socket_name);
         assert(packet);
 
-        strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
+        salen = sockaddr_un_set_path(&sa.un, socket_name);
+        if (salen < 0)
+                return log_error_errno(salen, "Specified socket path for AF_UNIX socket invalid, refusing: %s", socket_name);
 
-        if (sendto(fd, packet, size, MSG_NOSIGNAL, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
+        if (sendto(fd, packet, size, MSG_NOSIGNAL, &sa.sa, salen) < 0)
                 return log_error_errno(errno, "Failed to send: %m");
 
         return 0;
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_free_ char *packet = NULL;
         _cleanup_close_ int fd = -1;
-        char packet[LINE_MAX];
-        size_t length;
+        size_t length = 0;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         if (argc != 3) {
                 log_error("Wrong number of arguments.");
@@ -51,18 +48,36 @@ int main(int argc, char *argv[]) {
         }
 
         if (streq(argv[1], "1")) {
+                _cleanup_string_free_erase_ char *line = NULL;
 
-                packet[0] = '+';
-                if (!fgets(packet+1, sizeof(packet)-1, stdin)) {
-                        r = log_error_errno(errno, "Failed to read password: %m");
+                r = read_line(stdin, LONG_LINE_MAX, &line);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read password: %m");
+                        goto finish;
+                }
+                if (r == 0) {
+                        log_error("Got EOF while reading password.");
+                        r = -EIO;
                         goto finish;
                 }
 
-                truncate_nl(packet+1);
-                length = 1 + strlen(packet+1) + 1;
+                packet = strjoin("+", line);
+                if (!packet) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                length = 1 + strlen(line) + 1;
+
         } else if (streq(argv[1], "0")) {
-                packet[0] = '-';
+                packet = strdup("-");
+                if (!packet) {
+                        r = log_oom();
+                        goto finish;
+                }
+
                 length = 1;
+
         } else {
                 log_error("Invalid first argument %s", argv[1]);
                 r = -EINVAL;
@@ -78,7 +93,7 @@ int main(int argc, char *argv[]) {
         r = send_on_socket(fd, argv[2], packet, length);
 
 finish:
-        explicit_bzero(packet, sizeof(packet));
+        explicit_bzero_safe(packet, length);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

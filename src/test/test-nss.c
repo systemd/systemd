@@ -1,27 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <dlfcn.h>
-#include <stdlib.h>
 #include <net/if.h>
+#include <stdlib.h>
+#include <unistd.h>
 
+#include "af-list.h"
+#include "alloc-util.h"
+#include "errno-list.h"
+#include "hexdecoct.h"
+#include "hostname-util.h"
+#include "in-addr-util.h"
+#include "local-addresses.h"
 #include "log.h"
+#include "main-func.h"
 #include "nss-util.h"
 #include "path-util.h"
-#include "string-util.h"
-#include "alloc-util.h"
-#include "in-addr-util.h"
-#include "hexdecoct.h"
-#include "af-list.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "errno-list.h"
-#include "hostname-util.h"
-#include "local-addresses.h"
+#include "tests.h"
 
 static const char* nss_status_to_string(enum nss_status status, char *buf, size_t buf_len) {
         switch (status) {
@@ -56,14 +54,12 @@ static const char* af_to_string(int family, char *buf, size_t buf_len) {
 }
 
 static void* open_handle(const char* dir, const char* module, int flags) {
-        const char *path;
+        const char *path = NULL;
         void *handle;
 
-        if (dir) {
+        if (dir)
                 path = strjoina(dir, "/libnss_", module, ".so.2");
-                if (access(path, F_OK) < 0)
-                        path = strjoina(dir, "/.libs/libnss_", module, ".so.2");
-        } else
+        if (!path || access(path, F_OK) < 0)
                 path = strjoina("libnss_", module, ".so.2");
 
         handle = dlopen(path, flags);
@@ -87,7 +83,7 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
                 r = in_addr_to_string(it->family, &u, &a);
                 assert_se(IN_SET(r, 0, -EAFNOSUPPORT));
                 if (r == -EAFNOSUPPORT)
-                        assert_se((a = hexmem(it->addr, 16)));
+                        assert_se(a = hexmem(it->addr, 16));
 
                 if (it->scopeid == 0)
                         goto numerical_index;
@@ -402,9 +398,7 @@ static int test_one_module(const char* dir,
 
         log_info("======== %s ========", module);
 
-        handle = open_handle(streq(module, "dns") ? NULL : dir,
-                             module,
-                             RTLD_LAZY|RTLD_NODELETE);
+        handle = open_handle(dir, module, RTLD_LAZY|RTLD_NODELETE);
         if (!handle)
                 return -EINVAL;
 
@@ -433,20 +427,19 @@ static int parse_argv(int argc, char **argv,
         size_t n_allocated = 0;
 
         if (argc > 1)
-                modules = strv_new(argv[1], NULL);
+                modules = strv_new(argv[1]);
         else
                 modules = strv_new(
-#if ENABLE_MYHOSTNAME
+#if ENABLE_NSS_MYHOSTNAME
                                 "myhostname",
 #endif
-#if ENABLE_RESOLVE
+#if ENABLE_NSS_RESOLVE
                                 "resolve",
 #endif
-#if ENABLE_MACHINED
+#if ENABLE_NSS_MYMACHINES
                                 "mymachines",
 #endif
-                                "dns",
-                                NULL);
+                                "dns");
         if (!modules)
                 return -ENOMEM;
 
@@ -477,7 +470,7 @@ static int parse_argv(int argc, char **argv,
                 if (!hostname)
                         return -ENOMEM;
 
-                names = strv_new("localhost", "_gateway", "foo_no_such_host", hostname, NULL);
+                names = strv_new("localhost", "_gateway", "foo_no_such_host", hostname);
                 if (!names)
                         return -ENOMEM;
 
@@ -495,7 +488,7 @@ static int parse_argv(int argc, char **argv,
         return 0;
 }
 
-int main(int argc, char **argv) {
+static int run(int argc, char **argv) {
         _cleanup_free_ char *dir = NULL;
         _cleanup_strv_free_ char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addresses = NULL;
@@ -503,8 +496,7 @@ int main(int argc, char **argv) {
         char **module;
         int r;
 
-        log_set_max_level(LOG_INFO);
-        log_parse_environment();
+        test_setup_logging(LOG_INFO);
 
         r = parse_argv(argc, argv, &modules, &names, &addresses, &n_addresses);
         if (r < 0) {
@@ -514,13 +506,15 @@ int main(int argc, char **argv) {
 
         dir = dirname_malloc(argv[0]);
         if (!dir)
-                return EXIT_FAILURE;
+                return log_oom();
 
         STRV_FOREACH(module, modules) {
                 r = test_one_module(dir, *module, names, addresses, n_addresses);
                 if (r < 0)
-                        return EXIT_FAILURE;
+                        return r;
         }
 
-        return EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

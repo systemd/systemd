@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Tom Gundersen
-***/
 
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "networkd-manager.h"
+#include "strv.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_operational_state, link_operstate, LinkOperationalState);
 

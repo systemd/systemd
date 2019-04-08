@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -21,6 +16,8 @@
 #include "catalog.h"
 #include "compress.h"
 #include "dirent-util.h"
+#include "env-file.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -35,10 +32,10 @@
 #include "list.h"
 #include "lookup3.h"
 #include "missing.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "replace-var.h"
-#include "stat-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -386,7 +383,7 @@ static char *match_make_string(Match *m) {
                 return strdup("none");
 
         if (m->type == MATCH_DISCRETE)
-                return strndup(m->data, m->size);
+                return cescape_length(m->data, m->size);
 
         LIST_FOREACH(matches, i, m->matches) {
                 char *t, *k;
@@ -438,6 +435,8 @@ _public_ void sd_journal_flush_matches(sd_journal *j) {
 }
 
 _pure_ static int compare_with_location(JournalFile *f, Location *l) {
+        int r;
+
         assert(f);
         assert(l);
         assert(f->location_type == LOCATION_SEEK);
@@ -454,35 +453,31 @@ _pure_ static int compare_with_location(JournalFile *f, Location *l) {
         if (l->seqnum_set &&
             sd_id128_equal(f->header->seqnum_id, l->seqnum_id)) {
 
-                if (f->current_seqnum < l->seqnum)
-                        return -1;
-                if (f->current_seqnum > l->seqnum)
-                        return 1;
+                r = CMP(f->current_seqnum, l->seqnum);
+                if (r != 0)
+                        return r;
         }
 
         if (l->monotonic_set &&
             sd_id128_equal(f->current_boot_id, l->boot_id)) {
 
-                if (f->current_monotonic < l->monotonic)
-                        return -1;
-                if (f->current_monotonic > l->monotonic)
-                        return 1;
+                r = CMP(f->current_monotonic, l->monotonic);
+                if (r != 0)
+                        return r;
         }
 
         if (l->realtime_set) {
 
-                if (f->current_realtime < l->realtime)
-                        return -1;
-                if (f->current_realtime > l->realtime)
-                        return 1;
+                r = CMP(f->current_realtime, l->realtime);
+                if (r != 0)
+                        return r;
         }
 
         if (l->xor_hash_set) {
 
-                if (f->current_xor_hash < l->xor_hash)
-                        return -1;
-                if (f->current_xor_hash > l->xor_hash)
-                        return 1;
+                r = CMP(f->current_xor_hash, l->xor_hash);
+                if (r != 0)
+                        return r;
         }
 
         return 0;
@@ -1189,8 +1184,7 @@ static bool file_has_type_prefix(const char *prefix, const char *filename) {
         tilded = strjoina(full, "~");
         atted = strjoina(prefix, "@");
 
-        return streq(filename, full) ||
-               streq(filename, tilded) ||
+        return STR_IN_SET(filename, full, tilded) ||
                startswith(filename, atted);
 }
 
@@ -1894,7 +1888,9 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         assert_return(machine_name_is_valid(machine), -EINVAL);
 
         p = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(p, NEWLINE, "ROOT", &root, "CLASS", &class, NULL);
+        r = parse_env_file(NULL, p,
+                           "ROOT", &root,
+                           "CLASS", &class);
         if (r == -ENOENT)
                 return -EHOSTDOWN;
         if (r < 0)
@@ -2829,31 +2825,30 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                         return r;
 
                 /* Let's do the type check by hand, since we used 0 context above. */
-                if (o->object.type != OBJECT_DATA) {
-                        log_debug("%s:offset " OFSfmt ": object has type %d, expected %d",
-                                  j->unique_file->path, j->unique_offset,
-                                  o->object.type, OBJECT_DATA);
-                        return -EBADMSG;
-                }
+                if (o->object.type != OBJECT_DATA)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "%s:offset " OFSfmt ": object has type %d, expected %d",
+                                               j->unique_file->path,
+                                               j->unique_offset,
+                                               o->object.type, OBJECT_DATA);
 
                 r = return_data(j, j->unique_file, o, &odata, &ol);
                 if (r < 0)
                         return r;
 
                 /* Check if we have at least the field name and "=". */
-                if (ol <= k) {
-                        log_debug("%s:offset " OFSfmt ": object has size %zu, expected at least %zu",
-                                  j->unique_file->path, j->unique_offset,
-                                  ol, k + 1);
-                        return -EBADMSG;
-                }
+                if (ol <= k)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "%s:offset " OFSfmt ": object has size %zu, expected at least %zu",
+                                               j->unique_file->path,
+                                               j->unique_offset, ol, k + 1);
 
-                if (memcmp(odata, j->unique_field, k) || ((const char*) odata)[k] != '=') {
-                        log_debug("%s:offset " OFSfmt ": object does not start with \"%s=\"",
-                                  j->unique_file->path, j->unique_offset,
-                                  j->unique_field);
-                        return -EBADMSG;
-                }
+                if (memcmp(odata, j->unique_field, k) || ((const char*) odata)[k] != '=')
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "%s:offset " OFSfmt ": object does not start with \"%s=\"",
+                                               j->unique_file->path,
+                                               j->unique_offset,
+                                               j->unique_field);
 
                 /* OK, now let's see if we already returned this data
                  * object by checking if it exists in the earlier
@@ -2984,10 +2979,11 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
                         return r;
 
                 /* Because we used OBJECT_UNUSED above, we need to do our type check manually */
-                if (o->object.type != OBJECT_FIELD) {
-                        log_debug("%s:offset " OFSfmt ": object has type %i, expected %i", f->path, j->fields_offset, o->object.type, OBJECT_FIELD);
-                        return -EBADMSG;
-                }
+                if (o->object.type != OBJECT_FIELD)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "%s:offset " OFSfmt ": object has type %i, expected %i",
+                                               f->path, j->fields_offset,
+                                               o->object.type, OBJECT_FIELD);
 
                 sz = le64toh(o->object.size) - offsetof(Object, field.payload);
 

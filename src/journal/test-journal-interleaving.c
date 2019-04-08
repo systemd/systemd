@@ -1,10 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Marius Vollmer
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -12,15 +6,17 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "chattr-util.h"
+#include "io-util.h"
 #include "journal-file.h"
 #include "journal-vacuum.h"
 #include "log.h"
 #include "parse-util.h"
 #include "rm-rf.h"
+#include "tests.h"
 #include "util.h"
 
-/* This program tests skipping around in a multi-file journal.
- */
+/* This program tests skipping around in a multi-file journal. */
 
 static bool arg_keep = false;
 
@@ -64,9 +60,8 @@ static void append_number(JournalFile *f, int n, uint64_t *seqnum) {
         previous_ts = ts;
 
         assert_se(asprintf(&p, "NUMBER=%d", n) >= 0);
-        iovec[0].iov_base = p;
-        iovec[0].iov_len = strlen(p);
-        assert_ret(journal_file_append_entry(f, &ts, iovec, 1, seqnum, NULL, NULL));
+        iovec[0] = IOVEC_MAKE_STRING(p);
+        assert_ret(journal_file_append_entry(f, &ts, NULL, iovec, 1, seqnum, NULL, NULL));
         free(p);
 }
 
@@ -136,13 +131,21 @@ static void setup_interleaved(void) {
         test_close(two);
 }
 
+static void mkdtemp_chdir_chattr(char *path) {
+        assert_se(mkdtemp(path));
+        assert_se(chdir(path) >= 0);
+
+        /* Speed up things a bit on btrfs, ensuring that CoW is turned off for all files created in our
+         * directory during the test run */
+        (void) chattr_path(path, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+}
+
 static void test_skip(void (*setup)(void)) {
-        char t[] = "/tmp/journal-skip-XXXXXX";
+        char t[] = "/var/tmp/journal-skip-XXXXXX";
         sd_journal *j;
         int r;
 
-        assert_se(mkdtemp(t));
-        assert_se(chdir(t) >= 0);
+        mkdtemp_chdir_chattr(t);
 
         setup();
 
@@ -195,13 +198,12 @@ static void test_skip(void (*setup)(void)) {
 
 static void test_sequence_numbers(void) {
 
-        char t[] = "/tmp/journal-seq-XXXXXX";
+        char t[] = "/var/tmp/journal-seq-XXXXXX";
         JournalFile *one, *two;
         uint64_t seqnum = 0;
         sd_id128_t seqnum_id;
 
-        assert_se(mkdtemp(t));
-        assert_se(chdir(t) >= 0);
+        mkdtemp_chdir_chattr(t);
 
         assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0644,
                                     true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &one) == 0);
@@ -277,11 +279,11 @@ static void test_sequence_numbers(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         /* journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("/etc/machine-id not found");
 
         arg_keep = argc > 1;
 

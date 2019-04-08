@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Tom Gundersen
-***/
 
 #include "alloc-util.h"
 #include "ether-addr-util.h"

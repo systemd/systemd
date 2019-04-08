@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2013 Intel Corporation. All rights reserved.
+  Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
 #include <errno.h>
@@ -11,10 +9,10 @@
 #include <string.h>
 
 #include "alloc-util.h"
-#include "utf8.h"
-#include "strv.h"
-
 #include "dhcp-internal.h"
+#include "memory-util.h"
+#include "strv.h"
+#include "utf8.h"
 
 static int option_append(uint8_t options[], size_t size, size_t *offset,
                          uint8_t code, size_t optlen, const void *optval) {

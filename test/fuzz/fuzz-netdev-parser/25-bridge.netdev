@@ -1,0 +1,13 @@
+[NetDev]
+Name=bridge99
+Kind=bridge
+
+[Bridge]
+HelloTimeSec=9
+MaxAgeSec=9
+ForwardDelaySec=9
+AgeingTimeSec=9
+Priority=9
+MulticastQuerier= true
+MulticastSnooping=true
+STP=true

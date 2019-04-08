@@ -1,28 +1,12 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="machine-id">
   <refentryinfo>
     <title>machine-id</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -82,7 +66,7 @@
     <title>Initialization</title>
 
     <para>Each machine should have a non-empty ID in normal operation. The ID of each
-    machine should be unique. To achive those objectives,
+    machine should be unique. To achieve those objectives,
     <filename>/etc/machine-id</filename> can be initialized in a few different ways.
     </para>
 
@@ -104,7 +88,7 @@
     to be bind-mounted over the real file, in case the image is used read-only.</para>
 
     <para><citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    may be used to to initialize <filename>/etc/machine-id</filename> on mounted (but not
+    may be used to initialize <filename>/etc/machine-id</filename> on mounted (but not
     booted) system images.</para>
 
     <para>When a machine is booted with

@@ -1,17 +1,10 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2015 David Herrmann <dh.herrmann@gmail.com>
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="libudev"
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -19,15 +12,6 @@
   <refentryinfo>
     <title>libudev</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>David</firstname>
-        <surname>Herrmann</surname>
-        <email>dh.herrmann@gmail.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -61,11 +45,9 @@
     <citerefentry><refentrytitle>udev_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     It is used to track library state and link objects together. No
     global state is used by libudev, everything is always linked to
-    a udev context. Furthermore, multiple different udev contexts can
-    be used in parallel by multiple threads. However, a single context
-    must not be accessed by multiple threads in parallel. The caller
-    is responsible for providing suitable locking if they intend to use
-    it from multiple threads.</para>
+    a udev context.</para>
+
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
 
     <para>To introspect a local device on a system, a udev device
     object can be created via

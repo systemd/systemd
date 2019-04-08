@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 typedef struct Path Path;
 typedef struct PathSpec PathSpec;
 
@@ -79,3 +73,5 @@ PathType path_type_from_string(const char *s) _pure_;
 
 const char* path_result_to_string(PathResult i) _const_;
 PathResult path_result_from_string(const char *s) _pure_;
+
+DEFINE_CAST(PATH, Path);

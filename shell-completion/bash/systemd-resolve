@@ -3,8 +3,6 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2016 Zbigniew Jędrzejewski-Szmek
-#
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation; either version 2.1 of the License, or
@@ -26,8 +24,8 @@ __contains_word () {
 }
 
 __get_interfaces(){
-        { cd /sys/class/net && echo *; } | \
-        while read -d' ' -r name; do
+        local name
+        for name in $(cd /sys/class/net && ls); do
                 [[ "$name" != "lo" ]] && echo "$name"
         done
 }
@@ -64,6 +62,9 @@ _systemd-resolve() {
                                 ;;
                         --set-dnssec)
                                 comps="yes no allow-downgrade"
+                                ;;
+                        --set-dnsovertls)
+                                comps="no opportunistic"
                                 ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013-2015 Tom Gundersen <teg@jklm.no>
-***/
 
 #include <net/if.h>
 

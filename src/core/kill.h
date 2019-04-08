@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
-
 typedef struct KillContext KillContext;
 
 #include <stdbool.h>
@@ -27,6 +21,8 @@ typedef enum KillMode {
 struct KillContext {
         KillMode kill_mode;
         int kill_signal;
+        int final_kill_signal;
+        int watchdog_signal;
         bool send_sigkill;
         bool send_sighup;
 };

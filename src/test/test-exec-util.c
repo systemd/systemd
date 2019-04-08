@@ -1,10 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2013 Thomas H.P. Andersen
-***/
 
 #include <errno.h>
 #include <string.h>
@@ -22,9 +16,11 @@
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
+#include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 
 static int here = 0, here2 = 0, here3 = 0;
 void *ignore_stdout_args[] = {&here, &here2, &here3};
@@ -121,9 +117,9 @@ static void test_execute_directory(bool gather_stdout) {
         assert_se(chmod(mask2e, 0755) == 0);
 
         if (gather_stdout)
-                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL);
+                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         else
-                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL);
+                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         assert_se(chdir(template_lo) == 0);
         assert_se(access("it_works", F_OK) >= 0);
@@ -188,7 +184,7 @@ static void test_execution_order(void) {
         assert_se(chmod(override, 0755) == 0);
         assert_se(chmod(masked, 0755) == 0);
 
-        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL);
+        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         assert_se(read_full_file(output, &contents, NULL) >= 0);
         assert_se(streq(contents, "30-override\n80-foo\n90-bar\nlast\n"));
@@ -270,7 +266,7 @@ static void test_stdout_gathering(void) {
         assert_se(chmod(name2, 0755) == 0);
         assert_se(chmod(name3, 0755) == 0);
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdout, args, NULL);
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdout, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         log_info("got: %s", output);
@@ -281,7 +277,7 @@ static void test_stdout_gathering(void) {
 static void test_environment_gathering(void) {
         char template[] = "/tmp/test-exec-util.XXXXXXX", **p;
         const char *dirs[] = {template, NULL};
-        const char *name, *name2, *name3;
+        const char *name, *name2, *name3, *old;
         int r;
 
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
@@ -327,7 +323,16 @@ static void test_environment_gathering(void) {
         assert_se(chmod(name2, 0755) == 0);
         assert_se(chmod(name3, 0755) == 0);
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL);
+        /* When booting in containers or without initramfs there might not be
+         * any PATH in the environ and if there is no PATH /bin/sh built-in
+         * PATH may leak and override systemd's DEFAULT_PATH which is not
+         * good. Force our own PATH in environment, to prevent expansion of sh
+         * built-in $PATH */
+        old = getenv("PATH");
+        r = setenv("PATH", "no-sh-built-in-path", 1);
+        assert_se(r >= 0);
+
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         STRV_FOREACH(p, env)
@@ -336,19 +341,73 @@ static void test_environment_gathering(void) {
         assert_se(streq(strv_env_get(env, "A"), "22:23:24"));
         assert_se(streq(strv_env_get(env, "B"), "12"));
         assert_se(streq(strv_env_get(env, "C"), "001"));
-        assert_se(endswith(strv_env_get(env, "PATH"), ":/no/such/file"));
+        assert_se(streq(strv_env_get(env, "PATH"), "no-sh-built-in-path:/no/such/file"));
+
+        /* now retest with "default" path passed in, as created by
+         * manager_default_environment */
+        env = strv_free(env);
+        env = strv_new("PATH=" DEFAULT_PATH);
+        assert_se(env);
+
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        assert_se(r >= 0);
+
+        STRV_FOREACH(p, env)
+                log_info("got env: \"%s\"", *p);
+
+        assert_se(streq(strv_env_get(env, "A"), "22:23:24"));
+        assert_se(streq(strv_env_get(env, "B"), "12"));
+        assert_se(streq(strv_env_get(env, "C"), "001"));
+        assert_se(streq(strv_env_get(env, "PATH"), DEFAULT_PATH ":/no/such/file"));
+
+        /* reset environ PATH */
+        (void) setenv("PATH", old, 1);
+}
+
+static void test_error_catching(void) {
+        char template[] = "/tmp/test-exec-util.XXXXXXX";
+        const char *dirs[] = {template, NULL};
+        const char *name, *name2, *name3;
+        int r;
+
+        assert_se(mkdtemp(template));
+
+        log_info("/* %s */", __func__);
+
+        /* write files */
+        name = strjoina(template, "/10-foo");
+        name2 = strjoina(template, "/20-bar");
+        name3 = strjoina(template, "/30-last");
+
+        assert_se(write_string_file(name,
+                                    "#!/bin/sh\necho a\necho b\necho c\n",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name2,
+                                    "#!/bin/sh\nexit 42\n",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name3,
+                                    "#!/bin/sh\nexit 12",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+
+        assert_se(chmod(name, 0755) == 0);
+        assert_se(chmod(name2, 0755) == 0);
+        assert_se(chmod(name3, 0755) == 0);
+
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_NONE);
+
+        /* we should exit with the error code of the first script that failed */
+        assert_se(r == 42);
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_execute_directory(true);
         test_execute_directory(false);
         test_execution_order();
         test_stdout_gathering();
         test_environment_gathering();
+        test_error_catching();
 
         return 0;
 }

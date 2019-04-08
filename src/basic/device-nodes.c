@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2008-2011 Kay Sievers
-***/
 
 #include <errno.h>
 #include <stdio.h>
@@ -33,7 +28,7 @@ int encode_devnode_name(const char *str, char *str_enc, size_t len) {
         for (i = 0, j = 0; str[i] != '\0'; i++) {
                 int seqlen;
 
-                seqlen = utf8_encoded_valid_unichar(&str[i]);
+                seqlen = utf8_encoded_valid_unichar(str + i, (size_t) -1);
                 if (seqlen > 1) {
 
                         if (len-j < (size_t)seqlen)

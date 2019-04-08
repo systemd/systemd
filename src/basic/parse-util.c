@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <inttypes.h>
+#include <linux/oom.h>
 #include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,10 +17,12 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 
 int parse_boolean(const char *v) {
-        assert(v);
+        if (!v)
+                return -EINVAL;
 
         if (streq(v, "1") || strcaseeq(v, "yes") || strcaseeq(v, "y") || strcaseeq(v, "true") || strcaseeq(v, "t") || strcaseeq(v, "on"))
                 return 1;
@@ -575,7 +573,7 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
 
         s = *p;
 
-        /* accept any number of digits, strtoull is limted to 19 */
+        /* accept any number of digits, strtoull is limited to 19 */
         for (i=0; i < digits; i++,s++) {
                 if (*s < '0' || *s > '9') {
                         if (i == 0)
@@ -632,6 +630,59 @@ int parse_percent(const char *p) {
         return v;
 }
 
+int parse_permille_unbounded(const char *p) {
+        const char *pc, *pm, *dot, *n;
+        int r, q, v;
+
+        pm = endswith(p, "‰");
+        if (pm) {
+                n = strndupa(p, pm - p);
+                r = safe_atoi(n, &v);
+                if (r < 0)
+                        return r;
+                if (v < 0)
+                        return -ERANGE;
+        } else {
+                pc = endswith(p, "%");
+                if (!pc)
+                        return -EINVAL;
+
+                dot = memchr(p, '.', pc - p);
+                if (dot) {
+                        if (dot + 2 != pc)
+                                return -EINVAL;
+                        if (dot[1] < '0' || dot[1] > '9')
+                                return -EINVAL;
+                        q = dot[1] - '0';
+                        n = strndupa(p, dot - p);
+                } else {
+                        q = 0;
+                        n = strndupa(p, pc - p);
+                }
+                r = safe_atoi(n, &v);
+                if (r < 0)
+                        return r;
+                if (v < 0)
+                        return -ERANGE;
+                if (v > (INT_MAX - q) / 10)
+                        return -ERANGE;
+
+                v = v * 10 + q;
+        }
+
+        return v;
+}
+
+int parse_permille(const char *p) {
+        int v;
+
+        v = parse_permille_unbounded(p);
+        if (v > 1000)
+                return -ERANGE;
+
+        return v;
+}
+
 int parse_nice(const char *p, int *ret) {
         int n, r;
 
@@ -662,17 +713,67 @@ int parse_ip_port(const char *s, uint16_t *ret) {
         return 0;
 }
 
+int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high) {
+        unsigned l, h;
+        int r;
+
+        r = parse_range(s, &l, &h);
+        if (r < 0)
+                return r;
+
+        if (l <= 0 || l > 65535 || h <= 0 || h > 65535)
+                return -EINVAL;
+
+        if (h < l)
+                return -EINVAL;
+
+        *low = l;
+        *high = h;
+
+        return 0;
+}
+
 int parse_dev(const char *s, dev_t *ret) {
+        const char *major;
         unsigned x, y;
-        dev_t d;
+        size_t n;
+        int r;
 
-        if (sscanf(s, "%u:%u", &x, &y) != 2)
+        n = strspn(s, DIGITS);
+        if (n == 0)
+                return -EINVAL;
+        if (s[n] != ':')
                 return -EINVAL;
 
-        d = makedev(x, y);
-        if ((unsigned) major(d) != x || (unsigned) minor(d) != y)
-                return -EINVAL;
+        major = strndupa(s, n);
+        r = safe_atou(major, &x);
+        if (r < 0)
+                return r;
 
-        *ret = d;
+        r = safe_atou(s + n + 1, &y);
+        if (r < 0)
+                return r;
+
+        if (!DEVICE_MAJOR_VALID(x) || !DEVICE_MINOR_VALID(y))
+                return -ERANGE;
+
+        *ret = makedev(x, y);
+        return 0;
+}
+
+int parse_oom_score_adjust(const char *s, int *ret) {
+        int r, v;
+
+        assert(s);
+        assert(ret);
+
+        r = safe_atoi(s, &v);
+        if (r < 0)
+                return r;
+
+        if (v < OOM_SCORE_ADJ_MIN || v > OOM_SCORE_ADJ_MAX)
+                return -ERANGE;
+
+        *ret = v;
         return 0;
 }

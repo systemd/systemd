@@ -1,16 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include "alloc-util.h"
 #include "log.h"
 #include "journal-importer.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "tests.h"
 
@@ -25,9 +22,11 @@ static void assert_iovec_entry(const struct iovec *iovec, const char* content) {
 
 static void test_basic_parsing(void) {
         _cleanup_(journal_importer_cleanup) JournalImporter imp = {};
+        _cleanup_free_ char *journal_data_path = NULL;
         int r;
 
-        imp.fd = open(get_testdata_dir("/journal-data/journal-1.txt"), O_RDONLY|O_CLOEXEC);
+        journal_data_path = path_join(get_testdata_dir(), "journal-data/journal-1.txt");
+        imp.fd = open(journal_data_path, O_RDONLY|O_CLOEXEC);
         assert_se(imp.fd >= 0);
 
         do
@@ -54,9 +53,11 @@ static void test_basic_parsing(void) {
 
 static void test_bad_input(void) {
         _cleanup_(journal_importer_cleanup) JournalImporter imp = {};
+        _cleanup_free_ char *journal_data_path = NULL;
         int r;
 
-        imp.fd = open(get_testdata_dir("/journal-data/journal-2.txt"), O_RDONLY|O_CLOEXEC);
+        journal_data_path = path_join(get_testdata_dir(), "journal-data/journal-2.txt");
+        imp.fd = open(journal_data_path, O_RDONLY|O_CLOEXEC);
         assert_se(imp.fd >= 0);
 
         do
@@ -68,8 +69,7 @@ static void test_bad_input(void) {
 }
 
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         test_basic_parsing();
         test_bad_input();

@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Intel Corporation. All rights reserved.
+  Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
 #include <net/ethernet.h>
@@ -20,20 +18,28 @@
 #define STATIC_FDB_ENTRIES_PER_NETWORK_MAX 1024U
 
 /* create a new FDB entry or get an existing one. */
-int fdb_entry_new_static(
+static int fdb_entry_new_static(
                 Network *network,
-                unsigned section,
+                const char *filename,
+                unsigned section_line,
                 FdbEntry **ret) {
 
+        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
-        struct ether_addr *mac_addr = NULL;
+        _cleanup_free_ struct ether_addr *mac_addr = NULL;
+        int r;
 
         assert(network);
         assert(ret);
+        assert(!!filename == (section_line > 0));
 
         /* search entry in hashmap first. */
-        if (section) {
-                fdb_entry = hashmap_get(network->fdb_entries_by_section, UINT_TO_PTR(section));
+        if (filename) {
+                r = network_config_section_new(filename, section_line, &n);
+                if (r < 0)
+                        return r;
+
+                fdb_entry = hashmap_get(network->fdb_entries_by_section, n);
                 if (fdb_entry) {
                         *ret = TAKE_PTR(fdb_entry);
 
@@ -50,24 +56,29 @@ int fdb_entry_new_static(
                 return -ENOMEM;
 
         /* allocate space for and FDB entry. */
-        fdb_entry = new0(FdbEntry, 1);
-        if (!fdb_entry) {
-                /* free previously allocated space for mac_addr. */
-                free(mac_addr);
+        fdb_entry = new(FdbEntry, 1);
+        if (!fdb_entry)
                 return -ENOMEM;
-        }
 
         /* init FDB structure. */
-        fdb_entry->network = network;
-        fdb_entry->mac_addr = mac_addr;
+        *fdb_entry = (FdbEntry) {
+                .network = network,
+                .mac_addr = TAKE_PTR(mac_addr),
+        };
 
         LIST_PREPEND(static_fdb_entries, network->static_fdb_entries, fdb_entry);
         network->n_static_fdb_entries++;
 
-        if (section) {
-                fdb_entry->section = section;
-                hashmap_put(network->fdb_entries_by_section,
-                            UINT_TO_PTR(fdb_entry->section), fdb_entry);
+        if (filename) {
+                fdb_entry->section = TAKE_PTR(n);
+
+                r = hashmap_ensure_allocated(&network->fdb_entries_by_section, &network_config_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_put(network->fdb_entries_by_section, fdb_entry->section, fdb_entry);
+                if (r < 0)
+                        return r;
         }
 
         /* return allocated FDB structure. */
@@ -76,8 +87,7 @@ int fdb_entry_new_static(
         return 0;
 }
 
-static int set_fdb_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int set_fdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -136,9 +146,12 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         }
 
         /* send message to the kernel to update its internal static MAC table. */
-        r = sd_netlink_call_async(rtnl, req, set_fdb_handler, link, 0, NULL);
+        r = netlink_call_async(rtnl, NULL, req, set_fdb_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
 
         return 0;
 }
@@ -150,16 +163,15 @@ void fdb_entry_free(FdbEntry *fdb_entry) {
 
         if (fdb_entry->network) {
                 LIST_REMOVE(static_fdb_entries, fdb_entry->network->static_fdb_entries, fdb_entry);
-
                 assert(fdb_entry->network->n_static_fdb_entries > 0);
                 fdb_entry->network->n_static_fdb_entries--;
 
                 if (fdb_entry->section)
-                        hashmap_remove(fdb_entry->network->fdb_entries_by_section, UINT_TO_PTR(fdb_entry->section));
+                        hashmap_remove(fdb_entry->network->fdb_entries_by_section, fdb_entry->section);
         }
 
+        network_config_section_free(fdb_entry->section);
         free(fdb_entry->mac_addr);
-
         free(fdb_entry);
 }
 
@@ -177,7 +189,7 @@ int config_parse_fdb_hwaddr(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
+        _cleanup_(fdb_entry_free_or_set_invalidp) FdbEntry *fdb_entry = NULL;
         int r;
 
         assert(filename);
@@ -186,7 +198,7 @@ int config_parse_fdb_hwaddr(
         assert(rvalue);
         assert(data);
 
-        r = fdb_entry_new_static(network, section_line, &fdb_entry);
+        r = fdb_entry_new_static(network, filename, section_line, &fdb_entry);
         if (r < 0)
                 return log_oom();
 
@@ -199,7 +211,7 @@ int config_parse_fdb_hwaddr(
                    &fdb_entry->mac_addr->ether_addr_octet[4],
                    &fdb_entry->mac_addr->ether_addr_octet[5]);
 
-        if (ETHER_ADDR_LEN != r) {
+        if (r != ETHER_ADDR_LEN) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring assignment: %s", rvalue);
                 return 0;
         }
@@ -223,7 +235,7 @@ int config_parse_fdb_vlan_id(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
+        _cleanup_(fdb_entry_free_or_set_invalidp) FdbEntry *fdb_entry = NULL;
         int r;
 
         assert(filename);
@@ -232,7 +244,7 @@ int config_parse_fdb_vlan_id(
         assert(rvalue);
         assert(data);
 
-        r = fdb_entry_new_static(network, section_line, &fdb_entry);
+        r = fdb_entry_new_static(network, filename, section_line, &fdb_entry);
         if (r < 0)
                 return log_oom();
 

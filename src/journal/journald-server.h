@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
-
 #include <stdbool.h>
 #include <sys/types.h>
 
@@ -14,6 +8,7 @@
 
 typedef struct Server Server;
 
+#include "conf-parser.h"
 #include "hashmap.h"
 #include "journal-file.h"
 #include "journald-context.h"
@@ -21,6 +16,7 @@ typedef struct Server Server;
 #include "journald-stream.h"
 #include "list.h"
 #include "prioq.h"
+#include "time-util.h"
 
 typedef enum Storage {
         STORAGE_AUTO,
@@ -142,8 +138,6 @@ struct Server {
 
         Set *deferred_closes;
 
-        struct udev *udev;
-
         uint64_t *kernel_seqnum;
         bool dev_kmsg_readable:1;
 
@@ -167,6 +161,8 @@ struct Server {
         /* Caching of client metadata */
         Hashmap *client_contexts;
         Prioq *client_contexts_lru;
+
+        usec_t last_cache_pid_flush;
 
         ClientContext *my_context; /* the context of journald itself */
         ClientContext *pid1_context; /* the context of PID 1 */
@@ -195,14 +191,14 @@ void server_driver_message(Server *s, pid_t object_pid, const char *message_id, 
 /* gperf lookup function */
 const struct ConfigPerfItem* journald_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
-int config_parse_storage(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_line_max(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_compress(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_storage);
+CONFIG_PARSER_PROTOTYPE(config_parse_line_max);
+CONFIG_PARSER_PROTOTYPE(config_parse_compress);
 
 const char *storage_to_string(Storage s) _const_;
 Storage storage_from_string(const char *s) _pure_;
 
-int config_parse_split_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_split_mode);
 
 const char *split_mode_to_string(SplitMode s) _const_;
 SplitMode split_mode_from_string(const char *s) _pure_;

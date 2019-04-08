@@ -1,20 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-typedef struct Unit Unit;
-typedef struct UnitVTable UnitVTable;
-typedef struct UnitRef UnitRef;
-typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
 #include "bpf-program.h"
 #include "condition.h"
@@ -24,11 +13,13 @@ typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 #include "unit-name.h"
 #include "cgroup.h"
 
+typedef struct UnitRef UnitRef;
+
 typedef enum KillOperation {
         KILL_TERMINATE,
         KILL_TERMINATE_AND_LOG,
         KILL_KILL,
-        KILL_ABORT,
+        KILL_WATCHDOG,
         _KILL_OPERATION_MAX,
         _KILL_OPERATION_INVALID = -1
 } KillOperation;
@@ -89,7 +80,7 @@ typedef enum UnitDependencyMask {
         /* A dependency created because of data read from /proc/swaps and no other configuration source */
         UNIT_DEPENDENCY_PROC_SWAP          = 1 << 7,
 
-        _UNIT_DEPENDENCY_MASK_FULL = (1 << 8) - 1,
+        _UNIT_DEPENDENCY_MASK_FULL         = (1 << 8) - 1,
 } UnitDependencyMask;
 
 /* The Unit's dependencies[] hashmaps use this structure as value. It has the same size as a void pointer, and thus can
@@ -114,13 +105,7 @@ struct UnitRef {
         LIST_FIELDS(UnitRef, refs_by_target);
 };
 
-typedef enum UnitCGroupBPFState {
-        UNIT_CGROUP_BPF_OFF = 0,
-        UNIT_CGROUP_BPF_ON = 1,
-        UNIT_CGROUP_BPF_INVALIDATED = -1,
-} UnitCGroupBPFState;
-
-struct Unit {
+typedef struct Unit {
         Manager *manager;
 
         UnitType type;
@@ -197,9 +182,6 @@ struct Unit {
         /* Per type list */
         LIST_FIELDS(Unit, units_by_type);
 
-        /* All units which have requires_mounts_for set */
-        LIST_FIELDS(Unit, has_requires_mounts_for);
-
         /* Load queue */
         LIST_FIELDS(Unit, load_queue);
 
@@ -221,6 +203,9 @@ struct Unit {
         /* Target dependencies queue */
         LIST_FIELDS(Unit, target_deps_queue);
 
+        /* Queue of units with StopWhenUnneeded set that shell be checked for clean-up. */
+        LIST_FIELDS(Unit, stop_when_unneeded_queue);
+
         /* PIDs we keep an eye on. Note that a unit might have many
          * more, but these are the ones we care enough about to
          * process SIGCHLD for */
@@ -241,8 +226,9 @@ struct Unit {
         RateLimit start_limit;
         EmergencyAction start_limit_action;
 
-        EmergencyAction failure_action;
-        EmergencyAction success_action;
+        /* What to do on failure or success */
+        EmergencyAction success_action, failure_action;
+        int success_action_exit_status, failure_action_exit_status;
         char *reboot_arg;
 
         /* Make sure we never enter endless loops with the check unneeded logic, or the BindsTo= logic */
@@ -262,11 +248,14 @@ struct Unit {
 
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
-        CGroupMask cgroup_realized_mask;
-        CGroupMask cgroup_enabled_mask;
-        CGroupMask cgroup_subtree_mask;
-        CGroupMask cgroup_members_mask;
+        CGroupMask cgroup_realized_mask;           /* In which hierarchies does this unit's cgroup exist? (only relevant on cgroup v1) */
+        CGroupMask cgroup_enabled_mask;            /* Which controllers are enabled (or more correctly: enabled for the children) for this unit's cgroup? (only relevant on cgroup v2) */
+        CGroupMask cgroup_invalidated_mask;        /* A mask specifiying controllers which shall be considered invalidated, and require re-realization */
+        CGroupMask cgroup_members_mask;            /* A cache for the controllers required by all children of this cgroup (only relevant for slice units) */
         int cgroup_inotify_wd;
+
+        /* Device Controller BPF program */
+        BPFProgram *bpf_device_control_installed;
 
         /* IP BPF Firewalling/accounting */
         int ip_accounting_ingress_map_fd;
@@ -281,6 +270,10 @@ struct Unit {
         BPFProgram *ip_bpf_egress, *ip_bpf_egress_installed;
 
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
+
+        /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe to any new
+         * ones which might have appeared. */
+        sd_event_source *rewatch_pids_event_source;
 
         /* How to start OnFailure units */
         JobMode on_failure_job_mode;
@@ -320,6 +313,7 @@ struct Unit {
         /* Is this a unit that is always running and cannot be stopped? */
         bool perpetual;
 
+        /* Booleans indicating membership of this unit in the various queues */
         bool in_load_queue:1;
         bool in_dbus_queue:1;
         bool in_cleanup_queue:1;
@@ -327,6 +321,7 @@ struct Unit {
         bool in_cgroup_realize_queue:1;
         bool in_cgroup_empty_queue:1;
         bool in_target_deps_queue:1;
+        bool in_stop_when_unneeded_queue:1;
 
         bool sent_dbus_new_signal:1;
 
@@ -335,9 +330,6 @@ struct Unit {
 
         bool cgroup_realized:1;
         bool cgroup_members_mask_valid:1;
-        bool cgroup_subtree_mask_valid:1;
-
-        UnitCGroupBPFState cgroup_bpf_state:2;
 
         /* Reset cgroup accounting next time we fork something off */
         bool reset_accounting:1;
@@ -354,17 +346,22 @@ struct Unit {
         bool exported_invocation_id:1;
         bool exported_log_level_max:1;
         bool exported_log_extra_fields:1;
+        bool exported_log_rate_limit_interval:1;
+        bool exported_log_rate_limit_burst:1;
+
+        /* Whether we warned about clamping the CPU quota period */
+        bool warned_clamping_cpu_quota_period:1;
 
         /* When writing transient unit files, stores which section we stored last. If < 0, we didn't write any yet. If
          * == 0 we are in the [Unit] section, if > 0 we are in the unit type-specific section. */
-        int last_section_private:2;
-};
+        signed int last_section_private:2;
+} Unit;
 
-struct UnitStatusMessageFormats {
+typedef struct UnitStatusMessageFormats {
         const char *starting_stopping[2];
         const char *finished_start_job[_JOB_RESULT_MAX];
         const char *finished_stop_job[_JOB_RESULT_MAX];
-};
+} UnitStatusMessageFormats;
 
 /* Flags used when writing drop-in files or transient unit files */
 typedef enum UnitWriteFlags {
@@ -385,19 +382,13 @@ typedef enum UnitWriteFlags {
 } UnitWriteFlags;
 
 /* Returns true if neither persistent, nor runtime storage is requested, i.e. this is a check invocation only */
-#define UNIT_WRITE_FLAGS_NOOP(flags) (((flags) & (UNIT_RUNTIME|UNIT_PERSISTENT)) == 0)
+static inline bool UNIT_WRITE_FLAGS_NOOP(UnitWriteFlags flags) {
+        return (flags & (UNIT_RUNTIME|UNIT_PERSISTENT)) == 0;
+}
 
-#include "automount.h"
-#include "device.h"
-#include "path.h"
-#include "scope.h"
-#include "slice.h"
-#include "socket.h"
-#include "swap.h"
-#include "target.h"
-#include "timer.h"
+#include "kill.h"
 
-struct UnitVTable {
+typedef struct UnitVTable {
         /* How much memory does an object of this unit type need */
         size_t object_size;
 
@@ -444,9 +435,18 @@ struct UnitVTable {
          * UNIT_STUB if no configuration could be found. */
         int (*load)(Unit *u);
 
-        /* If a lot of units got created via enumerate(), this is
-         * where to actually set the state and call unit_notify(). */
+        /* During deserialization we only record the intended state to return to. With coldplug() we actually put the
+         * deserialized state in effect. This is where unit_notify() should be called to start things up. Note that
+         * this callback is invoked *before* we leave the reloading state of the manager, i.e. *before* we consider the
+         * reloading to be complete. Thus, this callback should just restore the exact same state for any unit that was
+         * in effect before the reload, i.e. units should not catch up with changes happened during the reload. That's
+         * what catchup() below is for. */
         int (*coldplug)(Unit *u);
+
+        /* This is called shortly after all units' coldplug() call was invoked, and *after* the manager left the
+         * reloading state. It's supposed to catch up with state changes due to external events we missed so far (for
+         * example because they took place while we were reloading/reexecing) */
+        void (*catchup)(Unit *u);
 
         void (*dump)(Unit *u, FILE *f, const char *prefix);
 
@@ -523,6 +523,9 @@ struct UnitVTable {
         /* Called whenever CLOCK_REALTIME made a jump */
         void (*time_change)(Unit *u);
 
+        /* Called whenever /etc/localtime was modified */
+        void (*timezone_change)(Unit *u);
+
         /* Returns the next timeout of a unit */
         int (*get_timeout)(Unit *u, usec_t *timeout);
 
@@ -535,11 +538,19 @@ struct UnitVTable {
         /* Returns true if the unit currently needs access to the console */
         bool (*needs_console)(Unit *u);
 
-        /* This is called for each unit type and should be used to
-         * enumerate existing devices and load them. However,
-         * everything that is loaded here should still stay in
-         * inactive state. It is the job of the coldplug() call above
-         * to put the units into the initial state.  */
+        /* Returns the exit status to propagate in case of FailureAction=exit/SuccessAction=exit; usually returns the
+         * exit code of the "main" process of the service or similar. */
+        int (*exit_status)(Unit *u);
+
+        /* Like the enumerate() callback further down, but only enumerates the perpetual units, i.e. all units that
+         * unconditionally exist and are always active. The main reason to keep both enumeration functions separate is
+         * philosophical: the state of perpetual units should be put in place by coldplug(), while the state of those
+         * discovered through regular enumeration should be put in place by catchup(), see below. */
+        void (*enumerate_perpetual)(Manager *m);
+
+        /* This is called for each unit type and should be used to enumerate units already existing in the system
+         * internally and load them. However, everything that is loaded here should still stay in inactive state. It is
+         * the job of the catchup() call above to put the units into the discovered state. */
         void (*enumerate)(Manager *m);
 
         /* Type specific cleanups. */
@@ -566,11 +577,13 @@ struct UnitVTable {
 
         /* True if queued jobs of this type should be GC'ed if no other job needs them anymore */
         bool gc_jobs:1;
-};
+} UnitVTable;
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 
-#define UNIT_VTABLE(u) unit_vtable[(u)->type]
+static inline const UnitVTable* UNIT_VTABLE(Unit *u) {
+        return unit_vtable[u->type];
+}
 
 /* For casting a unit into the various unit types */
 #define DEFINE_CAST(UPPERCASE, MixedCase)                               \
@@ -582,25 +595,20 @@ extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
         }
 
 /* For casting the various unit types into a unit */
-#define UNIT(u) (&(u)->meta)
+#define UNIT(u)                                         \
+        ({                                              \
+                typeof(u) _u_ = (u);                    \
+                Unit *_w_ = _u_ ? &(_u_)->meta : NULL;  \
+                _w_;                                    \
+        })
 
 #define UNIT_HAS_EXEC_CONTEXT(u) (UNIT_VTABLE(u)->exec_context_offset > 0)
 #define UNIT_HAS_CGROUP_CONTEXT(u) (UNIT_VTABLE(u)->cgroup_context_offset > 0)
 #define UNIT_HAS_KILL_CONTEXT(u) (UNIT_VTABLE(u)->kill_context_offset > 0)
 
-#define UNIT_TRIGGER(u) ((Unit*) hashmap_first_key((u)->dependencies[UNIT_TRIGGERS]))
-
-DEFINE_CAST(SERVICE, Service);
-DEFINE_CAST(SOCKET, Socket);
-DEFINE_CAST(TARGET, Target);
-DEFINE_CAST(DEVICE, Device);
-DEFINE_CAST(MOUNT, Mount);
-DEFINE_CAST(AUTOMOUNT, Automount);
-DEFINE_CAST(SWAP, Swap);
-DEFINE_CAST(TIMER, Timer);
-DEFINE_CAST(PATH, Path);
-DEFINE_CAST(SLICE, Slice);
-DEFINE_CAST(SCOPE, Scope);
+static inline Unit* UNIT_TRIGGER(Unit *u) {
+        return hashmap_first_key(u->dependencies[UNIT_TRIGGERS]);
+}
 
 Unit *unit_new(Manager *m, size_t size);
 void unit_free(Unit *u);
@@ -612,8 +620,8 @@ int unit_add_name(Unit *u, const char *name);
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference, UnitDependencyMask mask);
 int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference, UnitDependencyMask mask);
 
-int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *filename, bool add_reference, UnitDependencyMask mask);
-int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference, UnitDependencyMask mask);
+int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, bool add_reference, UnitDependencyMask mask);
+int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, bool add_reference, UnitDependencyMask mask);
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 
@@ -627,6 +635,7 @@ void unit_add_to_dbus_queue(Unit *u);
 void unit_add_to_cleanup_queue(Unit *u);
 void unit_add_to_gc_queue(Unit *u);
 void unit_add_to_target_deps_queue(Unit *u);
+void unit_submit_to_stop_when_unneeded_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
 int unit_merge_by_name(Unit *u, const char *other);
@@ -642,7 +651,7 @@ int unit_set_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
 
-bool unit_has_name(Unit *u, const char *name);
+bool unit_has_name(const Unit *u, const char *name);
 
 UnitActiveState unit_active_state(Unit *u);
 
@@ -662,13 +671,19 @@ int unit_reload(Unit *u);
 int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error);
 int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t control_pid, sd_bus_error *error);
 
-void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success);
+typedef enum UnitNotifyFlags {
+        UNIT_NOTIFY_RELOAD_FAILURE    = 1 << 0,
+        UNIT_NOTIFY_WILL_AUTO_RESTART = 1 << 1,
+} UnitNotifyFlags;
 
-int unit_watch_pid(Unit *u, pid_t pid);
+void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags);
+
+int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
 void unit_unwatch_pid(Unit *u, pid_t pid);
 void unit_unwatch_all_pids(Unit *u);
 
-void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2);
+int unit_enqueue_rewatch_pids(Unit *u);
+void unit_dequeue_rewatch_pids(Unit *u);
 
 int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name);
 int unit_watch_bus_name(Unit *u, const char *name);
@@ -687,19 +702,14 @@ bool unit_can_serialize(Unit *u) _pure_;
 
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs);
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
-void unit_deserialize_skip(FILE *f);
-
-int unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value);
-int unit_serialize_item_escaped(Unit *u, FILE *f, const char *key, const char *value);
-int unit_serialize_item_fd(Unit *u, FILE *f, FDSet *fds, const char *key, int fd);
-void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *value, ...) _printf_(4,5);
+int unit_deserialize_skip(FILE *f);
 
 int unit_add_node_dependency(Unit *u, const char *what, bool wants, UnitDependency d, UnitDependencyMask mask);
 
 int unit_coldplug(Unit *u);
+void unit_catchup(Unit *u);
 
 void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) _printf_(3, 0);
-void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t);
 
 bool unit_need_daemon_reload(Unit *u);
 
@@ -756,6 +766,8 @@ bool unit_type_supported(UnitType t);
 
 bool unit_is_pristine(Unit *u);
 
+bool unit_is_unneeded(Unit *u);
+
 pid_t unit_control_pid(Unit *u);
 pid_t unit_main_pid(Unit *u);
 
@@ -766,7 +778,7 @@ static inline bool unit_supported(Unit *u) {
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_noncanonical(Unit *u, const char* where);
 
-int unit_start_limit_test(Unit *u);
+int unit_test_start_limit(Unit *u);
 
 void unit_unref_uid(Unit *u, bool destroy_now);
 int unit_ref_uid(Unit *u, uid_t uid, bool clean_ipc);
@@ -784,7 +796,7 @@ int unit_acquire_invocation_id(Unit *u);
 
 bool unit_shall_confirm_spawn(Unit *u);
 
-void unit_set_exec_params(Unit *s, ExecParameters *p);
+int unit_set_exec_params(Unit *s, ExecParameters *p);
 
 int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret);
 
@@ -795,13 +807,30 @@ void unit_unlink_state_files(Unit *u);
 
 int unit_prepare_exec(Unit *u);
 
-void unit_warn_leftover_processes(Unit *u);
+int unit_warn_leftover_processes(Unit *u);
 
 bool unit_needs_console(Unit *u);
 
 const char *unit_label_path(Unit *u);
 
 int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
+
+void unit_log_success(Unit *u);
+void unit_log_failure(Unit *u, const char *result);
+static inline void unit_log_result(Unit *u, bool success, const char *result) {
+        if (success)
+                unit_log_success(u);
+        else
+                unit_log_failure(u, result);
+}
+
+void unit_log_process_exit(Unit *u, int level, const char *kind, const char *command, int code, int status);
+
+int unit_exit_status(Unit *u);
+int unit_success_action_exit_status(Unit *u);
+int unit_failure_action_exit_status(Unit *u);
+
+int unit_test_trigger_loaded(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

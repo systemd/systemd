@@ -3,10 +3,6 @@
 #define foosdbushfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -111,6 +107,7 @@ typedef int (*sd_bus_property_set_t) (sd_bus *bus, const char *path, const char 
 typedef int (*sd_bus_object_find_t) (sd_bus *bus, const char *path, const char *interface, void *userdata, void **ret_found, sd_bus_error *ret_error);
 typedef int (*sd_bus_node_enumerator_t) (sd_bus *bus, const char *prefix, void *userdata, char ***ret_nodes, sd_bus_error *ret_error);
 typedef int (*sd_bus_track_handler_t) (sd_bus_track *track, void *userdata);
+typedef _sd_destroy_t sd_bus_destroy_t;
 
 #include "sd-bus-protocol.h"
 #include "sd-bus-vtable.h"
@@ -157,6 +154,8 @@ int sd_bus_set_allow_interactive_authorization(sd_bus *bus, int b);
 int sd_bus_get_allow_interactive_authorization(sd_bus *bus);
 int sd_bus_set_exit_on_disconnect(sd_bus *bus, int b);
 int sd_bus_get_exit_on_disconnect(sd_bus *bus);
+int sd_bus_set_close_on_exit(sd_bus *bus, int b);
+int sd_bus_get_close_on_exit(sd_bus *bus);
 int sd_bus_set_watch_bind(sd_bus *bus, int b);
 int sd_bus_get_watch_bind(sd_bus *bus);
 int sd_bus_set_connected_signal(sd_bus *bus, int b);
@@ -171,6 +170,7 @@ void sd_bus_close(sd_bus *bus);
 
 sd_bus *sd_bus_ref(sd_bus *bus);
 sd_bus *sd_bus_unref(sd_bus *bus);
+sd_bus *sd_bus_close_unref(sd_bus *bus);
 sd_bus *sd_bus_flush_close_unref(sd_bus *bus);
 
 void sd_bus_default_flush_close(void);
@@ -208,6 +208,9 @@ sd_event *sd_bus_get_event(sd_bus *bus);
 int sd_bus_get_n_queued_read(sd_bus *bus, uint64_t *ret);
 int sd_bus_get_n_queued_write(sd_bus *bus, uint64_t *ret);
 
+int sd_bus_set_method_call_timeout(sd_bus *bus, uint64_t usec);
+int sd_bus_get_method_call_timeout(sd_bus *bus, uint64_t *ret);
+
 int sd_bus_add_filter(sd_bus *bus, sd_bus_slot **slot, sd_bus_message_handler_t callback, void *userdata);
 int sd_bus_add_match(sd_bus *bus, sd_bus_slot **slot, const char *match, sd_bus_message_handler_t callback, void *userdata);
 int sd_bus_add_match_async(sd_bus *bus, sd_bus_slot **slot, const char *match, sd_bus_message_handler_t callback, sd_bus_message_handler_t install_callback, void *userdata);
@@ -228,9 +231,13 @@ void *sd_bus_slot_get_userdata(sd_bus_slot *slot);
 void *sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata);
 int sd_bus_slot_set_description(sd_bus_slot *slot, const char *description);
 int sd_bus_slot_get_description(sd_bus_slot *slot, const char **description);
+int sd_bus_slot_get_floating(sd_bus_slot *slot);
+int sd_bus_slot_set_floating(sd_bus_slot *slot, int b);
+int sd_bus_slot_set_destroy_callback(sd_bus_slot *s, sd_bus_destroy_t callback);
+int sd_bus_slot_get_destroy_callback(sd_bus_slot *s, sd_bus_destroy_t *callback);
 
 sd_bus_message* sd_bus_slot_get_current_message(sd_bus_slot *slot);
-sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *bus);
+sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *slot);
 void *sd_bus_slot_get_current_userdata(sd_bus_slot *slot);
 
 /* Message object */
@@ -304,6 +311,7 @@ int sd_bus_message_close_container(sd_bus_message *m);
 int sd_bus_message_copy(sd_bus_message *m, sd_bus_message *source, int all);
 
 int sd_bus_message_read(sd_bus_message *m, const char *types, ...);
+int sd_bus_message_readv(sd_bus_message *m, const char *types, va_list ap);
 int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p);
 int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, size_t *size);
 int sd_bus_message_read_strv(sd_bus_message *m, char ***l); /* free the result! */
@@ -417,6 +425,7 @@ int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *format, ...)
 int sd_bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_list ap) _sd_printf_(3,0);
 int sd_bus_error_get_errno(const sd_bus_error *e);
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
+int sd_bus_error_move(sd_bus_error *dest, sd_bus_error *e);
 int sd_bus_error_is_set(const sd_bus_error *e);
 int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
 
@@ -480,8 +489,12 @@ const char* sd_bus_track_contains(sd_bus_track *track, const char *name);
 const char* sd_bus_track_first(sd_bus_track *track);
 const char* sd_bus_track_next(sd_bus_track *track);
 
+int sd_bus_track_set_destroy_callback(sd_bus_track *s, sd_bus_destroy_t callback);
+int sd_bus_track_get_destroy_callback(sd_bus_track *s, sd_bus_destroy_t *ret);
+
 /* Define helpers so that __attribute__((cleanup(sd_bus_unrefp))) and similar may be used. */
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus, sd_bus_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus, sd_bus_close_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus, sd_bus_flush_close_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus_slot, sd_bus_slot_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus_message, sd_bus_message_unref);

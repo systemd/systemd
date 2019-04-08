@@ -1,14 +1,7 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
--->
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-run"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -16,15 +9,6 @@
   <refentryinfo>
     <title>systemd-run</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -96,6 +80,16 @@
     <replaceable>COMMAND</replaceable> may be omitted. In this case, <command>systemd-run</command> creates only a
     <filename>.path</filename>, <filename>.socket</filename>, or <filename>.timer</filename> unit that triggers the
     specified unit.</para>
+
+    <para>By default, services created with <command>systemd-run</command> default to the <option>simple</option> type,
+    see the description of <varname>Type=</varname> in
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details. Note that when this type is used the service manager (and thus the <command>systemd-run</command> command)
+    considers service start-up successful as soon as the <function>fork()</function> for the main service process
+    succeeded, i.e. before the <function>execve()</function> is invoked, and thus even if the specified command cannot
+    be started. Consider using the <option>exec</option> service type (i.e. <option>--property=Type=exec</option>) to
+    ensure that <command>systemd-run</command> returns successfully only if the specified command line has been
+    successfully started.</para>
   </refsect1>
 
   <refsect1>
@@ -211,6 +205,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--working-directory=</option></term>
+
+        <listitem><para>Runs the service process with the specified working directory. Also see
+        <varname>WorkingDirectory=</varname> in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--same-dir</option></term>
+        <term><option>-d</option></term>
+
+        <listitem><para>Similar to <option>--working-directory=</option> but uses the current working directory of the
+        caller for the service to execute.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-E <replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
         <term><option>--setenv=<replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
 
@@ -261,6 +272,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--shell</option></term>
+        <term><option>-S</option></term>
+
+        <listitem><para>A shortcut for <literal>--pty --same-dir --wait --collect --service-type=exec $SHELL</literal>,
+        i.e. requests an interactive shell in the current working directory, running in service context, accessible
+        with a single switch.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--quiet</option></term>
         <term><option>-q</option></term>
 
@@ -294,6 +314,18 @@
         option is a shortcut for <command>--timer-property=OnCalendar=</command>. This option may not be combined with
         <option>--scope</option> or <option>--pty</option>.</para>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--on-clock-change</option></term>
+        <term><option>--on-timezone-change</option></term>
+
+        <listitem><para>Defines a trigger based on system clock jumps or timezone changes for starting the
+        specified command. See <varname>OnClockChange=</varname> and <varname>OnTimezoneChange=</varname> in
+        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. These
+        options are shortcuts for <command>--timer-property=OnClockChange=yes</command> and
+        <command>--timer-property=OnTimezoneChange=yes</command>. These options may not be combined with
+        <option>--scope</option> or <option>--pty</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

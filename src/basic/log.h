@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -42,10 +36,12 @@ typedef enum LogTarget{
         _LOG_TARGET_INVALID = -1
 } LogTarget;
 
-#define LOG_REALM_PLUS_LEVEL(realm, level)      \
-        ((realm) << 10 | (level))
-#define LOG_REALM_REMOVE_LEVEL(realm_level)     \
-        ((realm_level >> 10))
+/* Note to readers: << and >> have lower precedence than & and | */
+#define LOG_REALM_PLUS_LEVEL(realm, level)  ((realm) << 10 | (level))
+#define LOG_REALM_REMOVE_LEVEL(realm_level) ((realm_level) >> 10)
+#define SYNTHETIC_ERRNO(num)                (1 << 30 | (num))
+#define IS_SYNTHETIC_ERRNO(val)             ((val) >> 30 & 1)
+#define ERRNO_VALUE(val)                    (abs(val) & 255)
 
 void log_set_target(LogTarget target);
 void log_set_max_level_realm(LogRealm realm, int level);
@@ -119,6 +115,19 @@ int log_internalv_realm(
         log_internalv_realm(LOG_REALM_PLUS_LEVEL(LOG_REALM, (level)), __VA_ARGS__)
 
 /* Realm is fixed to LOG_REALM_SYSTEMD for those */
+int log_object_internalv(
+                int level,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const char *object_field,
+                const char *object,
+                const char *extra_field,
+                const char *extra,
+                const char *format,
+                va_list ap) _printf_(10,0);
+
 int log_object_internal(
                 int level,
                 int error,
@@ -207,10 +216,10 @@ void log_assert_failed_return_realm(
 #define log_full_errno_realm(realm, level, error, ...)                  \
         ({                                                              \
                 int _level = (level), _e = (error), _realm = (realm);   \
-                (log_get_max_level_realm(_realm) >= LOG_PRI(_level))   \
+                (log_get_max_level_realm(_realm) >= LOG_PRI(_level))    \
                         ? log_internal_realm(LOG_REALM_PLUS_LEVEL(_realm, _level), _e, \
                                              __FILE__, __LINE__, __func__, __VA_ARGS__) \
-                        : -abs(_e);                                     \
+                        : -ERRNO_VALUE(_e);                             \
         })
 
 #define log_full_errno(level, error, ...)                               \
@@ -245,7 +254,7 @@ int log_emergency_level(void);
 /* Structured logging */
 #define log_struct_errno(level, error, ...) \
         log_struct_internal(LOG_REALM_PLUS_LEVEL(LOG_REALM, level), \
-                            error, __FILE__, __LINE__, __func__, __VA_ARGS__)
+                            error, __FILE__, __LINE__, __func__, __VA_ARGS__, NULL)
 #define log_struct(level, ...) log_struct_errno(level, 0, __VA_ARGS__)
 
 #define log_struct_iovec_errno(level, error, iovec, n_iovec)            \
@@ -284,6 +293,8 @@ void log_set_open_when_needed(bool b);
  * stderr, the console or kmsg */
 void log_set_prohibit_ipc(bool b);
 
+int log_dup_console(void);
+
 int log_syntax_internal(
                 const char *unit,
                 int level,
@@ -310,7 +321,7 @@ int log_syntax_invalid_utf8_internal(
                 int _level = (level), _e = (error);                     \
                 (log_get_max_level() >= LOG_PRI(_level))                \
                         ? log_syntax_internal(unit, _level, config_file, config_line, _e, __FILE__, __LINE__, __func__, __VA_ARGS__) \
-                        : -abs(_e);                                     \
+                        : -ERRNO_VALUE(_e);                             \
         })
 
 #define log_syntax_invalid_utf8(unit, level, config_file, config_line, rvalue) \
@@ -322,3 +333,5 @@ int log_syntax_invalid_utf8_internal(
         })
 
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
+
+void log_setup_service(void);

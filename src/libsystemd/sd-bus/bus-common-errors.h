@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
-
 #include "bus-error.h"
 
 #define BUS_ERROR_NO_SUCH_UNIT "org.freedesktop.systemd1.NoSuchUnit"
@@ -14,6 +8,7 @@
 #define BUS_ERROR_NO_UNIT_FOR_INVOCATION_ID "org.freedesktop.systemd1.NoUnitForInvocationID"
 #define BUS_ERROR_UNIT_EXISTS "org.freedesktop.systemd1.UnitExists"
 #define BUS_ERROR_LOAD_FAILED "org.freedesktop.systemd1.LoadFailed"
+#define BUS_ERROR_BAD_UNIT_SETTING "org.freedesktop.systemd1.BadUnitSetting"
 #define BUS_ERROR_JOB_FAILED "org.freedesktop.systemd1.JobFailed"
 #define BUS_ERROR_NO_SUCH_JOB "org.freedesktop.systemd1.NoSuchJob"
 #define BUS_ERROR_NOT_SUBSCRIBED "org.freedesktop.systemd1.NotSubscribed"
@@ -40,6 +35,9 @@
 #define BUS_ERROR_NO_PRIVATE_NETWORKING "org.freedesktop.machine1.NoPrivateNetworking"
 #define BUS_ERROR_NO_SUCH_USER_MAPPING "org.freedesktop.machine1.NoSuchUserMapping"
 #define BUS_ERROR_NO_SUCH_GROUP_MAPPING "org.freedesktop.machine1.NoSuchGroupMapping"
+
+#define BUS_ERROR_NO_SUCH_PORTABLE_IMAGE "org.freedesktop.portable1.NoSuchImage"
+#define BUS_ERROR_BAD_PORTABLE_IMAGE_TYPE "org.freedesktop.portable1.BadImageType"
 
 #define BUS_ERROR_NO_SUCH_SESSION "org.freedesktop.login1.NoSuchSession"
 #define BUS_ERROR_NO_SESSION_FOR_PID "org.freedesktop.login1.NoSessionForPID"
@@ -77,5 +75,7 @@
 
 #define BUS_ERROR_NO_SUCH_TRANSFER "org.freedesktop.import1.NoSuchTransfer"
 #define BUS_ERROR_TRANSFER_IN_PROGRESS "org.freedesktop.import1.TransferInProgress"
+
+#define BUS_ERROR_NO_PRODUCT_UUID "org.freedesktop.hostname1.NoProductUUID"
 
 BUS_ERROR_MAP_ELF_USE(bus_common_errors);

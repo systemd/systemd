@@ -1,16 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 typedef struct Mount Mount;
 
 #include "kill.h"
 #include "dynamic-user.h"
+#include "unit.h"
 
 typedef enum MountExecCommand {
         MOUNT_EXEC_MOUNT,
@@ -39,6 +34,13 @@ typedef struct MountParameters {
         char *fstype;
 } MountParameters;
 
+/* Used while looking for mount points that vanished or got added from/to /proc/self/mountinfo */
+typedef enum MountProcFlags {
+        MOUNT_PROC_IS_MOUNTED   = 1 << 0,
+        MOUNT_PROC_JUST_MOUNTED = 1 << 1,
+        MOUNT_PROC_JUST_CHANGED = 1 << 2,
+} MountProcFlags;
+
 struct Mount {
         Unit meta;
 
@@ -50,11 +52,7 @@ struct Mount {
         bool from_proc_self_mountinfo:1;
         bool from_fragment:1;
 
-        /* Used while looking for mount points that vanished or got
-         * added from/to /proc/self/mountinfo */
-        bool is_mounted:1;
-        bool just_mounted:1;
-        bool just_changed:1;
+        MountProcFlags proc_flags;
 
         bool sloppy_options;
 
@@ -97,3 +95,5 @@ MountExecCommand mount_exec_command_from_string(const char *s) _pure_;
 
 const char* mount_result_to_string(MountResult i) _const_;
 MountResult mount_result_from_string(const char *s) _pure_;
+
+DEFINE_CAST(MOUNT, Mount);

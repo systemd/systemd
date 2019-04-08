@@ -1,13 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2008-2011 Lennart Poettering
-***/
-
-
 #include "sd-netlink.h"
 
 #include "in-addr-util.h"

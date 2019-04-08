@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -22,12 +19,15 @@
 #include "label.h"
 #include "machine-image.h"
 #include "machined.h"
+#include "main-func.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "special.h"
 
 static Manager* manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(machine_hash_ops, char, string_hash_func, string_compare_func, Machine, machine_free);
 
 static int manager_new(Manager **ret) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
@@ -39,7 +39,7 @@ static int manager_new(Manager **ret) {
         if (!m)
                 return -ENOMEM;
 
-        m->machines = hashmap_new(&string_hash_ops);
+        m->machines = hashmap_new(&machine_hash_ops);
         m->machine_units = hashmap_new(&string_hash_ops);
         m->machine_leaders = hashmap_new(NULL);
 
@@ -65,8 +65,6 @@ static int manager_new(Manager **ret) {
 }
 
 static Manager* manager_unref(Manager *m) {
-        Machine *machine;
-
         if (!m)
                 return NULL;
 
@@ -75,20 +73,17 @@ static Manager* manager_unref(Manager *m) {
 
         assert(m->n_operations == 0);
 
-        while ((machine = hashmap_first(m->machines)))
-                machine_free(machine);
-
-        hashmap_free(m->machines);
+        hashmap_free(m->machines); /* This will free all machines, so that the machine_units/machine_leaders is empty */
         hashmap_free(m->machine_units);
         hashmap_free(m->machine_leaders);
-
-        hashmap_free_with_destructor(m->image_cache, image_unref);
+        hashmap_free(m->image_cache);
 
         sd_event_source_unref(m->image_cache_defer_event);
+        sd_event_source_unref(m->nscd_cache_flush_event);
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
 
-        sd_bus_unref(m->bus);
+        sd_bus_flush_close_unref(m->bus);
         sd_event_unref(m->event);
 
         return mfree(m);
@@ -350,21 +345,18 @@ static int manager_run(Manager *m) {
                         check_idle, m);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
         log_set_facility(LOG_AUTH);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         umask(0022);
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");
-                r = -EINVAL;
-                goto finish;
+                return -EINVAL;
         }
 
         /* Always create the directories people can create inotify watches in. Note that some applications might check
@@ -375,19 +367,14 @@ int main(int argc, char *argv[]) {
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, -1) >= 0);
 
         r = manager_new(&m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate manager object: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate manager object: %m");
 
         r = manager_startup(m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to fully start up daemon: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to fully start up daemon: %m");
 
         log_debug("systemd-machined running as pid "PID_FMT, getpid_cached());
-
         (void) sd_notify(false,
                          "READY=1\n"
                          "STATUS=Processing requests...");
@@ -395,11 +382,11 @@ int main(int argc, char *argv[]) {
         r = manager_run(m);
 
         log_debug("systemd-machined stopped as pid "PID_FMT, getpid_cached());
-
         (void) sd_notify(false,
                          "STOPPING=1\n"
                          "STATUS=Shutting down...");
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);

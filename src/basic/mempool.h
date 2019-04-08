@@ -1,13 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2011-2014 Lennart Poettering
-  Copyright 2014 Michal Schmidt
-***/
-
+#include <stdbool.h>
 #include <stddef.h>
 
 struct pool;
@@ -29,7 +23,9 @@ static struct mempool pool_name = { \
         .at_least = alloc_at_least, \
 }
 
+extern const bool mempool_use_allowed;
+bool mempool_enabled(void);
 
-#ifdef VALGRIND
+#if VALGRIND
 void mempool_drop(struct mempool *mp);
 #endif

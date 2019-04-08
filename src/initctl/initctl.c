@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <sys/epoll.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -23,9 +20,9 @@
 #include "initreq.h"
 #include "list.h"
 #include "log.h"
-#include "special.h"
-#include "util.h"
+#include "memory-util.h"
 #include "process-util.h"
+#include "special.h"
 
 #define SERVER_FD_MAX 16
 #define TIMEOUT_MSEC ((int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC))
@@ -86,7 +83,7 @@ static const char *translate_runlevel(int runlevel, bool *isolate) {
         return NULL;
 }
 
-static void change_runlevel(Server *s, int runlevel) {
+static int change_runlevel(Server *s, int runlevel) {
         const char *target;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *mode;
@@ -98,7 +95,7 @@ static void change_runlevel(Server *s, int runlevel) {
         target = translate_runlevel(runlevel, &isolate);
         if (!target) {
                 log_warning("Got request for unknown runlevel %c, ignoring.", runlevel);
-                return;
+                return 0;
         }
 
         if (isolate)
@@ -117,10 +114,10 @@ static void change_runlevel(Server *s, int runlevel) {
                         &error,
                         NULL,
                         "ss", target, mode);
-        if (r < 0) {
-                log_error("Failed to change runlevel: %s", bus_error_message(&error, -r));
-                return;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to change runlevel: %s", bus_error_message(&error, -r));
+
+        return 0;
 }
 
 static void request_process(Server *s, const struct init_request *req) {
@@ -161,7 +158,7 @@ static void request_process(Server *s, const struct init_request *req) {
                                 break;
 
                         default:
-                                change_runlevel(s, req->runlevel);
+                                (void) change_runlevel(s, req->runlevel);
                         }
                 return;
 
@@ -238,12 +235,8 @@ static void server_done(Server *s) {
         while (s->fifos)
                 fifo_free(s->fifos);
 
-        safe_close(s->epoll_fd);
-
-        if (s->bus) {
-                sd_bus_flush(s->bus);
-                sd_bus_unref(s->bus);
-        }
+        s->epoll_fd = safe_close(s->epoll_fd);
+        s->bus = sd_bus_flush_close_unref(s->bus);
 }
 
 static int server_init(Server *s, unsigned n_sockets) {
@@ -327,10 +320,9 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
         assert(s);
 
-        if (!(ev->events & EPOLLIN)) {
-                log_info("Got invalid event from epoll. (3)");
-                return -EIO;
-        }
+        if (!(ev->events & EPOLLIN))
+                return log_info_errno(SYNTHETIC_ERRNO(EIO),
+                                      "Got invalid event from epoll. (3)");
 
         f = (Fifo*) ev->data.ptr;
         r = fifo_process(f);
@@ -357,9 +349,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         umask(0022);
 

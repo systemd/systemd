@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
-***/
-
+#include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -21,11 +17,14 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "macro.h"
+#include "missing_timerfd.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -280,8 +279,11 @@ static char *format_timestamp_internal(
                 return NULL; /* Timestamp is unset */
 
         /* Let's not format times with years > 9999 */
-        if (t > USEC_TIMESTAMP_FORMATTABLE_MAX)
-                return NULL;
+        if (t > USEC_TIMESTAMP_FORMATTABLE_MAX) {
+                assert(l >= STRLEN("--- XXXX-XX-XX XX:XX:XX") + 1);
+                strcpy(buf, "--- XXXX-XX-XX XX:XX:XX");
+                return buf;
+        }
 
         sec = (time_t) (t / USEC_PER_SEC); /* Round down */
 
@@ -479,7 +481,7 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                 /* Let's see if we should shows this in dot notation */
                 if (t < USEC_PER_MINUTE && b > 0) {
                         usec_t cc;
-                        int j;
+                        signed char j;
 
                         j = 0;
                         for (cc = table[i].usec; cc > 1; cc /= 10)
@@ -526,64 +528,6 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         *p = 0;
 
         return buf;
-}
-
-void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t) {
-
-        assert(f);
-        assert(name);
-        assert(t);
-
-        if (!dual_timestamp_is_set(t))
-                return;
-
-        fprintf(f, "%s="USEC_FMT" "USEC_FMT"\n",
-                name,
-                t->realtime,
-                t->monotonic);
-}
-
-int dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
-        uint64_t a, b;
-        int r, pos;
-
-        assert(value);
-        assert(t);
-
-        pos = strspn(value, WHITESPACE);
-        if (value[pos] == '-')
-                return -EINVAL;
-        pos += strspn(value + pos, DIGITS);
-        pos += strspn(value + pos, WHITESPACE);
-        if (value[pos] == '-')
-                return -EINVAL;
-
-        r = sscanf(value, "%" PRIu64 "%" PRIu64 "%n", &a, &b, &pos);
-        if (r != 2) {
-                log_debug("Failed to parse dual timestamp value \"%s\".", value);
-                return -EINVAL;
-        }
-
-        if (value[pos] != '\0')
-                /* trailing garbage */
-                return -EINVAL;
-
-        t->realtime = a;
-        t->monotonic = b;
-
-        return 0;
-}
-
-int timestamp_deserialize(const char *value, usec_t *timestamp) {
-        int r;
-
-        assert(value);
-
-        r = safe_atou64(value, timestamp);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse timestamp value \"%s\": %m", value);
-
-        return r;
 }
 
 static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
@@ -875,7 +819,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
         int r;
 
         last_space = strrchr(t, ' ');
-        if (last_space != NULL && timezone_is_valid(last_space + 1))
+        if (last_space != NULL && timezone_is_valid(last_space + 1, LOG_DEBUG))
                 tz = last_space + 1;
 
         if (!tz || endswith_no_case(t, " UTC"))
@@ -904,7 +848,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
                  * Otherwise just cut it off. */
                 with_tz = !STR_IN_SET(tz, tzname[0], tzname[1]);
 
-                /* Cut off the timezone if we dont need it. */
+                /* Cut off the timezone if we don't need it. */
                 if (with_tz)
                         t = strndupa(t, last_space - t);
 
@@ -923,7 +867,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
         return tmp.return_value;
 }
 
-static char* extract_multiplier(char *p, usec_t *multiplier) {
+static const char* extract_multiplier(const char *p, usec_t *multiplier) {
         static const struct {
                 const char *suffix;
                 usec_t usec;
@@ -996,10 +940,9 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
         }
 
         for (;;) {
-                long long l, z = 0;
-                char *e;
-                unsigned n = 0;
                 usec_t multiplier = default_unit, k;
+                long long l;
+                char *e;
 
                 p += strspn(p, WHITESPACE);
 
@@ -1010,6 +953,9 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                         break;
                 }
 
+                if (*p == '-') /* Don't allow "-0" */
+                        return -ERANGE;
+
                 errno = 0;
                 l = strtoll(p, &e, 10);
                 if (errno > 0)
@@ -1018,35 +964,47 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                         return -ERANGE;
 
                 if (*e == '.') {
-                        char *b = e + 1;
-
-                        errno = 0;
-                        z = strtoll(b, &e, 10);
-                        if (errno > 0)
-                                return -errno;
-
-                        if (z < 0)
-                                return -ERANGE;
-
-                        if (e == b)
-                                return -EINVAL;
-
-                        n = e - b;
-
+                        p = e + 1;
+                        p += strspn(p, DIGITS);
                 } else if (e == p)
                         return -EINVAL;
+                else
+                        p = e;
 
-                e += strspn(e, WHITESPACE);
-                p = extract_multiplier(e, &multiplier);
+                s = extract_multiplier(p + strspn(p, WHITESPACE), &multiplier);
+                if (s == p && *s != '\0')
+                        /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56'*/
+                        return -EINVAL;
+
+                p = s;
+
+                if ((usec_t) l >= USEC_INFINITY / multiplier)
+                        return -ERANGE;
+
+                k = (usec_t) l * multiplier;
+                if (k >= USEC_INFINITY - r)
+                        return -ERANGE;
+
+                r += k;
 
                 something = true;
 
-                k = (usec_t) z * multiplier;
+                if (*e == '.') {
+                        usec_t m = multiplier / 10;
+                        const char *b;
 
-                for (; n > 0; n--)
-                        k /= 10;
+                        for (b = e + 1; *b >= '0' && *b <= '9'; b++, m /= 10) {
+                                k = (usec_t) (*b - '0') * m;
+                                if (k >= USEC_INFINITY - r)
+                                        return -ERANGE;
 
-                r += (usec_t) l * multiplier + k;
+                                r += k;
+                        }
+
+                        /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge"*/
+                        if (b == e + 1)
+                                return -EINVAL;
+                }
         }
 
         *usec = r;
@@ -1058,58 +1016,84 @@ int parse_sec(const char *t, usec_t *usec) {
         return parse_time(t, usec, USEC_PER_SEC);
 }
 
-int parse_sec_fix_0(const char *t, usec_t *usec) {
+int parse_sec_fix_0(const char *t, usec_t *ret) {
+        usec_t k;
+        int r;
+
         assert(t);
-        assert(usec);
+        assert(ret);
 
-        t += strspn(t, WHITESPACE);
+        r = parse_sec(t, &k);
+        if (r < 0)
+                return r;
 
-        if (streq(t, "0")) {
-                *usec = USEC_INFINITY;
-                return 0;
-        }
-
-        return parse_sec(t, usec);
+        *ret = k == 0 ? USEC_INFINITY : k;
+        return r;
 }
 
-int parse_nsec(const char *t, nsec_t *nsec) {
+int parse_sec_def_infinity(const char *t, usec_t *ret) {
+        t += strspn(t, WHITESPACE);
+        if (isempty(t)) {
+                *ret = USEC_INFINITY;
+                return 0;
+        }
+        return parse_sec(t, ret);
+}
+
+static const char* extract_nsec_multiplier(const char *p, nsec_t *multiplier) {
         static const struct {
                 const char *suffix;
                 nsec_t nsec;
         } table[] = {
-                { "seconds", NSEC_PER_SEC },
-                { "second", NSEC_PER_SEC },
-                { "sec", NSEC_PER_SEC },
-                { "s", NSEC_PER_SEC },
+                { "seconds", NSEC_PER_SEC    },
+                { "second",  NSEC_PER_SEC    },
+                { "sec",     NSEC_PER_SEC    },
+                { "s",       NSEC_PER_SEC    },
                 { "minutes", NSEC_PER_MINUTE },
-                { "minute", NSEC_PER_MINUTE },
-                { "min", NSEC_PER_MINUTE },
-                { "months", NSEC_PER_MONTH },
-                { "month", NSEC_PER_MONTH },
-                { "msec", NSEC_PER_MSEC },
-                { "ms", NSEC_PER_MSEC },
-                { "m", NSEC_PER_MINUTE },
-                { "hours", NSEC_PER_HOUR },
-                { "hour", NSEC_PER_HOUR },
-                { "hr", NSEC_PER_HOUR },
-                { "h", NSEC_PER_HOUR },
-                { "days", NSEC_PER_DAY },
-                { "day", NSEC_PER_DAY },
-                { "d", NSEC_PER_DAY },
-                { "weeks", NSEC_PER_WEEK },
-                { "week", NSEC_PER_WEEK },
-                { "w", NSEC_PER_WEEK },
-                { "years", NSEC_PER_YEAR },
-                { "year", NSEC_PER_YEAR },
-                { "y", NSEC_PER_YEAR },
-                { "usec", NSEC_PER_USEC },
-                { "us", NSEC_PER_USEC },
-                { "µs", NSEC_PER_USEC },
-                { "nsec", 1ULL },
-                { "ns", 1ULL },
-                { "", 1ULL }, /* default is nsec */
+                { "minute",  NSEC_PER_MINUTE },
+                { "min",     NSEC_PER_MINUTE },
+                { "months",  NSEC_PER_MONTH  },
+                { "month",   NSEC_PER_MONTH  },
+                { "M",       NSEC_PER_MONTH  },
+                { "msec",    NSEC_PER_MSEC   },
+                { "ms",      NSEC_PER_MSEC   },
+                { "m",       NSEC_PER_MINUTE },
+                { "hours",   NSEC_PER_HOUR   },
+                { "hour",    NSEC_PER_HOUR   },
+                { "hr",      NSEC_PER_HOUR   },
+                { "h",       NSEC_PER_HOUR   },
+                { "days",    NSEC_PER_DAY    },
+                { "day",     NSEC_PER_DAY    },
+                { "d",       NSEC_PER_DAY    },
+                { "weeks",   NSEC_PER_WEEK   },
+                { "week",    NSEC_PER_WEEK   },
+                { "w",       NSEC_PER_WEEK   },
+                { "years",   NSEC_PER_YEAR   },
+                { "year",    NSEC_PER_YEAR   },
+                { "y",       NSEC_PER_YEAR   },
+                { "usec",    NSEC_PER_USEC   },
+                { "us",      NSEC_PER_USEC   },
+                { "µs",      NSEC_PER_USEC   },
+                { "nsec",    1ULL            },
+                { "ns",      1ULL            },
+                { "",        1ULL            }, /* default is nsec */
         };
+        size_t i;
 
+        for (i = 0; i < ELEMENTSOF(table); i++) {
+                char *e;
+
+                e = startswith(p, table[i].suffix);
+                if (e) {
+                        *multiplier = table[i].nsec;
+                        return e;
+                }
+        }
+
+        return p;
+}
+
+int parse_nsec(const char *t, nsec_t *nsec) {
         const char *p, *s;
         nsec_t r = 0;
         bool something = false;
@@ -1131,8 +1115,8 @@ int parse_nsec(const char *t, nsec_t *nsec) {
         }
 
         for (;;) {
-                long long l, z = 0;
-                size_t n = 0, i;
+                nsec_t multiplier = 1, k;
+                long long l;
                 char *e;
 
                 p += strspn(p, WHITESPACE);
@@ -1144,53 +1128,58 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                         break;
                 }
 
+                if (*p == '-') /* Don't allow "-0" */
+                        return -ERANGE;
+
                 errno = 0;
                 l = strtoll(p, &e, 10);
-
                 if (errno > 0)
                         return -errno;
-
                 if (l < 0)
                         return -ERANGE;
 
                 if (*e == '.') {
-                        char *b = e + 1;
-
-                        errno = 0;
-                        z = strtoll(b, &e, 10);
-                        if (errno > 0)
-                                return -errno;
-
-                        if (z < 0)
-                                return -ERANGE;
-
-                        if (e == b)
-                                return -EINVAL;
-
-                        n = e - b;
-
+                        p = e + 1;
+                        p += strspn(p, DIGITS);
                 } else if (e == p)
                         return -EINVAL;
+                else
+                        p = e;
 
-                e += strspn(e, WHITESPACE);
-
-                for (i = 0; i < ELEMENTSOF(table); i++)
-                        if (startswith(e, table[i].suffix)) {
-                                nsec_t k = (nsec_t) z * table[i].nsec;
-
-                                for (; n > 0; n--)
-                                        k /= 10;
-
-                                r += (nsec_t) l * table[i].nsec + k;
-                                p = e + strlen(table[i].suffix);
-
-                                something = true;
-                                break;
-                        }
-
-                if (i >= ELEMENTSOF(table))
+                s = extract_nsec_multiplier(p + strspn(p, WHITESPACE), &multiplier);
+                if (s == p && *s != '\0')
+                        /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56'*/
                         return -EINVAL;
 
+                p = s;
+
+                if ((nsec_t) l >= NSEC_INFINITY / multiplier)
+                        return -ERANGE;
+
+                k = (nsec_t) l * multiplier;
+                if (k >= NSEC_INFINITY - r)
+                        return -ERANGE;
+
+                r += k;
+
+                something = true;
+
+                if (*e == '.') {
+                        nsec_t m = multiplier / 10;
+                        const char *b;
+
+                        for (b = e + 1; *b >= '0' && *b <= '9'; b++, m /= 10) {
+                                k = (nsec_t) (*b - '0') * m;
+                                if (k >= NSEC_INFINITY - r)
+                                        return -ERANGE;
+
+                                r += k;
+                        }
+
+                        /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge"*/
+                        if (b == e + 1)
+                                return -EINVAL;
+                }
         }
 
         *nsec = r;
@@ -1214,25 +1203,31 @@ int get_timezones(char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
         size_t n_zones = 0, n_allocated = 0;
+        int r;
 
         assert(ret);
 
-        zones = strv_new("UTC", NULL);
+        zones = strv_new("UTC");
         if (!zones)
                 return -ENOMEM;
 
         n_allocated = 2;
         n_zones = 1;
 
-        f = fopen("/usr/share/zoneinfo/zone.tab", "re");
+        f = fopen("/usr/share/zoneinfo/zone1970.tab", "re");
         if (f) {
-                char l[LINE_MAX];
-
-                FOREACH_LINE(l, f, return -errno) {
+                for (;;) {
+                        _cleanup_free_ char *line = NULL;
                         char *p, *w;
                         size_t k;
 
-                        p = strstrip(l);
+                        r = read_line(f, LONG_LINE_MAX, &line);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        p = strstrip(line);
 
                         if (isempty(p) || *p == '#')
                                 continue;
@@ -1273,10 +1268,12 @@ int get_timezones(char ***ret) {
         return 0;
 }
 
-bool timezone_is_valid(const char *name) {
+bool timezone_is_valid(const char *name, int log_level) {
         bool slash = false;
         const char *p, *t;
-        struct stat st;
+        _cleanup_close_ int fd = -1;
+        char buf[4];
+        int r;
 
         if (isempty(name))
                 return false;
@@ -1304,12 +1301,34 @@ bool timezone_is_valid(const char *name) {
         if (slash)
                 return false;
 
-        t = strjoina("/usr/share/zoneinfo/", name);
-        if (stat(t, &st) < 0)
+        if (p - name >= PATH_MAX)
                 return false;
 
-        if (!S_ISREG(st.st_mode))
+        t = strjoina("/usr/share/zoneinfo/", name);
+
+        fd = open(t, O_RDONLY|O_CLOEXEC);
+        if (fd < 0) {
+                log_full_errno(log_level, errno, "Failed to open timezone file '%s': %m", t);
                 return false;
+        }
+
+        r = fd_verify_regular(fd);
+        if (r < 0) {
+                log_full_errno(log_level, r, "Timezone file '%s' is not  a regular file: %m", t);
+                return false;
+        }
+
+        r = loop_read_exact(fd, buf, 4, false);
+        if (r < 0) {
+                log_full_errno(log_level, r, "Failed to read from timezone file '%s': %m", t);
+                return false;
+        }
+
+        /* Magic from tzfile(5) */
+        if (memcmp(buf, "TZif", 4) != 0) {
+                log_full(log_level, "Timezone file '%s' has wrong magic bytes", t);
+                return false;
+        }
 
         return true;
 }
@@ -1374,13 +1393,11 @@ int get_timezone(char **tz) {
         if (r < 0)
                 return r; /* returns EINVAL if not a symlink */
 
-        e = path_startswith(t, "/usr/share/zoneinfo/");
-        if (!e)
-                e = path_startswith(t, "../usr/share/zoneinfo/");
+        e = PATH_STARTSWITH_SET(t, "/usr/share/zoneinfo/", "../usr/share/zoneinfo/");
         if (!e)
                 return -EINVAL;
 
-        if (!timezone_is_valid(e))
+        if (!timezone_is_valid(e, LOG_DEBUG))
                 return -EINVAL;
 
         z = strdup(e);
@@ -1436,4 +1453,28 @@ bool in_utc_timezone(void) {
         tzset();
 
         return timezone == 0 && daylight == 0;
+}
+
+int time_change_fd(void) {
+
+        /* We only care for the cancellation event, hence we set the timeout to the latest possible value. */
+        static const struct itimerspec its = {
+                .it_value.tv_sec = TIME_T_MAX,
+        };
+
+        _cleanup_close_ int fd;
+
+        assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
+
+        /* Uses TFD_TIMER_CANCEL_ON_SET to get notifications whenever CLOCK_REALTIME makes a jump relative to
+         * CLOCK_MONOTONIC. */
+
+        fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        if (timerfd_settime(fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0)
+                return -errno;
+
+        return TAKE_FD(fd);
 }

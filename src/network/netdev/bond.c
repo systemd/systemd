@@ -1,10 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014  Tom Gundersen <teg@jklm.no>
-  Copyright 2014  Susant Sahani
-***/
 
 #include <netinet/ether.h>
 #include <linux/if_bonding.h>
@@ -13,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "ether-addr-util.h"
 #include "extract-word.h"
 #include "missing.h"
 #include "netdev/bond.h"
@@ -121,7 +116,7 @@ static const char *const bond_arp_all_targets_table[_NETDEV_BOND_ARP_ALL_TARGETS
 DEFINE_STRING_TABLE_LOOKUP(bond_arp_all_targets, BondArpAllTargets);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_arp_all_targets, bond_arp_all_targets, BondArpAllTargets, "Failed to parse bond Arp all targets");
 
-static const char *bond_primary_reselect_table[_NETDEV_BOND_PRIMARY_RESELECT_MAX] = {
+static const char *const bond_primary_reselect_table[_NETDEV_BOND_PRIMARY_RESELECT_MAX] = {
         [NETDEV_BOND_PRIMARY_RESELECT_ALWAYS] = "always",
         [NETDEV_BOND_PRIMARY_RESELECT_BETTER]= "better",
         [NETDEV_BOND_PRIMARY_RESELECT_FAILURE]= "failure",
@@ -182,22 +177,21 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         assert(b);
 
         if (b->mode != _NETDEV_BOND_MODE_INVALID) {
-                r = sd_netlink_message_append_u8(m, IFLA_BOND_MODE,
-                                              bond_mode_to_kernel(b->mode));
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_MODE, bond_mode_to_kernel(b->mode));
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_MODE attribute: %m");
         }
 
         if (b->xmit_hash_policy != _NETDEV_BOND_XMIT_HASH_POLICY_INVALID) {
                 r = sd_netlink_message_append_u8(m, IFLA_BOND_XMIT_HASH_POLICY,
-                                              bond_xmit_hash_policy_to_kernel(b->xmit_hash_policy));
+                                                 bond_xmit_hash_policy_to_kernel(b->xmit_hash_policy));
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_XMIT_HASH_POLICY attribute: %m");
         }
 
         if (b->lacp_rate != _NETDEV_BOND_LACP_RATE_INVALID &&
             b->mode == NETDEV_BOND_MODE_802_3AD) {
-                r = sd_netlink_message_append_u8(m, IFLA_BOND_AD_LACP_RATE, b->lacp_rate );
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_AD_LACP_RATE, b->lacp_rate);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_LACP_RATE attribute: %m");
         }
@@ -225,8 +219,8 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_INTERVAL attribute: %m");
 
-                if ((b->lp_interval >= LEARNING_PACKETS_INTERVAL_MIN_SEC) &&
-                    (b->lp_interval <= LEARNING_PACKETS_INTERVAL_MAX_SEC)) {
+                if (b->lp_interval >= LEARNING_PACKETS_INTERVAL_MIN_SEC &&
+                    b->lp_interval <= LEARNING_PACKETS_INTERVAL_MAX_SEC) {
                         r = sd_netlink_message_append_u32(m, IFLA_BOND_LP_INTERVAL, b->lp_interval / USEC_PER_SEC);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_LP_INTERVAL attribute: %m");
@@ -290,27 +284,48 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_MIN_LINKS attribute: %m");
         }
 
+        if (b->ad_actor_sys_prio != 0) {
+                r = sd_netlink_message_append_u16(m, IFLA_BOND_AD_ACTOR_SYS_PRIO, b->ad_actor_sys_prio);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_ACTOR_SYS_PRIO attribute: %m");
+        }
+
+        if (b->ad_user_port_key != 0) {
+                r = sd_netlink_message_append_u16(m, IFLA_BOND_AD_USER_PORT_KEY, b->ad_user_port_key);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_USER_PORT_KEY attribute: %m");
+        }
+
+        if (b->ad_actor_system) {
+                r = sd_netlink_message_append_ether_addr(m, IFLA_BOND_AD_ACTOR_SYSTEM, b->ad_actor_system);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_ACTOR_SYSTEM attribute: %m");
+        }
+
         r = sd_netlink_message_append_u8(m, IFLA_BOND_ALL_SLAVES_ACTIVE, b->all_slaves_active);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ALL_SLAVES_ACTIVE attribute: %m");
 
-        if (b->arp_interval > 0)  {
-                if (b->n_arp_ip_targets > 0) {
+        if (b->tlb_dynamic_lb >= 0) {
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_TLB_DYNAMIC_LB, b->tlb_dynamic_lb);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_TLB_DYNAMIC_LB attribute: %m");
+        }
 
-                        r = sd_netlink_message_open_container(m, IFLA_BOND_ARP_IP_TARGET);
+        if (b->arp_interval > 0 && b->n_arp_ip_targets > 0) {
+                r = sd_netlink_message_open_container(m, IFLA_BOND_ARP_IP_TARGET);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not open contaniner IFLA_BOND_ARP_IP_TARGET : %m");
+
+                LIST_FOREACH(arp_ip_target, target, b->arp_ip_targets) {
+                        r = sd_netlink_message_append_u32(m, i++, target->ip.in.s_addr);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not open contaniner IFLA_BOND_ARP_IP_TARGET : %m");
-
-                        LIST_FOREACH(arp_ip_target, target, b->arp_ip_targets) {
-                                r = sd_netlink_message_append_u32(m, i++, target->ip.in.s_addr);
-                                if (r < 0)
-                                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_ALL_TARGETS attribute: %m");
-                        }
-
-                        r = sd_netlink_message_close_container(m);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not close contaniner IFLA_BOND_ARP_IP_TARGET : %m");
+                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_ALL_TARGETS attribute: %m");
                 }
+
+                r = sd_netlink_message_close_container(m);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not close contaniner IFLA_BOND_ARP_IP_TARGET : %m");
         }
 
         return 0;
@@ -363,16 +378,123 @@ int config_parse_arp_ip_target_address(const char *unit,
                         return 0;
                 }
 
-                LIST_PREPEND(arp_ip_target, b->arp_ip_targets, buffer);
+                LIST_PREPEND(arp_ip_target, b->arp_ip_targets, TAKE_PTR(buffer));
                 b->n_arp_ip_targets++;
-
-                buffer = NULL;
         }
 
         if (b->n_arp_ip_targets > NETDEV_BOND_ARP_TARGETS_MAX)
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "More than the maximum number of kernel-supported ARP ip targets specified: %d > %d",
                            b->n_arp_ip_targets, NETDEV_BOND_ARP_TARGETS_MAX);
+
+        return 0;
+}
+
+int config_parse_ad_actor_sys_prio(const char *unit,
+                                   const char *filename,
+                                   unsigned line,
+                                   const char *section,
+                                   unsigned section_line,
+                                   const char *lvalue,
+                                   int ltype,
+                                   const char *rvalue,
+                                   void *data,
+                                   void *userdata) {
+        Bond *b = userdata;
+        uint16_t v;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = safe_atou16(rvalue, &v);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse actor system priority '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        if (v == 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse actor system priority '%s'. Range is [1,65535], ignoring.", rvalue);
+                return 0;
+        }
+
+        b->ad_actor_sys_prio = v;
+
+        return 0;
+}
+
+int config_parse_ad_user_port_key(const char *unit,
+                                  const char *filename,
+                                  unsigned line,
+                                  const char *section,
+                                  unsigned section_line,
+                                  const char *lvalue,
+                                  int ltype,
+                                  const char *rvalue,
+                                  void *data,
+                                  void *userdata) {
+        Bond *b = userdata;
+        uint16_t v;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = safe_atou16(rvalue, &v);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse user port key '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        if (v > 1023) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse user port key '%s'. Range is [0,1023], ignoring.", rvalue);
+                return 0;
+        }
+
+        b->ad_user_port_key = v;
+
+        return 0;
+}
+
+int config_parse_ad_actor_system(const char *unit,
+                                 const char *filename,
+                                 unsigned line,
+                                 const char *section,
+                                 unsigned section_line,
+                                 const char *lvalue,
+                                 int ltype,
+                                 const char *rvalue,
+                                 void *data,
+                                 void *userdata) {
+        Bond *b = userdata;
+        _cleanup_free_ struct ether_addr *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        n = new0(struct ether_addr, 1);
+        if (!n)
+                return log_oom();
+
+        r = ether_addr_from_string(rvalue, n);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Not a valid MAC address %s. Ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        if (ether_addr_is_null(n) || (n->ether_addr_octet[0] & 0x01)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address %s, can not be null or multicast. Ignoring assignment.", rvalue);
+                return 0;
+        }
+
+        free_and_replace(b->ad_actor_system, n);
 
         return 0;
 }
@@ -386,6 +508,8 @@ static void bond_done(NetDev *netdev) {
         b = BOND(netdev);
 
         assert(b);
+
+        free(b->ad_actor_system);
 
         LIST_FOREACH_SAFE(arp_ip_target, t, n, b->arp_ip_targets)
                 free(t);
@@ -412,6 +536,7 @@ static void bond_init(NetDev *netdev) {
         b->primary_reselect = _NETDEV_BOND_PRIMARY_RESELECT_INVALID;
 
         b->all_slaves_active = false;
+        b->tlb_dynamic_lb = -1;
 
         b->resend_igmp = RESEND_IGMP_DEFAULT;
         b->packets_per_slave = PACKETS_PER_SLAVE_DEFAULT;

@@ -1,29 +1,13 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.netdev" conditional='ENABLE_NETWORKD'>
 
   <refentryinfo>
     <title>systemd.network</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Tom</firstname>
-        <surname>Gundersen</surname>
-        <email>teg@jklm.no</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -113,6 +97,9 @@
           <row><entry><varname>gretap</varname></entry>
           <entry>A Level 2 GRE tunnel over IPv4.</entry></row>
 
+          <row><entry><varname>erspan</varname></entry>
+          <entry>ERSPAN mirrors traffic on one or more source ports and delivers the mirrored traffic to one or more destination ports on another switch. The traffic is encapsulated in generic routing encapsulation (GRE) and is therefore routable across a layer 3 network between the source switch and the destination switch.</entry></row>
+
           <row><entry><varname>ip6gre</varname></entry>
           <entry>A Level 3 GRE tunnel over IPv6.</entry></row>
 
@@ -161,6 +148,9 @@
           <row><entry><varname>geneve</varname></entry>
           <entry>A GEneric NEtwork Virtualization Encapsulation (GENEVE) netdev driver.</entry></row>
 
+          <row><entry><varname>l2tp</varname></entry>
+          <entry>A Layer 2 Tunneling Protocol (L2TP) is a tunneling protocol used to support virtual private networks (VPNs) or as part of the delivery of services by ISPs. It does not provide any encryption or confidentiality by itself</entry></row>
+
           <row><entry><varname>vrf</varname></entry>
           <entry>A Virtual Routing and Forwarding (<ulink url="https://www.kernel.org/doc/Documentation/networking/vrf.txt">VRF</ulink>) interface to create separate routing and forwarding domains.</entry></row>
 
@@ -173,6 +163,12 @@
 
           <row><entry><varname>wireguard</varname></entry>
           <entry>WireGuard Secure Network Tunnel.</entry></row>
+
+          <row><entry><varname>netdevsim</varname></entry>
+          <entry> A simulator. This simulated networking device is used for testing various networking APIs and at this time is particularly focused on testing hardware offloading related interfaces.</entry></row>
+
+          <row><entry><varname>fou</varname></entry>
+          <entry>Foo-over-UDP tunneling.</entry></row>
 
         </tbody>
       </tgroup>
@@ -192,53 +188,55 @@
       <varlistentry>
         <term><varname>Host=</varname></term>
         <listitem>
-          <para>Matches against the hostname or machine ID of the
-          host. See <literal>ConditionHost=</literal> in
+          <para>Matches against the hostname or machine ID of the host. See
+          <literal>ConditionHost=</literal> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details.
+          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+          If an empty string is assigned, then previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Virtualization=</varname></term>
         <listitem>
-          <para>Checks whether the system is executed in a virtualized
-          environment and optionally test whether it is a specific
-          implementation. See
-          <literal>ConditionVirtualization=</literal> in
+          <para>Checks whether the system is executed in a virtualized environment and optionally test
+          whether it is a specific implementation. See <literal>ConditionVirtualization=</literal> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details.
+          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+          If an empty string is assigned, then previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>KernelCommandLine=</varname></term>
         <listitem>
-          <para>Checks whether a specific kernel command line option
-          is set (or if prefixed with the exclamation mark unset). See
+          <para>Checks whether a specific kernel command line option is set. See
           <literal>ConditionKernelCommandLine=</literal> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details.
+          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+          If an empty string is assigned, then previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>KernelVersion=</varname></term>
         <listitem>
-          <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a certain
-          expression (or if prefixed with the exclamation mark does not match it). See
-          <literal>ConditionKernelVersion=</literal> in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details.
+          <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a
+          certain expression. See <literal>ConditionKernelVersion=</literal> in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+          If an empty string is assigned, then previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Architecture=</varname></term>
         <listitem>
-          <para>Checks whether the system is running on a specific
-          architecture. See <literal>ConditionArchitecture=</literal> in
+          <para>Checks whether the system is running on a specific architecture. See
+          <literal>ConditionArchitecture=</literal> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details.
+          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+          If an empty string is assigned, then previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
@@ -277,23 +275,26 @@
         <varlistentry>
           <term><varname>MTUBytes=</varname></term>
           <listitem>
-            <para>The maximum transmission unit in bytes to set for
-            the device. The usual suffixes K, M, G, are supported and
-            are understood to the base of 1024. This key is not
-            currently supported for <literal>tun</literal> or
-            <literal>tap</literal> devices.
-            </para>
+            <para>The maximum transmission unit in bytes to set for the device. The usual suffixes K, M, G,
+            are supported and are understood to the base of 1024. For <literal>tun</literal> or
+            <literal>tap</literal> devices, <varname>MTUBytes=</varname> setting is not currently supported in
+            <literal>[NetDev]</literal> section. Please specify it in <literal>[Link]</literal> section of
+            corresponding
+            <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            files.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>MACAddress=</varname></term>
           <listitem>
-            <para>The MAC address to use for the device. If none is
-            given, one is generated based on the interface name and
-            the
+            <para>The MAC address to use for the device. For <literal>tun</literal> or <literal>tap</literal>
+            devices, setting <varname>MACAddress=</varname> in the <literal>[NetDev]</literal> section is not
+            supported. Please specify it in <literal>[Link]</literal> section of the corresponding
+            <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            file. If this option is not set, <literal>vlan</literal> devices inherit the MAC address of the
+            physical interface. For other kind of netdevs, if this option is not set, then MAC address is
+            generated based on the interface name and the
             <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This key is not currently supported for
-            <literal>tun</literal> or <literal>tap</literal> devices.
             </para>
           </listitem>
         </varlistentry>
@@ -367,37 +368,36 @@
         <varlistentry>
           <term><varname>MulticastQuerier=</varname></term>
           <listitem>
-            <para>A boolean. This setting controls the IFLA_BR_MCAST_QUERIER option in the kernel.
+            <para>Takes a boolean. This setting controls the IFLA_BR_MCAST_QUERIER option in the kernel.
             If enabled, the kernel will send general ICMP queries from a zero source address.
             This feature should allow faster convergence on startup, but it causes some
             multicast-aware switches to misbehave and disrupt forwarding of multicast packets.
-            When unset, the kernel's default setting applies.
+            When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>MulticastSnooping=</varname></term>
           <listitem>
-            <para>A boolean. This setting controls the IFLA_BR_MCAST_SNOOPING option in the kernel.
+            <para>Takes a boolean. This setting controls the IFLA_BR_MCAST_SNOOPING option in the kernel.
             If enabled, IGMP snooping monitors the Internet Group Management Protocol (IGMP) traffic
-            between hosts and multicast routers. When unset, the kernel's default setting applies.
+            between hosts and multicast routers. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>VLANFiltering=</varname></term>
           <listitem>
-            <para>A boolean. This setting controls the IFLA_BR_VLAN_FILTERING option in the kernel.
-            If enabled, the bridge will be started in VLAN-filtering mode. When unset, the kernel's
-            default setting applies.
+            <para>Takes a boolean. This setting controls the IFLA_BR_VLAN_FILTERING option in the kernel.
+            If enabled, the bridge will be started in VLAN-filtering mode. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
           <varlistentry>
           <term><varname>STP=</varname></term>
           <listitem>
-            <para>A boolean. This enables the bridge's Spanning Tree Protocol (STP). When unset,
-            the kernel's default setting applies.
+            <para>Takes a boolean. This enables the bridge's Spanning Tree Protocol (STP).
+            When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
@@ -422,34 +422,35 @@
         <varlistentry>
           <term><varname>GVRP=</varname></term>
           <listitem>
-            <para>The Generic VLAN Registration Protocol (GVRP) is a protocol that
-            allows automatic learning of VLANs on a network. A boolean. When unset,
-            the kernel's default setting applies.</para>
+            <para>Takes a boolean. The Generic VLAN Registration Protocol (GVRP) is a protocol that
+            allows automatic learning of VLANs on a network.
+            When unset, the kernel's default will be used.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>MVRP=</varname></term>
           <listitem>
-            <para>Multiple VLAN Registration Protocol (MVRP) formerly known as GARP VLAN
+            <para>Takes a boolean. Multiple VLAN Registration Protocol (MVRP) formerly known as GARP VLAN
             Registration Protocol (GVRP) is a standards-based Layer 2 network protocol,
             for automatic configuration of VLAN information on switches. It was defined
-            in the 802.1ak amendment to 802.1Q-2005. A boolean. When unset, the kernel's
-            default setting applies.</para>
+            in the 802.1ak amendment to 802.1Q-2005. When unset, the kernel's default will be used.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>LooseBinding=</varname></term>
           <listitem>
-            <para>The VLAN loose binding mode, in which only the operational state is passed
+            <para>Takes a boolean. The VLAN loose binding mode, in which only the operational state is passed
             from the parent to the associated VLANs, but the VLAN device state is not changed.
-            A boolean. When unset, the kernel's default setting applies.</para>
+            When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>ReorderHeader=</varname></term>
           <listitem>
-            <para>The VLAN reorder header is set VLAN interfaces behave like physical interfaces.
-            A boolean. When unset, the kernel's default setting applies.</para>
+            <para>Takes a boolean. The VLAN reorder header is set VLAN interfaces behave like physical interfaces.
+            When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -558,7 +559,7 @@
       <varlistentry>
         <term><varname>MacLearning=</varname></term>
         <listitem>
-          <para>A boolean. When true, enables dynamic MAC learning
+          <para>Takes a boolean. When true, enables dynamic MAC learning
           to discover remote MAC addresses.</para>
         </listitem>
       </varlistentry>
@@ -578,7 +579,7 @@
       <varlistentry>
         <term><varname>ReduceARPProxy=</varname></term>
         <listitem>
-          <para>A boolean. When true, bridge-connected VXLAN tunnel
+          <para>Takes a boolean. When true, bridge-connected VXLAN tunnel
           endpoint answers ARP requests from the local bridge on behalf
           of remote Distributed Overlay Virtual Ethernet
           <ulink url="https://en.wikipedia.org/wiki/Distributed_Overlay_Virtual_Ethernet">
@@ -588,58 +589,58 @@
       <varlistentry>
         <term><varname>L2MissNotification=</varname></term>
         <listitem>
-          <para>A boolean. When true, enables netlink LLADDR miss
+          <para>Takes a boolean. When true, enables netlink LLADDR miss
           notifications.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>L3MissNotification=</varname></term>
         <listitem>
-          <para>A boolean. When true, enables netlink IP address miss
+          <para>Takes a boolean. When true, enables netlink IP address miss
           notifications.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>RouteShortCircuit=</varname></term>
         <listitem>
-          <para>A boolean. When true, route short circuiting is turned
+          <para>Takes a boolean. When true, route short circuiting is turned
           on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDPChecksum=</varname></term>
         <listitem>
-          <para>A boolean. When true, transmitting UDP checksums when doing VXLAN/IPv4 is turned on.</para>
+          <para>Takes a boolean. When true, transmitting UDP checksums when doing VXLAN/IPv4 is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumTx=</varname></term>
         <listitem>
-          <para>A boolean. When true, sending zero checksums in VXLAN/IPv6 is turned on.</para>
+          <para>Takes a boolean. When true, sending zero checksums in VXLAN/IPv6 is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumRx=</varname></term>
         <listitem>
-          <para>A boolean. When true, receiving zero checksums in VXLAN/IPv6 is turned on.</para>
+          <para>Takes a boolean. When true, receiving zero checksums in VXLAN/IPv6 is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>RemoteChecksumTx=</varname></term>
         <listitem>
-          <para>A boolean. When true, remote transmit checksum offload of VXLAN is turned on.</para>
+          <para>Takes a boolean. When true, remote transmit checksum offload of VXLAN is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>RemoteChecksumRx=</varname></term>
         <listitem>
-          <para>A boolean. When true, remote receive checksum offload in VXLAN is turned on.</para>
+          <para>Takes a boolean. When true, remote receive checksum offload in VXLAN is turned on.</para>
         </listitem>
       </varlistentry>
     <varlistentry>
       <term><varname>GroupPolicyExtension=</varname></term>
       <listitem>
-        <para>A boolean. When true, it enables Group Policy VXLAN extension security label mechanism
+        <para>Takes a boolean. When true, it enables Group Policy VXLAN extension security label mechanism
         across network peers based on VXLAN. For details about the Group Policy VXLAN, see the
         <ulink url="https://tools.ietf.org/html/draft-smith-vxlan-group-policy">
         VXLAN Group Policy </ulink> document. Defaults to false.</para>
@@ -708,19 +709,19 @@
       <varlistentry>
         <term><varname>UDPChecksum=</varname></term>
         <listitem>
-          <para>A boolean. When true, specifies if UDP checksum is calculated for transmitted packets over IPv4.</para>
+          <para>Takes a boolean. When true, specifies if UDP checksum is calculated for transmitted packets over IPv4.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumTx=</varname></term>
         <listitem>
-          <para>A boolean. When true, skip UDP checksum calculation for transmitted packets over IPv6.</para>
+          <para>Takes a boolean. When true, skip UDP checksum calculation for transmitted packets over IPv6.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumRx=</varname></term>
         <listitem>
-          <para>A boolean. When true, allows incoming UDP packets over IPv6 with zero checksum field.</para>
+          <para>Takes a boolean. When true, allows incoming UDP packets over IPv6 with zero checksum field.</para>
         </listitem>
       </varlistentry>
     <varlistentry>
@@ -739,6 +740,118 @@
     </variablelist>
   </refsect1>
   <refsect1>
+    <title>[L2TP] Section Options</title>
+    <para>The <literal>[L2TP]</literal> section only applies for
+    netdevs of kind <literal>l2tp</literal>, and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>TunnelId=</varname></term>
+        <listitem>
+          <para>Specifies the tunnel id. The value used must match the <literal>PeerTunnelId=</literal> value being used at the peer.
+          Ranges a number between 1 and 4294967295). This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PeerTunnelId=</varname></term>
+        <listitem>
+          <para>Specifies the peer tunnel id. The value used must match the <literal>PeerTunnelId=</literal> value being used at the peer.
+          Ranges a number between 1 and 4294967295). This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Remote=</varname></term>
+        <listitem>
+          <para>Specifies the IP address of the remote peer. This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Local=</varname></term>
+        <listitem>
+          <para>Specifies the IP address of the local interface. Takes an IP address, or the special values
+          <literal>auto</literal>, <literal>static</literal>, or <literal>dynamic</literal>. When an address
+          is set, then the local interface must have the address. If <literal>auto</literal>, then one of the
+          addresses on the local interface is used. Similarly, if <literal>static</literal> or
+          <literal>dynamic</literal> is set, then one of the static or dynamic addresses on the local
+          interface is used. Defaults to <literal>auto</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>EncapsulationType=</varname></term>
+        <listitem>
+          <para>Specifies the encapsulation type of the tunnel. Takes one of <literal>udp</literal> or <literal>ip</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDPSourcePort=</varname></term>
+        <listitem>
+          <para>Specifies the UDP source port to be used for the tunnel. When UDP encapsulation is selected it's mandotory. Ignored when ip
+          encapsulation is selected.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>DestinationPort=</varname></term>
+        <listitem>
+          <para>Specifies destination port. When UDP encapsulation is selected it's mandotory. Ignored when ip
+          encapsulation is selected.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDPChecksum=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, specifies if UDP checksum is calculated for transmitted packets over IPv4.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDP6ZeroChecksumTx=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, skip UDP checksum calculation for transmitted packets over IPv6.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDP6ZeroChecksumRx=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, allows incoming UDP packets over IPv6 with zero checksum field.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1>
+    <title>[L2TPSession] Section Options</title>
+    <para>The <literal>[L2TPSession]</literal> section only applies for
+    netdevs of kind <literal>l2tp</literal>, and accepts the
+    following keys:</para>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Name=</varname></term>
+        <listitem>
+          <para>Specifies the name of the sesssion. This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>SessionId=</varname></term>
+        <listitem>
+          <para>Specifies the sesssion id. The value used must match the <literal>SessionId=</literal> value being used at the peer.
+          Ranges a number between 1 and 4294967295). This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PeerSessionId=</varname></term>
+        <listitem>
+          <para>Specifies the peer session id. The value used must match the <literal>PeerSessionId=</literal> value being used at the peer.
+          Ranges a number between 1 and 4294967295). This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Layer2SpecificHeader=</varname></term>
+        <listitem>
+          <para>Specifies layer2specific header type of the session. One of <literal>none</literal> or <literal>default</literal>. Defaults to <literal>default</literal>.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1>
     <title>[Tunnel] Section Options</title>
 
     <para>The <literal>[Tunnel]</literal> section only applies for
@@ -750,22 +863,24 @@
     <literal>ip6gre</literal>,
     <literal>ip6gretap</literal>,
     <literal>vti</literal>,
-    <literal>vti6</literal>, and
-    <literal>ip6tnl</literal> and accepts
+    <literal>vti6</literal>,
+    <literal>ip6tnl</literal>, and
+    <literal>erspan</literal> and accepts
     the following keys:</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
         <term><varname>Local=</varname></term>
         <listitem>
-          <para>A static local address for tunneled packets. It must
-          be an address on another interface of this host.</para>
+          <para>A static local address for tunneled packets. It must be an address on another interface of
+          this host, or the special value <literal>any</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Remote=</varname></term>
         <listitem>
-          <para>The remote endpoint of the tunnel.</para>
+          <para>The remote endpoint of the tunnel. Takes an IP address or the special value
+          <literal>any</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -791,7 +906,7 @@
       <varlistentry>
         <term><varname>DiscoverPathMTU=</varname></term>
         <listitem>
-          <para>A boolean. When true, enables Path MTU Discovery on
+          <para>Takes a boolean. When true, enables Path MTU Discovery on
           the tunnel.</para>
         </listitem>
       </varlistentry>
@@ -811,7 +926,7 @@
       <varlistentry>
         <term><varname>CopyDSCP=</varname></term>
         <listitem>
-          <para>A boolean. When true, the Differentiated Service Code
+          <para>Takes a boolean. When true, the Differentiated Service Code
           Point (DSCP) field will be copied to the inner header from
           outer header during the decapsulation of an IPv6 tunnel
           packet. DSCP is a field in an IP packet that enables different
@@ -842,22 +957,24 @@
           It is used as mark-configured SAD/SPD entry as part of the lookup key (both in data
           and control path) in ip xfrm (framework used to implement IPsec protocol).
           See <ulink url="http://man7.org/linux/man-pages/man8/ip-xfrm.8.html">
-          ip-xfrm — transform configuration</ulink> for details. It is only used for VTI/VTI6
-          tunnels.</para>
+          ip-xfrm — transform configuration</ulink> for details. It is only used for VTI/VTI6,
+          GRE, GRETAP, and ERSPAN tunnels.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>InputKey=</varname></term>
         <listitem>
           <para>The <varname>InputKey=</varname> parameter specifies the key to use for input.
-          The format is same as <varname>Key=</varname>. It is only used for VTI/VTI6 tunnels.</para>
+          The format is same as <varname>Key=</varname>. It is only used for VTI/VTI6, GRE, GRETAP,
+          and ERSPAN tunnels.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>OutputKey=</varname></term>
         <listitem>
           <para>The <varname>OutputKey=</varname> parameter specifies the key to use for output.
-          The format is same as <varname>Key=</varname>. It is only used for VTI/VTI6 tunnels.</para>
+          The format is same as <varname>Key=</varname>. It is only used for VTI/VTI6, GRE, GRETAP,
+          and ERSPAN tunnels.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -874,7 +991,7 @@
       <varlistentry>
         <term><varname>Independent=</varname></term>
         <listitem>
-          <para>A boolean. When true tunnel does not require .network file. Created as "tunnel@NONE".
+          <para>Takes a boolean. When true tunnel does not require .network file. Created as "tunnel@NONE".
           Defaults to <literal>false</literal>.
           </para>
         </listitem>
@@ -882,9 +999,112 @@
       <varlistentry>
         <term><varname>AllowLocalRemote=</varname></term>
         <listitem>
-          <para>A boolean. When true allows tunnel traffic on <varname>ip6tnl</varname> devices where the remote endpoint is a local host address.
-          Defaults to unset.
+          <para>Takes a boolean. When true allows tunnel traffic on <varname>ip6tnl</varname> devices where the remote endpoint is a local host address.
+          When unset, the kernel's default will be used.
           </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>FooOverUDP=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Specifies whether <varname>FooOverUDP=</varname> tunnel is to be configured.
+          Defaults to false. This takes effects only for IPIP, SIT, GRE, and GRETAP tunnels.
+          For more detail information see
+          <ulink url="https://lwn.net/Articles/614348">Foo over UDP</ulink></para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>FOUDestinationPort=</varname></term>
+        <listitem>
+          <para>This setting specifies the UDP destination port for encapsulation.
+          This field is mandatory when <varname>FooOverUDP=yes</varname>, and is not set by default.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>FOUSourcePort=</varname></term>
+        <listitem>
+          <para>This setting specifies the UDP source port for encapsulation. Defaults to <constant>0</constant>
+          — that is, the source port for packets is left to the network stack to decide.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Encapsulation=</varname></term>
+        <listitem>
+          <para>Accepts the same key as in the <literal>[FooOverUDP]</literal> section.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>IPv6RapidDeploymentPrefix=</varname></term>
+        <listitem>
+          <para>Reconfigure the tunnel for <ulink url="https://tools.ietf.org/html/rfc5569">IPv6 Rapid
+          Deployment</ulink>, also known as 6rd. The value is an ISP-specific IPv6 prefix with a non-zero length. Only
+          applicable to SIT tunnels.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ISATAP=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set, configures the tunnel as Intra-Site Automatic Tunnel Addressing Protocol (ISATAP) tunnel.
+          Only applicable to SIT tunnels. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>SerializeTunneledPackets=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to yes, then packets are serialized. Only applies for GRE,
+          GRETAP, and ERSPAN tunnels. When unset, the kernel's default will be used.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ERSPANIndex=</varname></term>
+        <listitem>
+          <para>Specifies the ERSPAN index field for the interface, an integer in the range 1-1048575 associated with
+          the ERSPAN traffic's source port and direction. This field is mandatory.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[FooOverUDP] Section Options</title>
+
+    <para>The <literal>[FooOverUDP]</literal> section only applies for
+    netdevs of kind <literal>fou</literal> and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Encapsulation=</varname></term>
+        <listitem>
+          <para>Specifies the encapsulation mechanism used to store networking packets of various protocols inside the UDP packets. Supports the following values:
+
+          <literal>FooOverUDP</literal> provides the simplest no frills model of UDP encapsulation, it simply encapsulates
+          packets directly in the UDP payload.
+          <literal>GenericUDPEncapsulation</literal> is a generic and extensible encapsulation, it allows encapsulation of packets for any IP
+          protocol and optional data as part of the encapsulation.
+          For more detailed information see <ulink url="https://lwn.net/Articles/615044">Generic UDP Encapsulation</ulink>.
+          Defaults to <literal>FooOverUDP</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Port=</varname></term>
+        <listitem>
+          <para>Specifies the port number, where the IP encapsulation packets will arrive. Please take note that the packets
+          will arrive with the encapsulation will be removed. Then they will be manually fed back into the network stack, and sent ahead
+          for delivery to the real destination. This option is mandatory.</para>
+        </listitem>
+        </varlistentry>
+      <varlistentry>
+        <term><varname>Protocol=</varname></term>
+        <listitem>
+          <para>The <varname>Protocol=</varname> specifies the protocol number of the packets arriving
+          at the UDP port. When <varname>Encapsulation=FooOverUDP</varname>, this field is mandatory
+          and is not set by default. Takes an IP protocol name such as <literal>gre</literal> or
+          <literal>ipip</literal>, or an integer within the range 1-255. When
+          <varname>Encapsulation=GenericUDPEncapsulation</varname>, this must not be specified.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -940,7 +1160,7 @@
     <variablelist class='network-directives'>
       <varlistentry>
         <term><varname>OneQueue=</varname></term>
-        <listitem><para>Takes a boolean argument. Configures whether
+        <listitem><para>Takes a boolean. Configures whether
         all packets are queued at the device (enabled), or a fixed
         number of packets are queued at the device and the rest at the
         <literal>qdisc</literal>. Defaults to
@@ -949,7 +1169,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>MultiQueue=</varname></term>
-        <listitem><para>Takes a boolean argument. Configures whether
+        <listitem><para>Takes a boolean. Configures whether
         to use multiple file descriptors (queues) to parallelize
         packets sending and receiving. Defaults to
         <literal>no</literal>.</para>
@@ -957,7 +1177,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>PacketInfo=</varname></term>
-        <listitem><para>Takes a boolean argument. Configures whether
+        <listitem><para>Takes a boolean. Configures whether
         packets should be prepended with four extra bytes (two flag
         bytes and two protocol bytes). If disabled, it indicates that
         the packets will be pure IP packets. Defaults to
@@ -966,7 +1186,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>VNetHeader=</varname></term>
-        <listitem><para>Takes a boolean argument. Configures
+        <listitem><para>Takes a boolean. Configures
         IFF_VNET_HDR flag for a tap device. It allows sending
         and receiving larger Generic Segmentation Offload (GSO)
         packets. This may increase throughput significantly.
@@ -1012,10 +1232,22 @@
           <para>The Base64 encoded private key for the interface. It can be
             generated using the <command>wg genkey</command> command
             (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
-            This option is mandatory to use WireGuard.
+            This option or <varname>PrivateKeyFile=</varname> is mandatory to use WireGuard.
             Note that because this information is secret, you may want to set
-            the permissions of the .netdev file to be owned by <literal>root:systemd-networkd</literal>
+            the permissions of the .netdev file to be owned by <literal>root:systemd-network</literal>
             with a <literal>0640</literal> file mode.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PrivateKeyFile=</varname></term>
+        <listitem>
+          <para>Takes a absolute path to a file which contains the Base64 encoded private key for the interface.
+          If both <varname>PrivateKey=</varname> and <varname>PrivateKeyFile=</varname> are specified, and if
+          the file specified in <varname>PrivateKeyFile=</varname> contains valid wireguard key, then
+          the key provided by <varname>PrivateKey=</varname> is ignored.
+          Note that the file must be readable by the user <literal>systemd-network</literal>, so it
+          should be, e.g., owned by <literal>root:systemd-network</literal> with a
+          <literal>0640</literal> file mode.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1205,6 +1437,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>AdActorSystemPriority=</varname></term>
+        <listitem>
+          <para>Specifies the 802.3ad actor system priority. Ranges [1-65535].</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AdUserPortKey=</varname></term>
+        <listitem>
+          <para>Specifies the 802.3ad user defined portion of the port key. Ranges [0-1023].</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AdActorSystem=</varname></term>
+        <listitem>
+          <para>Specifies the 802.3ad system mac address. This can not be either NULL or Multicast.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>FailOverMACPolicy=</varname></term>
         <listitem>
           <para>Specifies whether the active-backup mode should set all slaves to
@@ -1326,12 +1579,21 @@
       <varlistentry>
         <term><varname>AllSlavesActive=</varname></term>
         <listitem>
-          <para>A boolean. Specifies that duplicate frames (received on inactive ports)
+          <para>Takes a boolean. Specifies that duplicate frames (received on inactive ports)
           should be dropped when false, or delivered when true. Normally, bonding will drop
           duplicate frames (received on inactive ports), which is desirable for
           most users. But there are some times it is nice to allow duplicate
           frames to be delivered. The default value is false (drop duplicate frames
           received on inactive ports).
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DynamicTransmitLoadBalancing=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Specifies if dynamic shuffling of flows is enabled. Applies only
+          for balance-tlb mode. Defaults to unset.
           </para>
         </listitem>
       </varlistentry>
@@ -1353,7 +1615,7 @@
   </refsect1>
 
   <refsect1>
-    <title>Example</title>
+    <title>Examples</title>
     <example>
       <title>/etc/systemd/network/25-bridge.netdev</title>
 
@@ -1388,14 +1650,39 @@ Remote=192.169.224.239
 TTL=64</programlisting>
     </example>
     <example>
+      <title>/etc/systemd/network/1-fou-tunnel.netdev</title>
+      <programlisting>[NetDev]
+Name=fou-tun
+Kind=fou
+
+[FooOverUDP]
+Port=5555
+Protocol=4
+      </programlisting>
+    </example>
+    <example>
+      <title>/etc/systemd/network/25-fou-ipip.netdev</title>
+      <programlisting>[NetDev]
+Name=ipip-tun
+Kind=ipip
+
+[Tunnel]
+Independent=yes
+Local=10.65.208.212
+Remote=10.65.208.211
+FooOverUDP=yes
+FOUDestinationPort=5555
+      </programlisting>
+    </example>
+    <example>
       <title>/etc/systemd/network/25-tap.netdev</title>
       <programlisting>[NetDev]
 Name=tap-test
 Kind=tap
 
 [Tap]
-MultiQueue=true
-PacketInfo=true</programlisting> </example>
+MultiQueue=yes
+PacketInfo=yes</programlisting> </example>
 
     <example>
       <title>/etc/systemd/network/25-sit.netdev</title>
@@ -1407,6 +1694,18 @@ MTUBytes=1480
 [Tunnel]
 Local=10.65.223.238
 Remote=10.65.223.239</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/systemd/network/25-6rd.netdev</title>
+      <programlisting>[NetDev]
+Name=6rd-tun
+Kind=sit
+MTUBytes=1480
+
+[Tunnel]
+Local=10.65.223.238
+IPv6RapidDeploymentPrefix=2602::/24</programlisting>
     </example>
 
     <example>

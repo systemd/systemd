@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2017 Lennart Poettering
-***/
 
 #include <pthread.h>
 
@@ -13,7 +8,6 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -21,6 +15,8 @@
 #include "rm-rf.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
+#include "tests.h"
 
 static int method_foobar(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Got Foobar() call.");
@@ -45,10 +41,9 @@ static const sd_bus_vtable vtable[] = {
 static void* thread_server(void *p) {
         _cleanup_free_ char *suffixed = NULL, *suffixed2 = NULL, *d = NULL;
         _cleanup_close_ int fd = -1;
-        union sockaddr_union u = {
-                .un.sun_family = AF_UNIX,
-        };
+        union sockaddr_union u = {};
         const char *path = p;
+        int salen;
 
         log_debug("Initializing server");
 
@@ -71,12 +66,13 @@ static void* thread_server(void *p) {
         assert_se(symlink(basename(suffixed), suffixed2) >= 0);
         (void) usleep(100 * USEC_PER_MSEC);
 
-        strncpy(u.un.sun_path, path, sizeof(u.un.sun_path));
+        salen = sockaddr_un_set_path(&u.un, path);
+        assert_se(salen >= 0);
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         assert_se(fd >= 0);
 
-        assert_se(bind(fd, &u.sa, SOCKADDR_UN_LEN(u.un)) >= 0);
+        assert_se(bind(fd, &u.sa, salen) >= 0);
         usleep(100 * USEC_PER_MSEC);
 
         assert_se(listen(fd, SOMAXCONN) >= 0);
@@ -203,7 +199,7 @@ int main(int argc, char *argv[]) {
         pthread_t server, client1, client2;
         char *path;
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         /* We use /dev/shm here rather than /tmp, since some weird distros might set up /tmp as some weird fs that
          * doesn't support inotify properly. */

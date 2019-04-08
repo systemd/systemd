@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
-
 typedef struct DnsQuestion DnsQuestion;
 
 #include "macro.h"
@@ -28,6 +22,7 @@ int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bo
 int dns_question_new_reverse(DnsQuestion **ret, int family, const union in_addr_union *a);
 int dns_question_new_service(DnsQuestion **ret, const char *service, const char *type, const char *domain, bool with_txt, bool convert_idna);
 
+int dns_question_add_raw(DnsQuestion *q, DnsResourceKey *key);
 int dns_question_add(DnsQuestion *q, DnsResourceKey *key);
 
 int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain);

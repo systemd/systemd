@@ -3,7 +3,6 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2018 Yu Watanabe
 #
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
@@ -26,8 +25,8 @@ __contains_word () {
 }
 
 __get_interfaces(){
-        { cd /sys/class/net && echo *; } | \
-        while read -d' ' -r name; do
+        local name
+        for name in $(cd /sys/class/net && ls); do
                 [[ "$name" != "lo" ]] && echo "$name"
         done
 }
@@ -48,12 +47,14 @@ _resolvectl() {
                      [LINK]='revert dns domain nta'
                   [RESOLVE]='llmnr mdns'
                    [DNSSEC]='dnssec'
+               [DNSOVERTLS]='dnsovertls'
                [STANDALONE]='statistics reset-statistics flush-caches reset-server-features'
         )
         local -A ARGS=(
                    [FAMILY]='tcp udp sctp'
                   [RESOLVE]='yes no resolve'
                    [DNSSEC]='yes no allow-downgrade'
+               [DNSOVERTLS]='no opportunistic'
         )
         local interfaces=$( __get_interfaces )
 
@@ -109,7 +110,7 @@ _resolvectl() {
                         comps=""
                 fi
 
-        elif __contains_word "$verb" ${VERBS[LINK]} ${VERBS[RESOLVE]} ${VERBS[DNSSEC]}; then
+        elif __contains_word "$verb" ${VERBS[LINK]} ${VERBS[RESOLVE]} ${VERBS[DNSSEC]} ${VERBS[DNSOVERTLS]}; then
                 for ((i++; i < COMP_CWORD; i++)); do
                         if __contains_word "${COMP_WORDS[i]}" $interfaces &&
                          ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
@@ -149,6 +150,22 @@ _resolvectl() {
 
                         if [[ -z $name ]]; then
                                 comps=${ARGS[DNSSEC]}
+                        else
+                                comps=''
+                        fi
+
+                elif __contains_word "$verb" ${VERBS[DNSOVERTLS]}; then
+                        name=
+                        for ((i++; i < COMP_CWORD; i++)); do
+                                if __contains_word "${COMP_WORDS[i]}" ${ARGS[DNSOVERTLS]} &&
+                                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                                        name=${COMP_WORDS[i]}
+                                        break;
+                                fi
+                        done
+
+                        if [[ -z $name ]]; then
+                                comps=${ARGS[DNSOVERTLS]}
                         else
                                 comps=''
                         fi

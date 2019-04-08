@@ -6,7 +6,6 @@ TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/2730"
 TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
-SKIP_INITRD=yes
 QEMU_TIMEOUT=180
 FSTYPE=ext4
 
@@ -26,7 +25,6 @@ test_setup() {
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
 [Unit]
 Description=Testsuite service
-After=multi-user.target
 
 [Service]
 ExecStart=/bin/sh -x -c 'mount -o remount,rw /dev/sda1 && echo OK > /testok; systemctl poweroff'

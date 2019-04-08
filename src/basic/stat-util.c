@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010-2012 Lennart Poettering
-***/
 
 #include <dirent.h>
 #include <errno.h>
@@ -15,11 +10,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 
@@ -50,6 +47,15 @@ int is_dir(const char* path, bool follow) {
         return !!S_ISDIR(st.st_mode);
 }
 
+int is_dir_fd(int fd) {
+        struct stat st;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        return !!S_ISDIR(st.st_mode);
+}
+
 int is_device_node(const char *path) {
         struct stat info;
 
@@ -61,13 +67,22 @@ int is_device_node(const char *path) {
         return !!(S_ISBLK(info.st_mode) || S_ISCHR(info.st_mode));
 }
 
-int dir_is_empty(const char *path) {
-        _cleanup_closedir_ DIR *d;
+int dir_is_empty_at(int dir_fd, const char *path) {
+        _cleanup_close_ int fd = -1;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
 
-        d = opendir(path);
+        if (path)
+                fd = openat(dir_fd, path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        else
+                fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (fd < 0)
+                return -errno;
+
+        d = fdopendir(fd);
         if (!d)
                 return -errno;
+        fd = -1;
 
         FOREACH_DIRENT(de, d, return -errno)
                 return 0;
@@ -130,32 +145,6 @@ int path_is_read_only_fs(const char *path) {
                 return true;
 
         return false;
-}
-
-int path_is_os_tree(const char *path) {
-        int r;
-
-        assert(path);
-
-        /* Does the path exist at all? If not, generate an error immediately. This is useful so that a missing root dir
-         * always results in -ENOENT, and we can properly distuingish the case where the whole root doesn't exist from
-         * the case where just the os-release file is missing. */
-        if (laccess(path, F_OK) < 0)
-                return -errno;
-
-        /* We use /usr/lib/os-release as flag file if something is an OS */
-        r = chase_symlinks("/usr/lib/os-release", path, CHASE_PREFIX_ROOT, NULL);
-        if (r == -ENOENT) {
-
-                /* Also check for the old location in /etc, just in case. */
-                r = chase_symlinks("/etc/os-release", path, CHASE_PREFIX_ROOT, NULL);
-                if (r == -ENOENT)
-                        return 0; /* We got nothing */
-        }
-        if (r < 0)
-                return r;
-
-        return 1;
 }
 
 int files_same(const char *filea, const char *fileb, int flags) {
@@ -234,20 +223,6 @@ int fd_is_network_fs(int fd) {
         return is_network_fs(&s);
 }
 
-int fd_is_network_ns(int fd) {
-        int r;
-
-        r = fd_is_fs_type(fd, NSFS_MAGIC);
-        if (r <= 0)
-                return r;
-
-        r = ioctl(fd, NS_GET_NSTYPE);
-        if (r < 0)
-                return -errno;
-
-        return r == CLONE_NEWNET;
-}
-
 int path_is_temporary_fs(const char *path) {
         _cleanup_close_ int fd = -1;
 
@@ -285,4 +260,122 @@ int fd_verify_regular(int fd) {
                 return -errno;
 
         return stat_verify_regular(&st);
+}
+
+int stat_verify_directory(const struct stat *st) {
+        assert(st);
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
+
+        if (!S_ISDIR(st->st_mode))
+                return -ENOTDIR;
+
+        return 0;
+}
+
+int fd_verify_directory(int fd) {
+        struct stat st;
+
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        return stat_verify_directory(&st);
+}
+
+int device_path_make_major_minor(mode_t mode, dev_t devno, char **ret) {
+        const char *t;
+
+        /* Generates the /dev/{char|block}/MAJOR:MINOR path for a dev_t */
+
+        if (S_ISCHR(mode))
+                t = "char";
+        else if (S_ISBLK(mode))
+                t = "block";
+        else
+                return -ENODEV;
+
+        if (asprintf(ret, "/dev/%s/%u:%u", t, major(devno), minor(devno)) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+int device_path_make_canonical(mode_t mode, dev_t devno, char **ret) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        /* Finds the canonical path for a device, i.e. resolves the /dev/{char|block}/MAJOR:MINOR path to the end. */
+
+        assert(ret);
+
+        if (major(devno) == 0 && minor(devno) == 0) {
+                char *s;
+
+                /* A special hack to make sure our 'inaccessible' device nodes work. They won't have symlinks in
+                 * /dev/block/ and /dev/char/, hence we handle them specially here. */
+
+                if (S_ISCHR(mode))
+                        s = strdup("/run/systemd/inaccessible/chr");
+                else if (S_ISBLK(mode))
+                        s = strdup("/run/systemd/inaccessible/blk");
+                else
+                        return -ENODEV;
+
+                if (!s)
+                        return -ENOMEM;
+
+                *ret = s;
+                return 0;
+        }
+
+        r = device_path_make_major_minor(mode, devno, &p);
+        if (r < 0)
+                return r;
+
+        return chase_symlinks(p, NULL, 0, ret);
+}
+
+int device_path_parse_major_minor(const char *path, mode_t *ret_mode, dev_t *ret_devno) {
+        mode_t mode;
+        dev_t devno;
+        int r;
+
+        /* Tries to extract the major/minor directly from the device path if we can. Handles /dev/block/ and /dev/char/
+         * paths, as well out synthetic inaccessible device nodes. Never goes to disk. Returns -ENODEV if the device
+         * path cannot be parsed like this.  */
+
+        if (path_equal(path, "/run/systemd/inaccessible/chr")) {
+                mode = S_IFCHR;
+                devno = makedev(0, 0);
+        } else if (path_equal(path, "/run/systemd/inaccessible/blk")) {
+                mode = S_IFBLK;
+                devno = makedev(0, 0);
+        } else {
+                const char *w;
+
+                w = path_startswith(path, "/dev/block/");
+                if (w)
+                        mode = S_IFBLK;
+                else {
+                        w = path_startswith(path, "/dev/char/");
+                        if (!w)
+                                return -ENODEV;
+
+                        mode = S_IFCHR;
+                }
+
+                r = parse_dev(w, &devno);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_mode)
+                *ret_mode = mode;
+        if (ret_devno)
+                *ret_devno = devno;
+
+        return 0;
 }

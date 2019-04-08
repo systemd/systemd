@@ -2,13 +2,11 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2010 Maarten Lankhorst
+  Copyright © 2010 Maarten Lankhorst
 ***/
 
-#include "libudev.h"
+#include "sd-device.h"
+#include "unit.h"
 
 typedef struct Swap Swap;
 
@@ -87,11 +85,13 @@ struct Swap {
 
 extern const UnitVTable swap_vtable;
 
-int swap_process_device_new(Manager *m, struct udev_device *dev);
-int swap_process_device_remove(Manager *m, struct udev_device *dev);
+int swap_process_device_new(Manager *m, sd_device *dev);
+int swap_process_device_remove(Manager *m, sd_device *dev);
 
 const char* swap_exec_command_to_string(SwapExecCommand i) _const_;
 SwapExecCommand swap_exec_command_from_string(const char *s) _pure_;
 
 const char* swap_result_to_string(SwapResult i) _const_;
 SwapResult swap_result_from_string(const char *s) _pure_;
+
+DEFINE_CAST(SWAP, Swap);

@@ -1,20 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /*
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
  * Port to systemd-boot
- * Copyright 2017 Max Resch <resch.max@gmail.com>
+ * Copyright © 2017 Max Resch <resch.max@gmail.com>
  *
  * Security Policy Handling
- * Copyright 2012 <James.Bottomley@HansenPartnership.com>
+ * Copyright © 2012 <James.Bottomley@HansenPartnership.com>
  * https://github.com/mjg59/efitools
  */
 
@@ -211,38 +201,6 @@ EFI_STATUS security_policy_install(void) {
         if (security2_protocol) {
                 es2fa = security2_protocol->FileAuthentication;
                 security2_protocol->FileAuthentication = security2_policy_authentication;
-        }
-
-        return EFI_SUCCESS;
-}
-
-EFI_STATUS security_policy_uninstall(void) {
-        EFI_STATUS status;
-
-        if (esfas) {
-                EFI_SECURITY_PROTOCOL *security_protocol;
-
-                status = uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &security_protocol_guid, NULL, (VOID**) &security_protocol);
-
-                if (status != EFI_SUCCESS)
-                        return status;
-
-                security_protocol->FileAuthenticationState = esfas;
-                esfas = NULL;
-        } else
-                /* nothing installed */
-                return EFI_NOT_STARTED;
-
-        if (es2fa) {
-                EFI_SECURITY2_PROTOCOL *security2_protocol;
-
-                status = uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &security2_protocol_guid, NULL, (VOID**) &security2_protocol);
-
-                if (status != EFI_SUCCESS)
-                        return status;
-
-                security2_protocol->FileAuthentication = es2fa;
-                es2fa = NULL;
         }
 
         return EFI_SUCCESS;

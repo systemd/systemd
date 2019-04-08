@@ -71,3 +71,7 @@ a+ /var/log/journal/%m/system.journal - - - - group:wheel:r--
 
 d /var/lib/systemd 0755 root root -
 d /var/lib/systemd/coredump 0755 root root 3d
+
+d /var/lib/private 0700 root root -
+d /var/log/private 0700 root root -
+d /var/cache/private 0700 root root -

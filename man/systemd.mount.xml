@@ -1,28 +1,12 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.mount">
   <refentryinfo>
     <title>systemd.mount</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -99,6 +83,11 @@
     disabled. For a longer discussion see <ulink
     url="https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems">API
     File Systems</ulink>.</para>
+
+    <para>The
+    <citerefentry><refentrytitle>systemd-mount</refentrytitle><manvolnum>1</manvolnum></citerefentry> command
+    allows creating <filename>.mount</filename> and <filename>.automount</filename> units dynamically and
+    transiently from the command line.</para>
   </refsect1>
 
   <refsect1>
@@ -144,11 +133,15 @@
         <filename>umount.target</filename> in order to be stopped during shutdown.</para></listitem>
 
         <listitem><para>Mount units referring to local file systems automatically gain
-        an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>.</para></listitem>
+        an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>, and a
+        <varname>Before=</varname> dependency on <filename>local-fs.target</filename> unless
+        <option>nofail</option> mount option is set.</para></listitem>
 
         <listitem><para>Network mount units
         automatically acquire <varname>After=</varname> dependencies on <filename>remote-fs-pre.target</filename>,
-        <filename>network.target</filename> and <filename>network-online.target</filename>. Towards the latter a
+        <filename>network.target</filename> and <filename>network-online.target</filename>, and gain a
+        <varname>Before=</varname> dependency on <filename>remote-fs.target</filename> unless
+        <option>nofail</option> mount option is set. Towards the latter a
         <varname>Wants=</varname> unit is added as well.</para></listitem>
       </itemizedlist>
 
@@ -178,7 +171,7 @@
     is detected by <command>systemd-fstab-generator</command> and the options
     are transformed so that systemd fulfills the job-control implications of
     that option.  Specifically <command>systemd-fstab-generator</command> acts
-    as though <literal>x-systemd.mount-timout=infinity,retry=10000</literal> was
+    as though <literal>x-systemd.mount-timeout=infinity,retry=10000</literal> was
     prepended to the option list, and <literal>fg,nofail</literal> was appended.
     Depending on specific requirements, it may be appropriate to provide some of
     these options explicitly, or to make use of the
@@ -276,7 +269,7 @@
         for details.</para></listitem>
       </varlistentry>
 
-      <varlistentry>
+      <varlistentry id='device-timeout'>
         <term><option>x-systemd.device-timeout=</option></term>
 
         <listitem><para>Configure how long systemd should wait for a
@@ -316,7 +309,7 @@
       <varlistentry>
         <term><option>x-systemd.makefs</option></term>
 
-        <listitem><para>The file system or swap structure will be intialized
+        <listitem><para>The file system will be initialized
         on the device. If the device is not "empty", i.e. it contains any signature,
         the operation will be skipped. It is hence expected that this option
         remains set even after the device has been initalized.</para>
@@ -383,12 +376,10 @@
       <varlistentry>
         <term><option>nofail</option></term>
 
-        <listitem><para>With <option>nofail</option>, this mount will
-        be only wanted, not required, by
-        <filename>local-fs.target</filename> or
-        <filename>remote-fs.target</filename>. This means that the
-        boot will continue even if this mount point is not mounted
-        successfully.</para>
+        <listitem><para>With <option>nofail</option>, this mount will be only wanted, not required, by
+        <filename>local-fs.target</filename> or <filename>remote-fs.target</filename>. Moreover the mount unit is not
+        ordered before these target units. This means that the boot will continue without waiting for the mount unit
+        and regardless whether the mount point can be mounted successfully.</para>
         </listitem>
       </varlistentry>
 
@@ -521,9 +512,9 @@
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.)
         Takes a unit-less value in seconds, or a time span value such
         as "5min 20s". Pass 0 to disable the timeout logic. The
-        default value is set from the manager configuration file's
-        <varname>DefaultTimeoutStartSec=</varname>
-        variable.</para></listitem>
+        default value is set from <varname>DefaultTimeoutStartSec=</varname> option in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
     </variablelist>
 
@@ -539,6 +530,7 @@
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -548,7 +540,8 @@
         <citerefentry project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-mount</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       </para>
   </refsect1>
 

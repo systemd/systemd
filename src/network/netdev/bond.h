@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
-***/
-
 #include "in-addr-util.h"
 #include "list.h"
 
@@ -105,12 +99,18 @@ typedef struct Bond {
         BondArpAllTargets arp_all_targets;
         BondPrimaryReselect primary_reselect;
 
+        int tlb_dynamic_lb;
+
         bool all_slaves_active;
 
         unsigned resend_igmp;
         unsigned packets_per_slave;
         unsigned num_grat_arp;
         unsigned min_links;
+
+        uint16_t ad_actor_sys_prio;
+        uint16_t ad_user_port_key;
+        struct ether_addr *ad_actor_system;
 
         usec_t miimon;
         usec_t updelay;
@@ -149,12 +149,15 @@ BondArpAllTargets bond_arp_all_targets_from_string(const char *d) _pure_;
 const char *bond_primary_reselect_to_string(BondPrimaryReselect d) _const_;
 BondPrimaryReselect bond_primary_reselect_from_string(const char *d) _pure_;
 
-int config_parse_bond_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_xmit_hash_policy(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_lacp_rate(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_ad_select(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_fail_over_mac(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_arp_validate(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_arp_all_targets(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_primary_reselect(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_arp_ip_target_address(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_xmit_hash_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_lacp_rate);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_ad_select);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_fail_over_mac);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_arp_validate);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_arp_all_targets);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_primary_reselect);
+CONFIG_PARSER_PROTOTYPE(config_parse_arp_ip_target_address);
+CONFIG_PARSER_PROTOTYPE(config_parse_ad_actor_sys_prio);
+CONFIG_PARSER_PROTOTYPE(config_parse_ad_user_port_key);
+CONFIG_PARSER_PROTOTYPE(config_parse_ad_actor_system);

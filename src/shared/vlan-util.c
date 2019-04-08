@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-***/
 
 #include "conf-parser.h"
 #include "parse-util.h"
@@ -13,6 +8,9 @@
 int parse_vlanid(const char *p, uint16_t *ret) {
         uint16_t id;
         int r;
+
+        assert(p);
+        assert(ret);
 
         r = safe_atou16(p, &id);
         if (r < 0)

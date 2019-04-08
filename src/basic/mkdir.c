@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stdbool.h>
@@ -11,6 +6,7 @@
 #include <sys/stat.h>
 
 #include "alloc-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "mkdir.h"
@@ -81,6 +77,12 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, Mkd
 
 int mkdir_errno_wrapper(const char *pathname, mode_t mode) {
         if (mkdir(pathname, mode) < 0)
+                return -errno;
+        return 0;
+}
+
+int mkdirat_errno_wrapper(int dirfd, const char *pathname, mode_t mode) {
+        if (mkdirat(dirfd, pathname, mode) < 0)
                 return -errno;
         return 0;
 }

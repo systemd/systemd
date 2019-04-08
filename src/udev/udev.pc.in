@@ -1,5 +1,5 @@
 Name: udev
 Description: udev
-Version: @PACKAGE_VERSION@
+Version: @PROJECT_VERSION@
 
 udevdir=@udevlibexecdir@

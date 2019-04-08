@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 #include <arpa/inet.h>
 #if HAVE_GCRYPT
@@ -502,7 +497,7 @@ static void test_dnssec_nsec3_hash(void) {
 
 #endif
 
-int main(int argc, char*argv[]) {
+int main(int argc, char *argv[]) {
 
         test_dnssec_canonicalize();
 

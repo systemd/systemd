@@ -1,28 +1,12 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.kill">
   <refentryinfo>
     <title>systemd.kill</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -100,21 +84,17 @@
         group and the control group continues to exist after stop
         unless it is empty.</para>
 
-        <para>Processes will first be terminated via
-        <constant>SIGTERM</constant> (unless the signal to send is
-        changed via <varname>KillSignal=</varname>). Optionally, this
-        is immediately followed by a <constant>SIGHUP</constant> (if
-        enabled with <varname>SendSIGHUP=</varname>). If then, after a
-        delay (configured via the <varname>TimeoutStopSec=</varname>
-        option), processes still remain, the termination request is
-        repeated with the <constant>SIGKILL</constant> signal (unless
-        this is disabled via the <varname>SendSIGKILL=</varname>
-        option). See
-        <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        for more information.</para>
+        <para>Processes will first be terminated via <constant>SIGTERM</constant> (unless the signal to send
+        is changed via <varname>KillSignal=</varname>). Optionally, this is immediately followed by a
+        <constant>SIGHUP</constant> (if enabled with <varname>SendSIGHUP=</varname>). If processes still
+        remain after the main process of a unit has exited or the delay configured via the
+        <varname>TimeoutStopSec=</varname> has passed, the termination request is repeated with the
+        <constant>SIGKILL</constant> signal or the signal specified via <varname>FinalKillSignal=</varname>
+        (unless this is disabled via the <varname>SendSIGKILL=</varname> option). See
+        <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry> for more
+        information.</para>
 
-        <para>Defaults to
-        <option>control-group</option>.</para></listitem>
+        <para>Defaults to <option>control-group</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -148,9 +128,38 @@
       <varlistentry>
         <term><varname>SendSIGKILL=</varname></term>
         <listitem><para>Specifies whether to send
-        <constant>SIGKILL</constant> to remaining processes after a
-        timeout, if the normal shutdown procedure left processes of
-        the service around. Takes a boolean value. Defaults to "yes".
+        <constant>SIGKILL</constant> (or the signal specified by
+        <varname>FinalKillSignal=</varname>) to remaining processes
+        after a timeout, if the normal shutdown procedure left
+        processes of the service around. When disabled, a
+        <varname>KillMode=</varname> of <constant>control-group</constant>
+        or <constant>mixed</constant> service will not restart if
+        processes from prior services exist within the control group.
+        Takes a boolean value. Defaults to "yes".
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FinalKillSignal=</varname></term>
+        <listitem><para>Specifies which signal to send to remaining
+        processes after a timeout if <varname>SendSIGKILL=</varname>
+        is enabled. The signal configured here should be one that is
+        not typically caught and processed by services (<constant>SIGTERM</constant>
+        is not suitable). Developers can find it useful to use this to
+        generate a coredump to troubleshoot why a service did not
+        terminate upon receiving the initial <constant>SIGTERM</constant>
+        signal. This can be achieved by configuring <varname>LimitCORE=</varname>
+        and setting <varname>FinalKillSignal=</varname> to either
+        <constant>SIGQUIT</constant> or <constant>SIGABRT</constant>
+        Defaults to <constant>SIGKILL</constant>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>WatchdogSignal=</varname></term>
+        <listitem><para>Specifies which signal to use to terminate the
+        service when the watchdog timeout expires (enabled through
+        <varname>WatchdogSec=</varname>). Defaults to <constant>SIGABRT</constant>.
         </para></listitem>
       </varlistentry>
 
@@ -162,7 +171,7 @@
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

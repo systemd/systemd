@@ -1,13 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-***/
-
 #include "networkd-link.h"
+#include "time-util.h"
 
 typedef struct NDiscRDNSS {
         usec_t valid_until;

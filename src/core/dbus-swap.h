@@ -2,13 +2,11 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2010 Maarten Lankhorst
+  Copyright © 2010 Maarten Lankhorst
 ***/
 
 #include "sd-bus.h"
+#include "sd-bus-vtable.h"
 
 #include "unit.h"
 

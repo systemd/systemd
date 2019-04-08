@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
-
 #include <net/if.h>
 
 #include "in-addr-util.h"
@@ -22,8 +16,8 @@ typedef struct LinkAddress LinkAddress;
 #include "resolved-dns-server.h"
 #include "resolved-manager.h"
 
-#define LINK_SEARCH_DOMAINS_MAX 32
-#define LINK_DNS_SERVERS_MAX 32
+#define LINK_SEARCH_DOMAINS_MAX 256
+#define LINK_DNS_SERVERS_MAX 256
 
 struct LinkAddress {
         Link *link;
@@ -57,8 +51,11 @@ struct Link {
         LIST_HEAD(DnsSearchDomain, search_domains);
         unsigned n_search_domains;
 
+        int default_route;
+
         ResolveSupport llmnr_support;
         ResolveSupport mdns_support;
+        DnsOverTlsMode dns_over_tls_mode;
         DnssecMode dnssec_mode;
         Set *dnssec_negative_trust_anchors;
 
@@ -90,6 +87,7 @@ void link_add_rrs(Link *l, bool force_remove);
 
 void link_flush_settings(Link *l);
 void link_set_dnssec_mode(Link *l, DnssecMode mode);
+void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode);
 void link_allocate_scopes(Link *l);
 
 DnsServer* link_set_dns_server(Link *l, DnsServer *s);
@@ -98,6 +96,8 @@ void link_next_dns_server(Link *l);
 
 DnssecMode link_get_dnssec_mode(Link *l);
 bool link_dnssec_supported(Link *l);
+
+DnsOverTlsMode link_get_dns_over_tls_mode(Link *l);
 
 int link_save_user(Link *l);
 int link_load_user(Link *l);

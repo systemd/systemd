@@ -1,0 +1,6 @@
+[Match]
+Name=test1
+
+[Network]
+LinkLocalAddressing=yes
+IPv6AcceptRA=no

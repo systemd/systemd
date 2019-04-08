@@ -1,19 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
-
+#include <sched.h>
 #include <stdio.h>
 
+#if HAVE_SECCOMP
+#include <seccomp.h>
+#endif
+
+#include "sd-bus.h"
 #include "sd-id128.h"
 
+#include "capability-util.h"
+#include "conf-parser.h"
 #include "macro.h"
+#include "missing_resource.h"
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
+#include "time-util.h"
 
 typedef enum StartMode {
         START_PID1, /* Run parameters as command line as process 1 */
@@ -31,30 +35,113 @@ typedef enum UserNamespaceMode {
         _USER_NAMESPACE_MODE_INVALID = -1,
 } UserNamespaceMode;
 
+typedef enum ResolvConfMode {
+        RESOLV_CONF_OFF,
+        RESOLV_CONF_COPY_HOST,
+        RESOLV_CONF_COPY_STATIC,
+        RESOLV_CONF_BIND_HOST,
+        RESOLV_CONF_BIND_STATIC,
+        RESOLV_CONF_DELETE,
+        RESOLV_CONF_AUTO,
+        _RESOLV_CONF_MODE_MAX,
+        _RESOLV_CONF_MODE_INVALID = -1
+} ResolvConfMode;
+
+typedef enum LinkJournal {
+        LINK_NO,
+        LINK_AUTO,
+        LINK_HOST,
+        LINK_GUEST,
+        _LINK_JOURNAL_MAX,
+        _LINK_JOURNAL_INVALID = -1
+} LinkJournal;
+
+typedef enum TimezoneMode {
+        TIMEZONE_OFF,
+        TIMEZONE_COPY,
+        TIMEZONE_BIND,
+        TIMEZONE_SYMLINK,
+        TIMEZONE_DELETE,
+        TIMEZONE_AUTO,
+        _TIMEZONE_MODE_MAX,
+        _TIMEZONE_MODE_INVALID = -1
+} TimezoneMode;
+
+typedef enum ConsoleMode {
+        CONSOLE_INTERACTIVE,
+        CONSOLE_READ_ONLY,
+        CONSOLE_PASSIVE,
+        CONSOLE_PIPE,
+        _CONSOLE_MODE_MAX,
+        _CONSOLE_MODE_INVALID = -1,
+} ConsoleMode;
+
 typedef enum SettingsMask {
-        SETTING_START_MODE        = 1 << 0,
-        SETTING_ENVIRONMENT       = 1 << 1,
-        SETTING_USER              = 1 << 2,
-        SETTING_CAPABILITY        = 1 << 3,
-        SETTING_KILL_SIGNAL       = 1 << 4,
-        SETTING_PERSONALITY       = 1 << 5,
-        SETTING_MACHINE_ID        = 1 << 6,
-        SETTING_NETWORK           = 1 << 7,
-        SETTING_EXPOSE_PORTS      = 1 << 8,
-        SETTING_READ_ONLY         = 1 << 9,
-        SETTING_VOLATILE_MODE     = 1 << 10,
-        SETTING_CUSTOM_MOUNTS     = 1 << 11,
-        SETTING_WORKING_DIRECTORY = 1 << 12,
-        SETTING_USERNS            = 1 << 13,
-        SETTING_NOTIFY_READY      = 1 << 14,
-        SETTING_PIVOT_ROOT        = 1 << 15,
-        SETTING_SYSCALL_FILTER    = 1 << 16,
-        _SETTINGS_MASK_ALL        = (1 << 17) -1
+        SETTING_START_MODE        = UINT64_C(1) << 0,
+        SETTING_ENVIRONMENT       = UINT64_C(1) << 1,
+        SETTING_USER              = UINT64_C(1) << 2,
+        SETTING_CAPABILITY        = UINT64_C(1) << 3,
+        SETTING_KILL_SIGNAL       = UINT64_C(1) << 4,
+        SETTING_PERSONALITY       = UINT64_C(1) << 5,
+        SETTING_MACHINE_ID        = UINT64_C(1) << 6,
+        SETTING_NETWORK           = UINT64_C(1) << 7,
+        SETTING_EXPOSE_PORTS      = UINT64_C(1) << 8,
+        SETTING_READ_ONLY         = UINT64_C(1) << 9,
+        SETTING_VOLATILE_MODE     = UINT64_C(1) << 10,
+        SETTING_CUSTOM_MOUNTS     = UINT64_C(1) << 11,
+        SETTING_WORKING_DIRECTORY = UINT64_C(1) << 12,
+        SETTING_USERNS            = UINT64_C(1) << 13,
+        SETTING_NOTIFY_READY      = UINT64_C(1) << 14,
+        SETTING_PIVOT_ROOT        = UINT64_C(1) << 15,
+        SETTING_SYSCALL_FILTER    = UINT64_C(1) << 16,
+        SETTING_HOSTNAME          = UINT64_C(1) << 17,
+        SETTING_NO_NEW_PRIVILEGES = UINT64_C(1) << 18,
+        SETTING_OOM_SCORE_ADJUST  = UINT64_C(1) << 19,
+        SETTING_CPU_AFFINITY      = UINT64_C(1) << 20,
+        SETTING_RESOLV_CONF       = UINT64_C(1) << 21,
+        SETTING_LINK_JOURNAL      = UINT64_C(1) << 22,
+        SETTING_TIMEZONE          = UINT64_C(1) << 23,
+        SETTING_EPHEMERAL         = UINT64_C(1) << 24,
+        SETTING_SLICE             = UINT64_C(1) << 25,
+        SETTING_DIRECTORY         = UINT64_C(1) << 26,
+        SETTING_USE_CGNS          = UINT64_C(1) << 27,
+        SETTING_CLONE_NS_FLAGS    = UINT64_C(1) << 28,
+        SETTING_CONSOLE_MODE      = UINT64_C(1) << 29,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 30, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (30 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (30 + _RLIMIT_MAX)) -1,
+        _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;
+
+/* We want to use SETTING_RLIMIT_FIRST in shifts, so make sure it is really 64 bits
+ * when used in expressions. */
+#define SETTING_RLIMIT_FIRST ((uint64_t) SETTING_RLIMIT_FIRST)
+#define SETTING_RLIMIT_LAST ((uint64_t) SETTING_RLIMIT_LAST)
+
+assert_cc(sizeof(SettingsMask) == 8);
+assert_cc(sizeof(SETTING_RLIMIT_FIRST) == 8);
+assert_cc(sizeof(SETTING_RLIMIT_LAST) == 8);
+
+typedef struct DeviceNode {
+        char *path;
+        unsigned major;
+        unsigned minor;
+        mode_t mode;
+        uid_t uid;
+        gid_t gid;
+} DeviceNode;
+
+typedef struct OciHook {
+        char *path;
+        char **args;
+        char **env;
+        usec_t timeout;
+} OciHook;
 
 typedef struct Settings {
         /* [Run] */
         StartMode start_mode;
+        bool ephemeral;
         char **parameters;
         char **environment;
         char *user;
@@ -71,6 +158,17 @@ typedef struct Settings {
         bool notify_ready;
         char **syscall_whitelist;
         char **syscall_blacklist;
+        struct rlimit *rlimit[_RLIMIT_MAX];
+        char *hostname;
+        int no_new_privileges;
+        int oom_score_adjust;
+        bool oom_score_adjust_set;
+        cpu_set_t *cpuset;
+        unsigned cpuset_ncpus;
+        ResolvConfMode resolv_conf;
+        LinkJournal link_journal;
+        bool link_journal_try;
+        TimezoneMode timezone;
 
         /* [Image] */
         int read_only;
@@ -89,29 +187,72 @@ typedef struct Settings {
         char **network_ipvlan;
         char **network_veth_extra;
         ExposePort *expose_ports;
+
+        /* Additional fields, that are specific to OCI runtime case */
+        char *bundle;
+        char *root;
+        OciHook *oci_hooks_prestart, *oci_hooks_poststart, *oci_hooks_poststop;
+        size_t n_oci_hooks_prestart, n_oci_hooks_poststart, n_oci_hooks_poststop;
+        char *slice;
+        sd_bus_message *properties;
+        CapabilityQuintet full_capabilities;
+        uid_t uid;
+        gid_t gid;
+        gid_t *supplementary_gids;
+        size_t n_supplementary_gids;
+        unsigned console_width, console_height;
+        ConsoleMode console_mode;
+        DeviceNode *extra_nodes;
+        size_t n_extra_nodes;
+        unsigned long clone_ns_flags;
+        char *network_namespace_path;
+        int use_cgns;
+        char **sysctl;
+#if HAVE_SECCOMP
+        scmp_filter_ctx seccomp;
+#endif
 } Settings;
 
+Settings *settings_new(void);
 int settings_load(FILE *f, const char *path, Settings **ret);
 Settings* settings_free(Settings *s);
 
 bool settings_network_veth(Settings *s);
 bool settings_private_network(Settings *s);
+int settings_allocate_properties(Settings *s);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Settings*, settings_free);
 
 const struct ConfigPerfItem* nspawn_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
-int config_parse_capability(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_id128(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_expose_port(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_volatile_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_pivot_root(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bind(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_tmpfs(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_overlay(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_veth_extra(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_network_zone(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_boot(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_pid2(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_private_users(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_syscall_filter(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_capability);
+CONFIG_PARSER_PROTOTYPE(config_parse_id128);
+CONFIG_PARSER_PROTOTYPE(config_parse_expose_port);
+CONFIG_PARSER_PROTOTYPE(config_parse_volatile_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_pivot_root);
+CONFIG_PARSER_PROTOTYPE(config_parse_bind);
+CONFIG_PARSER_PROTOTYPE(config_parse_tmpfs);
+CONFIG_PARSER_PROTOTYPE(config_parse_overlay);
+CONFIG_PARSER_PROTOTYPE(config_parse_inaccessible);
+CONFIG_PARSER_PROTOTYPE(config_parse_veth_extra);
+CONFIG_PARSER_PROTOTYPE(config_parse_network_zone);
+CONFIG_PARSER_PROTOTYPE(config_parse_boot);
+CONFIG_PARSER_PROTOTYPE(config_parse_pid2);
+CONFIG_PARSER_PROTOTYPE(config_parse_private_users);
+CONFIG_PARSER_PROTOTYPE(config_parse_syscall_filter);
+CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
+CONFIG_PARSER_PROTOTYPE(config_parse_oom_score_adjust);
+CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity);
+CONFIG_PARSER_PROTOTYPE(config_parse_resolv_conf);
+CONFIG_PARSER_PROTOTYPE(config_parse_link_journal);
+CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
+
+const char *resolv_conf_mode_to_string(ResolvConfMode a) _const_;
+ResolvConfMode resolv_conf_mode_from_string(const char *s) _pure_;
+
+const char *timezone_mode_to_string(TimezoneMode a) _const_;
+TimezoneMode timezone_mode_from_string(const char *s) _pure_;
+
+int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try);
+
+void device_node_array_free(DeviceNode *node, size_t n);

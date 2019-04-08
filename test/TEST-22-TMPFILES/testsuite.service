@@ -1,8 +1,10 @@
 [Unit]
 Description=Testsuite service
-After=multi-user.target
+After=systemd-tmpfiles-setup.service
 
 [Service]
 WorkingDirectory=/testsuite
 ExecStart=/testsuite/run-tmpfiles-tests.sh
 Type=oneshot
+StandardOutput=tty
+StandardError=tty

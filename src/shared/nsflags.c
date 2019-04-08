@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2016 Lennart Poettering
-***/
-
-#include <sched.h>
+#include <errno.h>
 
 #include "alloc-util.h"
 #include "extract-word.h"
@@ -25,32 +20,7 @@ const struct namespace_flag_map namespace_flag_map[] = {
         {}
 };
 
-const char* namespace_flag_to_string(unsigned long flag) {
-        unsigned i;
-
-        flag &= NAMESPACE_FLAGS_ALL;
-
-        for (i = 0; namespace_flag_map[i].name; i++)
-                if (flag == namespace_flag_map[i].flag)
-                        return namespace_flag_map[i].name;
-
-        return NULL; /* either unknown namespace flag, or a combination of many. This call supports neither. */
-}
-
-unsigned long namespace_flag_from_string(const char *name) {
-        unsigned i;
-
-        if (isempty(name))
-                return 0;
-
-        for (i = 0; namespace_flag_map[i].name; i++)
-                if (streq(name, namespace_flag_map[i].name))
-                        return namespace_flag_map[i].flag;
-
-        return 0;
-}
-
-int namespace_flag_from_string_many(const char *name, unsigned long *ret) {
+int namespace_flags_from_string(const char *name, unsigned long *ret) {
         unsigned long flags = 0;
         int r;
 
@@ -58,7 +28,8 @@ int namespace_flag_from_string_many(const char *name, unsigned long *ret) {
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                unsigned long f;
+                unsigned long f = 0;
+                unsigned i;
 
                 r = extract_first_word(&name, &word, NULL, 0);
                 if (r < 0)
@@ -66,7 +37,12 @@ int namespace_flag_from_string_many(const char *name, unsigned long *ret) {
                 if (r == 0)
                         break;
 
-                f = namespace_flag_from_string(word);
+                for (i = 0; namespace_flag_map[i].name; i++)
+                        if (streq(word, namespace_flag_map[i].name)) {
+                                 f = namespace_flag_map[i].flag;
+                                 break;
+                        }
+
                 if (f == 0)
                         return -EINVAL;
 
@@ -77,7 +53,7 @@ int namespace_flag_from_string_many(const char *name, unsigned long *ret) {
         return 0;
 }
 
-int namespace_flag_to_string_many(unsigned long flags, char **ret) {
+int namespace_flags_to_string(unsigned long flags, char **ret) {
         _cleanup_free_ char *s = NULL;
         unsigned i;
 
@@ -85,14 +61,8 @@ int namespace_flag_to_string_many(unsigned long flags, char **ret) {
                 if ((flags & namespace_flag_map[i].flag) != namespace_flag_map[i].flag)
                         continue;
 
-                if (!s) {
-                        s = strdup(namespace_flag_map[i].name);
-                        if (!s)
-                                return -ENOMEM;
-                } else {
-                        if (!strextend(&s, " ", namespace_flag_map[i].name, NULL))
-                                return -ENOMEM;
-                }
+                if (!strextend_with_separator(&s, " ", namespace_flag_map[i].name, NULL))
+                        return -ENOMEM;
         }
 
         if (!s) {

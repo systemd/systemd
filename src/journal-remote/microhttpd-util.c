@@ -1,10 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-  Copyright 2012 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <stddef.h>
 #include <stdio.h>
@@ -38,21 +32,16 @@ static int mhd_respond_internal(struct MHD_Connection *connection,
                                 const char *buffer,
                                 size_t size,
                                 enum MHD_ResponseMemoryMode mode) {
-        struct MHD_Response *response;
-        int r;
-
         assert(connection);
 
-        response = MHD_create_response_from_buffer(size, (char*) buffer, mode);
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response
+                = MHD_create_response_from_buffer(size, (char*) buffer, mode);
         if (!response)
                 return MHD_NO;
 
         log_debug("Queueing response %u: %s", code, buffer);
         MHD_add_response_header(response, "Content-Type", "text/plain");
-        r = MHD_queue_response(connection, code, response);
-        MHD_destroy_response(response);
-
-        return r;
+        return MHD_queue_response(connection, code, response);
 }
 
 int mhd_respond(struct MHD_Connection *connection,
@@ -159,8 +148,7 @@ static int log_enable_gnutls_category(const char *cat) {
                                 log_reset_gnutls_level();
                                 return 0;
                         }
-        log_error("No such log category: %s", cat);
-        return -EINVAL;
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No such log category: %s", cat);
 }
 
 int setup_gnutls_logger(char **categories) {
@@ -212,10 +200,9 @@ static int get_client_cert(gnutls_session_t session, gnutls_x509_crt_t *client_c
         assert(client_cert);
 
         pcert = gnutls_certificate_get_peers(session, &listsize);
-        if (!pcert || !listsize) {
-                log_error("Failed to retrieve certificate chain");
-                return -EINVAL;
-        }
+        if (!pcert || !listsize)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to retrieve certificate chain");
 
         r = gnutls_x509_crt_init(&cert);
         if (r < 0) {
@@ -257,7 +244,7 @@ static int get_auth_dn(gnutls_x509_crt_t client_cert, char **buf) {
         return 0;
 }
 
-static inline void gnutls_x509_crt_deinitp(gnutls_x509_crt_t *p) {
+static void gnutls_x509_crt_deinitp(gnutls_x509_crt_t *p) {
         gnutls_x509_crt_deinit(*p);
 }
 

@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 typedef struct Automount Automount;
 
 #include "unit.h"
@@ -45,3 +39,5 @@ extern const UnitVTable automount_vtable;
 
 const char* automount_result_to_string(AutomountResult i) _const_;
 AutomountResult automount_result_from_string(const char *s) _pure_;
+
+DEFINE_CAST(AUTOMOUNT, Automount);

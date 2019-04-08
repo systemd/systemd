@@ -104,7 +104,6 @@ struct bpf_insn;
 #define BPF_LD_MAP_FD(DST, MAP_FD)				\
         BPF_LD_IMM64_RAW(DST, BPF_PSEUDO_MAP_FD, MAP_FD)
 
-
 /* Direct packet access, R0 = *(uint *) (skb->data + imm32) */
 
 #define BPF_LD_ABS(SIZE, IMM)					\
@@ -174,6 +173,16 @@ struct bpf_insn;
                 .src_reg = 0,					\
                 .off   = OFF,					\
                 .imm   = IMM })
+
+/* Unconditional jumps */
+
+#define BPF_JMP_A(OFF)						\
+        ((struct bpf_insn) {					\
+                .code  = BPF_JMP | BPF_JA,			\
+                .dst_reg = 0,					\
+                .src_reg = 0,					\
+                .off   = OFF,					\
+                .imm   = 0 })
 
 /* Raw code statement block */
 

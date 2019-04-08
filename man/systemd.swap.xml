@@ -1,28 +1,14 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
+<refentry id="systemd.swap"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
-
-<refentry id="systemd.swap">
   <refentryinfo>
     <title>systemd.swap</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -154,6 +140,26 @@
         successfully.</para>
         </listitem>
       </varlistentry>
+
+      <xi:include href="systemd.mount.xml" xpointer="device-timeout" />
+
+      <varlistentry>
+        <term><option>x-systemd.makefs</option></term>
+
+        <listitem><para>The swap structure will be initialized on the device. If the device is not
+        "empty", i.e. it contains any signature, the operation will be skipped. It is hence expected
+        that this option remains set even after the device has been initalized.</para>
+
+        <para>Note that this option can only be used in <filename>/etc/fstab</filename>, and will be
+        ignored when part of the <varname>Options=</varname> setting in a unit file.</para>
+
+        <para>See
+        <citerefentry><refentrytitle>systemd-mkswap@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        and the discussion of
+        <citerefentry project='man-pages'><refentrytitle>wipefs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        in <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -236,6 +242,7 @@
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

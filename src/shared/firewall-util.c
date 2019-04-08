@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 /* Temporary work-around for broken glibc vs. linux kernel header definitions
  * This is already fixed upstream, remove this when distributions have updated.
@@ -55,8 +50,14 @@ static int entry_fill_basics(
         entry->ip.proto = protocol;
 
         if (in_interface) {
+                size_t l;
+
+                l = strlen(in_interface);
+                assert(l < sizeof entry->ip.iniface);
+                assert(l < sizeof entry->ip.iniface_mask);
+
                 strcpy(entry->ip.iniface, in_interface);
-                memset(entry->ip.iniface_mask, 0xFF, strlen(in_interface)+1);
+                memset(entry->ip.iniface_mask, 0xFF, l + 1);
         }
         if (source) {
                 entry->ip.src = source->in;

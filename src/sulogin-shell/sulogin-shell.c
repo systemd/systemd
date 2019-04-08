@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2017 Felipe Sateler
+  Copyright © 2017 Felipe Sateler
 ***/
 
 #include <errno.h>
@@ -11,6 +9,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "def.h"
+#include "env-util.h"
 #include "log.h"
 #include "process-util.h"
 #include "sd-bus.h"
@@ -61,16 +60,16 @@ static int start_default_target(sd_bus *bus) {
                                "ss", "default.target", "isolate");
 
         if (r < 0)
-                log_error("Failed to start default target: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to start default target: %s", bus_error_message(&error, r));
 
-        return r;
+        return 0;
 }
 
 static int fork_wait(const char* const cmdline[]) {
         pid_t pid;
         int r;
 
-        r = safe_fork("(sulogin)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(sulogin)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -91,15 +90,21 @@ static void print_mode(const char* mode) {
 }
 
 int main(int argc, char *argv[]) {
-        static const char* const sulogin_cmdline[] = {SULOGIN, NULL};
+        const char* sulogin_cmdline[] = {
+                SULOGIN,
+                NULL,             /* --force */
+                NULL
+        };
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         print_mode(argc > 1 ? argv[1] : "");
+
+        if (getenv_bool("SYSTEMD_SULOGIN_FORCE") > 0)
+                /* allows passwordless logins if root account is locked. */
+                sulogin_cmdline[1] = "--force";
 
         (void) fork_wait(sulogin_cmdline);
 

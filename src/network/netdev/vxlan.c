@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Susant Sahani
-***/
 
 #include <net/if.h>
 
@@ -38,41 +33,35 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_ID attribute: %m");
         }
 
-        if (!in_addr_is_null(v->remote_family, &v->remote)) {
-
+        if (in_addr_is_null(v->remote_family, &v->remote) == 0) {
                 if (v->remote_family == AF_INET)
                         r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_GROUP, &v->remote.in);
                 else
                         r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_GROUP6, &v->remote.in6);
-
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GROUP attribute: %m");
-
         }
 
-        if (!in_addr_is_null(v->local_family, &v->local)) {
-
+        if (in_addr_is_null(v->local_family, &v->local) == 0) {
                 if (v->local_family == AF_INET)
                         r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_LOCAL, &v->local.in);
                 else
                         r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_LOCAL6, &v->local.in6);
-
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LOCAL attribute: %m");
-
         }
 
         r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LINK, link->ifindex);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LINK attribute: %m");
 
-        if (v->ttl) {
+        if (v->ttl != 0) {
                 r = sd_netlink_message_append_u8(m, IFLA_VXLAN_TTL, v->ttl);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TTL attribute: %m");
         }
 
-        if (v->tos) {
+        if (v->tos != 0) {
                 r = sd_netlink_message_append_u8(m, IFLA_VXLAN_TOS, v->tos);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TOS attribute: %m");
@@ -98,13 +87,13 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_L3MISS attribute: %m");
 
-        if (v->fdb_ageing) {
+        if (v->fdb_ageing != 0) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_AGEING, v->fdb_ageing / USEC_PER_SEC);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_AGEING attribute: %m");
         }
 
-        if (v->max_fdb) {
+        if (v->max_fdb != 0) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LIMIT, v->max_fdb);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LIMIT attribute: %m");
@@ -134,7 +123,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_PORT attribute: %m");
 
-        if (v->port_range.low || v->port_range.high) {
+        if (v->port_range.low != 0 || v->port_range.high != 0) {
                 struct ifla_vxlan_port_range port_range;
 
                 port_range.low = htobe16(v->port_range.low);
@@ -219,9 +208,8 @@ int config_parse_port_range(const char *unit,
                             const char *rvalue,
                             void *data,
                             void *userdata) {
-        _cleanup_free_ char *word = NULL;
         VxLan *v = userdata;
-        unsigned low, high;
+        uint16_t low, high;
         int r;
 
         assert(filename);
@@ -229,30 +217,10 @@ int config_parse_port_range(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = extract_first_word(&rvalue, &word, NULL, 0);
+        r = parse_ip_port_range(rvalue, &low, &high);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract VXLAN port range, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (r == 0)
-                return 0;
-
-        r = parse_range(word, &low, &high);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse VXLAN port range '%s'", word);
-                return 0;
-        }
-
-        if (low <= 0 || low > 65535 || high <= 0 || high > 65535) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse VXLAN port range '%s'. Port should be greater than 0 and less than 65535.", word);
-                return 0;
-        }
-
-        if (high < low) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse VXLAN port range '%s'. Port range %u .. %u not valid", word, low, high);
+                           "Failed to parse VXLAN port range '%s'. Port should be greater than 0 and less than 65535.", rvalue);
                 return 0;
         }
 

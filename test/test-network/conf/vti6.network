@@ -1,0 +1,7 @@
+[Match]
+Name=dummy98
+
+[Network]
+Tunnel=vti6tun99
+Tunnel=vti6tun98
+Tunnel=vti6tun97

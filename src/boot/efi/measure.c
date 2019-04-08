@@ -1,16 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/*
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- */
 
 #if ENABLE_TPM
 
@@ -144,13 +132,13 @@ typedef struct {
         UINT16 HeaderVersion;
         UINT32 PCRIndex;
         UINT32 EventType;
-} __attribute__ ((packed)) EFI_TCG2_EVENT_HEADER;
+} __attribute__((packed)) EFI_TCG2_EVENT_HEADER;
 
 typedef struct tdEFI_TCG2_EVENT {
         UINT32 Size;
         EFI_TCG2_EVENT_HEADER Header;
         UINT8 Event[1];
-} __attribute__ ((packed)) EFI_TCG2_EVENT;
+} __attribute__((packed)) EFI_TCG2_EVENT;
 
 typedef EFI_STATUS(EFIAPI * EFI_TCG2_GET_CAPABILITY) (IN EFI_TCG2_PROTOCOL * This,
                                                       IN OUT EFI_TCG2_BOOT_SERVICE_CAPABILITY * ProtocolCapability);
@@ -358,7 +346,6 @@ EFI_STATUS tpm_log_event(UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer, UIN
                 else
                         log_fmt = EFI_TCG2_EVENT_LOG_FORMAT_TCG_1_2;
 
-                uefi_call_wrapper(BS->Stall, 1, 2000 * 1000);
                 return tpm2_measure_to_pcr_and_event_log(tpm2, pcrindex, buffer, buffer_size, description, log_fmt);
         }
 

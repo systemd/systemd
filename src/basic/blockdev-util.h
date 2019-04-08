@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <sys/types.h>
 
 #include "macro.h"
@@ -19,6 +13,7 @@
         xsprintf(buf, "/sys/dev/block/%u:%u%s", major(devno), minor(devno), strempty(suffix))
 
 int block_get_whole_disk(dev_t d, dev_t *ret);
+int block_get_originating(dev_t d, dev_t *ret);
 
 int get_block_device(const char *path, dev_t *dev);
 

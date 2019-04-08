@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2014 Holger Hans Peter Freyther
+  Copyright © 2014 Holger Hans Peter Freyther
 ***/
 
 #include <errno.h>
@@ -25,10 +22,12 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "main-func.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
@@ -37,14 +36,14 @@
 
 /* exit codes as defined in fsck(8) */
 enum {
-        FSCK_SUCCESS = 0,
-        FSCK_ERROR_CORRECTED = 1,
-        FSCK_SYSTEM_SHOULD_REBOOT = 2,
-        FSCK_ERRORS_LEFT_UNCORRECTED = 4,
-        FSCK_OPERATIONAL_ERROR = 8,
-        FSCK_USAGE_OR_SYNTAX_ERROR = 16,
-        FSCK_USER_CANCELLED = 32,
-        FSCK_SHARED_LIB_ERROR = 128,
+        FSCK_SUCCESS                 = 0,
+        FSCK_ERROR_CORRECTED         = 1 << 0,
+        FSCK_SYSTEM_SHOULD_REBOOT    = 1 << 1,
+        FSCK_ERRORS_LEFT_UNCORRECTED = 1 << 2,
+        FSCK_OPERATIONAL_ERROR       = 1 << 3,
+        FSCK_USAGE_OR_SYNTAX_ERROR   = 1 << 4,
+        FSCK_USER_CANCELLED          = 1 << 5,
+        FSCK_SHARED_LIB_ERROR        = 1 << 7,
 };
 
 static bool arg_skip = false;
@@ -178,7 +177,7 @@ static int process_progress(int fd) {
         if (fd < 0)
                 return 0;
 
-        f = fdopen(fd, "re");
+        f = fdopen(fd, "r");
         if (!f) {
                 safe_close(fd);
                 return -errno;
@@ -250,39 +249,35 @@ static int fsck_progress_socket(void) {
                 .un.sun_path = "/run/systemd/fsck.progress",
         };
 
-        int fd, r;
+        _cleanup_close_ int fd = -1;
 
         fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (fd < 0)
                 return log_warning_errno(errno, "socket(): %m");
 
-        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
-                r = log_full_errno(IN_SET(errno, ECONNREFUSED, ENOENT) ? LOG_DEBUG : LOG_WARNING,
-                                   errno, "Failed to connect to progress socket %s, ignoring: %m", sa.un.sun_path);
-                safe_close(fd);
-                return r;
-        }
+        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
+                return log_full_errno(IN_SET(errno, ECONNREFUSED, ENOENT) ? LOG_DEBUG : LOG_WARNING,
+                                      errno, "Failed to connect to progress socket %s, ignoring: %m", sa.un.sun_path);
 
-        return fd;
+        return TAKE_FD(fd);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_close_pair_ int progress_pipe[2] = { -1, -1 };
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_free_ char *dpath = NULL;
         const char *device, *type;
         bool root_directory;
         struct stat st;
         int r, exit_status;
         pid_t pid;
 
+        log_setup_service();
+
         if (argc > 2) {
                 log_error("This program expects one or no arguments.");
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
-
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
 
         umask(0022);
 
@@ -292,30 +287,27 @@ int main(int argc, char *argv[]) {
 
         test_files();
 
-        if (!arg_force && arg_skip) {
-                r = 0;
-                goto finish;
-        }
+        if (!arg_force && arg_skip)
+                return 0;
 
         if (argc > 1) {
-                device = argv[1];
+                dpath = strdup(argv[1]);
+                if (!dpath)
+                        return log_oom();
 
-                if (stat(device, &st) < 0) {
-                        r = log_error_errno(errno, "Failed to stat %s: %m", device);
-                        goto finish;
-                }
+                device = dpath;
+
+                if (stat(device, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat %s: %m", device);
 
                 if (!S_ISBLK(st.st_mode)) {
                         log_error("%s is not a block device.", device);
-                        r = -EINVAL;
-                        goto finish;
+                        return -EINVAL;
                 }
 
                 r = sd_device_new_from_devnum(&dev, 'b', st.st_rdev);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to detect device %s: %m", device);
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to detect device %s: %m", device);
 
                 root_directory = false;
         } else {
@@ -323,16 +315,13 @@ int main(int argc, char *argv[]) {
 
                 /* Find root device */
 
-                if (stat("/", &st) < 0) {
-                        r = log_error_errno(errno, "Failed to stat() the root directory: %m");
-                        goto finish;
-                }
+                if (stat("/", &st) < 0)
+                        return log_error_errno(errno, "Failed to stat() the root directory: %m");
 
                 /* Virtual root devices don't need an fsck */
                 if (major(st.st_dev) == 0) {
                         log_debug("Root directory is virtual or btrfs, skipping check.");
-                        r = 0;
-                        goto finish;
+                        return 0;
                 }
 
                 /* check if we are already writable */
@@ -341,46 +330,37 @@ int main(int argc, char *argv[]) {
 
                 if (utimensat(AT_FDCWD, "/", times, 0) == 0) {
                         log_info("Root directory is writable, skipping check.");
-                        r = 0;
-                        goto finish;
+                        return 0;
                 }
 
                 r = sd_device_new_from_devnum(&dev, 'b', st.st_dev);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to detect root device: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to detect root device: %m");
 
                 r = sd_device_get_devname(dev, &device);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to detect device node of root directory: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_device_error_errno(dev, r, "Failed to detect device node of root directory: %m");
 
                 root_directory = true;
         }
 
-        r = sd_device_get_property_value(dev, "ID_FS_TYPE", &type);
-        if (r >= 0) {
+        if (sd_device_get_property_value(dev, "ID_FS_TYPE", &type) >= 0) {
                 r = fsck_exists(type);
                 if (r < 0)
-                        log_warning_errno(r, "Couldn't detect if fsck.%s may be used for %s, proceeding: %m", type, device);
+                        log_device_warning_errno(dev, r, "Couldn't detect if fsck.%s may be used, proceeding: %m", type);
                 else if (r == 0) {
-                        log_info("fsck.%s doesn't exist, not checking file system on %s.", type, device);
-                        goto finish;
+                        log_device_info(dev, "fsck.%s doesn't exist, not checking file system.", type);
+                        return 0;
                 }
         }
 
-        if (arg_show_progress) {
-                if (pipe(progress_pipe) < 0) {
-                        r = log_error_errno(errno, "pipe(): %m");
-                        goto finish;
-                }
-        }
+        if (arg_show_progress &&
+            pipe(progress_pipe) < 0)
+                return log_error_errno(errno, "pipe(): %m");
 
         r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
-                goto finish;
+                return r;
         if (r == 0) {
                 char dash_c[STRLEN("-C") + DECIMAL_STR_MAX(int) + 1];
                 int progress_socket = -1;
@@ -427,40 +407,36 @@ int main(int argc, char *argv[]) {
                 cmdline[i++] = device;
                 cmdline[i++] = NULL;
 
+                (void) rlimit_nofile_safe();
+
                 execv(cmdline[0], (char**) cmdline);
                 _exit(FSCK_OPERATIONAL_ERROR);
         }
 
         progress_pipe[1] = safe_close(progress_pipe[1]);
-        (void) process_progress(progress_pipe[0]);
-        progress_pipe[0] = -1;
+        (void) process_progress(TAKE_FD(progress_pipe[0]));
 
         exit_status = wait_for_terminate_and_check("fsck", pid, WAIT_LOG_ABNORMAL);
-        if (exit_status < 0) {
-                r = exit_status;
-                goto finish;
-        }
-        if (exit_status & ~1) {
+        if (exit_status < 0)
+                return exit_status;
+        if ((exit_status & ~FSCK_ERROR_CORRECTED) != FSCK_SUCCESS) {
                 log_error("fsck failed with exit status %i.", exit_status);
 
                 if ((exit_status & FSCK_SYSTEM_SHOULD_REBOOT) && root_directory) {
                         /* System should be rebooted. */
                         start_target(SPECIAL_REBOOT_TARGET, "replace-irreversibly");
-                        r = -EINVAL;
-                } else if (exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED)) {
+                        return -EINVAL;
+                } else if (exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED))
                         /* Some other problem */
                         start_target(SPECIAL_EMERGENCY_TARGET, "replace");
-                        r = -EINVAL;
-                } else {
+                else
                         log_warning("Ignoring error.");
-                        r = 0;
-                }
-        } else
-                r = 0;
+        }
 
         if (exit_status & FSCK_ERROR_CORRECTED)
                 (void) touch("/run/systemd/quotacheck");
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return !!(exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED));
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

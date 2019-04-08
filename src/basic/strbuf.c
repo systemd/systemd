@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Kay Sievers <kay@vrfy.org>
-***/
 
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "alloc-util.h"
+#include "sort-util.h"
 #include "strbuf.h"
-#include "util.h"
 
 /*
  * Strbuf stores given strings in a single continuous allocated memory
@@ -71,6 +66,9 @@ void strbuf_complete(struct strbuf *str) {
 
 /* clean up everything */
 void strbuf_cleanup(struct strbuf *str) {
+        if (!str)
+                return;
+
         strbuf_complete(str);
         free(str->buf);
         free(str);
@@ -144,9 +142,7 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
 
                 /* lookup child node */
                 search.c = c;
-                child = bsearch_safe(&search, node->children, node->children_count,
-                                     sizeof(struct strbuf_child_entry),
-                                     (__compar_fn_t) strbuf_children_cmp);
+                child = typesafe_bsearch(&search, node->children, node->children_count, strbuf_children_cmp);
                 if (!child)
                         break;
                 node = child->child;

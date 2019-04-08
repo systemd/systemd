@@ -5,7 +5,6 @@ set -e
 TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/2467"
 
 . $TEST_BASE_DIR/test-functions
-SKIP_INITRD=yes
 
 test_setup() {
     create_empty_image
@@ -18,25 +17,24 @@ test_setup() {
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
         setup_basic_environment
-        dracut_install true rm
+        dracut_install true rm socat
 
         # setup the testsuite service
         cat >$initdir/etc/systemd/system/testsuite.service <<'EOF'
 [Unit]
 Description=Testsuite service
-After=multi-user.target
 
 [Service]
 Type=oneshot
 StandardOutput=tty
 StandardError=tty
-ExecStart=/bin/sh -e -x -c 'rm -f /tmp/nonexistent; systemctl start test.socket; echo > /run/test.ctl; >/testok'
+ExecStart=/bin/sh -e -x -c 'rm -f /tmp/nonexistent; systemctl start test.socket; printf x > test.file; socat -t20 OPEN:test.file UNIX-CONNECT:/run/test.ctl; >/testok'
 TimeoutStartSec=10s
 EOF
 
 	cat  >$initdir/etc/systemd/system/test.socket <<'EOF'
 [Socket]
-ListenFIFO=/run/test.ctl
+ListenStream=/run/test.ctl
 EOF
 
 	cat > $initdir/etc/systemd/system/test.service <<'EOF'

@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Zbigniew Jędrzejewski-Szmek
-***/
-
 #include <microhttpd.h>
 #include <stdarg.h>
 
@@ -79,3 +73,6 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
  * interesting events without overwhelming detail.
  */
 int setup_gnutls_logger(char **categories);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct MHD_Daemon*, MHD_stop_daemon);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct MHD_Response*, MHD_destroy_response);

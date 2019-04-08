@@ -1,24 +1,32 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <string.h>
 #include <sys/utsname.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bus-common-errors.h"
 #include "bus-util.h"
 #include "def.h"
+#include "env-file-label.h"
+#include "env-file.h"
 #include "env-util.h"
 #include "fileio-label.h"
+#include "fileio.h"
 #include "hostname-util.h"
+#include "id128-util.h"
+#include "main-func.h"
+#include "missing_capability.h"
+#include "nscd-flush.h"
+#include "nulstr-util.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "signal-util.h"
 #include "strv.h"
 #include "user-util.h"
 #include "util.h"
@@ -46,6 +54,8 @@ enum {
 typedef struct Context {
         char *data[_PROP_MAX];
         Hashmap *polkit_registry;
+        sd_id128_t uuid;
+        bool has_uuid;
 } Context;
 
 static void context_reset(Context *c) {
@@ -57,7 +67,7 @@ static void context_reset(Context *c) {
                 c->data[p] = mfree(c->data[p]);
 }
 
-static void context_free(Context *c) {
+static void context_clear(Context *c) {
         assert(c);
 
         context_reset(c);
@@ -88,30 +98,31 @@ static int context_read_data(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        r = parse_env_file("/etc/machine-info", NEWLINE,
+        r = parse_env_file(NULL, "/etc/machine-info",
                            "PRETTY_HOSTNAME", &c->data[PROP_PRETTY_HOSTNAME],
                            "ICON_NAME", &c->data[PROP_ICON_NAME],
                            "CHASSIS", &c->data[PROP_CHASSIS],
                            "DEPLOYMENT", &c->data[PROP_DEPLOYMENT],
-                           "LOCATION", &c->data[PROP_LOCATION],
-                           NULL);
+                           "LOCATION", &c->data[PROP_LOCATION]);
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        r = parse_env_file("/etc/os-release", NEWLINE,
-                           "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
-                           "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
-                           "HOME_URL", &c->data[PROP_HOME_URL],
-                           NULL);
-        if (r == -ENOENT)
-                r = parse_env_file("/usr/lib/os-release", NEWLINE,
-                                   "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
-                                   "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
-                                   "HOME_URL", &c->data[PROP_HOME_URL],
-                                   NULL);
-
+        r = parse_os_release(NULL,
+                             "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
+                             "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
+                             "HOME_URL", &c->data[PROP_HOME_URL],
+                             NULL);
         if (r < 0 && r != -ENOENT)
                 return r;
+
+        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, &c->uuid);
+        if (r < 0)
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to read product UUID, ignoring: %m");
+        else if (sd_id128_is_null(c->uuid) || sd_id128_is_allf(c->uuid))
+                log_debug("DMI product UUID " SD_ID128_FORMAT_STR " is all 0x00 or all 0xFF, ignoring.", SD_ID128_FORMAT_VAL(c->uuid));
+        else
+                c->has_uuid = true;
 
         return 0;
 }
@@ -283,6 +294,8 @@ static int context_update_kernel_hostname(Context *c) {
         if (sethostname_idempotent(hn) < 0)
                 return -errno;
 
+        (void) nscd_flush_cache(STRV_MAKE("hosts"));
+
         return 0;
 }
 
@@ -315,7 +328,7 @@ static int context_write_data_machine_info(Context *c) {
 
         assert(c);
 
-        r = load_env_file(NULL, "/etc/machine-info", NULL, &l);
+        r = load_env_file(NULL, "/etc/machine-info", &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -399,7 +412,6 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
         Context *c = userdata;
         const char *name;
         int interactive;
-        char *h;
         int r;
 
         assert(m);
@@ -435,12 +447,9 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        h = strdup(name);
-        if (!h)
-                return -ENOMEM;
-
-        free(c->data[PROP_HOSTNAME]);
-        c->data[PROP_HOSTNAME] = h;
+        r = free_and_strdup(&c->data[PROP_HOSTNAME], name);
+        if (r < 0)
+                return r;
 
         r = context_update_kernel_hostname(c);
         if (r < 0) {
@@ -473,6 +482,9 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
                 return sd_bus_reply_method_return(m, NULL);
 
+        if (!isempty(name) && !hostname_is_valid(name, false))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid static hostname '%s'", name);
+
         r = bus_verify_polkit_async(
                         m,
                         CAP_SYS_ADMIN,
@@ -487,21 +499,9 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (isempty(name))
-                c->data[PROP_STATIC_HOSTNAME] = mfree(c->data[PROP_STATIC_HOSTNAME]);
-        else {
-                char *h;
-
-                if (!hostname_is_valid(name, false))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid static hostname '%s'", name);
-
-                h = strdup(name);
-                if (!h)
-                        return -ENOMEM;
-
-                free(c->data[PROP_STATIC_HOSTNAME]);
-                c->data[PROP_STATIC_HOSTNAME] = h;
-        }
+        r = free_and_strdup(&c->data[PROP_STATIC_HOSTNAME], name);
+        if (r < 0)
+                return r;
 
         r = context_update_kernel_hostname(c);
         if (r < 0) {
@@ -539,6 +539,22 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
         if (streq_ptr(name, c->data[prop]))
                 return sd_bus_reply_method_return(m, NULL);
 
+        if (!isempty(name)) {
+                /* The icon name might ultimately be used as file
+                 * name, so better be safe than sorry */
+
+                if (prop == PROP_ICON_NAME && !filename_is_valid(name))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid icon name '%s'", name);
+                if (prop == PROP_PRETTY_HOSTNAME && string_has_cc(name, NULL))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty host name '%s'", name);
+                if (prop == PROP_CHASSIS && !valid_chassis(name))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid chassis '%s'", name);
+                if (prop == PROP_DEPLOYMENT && !valid_deployment(name))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid deployment '%s'", name);
+                if (prop == PROP_LOCATION && string_has_cc(name, NULL))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid location '%s'", name);
+        }
+
         /* Since the pretty hostname should always be changed at the
          * same time as the static one, use the same policy action for
          * both... */
@@ -557,32 +573,9 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (isempty(name))
-                c->data[prop] = mfree(c->data[prop]);
-        else {
-                char *h;
-
-                /* The icon name might ultimately be used as file
-                 * name, so better be safe than sorry */
-
-                if (prop == PROP_ICON_NAME && !filename_is_valid(name))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid icon name '%s'", name);
-                if (prop == PROP_PRETTY_HOSTNAME && string_has_cc(name, NULL))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty host name '%s'", name);
-                if (prop == PROP_CHASSIS && !valid_chassis(name))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid chassis '%s'", name);
-                if (prop == PROP_DEPLOYMENT && !valid_deployment(name))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid deployment '%s'", name);
-                if (prop == PROP_LOCATION && string_has_cc(name, NULL))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid location '%s'", name);
-
-                h = strdup(name);
-                if (!h)
-                        return -ENOMEM;
-
-                free(c->data[prop]);
-                c->data[prop] = h;
-        }
+        r = free_and_strdup(&c->data[prop], name);
+        if (r < 0)
+                return r;
 
         r = context_write_data_machine_info(c);
         if (r < 0) {
@@ -628,6 +621,46 @@ static int method_set_location(sd_bus_message *m, void *userdata, sd_bus_error *
         return set_machine_info(userdata, m, PROP_LOCATION, method_set_location, error);
 }
 
+static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Context *c = userdata;
+        int interactive, r;
+
+        assert(m);
+        assert(c);
+
+        if (!c->has_uuid)
+                return sd_bus_error_set(error, BUS_ERROR_NO_PRODUCT_UUID, "Failed to read product UUID from /sys/class/dmi/id/product_uuid");
+
+        r = sd_bus_message_read(m, "b", &interactive);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.hostname1.get-product-uuid",
+                        NULL,
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_array(reply, 'y', &c->uuid, sizeof(c->uuid));
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Hostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -650,6 +683,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_METHOD("SetChassis", "sb", NULL, method_set_chassis, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetDeployment", "sb", NULL, method_set_deployment, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLocation", "sb", NULL, method_set_location, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetProductUUID", "b", "ay", method_get_product_uuid, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
 
@@ -682,51 +716,51 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
-        Context context = {};
+static int run(int argc, char *argv[]) {
+        _cleanup_(context_clear) Context context = {};
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         umask(0022);
         mac_selinux_init();
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");
-                r = -EINVAL;
-                goto finish;
+                return -EINVAL;
         }
+
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
         r = sd_event_default(&event);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate event loop: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        sd_event_set_watchdog(event, true);
+        (void) sd_event_set_watchdog(event, true);
+
+        r = sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to install SIGINT handler: %m");
+
+        r = sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to install SIGTERM handler: %m");
 
         r = connect_bus(&context, event, &bus);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = context_read_data(&context);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read hostname and machine information: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read hostname and machine information: %m");
 
         r = bus_event_loop_with_idle(event, bus, "org.freedesktop.hostname1", DEFAULT_EXIT_USEC, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to run event loop: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
 
-finish:
-        context_free(&context);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

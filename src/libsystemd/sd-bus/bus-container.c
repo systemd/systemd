@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -12,6 +7,7 @@
 #include "bus-internal.h"
 #include "bus-socket.h"
 #include "fd-util.h"
+#include "namespace-util.h"
 #include "process-util.h"
 #include "util.h"
 
@@ -50,51 +46,27 @@ int bus_container_connect_socket(sd_bus *b) {
         if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                 return -errno;
 
-        r = safe_fork("(sd-buscntr)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+        r = namespace_fork("(sd-buscntrns)", "(sd-buscntr)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                           pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
         if (r < 0)
                 return r;
         if (r == 0) {
-                pid_t grandchild;
-
                 pair[0] = safe_close(pair[0]);
 
-                r = namespace_enter(pidnsfd, mntnsfd, -1, usernsfd, rootfd);
-                if (r < 0)
+                r = connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size);
+                if (r < 0) {
+                        /* Try to send error up */
+                        error_buf = errno;
+                        (void) write(pair[1], &error_buf, sizeof(error_buf));
                         _exit(EXIT_FAILURE);
-
-                /* We just changed PID namespace, however it will only
-                 * take effect on the children we now fork. Hence,
-                 * let's fork another time, and connect from this
-                 * grandchild, so that SO_PEERCRED of our connection
-                 * comes from a process from within the container, and
-                 * not outside of it */
-
-                r = safe_fork("(sd-buscntr2)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &grandchild);
-                if (r < 0)
-                        _exit(EXIT_FAILURE);
-                if (r == 0) {
-
-                        r = connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size);
-                        if (r < 0) {
-                                /* Try to send error up */
-                                error_buf = errno;
-                                (void) write(pair[1], &error_buf, sizeof(error_buf));
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        _exit(EXIT_SUCCESS);
                 }
 
-                r = wait_for_terminate_and_check("(sd-buscntr2)", grandchild, 0);
-                if (r < 0)
-                        _exit(EXIT_FAILURE);
-
-                _exit(r);
+                _exit(EXIT_SUCCESS);
         }
 
         pair[1] = safe_close(pair[1]);
 
-        r = wait_for_terminate_and_check("(sd-buscntr)", child, 0);
+        r = wait_for_terminate_and_check("(sd-buscntrns)", child, 0);
         if (r < 0)
                 return r;
         if (r != EXIT_SUCCESS)

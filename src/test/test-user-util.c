@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 #include "alloc-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "macro.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "user-util.h"
-#include "util.h"
-#include "path-util.h"
 
 static void test_uid_to_name_one(uid_t uid, const char *name) {
         _cleanup_free_ char *t = NULL;
@@ -164,7 +159,7 @@ static void test_get_user_creds_one(const char *id, const char *name, uid_t uid,
         log_info("/* %s(\"%s\", \"%s\", "UID_FMT", "GID_FMT", \"%s\", \"%s\") */",
                  __func__, id, name, uid, gid, home, shell);
 
-        r = get_user_creds(&id, &ruid, &rgid, &rhome, &rshell);
+        r = get_user_creds(&id, &ruid, &rgid, &rhome, &rshell, 0);
         log_info_errno(r, "got \"%s\", "UID_FMT", "GID_FMT", \"%s\", \"%s\": %m",
                        id, ruid, rgid, strnull(rhome), strnull(rshell));
         if (!synthesize_nobody() && streq(name, NOBODY_USER_NAME)) {
@@ -185,7 +180,7 @@ static void test_get_group_creds_one(const char *id, const char *name, gid_t gid
 
         log_info("/* %s(\"%s\", \"%s\", "GID_FMT") */", __func__, id, name, gid);
 
-        r = get_group_creds(&id, &rgid);
+        r = get_group_creds(&id, &rgid, 0);
         log_info_errno(r, "got \"%s\", "GID_FMT": %m", id, rgid);
         if (!synthesize_nobody() && streq(name, NOBODY_GROUP_NAME)) {
                 log_info("(skipping detailed tests because nobody is not synthesized)");
@@ -196,7 +191,7 @@ static void test_get_group_creds_one(const char *id, const char *name, gid_t gid
         assert_se(rgid == gid);
 }
 
-int main(int argc, char*argv[]) {
+int main(int argc, char *argv[]) {
         test_uid_to_name_one(0, "root");
         test_uid_to_name_one(UID_NOBODY, NOBODY_USER_NAME);
         test_uid_to_name_one(0xFFFF, "65535");

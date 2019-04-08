@@ -1,0 +1,8 @@
+[NetDev]
+Name=ip6tnl98
+Kind=ip6tnl
+
+[Tunnel]
+Mode=ip6ip6
+Local=any
+Remote=2001:473:fece:cafe::5179

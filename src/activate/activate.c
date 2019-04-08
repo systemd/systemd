@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <getopt.h>
 #include <sys/epoll.h>
@@ -15,15 +10,19 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
+#include "util.h"
 
 static char** arg_listen = NULL;
 static bool arg_accept = false;
@@ -76,7 +75,9 @@ static int open_sockets(int *epoll_fd, bool accept) {
                         except[fd] = fd;
 
                 log_close();
-                close_all_fds(except, 3 + n);
+                r = close_all_fds(except, 3 + n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to close all file descriptors: %m");
         }
 
         /** Note: we leak some fd's on error here. I doesn't matter
@@ -125,10 +126,9 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
         char **s;
         int r;
 
-        if (arg_inetd && n_fds != 1) {
-                log_error("--inetd only supported for single file descriptors.");
-                return -EINVAL;
-        }
+        if (arg_inetd && n_fds != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--inetd only supported for single file descriptors.");
 
         length = strv_length(arg_setenv);
 
@@ -253,7 +253,7 @@ static int fork_and_exec_process(const char* child, char** argv, char **env, int
         if (!joined)
                 return log_oom();
 
-        r = safe_fork("(activate)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &child_pid);
+        r = safe_fork("(activate)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &child_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -315,7 +315,14 @@ static int install_chld_handler(void) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-socket-activate", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Listen on sockets and launch child on connection.\n\n"
                "Options:\n"
@@ -328,9 +335,13 @@ static void help(void) {
                "  -E --setenv=NAME[=VALUE]   Pass an environment variable to children\n"
                "     --fdname=NAME[:NAME...] Specify names for file descriptors\n"
                "     --inetd                 Enable inetd file descriptor passing protocol\n"
-               "\n"
-               "Note: file descriptors from sd_listen_fds() will be passed through.\n"
-               , program_invocation_short_name);
+               "\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -363,8 +374,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "+hl:aE:d", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -377,19 +387,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'd':
-                        if (arg_socket_type == SOCK_SEQPACKET) {
-                                log_error("--datagram may not be combined with --seqpacket.");
-                                return -EINVAL;
-                        }
+                        if (arg_socket_type == SOCK_SEQPACKET)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--datagram may not be combined with --seqpacket.");
 
                         arg_socket_type = SOCK_DGRAM;
                         break;
 
                 case ARG_SEQPACKET:
-                        if (arg_socket_type == SOCK_DGRAM) {
-                                log_error("--seqpacket may not be combined with --datagram.");
-                                return -EINVAL;
-                        }
+                        if (arg_socket_type == SOCK_DGRAM)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--seqpacket may not be combined with --datagram.");
 
                         arg_socket_type = SOCK_SEQPACKET;
                         break;
@@ -441,17 +449,15 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind == argc) {
-                log_error("%s: command to execute is missing.",
-                          program_invocation_short_name);
-                return -EINVAL;
-        }
+        if (optind == argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s: command to execute is missing.",
+                                       program_invocation_short_name);
 
-        if (arg_socket_type == SOCK_DGRAM && arg_accept) {
-                log_error("Datagram sockets do not accept connections. "
-                          "The --datagram and --accept options may not be combined.");
-                return -EINVAL;
-        }
+        if (arg_socket_type == SOCK_DGRAM && arg_accept)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Datagram sockets do not accept connections. "
+                                       "The --datagram and --accept options may not be combined.");
 
         arg_args = argv + optind;
 

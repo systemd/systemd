@@ -6,8 +6,7 @@ TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/2691"
 TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
-SKIP_INITRD=yes
-QEMU_TIMEOUT=90
+QEMU_TIMEOUT=180
 
 test_setup() {
     create_empty_image
@@ -25,14 +24,13 @@ test_setup() {
         cat >$initdir/etc/systemd/system/testsuite.service <<'EOF'
 [Unit]
 Description=Testsuite service
-After=multi-user.target
 
 [Service]
 Type=oneshot
 ExecStart=/bin/sh -c '>/testok'
 RemainAfterExit=yes
 ExecStop=/bin/sh -c 'kill -SEGV $$$$'
-TimeoutStopSec=180s
+TimeoutStopSec=270s
 EOF
 
         setup_testsuite

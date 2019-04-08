@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2017 Intel Corporation. All rights reserved.
+  Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
 #include <netinet/icmp6.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 #include "sd-radv.h"
 
@@ -15,6 +14,7 @@
 #include "icmp6-util.h"
 #include "socket-util.h"
 #include "strv.h"
+#include "tests.h"
 
 static struct ether_addr mac_addr = {
         .ether_addr_octet = { 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53 }
@@ -294,11 +294,11 @@ static void test_ra(void) {
         sd_event *e;
         sd_radv *ra;
         usec_t time_now = now(clock_boottime_or_monotonic());
-        unsigned int i;
+        unsigned i;
 
         printf("* %s\n", __FUNCTION__);
 
-        assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET, 0, test_fd) >= 0);
+        assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
 
         assert_se(sd_event_new(&e) >= 0);
 
@@ -359,9 +359,7 @@ static void test_ra(void) {
 
 int main(int argc, char *argv[]) {
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_radv_prefix();
         test_radv();

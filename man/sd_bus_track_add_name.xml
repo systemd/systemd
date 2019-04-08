@@ -1,29 +1,13 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
--->
-
-<refentry id="sd_bus_track_add_name">
+<refentry id="sd_bus_track_add_name" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_track_add_name</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -197,45 +181,39 @@
     <para><function>sd_bus_track_first()</function> and <function>sd_bus_track_next()</function> return the first/next
     name contained in the bus peer tracking object, and <constant>NULL</constant> if the end of the enumeration is
     reached and on error.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+
+        <varlistentry>
+          <term><constant>-EUNATCH</constant></term>
+
+          <listitem><para><function>sd_bus_track_remove_name()</function> or
+          <function>sd_bus_track_remove_sender()</function> have been invoked for a name not previously added
+          to the bus peer object.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>Specified parameter is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
   </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
-
-    <para>Returned errors may indicate the following problems:</para>
-
-    <variablelist>
-
-      <varlistentry>
-        <term><constant>-EUNATCH</constant></term>
-
-        <listitem><para><function>sd_bus_track_remove_name()</function> or
-        <function>sd_bus_track_remove_sender()</function> have been invoked for a name not previously added to the bus
-        peer object.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
-
-        <listitem><para>Specified parameter is invalid.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
-
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
-    <title>Notes</title>
-
-    <para><function>sd_bus_track_add_name()</function> and the other calls described here are available as a shared library,
-    which can be compiled and linked to with the <constant>libsystemd</constant> <citerefentry
-    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry> file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>

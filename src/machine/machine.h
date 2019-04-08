@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
-
 typedef struct Machine Machine;
 typedef enum KillWho KillWho;
 
 #include "list.h"
 #include "machined.h"
 #include "operation.h"
+#include "time-util.h"
 
 typedef enum MachineState {
         MACHINE_OPENING,    /* Machine is being registered */
@@ -63,7 +58,7 @@ struct Machine {
         sd_bus_message *create_message;
 
         int *netif;
-        unsigned n_netif;
+        size_t n_netif;
 
         LIST_HEAD(Operation, operations);
 
@@ -71,7 +66,7 @@ struct Machine {
 };
 
 Machine* machine_new(Manager *manager, MachineClass class, const char *name);
-void machine_free(Machine *m);
+Machine* machine_free(Machine *m);
 bool machine_may_gc(Machine *m, bool drop_not_started);
 void machine_add_to_gc_queue(Machine *m);
 int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error);

@@ -1,11 +1,5 @@
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2017 Dmitry Rozhkov
-***/
-
 #include "sd-bus.h"
 
 extern const sd_bus_vtable dnssd_vtable[];

@@ -3,10 +3,6 @@
 #define foosdid128hfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -39,23 +35,25 @@ union sd_id128 {
 
 #define SD_ID128_STRING_MAX 33
 
-char *sd_id128_to_string(sd_id128_t id, char s[SD_ID128_STRING_MAX]);
+char *sd_id128_to_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID128_STRING_MAX]);
 int sd_id128_from_string(const char *s, sd_id128_t *ret);
 
 int sd_id128_randomize(sd_id128_t *ret);
 
 int sd_id128_get_machine(sd_id128_t *ret);
-int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret);
 int sd_id128_get_boot(sd_id128_t *ret);
 int sd_id128_get_invocation(sd_id128_t *ret);
 
-#define SD_ID128_MAKE(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15) \
-        ((const sd_id128_t) { .bytes = { 0x##v0, 0x##v1, 0x##v2, 0x##v3, 0x##v4, 0x##v5, 0x##v6, 0x##v7, \
-                                   0x##v8, 0x##v9, 0x##v10, 0x##v11, 0x##v12, 0x##v13, 0x##v14, 0x##v15 }})
+int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret);
+int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret);
 
 #define SD_ID128_ARRAY(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15) \
         { .bytes = { 0x##v0, 0x##v1, 0x##v2, 0x##v3, 0x##v4, 0x##v5, 0x##v6, 0x##v7, \
                      0x##v8, 0x##v9, 0x##v10, 0x##v11, 0x##v12, 0x##v13, 0x##v14, 0x##v15 }}
+
+#define SD_ID128_MAKE(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15) \
+        ((const sd_id128_t) SD_ID128_ARRAY(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15))
+
 
 /* Note that SD_ID128_FORMAT_VAL will evaluate the passed argument 16
  * times. It is hence not a good idea to call this macro with an
@@ -112,7 +110,12 @@ _sd_pure_ static __inline__ int sd_id128_is_null(sd_id128_t a) {
         return a.qwords[0] == 0 && a.qwords[1] == 0;
 }
 
+_sd_pure_ static __inline__ int sd_id128_is_allf(sd_id128_t a) {
+        return a.qwords[0] == UINT64_C(0xFFFFFFFFFFFFFFFF) && a.qwords[1] == UINT64_C(0xFFFFFFFFFFFFFFFF);
+}
+
 #define SD_ID128_NULL ((const sd_id128_t) { .qwords = { 0, 0 }})
+#define SD_ID128_ALLF ((const sd_id128_t) { .qwords = { UINT64_C(0xFFFFFFFFFFFFFFFF), UINT64_C(0xFFFFFFFFFFFFFFFF) }})
 
 _SD_END_DECLARATIONS;
 

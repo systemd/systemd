@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
-
 #include <byteswap.h>
 #include <stdbool.h>
 #include <sys/socket.h>
@@ -54,7 +48,16 @@ struct bus_body_part {
 };
 
 struct sd_bus_message {
-        unsigned n_ref;
+        /* Caveat: a message can be referenced in two different ways: the main (user-facing) way will also
+         * pin the bus connection object the message is associated with. The secondary way ("queued") is used
+         * when a message is in the read or write queues of the bus connection object, which will not pin the
+         * bus connection object. This is necessary so that we don't have to have a pair of cyclic references
+         * between a message that is queued and its connection: as soon as a message is only referenced by
+         * the connection (by means of being queued) and the connection itself has no other references it
+         * will be freed. */
+
+        unsigned n_ref;     /* Counter of references that pin the connection */
+        unsigned n_queued;  /* Counter of references that do not pin the connection */
 
         sd_bus *bus;
 
@@ -215,7 +218,8 @@ int bus_message_new_synthetic_error(sd_bus *bus, uint64_t serial, const sd_bus_e
 
 int bus_message_remarshal(sd_bus *bus, sd_bus_message **m);
 
-int bus_message_append_sender(sd_bus_message *m, const char *sender);
-
 void bus_message_set_sender_driver(sd_bus *bus, sd_bus_message *m);
 void bus_message_set_sender_local(sd_bus *bus, sd_bus_message *m);
+
+sd_bus_message* bus_message_ref_queued(sd_bus_message *m, sd_bus *bus);
+sd_bus_message* bus_message_unref_queued(sd_bus_message *m, sd_bus *bus);

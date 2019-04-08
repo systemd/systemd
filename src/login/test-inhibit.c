@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "sd-bus.h"
 
@@ -35,7 +31,7 @@ static int inhibit(sd_bus *bus, const char *what) {
         assert_se(r >= 0);
         assert_se(fd >= 0);
 
-        return dup(fd);
+        return fcntl(fd, F_DUPFD_CLOEXEC, 3);
 }
 
 static void print_inhibitors(sd_bus *bus) {
@@ -70,7 +66,7 @@ static void print_inhibitors(sd_bus *bus) {
         printf("%u inhibitors\n", n);
 }
 
-int main(int argc, char*argv[]) {
+int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int fd1, fd2;
         int r;

@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2015 Lennart Poettering
-***/
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "fd-util.h"
 #include "log.h"
 #include "qcow2-util.h"
-#include "util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_close_ int sfd = -1, dfd = -1;

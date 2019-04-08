@@ -1,21 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2011 Lennart Poettering
-***/
-
+#include <fcntl.h>
 #include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "id128-util.h"
 #include "macro.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 #define ID128_WALDI SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10)

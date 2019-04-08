@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <stdlib.h>
@@ -11,9 +6,9 @@
 #include <unistd.h>
 
 #include "fd-util.h"
-#include "fileio.h"
 #include "macro.h"
 #include "mmap-cache.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 int main(int argc, char *argv[]) {

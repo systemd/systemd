@@ -1,10 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <fcntl.h>
 #include <stddef.h>
@@ -13,24 +7,29 @@
 #include <sys/capability.h>
 #include <unistd.h>
 
+#include "all-units.h"
 #include "alloc-util.h"
 #include "capability-util.h"
+#include "conf-parser.h"
+#include "env-file.h"
 #include "fd-util.h"
-#include "fileio.h"
+#include "format-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "install-printf.h"
 #include "install.h"
 #include "load-fragment.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "rm-rf.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
 #include "test-helper.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
-#include "util.h"
 
 static int test_unit_file_get_set(void) {
         int r;
@@ -42,11 +41,8 @@ static int test_unit_file_get_set(void) {
         assert_se(h);
 
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h, NULL, NULL);
-
-        if (IN_SET(r, -EPERM, -EACCES)) {
-                log_notice_errno(r, "Skipping test: unit_file_get_list: %m");
-                return EXIT_TEST_SKIP;
-        }
+        if (IN_SET(r, -EPERM, -EACCES))
+                return log_tests_skipped_errno(r, "unit_file_get_list");
 
         log_full_errno(r == 0 ? LOG_INFO : LOG_ERR, r,
                        "unit_file_get_list: %m");
@@ -530,14 +526,14 @@ static void test_load_env_file_1(void) {
         _cleanup_strv_free_ char **data = NULL;
         int r;
 
-        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
-        assert_se(write(fd, env_file_1, sizeof(env_file_1)) == sizeof(env_file_1));
+        assert_se(write(fd, env_file_1, strlen(env_file_1)) == strlen(env_file_1));
 
-        r = load_env_file(NULL, name, NULL, &data);
+        r = load_env_file(NULL, name, &data);
         assert_se(r == 0);
         assert_se(streq(data[0], "a=a"));
         assert_se(streq(data[1], "b=bc"));
@@ -546,80 +542,75 @@ static void test_load_env_file_1(void) {
         assert_se(streq(data[4], "h=h"));
         assert_se(streq(data[5], "i=i"));
         assert_se(data[6] == NULL);
-        unlink(name);
 }
 
 static void test_load_env_file_2(void) {
         _cleanup_strv_free_ char **data = NULL;
         int r;
 
-        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
-        assert_se(write(fd, env_file_2, sizeof(env_file_2)) == sizeof(env_file_2));
+        assert_se(write(fd, env_file_2, strlen(env_file_2)) == strlen(env_file_2));
 
-        r = load_env_file(NULL, name, NULL, &data);
+        r = load_env_file(NULL, name, &data);
         assert_se(r == 0);
         assert_se(streq(data[0], "a=a"));
         assert_se(data[1] == NULL);
-        unlink(name);
 }
 
 static void test_load_env_file_3(void) {
         _cleanup_strv_free_ char **data = NULL;
         int r;
 
-        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
-        assert_se(write(fd, env_file_3, sizeof(env_file_3)) == sizeof(env_file_3));
+        assert_se(write(fd, env_file_3, strlen(env_file_3)) == strlen(env_file_3));
 
-        r = load_env_file(NULL, name, NULL, &data);
+        r = load_env_file(NULL, name, &data);
         assert_se(r == 0);
         assert_se(data == NULL);
-        unlink(name);
 }
 
 static void test_load_env_file_4(void) {
         _cleanup_strv_free_ char **data = NULL;
-        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
         int r;
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
-        assert_se(write(fd, env_file_4, sizeof(env_file_4)) == sizeof(env_file_4));
+        assert_se(write(fd, env_file_4, strlen(env_file_4)) == strlen(env_file_4));
 
-        r = load_env_file(NULL, name, NULL, &data);
+        r = load_env_file(NULL, name, &data);
         assert_se(r == 0);
         assert_se(streq(data[0], "HWMON_MODULES=coretemp f71882fg"));
         assert_se(streq(data[1], "MODULE_0=coretemp"));
         assert_se(streq(data[2], "MODULE_1=f71882fg"));
         assert_se(data[3] == NULL);
-        unlink(name);
 }
 
 static void test_load_env_file_5(void) {
         _cleanup_strv_free_ char **data = NULL;
         int r;
 
-        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
-        assert_se(write(fd, env_file_5, sizeof(env_file_5)) == sizeof(env_file_5));
+        assert_se(write(fd, env_file_5, strlen(env_file_5)) == strlen(env_file_5));
 
-        r = load_env_file(NULL, name, NULL, &data);
+        r = load_env_file(NULL, name, &data);
         assert_se(r == 0);
         assert_se(streq(data[0], "a="));
         assert_se(streq(data[1], "b="));
         assert_se(data[2] == NULL);
-        unlink(name);
 }
 
 static void test_install_printf(void) {
@@ -632,12 +623,14 @@ static void test_install_printf(void) {
         UnitFileInstallInfo i3 = { .name = name3, .path = path3, };
         UnitFileInstallInfo i4 = { .name = name3, .path = path3, };
 
-        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *uid = NULL, *user = NULL;
+        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL;
 
         assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
         assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
-        assert_se((host = gethostname_malloc()));
-        assert_se((user = uid_to_name(getuid())));
+        assert_se(host = gethostname_malloc());
+        assert_se(group = gid_to_name(getgid()));
+        assert_se(asprintf(&gid, UID_FMT, getgid()) >= 0);
+        assert_se(user = uid_to_name(getuid()));
         assert_se(asprintf(&uid, UID_FMT, getuid()) >= 0);
 
 #define expect(src, pattern, result)                                    \
@@ -663,6 +656,8 @@ static void test_install_printf(void) {
         expect(i, "%p", "name");
         expect(i, "%i", "");
         expect(i, "%j", "name");
+        expect(i, "%g", group);
+        expect(i, "%G", gid);
         expect(i, "%u", user);
         expect(i, "%U", uid);
 
@@ -670,12 +665,16 @@ static void test_install_printf(void) {
         expect(i, "%b", bid);
         expect(i, "%H", host);
 
+        expect(i2, "%g", group);
+        expect(i2, "%G", gid);
         expect(i2, "%u", user);
         expect(i2, "%U", uid);
 
         expect(i3, "%n", "name@inst.service");
         expect(i3, "%N", "name@inst");
         expect(i3, "%p", "name");
+        expect(i3, "%g", group);
+        expect(i3, "%G", gid);
         expect(i3, "%u", user);
         expect(i3, "%U", uid);
 
@@ -683,6 +682,8 @@ static void test_install_printf(void) {
         expect(i3, "%b", bid);
         expect(i3, "%H", host);
 
+        expect(i4, "%g", group);
+        expect(i4, "%G", gid);
         expect(i4, "%u", user);
         expect(i4, "%U", uid);
 }
@@ -747,22 +748,22 @@ static void test_config_parse_capability_set(void) {
 static void test_config_parse_rlimit(void) {
         struct rlimit * rl[_RLIMIT_MAX] = {};
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "55", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "55", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 55);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == rl[RLIMIT_NOFILE]->rlim_max);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "55:66", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "55:66", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 55);
         assert_se(rl[RLIMIT_NOFILE]->rlim_max == 66);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == RLIM_INFINITY);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == rl[RLIMIT_NOFILE]->rlim_max);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity:infinity", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity:infinity", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == RLIM_INFINITY);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == rl[RLIMIT_NOFILE]->rlim_max);
@@ -771,86 +772,86 @@ static void test_config_parse_rlimit(void) {
         rl[RLIMIT_NOFILE]->rlim_max = 20;
 
         /* Invalid values don't change rl */
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "10:20:30", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "10:20:30", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 10);
         assert_se(rl[RLIMIT_NOFILE]->rlim_max == 20);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "wat:wat", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "wat:wat", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 10);
         assert_se(rl[RLIMIT_NOFILE]->rlim_max == 20);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "66:wat", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "66:wat", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 10);
         assert_se(rl[RLIMIT_NOFILE]->rlim_max == 20);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "200:100", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "200:100", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 10);
         assert_se(rl[RLIMIT_NOFILE]->rlim_max == 20);
 
         rl[RLIMIT_NOFILE] = mfree(rl[RLIMIT_NOFILE]);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "56", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "56", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_CPU]);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == 56);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == rl[RLIMIT_CPU]->rlim_max);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "57s", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "57s", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_CPU]);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == 57);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == rl[RLIMIT_CPU]->rlim_max);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "40s:1m", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "40s:1m", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_CPU]);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == 40);
         assert_se(rl[RLIMIT_CPU]->rlim_max == 60);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "infinity", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "infinity", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_CPU]);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == RLIM_INFINITY);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == rl[RLIMIT_CPU]->rlim_max);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "1234ms", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "1234ms", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_CPU]);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == 2);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == rl[RLIMIT_CPU]->rlim_max);
 
         rl[RLIMIT_CPU] = mfree(rl[RLIMIT_CPU]);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "58", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "58", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 58);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "58:60", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "58:60", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 58);
         assert_se(rl[RLIMIT_RTTIME]->rlim_max == 60);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 59 * USEC_PER_SEC);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s:123s", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s:123s", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 59 * USEC_PER_SEC);
         assert_se(rl[RLIMIT_RTTIME]->rlim_max == 123 * USEC_PER_SEC);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == RLIM_INFINITY);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity:infinity", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity:infinity", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == RLIM_INFINITY);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);
 
-        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "2345ms", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "2345ms", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 2345 * USEC_PER_MSEC);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);
@@ -904,14 +905,11 @@ int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         int r;
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                log_notice_errno(r, "Skipping test: cgroupfs not available");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         assert_se(runtime_dir = setup_fake_runtime_dir());
 

@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include "bus-introspect.h"
 #include "log.h"
+#include "tests.h"
 
 static int prop_get(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         return -EINVAL;
@@ -34,7 +30,7 @@ static const sd_bus_vtable vtable[] = {
 int main(int argc, char *argv[]) {
         struct introspect intro;
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(introspect_begin(&intro, false) >= 0);
 

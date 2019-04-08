@@ -19,6 +19,8 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "netdev/netdev.h"
 #include "netdev/vxcan.h"
 #include "netdev/wireguard.h"
+#include "netdev/fou-tunnel.h"
+#include "netdev/l2tp-tunnel.h"
 #include "vlan-util.h"
 %}
 struct ConfigPerfItem;
@@ -32,11 +34,11 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Match.Host,                        config_parse_net_condition,           CONDITION_HOST,                offsetof(NetDev, match_host)
-Match.Virtualization,              config_parse_net_condition,           CONDITION_VIRTUALIZATION,      offsetof(NetDev, match_virt)
-Match.KernelCommandLine,           config_parse_net_condition,           CONDITION_KERNEL_COMMAND_LINE, offsetof(NetDev, match_kernel_cmdline)
-Match.KernelVersion,               config_parse_net_condition,           CONDITION_KERNEL_VERSION,      offsetof(NetDev, match_kernel_version)
-Match.Architecture,                config_parse_net_condition,           CONDITION_ARCHITECTURE,        offsetof(NetDev, match_arch)
+Match.Host,                        config_parse_net_condition,           CONDITION_HOST,                offsetof(NetDev, conditions)
+Match.Virtualization,              config_parse_net_condition,           CONDITION_VIRTUALIZATION,      offsetof(NetDev, conditions)
+Match.KernelCommandLine,           config_parse_net_condition,           CONDITION_KERNEL_COMMAND_LINE, offsetof(NetDev, conditions)
+Match.KernelVersion,               config_parse_net_condition,           CONDITION_KERNEL_VERSION,      offsetof(NetDev, conditions)
+Match.Architecture,                config_parse_net_condition,           CONDITION_ARCHITECTURE,        offsetof(NetDev, conditions)
 NetDev.Description,                config_parse_string,                  0,                             offsetof(NetDev, description)
 NetDev.Name,                       config_parse_ifname,                  0,                             offsetof(NetDev, ifname)
 NetDev.Kind,                       config_parse_netdev_kind,             0,                             offsetof(NetDev, kind)
@@ -65,6 +67,31 @@ Tunnel.CopyDSCP,                   config_parse_bool,                    0,     
 Tunnel.EncapsulationLimit,         config_parse_encap_limit,             0,                             offsetof(Tunnel, encap_limit)
 Tunnel.Independent,                config_parse_bool,                    0,                             offsetof(Tunnel, independent)
 Tunnel.AllowLocalRemote,           config_parse_tristate,                0,                             offsetof(Tunnel, allow_localremote)
+Tunnel.FooOverUDP,                 config_parse_bool,                    0,                             offsetof(Tunnel, fou_tunnel)
+Tunnel.FOUDestinationPort,         config_parse_ip_port,                 0,                             offsetof(Tunnel, fou_destination_port)
+Tunnel.FOUSourcePort,              config_parse_ip_port,                 0,                             offsetof(Tunnel, encap_src_port)
+Tunnel.Encapsulation,              config_parse_fou_encap_type,          0,                             offsetof(Tunnel, fou_encap_type)
+Tunnel.IPv6RapidDeploymentPrefix,  config_parse_6rd_prefix,              0,                             0
+Tunnel.ERSPANIndex,                config_parse_uint32,                  0,                             offsetof(Tunnel, erspan_index)
+Tunnel.SerializeTunneledPackets,   config_parse_tristate,                0,                             offsetof(Tunnel, gre_erspan_sequence)
+Tunnel.ISATAP,                     config_parse_tristate,                0,                             offsetof(Tunnel, isatap)
+FooOverUDP.Protocol,               config_parse_ip_protocol,             0,                             offsetof(FouTunnel, fou_protocol)
+FooOverUDP.Encapsulation,          config_parse_fou_encap_type,          0,                             offsetof(FouTunnel, fou_encap_type)
+FooOverUDP.Port,                   config_parse_ip_port,                 0,                             offsetof(FouTunnel, port)
+L2TP.TunnelId,                     config_parse_l2tp_tunnel_id,          0,                             offsetof(L2tpTunnel, tunnel_id)
+L2TP.PeerTunnelId,                 config_parse_l2tp_tunnel_id,          0,                             offsetof(L2tpTunnel, peer_tunnel_id)
+L2TP.UDPSourcePort,                config_parse_ip_port,                 0,                             offsetof(L2tpTunnel, l2tp_udp_sport)
+L2TP.UDPDestinationPort,           config_parse_ip_port,                 0,                             offsetof(L2tpTunnel, l2tp_udp_dport)
+L2TP.Local,                        config_parse_l2tp_tunnel_address,     0,                             offsetof(L2tpTunnel, local)
+L2TP.Remote,                       config_parse_l2tp_tunnel_address,     0,                             offsetof(L2tpTunnel, remote)
+L2TP.EncapsulationType,            config_parse_l2tp_encap_type,         0,                             offsetof(L2tpTunnel, l2tp_encap_type)
+L2TP.UDPCheckSum,                  config_parse_bool,                    0,                             offsetof(L2tpTunnel, udp_csum)
+L2TP.UDP6CheckSumRx,               config_parse_bool,                    0,                             offsetof(L2tpTunnel, udp6_csum_rx)
+L2TP.UDP6CheckSumTx,               config_parse_bool,                    0,                             offsetof(L2tpTunnel, udp6_csum_tx)
+L2TPSession.SessionId,             config_parse_l2tp_session_id,         0,                             0
+L2TPSession.PeerSessionId,         config_parse_l2tp_session_id,         0,                             0
+L2TPSession.Layer2SpecificHeader,  config_parse_l2tp_session_l2spec,     0,                             0
+L2TPSession.Name,                  config_parse_l2tp_session_name,       0,                             0
 Peer.Name,                         config_parse_ifname,                  0,                             offsetof(Veth, ifname_peer)
 Peer.MACAddress,                   config_parse_hwaddr,                  0,                             offsetof(Veth, mac_peer)
 VXCAN.Peer,                        config_parse_ifname,                  0,                             offsetof(VxCan, ifname_peer)
@@ -100,7 +127,9 @@ GENEVE.TOS,                        config_parse_uint8,                   0,     
 GENEVE.TTL,                        config_parse_uint8,                   0,                             offsetof(Geneve, ttl)
 GENEVE.UDPChecksum,                config_parse_bool,                    0,                             offsetof(Geneve, udpcsum)
 GENEVE.UDP6ZeroCheckSumRx,         config_parse_bool,                    0,                             offsetof(Geneve, udp6zerocsumrx)
+GENEVE.UDP6ZeroChecksumRx,         config_parse_bool,                    0,                             offsetof(Geneve, udp6zerocsumrx)
 GENEVE.UDP6ZeroCheckSumTx,         config_parse_bool,                    0,                             offsetof(Geneve, udp6zerocsumtx)
+GENEVE.UDP6ZeroChecksumTx,         config_parse_bool,                    0,                             offsetof(Geneve, udp6zerocsumtx)
 GENEVE.DestinationPort,            config_parse_ip_port,                 0,                             offsetof(Geneve, dest_port)
 GENEVE.FlowLabel,                  config_parse_geneve_flow_label,       0,                             0
 Tun.OneQueue,                      config_parse_bool,                    0,                             offsetof(TunTap, one_queue)
@@ -126,13 +155,17 @@ Bond.PrimaryReselectPolicy,        config_parse_bond_primary_reselect,   0,     
 Bond.ResendIGMP,                   config_parse_unsigned,                0,                             offsetof(Bond, resend_igmp)
 Bond.PacketsPerSlave,              config_parse_unsigned,                0,                             offsetof(Bond, packets_per_slave)
 Bond.GratuitousARP,                config_parse_unsigned,                0,                             offsetof(Bond, num_grat_arp)
-Bond.AllSlavesActive,              config_parse_unsigned,                0,                             offsetof(Bond, all_slaves_active)
+Bond.AllSlavesActive,              config_parse_bool,                    0,                             offsetof(Bond, all_slaves_active)
+Bond.DynamicTransmitLoadBalancing, config_parse_tristate,                0,                             offsetof(Bond, tlb_dynamic_lb)
 Bond.MinLinks,                     config_parse_unsigned,                0,                             offsetof(Bond, min_links)
 Bond.MIIMonitorSec,                config_parse_sec,                     0,                             offsetof(Bond, miimon)
 Bond.UpDelaySec,                   config_parse_sec,                     0,                             offsetof(Bond, updelay)
 Bond.DownDelaySec,                 config_parse_sec,                     0,                             offsetof(Bond, downdelay)
 Bond.ARPIntervalSec,               config_parse_sec,                     0,                             offsetof(Bond, arp_interval)
 Bond.LearnPacketIntervalSec,       config_parse_sec,                     0,                             offsetof(Bond, lp_interval)
+Bond.AdActorSystemPriority,        config_parse_ad_actor_sys_prio,       0,                             offsetof(Bond, ad_actor_sys_prio)
+Bond.AdUserPortKey,                config_parse_ad_user_port_key,        0,                             offsetof(Bond, ad_user_port_key)
+Bond.AdActorSystem,                config_parse_ad_actor_system,         0,                             offsetof(Bond, ad_actor_system)
 Bridge.HelloTimeSec,               config_parse_sec,                     0,                             offsetof(Bridge, hello_time)
 Bridge.MaxAgeSec,                  config_parse_sec,                     0,                             offsetof(Bridge, max_age)
 Bridge.AgeingTimeSec,              config_parse_sec,                     0,                             offsetof(Bridge, ageing_time)
@@ -145,10 +178,11 @@ Bridge.MulticastSnooping,          config_parse_tristate,                0,     
 Bridge.VLANFiltering,              config_parse_tristate,                0,                             offsetof(Bridge, vlan_filtering)
 Bridge.STP,                        config_parse_tristate,                0,                             offsetof(Bridge, stp)
 VRF.TableId,                       config_parse_uint32,                  0,                             offsetof(Vrf, table) /* deprecated */
-VRF.Table,                         config_parse_route_table,             0,                             offsetof(Vrf, table)
+VRF.Table,                         config_parse_uint32,                  0,                             offsetof(Vrf, table)
 WireGuard.FwMark,                  config_parse_unsigned,                0,                             offsetof(Wireguard, fwmark)
 WireGuard.ListenPort,              config_parse_wireguard_listen_port,   0,                             offsetof(Wireguard, port)
 WireGuard.PrivateKey,              config_parse_wireguard_private_key,   0,                             0
+WireGuard.PrivateKeyFile,          config_parse_wireguard_private_key_file, 0,                          0
 WireGuardPeer.AllowedIPs,          config_parse_wireguard_allowed_ips,   0,                             0
 WireGuardPeer.Endpoint,            config_parse_wireguard_endpoint,      0,                             0
 WireGuardPeer.PublicKey,           config_parse_wireguard_public_key,    0,                             0

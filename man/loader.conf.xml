@@ -1,7 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="loader.conf" conditional='ENABLE_EFI'
@@ -9,15 +8,6 @@
   <refentryinfo>
     <title>loader.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>I wrote this page</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -27,12 +17,12 @@
 
   <refnamediv>
     <refname>loader.conf</refname>
-    <refpurpose>Configuration file for sd-boot</refpurpose>
+    <refpurpose>Configuration file for systemd-boot</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename><replaceable>ESP</replaceable>/loader/loader.conf</filename>,
-    <filename><replaceable>ESP</replaceable>/loader/loader.conf.d/*.conf</filename>
+    <filename><replaceable>ESP</replaceable>/loader/entries/*.conf</filename>
     </para>
   </refsynopsisdiv>
 
@@ -40,10 +30,10 @@
     <title>Description</title>
 
     <para>
-    <citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    will read <filename>/loader/loader.conf</filename> and any files with the
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    will read <filename><replaceable>ESP</replaceable>/loader/loader.conf</filename> and any files with the
     <literal>.conf</literal> extension under
-    <filename>/loader/loader.conf.d/</filename> on the EFI system partition (ESP).
+    <filename><replaceable>ESP</replaceable>/loader/entries/</filename> on the EFI system partition (ESP).
     </para>
 
     <para>Each configuration file must consist of an option name, followed by
@@ -59,7 +49,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The following configuration options are understood:</para>
+    <para>The following configuration options in <filename>loader.conf</filename> are understood:</para>
 
     <variablelist>
       <varlistentry>
@@ -81,7 +71,7 @@
 
         <para>If the timeout is disabled, the default entry will be booted
         immediately. The menu can be shown by pressing and holding a key before
-        sd-boot is launched.</para>
+        systemd-boot is launched.</para>
         </listitem>
       </varlistentry>
 
@@ -187,7 +177,7 @@ editor no
   <refsect1>
       <title>See Also</title>
       <para>
-        <citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       </para>
   </refsect1>

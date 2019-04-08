@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2014 Lennart Poettering
-***/
-
+#include <stdio.h>
 #include <sys/prctl.h>
 
 #include "alloc-util.h"

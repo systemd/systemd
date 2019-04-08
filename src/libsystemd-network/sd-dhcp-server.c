@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2013 Intel Corporation. All rights reserved.
-  Copyright (C) 2014 Tom Gundersen
+  Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
 #include <sys/ioctl.h>
@@ -15,6 +12,7 @@
 #include "dhcp-server-internal.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
+#include "io-util.h"
 #include "sd-id128.h"
 #include "siphash24.h"
 #include "string-util.h"
@@ -23,12 +21,12 @@
 #define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
 #define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
 
-static void dhcp_lease_free(DHCPLease *lease) {
+static DHCPLease *dhcp_lease_free(DHCPLease *lease) {
         if (!lease)
-                return;
+                return NULL;
 
         free(lease->client_id.data);
-        free(lease);
+        return mfree(lease);
 }
 
 /* configures the server's address and subnet, and optionally the pool's size and offset into the subnet
@@ -92,7 +90,7 @@ int sd_dhcp_server_configure_pool(sd_dhcp_server *server, struct in_addr *addres
                         server->bound_leases[server_off - offset] = &server->invalid_lease;
 
                 /* Drop any leases associated with the old address range */
-                hashmap_clear_with_destructor(server->leases_by_client_id, dhcp_lease_free);
+                hashmap_clear(server->leases_by_client_id);
         }
 
         return 0;
@@ -104,20 +102,7 @@ int sd_dhcp_server_is_running(sd_dhcp_server *server) {
         return !!server->receive_message;
 }
 
-sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server) {
-
-        if (!server)
-                return NULL;
-
-        assert(server->n_ref >= 1);
-        server->n_ref++;
-
-        return server;
-}
-
-void client_id_hash_func(const void *p, struct siphash *state) {
-        const DHCPClientId *id = p;
-
+void client_id_hash_func(const DHCPClientId *id, struct siphash *state) {
         assert(id);
         assert(id->length);
         assert(id->data);
@@ -126,37 +111,24 @@ void client_id_hash_func(const void *p, struct siphash *state) {
         siphash24_compress(id->data, id->length, state);
 }
 
-int client_id_compare_func(const void *_a, const void *_b) {
-        const DHCPClientId *a, *b;
-
-        a = _a;
-        b = _b;
+int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b) {
+        int r;
 
         assert(!a->length || a->data);
         assert(!b->length || b->data);
 
-        if (a->length != b->length)
-                return a->length < b->length ? -1 : 1;
+        r = CMP(a->length, b->length);
+        if (r != 0)
+                return r;
 
         return memcmp(a->data, b->data, a->length);
 }
 
-static const struct hash_ops client_id_hash_ops = {
-        .hash = client_id_hash_func,
-        .compare = client_id_compare_func
-};
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(dhcp_lease_hash_ops, DHCPClientId, client_id_hash_func, client_id_compare_func,
+                                              DHCPLease, dhcp_lease_free);
 
-sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
-        DHCPLease *lease;
-
-        if (!server)
-                return NULL;
-
-        assert(server->n_ref >= 1);
-        server->n_ref--;
-
-        if (server->n_ref > 0)
-                return NULL;
+static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
+        assert(server);
 
         log_dhcp_server(server, "UNREF");
 
@@ -168,13 +140,13 @@ sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
         free(server->dns);
         free(server->ntp);
 
-        while ((lease = hashmap_steal_first(server->leases_by_client_id)))
-                dhcp_lease_free(lease);
         hashmap_free(server->leases_by_client_id);
 
         free(server->bound_leases);
         return mfree(server);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server, sd_dhcp_server, dhcp_server_free);
 
 int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
@@ -193,7 +165,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         server->netmask = htobe32(INADDR_ANY);
         server->ifindex = ifindex;
 
-        server->leases_by_client_id = hashmap_new(&client_id_hash_ops);
+        server->leases_by_client_id = hashmap_new(&dhcp_lease_hash_ops);
         if (!server->leases_by_client_id)
                 return -ENOMEM;
 
@@ -960,8 +932,7 @@ static int server_receive_message(sd_event_source *s, int fd,
         if (!message)
                 return -ENOMEM;
 
-        iov.iov_base = message;
-        iov.iov_len = buflen;
+        iov = IOVEC_MAKE(message, buflen);
 
         len = recvmsg(fd, &msg, 0);
         if (len < 0) {
@@ -1005,7 +976,7 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         assert_return(server->fd < 0, -EBUSY);
         assert_return(server->address != htobe32(INADDR_ANY), -EUNATCH);
 
-        r = socket(AF_PACKET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+        r = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (r < 0) {
                 r = -errno;
                 sd_dhcp_server_stop(server);
@@ -1069,7 +1040,7 @@ int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *tz) {
         int r;
 
         assert_return(server, -EINVAL);
-        assert_return(timezone_is_valid(tz), -EINVAL);
+        assert_return(timezone_is_valid(tz, LOG_DEBUG), -EINVAL);
 
         if (streq_ptr(tz, server->timezone))
                 return 0;

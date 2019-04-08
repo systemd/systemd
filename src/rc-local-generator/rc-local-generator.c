@@ -1,25 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2011 Michal Schmidt
-***/
 
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
 
+#include "generator.h"
 #include "log.h"
 #include "mkdir.h"
 #include "string-util.h"
 #include "util.h"
 
-static const char *arg_dest = "/tmp";
+static const char *arg_dest = NULL;
+
+/* So you are reading this, and might wonder: why is this implemented as a generator rather than as a plain, statically
+ * enabled service that carries appropriate ConditionFileIsExecutable= lines? The answer is this: conditions bypass
+ * execution of a service's binary, but they have no influence on unit dependencies. Thus, a service that is
+ * conditioned out will still act as synchronization point in the dependency tree, and we'd rather not have that for
+ * these two legacy scripts. */
 
 static int add_symlink(const char *service, const char *where) {
         const char *from, *to;
-        int r;
 
         assert(service);
         assert(where);
@@ -29,8 +29,7 @@ static int add_symlink(const char *service, const char *where) {
 
         (void) mkdir_parents_label(to, 0755);
 
-        r = symlink(from, to);
-        if (r < 0) {
+        if (symlink(from, to) < 0) {
                 if (errno == EEXIST)
                         return 0;
 
@@ -40,37 +39,39 @@ static int add_symlink(const char *service, const char *where) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
-        int ret = EXIT_SUCCESS;
+static int check_executable(const char *path) {
+        assert(path);
 
-        if (argc > 1 && argc != 4) {
-                log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
+        if (access(path, X_OK) < 0) {
+                if (errno == ENOENT)
+                        return log_debug_errno(errno, "%s does not exist, skipping.", path);
+                if (errno == EACCES)
+                        return log_info_errno(errno, "%s is not marked executable, skipping.", path);
+
+                return log_warning_errno(errno, "Couldn't determine if %s exists and is executable, skipping: %m", path);
         }
 
-        if (argc > 1)
-                arg_dest = argv[1];
+        return 0;
+}
 
-        log_set_prohibit_ipc(true);
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
+        int r = 0, k = 0;
 
-        umask(0022);
+        assert_se(arg_dest = dest);
 
-        if (access(RC_LOCAL_SCRIPT_PATH_START, X_OK) >= 0) {
+        if (check_executable(RC_LOCAL_SCRIPT_PATH_START) >= 0) {
                 log_debug("Automatically adding rc-local.service.");
 
-                if (add_symlink("rc-local.service", "multi-user.target") < 0)
-                        ret = EXIT_FAILURE;
+                r = add_symlink("rc-local.service", "multi-user.target");
         }
 
-        if (access(RC_LOCAL_SCRIPT_PATH_STOP, X_OK) >= 0) {
+        if (check_executable(RC_LOCAL_SCRIPT_PATH_STOP) >= 0) {
                 log_debug("Automatically adding halt-local.service.");
 
-                if (add_symlink("halt-local.service", "final.target") < 0)
-                        ret = EXIT_FAILURE;
+                k = add_symlink("halt-local.service", "final.target");
         }
 
-        return ret;
+        return r < 0 ? r : k;
 }
+
+DEFINE_MAIN_GENERATOR_FUNCTION(run);

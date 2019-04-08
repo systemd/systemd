@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2017 Susant Sahani
-***/
-
 typedef struct Geneve Geneve;
 
 #include "in-addr-util.h"
@@ -39,35 +33,6 @@ struct Geneve {
 DEFINE_NETDEV_CAST(GENEVE, Geneve);
 extern const NetDevVTable geneve_vtable;
 
-int config_parse_geneve_vni(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata);
-
-int config_parse_geneve_address(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata);
-
-int config_parse_geneve_flow_label(const char *unit,
-                                   const char *filename,
-                                   unsigned line,
-                                   const char *section,
-                                   unsigned section_line,
-                                   const char *lvalue,
-                                   int ltype,
-                                   const char *rvalue,
-                                   void *data,
-                                   void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_geneve_vni);
+CONFIG_PARSER_PROTOTYPE(config_parse_geneve_address);
+CONFIG_PARSER_PROTOTYPE(config_parse_geneve_flow_label);

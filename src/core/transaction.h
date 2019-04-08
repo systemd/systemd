@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 typedef struct Transaction Transaction;
 
 #include "hashmap.h"
@@ -35,6 +29,6 @@ int transaction_add_job_and_dependencies(
                 bool ignore_requirements,
                 bool ignore_order,
                 sd_bus_error *e);
-int transaction_activate(Transaction *tr, Manager *m, JobMode mode, sd_bus_error *e);
+int transaction_activate(Transaction *tr, Manager *m, JobMode mode, Set *affected, sd_bus_error *e);
 int transaction_add_isolate_jobs(Transaction *tr, Manager *m);
 void transaction_abort(Transaction *tr);

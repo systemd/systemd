@@ -1,29 +1,13 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
--->
-
-<refentry id="sd_journal_add_match">
+<refentry id="sd_journal_add_match" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_add_match</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -154,21 +138,7 @@
     returns nothing.</para>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para>All functions listed here are thread-agnostic and only a single thread may operate
-    on a given <structname>sd_journal</structname> object.</para>
-
-    <para>The <function>sd_journal_add_match()</function>,
-    <function>sd_journal_add_disjunction()</function>,
-    <function>sd_journal_add_conjunction()</function> and
-    <function>sd_journal_flush_matches()</function>
-    interfaces are available as a shared library, which can
-    be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>Examples</title>
@@ -189,7 +159,6 @@ int add_matches(sd_journal *j) {
   sd_journal_add_disjunction(j);
   sd_journal_add_match(j, "MESSAGE_ID=03bb1dab98ab4ecfbf6fff2738bdd964", 0);
 }</programlisting>
-
   </refsect1>
 
   <refsect1>

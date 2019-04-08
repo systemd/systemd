@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include "alloc-util.h"
 #include "bus-label.h"
@@ -93,6 +88,7 @@ static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB] = "stub",
         [UNIT_LOADED] = "loaded",
         [UNIT_NOT_FOUND] = "not-found",
+        [UNIT_BAD_SETTING] = "bad-setting",
         [UNIT_ERROR] = "error",
         [UNIT_MERGED] = "merged",
         [UNIT_MASKED] = "masked"
@@ -173,7 +169,7 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_EXITED] = "exited",
         [SERVICE_RELOAD] = "reload",
         [SERVICE_STOP] = "stop",
-        [SERVICE_STOP_SIGABRT] = "stop-sigabrt",
+        [SERVICE_STOP_WATCHDOG] = "stop-watchdog",
         [SERVICE_STOP_SIGTERM] = "stop-sigterm",
         [SERVICE_STOP_SIGKILL] = "stop-sigkill",
         [SERVICE_STOP_POST] = "stop-post",

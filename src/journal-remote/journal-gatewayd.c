@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <getopt.h>
 #include <microhttpd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -23,9 +20,13 @@
 #include "hostname-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "main-func.h"
 #include "microhttpd-util.h"
+#include "os-util.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "sigbus.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 #define JOURNAL_WAIT_TIMEOUT (10*USEC_PER_SEC)
@@ -33,7 +34,11 @@
 static char *arg_key_pem = NULL;
 static char *arg_cert_pem = NULL;
 static char *arg_trust_pem = NULL;
-static char *arg_directory = NULL;
+static const char *arg_directory = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_key_pem, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_cert_pem, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_trust_pem, freep);
 
 typedef struct RequestMeta {
         sd_journal *journal;
@@ -61,6 +66,7 @@ static const char* const mime_types[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT] = "text/plain",
         [OUTPUT_JSON] = "application/json",
         [OUTPUT_JSON_SSE] = "text/event-stream",
+        [OUTPUT_JSON_SEQ] = "application/json-seq",
         [OUTPUT_EXPORT] = "application/vnd.fdo.journal",
 };
 
@@ -213,7 +219,7 @@ static ssize_t request_reader_entries(
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
 
-                r = output_journal(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH,
+                r = show_journal_entry(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH,
                                    NULL, NULL, NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to serialize item: %m");
@@ -270,6 +276,8 @@ static int request_parse_accept(
                 m->mode = OUTPUT_JSON;
         else if (streq(header, mime_types[OUTPUT_JSON_SSE]))
                 m->mode = OUTPUT_JSON_SSE;
+        else if (streq(header, mime_types[OUTPUT_JSON_SEQ]))
+                m->mode = OUTPUT_JSON_SEQ;
         else if (streq(header, mime_types[OUTPUT_EXPORT]))
                 m->mode = OUTPUT_EXPORT;
         else
@@ -455,7 +463,7 @@ static int request_handler_entries(
                 struct MHD_Connection *connection,
                 void *connection_cls) {
 
-        struct MHD_Response *response;
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
         RequestMeta *m = connection_cls;
         int r;
 
@@ -497,11 +505,7 @@ static int request_handler_entries(
                 return respond_oom(connection);
 
         MHD_add_response_header(response, "Content-Type", mime_types[m->mode]);
-
-        r = MHD_queue_response(connection, MHD_HTTP_OK, response);
-        MHD_destroy_response(response);
-
-        return r;
+        return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
 static int output_field(FILE *f, OutputMode m, const char *d, size_t l) {
@@ -613,7 +617,7 @@ static int request_handler_fields(
                 const char *field,
                 void *connection_cls) {
 
-        struct MHD_Response *response;
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
         RequestMeta *m = connection_cls;
         int r;
 
@@ -636,11 +640,7 @@ static int request_handler_fields(
                 return respond_oom(connection);
 
         MHD_add_response_header(response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]);
-
-        r = MHD_queue_response(connection, MHD_HTTP_OK, response);
-        MHD_destroy_response(response);
-
-        return r;
+        return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
 static int request_handler_redirect(
@@ -648,8 +648,7 @@ static int request_handler_redirect(
                 const char *target) {
 
         char *page;
-        struct MHD_Response *response;
-        int ret;
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
 
         assert(connection);
         assert(target);
@@ -665,11 +664,7 @@ static int request_handler_redirect(
 
         MHD_add_response_header(response, "Content-Type", "text/html");
         MHD_add_response_header(response, "Location", target);
-
-        ret = MHD_queue_response(connection, MHD_HTTP_MOVED_PERMANENTLY, response);
-        MHD_destroy_response(response);
-
-        return ret;
+        return MHD_queue_response(connection, MHD_HTTP_MOVED_PERMANENTLY, response);
 }
 
 static int request_handler_file(
@@ -677,8 +672,7 @@ static int request_handler_file(
                 const char *path,
                 const char *mime_type) {
 
-        struct MHD_Response *response;
-        int ret;
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
         _cleanup_close_ int fd = -1;
         struct stat st;
 
@@ -696,15 +690,10 @@ static int request_handler_file(
         response = MHD_create_response_from_fd_at_offset64(st.st_size, fd, 0);
         if (!response)
                 return respond_oom(connection);
-
-        fd = -1;
+        TAKE_FD(fd);
 
         MHD_add_response_header(response, "Content-Type", mime_type);
-
-        ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-        MHD_destroy_response(response);
-
-        return ret;
+        return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
 static int get_virtualization(char **v) {
@@ -741,14 +730,13 @@ static int request_handler_machine(
                 struct MHD_Connection *connection,
                 void *connection_cls) {
 
-        struct MHD_Response *response;
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
         RequestMeta *m = connection_cls;
         int r;
         _cleanup_free_ char* hostname = NULL, *os_name = NULL;
         uint64_t cutoff_from = 0, cutoff_to = 0, usage = 0;
-        char *json;
         sd_id128_t mid, bid;
-        _cleanup_free_ char *v = NULL;
+        _cleanup_free_ char *v = NULL, *json = NULL;
 
         assert(connection);
         assert(m);
@@ -777,10 +765,8 @@ static int request_handler_machine(
         if (r < 0)
                 return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
 
-        if (parse_env_file("/etc/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL) == -ENOENT)
-                (void) parse_env_file("/usr/lib/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL);
-
-        get_virtualization(&v);
+        (void) parse_os_release(NULL, "PRETTY_NAME", &os_name, NULL);
+        (void) get_virtualization(&v);
 
         r = asprintf(&json,
                      "{ \"machine_id\" : \"" SD_ID128_FORMAT_STR "\","
@@ -799,21 +785,16 @@ static int request_handler_machine(
                      usage,
                      cutoff_from,
                      cutoff_to);
-
         if (r < 0)
                 return respond_oom(connection);
 
         response = MHD_create_response_from_buffer(strlen(json), json, MHD_RESPMEM_MUST_FREE);
-        if (!response) {
-                free(json);
+        if (!response)
                 return respond_oom(connection);
-        }
+        TAKE_PTR(json);
 
         MHD_add_response_header(response, "Content-Type", "application/json");
-        r = MHD_queue_response(connection, MHD_HTTP_OK, response);
-        MHD_destroy_response(response);
-
-        return r;
+        return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
 static int request_handler(
@@ -865,7 +846,14 @@ static int request_handler(
         return mhd_respond(connection, MHD_HTTP_NOT_FOUND, "Not found.");
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-journal-gatewayd.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] ...\n\n"
                "HTTP server for journal events.\n\n"
                "  -h --help           Show this help\n"
@@ -873,8 +861,13 @@ static void help(void) {
                "     --cert=CERT.PEM  Server certificate in PEM format\n"
                "     --key=KEY.PEM    Server key in PEM format\n"
                "     --trust=CERT.PEM Certificate authority certificate in PEM format\n"
-               "  -D --directory=PATH Serve journal files in directory\n",
-               program_invocation_short_name);
+               "  -D --directory=PATH Serve journal files in directory\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -905,17 +898,15 @@ static int parse_argv(int argc, char *argv[]) {
                 switch(c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
 
                 case ARG_KEY:
-                        if (arg_key_pem) {
-                                log_error("Key file specified twice");
-                                return -EINVAL;
-                        }
+                        if (arg_key_pem)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Key file specified twice");
                         r = read_full_file(optarg, &arg_key_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read key file: %m");
@@ -923,10 +914,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CERT:
-                        if (arg_cert_pem) {
-                                log_error("Certificate file specified twice");
-                                return -EINVAL;
-                        }
+                        if (arg_cert_pem)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Certificate file specified twice");
                         r = read_full_file(optarg, &arg_cert_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read certificate file: %m");
@@ -935,18 +925,17 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TRUST:
 #if HAVE_GNUTLS
-                        if (arg_trust_pem) {
-                                log_error("CA certificate file specified twice");
-                                return -EINVAL;
-                        }
+                        if (arg_trust_pem)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "CA certificate file specified twice");
                         r = read_full_file(optarg, &arg_trust_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read CA certificate file: %m");
                         assert(arg_trust_pem);
                         break;
 #else
-                        log_error("Option --trust is not available.");
-                        return -EINVAL;
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Option --trust is not available.");
 #endif
                 case 'D':
                         arg_directory = optarg;
@@ -959,115 +948,100 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind < argc) {
-                log_error("This program does not take arguments.");
-                return -EINVAL;
-        }
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program does not take arguments.");
 
-        if (!!arg_key_pem != !!arg_cert_pem) {
-                log_error("Certificate and key files must be specified together");
-                return -EINVAL;
-        }
+        if (!!arg_key_pem != !!arg_cert_pem)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Certificate and key files must be specified together");
 
-        if (arg_trust_pem && !arg_key_pem) {
-                log_error("CA certificate can only be used with certificate file");
-                return -EINVAL;
-        }
+        if (arg_trust_pem && !arg_key_pem)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "CA certificate can only be used with certificate file");
 
         return 1;
 }
 
-int main(int argc, char *argv[]) {
-        struct MHD_Daemon *d = NULL;
+static int run(int argc, char *argv[]) {
+        _cleanup_(MHD_stop_daemonp) struct MHD_Daemon *d = NULL;
+        struct MHD_OptionItem opts[] = {
+                { MHD_OPTION_NOTIFY_COMPLETED,
+                  (intptr_t) request_meta_free, NULL },
+                { MHD_OPTION_EXTERNAL_LOGGER,
+                  (intptr_t) microhttpd_logger, NULL },
+                { MHD_OPTION_END, 0, NULL },
+                { MHD_OPTION_END, 0, NULL },
+                { MHD_OPTION_END, 0, NULL },
+                { MHD_OPTION_END, 0, NULL },
+                { MHD_OPTION_END, 0, NULL },
+        };
+        int opts_pos = 2;
+
+        /* We force MHD_USE_ITC here, in order to make sure
+         * libmicrohttpd doesn't use shutdown() on our listening
+         * socket, which would break socket re-activation. See
+         *
+         * https://lists.gnu.org/archive/html/libmicrohttpd/2015-09/msg00014.html
+         * https://github.com/systemd/systemd/pull/1286
+         */
+
+        int flags =
+                MHD_USE_DEBUG |
+                MHD_USE_DUAL_STACK |
+                MHD_USE_ITC |
+                MHD_USE_POLL_INTERNAL_THREAD |
+                MHD_USE_THREAD_PER_CONNECTION;
         int r, n;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         r = parse_argv(argc, argv);
-        if (r < 0)
-                return EXIT_FAILURE;
-        if (r == 0)
-                return EXIT_SUCCESS;
+        if (r <= 0)
+                return r;
 
         sigbus_install();
 
         r = setup_gnutls_logger(NULL);
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
 
         n = sd_listen_fds(1);
-        if (n < 0) {
-                log_error_errno(n, "Failed to determine passed sockets: %m");
-                goto finish;
-        } else if (n > 1) {
-                log_error("Can't listen on more than one socket.");
-                goto finish;
-        } else {
-                struct MHD_OptionItem opts[] = {
-                        { MHD_OPTION_NOTIFY_COMPLETED,
-                          (intptr_t) request_meta_free, NULL },
-                        { MHD_OPTION_EXTERNAL_LOGGER,
-                          (intptr_t) microhttpd_logger, NULL },
-                        { MHD_OPTION_END, 0, NULL },
-                        { MHD_OPTION_END, 0, NULL },
-                        { MHD_OPTION_END, 0, NULL },
-                        { MHD_OPTION_END, 0, NULL },
-                        { MHD_OPTION_END, 0, NULL }};
-                int opts_pos = 2;
+        if (n < 0)
+                return log_error_errno(n, "Failed to determine passed sockets: %m");
+        if (n > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't listen on more than one socket.");
 
-                /* We force MHD_USE_ITC here, in order to make sure
-                 * libmicrohttpd doesn't use shutdown() on our listening
-                 * socket, which would break socket re-activation. See
-                 *
-                 * https://lists.gnu.org/archive/html/libmicrohttpd/2015-09/msg00014.html
-                 * https://github.com/systemd/systemd/pull/1286
-                 */
+        if (n == 1)
+                opts[opts_pos++] = (struct MHD_OptionItem)
+                        { MHD_OPTION_LISTEN_SOCKET, SD_LISTEN_FDS_START };
 
-                int flags =
-                        MHD_USE_DEBUG |
-                        MHD_USE_DUAL_STACK |
-                        MHD_USE_ITC |
-                        MHD_USE_POLL_INTERNAL_THREAD |
-                        MHD_USE_THREAD_PER_CONNECTION;
-
-                if (n > 0)
-                        opts[opts_pos++] = (struct MHD_OptionItem)
-                                {MHD_OPTION_LISTEN_SOCKET, SD_LISTEN_FDS_START};
-                if (arg_key_pem) {
-                        assert(arg_cert_pem);
-                        opts[opts_pos++] = (struct MHD_OptionItem)
-                                {MHD_OPTION_HTTPS_MEM_KEY, 0, arg_key_pem};
-                        opts[opts_pos++] = (struct MHD_OptionItem)
-                                {MHD_OPTION_HTTPS_MEM_CERT, 0, arg_cert_pem};
-                        flags |= MHD_USE_TLS;
-                }
-                if (arg_trust_pem) {
-                        assert(flags & MHD_USE_TLS);
-                        opts[opts_pos++] = (struct MHD_OptionItem)
-                                {MHD_OPTION_HTTPS_MEM_TRUST, 0, arg_trust_pem};
-                }
-
-                d = MHD_start_daemon(flags, 19531,
-                                     NULL, NULL,
-                                     request_handler, NULL,
-                                     MHD_OPTION_ARRAY, opts,
-                                     MHD_OPTION_END);
+        if (arg_key_pem) {
+                assert(arg_cert_pem);
+                opts[opts_pos++] = (struct MHD_OptionItem)
+                        { MHD_OPTION_HTTPS_MEM_KEY, 0, arg_key_pem };
+                opts[opts_pos++] = (struct MHD_OptionItem)
+                        { MHD_OPTION_HTTPS_MEM_CERT, 0, arg_cert_pem };
+                flags |= MHD_USE_TLS;
         }
 
-        if (!d) {
-                log_error("Failed to start daemon!");
-                goto finish;
+        if (arg_trust_pem) {
+                assert(flags & MHD_USE_TLS);
+                opts[opts_pos++] = (struct MHD_OptionItem)
+                        { MHD_OPTION_HTTPS_MEM_TRUST, 0, arg_trust_pem };
         }
+
+        d = MHD_start_daemon(flags, 19531,
+                             NULL, NULL,
+                             request_handler, NULL,
+                             MHD_OPTION_ARRAY, opts,
+                             MHD_OPTION_END);
+        if (!d)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to start daemon!");
 
         pause();
 
-        r = EXIT_SUCCESS;
-
-finish:
-        if (d)
-                MHD_stop_daemon(d);
-
-        return r;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

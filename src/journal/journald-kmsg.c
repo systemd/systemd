@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <sys/epoll.h>
@@ -11,10 +6,11 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "libudev.h"
+#include "sd-device.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -98,7 +94,7 @@ static bool is_us(const char *identifier, const char *pid) {
                streq(identifier, program_invocation_short_name);
 }
 
-static void dev_kmsg_record(Server *s, const char *p, size_t l) {
+void dev_kmsg_record(Server *s, char *p, size_t l) {
 
         _cleanup_free_ char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL, *identifier = NULL, *pid = NULL;
         struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS + 2 + N_IOVEC_UDEV_FIELDS];
@@ -196,7 +192,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
 
                 e = memchr(k, '\n', l);
                 if (!e)
-                        return;
+                        goto finish;
 
                 *e = 0;
 
@@ -214,16 +210,13 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
         }
 
         if (kernel_device) {
-                struct udev_device *ud;
+                _cleanup_(sd_device_unrefp) sd_device *d = NULL;
 
-                ud = udev_device_new_from_device_id(s->udev, kernel_device);
-                if (ud) {
+                if (sd_device_new_from_device_id(&d, kernel_device) >= 0) {
                         const char *g;
-                        struct udev_list_entry *ll;
                         char *b;
 
-                        g = udev_device_get_devnode(ud);
-                        if (g) {
+                        if (sd_device_get_devname(d, &g) >= 0) {
                                 b = strappend("_UDEV_DEVNODE=", g);
                                 if (b) {
                                         iovec[n++] = IOVEC_MAKE_STRING(b);
@@ -231,8 +224,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
                                 }
                         }
 
-                        g = udev_device_get_sysname(ud);
-                        if (g) {
+                        if (sd_device_get_sysname(d, &g) >= 0) {
                                 b = strappend("_UDEV_SYSNAME=", g);
                                 if (b) {
                                         iovec[n++] = IOVEC_MAKE_STRING(b);
@@ -241,25 +233,19 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
                         }
 
                         j = 0;
-                        ll = udev_device_get_devlinks_list_entry(ud);
-                        udev_list_entry_foreach(ll, ll) {
+                        FOREACH_DEVICE_DEVLINK(d, g) {
 
-                                if (j > N_IOVEC_UDEV_FIELDS)
+                                if (j >= N_IOVEC_UDEV_FIELDS)
                                         break;
 
-                                g = udev_list_entry_get_name(ll);
-                                if (g) {
-                                        b = strappend("_UDEV_DEVLINK=", g);
-                                        if (b) {
-                                                iovec[n++] = IOVEC_MAKE_STRING(b);
-                                                z++;
-                                        }
+                                b = strappend("_UDEV_DEVLINK=", g);
+                                if (b) {
+                                        iovec[n++] = IOVEC_MAKE_STRING(b);
+                                        z++;
                                 }
 
                                 j++;
                         }
-
-                        udev_device_unref(ud);
                 }
         }
 

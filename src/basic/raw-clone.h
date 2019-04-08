@@ -2,12 +2,10 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2016 Michael Karcher
+  Copyright © 2016 Michael Karcher
 ***/
 
+#include <errno.h>
 #include <sched.h>
 #include <sys/syscall.h>
 
@@ -39,27 +37,36 @@ static inline pid_t raw_clone(unsigned long flags) {
         /* On s390/s390x and cris the order of the first and second arguments
          * of the raw clone() system call is reversed. */
         ret = (pid_t) syscall(__NR_clone, NULL, flags);
-#elif defined(__sparc__) && defined(__arch64__)
+#elif defined(__sparc__)
         {
                 /**
-                 * sparc64 always returns the other process id in %o0, and
+                 * sparc always returns the other process id in %o0, and
                  * a boolean flag whether this is the child or the parent in
                  * %o1. Inline assembly is needed to get the flag returned
                  * in %o1.
                  */
-                int in_child, child_pid;
+                int in_child, child_pid, error;
 
-                asm volatile("mov %2, %%g1\n\t"
-                             "mov %3, %%o0\n\t"
+                asm volatile("mov %3, %%g1\n\t"
+                             "mov %4, %%o0\n\t"
                              "mov 0 , %%o1\n\t"
+#if defined(__arch64__)
                              "t 0x6d\n\t"
+#else
+                             "t 0x10\n\t"
+#endif
+                             "addx %%g0, 0, %2\n\t"
                              "mov %%o1, %0\n\t"
                              "mov %%o0, %1" :
-                             "=r"(in_child), "=r"(child_pid) :
+                             "=r"(in_child), "=r"(child_pid), "=r"(error) :
                              "i"(__NR_clone), "r"(flags) :
-                             "%o1", "%o0", "%g1" );
+                             "%o1", "%o0", "%g1", "cc" );
 
-                ret = in_child ? 0 : child_pid;
+                if (error) {
+                        errno = child_pid;
+                        ret = -1;
+                } else
+                        ret = in_child ? 0 : child_pid;
         }
 #else
         ret = (pid_t) syscall(__NR_clone, flags, NULL);

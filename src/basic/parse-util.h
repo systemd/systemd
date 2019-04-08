@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <inttypes.h>
 #include <limits.h>
 #include <stddef.h>
@@ -115,6 +109,12 @@ int parse_fractional_part_u(const char **s, size_t digits, unsigned *res);
 int parse_percent_unbounded(const char *p);
 int parse_percent(const char *p);
 
+int parse_permille_unbounded(const char *p);
+int parse_permille(const char *p);
+
 int parse_nice(const char *p, int *ret);
 
 int parse_ip_port(const char *s, uint16_t *ret);
+int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high);
+
+int parse_oom_score_adjust(const char *s, int *ret);

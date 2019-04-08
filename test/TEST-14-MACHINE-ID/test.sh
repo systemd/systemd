@@ -4,7 +4,7 @@
 set -e
 TEST_DESCRIPTION="/etc/machine-id testing"
 TEST_NO_NSPAWN=1
-SKIP_INITRD=yes
+
 . $TEST_BASE_DIR/test-functions
 
 test_setup() {
@@ -25,7 +25,6 @@ test_setup() {
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
 [Unit]
 Description=Testsuite service
-After=multi-user.target
 
 [Service]
 ExecStart=/bin/sh -e -x -c '/test-machine-id-setup.sh; systemctl --state=failed --no-legend --no-pager > /failed ; echo OK > /testok'

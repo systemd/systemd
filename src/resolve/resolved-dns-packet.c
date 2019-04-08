@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
- ***/
 
 #if HAVE_GCRYPT
 #include <gcrypt.h>
@@ -11,7 +6,9 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "memory-util.h"
 #include "resolved-dns-packet.h"
+#include "set.h"
 #include "string-table.h"
 #include "strv.h"
 #include "unaligned.h"
@@ -53,10 +50,10 @@ int dns_packet_new(
         /* The caller may not check what is going to be truly allocated, so do not allow to
          * allocate a DNS packet bigger than DNS_PACKET_SIZE_MAX.
          */
-        if (min_alloc_dsize > DNS_PACKET_SIZE_MAX) {
-                log_error("Requested packet data size too big: %zu", min_alloc_dsize);
-                return -EFBIG;
-        }
+        if (min_alloc_dsize > DNS_PACKET_SIZE_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
+                                       "Requested packet data size too big: %zu",
+                                       min_alloc_dsize);
 
         /* When dns_packet_new() is called with min_alloc_dsize == 0, allocate more than the
          * absolute minimum (which is the dns packet header size), to avoid
@@ -388,7 +385,7 @@ int dns_packet_append_blob(DnsPacket *p, const void *d, size_t l, size_t *start)
         if (r < 0)
                 return r;
 
-        memcpy(q, d, l);
+        memcpy_safe(q, d, l);
         return 0;
 }
 
@@ -540,7 +537,7 @@ int dns_packet_append_name(
                         }
                 }
 
-                r = dns_label_unescape(&name, label, sizeof(label));
+                r = dns_label_unescape(&name, label, sizeof label, 0);
                 if (r < 0)
                         goto fail;
 
@@ -857,7 +854,9 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_name(p, rr->srv.name, true, false, NULL);
+                /* RFC 2782 states "Unless and until permitted by future standards
+                 * action, name compression is not to be used for this field." */
+                r = dns_packet_append_name(p, rr->srv.name, false, false, NULL);
                 break;
 
         case DNS_TYPE_PTR:
@@ -2136,6 +2135,17 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                 if (!question)
                         return -ENOMEM;
 
+                _cleanup_set_free_ Set *keys = NULL; /* references to keys are kept by Question */
+
+                keys = set_new(&dns_resource_key_hash_ops);
+                if (!keys)
+                        return log_oom();
+
+                r = set_reserve(keys, n * 2); /* Higher multipliers give slightly higher efficiency through
+                                               * hash collisions, but the gains quickly drop of after 2. */
+                if (r < 0)
+                        return r;
+
                 for (i = 0; i < n; i++) {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
                         bool cache_flush;
@@ -2150,7 +2160,14 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                         if (!dns_type_is_valid_query(key->type))
                                 return -EBADMSG;
 
-                        r = dns_question_add(question, key);
+                        r = set_put(keys, key);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                /* Already in the Question, let's skip */
+                                continue;
+
+                        r = dns_question_add_raw(question, key);
                         if (r < 0)
                                 return r;
                 }
@@ -2242,7 +2259,7 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                                          * be contained in questions, never in replies. Crappy
                                          * Belkin routers copy the OPT data for example, hence let's
                                          * detect this so that we downgrade early. */
-                                        log_debug("OPT RR contained RFC6975 data, ignoring.");
+                                        log_debug("OPT RR contains RFC6975 data, ignoring.");
                                         bad_opt = true;
                                         continue;
                                 }
@@ -2332,6 +2349,25 @@ int dns_packet_is_reply_for(DnsPacket *p, const DnsResourceKey *key) {
 
         return dns_resource_key_equal(p->question->keys[0], key);
 }
+
+static void dns_packet_hash_func(const DnsPacket *s, struct siphash *state) {
+        assert(s);
+
+        siphash24_compress(&s->size, sizeof(s->size), state);
+        siphash24_compress(DNS_PACKET_DATA((DnsPacket*) s), s->size, state);
+}
+
+static int dns_packet_compare_func(const DnsPacket *x, const DnsPacket *y) {
+        int r;
+
+        r = CMP(x->size, y->size);
+        if (r != 0)
+                return r;
+
+        return memcmp(DNS_PACKET_DATA((DnsPacket*) x), DNS_PACKET_DATA((DnsPacket*) y), x->size);
+}
+
+DEFINE_HASH_OPS(dns_packet_hash_ops, DnsPacket, dns_packet_hash_func, dns_packet_compare_func);
 
 static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_SUCCESS] = "SUCCESS",

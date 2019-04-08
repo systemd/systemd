@@ -2,12 +2,6 @@
 
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -64,19 +58,18 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
         }
 
 #define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,scope) \
-        type name##_from_string(const char *s) {                        \
-                type i;                                                 \
+        scope type name##_from_string(const char *s) {                  \
                 unsigned u = 0;                                         \
+                type i;                                                 \
                 if (!s)                                                 \
                         return (type) -1;                               \
-                for (i = 0; i < (type) ELEMENTSOF(name##_table); i++)   \
-                        if (streq_ptr(name##_table[i], s))              \
-                                return i;                               \
+                i = (type) string_table_lookup(name##_table, ELEMENTSOF(name##_table), s); \
+                if (i >= 0)                                             \
+                        return i;                                       \
                 if (safe_atou(s, &u) >= 0 && u <= max)                  \
                         return (type) u;                                \
                 return (type) -1;                                       \
         }                                                               \
-
 
 #define _DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                    \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
@@ -102,3 +95,18 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max,static)
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max) \
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,static)
+
+#define DUMP_STRING_TABLE(name,type,max)                                \
+        do {                                                            \
+                type _k;                                                \
+                flockfile(stdout);                                      \
+                for (_k = 0; _k < (max); _k++) {                        \
+                        const char *_t;                                 \
+                        _t = name##_to_string(_k);                      \
+                        if (!_t)                                        \
+                                continue;                               \
+                        fputs_unlocked(_t, stdout);                     \
+                        fputc_unlocked('\n', stdout);                   \
+                }                                                       \
+                funlockfile(stdout);                                    \
+        } while(false)

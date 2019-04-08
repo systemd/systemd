@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include "alloc-util.h"
 #include "hostname-util.h"
 #include "local-addresses.h"
+#include "missing_network.h"
 #include "resolved-dns-synthesize.h"
 
 int dns_synthesize_ifindex(int ifindex) {

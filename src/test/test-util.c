@@ -1,28 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2013 Thomas H.P. Andersen
-***/
 
 #include <errno.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "def.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "limits-util.h"
+#include "memory-util.h"
+#include "missing_syscall.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rm-rf.h"
 #include "string-util.h"
+#include "tests.h"
 #include "util.h"
 
 static void test_align_power2(void) {
         unsigned long i, p2;
+
+        log_info("/* %s */", __func__);
 
         assert_se(ALIGN_POWER2(0) == 0);
         assert_se(ALIGN_POWER2(1) == 1);
@@ -59,6 +58,14 @@ static void test_max(void) {
                 .a = CONST_MAX(10, 100),
         };
         int d = 0;
+        unsigned long x = 12345;
+        unsigned long y = 54321;
+        const char str[] = "a_string_constant";
+        const unsigned long long arr[] = {9999ULL, 10ULL, 0ULL, 3000ULL, 2000ULL, 1000ULL, 100ULL, 9999999ULL};
+        void *p = (void *)str;
+        void *q = (void *)&str[16];
+
+        log_info("/* %s */", __func__);
 
         assert_cc(sizeof(val1.b) == sizeof(int) * 100);
 
@@ -86,6 +93,35 @@ static void test_max(void) {
         assert_se(LESS_BY(4, 8) == 0);
         assert_se(LESS_BY(16, LESS_BY(8, 4)) == 12);
         assert_se(LESS_BY(4, LESS_BY(8, 4)) == 0);
+        assert_se(CMP(3, 5) == -1);
+        assert_se(CMP(5, 3) == 1);
+        assert_se(CMP(5, 5) == 0);
+        assert_se(CMP(x, y) == -1);
+        assert_se(CMP(y, x) == 1);
+        assert_se(CMP(x, x) == 0);
+        assert_se(CMP(y, y) == 0);
+        assert_se(CMP(UINT64_MAX, (uint64_t) 0) == 1);
+        assert_se(CMP((uint64_t) 0, UINT64_MAX) == -1);
+        assert_se(CMP(UINT64_MAX, UINT64_MAX) == 0);
+        assert_se(CMP(INT64_MIN, INT64_MAX) == -1);
+        assert_se(CMP(INT64_MAX, INT64_MIN) == 1);
+        assert_se(CMP(INT64_MAX, INT64_MAX) == 0);
+        assert_se(CMP(INT64_MIN, INT64_MIN) == 0);
+        assert_se(CMP(INT64_MAX, (int64_t) 0) == 1);
+        assert_se(CMP((int64_t) 0, INT64_MIN) == 1);
+        assert_se(CMP(INT64_MIN, (int64_t) 0) == -1);
+        assert_se(CMP((int64_t) 0, INT64_MAX) == -1);
+        assert_se(CMP(&str[2], &str[7]) == -1);
+        assert_se(CMP(&str[2], &str[2]) == 0);
+        assert_se(CMP(&str[7], (const char *)str) == 1);
+        assert_se(CMP(str[2], str[7]) == 1);
+        assert_se(CMP(str[7], *str) == 1);
+        assert_se(CMP((const unsigned long long *)arr, &arr[3]) == -1);
+        assert_se(CMP(*arr, arr[3]) == 1);
+        assert_se(CMP(p, q) == -1);
+        assert_se(CMP(q, p) == 1);
+        assert_se(CMP(p, p) == 0);
+        assert_se(CMP(q, q) == 0);
         assert_se(CLAMP(-5, 0, 1) == 0);
         assert_se(CLAMP(5, 0, 1) == 1);
         assert_se(CLAMP(5, -10, 1) == 1);
@@ -104,9 +140,11 @@ static void test_container_of(void) {
                 uint64_t v1;
                 uint8_t pad2[2];
                 uint32_t v2;
-        } _packed_ myval = { };
+        } myval = { };
 
-        assert_cc(sizeof(myval) == 17);
+        log_info("/* %s */", __func__);
+
+        assert_cc(sizeof(myval) >= 17);
         assert_se(container_of(&myval.v1, struct mytype, v1) == &myval);
         assert_se(container_of(&myval.v2, struct mytype, v2) == &myval);
         assert_se(container_of(&container_of(&myval.v2,
@@ -120,6 +158,8 @@ static void test_container_of(void) {
 
 static void test_div_round_up(void) {
         int div;
+
+        log_info("/* %s */", __func__);
 
         /* basic tests */
         assert_se(DIV_ROUND_UP(0, 8) == 0);
@@ -152,6 +192,8 @@ static void test_div_round_up(void) {
 }
 
 static void test_u64log2(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(u64log2(0) == 0);
         assert_se(u64log2(8) == 3);
         assert_se(u64log2(9) == 3);
@@ -162,6 +204,8 @@ static void test_u64log2(void) {
 }
 
 static void test_protect_errno(void) {
+        log_info("/* %s */", __func__);
+
         errno = 12;
         {
                 PROTECT_ERRNO;
@@ -170,7 +214,33 @@ static void test_protect_errno(void) {
         assert_se(errno == 12);
 }
 
+static void test_unprotect_errno_inner_function(void) {
+        PROTECT_ERRNO;
+
+        errno = 2222;
+}
+
+static void test_unprotect_errno(void) {
+        log_info("/* %s */", __func__);
+
+        errno = 4711;
+
+        PROTECT_ERRNO;
+
+        errno = 815;
+
+        UNPROTECT_ERRNO;
+
+        assert_se(errno == 4711);
+
+        test_unprotect_errno_inner_function();
+
+        assert_se(errno == 4711);
+}
+
 static void test_in_set(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(IN_SET(1, 1));
         assert_se(IN_SET(1, 1, 2, 3, 4));
         assert_se(IN_SET(2, 1, 2, 3, 4));
@@ -181,6 +251,8 @@ static void test_in_set(void) {
 }
 
 static void test_log2i(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(log2i(1) == 0);
         assert_se(log2i(2) == 1);
         assert_se(log2i(3) == 1);
@@ -191,8 +263,24 @@ static void test_log2i(void) {
         assert_se(log2i(INT_MAX) == sizeof(int)*8-2);
 }
 
+static void test_eqzero(void) {
+        const uint32_t zeros[] = {0, 0, 0};
+        const uint32_t ones[] = {1, 1};
+        const uint32_t mixed[] = {0, 1, 0, 0, 0};
+        const uint8_t longer[] = {[55] = 255};
+
+        log_info("/* %s */", __func__);
+
+        assert_se(eqzero(zeros));
+        assert_se(!eqzero(ones));
+        assert_se(!eqzero(mixed));
+        assert_se(!eqzero(longer));
+}
+
 static void test_raw_clone(void) {
         pid_t parent, pid, pid2;
+
+        log_info("/* %s */", __func__);
 
         parent = getpid();
         log_info("before clone: getpid()→"PID_FMT, parent);
@@ -214,11 +302,17 @@ static void test_raw_clone(void) {
                 waitpid(pid, &status, __WCLONE);
                 assert_se(WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS);
         }
+
+        errno = 0;
+        assert_se(raw_clone(CLONE_FS|CLONE_NEWNS) == -1);
+        assert_se(errno == EINVAL);
 }
 
 static void test_physical_memory(void) {
         uint64_t p;
         char buf[FORMAT_BYTES_MAX];
+
+        log_info("/* %s */", __func__);
 
         p = physical_memory();
         assert_se(p > 0);
@@ -230,6 +324,8 @@ static void test_physical_memory(void) {
 
 static void test_physical_memory_scale(void) {
         uint64_t p;
+
+        log_info("/* %s */", __func__);
 
         p = physical_memory();
 
@@ -265,6 +361,8 @@ static void test_physical_memory_scale(void) {
 static void test_system_tasks_max(void) {
         uint64_t t;
 
+        log_info("/* %s */", __func__);
+
         t = system_tasks_max();
         assert_se(t > 0);
         assert_se(t < UINT64_MAX);
@@ -274,6 +372,8 @@ static void test_system_tasks_max(void) {
 
 static void test_system_tasks_max_scale(void) {
         uint64_t t;
+
+        log_info("/* %s */", __func__);
 
         t = system_tasks_max();
 
@@ -300,8 +400,7 @@ static void test_system_tasks_max_scale(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         test_align_power2();
         test_max();
@@ -309,8 +408,10 @@ int main(int argc, char *argv[]) {
         test_div_round_up();
         test_u64log2();
         test_protect_errno();
+        test_unprotect_errno();
         test_in_set();
         test_log2i();
+        test_eqzero();
         test_raw_clone();
         test_physical_memory();
         test_physical_memory_scale();

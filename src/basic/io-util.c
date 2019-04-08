@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <limits.h>
@@ -13,6 +8,7 @@
 #include <unistd.h>
 
 #include "io-util.h"
+#include "string-util.h"
 #include "time-util.h"
 
 int flush_fd(int fd) {
@@ -256,4 +252,13 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
         }
 
         return q - (const uint8_t*) p;
+}
+
+char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value) {
+        char *x;
+
+        x = strappend(field, value);
+        if (x)
+                iovec[(*n_iovec)++] = IOVEC_MAKE_STRING(x);
+        return x;
 }

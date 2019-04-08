@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2016 BISDN GmbH. All rights reserved.
+  Copyright © 2016 BISDN GmbH. All rights reserved.
 ***/
 
 #include <netinet/in.h>
@@ -11,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "missing_if_bridge.h"
 #include "netlink-util.h"
 #include "networkd-brvlan.h"
 #include "networkd-link.h"
@@ -24,7 +23,7 @@ static bool is_bit_set(unsigned bit, uint32_t scope) {
         return scope & (1 << bit);
 }
 
-static inline void set_bit(unsigned nr, uint32_t *addr) {
+static void set_bit(unsigned nr, uint32_t *addr) {
         if (nr < BRIDGE_VLAN_BITMAP_MAX)
                 addr[nr / 32] |= (((uint32_t) 1) << (nr % 32));
 }
@@ -137,8 +136,7 @@ static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint
         return cnt;
 }
 
-static int set_brvlan_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int set_brvlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -197,9 +195,12 @@ int br_vlan_configure(Link *link, uint16_t pvid, uint32_t *br_vid_bitmap, uint32
                 return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
 
         /* send message to the kernel */
-        r = sd_netlink_call_async(rtnl, req, set_brvlan_handler, link, 0, NULL);
+        r = netlink_call_async(rtnl, NULL, req, set_brvlan_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
 
         return 0;
 }

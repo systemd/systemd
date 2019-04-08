@@ -1,16 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/prctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
+#include "main-func.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -57,17 +55,14 @@ static void test_files(void) {
 #endif
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
-        if (argc > 1) {
-                log_error("This program takes no arguments.");
-                return EXIT_FAILURE;
-        }
+        log_setup_service();
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        if (argc > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program takes no arguments.");
 
         umask(0022);
 
@@ -79,15 +74,15 @@ int main(int argc, char *argv[]) {
 
         if (!arg_force) {
                 if (arg_skip)
-                        return EXIT_SUCCESS;
+                        return 0;
 
                 if (access("/run/systemd/quotacheck", F_OK) < 0)
-                        return EXIT_SUCCESS;
+                        return 0;
         }
 
-        r = safe_fork("(quotacheck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(quotacheck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_WAIT|FORK_LOG, NULL);
         if (r < 0)
-                goto finish;
+                return r;
         if (r == 0) {
                 static const char * const cmdline[] = {
                         QUOTACHECK,
@@ -101,6 +96,7 @@ int main(int argc, char *argv[]) {
                 _exit(EXIT_FAILURE); /* Operational error */
         }
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

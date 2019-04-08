@@ -1,10 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Susant Sahani <susant@redhat.com>
-  Copyright 2014 Tom Gundersen
-***/
 
 #include "netdev/dummy.h"
 

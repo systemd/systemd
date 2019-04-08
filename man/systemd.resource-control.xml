@@ -1,28 +1,12 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
--->
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.resource-control">
   <refentryinfo>
     <title>systemd.resource-control</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -189,8 +173,6 @@
           the startup phase. Using <varname>StartupCPUWeight=</varname> allows prioritizing specific services at
           boot-up differently than during normal runtime.</para>
 
-          <para>Implies <literal>CPUAccounting=true</literal>.</para>
-
           <para>These settings replace <varname>CPUShares=</varname> and <varname>StartupCPUShares=</varname>.</para>
         </listitem>
       </varlistentry>
@@ -205,12 +187,30 @@
           <literal>cpu.max</literal> attribute on the unified control group hierarchy and
           <literal>cpu.cfs_quota_us</literal> on legacy. For details about these control group attributes, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink> and <ulink
-          url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
+          url="https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt">sched-bwc.txt</ulink>.</para>
 
           <para>Example: <varname>CPUQuota=20%</varname> ensures that the executed processes will never get more than
           20% CPU time on one CPU.</para>
 
-          <para>Implies <literal>CPUAccounting=true</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CPUQuotaPeriodSec=</varname></term>
+
+        <listitem>
+          <para>Assign the duration over which the CPU time quota specified by <varname>CPUQuota=</varname> is measured.
+          Takes a time duration value in seconds, with an optional suffix such as "ms" for milliseconds (or "s" for seconds.)
+          The default setting is 100ms. The period is clamped to the range supported by the kernel, which is [1ms, 1000ms].
+          Additionally, the period is adjusted up so that the quota interval is also at least 1ms.
+          Setting <varname>CPUQuotaPeriodSec=</varname> to an empty value resets it to the default.</para>
+
+          <para>This controls the second field of <literal>cpu.max</literal> attribute on the unified control group hierarchy
+          and <literal>cpu.cfs_period_us</literal> on legacy. For details about these control group attributes, see
+          <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink> and
+          <ulink url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
+
+          <para>Example: <varname>CPUQuotaPeriodSec=10ms</varname> to request that the CPU quota is measured in periods of 10ms.</para>
         </listitem>
       </varlistentry>
 
@@ -230,6 +230,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MemoryMin=<replaceable>bytes</replaceable></varname></term>
+
+        <listitem>
+          <para>Specify the memory usage protection of the executed processes in this unit. If the memory usages of
+          this unit and all its ancestors are below their minimum boundaries, this unit's memory won't be reclaimed.</para>
+
+          <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
+          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
+          percentage value may be specified, which is taken relative to the installed physical memory on the
+          system. This controls the <literal>memory.min</literal> control group attribute. For details about this
+          control group attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+
+          <para>This setting is supported only if the unified control group hierarchy is used and disables
+          <varname>MemoryLimit=</varname>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MemoryLow=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
@@ -243,8 +262,6 @@
           system. This controls the <literal>memory.low</literal> control group attribute. For details about this
           control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
-
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
@@ -267,8 +284,6 @@
           <literal>memory.high</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
-
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
         </listitem>
@@ -290,8 +305,6 @@
           <literal>memory.max</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
-
           <para>This setting replaces <varname>MemoryLimit=</varname>.</para>
         </listitem>
       </varlistentry>
@@ -307,8 +320,6 @@
           special value <literal>infinity</literal>, no swap limit is applied. This controls the
           <literal>memory.swap.max</literal> control group attribute. For details about this control group attribute,
           see <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
-
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
@@ -345,7 +356,7 @@
           the <literal>pids.max</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/pids.txt">pids.txt</ulink>.</para>
 
-          <para>Implies <literal>TasksAccounting=true</literal>. The
+          <para>The
           system default for this setting may be controlled with
           <varname>DefaultTasksMax=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
@@ -387,8 +398,6 @@
           phase. This allows prioritizing specific services at boot-up
           differently than during runtime.</para>
 
-          <para>Implies <literal>IOAccounting=true</literal>.</para>
-
           <para>These settings replace <varname>BlockIOWeight=</varname> and <varname>StartupBlockIOWeight=</varname>
           and disable settings prefixed with <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
         </listitem>
@@ -400,14 +409,12 @@
         <listitem>
           <para>Set the per-device overall block I/O weight for the executed processes, if the unified control group
           hierarchy is used on the system. Takes a space-separated pair of a file path and a weight value to specify
-          the device specific weight value, between 1 and 10000. (Example: "/dev/sda 1000"). The file path may be
-          specified as path to a block device node or as any other file, in which case the backing block device of the
-          file system of the file is determined. This controls the <literal>io.weight</literal> control group
-          attribute, which defaults to 100. Use this option multiple times to set weights for multiple devices. For
-          details about this control group attribute, see <ulink
+          the device specific weight value, between 1 and 10000. (Example: <literal>/dev/sda 1000</literal>). The file
+          path may be specified as path to a block device node or as any other file, in which case the backing block
+          device of the file system of the file is determined. This controls the <literal>io.weight</literal> control
+          group attribute, which defaults to 100. Use this option multiple times to set weights for multiple devices.
+          For details about this control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
-
-          <para>Implies <literal>IOAccounting=true</literal>.</para>
 
           <para>This setting replaces <varname>BlockIODeviceWeight=</varname> and disables settings prefixed with
           <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
@@ -431,8 +438,6 @@
           about this control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.
           </para>
-
-          <para>Implies <literal>IOAccounting=true</literal>.</para>
 
           <para>These settings replace <varname>BlockIOReadBandwidth=</varname> and
           <varname>BlockIOWriteBandwidth=</varname> and disable settings prefixed with <varname>BlockIO</varname> or
@@ -458,10 +463,27 @@
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.
           </para>
 
-          <para>Implies <literal>IOAccounting=true</literal>.</para>
-
           <para>These settings are supported only if the unified control group hierarchy is used and disable settings
           prefixed with <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IODeviceLatencyTargetSec=<replaceable>device</replaceable> <replaceable>target</replaceable></varname></term>
+
+        <listitem>
+          <para>Set the per-device average target I/O latency for the executed processes, if the unified control group
+          hierarchy is used on the system. Takes a file path and a timespan separated by a space to specify
+          the device specific latency target. (Example: "/dev/sda 25ms"). The file path may be specified
+          as path to a block device node or as any other file, in which case the backing block device of the file
+          system of the file is determined. This controls the <literal>io.latency</literal> control group
+          attribute. Use this option multiple times to set latency target for multiple devices. For details about this
+          control group attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+
+          <para>Implies <literal>IOAccounting=yes</literal>.</para>
+
+          <para>These settings are supported only if the unified control group hierarchy is used.</para>
         </listitem>
       </varlistentry>
 
@@ -491,23 +513,27 @@
         <term><varname>IPAddressDeny=<replaceable>ADDRESS[/PREFIXLENGTH]…</replaceable></varname></term>
 
         <listitem>
-          <para>Turn on address range network traffic filtering for packets sent and received over AF_INET and AF_INET6
-          sockets.  Both directives take a space separated list of IPv4 or IPv6 addresses, each optionally suffixed
-          with an address prefix length (separated by a <literal>/</literal> character). If the latter is omitted, the
-          address is considered a host address, i.e. the prefix covers the whole address (32 for IPv4, 128 for IPv6).
-          </para>
+          <para>Turn on address range network traffic filtering for IP packets sent and received over
+          <constant>AF_INET</constant> and <constant>AF_INET6</constant> sockets.  Both directives take a
+          space separated list of IPv4 or IPv6 addresses, each optionally suffixed with an address prefix
+          length in bits (separated by a <literal>/</literal> character). If the latter is omitted, the
+          address is considered a host address, i.e. the prefix covers the whole address (32 for IPv4, 128
+          for IPv6).</para>
 
-          <para>The access lists configured with this option are applied to all sockets created by processes of this
-          unit (or in the case of socket units, associated with it). The lists are implicitly combined with any lists
-          configured for any of the parent slice units this unit might be a member of. By default all access lists are
-          empty. When configured the lists are enforced as follows:</para>
+          <para>The access lists configured with this option are applied to all sockets created by processes
+          of this unit (or in the case of socket units, associated with it). The lists are implicitly
+          combined with any lists configured for any of the parent slice units this unit might be a member
+          of. By default all access lists are empty. Both ingress and egress traffic is filtered by these
+          settings. In case of ingress traffic the source IP address is checked against these access lists,
+          in case of egress traffic the destination IP address is checked. When configured the lists are
+          enforced as follows:</para>
 
           <itemizedlist>
-            <listitem><para>Access will be granted in case its destination/source address matches any entry in the
-            <varname>IPAddressAllow=</varname> setting.</para></listitem>
+            <listitem><para>Access will be granted in case an IP packet's destination/source address matches
+            any entry in the <varname>IPAddressAllow=</varname> setting.</para></listitem>
 
-            <listitem><para>Otherwise, access will be denied in case its destination/source address matches any entry
-            in the <varname>IPAddressDeny=</varname> setting.</para></listitem>
+            <listitem><para>Otherwise, access will be denied in case its destination/source address matches
+            any entry in the <varname>IPAddressDeny=</varname> setting.</para></listitem>
 
             <listitem><para>Otherwise, access will be granted.</para></listitem>
           </itemizedlist>
@@ -724,9 +750,33 @@
           specific to the unified hierarchy while others are specific to the legacy hierarchy. Also note that the
           kernel might support further controllers, which aren't covered here yet as delegation is either not supported
           at all for them or not defined cleanly.</para>
+
+          <para>For further details on the delegation model consult <ulink
+          url="https://systemd.io/CGROUP_DELEGATION">Control Group APIs and Delegation</ulink>.</para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>DisableControllers=</varname></term>
+
+        <listitem>
+          <para>Disables controllers from being enabled for a unit's children. If a controller listed is already in use
+          in its subtree, the controller will be removed from the subtree. This can be used to avoid child units being
+          able to implicitly or explicitly enable a controller. Defaults to not disabling any controllers.</para>
+
+          <para>It may not be possible to successfully disable a controller if the unit or any child of the unit in
+          question delegates controllers to its children, as any delegated subtree of the cgroup hierarchy is unmanaged
+          by systemd.</para>
+
+          <para>Multiple controllers may be specified, separated by spaces. You may also pass
+          <varname>DisableControllers=</varname> multiple times, in which case each new instance adds another controller
+          to disable. Passing <varname>DisableControllers=</varname> by itself with no controller name present resets
+          the disabled controller list.</para>
+
+          <para>Valid controllers are <option>cpu</option>, <option>cpuacct</option>, <option>io</option>,
+          <option>blkio</option>, <option>memory</option>, <option>devices</option>, and <option>pids</option>.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -754,7 +804,7 @@
           the startup phase. Using <varname>StartupCPUShares=</varname> allows prioritizing specific services at
           boot-up differently than during normal runtime.</para>
 
-          <para>Implies <literal>CPUAccounting=true</literal>.</para>
+          <para>Implies <literal>CPUAccounting=yes</literal>.</para>
 
           <para>These settings are deprecated. Use <varname>CPUWeight=</varname> and
           <varname>StartupCPUWeight=</varname> instead.</para>
@@ -775,7 +825,7 @@
           attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt">memory.txt</ulink>.</para>
 
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
+          <para>Implies <literal>MemoryAccounting=yes</literal>.</para>
 
           <para>This setting is deprecated. Use <varname>MemoryMax=</varname> instead.</para>
         </listitem>
@@ -816,7 +866,7 @@
         boot-up differently than during runtime.</para>
 
         <para>Implies
-        <literal>BlockIOAccounting=true</literal>.</para>
+        <literal>BlockIOAccounting=yes</literal>.</para>
 
         <para>These settings are deprecated. Use <varname>IOWeight=</varname> and <varname>StartupIOWeight=</varname>
         instead.</para>
@@ -838,7 +888,7 @@
           url="https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt">blkio-controller.txt</ulink>.</para>
 
           <para>Implies
-          <literal>BlockIOAccounting=true</literal>.</para>
+          <literal>BlockIOAccounting=yes</literal>.</para>
 
           <para>This setting is deprecated. Use <varname>IODeviceWeight=</varname> instead.</para>
         </listitem>
@@ -863,7 +913,7 @@
           </para>
 
           <para>Implies
-          <literal>BlockIOAccounting=true</literal>.</para>
+          <literal>BlockIOAccounting=yes</literal>.</para>
 
           <para>These settings are deprecated. Use <varname>IOReadBandwidthMax=</varname> and
           <varname>IOWriteBandwidthMax=</varname> instead.</para>
@@ -877,6 +927,7 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -892,6 +943,7 @@
       <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/cpuacct.txt">cpuacct.txt</ulink>,
       <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt">memory.txt</ulink>,
       <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt">blkio-controller.txt</ulink>.
+      <ulink url="https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt">sched-bwc.txt</ulink>.
     </para>
   </refsect1>
 </refentry>

@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -12,11 +7,14 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "serialize.h"
 #include "string-util.h"
-#include "util.h"
+#include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_close_many(void) {
         int fds[3];
@@ -228,7 +226,101 @@ static void test_rearrange_stdio(void) {
         }
 }
 
+static void assert_equal_fd(int fd1, int fd2) {
+
+        for (;;) {
+                uint8_t a[4096], b[4096];
+                ssize_t x, y;
+
+                x = read(fd1, a, sizeof(a));
+                assert(x >= 0);
+
+                y = read(fd2, b, sizeof(b));
+                assert(y >= 0);
+
+                assert(x == y);
+
+                if (x == 0)
+                        break;
+
+                assert(memcmp(a, b, x) == 0);
+        }
+}
+
+static void test_fd_duplicate_data_fd(void) {
+        _cleanup_close_ int fd1 = -1, fd2 = -1;
+        _cleanup_(close_pairp) int sfd[2] = { -1, -1 };
+        _cleanup_(sigkill_waitp) pid_t pid = -1;
+        uint64_t i, j;
+        int r;
+
+        fd1 = open("/etc/fstab", O_RDONLY|O_CLOEXEC);
+        if (fd1 >= 0) {
+
+                fd2 = fd_duplicate_data_fd(fd1);
+                assert_se(fd2 >= 0);
+
+                assert_se(lseek(fd1, 0, SEEK_SET) == 0);
+                assert_equal_fd(fd1, fd2);
+        }
+
+        fd1 = safe_close(fd1);
+        fd2 = safe_close(fd2);
+
+        fd1 = acquire_data_fd("hallo", 6,  0);
+        assert_se(fd1 >= 0);
+
+        fd2 = fd_duplicate_data_fd(fd1);
+        assert_se(fd2 >= 0);
+
+        safe_close(fd1);
+        fd1 = acquire_data_fd("hallo", 6,  0);
+        assert_se(fd1 >= 0);
+
+        assert_equal_fd(fd1, fd2);
+
+        fd1 = safe_close(fd1);
+        fd2 = safe_close(fd2);
+
+        assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, sfd) >= 0);
+
+        r = safe_fork("(sd-pipe)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        assert_se(r >= 0);
+
+        if (r == 0) {
+                /* child */
+
+                sfd[0] = safe_close(sfd[0]);
+
+                for (i = 0; i < 1536*1024 / sizeof(uint64_t); i++)
+                        assert_se(write(sfd[1], &i, sizeof(i)) == sizeof(i));
+
+                sfd[1] = safe_close(sfd[1]);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        sfd[1] = safe_close(sfd[1]);
+
+        fd2 = fd_duplicate_data_fd(sfd[0]);
+        assert_se(fd2 >= 0);
+
+        for (i = 0; i < 1536*1024 / sizeof(uint64_t); i++) {
+                assert_se(read(fd2, &j, sizeof(j)) == sizeof(j));
+                assert_se(i == j);
+        }
+
+        assert_se(read(fd2, &j, sizeof(j)) == 0);
+}
+
+static void test_read_nr_open(void) {
+        log_info("nr-open: %i", read_nr_open());
+}
+
 int main(int argc, char *argv[]) {
+
+        test_setup_logging(LOG_DEBUG);
+
         test_close_many();
         test_close_nointr();
         test_same_fd();
@@ -236,6 +328,8 @@ int main(int argc, char *argv[]) {
         test_acquire_data_fd();
         test_fd_move_above_stdio();
         test_rearrange_stdio();
+        test_fd_duplicate_data_fd();
+        test_read_nr_open();
 
         return 0;
 }

@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-#  SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1+
 #
-#  This file is part of systemd.
-#
-#  systemd is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU Lesser General Public License as published by
-#  the Free Software Foundation; either version 2.1 of the License, or
-#  (at your option) any later version.
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
 
 import os
 import sys
@@ -14,6 +12,7 @@ import socket
 import subprocess
 import tempfile
 import pwd
+import grp
 
 try:
     from systemd import id128
@@ -67,7 +66,7 @@ def test_invalids(*, user):
     test_line('h - - -', user=user)
     test_line('H - - -', user=user)
 
-def test_unitialized_t():
+def test_uninitialized_t():
     if os.getuid() == 0:
         return
 
@@ -97,9 +96,13 @@ def test_valid_specifiers(*, user):
     test_content('f {} - - - - %H', '{}'.format(socket.gethostname()), user=user)
     test_content('f {} - - - - %v', '{}'.format(os.uname().release), user=user)
     test_content('f {} - - - - %U', '{}'.format(os.getuid()), user=user)
+    test_content('f {} - - - - %G', '{}'.format(os.getgid()), user=user)
 
-    user = pwd.getpwuid(os.getuid())
-    test_content('f {} - - - - %u', '{}'.format(user.pw_name), user=user)
+    puser = pwd.getpwuid(os.getuid())
+    test_content('f {} - - - - %u', '{}'.format(puser.pw_name), user=user)
+
+    pgroup = grp.getgrgid(os.getgid())
+    test_content('f {} - - - - %g', '{}'.format(pgroup.gr_name), user=user)
 
     # Note that %h is the only specifier in which we look the environment,
     # because we check $HOME. Should we even be doing that?
@@ -134,7 +137,7 @@ def test_valid_specifiers(*, user):
 if __name__ == '__main__':
     test_invalids(user=False)
     test_invalids(user=True)
-    test_unitialized_t()
+    test_uninitialized_t()
 
     test_valid_specifiers(user=False)
     test_valid_specifiers(user=True)

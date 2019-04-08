@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <sys/resource.h>
 
 #include "alloc-util.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "macro.h"
 #include "missing.h"
@@ -33,11 +29,49 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
         if (getrlimit(resource, &highest) < 0)
                 return -errno;
 
-        fixed.rlim_cur = MIN(rlim->rlim_cur, highest.rlim_max);
-        fixed.rlim_max = MIN(rlim->rlim_max, highest.rlim_max);
+        /* If the hard limit is unbounded anyway, then the EPERM had other reasons, let's propagate the original EPERM
+         * then */
+        if (highest.rlim_max == RLIM_INFINITY)
+                return -EPERM;
+
+        fixed = (struct rlimit) {
+                .rlim_cur = MIN(rlim->rlim_cur, highest.rlim_max),
+                .rlim_max = MIN(rlim->rlim_max, highest.rlim_max),
+        };
+
+        /* Shortcut things if we wouldn't change anything. */
+        if (fixed.rlim_cur == highest.rlim_cur &&
+            fixed.rlim_max == highest.rlim_max)
+                return 0;
 
         if (setrlimit(resource, &fixed) < 0)
                 return -errno;
+
+        return 0;
+}
+
+int setrlimit_closest_all(const struct rlimit *const *rlim, int *which_failed) {
+        int i, r;
+
+        assert(rlim);
+
+        /* On failure returns the limit's index that failed in *which_failed, but only if non-NULL */
+
+        for (i = 0; i < _RLIMIT_MAX; i++) {
+                if (!rlim[i])
+                        continue;
+
+                r = setrlimit_closest(i, rlim[i]);
+                if (r < 0) {
+                        if (which_failed)
+                                *which_failed = i;
+
+                        return r;
+                }
+        }
+
+        if (which_failed)
+                *which_failed = -1;
 
         return 0;
 }
@@ -289,22 +323,88 @@ int rlimit_format(const struct rlimit *rl, char **ret) {
 }
 
 static const char* const rlimit_table[_RLIMIT_MAX] = {
-        [RLIMIT_CPU] = "LimitCPU",
-        [RLIMIT_FSIZE] = "LimitFSIZE",
-        [RLIMIT_DATA] = "LimitDATA",
-        [RLIMIT_STACK] = "LimitSTACK",
-        [RLIMIT_CORE] = "LimitCORE",
-        [RLIMIT_RSS] = "LimitRSS",
-        [RLIMIT_NOFILE] = "LimitNOFILE",
-        [RLIMIT_AS] = "LimitAS",
-        [RLIMIT_NPROC] = "LimitNPROC",
-        [RLIMIT_MEMLOCK] = "LimitMEMLOCK",
-        [RLIMIT_LOCKS] = "LimitLOCKS",
-        [RLIMIT_SIGPENDING] = "LimitSIGPENDING",
-        [RLIMIT_MSGQUEUE] = "LimitMSGQUEUE",
-        [RLIMIT_NICE] = "LimitNICE",
-        [RLIMIT_RTPRIO] = "LimitRTPRIO",
-        [RLIMIT_RTTIME] = "LimitRTTIME"
+        [RLIMIT_AS]         = "AS",
+        [RLIMIT_CORE]       = "CORE",
+        [RLIMIT_CPU]        = "CPU",
+        [RLIMIT_DATA]       = "DATA",
+        [RLIMIT_FSIZE]      = "FSIZE",
+        [RLIMIT_LOCKS]      = "LOCKS",
+        [RLIMIT_MEMLOCK]    = "MEMLOCK",
+        [RLIMIT_MSGQUEUE]   = "MSGQUEUE",
+        [RLIMIT_NICE]       = "NICE",
+        [RLIMIT_NOFILE]     = "NOFILE",
+        [RLIMIT_NPROC]      = "NPROC",
+        [RLIMIT_RSS]        = "RSS",
+        [RLIMIT_RTPRIO]     = "RTPRIO",
+        [RLIMIT_RTTIME]     = "RTTIME",
+        [RLIMIT_SIGPENDING] = "SIGPENDING",
+        [RLIMIT_STACK]      = "STACK",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(rlimit, int);
+
+int rlimit_from_string_harder(const char *s) {
+        const char *suffix;
+
+        /* The official prefix */
+        suffix = startswith(s, "RLIMIT_");
+        if (suffix)
+                return rlimit_from_string(suffix);
+
+        /* Our own unit file setting prefix */
+        suffix = startswith(s, "Limit");
+        if (suffix)
+                return rlimit_from_string(suffix);
+
+        return rlimit_from_string(s);
+}
+
+void rlimit_free_all(struct rlimit **rl) {
+        int i;
+
+        if (!rl)
+                return;
+
+        for (i = 0; i < _RLIMIT_MAX; i++)
+                rl[i] = mfree(rl[i]);
+}
+
+int rlimit_nofile_bump(int limit) {
+        int r;
+
+        /* Bumps the (soft) RLIMIT_NOFILE resource limit as close as possible to the specified limit. If a negative
+         * limit is specified, bumps it to the maximum the kernel and the hard resource limit allows. This call should
+         * be used by all our programs that might need a lot of fds, and that know how to deal with high fd numbers
+         * (i.e. do not use select() — which chokes on fds >= 1024) */
+
+        if (limit < 0)
+                limit = read_nr_open();
+
+        if (limit < 3)
+                limit = 3;
+
+        r = setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(limit));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set RLIMIT_NOFILE: %m");
+
+        return 0;
+}
+
+int rlimit_nofile_safe(void) {
+        struct rlimit rl;
+
+        /* Resets RLIMIT_NOFILE's soft limit FD_SETSIZE (i.e. 1024), for compatibility with software still using
+         * select() */
+
+        if (getrlimit(RLIMIT_NOFILE, &rl) < 0)
+                return log_debug_errno(errno, "Failed to query RLIMIT_NOFILE: %m");
+
+        if (rl.rlim_cur <= FD_SETSIZE)
+                return 0;
+
+        rl.rlim_cur = FD_SETSIZE;
+        if (setrlimit(RLIMIT_NOFILE, &rl) < 0)
+                return log_debug_errno(errno, "Failed to lower RLIMIT_NOFILE's soft limit to " RLIM_FMT ": %m", rl.rlim_cur);
+
+        return 1;
+}

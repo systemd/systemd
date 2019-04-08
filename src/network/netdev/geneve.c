@@ -1,18 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2017 Susant Sahani
-***/
 
 #include <net/if.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "extract-word.h"
 #include "geneve.h"
+#include "netlink-util.h"
 #include "parse-util.h"
-#include "sd-netlink.h"
 #include "string-util.h"
 #include "strv.h"
 #include "missing.h"
@@ -22,10 +19,10 @@
 #define DEFAULT_GENEVE_DESTINATION_PORT 6081
 
 /* callback for geneve netdev's created without a backing Link */
-static int geneve_netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_(netdev_unrefp) NetDev *netdev = userdata;
+static int geneve_netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
         int r;
 
+        assert(netdev);
         assert(netdev->state != _NETDEV_STATE_INVALID);
 
         r = sd_netlink_message_get_errno(m);
@@ -86,19 +83,16 @@ static int netdev_geneve_create(NetDev *netdev) {
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_ID attribute: %m");
         }
 
-        if (!in_addr_is_null(v->remote_family, &v->remote)) {
-
+        if (in_addr_is_null(v->remote_family, &v->remote) == 0) {
                 if (v->remote_family == AF_INET)
                         r = sd_netlink_message_append_in_addr(m, IFLA_GENEVE_REMOTE, &v->remote.in);
                 else
                         r = sd_netlink_message_append_in6_addr(m, IFLA_GENEVE_REMOTE6, &v->remote.in6);
-
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_GROUP attribute: %m");
-
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_REMOTE/IFLA_GENEVE_REMOTE6 attribute: %m");
         }
 
-        if (v->ttl) {
+        if (v->ttl > 0) {
                 r = sd_netlink_message_append_u8(m, IFLA_GENEVE_TTL, v->ttl);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_TTL attribute: %m");
@@ -140,12 +134,12 @@ static int netdev_geneve_create(NetDev *netdev) {
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
-        r = sd_netlink_call_async(netdev->manager->rtnl, m, geneve_netdev_create_handler, netdev, 0, NULL);
+        r = netlink_call_async(netdev->manager->rtnl, NULL, m, geneve_netdev_create_handler,
+                               netdev_destroy_callback, netdev);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
         netdev_ref(netdev);
-
         netdev->state = NETDEV_STATE_CREATING;
 
         log_netdev_debug(netdev, "Creating");

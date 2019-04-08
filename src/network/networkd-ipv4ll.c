@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013-2014 Tom Gundersen <teg@jklm.no>
-***/
 
 #include <netinet/ether.h>
 #include <linux/if.h>
@@ -31,37 +26,32 @@ static int ipv4ll_address_lost(Link *link) {
         log_link_debug(link, "IPv4 link-local release %u.%u.%u.%u", ADDRESS_FMT_VAL(addr));
 
         r = address_new(&address);
-        if (r < 0) {
-                log_link_error_errno(link, r, "Could not allocate address: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate address: %m");
 
         address->family = AF_INET;
         address->in_addr.in = addr;
         address->prefixlen = 16;
         address->scope = RT_SCOPE_LINK;
 
-        address_remove(address, link, link_address_remove_handler);
+        address_remove(address, link, NULL);
 
         r = route_new(&route);
-        if (r < 0) {
-                log_link_error_errno(link, r, "Could not allocate route: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate route: %m");
 
         route->family = AF_INET;
         route->scope = RT_SCOPE_LINK;
         route->priority = IPV4LL_ROUTE_METRIC;
 
-        route_remove(route, link, link_route_remove_handler);
+        route_remove(route, link, NULL);
 
         link_check_ready(link);
 
         return 0;
 }
 
-static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_(link_unrefp) Link *link = userdata;
+static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -75,14 +65,29 @@ static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
 
         link->ipv4ll_route = true;
 
-        if (link->ipv4ll_address == true)
-                link_check_ready(link);
+        link_check_ready(link);
 
         return 1;
 }
 
-static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_(link_unrefp) Link *link = userdata;
+static int ipv4ll_route_configure(Link *link) {
+        _cleanup_(route_freep) Route *route = NULL;
+        int r;
+
+        r = route_new(&route);
+        if (r < 0)
+                return r;
+
+        route->family = AF_INET;
+        route->scope = RT_SCOPE_LINK;
+        route->protocol = RTPROT_STATIC;
+        route->priority = IPV4LL_ROUTE_METRIC;
+        route->table = link_get_vrf_table(link);
+
+        return route_configure(route, link, ipv4ll_route_handler);
+}
+
+static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -97,20 +102,25 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void 
 
         link->ipv4ll_address = true;
 
-        if (link->ipv4ll_route)
-                link_check_ready(link);
+        r = ipv4ll_route_configure(link);
+        if (r < 0) {
+                log_link_error_errno(link, r, "Failed to configure ipv4ll route: %m");
+                link_enter_failed(link);
+        }
 
         return 1;
 }
 
 static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         _cleanup_(address_freep) Address *ll_addr = NULL;
-        _cleanup_(route_freep) Route *route = NULL;
         struct in_addr address;
         int r;
 
         assert(ll);
         assert(link);
+
+        link->ipv4ll_address = false;
+        link->ipv4ll_route = false;
 
         r = sd_ipv4ll_get_address(ll, &address);
         if (r == -ENOENT)
@@ -134,23 +144,6 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         r = address_configure(ll_addr, link, ipv4ll_address_handler, false);
         if (r < 0)
                 return r;
-
-        link->ipv4ll_address = false;
-
-        r = route_new(&route);
-        if (r < 0)
-                return r;
-
-        route->family = AF_INET;
-        route->scope = RT_SCOPE_LINK;
-        route->protocol = RTPROT_STATIC;
-        route->priority = IPV4LL_ROUTE_METRIC;
-
-        r = route_configure(route, link, ipv4ll_route_handler);
-        if (r < 0)
-                return r;
-
-        link->ipv4ll_route = false;
 
         return 0;
 }
@@ -187,6 +180,7 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
                 case SD_IPV4LL_EVENT_BIND:
                         r = ipv4ll_address_claimed(ll, link);
                         if (r < 0) {
+                                log_link_error(link, "Failed to configure ipv4ll address: %m");
                                 link_enter_failed(link);
                                 return;
                         }
@@ -211,13 +205,11 @@ int ipv4ll_configure(Link *link) {
                         return r;
         }
 
-        if (link->udev_device) {
-                r = net_get_unique_predictable_data(link->udev_device, &seed);
-                if (r >= 0) {
-                        r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
-                        if (r < 0)
-                                return r;
-                }
+        if (link->sd_device &&
+            net_get_unique_predictable_data(link->sd_device, &seed) >= 0) {
+                r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
+                if (r < 0)
+                        return r;
         }
 
         r = sd_ipv4ll_attach_event(link->ipv4ll, NULL, 0);

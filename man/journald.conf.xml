@@ -1,29 +1,13 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="journald.conf"
     xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>journald.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -63,7 +47,7 @@
     <para>All options are configured in the
     <literal>[Journal]</literal> section:</para>
 
-    <variablelist>
+    <variablelist class='config-directives'>
 
       <varlistentry>
         <term><varname>Storage=</varname></term>
@@ -153,7 +137,13 @@
         following units: <literal>s</literal>, <literal>min</literal>,
         <literal>h</literal>, <literal>ms</literal>,
         <literal>us</literal>. To turn off any kind of rate limiting,
-        set either value to 0.</para></listitem>
+        set either value to 0.</para>
+
+        <para>If a service provides rate limits for itself through
+        <varname>LogRateLimitIntervalSec=</varname> and/or <varname>LogRateLimitBurst=</varname>
+        in <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        those values will override the settings specified here.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -208,7 +198,11 @@
         subsequently something else causes the file system to fill up,
         journald will stop using more space, but it will not be
         removing existing files to reduce the footprint again,
-        either.</para>
+        either. Also note that only archived files are deleted to reduce the
+        space occupied by journal files. This means that, in effect, there might
+        still be more space used than <varname>SystemMaxUse=</varname> or
+        <varname>RuntimeMaxUse=</varname> limit after a vacuuming operation is
+        complete.</para>
 
         <para><varname>SystemMaxFileSize=</varname> and
         <varname>RuntimeMaxFileSize=</varname> control how large
@@ -261,7 +255,7 @@
 
         <listitem><para>The maximum time to store journal entries.
         This controls whether journal files containing entries older
-        then the specified time span are deleted. Normally, time-based
+        than the specified time span are deleted. Normally, time-based
         deletion of old journal files should not be required as
         size-based deletion with options such as
         <varname>SystemMaxUse=</varname> should be sufficient to

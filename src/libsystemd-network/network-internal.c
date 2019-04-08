@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
- This file is part of systemd.
-
- Copyright (C) 2013 Tom Gundersen <teg@jklm.no>
-***/
 
 #include <arpa/inet.h>
 #include <linux/if.h>
@@ -15,6 +10,7 @@
 #include "alloc-util.h"
 #include "condition.h"
 #include "conf-parser.h"
+#include "device-util.h"
 #include "dhcp-lease-internal.h"
 #include "ether-addr-util.h"
 #include "hexdecoct.h"
@@ -28,50 +24,52 @@
 #include "utf8.h"
 #include "util.h"
 
-const char *net_get_name(struct udev_device *device) {
+const char *net_get_name(sd_device *device) {
         const char *name, *field;
 
         assert(device);
 
         /* fetch some persistent data unique (on this machine) to this device */
-        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC") {
-                name = udev_device_get_property_value(device, field);
-                if (name)
+        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC")
+                if (sd_device_get_property_value(device, field, &name) >= 0)
                         return name;
-        }
 
         return NULL;
 }
 
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
 
-int net_get_unique_predictable_data(struct udev_device *device, uint64_t *result) {
+int net_get_unique_predictable_data(sd_device *device, uint64_t *result) {
         size_t l, sz = 0;
-        const char *name = NULL;
+        const char *name;
         int r;
         uint8_t *v;
 
         assert(device);
 
+        /* net_get_name() will return one of the device names based on stable information about the
+         * device. If this is not available, we fall back to using the device name. */
         name = net_get_name(device);
         if (!name)
-                return -ENOENT;
+                (void) sd_device_get_sysname(device, &name);
+        if (!name)
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENODATA),
+                                              "No stable identifying information found");
 
+        log_device_debug(device, "Using \"%s\" as stable identifying information", name);
         l = strlen(name);
         sz = sizeof(sd_id128_t) + l;
-        v = alloca(sz);
+        v = newa(uint8_t, sz);
 
-        /* fetch some persistent data unique to this machine */
+        /* Fetch some persistent data unique to this machine */
         r = sd_id128_get_machine((sd_id128_t*) v);
         if (r < 0)
                  return r;
         memcpy(v + sizeof(sd_id128_t), name, l);
 
-        /* Let's hash the machine ID plus the device name. We
-        * use a fixed, but originally randomly created hash
-        * key here. */
+        /* Let's hash the machine ID plus the device name. We use
+         * a fixed, but originally randomly created hash key here. */
         *result = htole64(siphash24(v, sz, HASH_KEY.bytes));
-
         return 0;
 }
 
@@ -102,34 +100,13 @@ bool net_match_config(Set *match_mac,
                       char * const *match_drivers,
                       char * const *match_types,
                       char * const *match_names,
-                      Condition *match_host,
-                      Condition *match_virt,
-                      Condition *match_kernel_cmdline,
-                      Condition *match_kernel_version,
-                      Condition *match_arch,
                       const struct ether_addr *dev_mac,
                       const char *dev_path,
-                      const char *dev_parent_driver,
                       const char *dev_driver,
                       const char *dev_type,
                       const char *dev_name) {
 
-        if (match_host && condition_test(match_host) <= 0)
-                return false;
-
-        if (match_virt && condition_test(match_virt) <= 0)
-                return false;
-
-        if (match_kernel_cmdline && condition_test(match_kernel_cmdline) <= 0)
-                return false;
-
-        if (match_kernel_version && condition_test(match_kernel_version) <= 0)
-                return false;
-
-        if (match_arch && condition_test(match_arch) <= 0)
-                return false;
-
-        if (match_mac && dev_mac && !set_contains(match_mac, dev_mac))
+        if (match_mac && (!dev_mac || !set_contains(match_mac, dev_mac)))
                 return false;
 
         if (!net_condition_test_strv(match_paths, dev_path))
@@ -159,32 +136,31 @@ int config_parse_net_condition(const char *unit,
                                void *userdata) {
 
         ConditionType cond = ltype;
-        Condition **ret = data;
+        Condition **list = data, *c;
         bool negate;
-        Condition *c;
-        _cleanup_free_ char *s = NULL;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                *list = condition_free_list_type(*list, cond);
+                return 0;
+        }
+
         negate = rvalue[0] == '!';
         if (negate)
                 rvalue++;
 
-        s = strdup(rvalue);
-        if (!s)
-                return log_oom();
-
-        c = condition_new(cond, s, false, negate);
+        c = condition_new(cond, rvalue, false, negate);
         if (!c)
                 return log_oom();
 
-        if (*ret)
-                condition_free(*ret);
+        /* Drop previous assignment. */
+        *list = condition_free_list_type(*list, cond);
 
-        *ret = c;
+        LIST_PREPEND(conditions, *list, c);
         return 0;
 }
 
@@ -262,11 +238,10 @@ int config_parse_ifalias(const char *unit,
                 return 0;
         }
 
-        free(*s);
-        if (*n)
-                *s = TAKE_PTR(n);
+        if (isempty(n))
+                *s = mfree(*s);
         else
-                *s = NULL;
+                free_and_replace(*s, n);
 
         return 0;
 }
@@ -301,7 +276,7 @@ int config_parse_hwaddr(const char *unit,
                 return 0;
         }
 
-        *hwaddr = TAKE_PTR(n);
+        free_and_replace(*hwaddr, n);
 
         return 0;
 }
@@ -379,36 +354,6 @@ int config_parse_hwaddrs(const char *unit,
         return 0;
 }
 
-int config_parse_iaid(const char *unit,
-                      const char *filename,
-                      unsigned line,
-                      const char *section,
-                      unsigned section_line,
-                      const char *lvalue,
-                      int ltype,
-                      const char *rvalue,
-                      void *data,
-                      void *userdata) {
-        uint32_t iaid;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atou32(rvalue, &iaid);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Unable to read IAID, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        *((uint32_t *)data) = iaid;
-
-        return 0;
-}
-
 int config_parse_bridge_port_priority(
                 const char *unit,
                 const char *filename,
@@ -447,16 +392,33 @@ int config_parse_bridge_port_priority(
         return 0;
 }
 
-void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size) {
-        unsigned i;
+size_t serialize_in_addrs(FILE *f,
+                          const struct in_addr *addresses,
+                          size_t size,
+                          bool with_leading_space,
+                          bool (*predicate)(const struct in_addr *addr)) {
+        size_t count;
+        size_t i;
 
         assert(f);
         assert(addresses);
-        assert(size);
 
-        for (i = 0; i < size; i++)
-                fprintf(f, "%s%s", inet_ntoa(addresses[i]),
-                        (i < (size - 1)) ? " ": "");
+        count = 0;
+
+        for (i = 0; i < size; i++) {
+                char sbuf[INET_ADDRSTRLEN];
+
+                if (predicate && !predicate(&addresses[i]))
+                        continue;
+                if (with_leading_space)
+                        fputc(' ', f);
+                else
+                        with_leading_space = true;
+                fputs(inet_ntop(AF_INET, &addresses[i], sbuf, sizeof(sbuf)), f);
+                count++;
+        }
+
+        return count;
 }
 
 int deserialize_in_addrs(struct in_addr **ret, const char *string) {
@@ -490,7 +452,7 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
                 size++;
         }
 
-        *ret = TAKE_PTR(addresses);
+        *ret = size > 0 ? TAKE_PTR(addresses) : NULL;
 
         return size;
 }
@@ -559,6 +521,7 @@ void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, siz
         fprintf(f, "%s=", key);
 
         for (i = 0; i < size; i++) {
+                char sbuf[INET_ADDRSTRLEN];
                 struct in_addr dest, gw;
                 uint8_t length;
 
@@ -566,8 +529,8 @@ void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, siz
                 assert_se(sd_dhcp_route_get_gateway(routes[i], &gw) >= 0);
                 assert_se(sd_dhcp_route_get_destination_prefix_length(routes[i], &length) >= 0);
 
-                fprintf(f, "%s/%" PRIu8, inet_ntoa(dest), length);
-                fprintf(f, ",%s%s", inet_ntoa(gw), (i < (size - 1)) ? " ": "");
+                fprintf(f, "%s/%" PRIu8, inet_ntop(AF_INET, &dest, sbuf, sizeof(sbuf)), length);
+                fprintf(f, ",%s%s", inet_ntop(AF_INET, &gw, sbuf, sizeof(sbuf)), (i < (size - 1)) ? " ": "");
         }
 
         fputs("\n", f);

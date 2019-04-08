@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Intel Corporation. All rights reserved.
+  Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
 #include <netinet/icmp6.h>
@@ -11,26 +9,37 @@
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
+#include "memory-util.h"
 #include "ndisc-internal.h"
 #include "ndisc-router.h"
 #include "random-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
-#include "util.h"
 
 #define NDISC_TIMEOUT_NO_RA_USEC (NDISC_ROUTER_SOLICITATION_INTERVAL * NDISC_MAX_ROUTER_SOLICITATIONS)
 
+static const char * const ndisc_event_table[_SD_NDISC_EVENT_MAX] = {
+        [SD_NDISC_EVENT_TIMEOUT] = "timeout",
+        [SD_NDISC_EVENT_ROUTER] = "router",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event);
+
 static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event event, sd_ndisc_router *rt) {
         assert(ndisc);
+        assert(event >= 0 && event < _SD_NDISC_EVENT_MAX);
 
-        log_ndisc("Invoking callback for '%c'.", event);
-
-        if (!ndisc->callback)
+        if (!ndisc->callback) {
+                log_ndisc("Received '%s' event.", ndisc_event_to_string(event));
                 return;
+        }
 
+        log_ndisc("Invoking callback for '%s' event.", ndisc_event_to_string(event));
         ndisc->callback(ndisc, event, rt, ndisc->userdata);
 }
 
@@ -102,56 +111,42 @@ _public_ sd_event *sd_ndisc_get_event(sd_ndisc *nd) {
         return nd->event;
 }
 
-_public_ sd_ndisc *sd_ndisc_ref(sd_ndisc *nd) {
+static void ndisc_reset(sd_ndisc *nd) {
+        assert(nd);
 
-        if (!nd)
-                return NULL;
-
-        assert(nd->n_ref > 0);
-        nd->n_ref++;
-
-        return nd;
+        (void) event_source_disable(nd->timeout_event_source);
+        (void) event_source_disable(nd->timeout_no_ra);
+        nd->retransmit_time = 0;
+        nd->recv_event_source = sd_event_source_unref(nd->recv_event_source);
+        nd->fd = safe_close(nd->fd);
 }
 
-static int ndisc_reset(sd_ndisc *nd) {
+static sd_ndisc *ndisc_free(sd_ndisc *nd) {
         assert(nd);
 
         nd->timeout_event_source = sd_event_source_unref(nd->timeout_event_source);
         nd->timeout_no_ra = sd_event_source_unref(nd->timeout_no_ra);
-        nd->retransmit_time = 0;
-        nd->recv_event_source = sd_event_source_unref(nd->recv_event_source);
-        nd->fd = safe_close(nd->fd);
-
-        return 0;
-}
-
-_public_ sd_ndisc *sd_ndisc_unref(sd_ndisc *nd) {
-
-        if (!nd)
-                return NULL;
-
-        assert(nd->n_ref > 0);
-        nd->n_ref--;
-
-        if (nd->n_ref > 0)
-                return NULL;
 
         ndisc_reset(nd);
         sd_ndisc_detach_event(nd);
         return mfree(nd);
 }
 
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc, sd_ndisc, ndisc_free);
+
 _public_ int sd_ndisc_new(sd_ndisc **ret) {
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
         assert_return(ret, -EINVAL);
 
-        nd = new0(sd_ndisc, 1);
+        nd = new(sd_ndisc, 1);
         if (!nd)
                 return -ENOMEM;
 
-        nd->n_ref = 1;
-        nd->fd = -1;
+        *nd = (sd_ndisc) {
+                .n_ref = 1,
+                .fd = -1,
+        };
 
         *ret = TAKE_PTR(nd);
 
@@ -240,14 +235,21 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
                         break;
 
                 case -EPFNOSUPPORT:
-                        log_ndisc("Received invalid source address from ICMPv6 socket.");
+                        log_ndisc("Received invalid source address from ICMPv6 socket. Ignoring.");
+                        break;
+
+                case -EAGAIN: /* ignore spurious wakeups */
+                        break;
+
+                default:
+                        log_ndisc_errno(r, "Unexpected error while reading from ICMPv6, ignoring: %m");
                         break;
                 }
 
                 return 0;
         }
 
-        nd->timeout_event_source = sd_event_source_unref(nd->timeout_event_source);
+        (void) event_source_disable(nd->timeout_event_source);
 
         return ndisc_handle_datagram(nd, rt);
 }
@@ -259,18 +261,16 @@ static usec_t ndisc_timeout_compute_random(usec_t val) {
 }
 
 static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        char time_string[FORMAT_TIMESPAN_MAX];
         sd_ndisc *nd = userdata;
         usec_t time_now;
         int r;
-        char time_string[FORMAT_TIMESPAN_MAX];
 
         assert(s);
         assert(nd);
         assert(nd->event);
 
         assert_se(sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now) >= 0);
-
-        nd->timeout_event_source = sd_event_source_unref(nd->timeout_event_source);
 
         if (!nd->retransmit_time)
                 nd->retransmit_time = ndisc_timeout_compute_random(NDISC_ROUTER_SOLICITATION_INTERVAL);
@@ -281,24 +281,13 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
                         nd->retransmit_time += ndisc_timeout_compute_random(nd->retransmit_time);
         }
 
-        r = sd_event_add_time(nd->event, &nd->timeout_event_source,
-                              clock_boottime_or_monotonic(),
-                              time_now + nd->retransmit_time,
-                              10 * USEC_PER_MSEC, ndisc_timeout, nd);
+        r = event_reset_time(nd->event, &nd->timeout_event_source,
+                             clock_boottime_or_monotonic(),
+                             time_now + nd->retransmit_time, 10 * USEC_PER_MSEC,
+                             ndisc_timeout, nd,
+                             nd->event_priority, "ndisc-timeout-no-ra", true);
         if (r < 0)
                 goto fail;
-
-        r = sd_event_source_set_priority(nd->timeout_event_source, nd->event_priority);
-        if (r < 0)
-                goto fail;
-
-        (void) sd_event_source_set_description(nd->timeout_event_source, "ndisc-timeout-no-ra");
-
-        r = sd_event_source_set_enabled(nd->timeout_event_source, SD_EVENT_ONESHOT);
-        if (r < 0) {
-                log_ndisc_errno(r, "Error reenabling timer: %m");
-                goto fail;
-        }
 
         r = icmp6_send_router_solicitation(nd->fd, &nd->mac_addr);
         if (r < 0) {
@@ -313,7 +302,7 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         return 0;
 
 fail:
-        sd_ndisc_stop(nd);
+        (void) sd_ndisc_stop(nd);
         return 0;
 }
 
@@ -325,7 +314,7 @@ static int ndisc_timeout_no_ra(sd_event_source *s, uint64_t usec, void *userdata
 
         log_ndisc("No RA received before link confirmation timeout");
 
-        nd->timeout_no_ra = sd_event_source_unref(nd->timeout_no_ra);
+        (void) event_source_disable(nd->timeout_no_ra);
         ndisc_callback(nd, SD_NDISC_EVENT_TIMEOUT, NULL);
 
         return 0;
@@ -355,7 +344,6 @@ _public_ int sd_ndisc_start(sd_ndisc *nd) {
                 return 0;
 
         assert(!nd->recv_event_source);
-        assert(!nd->timeout_event_source);
 
         r = sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
@@ -375,28 +363,21 @@ _public_ int sd_ndisc_start(sd_ndisc *nd) {
 
         (void) sd_event_source_set_description(nd->recv_event_source, "ndisc-receive-message");
 
-        r = sd_event_add_time(nd->event, &nd->timeout_event_source, clock_boottime_or_monotonic(), 0, 0, ndisc_timeout, nd);
+        r = event_reset_time(nd->event, &nd->timeout_event_source,
+                             clock_boottime_or_monotonic(),
+                             0, 0,
+                             ndisc_timeout, nd,
+                             nd->event_priority, "ndisc-timeout", true);
         if (r < 0)
                 goto fail;
 
-        r = sd_event_source_set_priority(nd->timeout_event_source, nd->event_priority);
+        r = event_reset_time(nd->event, &nd->timeout_no_ra,
+                             clock_boottime_or_monotonic(),
+                             time_now + NDISC_TIMEOUT_NO_RA_USEC, 10 * USEC_PER_MSEC,
+                             ndisc_timeout_no_ra, nd,
+                             nd->event_priority, "ndisc-timeout-no-ra", true);
         if (r < 0)
                 goto fail;
-
-        (void) sd_event_source_set_description(nd->timeout_event_source, "ndisc-timeout");
-
-        r = sd_event_add_time(nd->event, &nd->timeout_no_ra,
-                              clock_boottime_or_monotonic(),
-                              time_now + NDISC_TIMEOUT_NO_RA_USEC,
-                              10 * USEC_PER_MSEC, ndisc_timeout_no_ra, nd);
-        if (r < 0)
-                goto fail;
-
-        r = sd_event_source_set_priority(nd->timeout_no_ra, nd->event_priority);
-        if (r < 0)
-                goto fail;
-
-        (void) sd_event_source_set_description(nd->timeout_no_ra, "ndisc-timeout-no-ra");
 
         log_ndisc("Started IPv6 Router Solicitation client");
         return 1;

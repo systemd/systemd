@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 if conf.get('ENABLE_VCONSOLE') == 1
         vconsole_rules = configure_file(

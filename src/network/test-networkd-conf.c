@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include "ether-addr-util.h"
 #include "hexdecoct.h"
@@ -16,23 +11,30 @@
 #include "networkd-conf.h"
 #include "networkd-network.h"
 
-static void test_config_parse_duid_type_one(const char *rvalue, int ret, DUIDType expected) {
-        DUIDType actual = 0;
+static void test_config_parse_duid_type_one(const char *rvalue, int ret, DUIDType expected, usec_t expected_time) {
+        DUID actual = {};
         int r;
 
         r = config_parse_duid_type("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL);
-        log_info_errno(r, "\"%s\" → %d (%m)", rvalue, actual);
+        log_info_errno(r, "\"%s\" → %d (%m)", rvalue, actual.type);
         assert_se(r == ret);
-        assert_se(expected == actual);
+        assert_se(expected == actual.type);
+        if (expected == DUID_TYPE_LLT)
+                assert_se(expected_time == actual.llt_time);
 }
 
 static void test_config_parse_duid_type(void) {
-        test_config_parse_duid_type_one("", 0, 0);
-        test_config_parse_duid_type_one("link-layer-time", 0, DUID_TYPE_LLT);
-        test_config_parse_duid_type_one("vendor", 0, DUID_TYPE_EN);
-        test_config_parse_duid_type_one("link-layer", 0, DUID_TYPE_LL);
-        test_config_parse_duid_type_one("uuid", 0, DUID_TYPE_UUID);
-        test_config_parse_duid_type_one("foo", 0, 0);
+        test_config_parse_duid_type_one("", 0, 0, 0);
+        test_config_parse_duid_type_one("link-layer-time", 0, DUID_TYPE_LLT, 0);
+        test_config_parse_duid_type_one("link-layer-time:2000-01-01 00:00:00 UTC", 0, DUID_TYPE_LLT, (usec_t) 946684800000000);
+        test_config_parse_duid_type_one("vendor", 0, DUID_TYPE_EN, 0);
+        test_config_parse_duid_type_one("vendor:2000-01-01 00:00:00 UTC", 0, 0, 0);
+        test_config_parse_duid_type_one("link-layer", 0, DUID_TYPE_LL, 0);
+        test_config_parse_duid_type_one("link-layer:2000-01-01 00:00:00 UTC", 0, 0, 0);
+        test_config_parse_duid_type_one("uuid", 0, DUID_TYPE_UUID, 0);
+        test_config_parse_duid_type_one("uuid:2000-01-01 00:00:00 UTC", 0, 0, 0);
+        test_config_parse_duid_type_one("foo", 0, 0, 0);
+        test_config_parse_duid_type_one("foo:2000-01-01 00:00:00 UTC", 0, 0, 0);
 }
 
 static void test_config_parse_duid_rawdata_one(const char *rvalue, int ret, const DUID* expected) {
@@ -166,6 +168,51 @@ static void test_config_parse_hwaddr(void) {
         test_config_parse_hwaddrs_one("123.4567.89ab aa:bb:cc:dd:ee:fx hogehoge 01-23-45-67-89-ab aaaa aa:Bb:CC:dd:ee:ff", t, 2);
 }
 
+static void test_config_parse_address_one(const char *rvalue, int family, unsigned n_addresses, const union in_addr_union *u, unsigned char prefixlen) {
+        _cleanup_(network_freep) Network *network = NULL;
+
+        assert_se(network = new0(Network, 1));
+        assert_se(network->filename = strdup("hogehoge.network"));
+        assert_se(config_parse_address("network", "filename", 1, "section", 1, "Address", 0, rvalue, network, network) == 0);
+        assert_se(network->n_static_addresses == 1);
+        assert_se(network_verify(network) >= 0);
+        assert_se(network->n_static_addresses == n_addresses);
+        if (n_addresses > 0) {
+                assert_se(network->static_addresses);
+                assert_se(network->static_addresses->prefixlen == prefixlen);
+                assert_se(network->static_addresses->family == family);
+                assert_se(in_addr_equal(family, &network->static_addresses->in_addr, u));
+                /* TODO: check Address.in_addr and Address.broadcast */
+        }
+}
+
+static void test_config_parse_address(void) {
+        test_config_parse_address_one("", AF_INET, 0, NULL, 0);
+        test_config_parse_address_one("/", AF_INET, 0, NULL, 0);
+        test_config_parse_address_one("/8", AF_INET, 0, NULL, 0);
+        test_config_parse_address_one("1.2.3.4", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 8);
+        test_config_parse_address_one("1.2.3.4/0", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 0);
+        test_config_parse_address_one("1.2.3.4/1", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 1);
+        test_config_parse_address_one("1.2.3.4/2", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 2);
+        test_config_parse_address_one("1.2.3.4/32", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 32);
+        test_config_parse_address_one("1.2.3.4/33", AF_INET, 0, NULL, 0);
+        test_config_parse_address_one("1.2.3.4/-1", AF_INET, 0, NULL, 0);
+
+        test_config_parse_address_one("", AF_INET6, 0, NULL, 0);
+        test_config_parse_address_one("/", AF_INET6, 0, NULL, 0);
+        test_config_parse_address_one("/8", AF_INET6, 0, NULL, 0);
+        test_config_parse_address_one("::1", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 0);
+        test_config_parse_address_one("::1/0", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 0);
+        test_config_parse_address_one("::1/1", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 1);
+        test_config_parse_address_one("::1/2", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 2);
+        test_config_parse_address_one("::1/32", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 32);
+        test_config_parse_address_one("::1/33", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 33);
+        test_config_parse_address_one("::1/64", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 64);
+        test_config_parse_address_one("::1/128", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128);
+        test_config_parse_address_one("::1/129", AF_INET6, 0, NULL, 0);
+        test_config_parse_address_one("::1/-1", AF_INET6, 0, NULL, 0);
+}
+
 int main(int argc, char **argv) {
         log_parse_environment();
         log_open();
@@ -173,6 +220,7 @@ int main(int argc, char **argv) {
         test_config_parse_duid_type();
         test_config_parse_duid_rawdata();
         test_config_parse_hwaddr();
+        test_config_parse_address();
 
         return 0;
 }

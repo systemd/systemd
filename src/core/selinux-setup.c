@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stdio.h>
@@ -18,6 +13,7 @@
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "util.h"
 
 #if HAVE_SELINUX

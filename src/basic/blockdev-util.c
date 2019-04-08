@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <sys/stat.h>
 #include <sys/statfs.h>
@@ -15,12 +10,13 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "stat-util.h"
 
 int block_get_whole_disk(dev_t d, dev_t *ret) {
         char p[SYS_BLOCK_PATH_MAX("/partition")];
         _cleanup_free_ char *s = NULL;
-        unsigned n, m;
+        dev_t devt;
         int r;
 
         assert(ret);
@@ -43,16 +39,16 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         if (r < 0)
                 return r;
 
-        r = sscanf(s, "%u:%u", &m, &n);
-        if (r != 2)
-                return -EINVAL;
+        r = parse_dev(s, &devt);
+        if (r < 0)
+                return r;
 
         /* Only return this if it is really good enough for us. */
-        xsprintf_sys_block_path(p, "/queue", makedev(m, n));
+        xsprintf_sys_block_path(p, "/queue", devt);
         if (access(p, F_OK) < 0)
                 return -ENOENT;
 
-        *ret = makedev(m, n);
+        *ret = devt;
         return 0;
 }
 
@@ -81,38 +77,26 @@ int get_block_device(const char *path, dev_t *dev) {
         if (F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC))
                 return btrfs_get_block_device(path, dev);
 
+        *dev = 0;
         return 0;
 }
 
-int get_block_device_harder(const char *path, dev_t *dev) {
+int block_get_originating(dev_t dt, dev_t *ret) {
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_free_ char *t = NULL;
         char p[SYS_BLOCK_PATH_MAX("/slaves")];
         struct dirent *de, *found = NULL;
         const char *q;
-        unsigned maj, min;
-        dev_t dt;
+        dev_t devt;
         int r;
 
-        assert(path);
-        assert(dev);
-
-        /* Gets the backing block device for a file system, and
-         * handles LUKS encrypted file systems, looking for its
-         * immediate parent, if there is one. */
-
-        r = get_block_device(path, &dt);
-        if (r <= 0)
-                return r;
+        /* For the specified block device tries to chase it through the layers, in case LUKS-style DM stacking is used,
+         * trying to find the next underlying layer.  */
 
         xsprintf_sys_block_path(p, "/slaves", dt);
         d = opendir(p);
-        if (!d) {
-                if (errno == ENOENT)
-                        goto fallback;
-
+        if (!d)
                 return -errno;
-        }
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
 
@@ -140,47 +124,58 @@ int get_block_device_harder(const char *path, dev_t *dev) {
                                 return -ENOMEM;
 
                         r = read_one_line_file(u, &a);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to read %s: %m", u);
-                                goto fallback;
-                        }
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to read %s: %m", u);
 
                         r = read_one_line_file(v, &b);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to read %s: %m", v);
-                                goto fallback;
-                        }
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to read %s: %m", v);
 
                         /* Check if the parent device is the same. If not, then the two backing devices are on
                          * different physical devices, and we don't support that. */
                         if (!streq(a, b))
-                                goto fallback;
+                                return -ENOTUNIQ;
                 }
 
                 found = de;
         }
 
         if (!found)
-                goto fallback;
+                return -ENOENT;
 
         q = strjoina(p, "/", found->d_name, "/dev");
 
         r = read_one_line_file(q, &t);
-        if (r == -ENOENT)
-                goto fallback;
         if (r < 0)
                 return r;
 
-        if (sscanf(t, "%u:%u", &maj, &min) != 2)
+        r = parse_dev(t, &devt);
+        if (r < 0)
                 return -EINVAL;
 
-        if (maj == 0)
-                goto fallback;
+        if (major(devt) == 0)
+                return -ENOENT;
 
-        *dev = makedev(maj, min);
+        *ret = devt;
         return 1;
+}
 
-fallback:
-        *dev = dt;
+int get_block_device_harder(const char *path, dev_t *ret) {
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        /* Gets the backing block device for a file system, and handles LUKS encrypted file systems, looking for its
+         * immediate parent, if there is one. */
+
+        r = get_block_device(path, ret);
+        if (r <= 0)
+                return r;
+
+        r = block_get_originating(*ret, ret);
+        if (r < 0)
+                log_debug_errno(r, "Failed to chase block device '%s', ignoring: %m", path);
+
         return 1;
 }

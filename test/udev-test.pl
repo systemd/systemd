@@ -14,8 +14,7 @@
 # After creation and removal the result is checked against the
 # expected value and the result is printed.
 #
-# Copyright (C) 2004-2012 Kay Sievers <kay@vrfy.org>
-# Copyright (C) 2004 Leann Ogasawara <ogasawara@osdl.org>
+# Copyright © 2004 Leann Ogasawara <ogasawara@osdl.org>
 
 use warnings;
 use strict;
@@ -40,11 +39,17 @@ for (my $i = 1; $i <= 10000; ++$i) {
         $rules_10k_tags .= 'KERNEL=="sda", TAG+="test' . $i . "\"\n";
 }
 
+my $rules_10k_tags_continuation = "KERNEL==\"sda\", \\\n";
+for (my $i = 1; $i < 10000; ++$i) {
+        $rules_10k_tags_continuation .= 'TAG+="test' . $i . "\",\\\n";
+}
+$rules_10k_tags_continuation .= "TAG+=\"test10000\"\\n";
+
 my @tests = (
         {
                 desc            => "no rules",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                exp_name        => "sda" ,
+                exp_name        => "sda",
                 exp_rem_error   => "yes",
                 rules           => <<EOF
 #
@@ -53,7 +58,7 @@ EOF
         {
                 desc            => "label test of scsi disc",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                exp_name        => "boot_disk" ,
+                exp_name        => "boot_disk",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="boot_disk%n"
 KERNEL=="ttyACM0", SYMLINK+="modem"
@@ -62,7 +67,7 @@ EOF
         {
                 desc            => "label test of scsi disc",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                exp_name        => "boot_disk" ,
+                exp_name        => "boot_disk",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="boot_disk%n"
 KERNEL=="ttyACM0", SYMLINK+="modem"
@@ -71,7 +76,7 @@ EOF
         {
                 desc            => "label test of scsi disc",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                exp_name        => "boot_disk" ,
+                exp_name        => "boot_disk",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="boot_disk%n"
 KERNEL=="ttyACM0", SYMLINK+="modem"
@@ -80,7 +85,7 @@ EOF
         {
                 desc            => "label test of scsi partition",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                exp_name        => "boot_disk1" ,
+                exp_name        => "boot_disk1",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="boot_disk%n"
 EOF
@@ -88,7 +93,7 @@ EOF
         {
                 desc            => "label test of pattern match",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                exp_name        => "boot_disk1" ,
+                exp_name        => "boot_disk1",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="?ATA", SYMLINK+="boot_disk%n-1"
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA?", SYMLINK+="boot_disk%n-2"
@@ -99,7 +104,7 @@ EOF
         {
                 desc            => "label test of multiple sysfs files",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                exp_name        => "boot_disk1" ,
+                exp_name        => "boot_disk1",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS X ", SYMLINK+="boot_diskX%n"
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="boot_disk%n"
@@ -108,7 +113,7 @@ EOF
         {
                 desc            => "label test of max sysfs files (skip invalid rule)",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                exp_name        => "boot_disk1" ,
+                exp_name        => "boot_disk1",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ATTRS{scsi_level}=="6", ATTRS{rev}=="4.06", ATTRS{type}=="0", ATTRS{queue_depth}=="32", SYMLINK+="boot_diskXX%n"
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ATTRS{scsi_level}=="6", ATTRS{rev}=="4.06", ATTRS{type}=="0", SYMLINK+="boot_disk%n"
@@ -117,7 +122,7 @@ EOF
         {
                 desc            => "catch device by *",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "modem/0" ,
+                exp_name        => "modem/0",
                 rules           => <<EOF
 KERNEL=="ttyACM*", SYMLINK+="modem/%n"
 EOF
@@ -125,7 +130,7 @@ EOF
         {
                 desc            => "catch device by * - take 2",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "modem/0" ,
+                exp_name        => "modem/0",
                 rules           => <<EOF
 KERNEL=="*ACM1", SYMLINK+="bad"
 KERNEL=="*ACM0", SYMLINK+="modem/%n"
@@ -134,7 +139,7 @@ EOF
         {
                 desc            => "catch device by ?",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "modem/0" ,
+                exp_name        => "modem/0",
                 rules           => <<EOF
 KERNEL=="ttyACM??*", SYMLINK+="modem/%n-1"
 KERNEL=="ttyACM??", SYMLINK+="modem/%n-2"
@@ -144,7 +149,7 @@ EOF
         {
                 desc            => "catch device by character class",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "modem/0" ,
+                exp_name        => "modem/0",
                 rules           => <<EOF
 KERNEL=="ttyACM[A-Z]*", SYMLINK+="modem/%n-1"
 KERNEL=="ttyACM?[0-9]", SYMLINK+="modem/%n-2"
@@ -154,7 +159,7 @@ EOF
         {
                 desc            => "replace kernel name",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "modem" ,
+                exp_name        => "modem",
                 rules           => <<EOF
 KERNEL=="ttyACM0", SYMLINK+="modem"
 EOF
@@ -162,7 +167,7 @@ EOF
         {
                 desc            => "Handle comment lines in config file (and replace kernel name)",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "modem" ,
+                exp_name        => "modem",
                 rules           => <<EOF
 # this is a comment
 KERNEL=="ttyACM0", SYMLINK+="modem"
@@ -172,7 +177,7 @@ EOF
         {
                 desc            => "Handle comment lines in config file with whitespace (and replace kernel name)",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "modem" ,
+                exp_name        => "modem",
                 rules           => <<EOF
  # this is a comment with whitespace before the comment
 KERNEL=="ttyACM0", SYMLINK+="modem"
@@ -182,7 +187,7 @@ EOF
         {
                 desc            => "Handle whitespace only lines (and replace kernel name)",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "whitespace" ,
+                exp_name        => "whitespace",
                 rules           => <<EOF
 
 
@@ -197,7 +202,7 @@ EOF
         {
                 desc            => "Handle empty lines in config file (and replace kernel name)",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "modem" ,
+                exp_name        => "modem",
                 rules           => <<EOF
 
 KERNEL=="ttyACM0", SYMLINK+="modem"
@@ -207,7 +212,7 @@ EOF
         {
                 desc            => "Handle backslashed multi lines in config file (and replace kernel name)",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "modem" ,
+                exp_name        => "modem",
                 rules           => <<EOF
 KERNEL=="ttyACM0", \\
 SYMLINK+="modem"
@@ -225,7 +230,7 @@ EOF
         {
                 desc            => "Handle stupid backslashed multi lines in config file (and replace kernel name)",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "modem" ,
+                exp_name        => "modem",
                 rules           => <<EOF
 
 #
@@ -243,7 +248,7 @@ EOF
         {
                 desc            => "subdirectory handling",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "sub/direct/ory/modem" ,
+                exp_name        => "sub/direct/ory/modem",
                 rules           => <<EOF
 KERNEL=="ttyACM0", SYMLINK+="sub/direct/ory/modem"
 EOF
@@ -251,7 +256,7 @@ EOF
         {
                 desc            => "parent device name match of scsi partition",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "first_disk5" ,
+                exp_name        => "first_disk5",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", SYMLINK+="first_disk%n"
 EOF
@@ -259,7 +264,7 @@ EOF
         {
                 desc            => "test substitution chars",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "Major:8:minor:5:kernelnumber:5:id:0:0:0:0" ,
+                exp_name        => "Major:8:minor:5:kernelnumber:5:id:0:0:0:0",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", SYMLINK+="Major:%M:minor:%m:kernelnumber:%n:id:%b"
 EOF
@@ -276,7 +281,7 @@ EOF
         {
                 desc            => "sustitution of sysfs value (%s{file})",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                exp_name        => "disk-ATA-sda" ,
+                exp_name        => "disk-ATA-sda",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="disk-%s{vendor}-%k"
 KERNEL=="ttyACM0", SYMLINK+="modem"
@@ -285,8 +290,8 @@ EOF
         {
                 desc            => "program result substitution",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "special-device-5" ,
-                not_exp_name    => "not" ,
+                exp_name        => "special-device-5",
+                not_exp_name    => "not",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n special-device", RESULT=="-special-*", SYMLINK+="not"
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n special-device", RESULT=="special-*", SYMLINK+="%c-%n"
@@ -295,7 +300,7 @@ EOF
         {
                 desc            => "program result substitution (newline removal)",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "newline_removed" ,
+                exp_name        => "newline_removed",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo test", RESULT=="test", SYMLINK+="newline_removed"
 EOF
@@ -303,7 +308,7 @@ EOF
         {
                 desc            => "program result substitution",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "test-0:0:0:0" ,
+                exp_name        => "test-0:0:0:0",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n test-%b", RESULT=="test-0:0*", SYMLINK+="%c"
 EOF
@@ -311,7 +316,7 @@ EOF
         {
                 desc            => "program with lots of arguments",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "foo9" ,
+                exp_name        => "foo9",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda5", SYMLINK+="%c{7}"
 EOF
@@ -319,7 +324,7 @@ EOF
         {
                 desc            => "program with subshell",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "bar9" ,
+                exp_name        => "bar9",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c 'echo foo3 foo4 foo5 foo6 foo7 foo8 foo9 | sed  s/foo9/bar9/'", KERNEL=="sda5", SYMLINK+="%c{7}"
 EOF
@@ -327,7 +332,7 @@ EOF
         {
                 desc            => "program arguments combined with apostrophes",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "foo7" ,
+                exp_name        => "foo7",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n 'foo3 foo4'   'foo5   foo6   foo7 foo8'", KERNEL=="sda5", SYMLINK+="%c{5}"
 EOF
@@ -335,7 +340,7 @@ EOF
         {
                 desc            => "program arguments combined with escaped double quotes, part 1",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "foo2" ,
+                exp_name        => "foo2",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c 'printf %%s \\\"foo1 foo2\\\" | grep \\\"foo1 foo2\\\"'", KERNEL=="sda5", SYMLINK+="%c{2}"
 EOF
@@ -343,7 +348,7 @@ EOF
         {
                 desc            => "program arguments combined with escaped double quotes, part 2",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "foo2" ,
+                exp_name        => "foo2",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c \\\"printf %%s 'foo1 foo2' | grep 'foo1 foo2'\\\"", KERNEL=="sda5", SYMLINK+="%c{2}"
 EOF
@@ -351,7 +356,7 @@ EOF
         {
                 desc            => "program arguments combined with escaped double quotes, part 3",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "foo2" ,
+                exp_name        => "foo2",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c 'printf \\\"%%s %%s\\\" \\\"foo1 foo2\\\" \\\"foo3\\\"| grep \\\"foo1 foo2\\\"'", KERNEL=="sda5", SYMLINK+="%c{2}"
 EOF
@@ -359,7 +364,7 @@ EOF
         {
                 desc            => "characters before the %c{N} substitution",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "my-foo9" ,
+                exp_name        => "my-foo9",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda5", SYMLINK+="my-%c{7}"
 EOF
@@ -367,7 +372,7 @@ EOF
         {
                 desc            => "substitute the second to last argument",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "my-foo8" ,
+                exp_name        => "my-foo8",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda5", SYMLINK+="my-%c{6}"
 EOF
@@ -391,7 +396,7 @@ EOF
         {
                 desc            => "test substitution by variable name 3",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "850:0:0:05" ,
+                exp_name        => "850:0:0:05",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", DEVPATH=="*/sda/*", SYMLINK+="%M%m%b%n"
 EOF
@@ -399,7 +404,7 @@ EOF
         {
                 desc            => "test substitution by variable name 4",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "855" ,
+                exp_name        => "855",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", DEVPATH=="*/sda/*", SYMLINK+="\$major\$minor\$number"
 EOF
@@ -407,7 +412,7 @@ EOF
         {
                 desc            => "test substitution by variable name 5",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                exp_name        => "8550:0:0:0" ,
+                exp_name        => "8550:0:0:0",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", DEVPATH=="*/sda/*", SYMLINK+="\$major%m%n\$id"
 EOF
@@ -424,7 +429,7 @@ EOF
         {
                 desc            => "non matching SUBSYSTEMS",
                 devpath         => "/devices/virtual/tty/console",
-                exp_name        => "TTY" ,
+                exp_name        => "TTY",
                 rules                => <<EOF
 SUBSYSTEMS=="foo", ATTRS{dev}=="5:1", SYMLINK+="foo"
 KERNEL=="console", SYMLINK+="TTY"
@@ -433,7 +438,7 @@ EOF
         {
                 desc            => "ATTRS match",
                 devpath         => "/devices/virtual/tty/console",
-                exp_name        => "foo" ,
+                exp_name        => "foo",
                 rules           => <<EOF
 KERNEL=="console", SYMLINK+="TTY"
 ATTRS{dev}=="5:1", SYMLINK+="foo"
@@ -442,7 +447,7 @@ EOF
         {
                 desc            => "ATTR (empty file)",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                exp_name        => "empty" ,
+                exp_name        => "empty",
                 rules           => <<EOF
 KERNEL=="sda", ATTR{test_empty_file}=="?*", SYMLINK+="something"
 KERNEL=="sda", ATTR{test_empty_file}!="", SYMLINK+="not-empty"
@@ -453,7 +458,7 @@ EOF
         {
                 desc            => "ATTR (non-existent file)",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                exp_name        => "non-existent" ,
+                exp_name        => "non-existent",
                 rules           => <<EOF
 KERNEL=="sda", ATTR{nofile}=="?*", SYMLINK+="something"
 KERNEL=="sda", ATTR{nofile}!="", SYMLINK+="not-empty"
@@ -466,7 +471,7 @@ EOF
         {
                 desc            => "program and bus type match",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                exp_name        => "scsi-0:0:0:0" ,
+                exp_name        => "scsi-0:0:0:0",
                 rules           => <<EOF
 SUBSYSTEMS=="usb", PROGRAM=="/bin/echo -n usb-%b", SYMLINK+="%c"
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n scsi-%b", SYMLINK+="%c"
@@ -476,7 +481,7 @@ EOF
         {
                 desc            => "sysfs parent hierarchy",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "modem" ,
+                exp_name        => "modem",
                 rules           => <<EOF
 ATTRS{idProduct}=="007b", SYMLINK+="modem"
 EOF
@@ -484,7 +489,7 @@ EOF
         {
                 desc            => "name test with ! in the name",
                 devpath         => "/devices/virtual/block/fake!blockdev0",
-                exp_name        => "is/a/fake/blockdev0" ,
+                exp_name        => "is/a/fake/blockdev0",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", SYMLINK+="is/not/a/%k"
 SUBSYSTEM=="block", SYMLINK+="is/a/%k"
@@ -494,7 +499,7 @@ EOF
         {
                 desc            => "name test with ! in the name, but no matching rule",
                 devpath         => "/devices/virtual/block/fake!blockdev0",
-                exp_name        => "fake/blockdev0" ,
+                exp_name        => "fake/blockdev0",
                 exp_rem_error   => "yes",
                 rules           => <<EOF
 KERNEL=="ttyACM0", SYMLINK+="modem"
@@ -537,7 +542,7 @@ EOF
                 desc            => "KERNELS wildcard partial 2",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => "scsi-0:0:0:0",
-                rules                => <<EOF
+                rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", SYMLINK+="before"
 SUBSYSTEMS=="scsi", KERNELS=="*:0:0:0", SYMLINK+="scsi-0:0:0:0"
 EOF
@@ -734,7 +739,7 @@ EOF
                 devpath         => "/devices/virtual/misc/misc-fake1",
                 exp_name        => "node",
                 exp_majorminor  => "4095:1",
-                rules                => <<EOF
+                rules           => <<EOF
 KERNEL=="misc-fake1", SYMLINK+="node"
 EOF
         },
@@ -759,7 +764,7 @@ EOF
                 desc            => "multiple symlinks with a lot of s p a c e s",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
                 exp_name        => "one",
-                not_exp_name        => " ",
+                not_exp_name    => " ",
                 rules           => <<EOF
 KERNEL=="ttyACM[0-9]*", SYMLINK="  one     two        "
 EOF
@@ -855,7 +860,7 @@ EOF
         {
                 desc            => "multiple symlinks",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                exp_name        => "second-0" ,
+                exp_name        => "second-0",
                 rules           => <<EOF
 KERNEL=="ttyACM0", SYMLINK="first-%n second-%n third-%n"
 EOF
@@ -864,8 +869,8 @@ EOF
                 desc            => "symlink name '.'",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => ".",
-                exp_add_error        => "yes",
-                exp_rem_error        => "yes",
+                exp_add_error   => "yes",
+                exp_rem_error   => "yes",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="."
 EOF
@@ -874,9 +879,9 @@ EOF
                 desc            => "symlink node to itself",
                 devpath         => "/devices/virtual/tty/tty0",
                 exp_name        => "link",
-                exp_add_error        => "yes",
-                exp_rem_error        => "yes",
-                option                => "clean",
+                exp_add_error   => "yes",
+                exp_rem_error   => "yes",
+                option          => "clean",
                 rules           => <<EOF
 KERNEL=="tty0", SYMLINK+="tty0"
 EOF
@@ -1432,7 +1437,7 @@ EOF
                 desc            => "add and match tag",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => "found",
-                not_exp_name    => "bad" ,
+                not_exp_name    => "bad",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", TAG+="green"
 TAGS=="green", SYMLINK+="found"
@@ -1445,6 +1450,58 @@ EOF
                 exp_name        => "found",
                 rules           => $rules_10k_tags . <<EOF
 TAGS=="test1", TAGS=="test500", TAGS=="test1234", TAGS=="test9999", TAGS=="test10000", SYMLINK+="found"
+EOF
+        },
+        {
+                desc            => "continuations",
+                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+                exp_name        => "found",
+                not_exp_name    => "bad",
+                rules           => $rules_10k_tags_continuation . <<EOF
+TAGS=="test1", TAGS=="test500", TAGS=="test1234", TAGS=="test9999", TAGS=="test10000", SYMLINK+="bad"
+KERNEL=="sda",\\
+# comment in continuation
+TAG+="hoge1",\\
+  # space before comment
+TAG+="hoge2",\\
+# spaces before and after token are dropped
+  TAG+="hoge3",   \\
+\\
+ \\
+TAG+="hoge4"
+TAGS=="hoge1", TAGS=="hoge2", TAGS=="hoge3", TAGS=="hoge4", SYMLINK+="found"
+EOF
+        },
+        {
+                desc            => "continuations with empty line",
+                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+                exp_name        => "found",
+                not_exp_name    => "bad",
+                rules           => <<EOF
+# empty line finishes continuation
+KERNEL=="sda", TAG+="foo" \\
+
+KERNEL=="sdb", TAG+="hoge"
+KERNEL=="sda", TAG+="aaa" \\
+KERNEL=="sdb", TAG+="bbb"
+TAGS=="foo", SYMLINK+="found"
+TAGS=="aaa", SYMLINK+="bad"
+EOF
+        },
+        {
+                desc            => "continuations with white only line",
+                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+                exp_name        => "found",
+                not_exp_name    => "bad",
+                rules           => <<EOF
+# space only line finishes continuation
+KERNEL=="sda", TAG+="foo" \\
+   \t
+KERNEL=="sdb", TAG+="hoge"
+KERNEL=="sda", TAG+="aaa" \\
+KERNEL=="sdb", TAG+="bbb"
+TAGS=="foo", SYMLINK+="found"
+TAGS=="aaa", SYMLINK+="bad"
 EOF
         },
 );
@@ -1538,7 +1595,11 @@ sub udev_setup {
         system("umount", $udev_tmpfs);
         rmdir($udev_tmpfs);
         mkdir($udev_tmpfs) || die "unable to create udev_tmpfs: $udev_tmpfs\n";
-        system("mount", "-o", "rw,mode=755,nosuid,noexec,nodev", "-t", "tmpfs", "tmpfs", $udev_tmpfs) && die "unable to mount tmpfs";
+
+        if (system("mount", "-o", "rw,mode=755,nosuid,noexec", "-t", "tmpfs", "tmpfs", $udev_tmpfs)) {
+                warn "unable to mount tmpfs";
+                return 0;
+        }
 
         mkdir($udev_dev) || die "unable to create udev_dev: $udev_dev\n";
         # setting group and mode of udev_dev ensures the tests work
@@ -1546,9 +1607,29 @@ sub udev_setup {
         chown (0, 0, $udev_dev) || die "unable to chown $udev_dev\n";
         chmod (0755, $udev_dev) || die "unable to chmod $udev_dev\n";
 
+        if (system("mknod", $udev_dev . "/null", "c", "1", "3")) {
+                warn "unable to create $udev_dev/null";
+                return 0;
+        }
+
+        # check if we are permitted to create block device nodes
+        my $block_device_filename = $udev_dev . "/sda";
+        if (system("mknod", $block_device_filename, "b", "8", "0")) {
+                warn "unable to create $block_device_filename";
+                return 0;
+        }
+        unlink $block_device_filename;
+
         system("cp", "-r", "test/sys/", $udev_sys) && die "unable to copy test/sys";
 
         system("rm", "-rf", "$udev_run");
+
+        if (!mkdir($udev_run)) {
+                warn "unable to create directory $udev_run";
+                return 0;
+        }
+
+        return 1;
 }
 
 sub run_test {
@@ -1646,14 +1727,15 @@ if ($? >> 8 == 0) {
         exit($EXIT_TEST_SKIP);
 }
 
-# skip the test when running in a container
-system("systemd-detect-virt", "-c", "-q");
-if ($? >> 8 == 0) {
-        print "Running in a container, skipping the test.\n";
+if (!udev_setup()) {
+        warn "Failed to set up the environment, skipping the test";
         exit($EXIT_TEST_SKIP);
 }
 
-udev_setup();
+if (system($udev_bin, "check")) {
+        warn "$udev_bin failed to set up the environment, skipping the test";
+        exit($EXIT_TEST_SKIP);
+}
 
 my $test_num = 1;
 my @list;

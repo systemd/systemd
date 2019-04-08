@@ -1,17 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-***/
-
 #include "sd-event.h"
 
 #include "hashmap.h"
 #include "journal-remote-parse.h"
 #include "journal-remote-write.h"
+
+#if HAVE_MICROHTTPD
 #include "microhttpd-util.h"
 
 typedef struct MHDDaemonWrapper MHDDaemonWrapper;
@@ -23,6 +19,7 @@ struct MHDDaemonWrapper {
         sd_event_source *io_event;
         sd_event_source *timer_event;
 };
+#endif
 
 struct RemoteServer {
         RemoteSource **sources;
@@ -36,6 +33,33 @@ struct RemoteServer {
         Writer *_single_writer;
         uint64_t event_count;
 
-        bool check_trust;
+#if HAVE_MICROHTTPD
         Hashmap *daemons;
+#endif
+        const char *output;                    /* either the output file or directory */
+
+        JournalWriteSplitMode split_mode;
+        bool compress;
+        bool seal;
+        bool check_trust;
 };
+extern RemoteServer *journal_remote_server_global;
+
+int journal_remote_server_init(
+                RemoteServer *s,
+                const char *output,
+                JournalWriteSplitMode split_mode,
+                bool compress,
+                bool seal);
+
+int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer);
+
+int journal_remote_add_source(RemoteServer *s, int fd, char* name, bool own_name);
+int journal_remote_add_raw_socket(RemoteServer *s, int fd);
+int journal_remote_handle_raw_source(
+                sd_event_source *event,
+                int fd,
+                uint32_t revents,
+                RemoteServer *s);
+
+void journal_remote_server_destroy(RemoteServer *s);

@@ -1,18 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-***/
 
 #include <endian.h>
 #include <inttypes.h>
 #include <string.h>
 
 #include "alloc-util.h"
+#include "env-file.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "hostname-util.h"
+#include "missing_network.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
@@ -249,7 +245,7 @@ static int link_send_lldp(Link *link) {
                 return r;
 
         (void) gethostname_strict(&hostname);
-        (void) parse_env_file("/etc/machine-info", NEWLINE, "PRETTY_HOSTNAME", &pretty_hostname, NULL);
+        (void) parse_env_file(NULL, "/etc/machine-info", "PRETTY_HOSTNAME", &pretty_hostname);
 
         assert_cc(LLDP_TX_INTERVAL_USEC * LLDP_TX_HOLD + 1 <= (UINT16_MAX - 1) * USEC_PER_SEC);
         ttl = DIV_ROUND_UP(LLDP_TX_INTERVAL_USEC * LLDP_TX_HOLD + 1, USEC_PER_SEC);

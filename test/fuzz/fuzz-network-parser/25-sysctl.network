@@ -1,0 +1,10 @@
+[Match]
+Name=dummy98
+
+[Network]
+IPForward=true
+IPv6PrivacyExtensions=true
+IPv6DuplicateAddressDetection=3
+IPv6HopLimit=5
+IPv4ProxyARP=true
+IPv6ProxyNDP=true

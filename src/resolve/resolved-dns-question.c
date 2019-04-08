@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -25,35 +20,32 @@ DnsQuestion *dns_question_new(size_t n) {
         return q;
 }
 
-DnsQuestion *dns_question_ref(DnsQuestion *q) {
-        if (!q)
-                return NULL;
+static DnsQuestion *dns_question_free(DnsQuestion *q) {
+        size_t i;
 
-        assert(q->n_ref > 0);
-        q->n_ref++;
-        return q;
+        assert(q);
+
+        for (i = 0; i < q->n_keys; i++)
+                dns_resource_key_unref(q->keys[i]);
+        return mfree(q);
 }
 
-DnsQuestion *dns_question_unref(DnsQuestion *q) {
-        if (!q)
-                return NULL;
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsQuestion, dns_question, dns_question_free);
 
-        assert(q->n_ref > 0);
+int dns_question_add_raw(DnsQuestion *q, DnsResourceKey *key) {
+        /* Insert without checking for duplicates. */
 
-        if (q->n_ref == 1) {
-                size_t i;
+        assert(key);
+        assert(q);
 
-                for (i = 0; i < q->n_keys; i++)
-                        dns_resource_key_unref(q->keys[i]);
-                free(q);
-        } else
-                q->n_ref--;
+        if (q->n_keys >= q->n_allocated)
+                return -ENOSPC;
 
-        return  NULL;
+        q->keys[q->n_keys++] = dns_resource_key_ref(key);
+        return 0;
 }
 
 int dns_question_add(DnsQuestion *q, DnsResourceKey *key) {
-        size_t i;
         int r;
 
         assert(key);
@@ -61,7 +53,7 @@ int dns_question_add(DnsQuestion *q, DnsResourceKey *key) {
         if (!q)
                 return -ENOSPC;
 
-        for (i = 0; i < q->n_keys; i++) {
+        for (size_t i = 0; i < q->n_keys; i++) {
                 r = dns_resource_key_equal(q->keys[i], key);
                 if (r < 0)
                         return r;
@@ -69,11 +61,7 @@ int dns_question_add(DnsQuestion *q, DnsResourceKey *key) {
                         return 0;
         }
 
-        if (q->n_keys >= q->n_allocated)
-                return -ENOSPC;
-
-        q->keys[q->n_keys++] = dns_resource_key_ref(key);
-        return 0;
+        return dns_question_add_raw(q, key);
 }
 
 int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain) {

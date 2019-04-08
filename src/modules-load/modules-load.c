@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <getopt.h>
@@ -17,15 +12,18 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "main-func.h"
 #include "module-util.h"
+#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
 
 static char **arg_proc_cmdline_modules = NULL;
-
 static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");
+
+STATIC_DESTRUCTOR_REGISTER(arg_proc_cmdline_modules, strv_freep);
 
 static void systemd_kmod_log(void *data, int priority, const char *file, int line,
                              const char *fn, const char *format, va_list args) {
@@ -64,65 +62,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-static int load_module(struct kmod_ctx *ctx, const char *m) {
-        const int probe_flags = KMOD_PROBE_APPLY_BLACKLIST;
-        struct kmod_list *itr;
-        _cleanup_(kmod_module_unref_listp) struct kmod_list *modlist = NULL;
-        int r = 0;
-
-        log_debug("load: %s", m);
-
-        r = kmod_module_new_from_lookup(ctx, m, &modlist);
-        if (r < 0)
-                return log_error_errno(r, "Failed to lookup alias '%s': %m", m);
-
-        if (!modlist) {
-                log_error("Failed to find module '%s'", m);
-                return -ENOENT;
-        }
-
-        kmod_list_foreach(itr, modlist) {
-                _cleanup_(kmod_module_unrefp) struct kmod_module *mod = NULL;
-                int state, err;
-
-                mod = kmod_module_get_module(itr);
-                state = kmod_module_get_initstate(mod);
-
-                switch (state) {
-                case KMOD_MODULE_BUILTIN:
-                        log_info("Module '%s' is builtin", kmod_module_get_name(mod));
-                        break;
-
-                case KMOD_MODULE_LIVE:
-                        log_debug("Module '%s' is already loaded", kmod_module_get_name(mod));
-                        break;
-
-                default:
-                        err = kmod_module_probe_insert_module(mod, probe_flags,
-                                                              NULL, NULL, NULL, NULL);
-
-                        if (err == 0)
-                                log_info("Inserted module '%s'", kmod_module_get_name(mod));
-                        else if (err == KMOD_PROBE_APPLY_BLACKLIST)
-                                log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
-                        else {
-                                assert(err < 0);
-
-                                log_full_errno(err == ENODEV ? LOG_NOTICE :
-                                               err == ENOENT ? LOG_WARNING :
-                                                               LOG_ERR,
-                                               err,
-                                               "Failed to insert '%s': %m",
-                                               kmod_module_get_name(mod));
-                                if (!IN_SET(err, ENODEV, ENOENT))
-                                        r = err;
-                        }
-                }
-        }
-
-        return r;
-}
-
 static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -135,41 +74,53 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                return log_error_errno(r, "Failed to open %s, ignoring: %m", path);
+                return log_error_errno(r, "Failed to open %s: %m", path);
         }
 
         log_debug("apply: %s", path);
         for (;;) {
-                char line[LINE_MAX], *l;
+                _cleanup_free_ char *line = NULL;
+                char *l;
                 int k;
 
-                if (!fgets(line, sizeof(line), f)) {
-                        if (feof(f))
-                                break;
-
-                        return log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
-                }
+                k = read_line(f, LONG_LINE_MAX, &line);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to read file '%s': %m", path);
+                if (k == 0)
+                        break;
 
                 l = strstrip(line);
-                if (!*l)
+                if (isempty(l))
                         continue;
-                if (strchr(COMMENTS "\n", *l))
+                if (strchr(COMMENTS, *l))
                         continue;
 
-                k = load_module(ctx, l);
-                if (k < 0 && r == 0)
+                k = module_load_and_warn(ctx, l, true);
+                if (k < 0 && r >= 0)
                         r = k;
         }
 
         return r;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-modules-load.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Loads statically configured kernel modules.\n\n"
                "  -h --help             Show this help\n"
-               "     --version          Show package version\n",
-               program_invocation_short_name);
+               "     --version          Show package version\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -194,8 +145,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -210,17 +160,15 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
-        int r, k;
+static int run(int argc, char *argv[]) {
         _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        int r, k;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                return r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         umask(0022);
 
@@ -231,7 +179,7 @@ int main(int argc, char *argv[]) {
         ctx = kmod_new(NULL, NULL);
         if (!ctx) {
                 log_error("Failed to allocate memory for kmod.");
-                goto finish;
+                return -ENOMEM;
         }
 
         kmod_load_resources(ctx);
@@ -253,7 +201,7 @@ int main(int argc, char *argv[]) {
                 char **fn, **i;
 
                 STRV_FOREACH(i, arg_proc_cmdline_modules) {
-                        k = load_module(ctx, *i);
+                        k = module_load_and_warn(ctx, *i, true);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
@@ -263,7 +211,7 @@ int main(int argc, char *argv[]) {
                         log_error_errno(k, "Failed to enumerate modules-load.d files: %m");
                         if (r == 0)
                                 r = k;
-                        goto finish;
+                        return r;
                 }
 
                 STRV_FOREACH(fn, files) {
@@ -273,8 +221,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-finish:
-        strv_free(arg_proc_cmdline_modules);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);

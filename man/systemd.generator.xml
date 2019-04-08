@@ -1,31 +1,15 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2015 Zbigniew Jędrzejewski-Szmek
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.generator">
   <refentryinfo>
     <title>systemd.generator</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -209,12 +193,15 @@
       </listitem>
 
       <listitem>
-        <para>It is a good idea to use the <varname>SourcePath=</varname> directive
-        in generated unit files to specify the source configuration file you are
-        generating the unit from. This makes things more easily understood by the
-        user and also has the benefit that systemd can warn the user about
-        configuration files that changed on disk but have not been read yet by
-        systemd.</para>
+        <para>The generator should always include its own name in a comment at the top of the generated file,
+        so that the user can easily figure out which component created or amended a particular unit.</para>
+
+        <para>The <varname>SourcePath=</varname> directive should be used in generated files to specify the
+        source configuration file they are generated from. This makes things more easily understood by the
+        user and also has the benefit that systemd can warn the user about configuration files that changed
+        on disk but have not been read yet by systemd. The <varname>SourcePath=</varname> value does not have
+        to be a file in a physical filesystem. For example, in the common case of the generator looking at
+        the kernel command line, <option>SourcePath=/proc/cmdline</option> should be used.</para>
       </listitem>
 
       <listitem>
@@ -273,7 +260,7 @@
       <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       converts <filename>/etc/fstab</filename> into native mount units. It uses
       argv[1] as location to place the generated unit files in order to allow the
-      user to override <filename>/etc/fstab</filename> with her own native unit
+      user to override <filename>/etc/fstab</filename> with their own native unit
       files, but also to ensure that <filename>/etc/fstab</filename> overrides any
       vendor default from <filename>/usr</filename>.</para>
 

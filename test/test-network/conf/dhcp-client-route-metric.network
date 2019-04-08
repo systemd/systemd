@@ -1,0 +1,10 @@
+[Match]
+Name=veth99
+
+[Network]
+DHCP=ipv4
+IPv6AcceptRA=false
+
+[DHCP]
+UseRoutes=true
+RouteMetric=24

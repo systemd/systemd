@@ -20,3 +20,4 @@ ConditionCapability=CAP_SYS_ADMIN
 What=mqueue
 Where=/dev/mqueue
 Type=mqueue
+Options=nosuid,nodev,noexec

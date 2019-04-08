@@ -3,8 +3,6 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2013 Zbigniew Jędrzejewski-Szmek
-#
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation; either version 2.1 of the License, or
@@ -38,14 +36,15 @@ _systemd_run() {
                 --on-active --on-boot --on-startup --on-unit-active --on-unit-inactive
                 --on-calendar --timer-property --path-property --socket-property -t --pty
                 -q --quiet --no-block --uid --gid --nice -E --setenv -p --property
-                --no-ask-password --wait -P --pipe -G --collect'
+                --no-ask-password --wait -P --pipe -G --collect --working-directory
+                -d --same-dir -S --shell'
 
     local mode=--system
     local i
     local opts_with_values=(
         --unit --description --slice --service-type -H --host -M --machine -p --property --on-active
         --on-boot --on-startup --on-unit-active --on-unit-inactive --on-calendar --timer-property
-        --path-property --socket-property --uid --gid --nice -E --setenv
+        --path-property --socket-property --uid --gid --nice -E --setenv --working-directory
     )
     for (( i=1; i <= COMP_CWORD; i++ )); do
         if [[ ${COMP_WORDS[i]} != -* ]]; then
@@ -81,8 +80,8 @@ _systemd_run() {
                          SendSIGKILL= MemoryLimit= CPUShares= BlockIOWeight= User= Group=
                          DevicePolicy= KillMode= DeviceAllow= BlockIOReadBandwidth=
                          BlockIOWriteBandwidth= BlockIODeviceWeight= Nice= Environment=
-                         KillSignal= LimitCPU= LimitFSIZE= LimitDATA= LimitSTACK=
-                         LimitCORE= LimitRSS= LimitNOFILE= LimitAS= LimitNPROC=
+                         KillSignal= FinalKillSignal= LimitCPU= LimitFSIZE= LimitDATA=
+                         LimitSTACK= LimitCORE= LimitRSS= LimitNOFILE= LimitAS= LimitNPROC=
                          LimitMEMLOCK= LimitLOCKS= LimitSIGPENDING= LimitMSGQUEUE=
                          LimitNICE= LimitRTPRIO= LimitRTTIME= PrivateTmp= PrivateDevices=
                          PrivateNetwork= NoNewPrivileges= WorkingDirectory= RootDirectory=
@@ -109,6 +108,17 @@ _systemd_run() {
         --timer-property)
             local comps='AccuracySec= WakeSystem='
             COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+            return 0
+            ;;
+        --working-directory)
+            local comps
+            if [[ -z $cur ]]; then
+                comps=$(compgen -A directory -- "/" )
+            else
+                comps=$(compgen -A directory -- "$cur" )
+            fi
+            compopt -o filenames
+            COMPREPLY=( $(compgen -W '$comps' -- "$cur" ) )
             return 0
             ;;
     esac

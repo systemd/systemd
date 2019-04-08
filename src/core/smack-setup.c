@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2013 Intel Corporation
+  Copyright © 2013 Intel Corporation
   Authors:
         Nathaniel Chen <nathaniel.chen@intel.com>
 ***/
@@ -14,6 +12,7 @@
 #include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "dirent-util.h"
@@ -31,7 +30,6 @@ static int write_access2_rules(const char* srcdir) {
         _cleanup_close_ int load2_fd = -1, change_fd = -1;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
-        char buf[NAME_MAX];
         int dfd = -1;
         int r = 0;
 
@@ -75,7 +73,7 @@ static int write_access2_rules(const char* srcdir) {
                         continue;
                 }
 
-                policy = fdopen(fd, "re");
+                policy = fdopen(fd, "r");
                 if (!policy) {
                         if (r == 0)
                                 r = -errno;
@@ -85,13 +83,17 @@ static int write_access2_rules(const char* srcdir) {
                 }
 
                 /* load2 write rules in the kernel require a line buffered stream */
-                FOREACH_LINE(buf, policy,
-                             log_error_errno(errno, "Failed to read line from '%s': %m",
-                                             entry->d_name)) {
+                for (;;) {
+                        _cleanup_free_ char *buf = NULL, *sbj = NULL, *obj = NULL, *acc1 = NULL, *acc2 = NULL;
+                        int q;
 
-                        _cleanup_free_ char *sbj = NULL, *obj = NULL, *acc1 = NULL, *acc2 = NULL;
+                        q = read_line(policy, NAME_MAX, &buf);
+                        if (q < 0)
+                                return log_error_errno(q, "Failed to read line from '%s': %m", entry->d_name);
+                        if (q == 0)
+                                break;
 
-                        if (isempty(truncate_nl(buf)) || strchr(COMMENTS, *buf))
+                        if (isempty(buf) || strchr(COMMENTS, buf[0]))
                                 continue;
 
                         /* if 3 args -> load rule   : subject object access1 */
@@ -104,7 +106,7 @@ static int write_access2_rules(const char* srcdir) {
                         if (write(isempty(acc2) ? load2_fd : change_fd, buf, strlen(buf)) < 0) {
                                 if (r == 0)
                                         r = -errno;
-                                log_error_errno(errno, "Failed to write '%s' to '%s' in '%s'",
+                                log_error_errno(errno, "Failed to write '%s' to '%s' in '%s': %m",
                                                 buf, isempty(acc2) ? "/sys/fs/smackfs/load2" : "/sys/fs/smackfs/change-rule", entry->d_name);
                         }
                 }
@@ -117,7 +119,6 @@ static int write_cipso2_rules(const char* srcdir) {
         _cleanup_close_ int cipso2_fd = -1;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
-        char buf[NAME_MAX];
         int dfd = -1;
         int r = 0;
 
@@ -154,7 +155,7 @@ static int write_cipso2_rules(const char* srcdir) {
                         continue;
                 }
 
-                policy = fdopen(fd, "re");
+                policy = fdopen(fd, "r");
                 if (!policy) {
                         if (r == 0)
                                 r = -errno;
@@ -164,17 +165,23 @@ static int write_cipso2_rules(const char* srcdir) {
                 }
 
                 /* cipso2 write rules in the kernel require a line buffered stream */
-                FOREACH_LINE(buf, policy,
-                             log_error_errno(errno, "Failed to read line from '%s': %m",
-                                             entry->d_name)) {
+                for (;;) {
+                        _cleanup_free_ char *buf = NULL;
+                        int q;
 
-                        if (isempty(truncate_nl(buf)) || strchr(COMMENTS, *buf))
+                        q = read_line(policy, NAME_MAX, &buf);
+                        if (q < 0)
+                                return log_error_errno(q, "Failed to read line from '%s': %m", entry->d_name);
+                        if (q == 0)
+                                break;
+
+                        if (isempty(buf) || strchr(COMMENTS, buf[0]))
                                 continue;
 
                         if (write(cipso2_fd, buf, strlen(buf)) < 0) {
                                 if (r == 0)
                                         r = -errno;
-                                log_error_errno(errno, "Failed to write '%s' to '/sys/fs/smackfs/cipso2' in '%s'",
+                                log_error_errno(errno, "Failed to write '%s' to '/sys/fs/smackfs/cipso2' in '%s': %m",
                                                 buf, entry->d_name);
                                 break;
                         }
@@ -188,7 +195,6 @@ static int write_netlabel_rules(const char* srcdir) {
         _cleanup_fclose_ FILE *dst = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
-        char buf[NAME_MAX];
         int dfd = -1;
         int r = 0;
 
@@ -222,7 +228,7 @@ static int write_netlabel_rules(const char* srcdir) {
                         continue;
                 }
 
-                policy = fdopen(fd, "re");
+                policy = fdopen(fd, "r");
                 if (!policy) {
                         if (r == 0)
                                 r = -errno;
@@ -234,15 +240,20 @@ static int write_netlabel_rules(const char* srcdir) {
                 (void) __fsetlocking(policy, FSETLOCKING_BYCALLER);
 
                 /* load2 write rules in the kernel require a line buffered stream */
-                FOREACH_LINE(buf, policy,
-                             log_error_errno(errno, "Failed to read line from %s: %m", entry->d_name)) {
-
+                for (;;) {
+                        _cleanup_free_ char *buf = NULL;
                         int q;
+
+                        q = read_line(policy, NAME_MAX, &buf);
+                        if (q < 0)
+                                return log_error_errno(q, "Failed to read line from %s: %m", entry->d_name);
+                        if (q == 0)
+                                break;
 
                         if (!fputs(buf, dst)) {
                                 if (r == 0)
                                         r = -EINVAL;
-                                log_error_errno(errno, "Failed to write line to /sys/fs/smackfs/netlabel");
+                                log_error_errno(errno, "Failed to write line to /sys/fs/smackfs/netlabel: %m");
                                 break;
                         }
                         q = fflush_and_check(dst);
@@ -263,20 +274,27 @@ static int write_onlycap_list(void) {
         _cleanup_free_ char *list = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         size_t len = 0, allocated = 0;
-        char buf[LINE_MAX];
         int r;
 
         f = fopen("/etc/smack/onlycap", "re");
         if (!f) {
                 if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to read '/etc/smack/onlycap'");
+                        log_warning_errno(errno, "Failed to read '/etc/smack/onlycap': %m");
+
                 return errno == ENOENT ? ENOENT : -errno;
         }
 
-        FOREACH_LINE(buf, f, return -errno) {
+        for (;;) {
+                _cleanup_free_ char *buf = NULL;
                 size_t l;
 
-                if (isempty(truncate_nl(buf)) || strchr(COMMENTS, *buf))
+                r = read_line(f, LONG_LINE_MAX, &buf);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read line from /etc/smack/onlycap: %m");
+                if (r == 0)
+                        break;
+
+                if (isempty(buf) || strchr(COMMENTS, *buf))
                         continue;
 
                 l = strlen(buf);
@@ -287,7 +305,7 @@ static int write_onlycap_list(void) {
                 len += l + 1;
         }
 
-        if (!len)
+        if (len == 0)
                 return 0;
 
         list[len - 1] = 0;
@@ -295,13 +313,13 @@ static int write_onlycap_list(void) {
         onlycap_fd = open("/sys/fs/smackfs/onlycap", O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (onlycap_fd < 0) {
                 if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to open '/sys/fs/smackfs/onlycap'");
+                        log_warning_errno(errno, "Failed to open '/sys/fs/smackfs/onlycap': %m");
                 return -errno; /* negative error */
         }
 
         r = write(onlycap_fd, list, len);
         if (r < 0)
-                return log_error_errno(errno, "Failed to write onlycap list(%s) to '/sys/fs/smackfs/onlycap'", list);
+                return log_error_errno(errno, "Failed to write onlycap list(%s) to '/sys/fs/smackfs/onlycap': %m", list);
 
         return 0;
 }
@@ -333,17 +351,17 @@ int mac_smack_setup(bool *loaded_policy) {
         }
 
 #ifdef SMACK_RUN_LABEL
-        r = write_string_file("/proc/self/attr/current", SMACK_RUN_LABEL, 0);
+        r = write_string_file("/proc/self/attr/current", SMACK_RUN_LABEL, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_warning_errno(r, "Failed to set SMACK label \"" SMACK_RUN_LABEL "\" on self: %m");
-        r = write_string_file("/sys/fs/smackfs/ambient", SMACK_RUN_LABEL, 0);
+        r = write_string_file("/sys/fs/smackfs/ambient", SMACK_RUN_LABEL, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_warning_errno(r, "Failed to set SMACK ambient label \"" SMACK_RUN_LABEL "\": %m");
         r = write_string_file("/sys/fs/smackfs/netlabel",
-                              "0.0.0.0/0 " SMACK_RUN_LABEL, 0);
+                              "0.0.0.0/0 " SMACK_RUN_LABEL, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_warning_errno(r, "Failed to set SMACK netlabel rule \"0.0.0.0/0 " SMACK_RUN_LABEL "\": %m");
-        r = write_string_file("/sys/fs/smackfs/netlabel", "127.0.0.1 -CIPSO", 0);
+        r = write_string_file("/sys/fs/smackfs/netlabel", "127.0.0.1 -CIPSO", WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_warning_errno(r, "Failed to set SMACK netlabel rule \"127.0.0.1 -CIPSO\": %m");
 #endif
@@ -392,7 +410,7 @@ int mac_smack_setup(bool *loaded_policy) {
                 log_info("Successfully wrote Smack onlycap list.");
                 break;
         default:
-                log_emergency_errno(r, "Failed to write Smack onlycap list.");
+                log_emergency_errno(r, "Failed to write Smack onlycap list: %m");
                 return r;
         }
 

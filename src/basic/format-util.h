@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Ronny Chevalier
-***/
-
 #include <inttypes.h>
 
 #if SIZEOF_PID_T == 4

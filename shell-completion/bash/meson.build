@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 bashcompletiondir = get_option('bashcompletiondir')
 if bashcompletiondir == ''
@@ -10,8 +8,6 @@ if bashcompletiondir == ''
         else
                 bashcompletiondir = join_paths(datadir, 'bash-completion/completions')
         endif
-
-        message('bash completions: @0@'.format(bashcompletiondir))
 endif
 
 if bashcompletiondir != 'no'
@@ -41,8 +37,9 @@ if bashcompletiondir != 'no'
                  ['loginctl',            'ENABLE_LOGIND'],
                  ['machinectl',          'ENABLE_MACHINED'],
                  ['networkctl',          'ENABLE_NETWORKD'],
-                 ['systemd-resolve',     'ENABLE_RESOLVE'],
+                 ['portablectl',         'ENABLE_PORTABLED'],
                  ['resolvectl',          'ENABLE_RESOLVE'],
+                 ['systemd-resolve',     'ENABLE_RESOLVE'],
                  ['timedatectl',         'ENABLE_TIMEDATED'],
                 ]
 

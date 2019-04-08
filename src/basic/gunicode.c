@@ -1,7 +1,7 @@
 /* gunicode.c - Unicode manipulation functions
  *
  *  Copyright (C) 1999, 2000 Tom Tromey
- *  Copyright 2000, 2005 Red Hat, Inc.
+ *  Copyright © 2000, 2005 Red Hat, Inc.
  */
 
 #include "gunicode.h"

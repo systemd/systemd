@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -32,7 +27,6 @@ void source_free(RemoteSource *source) {
  * ownership of fd, name, and writer, otherwise does not touch them.
  */
 RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer) {
-
         RemoteSource *source;
 
         log_debug("Creating source for %sfd:%d (%s)",
@@ -74,8 +68,15 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
 
         assert(source->importer.iovw.iovec);
 
-        r = writer_write(source->writer, &source->importer.iovw, &source->importer.ts, compress, seal);
-        if (r < 0)
+        r = writer_write(source->writer,
+                         &source->importer.iovw,
+                         &source->importer.ts,
+                         &source->importer.boot_id,
+                         compress, seal);
+        if (r == -EBADMSG) {
+                log_error_errno(r, "Entry is invalid, ignoring.");
+                r = 0;
+        } else if (r < 0)
                 log_error_errno(r, "Failed to write entry of %zu bytes: %m",
                                 iovw_size(&source->importer.iovw));
         else

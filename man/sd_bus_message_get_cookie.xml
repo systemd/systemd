@@ -1,29 +1,14 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
--->
-
-<refentry id="sd_bus_message_get_cookie">
+<refentry id="sd_bus_message_get_cookie"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_message_get_cookie</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -78,49 +63,36 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these calls return 0 or a positive integer. On
-    failure, these calls return a negative errno-style error
-    code.</para>
+    <para>On success, these calls return 0 or a positive integer. On failure, they return a negative
+    errno-style error code.</para>
 
-    <para>On success, the cookie/reply cookie is returned in the
-    specified 64-bit unsigned integer variable.</para>
+    <para>On success, the cookie/reply cookie is returned in the specified 64-bit unsigned integer
+    variable.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>A specified parameter is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENODATA</constant></term>
+
+          <listitem><para>No cookie has been assigned to this message.  This either indicates that the
+          message has not been sent yet and hence has no cookie assigned, or that the message is not a method
+          response message and hence carries a reply cookie field.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
-
-    <para>Returned errors may indicate the following problems:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
-
-        <listitem><para>A specified parameter
-        is invalid.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><constant>-ENODATA</constant></term>
-
-        <listitem><para>No cookie has been assigned to this message.
-        This either indicates that the message has not been sent yet
-        and hence has no cookie assigned, or that the message is not a
-        method response message and hence carries a reply cookie
-        field.</para></listitem>
-      </varlistentry>
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
-    <title>Notes</title>
-
-    <para>The <function>sd_bus_message_get_cookie()</function> and
-    <function>sd_bus_message_get_reply_cookie()</function> interfaces
-    are available as a shared library, which can be compiled and
-    linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>

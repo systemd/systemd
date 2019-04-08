@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
- ***/
 
 #include "alloc-util.h"
 #include "conf-parser.h"
@@ -222,8 +217,8 @@ int config_parse_search_domains(
 int config_parse_dnssd_service_name(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
         static const Specifier specifier_table[] = {
                 { 'b', specifier_boot_id,         NULL },
-                { 'H', specifier_host_name, NULL },
-                { 'm', specifier_machine_id, NULL },
+                { 'H', specifier_host_name,       NULL },
+                { 'm', specifier_machine_id,      NULL },
                 { 'v', specifier_kernel_release,  NULL },
                 {}
         };
@@ -394,6 +389,13 @@ int manager_parse_config_file(Manager *m) {
         if (m->dnssec_mode != DNSSEC_NO) {
                 log_warning("DNSSEC option cannot be enabled or set to allow-downgrade when systemd-resolved is built without gcrypt support. Turning off DNSSEC support.");
                 m->dnssec_mode = DNSSEC_NO;
+        }
+#endif
+
+#if ! ENABLE_DNS_OVER_TLS
+        if (m->dns_over_tls_mode != DNS_OVER_TLS_NO) {
+                log_warning("DNS-over-TLS option cannot be set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
+                m->dns_over_tls_mode = DNS_OVER_TLS_NO;
         }
 #endif
         return 0;

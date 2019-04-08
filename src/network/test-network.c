@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-***/
 
 #include <sys/param.h>
+
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
@@ -13,7 +10,7 @@
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "string-util.h"
-#include "udev-util.h"
+#include "tests.h"
 
 static void test_deserialize_in_addr(void) {
         _cleanup_free_ struct in_addr *addresses = NULL;
@@ -122,7 +119,7 @@ static int test_load_config(Manager *manager) {
         return 0;
 }
 
-static void test_network_get(Manager *manager, struct udev_device *loopback) {
+static void test_network_get(Manager *manager, sd_device *loopback) {
         Network *network;
         const struct ether_addr mac = {};
 
@@ -224,30 +221,27 @@ static void test_dhcp_hostname_shorten_overlong(void) {
 
 int main(void) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
-        _cleanup_(udev_device_unrefp) struct udev_device *loopback = NULL;
-        int r;
+        _cleanup_(sd_device_unrefp) sd_device *loopback = NULL;
+        int ifindex, r;
+
+        test_setup_logging(LOG_INFO);
 
         test_deserialize_in_addr();
         test_deserialize_dhcp_routes();
         test_address_equality();
         test_dhcp_hostname_shorten_overlong();
 
-        assert_se(sd_event_default(&event) >= 0);
-
-        assert_se(manager_new(&manager, event) >= 0);
+        assert_se(manager_new(&manager) >= 0);
 
         r = test_load_config(manager);
         if (r == -EPERM)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("Cannot load configuration");
+        assert_se(r == 0);
 
-        udev = udev_new();
-        assert_se(udev);
-
-        loopback = udev_device_new_from_syspath(udev, "/sys/class/net/lo");
+        assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
         assert_se(loopback);
-        assert_se(udev_device_get_ifindex(loopback) == 1);
+        assert_se(sd_device_get_ifindex(loopback, &ifindex) >= 0);
+        assert_se(ifindex == 1);
 
         test_network_get(manager, loopback);
 

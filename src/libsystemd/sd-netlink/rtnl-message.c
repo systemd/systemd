@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-***/
 
 #include <netinet/in.h>
 #include <linux/if_addrlabel.h>
@@ -17,7 +12,6 @@
 #include "netlink-internal.h"
 #include "netlink-types.h"
 #include "netlink-util.h"
-#include "refcnt.h"
 #include "socket-util.h"
 #include "util.h"
 
@@ -853,6 +847,32 @@ int sd_rtnl_message_routing_policy_rule_get_table(sd_netlink_message *m, unsigne
         routing_policy_rule = NLMSG_DATA(m->hdr);
 
         *table = routing_policy_rule->rtm_table;
+
+        return 0;
+}
+
+int sd_rtnl_message_routing_policy_rule_set_flags(sd_netlink_message *m, unsigned flags) {
+        struct rtmsg *routing_policy_rule;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
+
+        routing_policy_rule = NLMSG_DATA(m->hdr);
+        routing_policy_rule->rtm_flags |= flags;
+
+        return 0;
+}
+
+int sd_rtnl_message_routing_policy_rule_get_flags(sd_netlink_message *m, unsigned *flags) {
+        struct rtmsg *routing_policy_rule;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
+
+        routing_policy_rule = NLMSG_DATA(m->hdr);
+        *flags = routing_policy_rule->rtm_flags;
 
         return 0;
 }

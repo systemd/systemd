@@ -1,10 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2013 Thomas H.P. Andersen
-***/
 
 #include <errno.h>
 #include <locale.h>
@@ -648,6 +642,54 @@ static void test_parse_percent_unbounded(void) {
         assert_se(parse_percent_unbounded("400%") == 400);
 }
 
+static void test_parse_permille(void) {
+        assert_se(parse_permille("") == -EINVAL);
+        assert_se(parse_permille("foo") == -EINVAL);
+        assert_se(parse_permille("0") == -EINVAL);
+        assert_se(parse_permille("50") == -EINVAL);
+        assert_se(parse_permille("100") == -EINVAL);
+        assert_se(parse_permille("-1") == -EINVAL);
+
+        assert_se(parse_permille("0‰") == 0);
+        assert_se(parse_permille("555‰") == 555);
+        assert_se(parse_permille("1000‰") == 1000);
+        assert_se(parse_permille("-7‰") == -ERANGE);
+        assert_se(parse_permille("1007‰") == -ERANGE);
+        assert_se(parse_permille("‰") == -EINVAL);
+        assert_se(parse_permille("‰‰") == -EINVAL);
+        assert_se(parse_permille("‰1") == -EINVAL);
+        assert_se(parse_permille("1‰‰") == -EINVAL);
+        assert_se(parse_permille("3.2‰") == -EINVAL);
+
+        assert_se(parse_permille("0%") == 0);
+        assert_se(parse_permille("55%") == 550);
+        assert_se(parse_permille("55.5%") == 555);
+        assert_se(parse_permille("100%") == 1000);
+        assert_se(parse_permille("-7%") == -ERANGE);
+        assert_se(parse_permille("107%") == -ERANGE);
+        assert_se(parse_permille("%") == -EINVAL);
+        assert_se(parse_permille("%%") == -EINVAL);
+        assert_se(parse_permille("%1") == -EINVAL);
+        assert_se(parse_permille("1%%") == -EINVAL);
+        assert_se(parse_permille("3.21%") == -EINVAL);
+}
+
+static void test_parse_permille_unbounded(void) {
+        assert_se(parse_permille_unbounded("1001‰") == 1001);
+        assert_se(parse_permille_unbounded("4000‰") == 4000);
+        assert_se(parse_permille_unbounded("2147483647‰") == 2147483647);
+        assert_se(parse_permille_unbounded("2147483648‰") == -ERANGE);
+        assert_se(parse_permille_unbounded("4294967295‰") == -ERANGE);
+        assert_se(parse_permille_unbounded("4294967296‰") == -ERANGE);
+
+        assert_se(parse_permille_unbounded("101%") == 1010);
+        assert_se(parse_permille_unbounded("400%") == 4000);
+        assert_se(parse_permille_unbounded("214748364.7%") == 2147483647);
+        assert_se(parse_permille_unbounded("214748364.8%") == -ERANGE);
+        assert_se(parse_permille_unbounded("429496729.5%") == -ERANGE);
+        assert_se(parse_permille_unbounded("429496729.6%") == -ERANGE);
+}
+
 static void test_parse_nice(void) {
         int n;
 
@@ -684,10 +726,12 @@ static void test_parse_dev(void) {
         assert_se(parse_dev("5", &dev) == -EINVAL);
         assert_se(parse_dev("5:", &dev) == -EINVAL);
         assert_se(parse_dev(":5", &dev) == -EINVAL);
+        assert_se(parse_dev("-1:-1", &dev) == -EINVAL);
 #if SIZEOF_DEV_T < 8
         assert_se(parse_dev("4294967295:4294967295", &dev) == -EINVAL);
 #endif
         assert_se(parse_dev("8:11", &dev) >= 0 && major(dev) == 8 && minor(dev) == 11);
+        assert_se(parse_dev("0:0", &dev) >= 0 && major(dev) == 0 && minor(dev) == 0);
 }
 
 static void test_parse_errno(void) {
@@ -797,6 +841,8 @@ int main(int argc, char *argv[]) {
         test_safe_atod();
         test_parse_percent();
         test_parse_percent_unbounded();
+        test_parse_permille();
+        test_parse_permille_unbounded();
         test_parse_nice();
         test_parse_dev();
         test_parse_errno();

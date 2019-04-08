@@ -1,15 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <string.h>
 
+#include "sd-device.h"
+
 #include "acl-util.h"
 #include "alloc-util.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -17,7 +15,6 @@
 #include "logind-acl.h"
 #include "set.h"
 #include "string-util.h"
-#include "udev-util.h"
 #include "util.h"
 
 static int flush_acl(acl_t acl) {
@@ -162,30 +159,27 @@ finish:
         return r;
 }
 
-int devnode_acl_all(struct udev *udev,
-                    const char *seat,
+int devnode_acl_all(const char *seat,
                     bool flush,
                     bool del, uid_t old_uid,
                     bool add, uid_t new_uid) {
 
-        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
-        struct udev_list_entry *item = NULL, *first = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_set_free_free_ Set *nodes = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *dent;
+        sd_device *d;
         Iterator i;
         char *n;
         int r;
-
-        assert(udev);
 
         nodes = set_new(&path_hash_ops);
         if (!nodes)
                 return -ENOMEM;
 
-        e = udev_enumerate_new(udev);
-        if (!e)
-                return -ENOMEM;
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
 
         if (isempty(seat))
                 seat = "seat0";
@@ -195,45 +189,25 @@ int devnode_acl_all(struct udev *udev,
          * could add the seat name as second match tag, but this would
          * be hardly optimizable in libudev, and hence checking the
          * second tag manually in our loop is a good solution. */
-        r = udev_enumerate_add_match_tag(e, "uaccess");
+        r = sd_device_enumerator_add_match_tag(e, "uaccess");
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_add_match_is_initialized(e);
-        if (r < 0)
-                return r;
-
-        r = udev_enumerate_scan_devices(e);
-        if (r < 0)
-                return r;
-
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
-                _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        FOREACH_DEVICE(e, d) {
                 const char *node, *sn;
 
-                d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
-                if (!d)
-                        return -ENOMEM;
-
-                sn = udev_device_get_property_value(d, "ID_SEAT");
-                if (isempty(sn))
+                if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
                         sn = "seat0";
 
                 if (!streq(seat, sn))
                         continue;
 
-                node = udev_device_get_devnode(d);
                 /* In case people mistag devices with nodes, we need to ignore this */
-                if (!node)
+                if (sd_device_get_devname(d, &node) < 0)
                         continue;
 
-                n = strdup(node);
-                if (!n)
-                        return -ENOMEM;
-
-                log_debug("Found udev node %s for seat %s", n, seat);
-                r = set_consume(nodes, n);
+                log_device_debug(d, "Found udev node %s for seat %s", node, seat);
+                r = set_put_strdup(nodes, node);
                 if (r < 0)
                         return r;
         }

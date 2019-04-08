@@ -1,14 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-tmpfiles"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -16,15 +9,6 @@
   <refentryinfo>
     <title>systemd-tmpfiles</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -184,18 +168,17 @@
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="cat-config" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
 
-    <para>It is possible to combine <option>--create</option>,
-    <option>--clean</option>, and <option>--remove</option> in one
-    invocation. For example, during boot the following command line is
-    executed to ensure that all temporary and volatile directories are
+    <para>It is possible to combine <option>--create</option>, <option>--clean</option>, and <option>--remove</option>
+    in one invocation (in which case removal and clean-up are executed before creation of new files). For example,
+    during boot the following command line is executed to ensure that all temporary and volatile directories are
     removed and created according to the configuration file:</para>
 
     <programlisting>systemd-tmpfiles --remove --create</programlisting>
-
   </refsect1>
 
   <refsect1>
@@ -219,7 +202,7 @@
     <filename>/usr/include/sysexits.h</filename>). If the configuration was syntactically valid, but
     could not be executed (lack of permissions, creation of files in missing directories, invalid
     contents when writing to <filename>/sys/</filename> values, …), <constant>73</constant> is
-    returned (<constant>EX_DATAERR</constant> from <filename>/usr/include/sysexits.h</filename>).
+    returned (<constant>EX_CANTCREAT</constant> from <filename>/usr/include/sysexits.h</filename>).
     Otherwise, <constant>1</constant> is returned (<constant>EXIT_FAILURE</constant> from
     <filename>/usr/include/stdlib.h</filename>).
     </para>

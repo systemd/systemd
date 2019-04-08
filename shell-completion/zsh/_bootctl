@@ -1,7 +1,7 @@
 #compdef bootctl
 # SPDX-License-Identifier: LGPL-2.1+
 
-(( $+functions[_bootctl_command] )) || _bootctl_command()
+(( $+functions[_bootctl_commands] )) || _bootctl_commands()
 {
     local -a _bootctl_cmds
     _bootctl_cmds=(
@@ -28,4 +28,4 @@ _arguments \
     '--version[Prints a short version string and exits.]' \
     '--path=[Path to the EFI System Partition (ESP)]:path:_directories' \
     '--no-variables[Do not touch EFI variables]' \
-    '*::bootctl command:_bootctl_command'
+    '*::bootctl command:_bootctl_commands'

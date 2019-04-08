@@ -4,8 +4,8 @@
 set -ex
 set -o pipefail
 
-systemd-analyze set-log-level debug
-systemd-analyze set-log-target console
+systemd-analyze log-level debug
+systemd-analyze log-target console
 
 test `systemctl show -p MainPID --value testsuite.service` -eq $$
 
@@ -134,7 +134,7 @@ chmod 755 /dev/shm/mainpid3.sh
 # Test that this failed due to timeout, and not some other error
 test `systemctl show -p Result --value mainpidsh3.service` = timeout
 
-systemd-analyze set-log-level info
+systemd-analyze log-level info
 
 echo OK > /testok
 

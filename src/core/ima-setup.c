@@ -1,20 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright (C) 2012 Roberto Sassu - Politecnico di Torino, Italy
-                                     TORSEC group — http://security.polito.it
+  Copyright © 2012 Roberto Sassu - Politecnico di Torino, Italy
+                                   TORSEC group — http://security.polito.it
 ***/
 
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "ima-setup.h"
 #include "log.h"
-#include "util.h"
 
 #define IMA_SECFS_DIR "/sys/kernel/security/ima"
 #define IMA_SECFS_POLICY IMA_SECFS_DIR "/policy"
@@ -25,20 +25,20 @@ int ima_setup(void) {
         _cleanup_fclose_ FILE *input = NULL;
         _cleanup_close_ int imafd = -1;
         unsigned lineno = 0;
-        char line[page_size()];
+        int r;
 
         if (access(IMA_SECFS_DIR, F_OK) < 0) {
-                log_debug("IMA support is disabled in the kernel, ignoring.");
+                log_debug_errno(errno, "IMA support is disabled in the kernel, ignoring: %m");
                 return 0;
         }
 
         if (access(IMA_SECFS_POLICY, W_OK) < 0) {
-                log_warning("Another IMA custom policy has already been loaded, ignoring.");
+                log_warning_errno(errno, "Another IMA custom policy has already been loaded, ignoring: %m");
                 return 0;
         }
 
         if (access(IMA_POLICY_PATH, F_OK) < 0) {
-                log_debug("No IMA custom policy file "IMA_POLICY_PATH", ignoring.");
+                log_debug_errno(errno, "No IMA custom policy file "IMA_POLICY_PATH", ignoring: %m");
                 return 0;
         }
 
@@ -59,7 +59,7 @@ int ima_setup(void) {
                 return 0;
         }
 
-        close(imafd);
+        safe_close(imafd);
 
         imafd = open(IMA_SECFS_POLICY, O_WRONLY|O_CLOEXEC);
         if (imafd < 0) {
@@ -67,9 +67,15 @@ int ima_setup(void) {
                 return 0;
         }
 
-        FOREACH_LINE(line, input,
-                     return log_error_errno(errno, "Failed to read the IMA custom policy file "IMA_POLICY_PATH": %m")) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 size_t len;
+
+                r = read_line(input, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read the IMA custom policy file "IMA_POLICY_PATH": %m");
+                if (r == 0)
+                        break;
 
                 len = strlen(line);
                 lineno++;

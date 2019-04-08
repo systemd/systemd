@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-***/
 
 #include <net/if.h>
 
@@ -12,31 +7,34 @@
 #include "conf-parser.h"
 #include "fd-util.h"
 #include "list.h"
+#include "netdev/bond.h"
+#include "netdev/bridge.h"
+#include "netdev/dummy.h"
+#include "netdev/fou-tunnel.h"
+#include "netdev/geneve.h"
+#include "netdev/ipvlan.h"
+#include "netdev/l2tp-tunnel.h"
+#include "netdev/macvlan.h"
+#include "netdev/netdev.h"
+#include "netdev/netdevsim.h"
+#include "netdev/tunnel.h"
+#include "netdev/tuntap.h"
+#include "netdev/vcan.h"
+#include "netdev/veth.h"
+#include "netdev/vlan.h"
+#include "netdev/vrf.h"
+#include "netdev/vxcan.h"
+#include "netdev/vxlan.h"
+#include "netdev/wireguard.h"
 #include "netlink-util.h"
 #include "network-internal.h"
-#include "netdev/netdev.h"
-#include "networkd-manager.h"
 #include "networkd-link.h"
+#include "networkd-manager.h"
 #include "siphash24.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
-
-#include "netdev/bridge.h"
-#include "netdev/bond.h"
-#include "netdev/geneve.h"
-#include "netdev/vlan.h"
-#include "netdev/macvlan.h"
-#include "netdev/ipvlan.h"
-#include "netdev/vxlan.h"
-#include "netdev/tunnel.h"
-#include "netdev/tuntap.h"
-#include "netdev/veth.h"
-#include "netdev/dummy.h"
-#include "netdev/vrf.h"
-#include "netdev/vcan.h"
-#include "netdev/vxcan.h"
-#include "netdev/wireguard.h"
+#include "strv.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,
@@ -64,6 +62,10 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_GENEVE] = &geneve_vtable,
         [NETDEV_KIND_VXCAN] = &vxcan_vtable,
         [NETDEV_KIND_WIREGUARD] = &wireguard_vtable,
+        [NETDEV_KIND_NETDEVSIM] = &netdevsim_vtable,
+        [NETDEV_KIND_FOU] = &foutnl_vtable,
+        [NETDEV_KIND_ERSPAN] = &erspan_vtable,
+        [NETDEV_KIND_L2TP] = &l2tptnl_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -92,56 +94,87 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_GENEVE] = "geneve",
         [NETDEV_KIND_VXCAN] = "vxcan",
         [NETDEV_KIND_WIREGUARD] = "wireguard",
+        [NETDEV_KIND_NETDEVSIM] = "netdevsim",
+        [NETDEV_KIND_FOU] = "fou",
+        [NETDEV_KIND_ERSPAN] = "erspan",
+        [NETDEV_KIND_L2TP] = "l2tp",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_netdev_kind, netdev_kind, NetDevKind, "Failed to parse netdev kind");
 
-static void netdev_cancel_callbacks(NetDev *netdev) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+int config_parse_netdev_kind(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        NetDevKind k, *kind = data;
+
+        assert(rvalue);
+        assert(data);
+
+        k = netdev_kind_from_string(rvalue);
+        if (k < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse netdev kind, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (*kind != _NETDEV_KIND_INVALID && *kind != k) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Specified netdev kind is different from the previous value '%s', ignoring assignment: %s",
+                           netdev_kind_to_string(*kind), rvalue);
+                return 0;
+        }
+
+        *kind = k;
+
+        return 0;
+}
+
+static void netdev_callbacks_clear(NetDev *netdev) {
         netdev_join_callback *callback;
 
-        if (!netdev || !netdev->manager)
+        if (!netdev)
                 return;
 
-        rtnl_message_new_synthetic_error(netdev->manager->rtnl, -ENODEV, 0, &m);
-
         while ((callback = netdev->callbacks)) {
-                if (m) {
-                        assert(callback->link);
-                        assert(callback->callback);
-                        assert(netdev->manager);
-                        assert(netdev->manager->rtnl);
-
-                        callback->callback(netdev->manager->rtnl, m, callback->link);
-                }
-
                 LIST_REMOVE(callbacks, netdev->callbacks, callback);
                 link_unref(callback->link);
                 free(callback);
         }
 }
 
-static void netdev_free(NetDev *netdev) {
-        if (!netdev)
-                return;
+bool netdev_is_managed(NetDev *netdev) {
+        if (!netdev || !netdev->manager || !netdev->ifname)
+                return false;
 
-        netdev_cancel_callbacks(netdev);
+        return hashmap_get(netdev->manager->netdevs, netdev->ifname) == netdev;
+}
 
+static void netdev_detach_from_manager(NetDev *netdev) {
         if (netdev->ifname && netdev->manager)
                 hashmap_remove(netdev->manager->netdevs, netdev->ifname);
+}
+
+static NetDev *netdev_free(NetDev *netdev) {
+        assert(netdev);
+
+        netdev_callbacks_clear(netdev);
+
+        netdev_detach_from_manager(netdev);
 
         free(netdev->filename);
 
         free(netdev->description);
         free(netdev->ifname);
         free(netdev->mac);
-
-        condition_free_list(netdev->match_host);
-        condition_free_list(netdev->match_virt);
-        condition_free_list(netdev->match_kernel_cmdline);
-        condition_free_list(netdev->match_kernel_version);
-        condition_free_list(netdev->match_arch);
+        condition_free_list(netdev->conditions);
 
         /* Invoke the per-kind done() destructor, but only if the state field is initialized. We conditionalize that
          * because we parse .netdev files twice: once to determine the kind (with a short, minimal NetDev structure
@@ -155,22 +188,10 @@ static void netdev_free(NetDev *netdev) {
             NETDEV_VTABLE(netdev)->done)
                 NETDEV_VTABLE(netdev)->done(netdev);
 
-        free(netdev);
+        return mfree(netdev);
 }
 
-NetDev *netdev_unref(NetDev *netdev) {
-        if (netdev && (-- netdev->n_ref <= 0))
-                netdev_free(netdev);
-
-        return NULL;
-}
-
-NetDev *netdev_ref(NetDev *netdev) {
-        if (netdev)
-                assert_se(++ netdev->n_ref >= 2);
-
-        return netdev;
-}
+DEFINE_TRIVIAL_REF_UNREF_FUNC(NetDev, netdev, netdev_free);
 
 void netdev_drop(NetDev *netdev) {
         if (!netdev || netdev->state == NETDEV_STATE_LINGER)
@@ -180,7 +201,9 @@ void netdev_drop(NetDev *netdev) {
 
         log_netdev_debug(netdev, "netdev removed");
 
-        netdev_cancel_callbacks(netdev);
+        netdev_callbacks_clear(netdev);
+
+        netdev_detach_from_manager(netdev);
 
         netdev_unref(netdev);
 
@@ -208,12 +231,12 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret) {
 static int netdev_enter_failed(NetDev *netdev) {
         netdev->state = NETDEV_STATE_FAILED;
 
-        netdev_cancel_callbacks(netdev);
+        netdev_callbacks_clear(netdev);
 
         return 0;
 }
 
-static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_netlink_message_handler_t callback) {
+static int netdev_enslave_ready(NetDev *netdev, Link* link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -240,9 +263,10 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_netlink_message_h
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_MASTER attribute: %m");
 
-        r = sd_netlink_call_async(netdev->manager->rtnl, req, callback, link, 0, NULL);
+        r = netlink_call_async(netdev->manager->rtnl, NULL, req, callback,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_netdev_error(netdev, "Could not send rtnetlink message: %m");
+                return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 
@@ -284,10 +308,10 @@ static int netdev_enter_ready(NetDev *netdev) {
 }
 
 /* callback for netdev's created without a backing Link */
-static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_(netdev_unrefp) NetDev *netdev = userdata;
+static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
         int r;
 
+        assert(netdev);
         assert(netdev->state != _NETDEV_STATE_INVALID);
 
         r = sd_netlink_message_get_errno(m);
@@ -305,7 +329,7 @@ static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, void *
         return 1;
 }
 
-int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t callback) {
+static int netdev_enslave(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
         int r;
 
         assert(netdev);
@@ -327,13 +351,14 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t call
                 /* the netdev is not yet read, save this request for when it is */
                 netdev_join_callback *cb;
 
-                cb = new0(netdev_join_callback, 1);
+                cb = new(netdev_join_callback, 1);
                 if (!cb)
                         return log_oom();
 
-                cb->callback = callback;
-                cb->link = link;
-                link_ref(link);
+                *cb = (netdev_join_callback) {
+                        .callback = callback,
+                        .link = link_ref(link),
+                };
 
                 LIST_PREPEND(callbacks, netdev->callbacks, cb);
 
@@ -453,7 +478,7 @@ int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
 
         l = strlen(ifname);
         sz = sizeof(sd_id128_t) + l;
-        v = alloca(sz);
+        v = newa(uint8_t, sz);
 
         /* fetch some persistent data unique to the machine */
         r = sd_id128_get_machine((sd_id128_t*) v);
@@ -480,8 +505,7 @@ int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
         return 0;
 }
 
-static int netdev_create(NetDev *netdev, Link *link,
-                         sd_netlink_message_handler_t callback) {
+static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
         int r;
 
         assert(netdev);
@@ -548,13 +572,15 @@ static int netdev_create(NetDev *netdev, Link *link,
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
                 if (link) {
-                        r = sd_netlink_call_async(netdev->manager->rtnl, m, callback, link, 0, NULL);
+                        r = netlink_call_async(netdev->manager->rtnl, NULL, m, callback,
+                                               link_netlink_destroy_callback, link);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
                         link_ref(link);
                 } else {
-                        r = sd_netlink_call_async(netdev->manager->rtnl, m, netdev_create_handler, netdev, 0, NULL);
+                        r = netlink_call_async(netdev->manager->rtnl, NULL, m, netdev_create_handler,
+                                               netdev_destroy_callback, netdev);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
@@ -569,16 +595,23 @@ static int netdev_create(NetDev *netdev, Link *link,
         return 0;
 }
 
+static int netdev_create_after_configured(NetDev *netdev, Link *link) {
+        assert(netdev);
+        assert(link);
+        assert(NETDEV_VTABLE(netdev)->create_after_configured);
+
+        return NETDEV_VTABLE(netdev)->create_after_configured(netdev, link);
+}
+
 /* the callback must be called, possibly after a timeout, as otherwise the Link will hang */
-int netdev_join(NetDev *netdev, Link *link, sd_netlink_message_handler_t callback) {
+int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
         int r;
 
         assert(netdev);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
-        assert(NETDEV_VTABLE(netdev));
 
-        switch (NETDEV_VTABLE(netdev)->create_type) {
+        switch (netdev_get_create_type(netdev)) {
         case NETDEV_CREATE_MASTER:
                 r = netdev_enslave(netdev, link, callback);
                 if (r < 0)
@@ -591,6 +624,11 @@ int netdev_join(NetDev *netdev, Link *link, sd_netlink_message_handler_t callbac
                         return r;
 
                 break;
+        case NETDEV_CREATE_AFTER_CONFIGURED:
+                r = netdev_create_after_configured(netdev, link);
+                if (r < 0)
+                        return r;
+                break;
         default:
                 assert_not_reached("Can not join independent netdev");
         }
@@ -598,7 +636,7 @@ int netdev_join(NetDev *netdev, Link *link, sd_netlink_message_handler_t callbac
         return 0;
 }
 
-static int netdev_load_one(Manager *manager, const char *filename) {
+int netdev_load_one(Manager *manager, const char *filename) {
         _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;
@@ -621,16 +659,18 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
-        netdev_raw = new0(NetDev, 1);
+        netdev_raw = new(NetDev, 1);
         if (!netdev_raw)
                 return log_oom();
 
-        netdev_raw->n_ref = 1;
-        netdev_raw->kind = _NETDEV_KIND_INVALID;
-        netdev_raw->state = _NETDEV_STATE_INVALID; /* an invalid state means done() of the implementation won't be called on destruction */
+        *netdev_raw = (NetDev) {
+                .n_ref = 1,
+                .kind = _NETDEV_KIND_INVALID,
+                .state = _NETDEV_STATE_INVALID, /* an invalid state means done() of the implementation won't be called on destruction */
+        };
 
         dropin_dirname = strjoina(basename(filename), ".d");
-        r = config_parse_many(filename, network_dirs, dropin_dirname,
+        r = config_parse_many(filename, NETWORK_DIRS, dropin_dirname,
                               "Match\0NetDev\0",
                               config_item_perf_lookup, network_netdev_gperf_lookup,
                               CONFIG_PARSE_WARN|CONFIG_PARSE_RELAXED, netdev_raw);
@@ -638,20 +678,18 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return r;
 
         /* skip out early if configuration does not match the environment */
-        if (net_match_config(NULL, NULL, NULL, NULL, NULL,
-                             netdev_raw->match_host, netdev_raw->match_virt,
-                             netdev_raw->match_kernel_cmdline, netdev_raw->match_kernel_version,
-                             netdev_raw->match_arch,
-                             NULL, NULL, NULL, NULL, NULL, NULL) <= 0)
+        if (!condition_test_list(netdev_raw->conditions, NULL, NULL, NULL)) {
+                log_debug("%s: Conditions in the file do not match the system environment, skipping.", filename);
                 return 0;
+        }
 
         if (netdev_raw->kind == _NETDEV_KIND_INVALID) {
-                log_warning("NetDev has no Kind configured in %s. Ignoring", filename);
+                log_warning("NetDev has no Kind= configured in %s. Ignoring", filename);
                 return 0;
         }
 
         if (!netdev_raw->ifname) {
-                log_warning("NetDev without Name configured in %s. Ignoring", filename);
+                log_warning("NetDev without Name= configured in %s. Ignoring", filename);
                 return 0;
         }
 
@@ -666,15 +704,16 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->n_ref = 1;
         netdev->manager = manager;
         netdev->kind = netdev_raw->kind;
-        netdev->state = NETDEV_STATE_LOADING; /* we initialize the state here for the first time, so that done() will be called on destruction */
+        netdev->state = NETDEV_STATE_LOADING; /* we initialize the state here for the first time,
+                                                 so that done() will be called on destruction */
 
         if (NETDEV_VTABLE(netdev)->init)
                 NETDEV_VTABLE(netdev)->init(netdev);
 
-        r = config_parse(NULL, filename, file,
-                         NETDEV_VTABLE(netdev)->sections,
-                         config_item_perf_lookup, network_netdev_gperf_lookup,
-                         CONFIG_PARSE_WARN, netdev);
+        r = config_parse_many(filename, NETWORK_DIRS, dropin_dirname,
+                              NETDEV_VTABLE(netdev)->sections,
+                              config_item_perf_lookup, network_netdev_gperf_lookup,
+                              CONFIG_PARSE_WARN, netdev);
         if (r < 0)
                 return r;
 
@@ -692,10 +731,29 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->mac && netdev->kind != NETDEV_KIND_VLAN) {
                 r = netdev_get_mac(netdev->ifname, &netdev->mac);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to generate predictable MAC address for %s: %m", netdev->ifname);
+                        return log_netdev_error_errno(netdev, r,
+                                                      "Failed to generate predictable MAC address for %s: %m",
+                                                      netdev->ifname);
         }
 
+        r = hashmap_ensure_allocated(&netdev->manager->netdevs, &string_hash_ops);
+        if (r < 0)
+                return r;
+
         r = hashmap_put(netdev->manager->netdevs, netdev->ifname, netdev);
+        if (r == -EEXIST) {
+                NetDev *n = hashmap_get(netdev->manager->netdevs, netdev->ifname);
+
+                assert(n);
+                log_netdev_warning_errno(netdev, r,
+                                         "The setting Name=%s in %s conflicts with the one in %s, ignoring",
+                                         netdev->ifname, netdev->filename, n->filename);
+
+                /* Clear ifname before netdev_free() is called. Otherwise, the NetDev object 'n' is
+                 * removed from the hashmap 'manager->netdevs'. */
+                netdev->ifname = mfree(netdev->ifname);
+                return 0;
+        }
         if (r < 0)
                 return r;
 
@@ -703,16 +761,10 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 
         log_netdev_debug(netdev, "loaded %s", netdev_kind_to_string(netdev->kind));
 
-        switch (NETDEV_VTABLE(netdev)->create_type) {
-        case NETDEV_CREATE_MASTER:
-        case NETDEV_CREATE_INDEPENDENT:
+        if (IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_MASTER, NETDEV_CREATE_INDEPENDENT)) {
                 r = netdev_create(netdev, NULL, NULL);
                 if (r < 0)
                         return r;
-
-                break;
-        default:
-                break;
         }
 
         switch (netdev->kind) {
@@ -743,6 +795,9 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         case NETDEV_KIND_IP6TNL:
                 independent = IP6TNL(netdev)->independent;
                 break;
+        case NETDEV_KIND_ERSPAN:
+                independent = ERSPAN(netdev)->independent;
+                break;
         default:
                 break;
         }
@@ -760,20 +815,18 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 
 int netdev_load(Manager *manager) {
         _cleanup_strv_free_ char **files = NULL;
-        NetDev *netdev;
         char **f;
         int r;
 
         assert(manager);
 
-        while ((netdev = hashmap_first(manager->netdevs)))
-                netdev_unref(netdev);
+        hashmap_clear_with_destructor(manager->netdevs, netdev_unref);
 
-        r = conf_files_list_strv(&files, ".netdev", NULL, 0, network_dirs);
+        r = conf_files_list_strv(&files, ".netdev", NULL, 0, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate netdev files: %m");
 
-        STRV_FOREACH_BACKWARDS(f, files) {
+        STRV_FOREACH(f, files) {
                 r = netdev_load_one(manager, *f);
                 if (r < 0)
                         return r;

@@ -1,7 +1,7 @@
 #compdef systemctl
 # SPDX-License-Identifier: LGPL-2.1+
 
-(( $+functions[_systemctl_command] )) || _systemctl_command()
+(( $+functions[_systemctl_commands] )) || _systemctl_commands()
 {
   local -a _systemctl_cmds
   _systemctl_cmds=(
@@ -63,6 +63,7 @@
     "exit:Ask for user instance termination"
     "switch-root:Change root directory"
     "revert:Revert unit files to their vendor versions"
+    "set-property:Sets one or more properties of a unit"
   )
 
   if (( CURRENT == 1 )); then
@@ -94,6 +95,7 @@
   fi
 }
 
+# @todo _systemd-run has a helper with the same name, so we must redefine
 __systemctl()
 {
   systemctl $_sys_service_mgr --full --no-legend --no-pager "$@" 2>/dev/null
@@ -101,17 +103,19 @@ __systemctl()
 
 
 # Fills the unit list
+(( $+functions[_systemctl_all_units] )) ||
 _systemctl_all_units()
 {
   if ( [[ ${+_sys_all_units} -eq 0 ]] || _cache_invalid SYS_ALL_UNITS$_sys_service_mgr ) ||
     ! _retrieve_cache SYS_ALL_UNITS$_sys_service_mgr;
   then
-    _sys_all_units=( ${${(f)"$(__systemctl list-units --all)"}%% *} )
+    _sys_all_units=( ${${(f)"$(__systemctl list-units --all "$PREFIX*" )"}%% *} )
     _store_cache SYS_ALL_UNITS$_sys_service_mgr _sys_all_units
   fi
 }
 
 # Fills the unit list including all file units
+(( $+functions[_systemctl_really_all_units] )) ||
 _systemctl_really_all_units()
 {
   local -a all_unit_files;
@@ -119,7 +123,7 @@ _systemctl_really_all_units()
   if ( [[ ${+_sys_really_all_units} -eq 0 ]] || _cache_invalid SYS_REALLY_ALL_UNITS$_sys_service_mgr ) ||
     ! _retrieve_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr;
   then
-    all_unit_files=( ${${(f)"$(__systemctl list-unit-files)"}%% *} )
+    all_unit_files=( ${${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}%% *} )
     _systemctl_all_units
     really_all_units=($_sys_all_units $all_unit_files)
     _sys_really_all_units=(${(u)really_all_units})
@@ -127,6 +131,7 @@ _systemctl_really_all_units()
   fi
 }
 
+(( $+functions[_filter_units_by_property] )) ||
 _filter_units_by_property() {
   local property=$1 value=$2; shift 2
   local -a units; units=("${(q-)@}")
@@ -135,38 +140,59 @@ _filter_units_by_property() {
   echo -E - "${(@g:o:)${(k@)props[(Re)$property=$value]}#Id=}"
 }
 
-_systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files "*$PREFIX*$SUFFIX*" )"}##*@.[^[:space:]]##}%%@.*}\@ }
+(( $+functions[_systemctl_get_non_template_names] )) ||
+_systemctl_get_non_template_names() { echo -E - ${^${(R)${(f)"$(
+    __systemctl $mode list-unit-files "$PREFIX*"
+    __systemctl $mode list-units --all "$PREFIX*"
+  )"}:#*@.*}%%[[:space:]]*} }
 
+(( $+functions[_systemctl_get_template_names] )) ||
+_systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}##*@.[^[:space:]]##}%%@.*}\@ }
 
-_systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units "*$PREFIX*$SUFFIX*" )"}%% *} )}
+(( $+functions[_systemctl_active_units] )) ||
+_systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units "$PREFIX*" )"}%% *} )}
 
+(( $+functions[_systemctl_startable_units] )) ||
 _systemctl_startable_units(){
   _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
     _filter_units_by_property CanStart yes ${${${(f)"$(
-      __systemctl $mode list-unit-files --state enabled,disabled,static "*$PREFIX*$SUFFIX*"
-      __systemctl $mode list-units --state inactive,failed "*$PREFIX*$SUFFIX*"
+      __systemctl $mode list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient "$PREFIX*"
+      __systemctl $mode list-units --state inactive,failed "$PREFIX*"
     )"}:#*@.*}%%[[:space:]]*}
   )) )
 }
 
+(( $+functions[_systemctl_restartable_units] )) ||
 _systemctl_restartable_units(){
   _sys_restartable_units=( $( _filter_units_by_property CanStart yes ${${${(f)"$(
-    __systemctl $mode list-unit-files --state enabled,disabled,static "*$PREFIX*$SUFFIX*"
-    __systemctl $mode list-units "*$PREFIX*$SUFFIX*"
+    __systemctl $mode list-unit-files --state enabled,disabled,static "$PREFIX*"
+    __systemctl $mode list-units "$PREFIX*"
   )"}:#*@.*}%%[[:space:]]*} ) )
 }
 
-_systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --state=failed "*$PREFIX*$SUFFIX*" )"}%% *} ) }
-_systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__systemctl list-unit-files "*$PREFIX*$SUFFIX*" ) ) }
+(( $+functions[_systemctl_failed_units] )) ||
+_systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --state=failed "$PREFIX*" )"}%% *} ) }
+
+(( $+functions[_systemctl_unit_state] )) ||
+_systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__systemctl list-unit-files "$PREFIX*" ) ) }
 
 local fun
 # Completion functions for ALL_UNITS
-for fun in is-active is-failed is-enabled status show cat mask preset help list-dependencies edit revert add-wants add-requires ; do
+for fun in cat mask ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     _systemctl_really_all_units
     _wanted systemd-units expl unit \
       compadd "$@" -a - _sys_really_all_units
+  }
+done
+
+# Completion functions for NONTEMPLATE_UNITS
+for fun in is-active is-failed is-enabled status show preset help list-dependencies edit revert add-wants add-requires set-property; do
+  (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
+  {
+    _wanted systemd-units expl unit \
+      compadd "$@" - $(_systemctl_get_non_template_names)
   }
 done
 
@@ -206,7 +232,7 @@ done
 {
    local _sys_startable_units; _systemctl_startable_units
    _wanted systemd-units expl 'startable unit' \
-     compadd "$@" - ${_sys_startable_units[*]} $(_systemctl_get_template_names)
+     compadd "$@" - ${_sys_startable_units[*]}
 }
 
 # Completion functions for STOPPABLE_UNITS
@@ -246,7 +272,7 @@ for fun in restart reload-or-restart ; do
   {
     local _sys_restartable_units; _systemctl_restartable_units
     _wanted systemd-units expl 'restartable unit' \
-      compadd "$@" - ${_sys_restartable_units[*]} $(_systemctl_get_template_names)
+      compadd "$@" - ${_sys_restartable_units[*]}
   }
 done
 
@@ -270,7 +296,7 @@ done
 (( $+functions[_systemctl_set-default] )) || _systemctl_set-default()
 {
   _wanted systemd-targets expl target \
-    compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all)"}%% *} ||
+    compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all "$PREFIX*" )"}%% *} ||
       _message "no targets found"
 }
 
@@ -301,6 +327,7 @@ done
 #                  emergency exit halt kexec list-jobs list-units
 #                  list-unit-files poweroff reboot rescue show-environment'
 
+(( $+functions[_systemctl_caching_policy] )) ||
 _systemctl_caching_policy()
 {
   local _sysunits
@@ -321,31 +348,33 @@ _systemctl_caching_policy()
   return 1
 }
 
-_unit_states() {
+(( $+functions[_systemctl_unit_states] )) ||
+_systemctl_unit_states() {
     local -a _states
     _states=("${(fo)$(__systemctl --state=help)}")
     _values -s , "${_states[@]}"
 }
 
-_unit_types() {
+(( $+functions[_systemctl_unit_types] )) ||
+_systemctl_unit_types() {
     local -a _types
     _types=("${(fo)$(__systemctl -t help)}")
     _values -s , "${_types[@]}"
 }
 
-_unit_properties() {
+(( $+functions[_systemctl_unit_properties] )) ||
+_systemctl_unit_properties() {
   if ( [[ ${+_sys_all_properties} -eq 0 ]] || _cache_invalid SYS_ALL_PROPERTIES$_sys_service_mgr ) ||
     ! _retrieve_cache SYS_ALL_PROPERTIES$_sys_service_mgr;
   then
-    _sys_all_properties=( ${${(M)${(f)"$(__systemctl show --all;
-    @rootlibexecdir@/systemd --dump-configuration-items)"}##[[:alnum:]]##=*}%%=*}
-    )
+    _sys_all_properties=( ${${(M)${(f)"$(@rootlibexecdir@/systemd --dump-bus-properties)"}}} )
     _store_cache SYS_ALL_PROPERTIES$_sys_service_mgr _sys_all_properties
   fi
   _values -s , "${_sys_all_properties[@]}"
 }
 
-_job_modes() {
+(( $+functions[_systemctl_job_modes] )) ||
+_systemctl_job_modes() {
     local -a _modes
     _modes=(fail replace replace-irreversibly isolate ignore-dependencies ignore-requirements flush)
     _values -s , "${_modes[@]}"
@@ -358,10 +387,10 @@ local _sys_service_mgr=${${words:*_modes}[(R)(${(j.|.)_modes})]}
 _arguments -s \
     {-h,--help}'[Show help]' \
     '--version[Show package version]' \
-    {-t+,--type=}'[List only units of a particular type]:unit type:_unit_types' \
-    '--state=[Display units in the specified state]:unit state:_unit_states' \
-    '--job-mode=[Specify how to deal with other jobs]:mode:_job_modes' \
-    {-p+,--property=}'[Show only properties by specific name]:unit property:_unit_properties' \
+    {-t+,--type=}'[List only units of a particular type]:unit type:_systemctl_unit_types' \
+    '--state=[Display units in the specified state]:unit state:_systemctl_unit_states' \
+    '--job-mode=[Specify how to deal with other jobs]:mode:_systemctl_job_modes' \
+    {-p+,--property=}'[Show only properties by specific name]:unit property:_systemctl_unit_properties' \
     {-a,--all}'[Show all units/properties, including dead/empty ones]' \
     '--reverse[Show reverse dependencies]' \
     '--after[Show units ordered after]' \
@@ -391,4 +420,4 @@ _arguments -s \
     '--firmware-setup[Tell the firmware to show the setup menu on next boot]' \
     '--plain[When used with list-dependencies, print output as a list]' \
     '--failed[Show failed units]' \
-    '*::systemctl command:_systemctl_command'
+    '*::systemctl command:_systemctl_commands'

@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <sched.h>
@@ -20,7 +15,8 @@
 #include "machine-id-setup.h"
 #include "macro.h"
 #include "mkdir.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "stat-util.h"
@@ -78,7 +74,7 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
         /* If that didn't work, generate a random machine id */
         r = sd_id128_randomize(ret);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate randomized : %m");
+                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
 
         log_info("Initializing machine ID from random generator.");
         return 0;
@@ -113,8 +109,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
                                                   "2) /etc/machine-id exists and is empty.\n"
                                                   "3) /etc/machine-id is missing and /etc is writable.\n");
                                 else
-                                        return log_error_errno(errno,
-                                                               "Cannot open %s: %m", etc_machine_id);
+                                        return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
                         }
 
                         writable = false;
@@ -206,14 +201,14 @@ int machine_id_commit(const char *root) {
         r = fd_is_temporary_fs(fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether %s is on a temporary file system: %m", etc_machine_id);
-        if (r == 0) {
-                log_error("%s is not on a temporary file system.", etc_machine_id);
-                return -EROFS;
-        }
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                       "%s is not on a temporary file system.",
+                                       etc_machine_id);
 
         r = id128_read_fd(fd, ID128_PLAIN, &id);
         if (r < 0)
-                return log_error_errno(r, "We didn't find a valid machine ID in %s.", etc_machine_id);
+                return log_error_errno(r, "We didn't find a valid machine ID in %s: %m", etc_machine_id);
 
         fd = safe_close(fd);
 

@@ -1,9 +1,5 @@
 /***
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2017 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #include "fd-util.h"
@@ -13,6 +9,8 @@
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "string-util.h"
+#include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_rule_serialization(const char *title, const char *ruleset, const char *expected) {
         char pattern[] = "/tmp/systemd-test-routing-policy-rule.XXXXXX",
@@ -30,14 +28,14 @@ static void test_rule_serialization(const char *title, const char *ruleset, cons
 
         fd = mkostemp_safe(pattern);
         assert_se(fd >= 0);
-        assert_se(f = fdopen(fd, "a+e"));
+        assert_se(f = fdopen(fd, "a+"));
         assert_se(write_string_stream(f, ruleset, 0) == 0);
 
         assert_se(routing_policy_load_rules(pattern, &rules) == 0);
 
         fd2 = mkostemp_safe(pattern2);
         assert_se(fd2 >= 0);
-        assert_se(f2 = fdopen(fd2, "a+e"));
+        assert_se(f2 = fdopen(fd2, "a+"));
 
         assert_se(routing_policy_serialize_rules(rules, f2) == 0);
         assert_se(fflush_and_check(f2) == 0);
@@ -48,7 +46,7 @@ static void test_rule_serialization(const char *title, const char *ruleset, cons
 
         fd3 = mkostemp_safe(pattern3);
         assert_se(fd3 >= 0);
-        assert_se(f3 = fdopen(fd3, "we"));
+        assert_se(f3 = fdopen(fd3, "w"));
         assert_se(write_string_stream(f3, expected ?: ruleset, 0) == 0);
 
         cmd = strjoina("diff -u ", pattern3, " ", pattern2);
@@ -61,9 +59,7 @@ static void test_rule_serialization(const char *title, const char *ruleset, cons
 int main(int argc, char **argv) {
         _cleanup_free_ char *p = NULL;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_rule_serialization("basic parsing",
                                 "RULE=from=1.2.3.4/32 to=2.3.4.5/32 tos=5 fwmark=1/2 table=10", NULL);

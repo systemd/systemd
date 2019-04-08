@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <net/if.h>
 #include <stdio_ext.h>
@@ -11,6 +6,7 @@
 #include "sd-network.h"
 
 #include "alloc-util.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing.h"
@@ -21,6 +17,7 @@
 #include "resolved-mdns.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 
 int link_new(Manager *m, Link **ret, int ifindex) {
         _cleanup_(link_freep) Link *l = NULL;
@@ -33,15 +30,19 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         if (r < 0)
                 return r;
 
-        l = new0(Link, 1);
+        l = new(Link, 1);
         if (!l)
                 return -ENOMEM;
 
-        l->ifindex = ifindex;
-        l->llmnr_support = RESOLVE_SUPPORT_YES;
-        l->mdns_support = RESOLVE_SUPPORT_NO;
-        l->dnssec_mode = _DNSSEC_MODE_INVALID;
-        l->operstate = IF_OPER_UNKNOWN;
+        *l = (Link) {
+                .ifindex = ifindex,
+                .default_route = -1,
+                .llmnr_support = RESOLVE_SUPPORT_YES,
+                .mdns_support = RESOLVE_SUPPORT_NO,
+                .dnssec_mode = _DNSSEC_MODE_INVALID,
+                .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
+                .operstate = IF_OPER_UNKNOWN,
+        };
 
         if (asprintf(&l->state_file, "/run/systemd/resolve/netif/%i", ifindex) < 0)
                 return -ENOMEM;
@@ -62,9 +63,11 @@ int link_new(Manager *m, Link **ret, int ifindex) {
 void link_flush_settings(Link *l) {
         assert(l);
 
+        l->default_route = -1;
         l->llmnr_support = RESOLVE_SUPPORT_YES;
         l->mdns_support = RESOLVE_SUPPORT_NO;
         l->dnssec_mode = _DNSSEC_MODE_INVALID;
+        l->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
 
         dns_server_unlink_all(l->dns_servers);
         dns_search_domain_unlink_all(l->search_domains);
@@ -115,6 +118,11 @@ void link_allocate_scopes(Link *l) {
 
                 dns_server_reset_features_all(l->manager->fallback_dns_servers);
                 dns_server_reset_features_all(l->manager->dns_servers);
+
+                /* Also, flush the global unicast scope, to deal with split horizon setups, where talking through one
+                 * interface reveals different DNS zones than through others. */
+                if (l->manager->unicast_scope)
+                        dns_cache_flush(&l->manager->unicast_scope->cache);
         }
 
         /* And now, allocate all scopes that makes sense now if we didn't have them yet, and drop those which we don't
@@ -293,6 +301,27 @@ clear:
         return r;
 }
 
+static int link_update_default_route(Link *l) {
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dns_default_route(l->ifindex);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        l->default_route = r > 0;
+        return 0;
+
+clear:
+        l->default_route = -1;
+        return r;
+}
+
 static int link_update_llmnr_support(Link *l) {
         _cleanup_free_ char *b = NULL;
         int r;
@@ -344,6 +373,46 @@ static int link_update_mdns_support(Link *l) {
 
 clear:
         l->mdns_support = RESOLVE_SUPPORT_NO;
+        return r;
+}
+
+void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode) {
+
+        assert(l);
+
+#if ! ENABLE_DNS_OVER_TLS
+        if (mode != DNS_OVER_TLS_NO)
+                log_warning("DNS-over-TLS option for the link cannot be set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
+        return;
+#endif
+
+        l->dns_over_tls_mode = mode;
+}
+
+static int link_update_dns_over_tls_mode(Link *l) {
+        _cleanup_free_ char *b = NULL;
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dns_over_tls(l->ifindex, &b);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        l->dns_over_tls_mode = dns_over_tls_mode_from_string(b);
+        if (l->dns_over_tls_mode < 0) {
+                r = -EINVAL;
+                goto clear;
+        }
+
+        return 0;
+
+clear:
+        l->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
         return r;
 }
 
@@ -554,6 +623,10 @@ static void link_read_settings(Link *l) {
         if (r < 0)
                 log_warning_errno(r, "Failed to read mDNS support for interface %s, ignoring: %m", l->name);
 
+        r = link_update_dns_over_tls_mode(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read DNS-over-TLS mode for interface %s, ignoring: %m", l->name);
+
         r = link_update_dnssec_mode(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read DNSSEC mode for interface %s, ignoring: %m", l->name);
@@ -565,6 +638,10 @@ static void link_read_settings(Link *l) {
         r = link_update_search_domains(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
+
+        r = link_update_default_route(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read default route setting for interface %s, proceeding anyway: %m", l->name);
 }
 
 int link_update(Link *l) {
@@ -685,6 +762,15 @@ void link_next_dns_server(Link *l) {
         }
 
         link_set_dns_server(l, l->dns_servers);
+}
+
+DnsOverTlsMode link_get_dns_over_tls_mode(Link *l) {
+        assert(l);
+
+        if (l->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
+                return l->dns_over_tls_mode;
+
+        return manager_get_dns_over_tls_mode(l->manager);
 }
 
 DnssecMode link_get_dnssec_mode(Link *l) {
@@ -1052,7 +1138,8 @@ static bool link_needs_save(Link *l) {
 
         if (l->llmnr_support != RESOLVE_SUPPORT_YES ||
             l->mdns_support != RESOLVE_SUPPORT_NO ||
-            l->dnssec_mode != _DNSSEC_MODE_INVALID)
+            l->dnssec_mode != _DNSSEC_MODE_INVALID ||
+            l->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
                 return true;
 
         if (l->dns_servers ||
@@ -1060,6 +1147,9 @@ static bool link_needs_save(Link *l) {
                 return true;
 
         if (!set_isempty(l->dnssec_negative_trust_anchors))
+                return true;
+
+        if (l->default_route >= 0)
                 return true;
 
         return false;
@@ -1103,6 +1193,9 @@ int link_save_user(Link *l) {
         v = dnssec_mode_to_string(l->dnssec_mode);
         if (v)
                 fprintf(f, "DNSSEC=%s\n", v);
+
+        if (l->default_route >= 0)
+                fprintf(f, "DEFAULT_ROUTE=%s\n", yes_no(l->default_route));
 
         if (l->dns_servers) {
                 DnsServer *server;
@@ -1185,7 +1278,8 @@ int link_load_user(Link *l) {
                 *dnssec = NULL,
                 *servers = NULL,
                 *domains = NULL,
-                *ntas = NULL;
+                *ntas = NULL,
+                *default_route = NULL;
 
         ResolveSupport s;
         const char *p;
@@ -1202,14 +1296,14 @@ int link_load_user(Link *l) {
         if (l->is_managed)
                 return 0; /* if the device is managed, then networkd is our configuration source, not the bus API */
 
-        r = parse_env_file(l->state_file, NEWLINE,
+        r = parse_env_file(NULL, l->state_file,
                            "LLMNR", &llmnr,
                            "MDNS", &mdns,
                            "DNSSEC", &dnssec,
                            "SERVERS", &servers,
                            "DOMAINS", &domains,
                            "NTAS", &ntas,
-                           NULL);
+                           "DEFAULT_ROUTE", &default_route);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1225,6 +1319,10 @@ int link_load_user(Link *l) {
         s = resolve_support_from_string(mdns);
         if (s >= 0)
                 l->mdns_support = s;
+
+        r = parse_boolean(default_route);
+        if (r >= 0)
+                l->default_route = r;
 
         /* If we can't recognize the DNSSEC setting, then set it to invalid, so that the daemon default is used. */
         l->dnssec_mode = dnssec_mode_from_string(dnssec);

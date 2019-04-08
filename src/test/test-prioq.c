@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include <stdlib.h>
 
@@ -11,44 +6,34 @@
 #include "prioq.h"
 #include "set.h"
 #include "siphash24.h"
-#include "util.h"
+#include "sort-util.h"
 
 #define SET_SIZE 1024*4
 
-static int unsigned_compare(const void *a, const void *b) {
-        const unsigned *x = a, *y = b;
-
-        if (*x < *y)
-                return -1;
-
-        if (*x > *y)
-                return 1;
-
-        return 0;
+static int unsigned_compare(const unsigned *a, const unsigned *b) {
+        return CMP(*a, *b);
 }
 
 static void test_unsigned(void) {
-        unsigned buffer[SET_SIZE], i;
-        Prioq *q;
+        _cleanup_(prioq_freep) Prioq *q = NULL;
+        unsigned buffer[SET_SIZE], i, u, n;
 
         srand(0);
 
-        q = prioq_new(trivial_compare_func);
-        assert_se(q);
+        assert_se(q = prioq_new(trivial_compare_func));
 
         for (i = 0; i < ELEMENTSOF(buffer); i++) {
-                unsigned u;
-
                 u = (unsigned) rand();
                 buffer[i] = u;
                 assert_se(prioq_put(q, UINT_TO_PTR(u), NULL) >= 0);
+
+                n = prioq_size(q);
+                assert_se(prioq_remove(q, UINT_TO_PTR(u), &n) == 0);
         }
 
-        qsort(buffer, ELEMENTSOF(buffer), sizeof(buffer[0]), unsigned_compare);
+        typesafe_qsort(buffer, ELEMENTSOF(buffer), unsigned_compare);
 
         for (i = 0; i < ELEMENTSOF(buffer); i++) {
-                unsigned u;
-
                 assert_se(prioq_size(q) == ELEMENTSOF(buffer) - i);
 
                 u = PTR_TO_UINT(prioq_pop(q));
@@ -56,7 +41,6 @@ static void test_unsigned(void) {
         }
 
         assert_se(prioq_isempty(q));
-        prioq_free(q);
 }
 
 struct test {
@@ -64,90 +48,75 @@ struct test {
         unsigned idx;
 };
 
-static int test_compare(const void *a, const void *b) {
-        const struct test *x = a, *y = b;
-
-        if (x->value < y->value)
-                return -1;
-
-        if (x->value > y->value)
-                return 1;
-
-        return 0;
+static int test_compare(const struct test *x, const struct test *y) {
+        return CMP(x->value, y->value);
 }
 
-static void test_hash(const void *a, struct siphash *state) {
-        const struct test *x = a;
-
+static void test_hash(const struct test *x, struct siphash *state) {
         siphash24_compress(&x->value, sizeof(x->value), state);
 }
 
-static const struct hash_ops test_hash_ops = {
-        .hash = test_hash,
-        .compare = test_compare
-};
+DEFINE_PRIVATE_HASH_OPS(test_hash_ops, struct test, test_hash, test_compare);
 
 static void test_struct(void) {
-        Prioq *q;
-        Set *s;
+        _cleanup_(prioq_freep) Prioq *q = NULL;
+        _cleanup_(set_freep) Set *s = NULL;
         unsigned previous = 0, i;
-        int r;
+        struct test *t;
 
         srand(0);
 
-        q = prioq_new(test_compare);
-        assert_se(q);
+        assert_se(q = prioq_new((compare_func_t) test_compare));
+        assert_se(s = set_new(&test_hash_ops));
 
-        s = set_new(&test_hash_ops);
-        assert_se(s);
+        assert_se(prioq_peek(q) == NULL);
+        assert_se(prioq_peek_by_index(q, 0) == NULL);
+        assert_se(prioq_peek_by_index(q, 1) == NULL);
+        assert_se(prioq_peek_by_index(q, (unsigned) -1) == NULL);
 
         for (i = 0; i < SET_SIZE; i++) {
-                struct test *t;
-
-                t = new0(struct test, 1);
-                assert_se(t);
+                assert_se(t = new0(struct test, 1));
                 t->value = (unsigned) rand();
 
-                r = prioq_put(q, t, &t->idx);
-                assert_se(r >= 0);
+                assert_se(prioq_put(q, t, &t->idx) >= 0);
 
-                if (i % 4 == 0) {
-                        r = set_consume(s, t);
-                        assert_se(r >= 0);
-                }
+                if (i % 4 == 0)
+                        assert_se(set_consume(s, t) >= 0);
         }
 
-        for (;;) {
-                struct test *t;
+        for (i = 0; i < SET_SIZE; i++)
+                assert_se(prioq_peek_by_index(q, i));
+        assert_se(prioq_peek_by_index(q, SET_SIZE) == NULL);
 
-                t = set_steal_first(s);
-                if (!t)
-                        break;
+        unsigned count = 0;
+        PRIOQ_FOREACH_ITEM(q, t) {
+                assert_se(t);
+                count++;
+        }
+        assert_se(count == SET_SIZE);
 
-                r = prioq_remove(q, t, &t->idx);
-                assert_se(r > 0);
+        while ((t = set_steal_first(s))) {
+                assert_se(prioq_remove(q, t, &t->idx) == 1);
+                assert_se(prioq_remove(q, t, &t->idx) == 0);
+                assert_se(prioq_remove(q, t, NULL) == 0);
 
                 free(t);
         }
 
         for (i = 0; i < SET_SIZE * 3 / 4; i++) {
-                struct test *t;
-
                 assert_se(prioq_size(q) == (SET_SIZE * 3 / 4) - i);
 
-                t = prioq_pop(q);
-                assert_se(t);
-
+                assert_se(t = prioq_pop(q));
+                assert_se(prioq_remove(q, t, &t->idx) == 0);
+                assert_se(prioq_remove(q, t, NULL) == 0);
                 assert_se(previous <= t->value);
+
                 previous = t->value;
                 free(t);
         }
 
         assert_se(prioq_isempty(q));
-        prioq_free(q);
-
         assert_se(set_isempty(s));
-        set_free(s);
 }
 
 int main(int argc, char* argv[]) {

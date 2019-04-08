@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd
-
-  Copyright 2014 Ronny Chevalier
-***/
 
 #include <unistd.h>
 
@@ -19,6 +14,8 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -41,7 +38,7 @@ static void test_copy_file(void) {
 
         assert_se(write_string_file(fn, "foo bar bar bar foo", WRITE_STRING_FILE_CREATE) == 0);
 
-        assert_se(copy_file(fn, fn_copy, 0, 0644, 0, COPY_REFLINK) == 0);
+        assert_se(copy_file(fn, fn_copy, 0, 0644, 0, 0, COPY_REFLINK) == 0);
 
         assert_se(read_full_file(fn_copy, &buf, &sz) == 0);
         assert_se(streq(buf, "foo bar bar bar foo\n"));
@@ -95,7 +92,7 @@ static void test_copy_tree(void) {
         STRV_FOREACH(p, files) {
                 _cleanup_free_ char *f;
 
-                assert_se((f = strappend(original_dir, *p)));
+                assert_se(f = strappend(original_dir, *p));
 
                 assert_se(mkdir_parents(f, 0755) >= 0);
                 assert_se(write_string_file(f, "file", WRITE_STRING_FILE_CREATE) == 0);
@@ -104,8 +101,8 @@ static void test_copy_tree(void) {
         STRV_FOREACH_PAIR(link, p, links) {
                 _cleanup_free_ char *f, *l;
 
-                assert_se((f = strappend(original_dir, *p)));
-                assert_se((l = strappend(original_dir, *link)));
+                assert_se(f = strappend(original_dir, *p));
+                assert_se(l = strappend(original_dir, *link));
 
                 assert_se(mkdir_parents(l, 0755) >= 0);
                 assert_se(symlink(f, l) == 0);
@@ -117,10 +114,10 @@ static void test_copy_tree(void) {
         assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE) == 0);
 
         STRV_FOREACH(p, files) {
-                _cleanup_free_ char *buf = NULL, *f;
-                size_t sz = 0;
+                _cleanup_free_ char *buf, *f;
+                size_t sz;
 
-                assert_se((f = strappend(copy_dir, *p)));
+                assert_se(f = strappend(copy_dir, *p));
 
                 assert_se(access(f, F_OK) == 0);
                 assert_se(read_full_file(f, &buf, &sz) == 0);
@@ -128,10 +125,10 @@ static void test_copy_tree(void) {
         }
 
         STRV_FOREACH_PAIR(link, p, links) {
-                _cleanup_free_ char *target = NULL, *f, *l;
+                _cleanup_free_ char *target, *f, *l;
 
-                assert_se((f = strjoin(original_dir, *p)));
-                assert_se((l = strjoin(copy_dir, *link)));
+                assert_se(f = strjoin(original_dir, *p));
+                assert_se(l = strjoin(copy_dir, *link));
 
                 assert_se(chase_symlinks(l, NULL, 0, &target) == 1);
                 assert_se(path_equal(f, target));
@@ -240,7 +237,27 @@ static void test_copy_bytes_regular_file(const char *src, bool try_reflink, uint
         unlink(fn3);
 }
 
+static void test_copy_atomic(void) {
+        _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
+        const char *q;
+        int r;
+
+        assert_se(mkdtemp_malloc(NULL, &p) >= 0);
+
+        q = strjoina(p, "/fstab");
+
+        r = copy_file_atomic("/etc/fstab", q, 0644, 0, 0, COPY_REFLINK);
+        if (r == -ENOENT)
+                return;
+
+        assert_se(copy_file_atomic("/etc/fstab", q, 0644, 0, 0, COPY_REFLINK) == -EEXIST);
+
+        assert_se(copy_file_atomic("/etc/fstab", q, 0644, 0, 0, COPY_REPLACE) >= 0);
+}
+
 int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_DEBUG);
+
         test_copy_file();
         test_copy_file_fd();
         test_copy_tree();
@@ -251,6 +268,7 @@ int main(int argc, char *argv[]) {
         test_copy_bytes_regular_file(argv[0], true, 1000);
         test_copy_bytes_regular_file(argv[0], false, 32000); /* larger than copy buffer size */
         test_copy_bytes_regular_file(argv[0], true, 32000);
+        test_copy_atomic();
 
         return 0;
 }

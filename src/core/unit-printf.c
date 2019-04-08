@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include "alloc-util.h"
 #include "cgroup-util.h"
@@ -17,25 +12,25 @@
 #include "unit.h"
 #include "user-util.h"
 
-static int specifier_prefix_and_instance(char specifier, void *data, void *userdata, char **ret) {
-        Unit *u = userdata;
+static int specifier_prefix_and_instance(char specifier, const void *data, const void *userdata, char **ret) {
+        const Unit *u = userdata;
 
         assert(u);
 
         return unit_name_to_prefix_and_instance(u->id, ret);
 }
 
-static int specifier_prefix(char specifier, void *data, void *userdata, char **ret) {
-        Unit *u = userdata;
+static int specifier_prefix(char specifier, const void *data, const void *userdata, char **ret) {
+        const Unit *u = userdata;
 
         assert(u);
 
         return unit_name_to_prefix(u->id, ret);
 }
 
-static int specifier_prefix_unescaped(char specifier, void *data, void *userdata, char **ret) {
+static int specifier_prefix_unescaped(char specifier, const void *data, const void *userdata, char **ret) {
         _cleanup_free_ char *p = NULL;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         int r;
 
         assert(u);
@@ -47,16 +42,16 @@ static int specifier_prefix_unescaped(char specifier, void *data, void *userdata
         return unit_name_unescape(p, ret);
 }
 
-static int specifier_instance_unescaped(char specifier, void *data, void *userdata, char **ret) {
-        Unit *u = userdata;
+static int specifier_instance_unescaped(char specifier, const void *data, const void *userdata, char **ret) {
+        const Unit *u = userdata;
 
         assert(u);
 
         return unit_name_unescape(strempty(u->instance), ret);
 }
 
-static int specifier_last_component(char specifier, void *data, void *userdata, char **ret) {
-        Unit *u = userdata;
+static int specifier_last_component(char specifier, const void *data, const void *userdata, char **ret) {
+        const Unit *u = userdata;
         _cleanup_free_ char *prefix = NULL;
         char *dash;
         int r;
@@ -75,7 +70,7 @@ static int specifier_last_component(char specifier, void *data, void *userdata, 
         return 0;
 }
 
-static int specifier_last_component_unescaped(char specifier, void *data, void *userdata, char **ret) {
+static int specifier_last_component_unescaped(char specifier, const void *data, const void *userdata, char **ret) {
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -86,8 +81,8 @@ static int specifier_last_component_unescaped(char specifier, void *data, void *
         return unit_name_unescape(p, ret);
 }
 
-static int specifier_filename(char specifier, void *data, void *userdata, char **ret) {
-        Unit *u = userdata;
+static int specifier_filename(char specifier, const void *data, const void *userdata, char **ret) {
+        const Unit *u = userdata;
 
         assert(u);
 
@@ -97,12 +92,12 @@ static int specifier_filename(char specifier, void *data, void *userdata, char *
                 return unit_name_to_path(u->id, ret);
 }
 
-static void bad_specifier(Unit *u, char specifier) {
+static void bad_specifier(const Unit *u, char specifier) {
         log_unit_warning(u, "Specifier '%%%c' used in unit configuration, which is deprecated. Please update your unit file, as it does not work as intended.", specifier);
 }
 
-static int specifier_cgroup(char specifier, void *data, void *userdata, char **ret) {
-        Unit *u = userdata;
+static int specifier_cgroup(char specifier, const void *data, const void *userdata, char **ret) {
+        const Unit *u = userdata;
         char *n;
 
         assert(u);
@@ -120,8 +115,8 @@ static int specifier_cgroup(char specifier, void *data, void *userdata, char **r
         return 0;
 }
 
-static int specifier_cgroup_root(char specifier, void *data, void *userdata, char **ret) {
-        Unit *u = userdata;
+static int specifier_cgroup_root(char specifier, const void *data, const void *userdata, char **ret) {
+        const Unit *u = userdata;
         char *n;
 
         assert(u);
@@ -136,8 +131,8 @@ static int specifier_cgroup_root(char specifier, void *data, void *userdata, cha
         return 0;
 }
 
-static int specifier_cgroup_slice(char specifier, void *data, void *userdata, char **ret) {
-        Unit *u = userdata;
+static int specifier_cgroup_slice(char specifier, const void *data, const void *userdata, char **ret) {
+        const Unit *u = userdata;
         char *n;
 
         assert(u);
@@ -145,7 +140,7 @@ static int specifier_cgroup_slice(char specifier, void *data, void *userdata, ch
         bad_specifier(u, specifier);
 
         if (UNIT_ISSET(u->slice)) {
-                Unit *slice;
+                const Unit *slice;
 
                 slice = UNIT_DEREF(u->slice);
 
@@ -162,8 +157,8 @@ static int specifier_cgroup_slice(char specifier, void *data, void *userdata, ch
         return 0;
 }
 
-static int specifier_special_directory(char specifier, void *data, void *userdata, char **ret) {
-        Unit *u = userdata;
+static int specifier_special_directory(char specifier, const void *data, const void *userdata, char **ret) {
+        const Unit *u = userdata;
         char *n = NULL;
 
         assert(u);
@@ -200,7 +195,10 @@ int unit_name_printf(Unit *u, const char* format, char **ret) {
                 { 'N', specifier_prefix_and_instance, NULL },
                 { 'p', specifier_prefix,              NULL },
                 { 'i', specifier_string,              u->instance },
+                { 'j', specifier_last_component,      NULL },
 
+                { 'g', specifier_group_name,          NULL },
+                { 'G', specifier_group_id,            NULL },
                 { 'U', specifier_user_id,             NULL },
                 { 'u', specifier_user_name,           NULL },
 
@@ -232,6 +230,9 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
          * %S: the state directory root (e.g. /var/lib or $XDG_CONFIG_HOME)
          * %C: the cache directory root (e.g. /var/cache or $XDG_CACHE_HOME)
          * %L: the log directory root (e.g. /var/log or $XDG_CONFIG_HOME/log)
+         * %E: the configuration directory root (e.g. /etc or $XDG_CONFIG_HOME)
+         * %T: the temporary directory (e.g. /tmp, or $TMPDIR, $TEMP, $TMP)
+         * %V: the temporary directory for large, persistent stuff (e.g. /var/tmp, or $TMPDIR, $TEMP, $TMP)
          *
          * %h: the homedir of the running user
          * %s: the shell of the running user
@@ -257,11 +258,17 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
                 { 'c', specifier_cgroup,                   NULL },
                 { 'r', specifier_cgroup_slice,             NULL },
                 { 'R', specifier_cgroup_root,              NULL },
+
                 { 't', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_RUNTIME) },
                 { 'S', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_STATE) },
                 { 'C', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
                 { 'L', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
+                { 'E', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CONFIGURATION) },
+                { 'T', specifier_tmp_dir,                  NULL },
+                { 'V', specifier_var_tmp_dir,              NULL },
 
+                { 'g', specifier_group_name,               NULL },
+                { 'G', specifier_group_id,                 NULL },
                 { 'U', specifier_user_id,                  NULL },
                 { 'u', specifier_user_name,                NULL },
                 { 'h', specifier_user_home,                NULL },
@@ -279,36 +286,4 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
         assert(ret);
 
         return specifier_printf(format, table, u, ret);
-}
-
-int unit_full_printf_strv(Unit *u, char **l, char ***ret) {
-        size_t n;
-        char **r, **i, **j;
-        int q;
-
-        /* Applies unit_full_printf to every entry in l */
-
-        assert(u);
-
-        n = strv_length(l);
-        r = new(char*, n+1);
-        if (!r)
-                return -ENOMEM;
-
-        for (i = l, j = r; *i; i++, j++) {
-                q = unit_full_printf(u, *i, j);
-                if (q < 0)
-                        goto fail;
-        }
-
-        *j = NULL;
-        *ret = r;
-        return 0;
-
-fail:
-        for (j--; j >= r; j--)
-                free(*j);
-
-        free(r);
-        return q;
 }

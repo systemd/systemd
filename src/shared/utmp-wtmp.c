@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -21,12 +16,12 @@
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "user-util.h"
-#include "util.h"
 #include "utmp-wtmp.h"
 
 int utmp_get_runlevel(int *runlevel, int *previous) {

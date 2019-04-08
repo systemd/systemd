@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -17,6 +12,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "logind-button.h"
+#include "missing_input.h"
 #include "string-util.h"
 #include "util.h"
 
@@ -159,8 +155,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 case KEY_POWER2:
                         log_struct(LOG_INFO,
                                    LOG_MESSAGE("Power key pressed."),
-                                   "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_STR,
-                                   NULL);
+                                   "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_STR);
 
                         manager_handle_action(b->manager, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
                         break;
@@ -174,8 +169,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 case KEY_SLEEP:
                         log_struct(LOG_INFO,
                                    LOG_MESSAGE("Suspend key pressed."),
-                                   "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_STR,
-                                   NULL);
+                                   "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_STR);
 
                         manager_handle_action(b->manager, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, true);
                         break;
@@ -183,8 +177,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 case KEY_SUSPEND:
                         log_struct(LOG_INFO,
                                    LOG_MESSAGE("Hibernate key pressed."),
-                                   "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_STR,
-                                   NULL);
+                                   "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_STR);
 
                         manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
                         break;
@@ -195,8 +188,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 if (ev.code == SW_LID) {
                         log_struct(LOG_INFO,
                                    LOG_MESSAGE("Lid closed."),
-                                   "MESSAGE_ID=" SD_MESSAGE_LID_CLOSED_STR,
-                                   NULL);
+                                   "MESSAGE_ID=" SD_MESSAGE_LID_CLOSED_STR);
 
                         b->lid_closed = true;
                         button_lid_switch_handle_action(b->manager, true);
@@ -205,8 +197,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 } else if (ev.code == SW_DOCK) {
                         log_struct(LOG_INFO,
                                    LOG_MESSAGE("System docked."),
-                                   "MESSAGE_ID=" SD_MESSAGE_SYSTEM_DOCKED_STR,
-                                   NULL);
+                                   "MESSAGE_ID=" SD_MESSAGE_SYSTEM_DOCKED_STR);
 
                         b->docked = true;
                 }
@@ -216,8 +207,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 if (ev.code == SW_LID) {
                         log_struct(LOG_INFO,
                                    LOG_MESSAGE("Lid opened."),
-                                   "MESSAGE_ID=" SD_MESSAGE_LID_OPENED_STR,
-                                   NULL);
+                                   "MESSAGE_ID=" SD_MESSAGE_LID_OPENED_STR);
 
                         b->lid_closed = false;
                         b->check_event_source = sd_event_source_unref(b->check_event_source);
@@ -225,8 +215,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 } else if (ev.code == SW_DOCK) {
                         log_struct(LOG_INFO,
                                    LOG_MESSAGE("System undocked."),
-                                   "MESSAGE_ID=" SD_MESSAGE_SYSTEM_UNDOCKED_STR,
-                                   NULL);
+                                   "MESSAGE_ID=" SD_MESSAGE_SYSTEM_UNDOCKED_STR);
 
                         b->docked = false;
                 }
@@ -341,10 +330,10 @@ int button_open(Button *b) {
         r = button_suitable(b);
         if (r < 0)
                 return log_warning_errno(r, "Failed to determine whether input device is relevant to us: %m");
-        if (r == 0) {
-                log_debug("Device %s does not expose keys or switches relevant to us, ignoring.", p);
-                return -EADDRNOTAVAIL;
-        }
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                       "Device %s does not expose keys or switches relevant to us, ignoring.",
+                                       p);
 
         if (ioctl(b->fd, EVIOCGNAME(sizeof(name)), name) < 0) {
                 r = log_error_errno(errno, "Failed to get input name: %m");

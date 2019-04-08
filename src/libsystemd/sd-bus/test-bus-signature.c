@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include "bus-internal.h"
 #include "bus-signature.h"
@@ -19,9 +14,9 @@ int main(int argc, char *argv[]) {
         assert_se(signature_is_single("v", false));
         assert_se(signature_is_single("as", false));
         assert_se(signature_is_single("(ss)", false));
-        assert_se(signature_is_single("()", false));
-        assert_se(signature_is_single("(()()()()())", false));
-        assert_se(signature_is_single("(((())))", false));
+        assert_se(!signature_is_single("()", false));
+        assert_se(!signature_is_single("(()()()()())", false));
+        assert_se(!signature_is_single("(((())))", false));
         assert_se(signature_is_single("((((s))))", false));
         assert_se(signature_is_single("{ss}", true));
         assert_se(signature_is_single("a{ss}", false));
@@ -66,7 +61,7 @@ int main(int argc, char *argv[]) {
         assert_se(signature_is_valid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaas", false));
         assert_se(!signature_is_valid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaau", false));
 
-        assert_se(signature_is_valid("(((((((((((((((((((((((((((((((())))))))))))))))))))))))))))))))", false));
+        assert_se(signature_is_valid("((((((((((((((((((((((((((((((((s))))))))))))))))))))))))))))))))", false));
         assert_se(!signature_is_valid("((((((((((((((((((((((((((((((((()))))))))))))))))))))))))))))))))", false));
 
         assert_se(namespace_complex_pattern("", ""));

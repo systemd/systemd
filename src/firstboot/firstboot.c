@@ -1,15 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <getopt.h>
 #include <unistd.h>
 
-#ifdef HAVE_CRYPT_H
+#if HAVE_CRYPT_H
 /* libxcrypt is a replacement for glibc's libcrypt, and libcrypt might be
  * removed from glibc at some point. As part of the removal, defines for
  * crypt(3) are dropped from unistd.h, and we must include crypt.h instead.
@@ -27,14 +22,19 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "copy.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "kbd-util.h"
 #include "locale-util.h"
+#include "main-func.h"
 #include "mkdir.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "random-util.h"
 #include "string-util.h"
@@ -62,6 +62,14 @@ static bool arg_copy_keymap = false;
 static bool arg_copy_timezone = false;
 static bool arg_copy_root_password = false;
 
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_locale, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_locale_messages, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_keymap, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_timezone, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_hostname, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_password, string_free_erasep);
+
 static bool press_any_key(void) {
         char k = 0;
         bool need_nl = true;
@@ -79,27 +87,16 @@ static bool press_any_key(void) {
 
 static void print_welcome(void) {
         _cleanup_free_ char *pretty_name = NULL;
-        const char *os_release = NULL;
         static bool done = false;
         int r;
 
         if (done)
                 return;
 
-        os_release = prefix_roota(arg_root, "/etc/os-release");
-        r = parse_env_file(os_release, NEWLINE,
-                           "PRETTY_NAME", &pretty_name,
-                           NULL);
-        if (r == -ENOENT) {
-
-                os_release = prefix_roota(arg_root, "/usr/lib/os-release");
-                r = parse_env_file(os_release, NEWLINE,
-                                   "PRETTY_NAME", &pretty_name,
-                                   NULL);
-        }
-
-        if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to read os-release file: %m");
+        r = parse_os_release(arg_root, "PRETTY_NAME", &pretty_name, NULL);
+        if (r < 0)
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to read os-release file, ignoring: %m");
 
         printf("\nWelcome to your new installation of %s!\nPlease configure a few basic system settings:\n\n",
                isempty(pretty_name) ? "Linux" : pretty_name);
@@ -166,7 +163,7 @@ static int prompt_loop(const char *text, char **l, bool (*is_valid)(const char *
                 _cleanup_free_ char *p = NULL;
                 unsigned u;
 
-                r = ask_string(&p, "%s %s (empty to skip): ", special_glyph(TRIANGULAR_BULLET), text);
+                r = ask_string(&p, "%s %s (empty to skip): ", special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user: %m");
 
@@ -257,7 +254,7 @@ static int process_locale(void) {
         if (arg_copy_locale && arg_root) {
 
                 mkdir_parents(etc_localeconf, 0755);
-                r = copy_file("/etc/locale.conf", etc_localeconf, 0, 0644, 0, COPY_REFLINK);
+                r = copy_file("/etc/locale.conf", etc_localeconf, 0, 0644, 0, 0, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy %s: %m", etc_localeconf);
@@ -331,7 +328,7 @@ static int process_keymap(void) {
         if (arg_copy_keymap && arg_root) {
 
                 mkdir_parents(etc_vconsoleconf, 0755);
-                r = copy_file("/etc/vconsole.conf", etc_vconsoleconf, 0, 0644, 0, COPY_REFLINK);
+                r = copy_file("/etc/vconsole.conf", etc_vconsoleconf, 0, 0644, 0, 0, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy %s: %m", etc_vconsoleconf);
@@ -364,6 +361,10 @@ static int process_keymap(void) {
         return 0;
 }
 
+static bool timezone_is_valid_log_error(const char *name) {
+        return timezone_is_valid(name, LOG_ERR);
+}
+
 static int prompt_timezone(void) {
         _cleanup_strv_free_ char **zones = NULL;
         int r;
@@ -387,7 +388,7 @@ static int prompt_timezone(void) {
 
         putchar('\n');
 
-        r = prompt_loop("Please enter timezone name or number", zones, timezone_is_valid, &arg_timezone);
+        r = prompt_loop("Please enter timezone name or number", zones, timezone_is_valid_log_error, &arg_timezone);
         if (r < 0)
                 return r;
 
@@ -451,7 +452,7 @@ static int prompt_hostname(void) {
         for (;;) {
                 _cleanup_free_ char *h = NULL;
 
-                r = ask_string(&h, "%s Please enter hostname for new system (empty to skip): ", special_glyph(TRIANGULAR_BULLET));
+                r = ask_string(&h, "%s Please enter hostname for new system (empty to skip): ", special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
                 if (r < 0)
                         return log_error_errno(r, "Failed to query hostname: %m");
 
@@ -538,17 +539,21 @@ static int prompt_root_password(void) {
         print_welcome();
         putchar('\n');
 
-        msg1 = strjoina(special_glyph(TRIANGULAR_BULLET), " Please enter a new root password (empty to skip): ");
-        msg2 = strjoina(special_glyph(TRIANGULAR_BULLET), " Please enter new root password again: ");
+        msg1 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter a new root password (empty to skip): ");
+        msg2 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter new root password again: ");
 
         for (;;) {
-                _cleanup_string_free_erase_ char *a = NULL, *b = NULL;
+                _cleanup_strv_free_erase_ char **a = NULL, **b = NULL;
 
                 r = ask_password_tty(-1, msg1, NULL, 0, 0, NULL, &a);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
+                if (strv_length(a) != 1) {
+                        log_warning("Received multiple passwords, where we expected one.");
+                        return -EINVAL;
+                }
 
-                if (isempty(a)) {
+                if (isempty(*a)) {
                         log_warning("No password entered, skipping.");
                         break;
                 }
@@ -557,12 +562,12 @@ static int prompt_root_password(void) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
 
-                if (!streq(a, b)) {
+                if (!streq(*a, *b)) {
                         log_error("Entered passwords did not match, please try again.");
                         continue;
                 }
 
-                arg_root_password = TAKE_PTR(a);
+                arg_root_password = TAKE_PTR(*a);
                 break;
         }
 
@@ -654,7 +659,8 @@ static int process_root_password(void) {
         if (!arg_root_password)
                 return 0;
 
-        r = acquire_random_bytes(raw, 16, true);
+        /* Insist on the best randomness by setting RANDOM_BLOCK, this is about keeping passwords secret after all. */
+        r = genuine_random_bytes(raw, 16, RANDOM_BLOCK);
         if (r < 0)
                 return log_error_errno(r, "Failed to get salt: %m");
 
@@ -685,7 +691,14 @@ static int process_root_password(void) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-firstboot", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Configures basic settings of the system.\n\n"
                "  -h --help                    Show this help\n"
@@ -711,7 +724,12 @@ static void help(void) {
                "     --copy-root-password      Copy root password from host\n"
                "     --copy                    Copy locale, keymap, timezone, root password\n"
                "     --setup-machine-id        Generate a new random machine ID\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -778,8 +796,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -791,10 +808,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOCALE:
-                        if (!locale_is_valid(optarg)) {
-                                log_error("Locale %s is not valid.", optarg);
-                                return -EINVAL;
-                        }
+                        if (!locale_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Locale %s is not valid.", optarg);
 
                         r = free_and_strdup(&arg_locale, optarg);
                         if (r < 0)
@@ -803,10 +819,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOCALE_MESSAGES:
-                        if (!locale_is_valid(optarg)) {
-                                log_error("Locale %s is not valid.", optarg);
-                                return -EINVAL;
-                        }
+                        if (!locale_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Locale %s is not valid.", optarg);
 
                         r = free_and_strdup(&arg_locale_messages, optarg);
                         if (r < 0)
@@ -815,10 +830,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KEYMAP:
-                        if (!keymap_is_valid(optarg)) {
-                                log_error("Keymap %s is not valid.", optarg);
-                                return -EINVAL;
-                        }
+                        if (!keymap_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Keymap %s is not valid.", optarg);
 
                         r = free_and_strdup(&arg_keymap, optarg);
                         if (r < 0)
@@ -827,10 +841,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TIMEZONE:
-                        if (!timezone_is_valid(optarg)) {
-                                log_error("Timezone %s is not valid.", optarg);
-                                return -EINVAL;
-                        }
+                        if (!timezone_is_valid(optarg, LOG_ERR))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Timezone %s is not valid.", optarg);
 
                         r = free_and_strdup(&arg_timezone, optarg);
                         if (r < 0)
@@ -854,10 +867,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_HOSTNAME:
-                        if (!hostname_is_valid(optarg, true)) {
-                                log_error("Host name %s is not valid.", optarg);
-                                return -EINVAL;
-                        }
+                        if (!hostname_is_valid(optarg, true))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Host name %s is not valid.", optarg);
 
                         hostname_cleanup(optarg);
                         r = free_and_strdup(&arg_hostname, optarg);
@@ -867,10 +879,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MACHINE_ID:
-                        if (sd_id128_from_string(optarg, &arg_machine_id) < 0) {
-                                log_error("Failed to parse machine id %s.", optarg);
-                                return -EINVAL;
-                        }
+                        if (sd_id128_from_string(optarg, &arg_machine_id) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse machine id %s.", optarg);
 
                         break;
 
@@ -936,63 +947,49 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         bool enabled;
         int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         umask(0022);
 
         r = proc_cmdline_get_bool("systemd.firstboot", &enabled);
-        if (r < 0) {
-                log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring.");
-                goto finish;
-        }
-        if (r > 0 && !enabled) {
-                r = 0; /* disabled */
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
+        if (r > 0 && !enabled)
+                return 0; /* disabled */
 
         r = process_locale();
         if (r < 0)
-                goto finish;
+                return r;
 
         r = process_keymap();
         if (r < 0)
-                goto finish;
+                return r;
 
         r = process_timezone();
         if (r < 0)
-                goto finish;
+                return r;
 
         r = process_hostname();
         if (r < 0)
-                goto finish;
+                return r;
 
         r = process_machine_id();
         if (r < 0)
-                goto finish;
+                return r;
 
         r = process_root_password();
         if (r < 0)
-                goto finish;
+                return r;
 
-finish:
-        free(arg_root);
-        free(arg_locale);
-        free(arg_locale_messages);
-        free(arg_keymap);
-        free(arg_timezone);
-        free(arg_hostname);
-        string_erase(arg_root_password);
-        free(arg_root_password);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

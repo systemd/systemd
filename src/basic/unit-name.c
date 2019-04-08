@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stddef.h>
@@ -383,7 +378,7 @@ int unit_name_path_escape(const char *f, char **ret) {
         if (!p)
                 return -ENOMEM;
 
-        path_kill_slashes(p);
+        path_simplify(p, false);
 
         if (empty_or_root(p))
                 s = strdup("-");

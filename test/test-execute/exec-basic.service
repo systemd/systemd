@@ -2,7 +2,7 @@
 Description=Test for basic execution
 
 [Service]
-ExecStart=touch /tmp/a ; /bin/touch /tmp/b ; touch /tmp/c
+ExecStart=touch /tmp/a ; /bin/sh -c 'touch /tmp/b' ; touch /tmp/c
 ExecStart=test -f /tmp/a
 ExecStart=!test -f /tmp/b
 ExecStart=!!test -f /tmp/c

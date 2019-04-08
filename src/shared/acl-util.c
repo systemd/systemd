@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011,2013 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stdbool.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "acl-util.h"
 #include "alloc-util.h"
@@ -224,10 +221,7 @@ int parse_acl(const char *text, acl_t *acl_access, acl_t *acl_default, bool want
         STRV_FOREACH(entry, split) {
                 char *p;
 
-                p = startswith(*entry, "default:");
-                if (!p)
-                        p = startswith(*entry, "d:");
-
+                p = STARTSWITH_SET(*entry, "default:", "d:");
                 if (p)
                         r = strv_push(&d, p);
                 else

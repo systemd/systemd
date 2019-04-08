@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include <pthread.h>
 #include <stdlib.h>
@@ -14,7 +9,7 @@
 #include "bus-util.h"
 #include "log.h"
 #include "macro.h"
-#include "util.h"
+#include "memory-util.h"
 
 struct context {
         int fds[2];
@@ -68,7 +63,8 @@ static void *server(void *p) {
 
                 if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "Exit")) {
 
-                        assert_se((sd_bus_can_send(bus, 'h') >= 1) == (c->server_negotiate_unix_fds && c->client_negotiate_unix_fds));
+                        assert_se((sd_bus_can_send(bus, 'h') >= 1) ==
+                                  (c->server_negotiate_unix_fds && c->client_negotiate_unix_fds));
 
                         r = sd_bus_message_new_method_return(m, &reply);
                         if (r < 0) {
@@ -132,10 +128,8 @@ static int client(struct context *c) {
                 return log_error_errno(r, "Failed to allocate method call: %m");
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, -r));
 
         return 0;
 }

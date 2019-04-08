@@ -1,15 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
-
 #include <sys/stat.h>
 
-#include "util.h"
+#include "errno-util.h"
 
 typedef enum RemoveFlags {
         REMOVE_ONLY_DIRECTORIES = 1 << 0,
@@ -28,3 +22,11 @@ static inline void rm_rf_physical_and_free(char *p) {
         free(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_physical_and_free);
+
+/* Similar as above, but also has magic btrfs subvolume powers */
+static inline void rm_rf_subvolume_and_free(char *p) {
+        PROTECT_ERRNO;
+        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+        free(p);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_subvolume_and_free);

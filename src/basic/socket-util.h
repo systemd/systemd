@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
+#include <inttypes.h>
+#include <linux/netlink.h>
+#include <linux/if_infiniband.h>
+#include <linux/if_packet.h>
 #include <netinet/ether.h>
 #include <netinet/in.h>
 #include <stdbool.h>
@@ -14,13 +12,10 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
-#include <linux/netlink.h>
-#include <linux/if_infiniband.h>
-#include <linux/if_packet.h>
 
 #include "macro.h"
-#include "missing.h"
-#include "util.h"
+#include "missing_socket.h"
+#include "sparse-endian.h"
 
 union sockaddr_union {
         /* The minimal, abstract version */
@@ -76,8 +71,13 @@ int socket_address_parse(SocketAddress *a, const char *s);
 int socket_address_parse_and_warn(SocketAddress *a, const char *s);
 int socket_address_parse_netlink(SocketAddress *a, const char *s);
 int socket_address_print(const SocketAddress *a, char **p);
-int socket_address_verify(const SocketAddress *a) _pure_;
-int socket_address_unlink(SocketAddress *a);
+int socket_address_verify(const SocketAddress *a, bool strict) _pure_;
+
+int sockaddr_un_unlink(const struct sockaddr_un *sa);
+
+static inline int socket_address_unlink(const SocketAddress *a) {
+        return socket_address_family(a) == AF_UNIX ? sockaddr_un_unlink(&a->sockaddr.un) : 0;
+}
 
 bool socket_address_can_accept(const SocketAddress *a) _pure_;
 
@@ -116,7 +116,7 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret);
 
 const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
 SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s) _pure_;
-SocketAddressBindIPv6Only parse_socket_address_bind_ipv6_only_or_bool(const char *s);
+SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *s);
 
 int netlink_family_to_string_alloc(int b, char **s);
 int netlink_family_from_string(const char *s) _pure_;
@@ -136,11 +136,19 @@ int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
 int getpeergroups(int fd, gid_t **ret);
 
+ssize_t send_one_fd_iov_sa(
+                int transport_fd,
+                int fd,
+                struct iovec *iov, size_t iovlen,
+                const struct sockaddr *sa, socklen_t len,
+                int flags);
 int send_one_fd_sa(int transport_fd,
                    int fd,
                    const struct sockaddr *sa, socklen_t len,
                    int flags);
-#define send_one_fd(transport_fd, fd, flags) send_one_fd_sa(transport_fd, fd, NULL, 0, flags)
+#define send_one_fd_iov(transport_fd, fd, iov, iovlen, flags) send_one_fd_iov_sa(transport_fd, fd, iov, iovlen, NULL, 0, flags)
+#define send_one_fd(transport_fd, fd, flags) send_one_fd_iov_sa(transport_fd, fd, NULL, 0, NULL, 0, flags)
+ssize_t receive_one_fd_iov(int transport_fd, struct iovec *iov, size_t iovlen, int flags, int *ret_fd);
 int receive_one_fd(int transport_fd, int flags);
 
 ssize_t next_datagram_size_fd(int fd);
@@ -177,7 +185,19 @@ struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t leng
                 offsetof(struct sockaddr_un, sun_path) +                \
                         (_sa->sun_path[0] == 0 ?                        \
                          1 + strnlen(_sa->sun_path+1, sizeof(_sa->sun_path)-1) : \
-                         strnlen(_sa->sun_path, sizeof(_sa->sun_path))); \
+                         strnlen(_sa->sun_path, sizeof(_sa->sun_path))+1); \
         })
 
 int socket_ioctl_fd(void);
+
+int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path);
+
+static inline int setsockopt_int(int fd, int level, int optname, int value) {
+        if (setsockopt(fd, level, optname, &value, sizeof(value)) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int socket_bind_to_ifname(int fd, const char *ifname);
+int socket_bind_to_ifindex(int fd, int ifindex);

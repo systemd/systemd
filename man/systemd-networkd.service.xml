@@ -1,29 +1,13 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-networkd.service" conditional='ENABLE_NETWORKD'>
 
   <refentryinfo>
     <title>systemd-networkd.service</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Tom</firstname>
-        <surname>Gundersen</surname>
-        <email>teg@jklm.no</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -72,7 +56,7 @@
 
     <para>When <filename>systemd-networkd</filename> exits, it generally leaves
     existing network devices and configuration intact. This makes it possible to
-    transition from the initrams and to restart the service without breaking
+    transition from the initramfs and to restart the service without breaking
     connectivity. This also means that when configuration is updated and
     <filename>systemd-networkd</filename> is restarted, netdev interfaces for
     which configuration was removed will not be dropped, and may need to be

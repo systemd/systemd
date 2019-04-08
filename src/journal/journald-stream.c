@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <stddef.h>
 #include <unistd.h>
@@ -17,6 +12,7 @@
 
 #include "alloc-util.h"
 #include "dirent-util.h"
+#include "env-file.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -36,6 +32,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
+#include "tmpfile-util.h"
 #include "unit-name.h"
 
 #define STDOUT_STREAMS_MAX 4096
@@ -130,7 +127,7 @@ void stdout_stream_free(StdoutStream *s) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(StdoutStream*, stdout_stream_free);
 
-static void stdout_stream_destroy(StdoutStream *s) {
+void stdout_stream_destroy(StdoutStream *s) {
         if (!s)
                 return;
 
@@ -162,7 +159,7 @@ static int stdout_stream_save(StdoutStream *s) {
                         return log_oom();
         }
 
-        mkdir_p("/run/systemd/journal/streams", 0755);
+        (void) mkdir_p("/run/systemd/journal/streams", 0755);
 
         r = fopen_temporary(s->state_file, &f, &temp_path);
         if (r < 0)
@@ -378,7 +375,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                         return -EINVAL;
                 }
 
-                s->level_prefix = !!r;
+                s->level_prefix = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_SYSLOG;
                 return 0;
 
@@ -389,7 +386,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                         return -EINVAL;
                 }
 
-                s->forward_to_syslog = !!r;
+                s->forward_to_syslog = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_KMSG;
                 return 0;
 
@@ -400,7 +397,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                         return -EINVAL;
                 }
 
-                s->forward_to_kmsg = !!r;
+                s->forward_to_kmsg = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_CONSOLE;
                 return 0;
 
@@ -411,7 +408,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                         return -EINVAL;
                 }
 
-                s->forward_to_console = !!r;
+                s->forward_to_console = r;
                 s->state = STDOUT_STREAM_RUNNING;
 
                 /* Try to save the stream, so that journald can be restarted and we can recover */
@@ -539,7 +536,7 @@ terminate:
         return 0;
 }
 
-static int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
+int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         _cleanup_(stdout_stream_freep) StdoutStream *stream = NULL;
         sd_id128_t id;
         int r;
@@ -601,10 +598,10 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 
         assert(s);
 
-        if (revents != EPOLLIN) {
-                log_error("Got invalid event from epoll for stdout server fd: %"PRIx32, revents);
-                return -EIO;
-        }
+        if (revents != EPOLLIN)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Got invalid event from epoll for stdout server fd: %" PRIx32,
+                                       revents);
 
         fd = accept4(s->stdout_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (fd < 0) {
@@ -615,7 +612,17 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
         }
 
         if (s->n_stdout_streams >= STDOUT_STREAMS_MAX) {
-                log_warning("Too many stdout streams, refusing connection.");
+                struct ucred u;
+
+                r = getpeercred(fd, &u);
+
+                /* By closing fd here we make sure that the client won't wait too long for journald to
+                 * gather all the data it adds to the error message to find out that the connection has
+                 * just been refused.
+                 */
+                fd = safe_close(fd);
+
+                server_driver_message(s, r < 0 ? 0 : u.pid, NULL, LOG_MESSAGE("Too many stdout streams, refusing connection."), NULL);
                 return 0;
         }
 
@@ -646,7 +653,7 @@ static int stdout_stream_load(StdoutStream *stream, const char *fname) {
                         return log_oom();
         }
 
-        r = parse_env_file(stream->state_file, NEWLINE,
+        r = parse_env_file(NULL, stream->state_file,
                            "PRIORITY", &priority,
                            "LEVEL_PREFIX", &level_prefix,
                            "FORWARD_TO_SYSLOG", &forward_to_syslog,
@@ -654,8 +661,7 @@ static int stdout_stream_load(StdoutStream *stream, const char *fname) {
                            "FORWARD_TO_CONSOLE", &forward_to_console,
                            "IDENTIFIER", &stream->identifier,
                            "UNIT", &stream->unit_id,
-                           "STREAM_ID", &stream_id,
-                           NULL);
+                           "STREAM_ID", &stream_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to read: %s", stream->state_file);
 
@@ -766,8 +772,8 @@ int server_restore_streams(Server *s, FDSet *fds) {
                         /* No file descriptor? Then let's delete the state file */
                         log_debug("Cannot restore stream file %s", de->d_name);
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                                log_warning("Failed to remove /run/systemd/journal/streams/%s: %m",
-                                            de->d_name);
+                                log_warning_errno(errno, "Failed to remove /run/systemd/journal/streams/%s: %m",
+                                                  de->d_name);
                         continue;
                 }
 
@@ -798,7 +804,7 @@ int server_open_stdout_socket(Server *s) {
                 if (s->stdout_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");
 
-                (void) unlink(sa.un.sun_path);
+                (void) sockaddr_un_unlink(&sa.un);
 
                 r = bind(s->stdout_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
                 if (r < 0)
@@ -809,7 +815,7 @@ int server_open_stdout_socket(Server *s) {
                 if (listen(s->stdout_fd, SOMAXCONN) < 0)
                         return log_error_errno(errno, "listen(%s) failed: %m", sa.un.sun_path);
         } else
-                fd_nonblock(s->stdout_fd, 1);
+                (void) fd_nonblock(s->stdout_fd, true);
 
         r = sd_event_add_io(s->event, &s->stdout_event_source, s->stdout_fd, EPOLLIN, stdout_stream_new, s);
         if (r < 0)

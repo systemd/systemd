@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd
-
-  Copyright 2013 Daniel Buch
-***/
 
 #include "hashmap.h"
 #include "util.h"
+
+unsigned custom_counter = 0;
+static void custom_destruct(void* p) {
+        custom_counter--;
+        free(p);
+}
+
+DEFINE_HASH_OPS_FULL(boring_hash_ops, char, string_hash_func, string_compare_func, free, char, free);
+DEFINE_HASH_OPS_FULL(custom_hash_ops, char, string_hash_func, string_compare_func, custom_destruct, char, custom_destruct);
 
 void test_hashmap_funcs(void);
 void test_ordered_hashmap_funcs(void);
@@ -14,6 +18,8 @@ void test_ordered_hashmap_funcs(void);
 static void test_ordered_hashmap_next(void) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *m = NULL;
         int i;
+
+        log_info("/* %s */", __func__);
 
         assert_se(m = ordered_hashmap_new(NULL));
         for (i = -2; i <= 2; i++)
@@ -36,6 +42,8 @@ static void test_hashmap_free_with_destructor(void) {
         Hashmap *m;
         struct Item items[4] = {};
         unsigned i;
+
+        log_info("/* %s */", __func__);
 
         assert_se(m = hashmap_new(NULL));
         for (i = 0; i < ELEMENTSOF(items) - 1; i++)
@@ -92,6 +100,8 @@ static void test_iterated_cache(void) {
         Hashmap *m;
         IteratedCache *c;
 
+        log_info("/* %s */", __func__);
+
         assert_se(m = hashmap_new(NULL));
         assert_se(c = hashmap_iterated_cache_new(m));
         compare_cache(m, c);
@@ -125,7 +135,9 @@ static void test_iterated_cache(void) {
 }
 
 static void test_path_hashmap(void) {
-        _cleanup_(hashmap_freep) Hashmap *h = NULL;
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
+
+        log_info("/* %s */", __func__);
 
         assert_se(h = hashmap_new(&path_hash_ops));
 

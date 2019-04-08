@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 systemd_coredump_sources = files('''
         coredump.c
@@ -15,8 +13,10 @@ endif
 
 coredumpctl_sources = files('coredumpctl.c')
 
-install_data('coredump.conf',
-             install_dir : pkgsysconfdir)
+if conf.get('ENABLE_COREDUMP') == 1
+        install_data('coredump.conf',
+                     install_dir : pkgsysconfdir)
+endif
 
 tests += [
         [['src/coredump/test-coredump-vacuum.c',

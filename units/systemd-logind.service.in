@@ -20,22 +20,34 @@ Wants=dbus.socket
 After=dbus.socket
 
 [Service]
+BusName=org.freedesktop.login1
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_MAC_ADMIN CAP_AUDIT_CONTROL CAP_CHOWN CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_SYS_TTY_CONFIG CAP_LINUX_IMMUTABLE
 ExecStart=@rootlibexecdir@/systemd-logind
+FileDescriptorStoreMax=512
+IPAddressDeny=any
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelModules=yes
+ProtectSystem=strict
+ReadWritePaths=/etc /run
 Restart=always
 RestartSec=0
-BusName=org.freedesktop.login1
-WatchdogSec=3min
-CapabilityBoundingSet=CAP_SYS_ADMIN CAP_MAC_ADMIN CAP_AUDIT_CONTROL CAP_CHOWN CAP_KILL CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_SYS_TTY_CONFIG
-MemoryDenyWriteExecute=yes
-RestrictRealtime=yes
-RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
-SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io @reboot @swap
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RuntimeDirectory=systemd/sessions systemd/seats systemd/users systemd/inhibit systemd/shutdown
+RuntimeDirectoryPreserve=yes
 SystemCallArchitectures=native
-LockPersonality=yes
-IPAddressDeny=any
-FileDescriptorStoreMax=512
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+WatchdogSec=3min
 
-# Increase the default a bit in order to allow many simultaneous
-# logins since we keep one fd open per session.
-LimitNOFILE=16384
+# Increase the default a bit in order to allow many simultaneous logins since
+# we keep one fd open per session.
+LimitNOFILE=@HIGH_RLIMIT_NOFILE@

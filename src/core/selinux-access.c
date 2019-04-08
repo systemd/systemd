@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Dan Walsh
-***/
 
 #include "selinux-access.h"
 
@@ -22,6 +17,7 @@
 #include "alloc-util.h"
 #include "audit-fd.h"
 #include "bus-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "selinux-util.h"
@@ -114,7 +110,11 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
                 va_end(ap);
 
                 if (r >= 0) {
-                        audit_log_user_avc_message(fd, AUDIT_USER_AVC, buf, NULL, NULL, NULL, 0);
+                        if (type == SELINUX_AVC)
+                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_AVC, buf, NULL, NULL, NULL, 0);
+                        else if (type == SELINUX_ERROR)
+                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_SELINUX_ERR, buf, NULL, NULL, NULL, 0);
+
                         return 0;
                 }
         }

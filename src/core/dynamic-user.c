@@ -1,28 +1,31 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-***/
 
 #include <grp.h>
 #include <pwd.h>
 #include <sys/file.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "clean-ipc.h"
 #include "dynamic-user.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "nscd-flush.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "serialize.h"
+#include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "user-util.h"
 
 /* Takes a value generated randomly or by hashing and turns it into a UID in the right range */
 #define UID_CLAMP_INTO_RANGE(rnd) (((uid_t) (rnd) % (DYNAMIC_UID_MAX - DYNAMIC_UID_MIN + 1)) + DYNAMIC_UID_MIN)
+
+DEFINE_PRIVATE_TRIVIAL_REF_FUNC(DynamicUser, dynamic_user);
 
 static DynamicUser* dynamic_user_free(DynamicUser *d) {
         if (!d)
@@ -35,8 +38,8 @@ static DynamicUser* dynamic_user_free(DynamicUser *d) {
         return mfree(d);
 }
 
-static int dynamic_user_add(Manager *m, const char *name, int storage_socket[2], DynamicUser **ret) {
-        DynamicUser *d = NULL;
+static int dynamic_user_add(Manager *m, const char *name, int storage_socket[static 2], DynamicUser **ret) {
+        DynamicUser *d;
         int r;
 
         assert(m);
@@ -106,9 +109,11 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret)
 
         d = hashmap_get(m->dynamic_users, name);
         if (d) {
-                /* We already have a structure for the dynamic user, let's increase the ref count and reuse it */
-                d->n_ref++;
-                *ret = d;
+                if (ret) {
+                        /* We already have a structure for the dynamic user, let's increase the ref count and reuse it */
+                        d->n_ref++;
+                        *ret = d;
+                }
                 return 0;
         }
 
@@ -177,7 +182,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
          *
          * 1. Initially, we try to read the UID of a number of specified paths. If any of these UIDs works, we use
          *    them. We use in order to increase the chance of UID reuse, if StateDirectory=, CacheDirectory= or
-         *    LogDirectory= are used, as reusing the UID these directories are owned by saves us from having to
+         *    LogsDirectory= are used, as reusing the UID these directories are owned by saves us from having to
          *    recursively chown() them to new users.
          *
          * 2. If that didn't yield a currently unused UID, we hash the user name, and try to use that. This should be
@@ -316,20 +321,8 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
 static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
         uid_t uid = UID_INVALID;
         struct iovec iov = IOVEC_INIT(&uid, sizeof(uid));
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-                .msg_iov = &iov,
-                .msg_iovlen = 1,
-        };
-        struct cmsghdr *cmsg;
-
+        int lock_fd;
         ssize_t k;
-        int lock_fd = -1;
 
         assert(d);
         assert(ret_uid);
@@ -338,15 +331,9 @@ static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
         /* Read the UID and lock fd that is stored in the storage AF_UNIX socket. This should be called with the lock
          * on the socket taken. */
 
-        k = recvmsg(d->storage_socket[0], &mh, MSG_DONTWAIT|MSG_NOSIGNAL|MSG_CMSG_CLOEXEC);
+        k = receive_one_fd_iov(d->storage_socket[0], &iov, 1, MSG_DONTWAIT, &lock_fd);
         if (k < 0)
-                return -errno;
-
-        cmsg = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
-        if (cmsg)
-                lock_fd = *(int*) CMSG_DATA(cmsg);
-        else
-                cmsg_close_all(&mh); /* just in case... */
+                return (int) k;
 
         *ret_uid = uid;
         *ret_lock_fd = lock_fd;
@@ -356,42 +343,11 @@ static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
 
 static int dynamic_user_push(DynamicUser *d, uid_t uid, int lock_fd) {
         struct iovec iov = IOVEC_INIT(&uid, sizeof(uid));
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-                .msg_iov = &iov,
-                .msg_iovlen = 1,
-        };
-        ssize_t k;
 
         assert(d);
 
         /* Store the UID and lock_fd in the storage socket. This should be called with the socket pair lock taken. */
-
-        if (lock_fd >= 0) {
-                struct cmsghdr *cmsg;
-
-                cmsg = CMSG_FIRSTHDR(&mh);
-                cmsg->cmsg_level = SOL_SOCKET;
-                cmsg->cmsg_type = SCM_RIGHTS;
-                cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-                memcpy(CMSG_DATA(cmsg), &lock_fd, sizeof(int));
-
-                mh.msg_controllen = CMSG_SPACE(sizeof(int));
-        } else {
-                mh.msg_control = NULL;
-                mh.msg_controllen = 0;
-        }
-
-        k = sendmsg(d->storage_socket[1], &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
-        if (k < 0)
-                return -errno;
-
-        return 0;
+        return send_one_fd_iov(d->storage_socket[1], lock_fd, &iov, 1, MSG_DONTWAIT);
 }
 
 static void unlink_uid_lock(int lock_fd, uid_t uid, const char *name) {
@@ -431,6 +387,7 @@ static int dynamic_user_realize(
         _cleanup_close_ int etc_passwd_lock_fd = -1;
         uid_t num = UID_INVALID; /* a uid if is_user, and a gid otherwise */
         gid_t gid = GID_INVALID; /* a gid if is_user, ignored otherwise */
+        bool flush_cache = false;
         int r;
 
         assert(d);
@@ -519,6 +476,7 @@ static int dynamic_user_realize(
                         }
 
                         /* Great! Nothing is stored here, still. Store our newly acquired data. */
+                        flush_cache = true;
                 } else {
                         /* Hmm, so as it appears there's now something stored in the storage socket. Throw away what we
                          * acquired, and use what's stored now. */
@@ -529,6 +487,16 @@ static int dynamic_user_realize(
                         num = new_uid;
                         uid_lock_fd = new_uid_lock_fd;
                 }
+        } else if (is_user && !uid_is_dynamic(num)) {
+                struct passwd *p;
+
+                /* Statically allocated user may have different uid and gid. So, let's obtain the gid. */
+                errno = 0;
+                p = getpwuid(num);
+                if (!p)
+                        return errno > 0 ? -errno : -ESRCH;
+
+                gid = p->pw_gid;
         }
 
         /* If the UID/GID was already allocated dynamically, push the data we popped out back in. If it was already
@@ -537,6 +505,14 @@ static int dynamic_user_realize(
         r = dynamic_user_push(d, num, uid_lock_fd);
         if (r < 0)
                 return r;
+
+        if (flush_cache) {
+                /* If we allocated a new dynamic UID, refresh nscd, so that it forgets about potentially cached
+                 * negative entries. But let's do so after we release the /etc/passwd lock, so that there's no
+                 * potential for nscd wanting to lock that for completing the invalidation. */
+                etc_passwd_lock_fd = safe_close(etc_passwd_lock_fd);
+                (void) nscd_flush_cache(STRV_MAKE("passwd", "group"));
+        }
 
         if (is_user) {
                 *ret_uid = num;
@@ -572,16 +548,6 @@ int dynamic_user_current(DynamicUser *d, uid_t *ret) {
 
         *ret = uid;
         return 0;
-}
-
-static DynamicUser* dynamic_user_ref(DynamicUser *d) {
-        if (!d)
-                return NULL;
-
-        assert(d->n_ref > 0);
-        d->n_ref++;
-
-        return d;
 }
 
 static DynamicUser* dynamic_user_unref(DynamicUser *d) {
@@ -620,6 +586,8 @@ static int dynamic_user_close(DynamicUser *d) {
 
         /* This dynamic user was realized and dynamically allocated. In this case, let's remove the lock file. */
         unlink_uid_lock(lock_fd, uid, d->name);
+
+        (void) nscd_flush_cache(STRV_MAKE("passwd", "group"));
         return 1;
 }
 
@@ -656,13 +624,13 @@ int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds) {
 
                 copy0 = fdset_put_dup(fds, d->storage_socket[0]);
                 if (copy0 < 0)
-                        return copy0;
+                        return log_error_errno(copy0, "Failed to add dynamic user storage fd to serialization: %m");
 
                 copy1 = fdset_put_dup(fds, d->storage_socket[1]);
                 if (copy1 < 0)
-                        return copy1;
+                        return log_error_errno(copy1, "Failed to add dynamic user storage fd to serialization: %m");
 
-                fprintf(f, "dynamic-user=%s %i %i\n", d->name, copy0, copy1);
+                (void) serialize_item_format(f, "dynamic-user", "%s %i %i", d->name, copy0, copy1);
         }
 
         return 0;
@@ -742,7 +710,7 @@ int dynamic_user_lookup_uid(Manager *m, uid_t uid, char **ret) {
 
         xsprintf(lock_path, "/run/systemd/dynamic-uid/" UID_FMT, uid);
         r = read_one_line_file(lock_path, &user);
-        if (r == -ENOENT)
+        if (IN_SET(r, -ENOENT, 0))
                 return -ESRCH;
         if (r < 0)
                 return r;

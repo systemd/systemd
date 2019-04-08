@@ -1,15 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "alloc-util.h"
+#include "main-func.h"
+#include "pretty-print.h"
+#include "string-table.h"
 #include "util.h"
 #include "virt.h"
 
@@ -22,7 +21,14 @@ static enum {
         ONLY_PRIVATE_USERS,
 } arg_mode = ANY_VIRTUALIZATION;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-detect-virt", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Detect execution in a virtualized environment.\n\n"
                "  -h --help             Show this help\n"
@@ -32,7 +38,13 @@ static void help(void) {
                "  -r --chroot           Detect whether we are run in a chroot() environment\n"
                "     --private-users    Only detect whether we are running in a user namespace\n"
                "  -q --quiet            Don't output anything, just set return value\n"
-               , program_invocation_short_name);
+               "     --list             List all known and detectable types of virtualization\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -40,6 +52,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_PRIVATE_USERS,
+                ARG_LIST,
         };
 
         static const struct option options[] = {
@@ -50,6 +63,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "chroot",        no_argument, NULL, 'r'               },
                 { "private-users", no_argument, NULL, ARG_PRIVATE_USERS },
                 { "quiet",         no_argument, NULL, 'q'               },
+                { "list",          no_argument, NULL, ARG_LIST          },
                 {}
         };
 
@@ -63,8 +77,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -89,6 +102,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_mode = ONLY_CHROOT;
                         break;
 
+                case ARG_LIST:
+                        DUMP_STRING_TABLE(virtualization, int, _VIRTUALIZATION_MAX);
+                        return 0;
+
                 case '?':
                         return -EINVAL;
 
@@ -96,15 +113,15 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind < argc) {
-                log_error("%s takes no arguments.", program_invocation_short_name);
-                return -EINVAL;
-        }
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s takes no arguments.",
+                                       program_invocation_short_name);
 
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         /* This is mostly intended to be used for scripts which want
@@ -116,59 +133,45 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                return r;
 
         switch (arg_mode) {
-
         case ONLY_VM:
                 r = detect_vm();
-                if (r < 0) {
-                        log_error_errno(r, "Failed to check for VM: %m");
-                        return EXIT_FAILURE;
-                }
-
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check for VM: %m");
                 break;
 
         case ONLY_CONTAINER:
                 r = detect_container();
-                if (r < 0) {
-                        log_error_errno(r, "Failed to check for container: %m");
-                        return EXIT_FAILURE;
-                }
-
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check for container: %m");
                 break;
 
         case ONLY_CHROOT:
                 r = running_in_chroot();
-                if (r < 0) {
-                        log_error_errno(r, "Failed to check for chroot() environment: %m");
-                        return EXIT_FAILURE;
-                }
-
-                return r ? EXIT_SUCCESS : EXIT_FAILURE;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check for chroot() environment: %m");
+                return !r;
 
         case ONLY_PRIVATE_USERS:
                 r = running_in_userns();
-                if (r < 0) {
-                        log_error_errno(r, "Failed to check for user namespace: %m");
-                        return EXIT_FAILURE;
-                }
-
-                return r ? EXIT_SUCCESS : EXIT_FAILURE;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check for user namespace: %m");
+                return !r;
 
         case ANY_VIRTUALIZATION:
         default:
                 r = detect_virtualization();
-                if (r < 0) {
-                        log_error_errno(r, "Failed to check for virtualization: %m");
-                        return EXIT_FAILURE;
-                }
-
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check for virtualization: %m");
                 break;
         }
 
         if (!arg_quiet)
                 puts(virtualization_to_string(r));
 
-        return r != VIRTUALIZATION_NONE ? EXIT_SUCCESS : EXIT_FAILURE;
+        return r == VIRTUALIZATION_NONE;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

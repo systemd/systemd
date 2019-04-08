@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <stdbool.h>
 
 typedef struct LookupPaths LookupPaths;
@@ -17,6 +11,7 @@ typedef struct LookupPaths LookupPaths;
 typedef enum LookupPathsFlags {
         LOOKUP_PATHS_EXCLUDE_GENERATED   = 1 << 0,
         LOOKUP_PATHS_TEMPORARY_GENERATED = 1 << 1,
+        LOOKUP_PATHS_SPLIT_USR           = 1 << 2,
 } LookupPathsFlags;
 
 struct LookupPaths {
@@ -28,6 +23,10 @@ struct LookupPaths {
          * shall place his own unit files. */
         char *persistent_config;
         char *runtime_config;
+
+        /* Where units from a portable service image shall be placed. */
+        char *persistent_attached;
+        char *runtime_attached;
 
         /* Where to place generated unit files (i.e. those a "generator" tool generated). Note the special semantics of
          * this directory: the generators are flushed each time a "systemctl daemon-reload" is issued. The user should
@@ -55,10 +54,12 @@ struct LookupPaths {
 };
 
 int lookup_paths_init(LookupPaths *p, UnitFileScope scope, LookupPathsFlags flags, const char *root_dir);
+
 int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs);
 int xdg_user_runtime_dir(char **ret, const char *suffix);
 int xdg_user_config_dir(char **ret, const char *suffix);
 int xdg_user_data_dir(char **ret, const char *suffix);
+
 bool path_is_user_data_dir(const char *path);
 bool path_is_user_config_dir(const char *path);
 

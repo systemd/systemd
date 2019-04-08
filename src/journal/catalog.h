@@ -1,13 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
-
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "sd-id128.h"
 

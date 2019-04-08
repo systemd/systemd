@@ -1,14 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="timedatectl" conditional='ENABLE_TIMEDATECTL'
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -16,15 +9,6 @@
   <refentryinfo>
     <title>timedatectl</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -86,15 +70,16 @@
       <varlistentry>
         <term><option>--monitor</option></term>
 
-        <listitem><para>If <command>timesync-status</command> is invoked and this option is passed,
-        then <command>timedatectl</command> monitors the status of
+        <listitem><para>If <command>timesync-status</command> is invoked and this option is passed, then
+        <command>timedatectl</command> monitors the status of
         <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        and updates the outputs. Use Ctrl-C to terminate the monitoring.</para></listitem>
+        and updates the outputs. Use <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> to terminate the
+        monitoring.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-a</option></term>
-        <term><option>-all</option></term>
+        <term><option>--all</option></term>
 
         <listitem><para>When showing properties of
         <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
@@ -144,6 +129,16 @@
         inactive, a different service might still synchronize the clock.
         If no command is specified, this is the implied default.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>show</command></term>
+
+        <listitem><para>Show the same information as <option>status</option>, but in machine readable form.
+        This command is intended to be used whenever computer-parsable output is required.
+        Use <option>status</option> if you are looking for formatted human-readable output.</para>
+        <para>By default, empty properties are suppressed. Use <option>--all</option> to show those too.
+        To select specific properties to show, use <option>--property=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -207,11 +202,12 @@
 
     </variablelist>
 
-    <refsect2><title>systemd-timesyncd Commands</title>
+    <refsect2>
+      <title>systemd-timesyncd Commands</title>
 
-    <para>The following commands are specific to
-    <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    </para>
+      <para>The following commands are specific to
+      <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      </para>
 
       <variablelist>
         <varlistentry>
@@ -225,12 +221,11 @@
         <varlistentry>
           <term><command>show-timesync</command></term>
 
-          <listitem><para>Show properties of the manager of
-          <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-          By default, empty properties are suppressed. Use <option>--all</option> to show those too. To select specific
-          properties to show, use <option>--property=</option>. This command is intended to be used whenever
-          computer-parsable output is required. Use <option>timesync-status</option> if you are looking for formatted
-          human-readable output.</para></listitem>
+          <listitem><para>Show the same information as <option>timesync-status</option>, but in machine readable form.
+          This command is intended to be used whenever computer-parsable output is required.
+          Use <option>timesync-status</option> if you are looking for formatted human-readable output.</para>
+          <para>By default, empty properties are suppressed. Use <option>--all</option> to show those too.
+          To select specific properties to show, use <option>--property=</option>.</para></listitem>
         </varlistentry>
       </variablelist>
 

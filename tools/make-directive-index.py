@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-#  -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
 # SPDX-License-Identifier: LGPL-2.1+
-#
-#  This file is part of systemd.
-#
-#  Copyright 2012-2013 Zbigniew Jędrzejewski-Szmek
 
 import sys
 import collections
@@ -18,15 +13,6 @@ TEMPLATE = '''\
         <refentryinfo>
                 <title>systemd.directives</title>
                 <productname>systemd</productname>
-
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Zbigniew</firstname>
-                                <surname>Jędrzejewski-Szmek</surname>
-                                <email>zbyszek@in.waw.pl</email>
-                        </author>
-                </authorgroup>
         </refentryinfo>
 
         <refmeta>
@@ -60,10 +46,20 @@ TEMPLATE = '''\
         <refsect1>
                 <title>Environment variables</title>
 
-                <para>Environment variables understood by the systemd
-                manager and other programs.</para>
+                <para>Environment variables understood by the systemd manager
+                and other programs and environment variable-compatible settings.</para>
 
                 <variablelist id='environment-variables' />
+        </refsect1>
+
+        <refsect1>
+                <title>EFI variables</title>
+
+                <para>EFI variables understood by
+                <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                and other programs.</para>
+
+                <variablelist id='efi-variables' />
         </refsect1>
 
         <refsect1>
@@ -112,16 +108,25 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
-                <title>System manager directives</title>
+                <title><citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                directives</title>
 
-                <para>Directives for configuring the behaviour of the
-                systemd process.</para>
+                <para>Directives for configuring systemd-nspawn containers.</para>
 
-                <variablelist id='systemd-directives' />
+                <variablelist id='nspawn-directives' />
         </refsect1>
 
         <refsect1>
-                <title>command line options</title>
+                <title>Program configuration options</title>
+
+                <para>Directives for configuring the behaviour of the
+                systemd process and other tools through configuration files.</para>
+
+                <variablelist id='config-directives' />
+        </refsect1>
+
+        <refsect1>
+                <title>Command line options</title>
 
                 <para>Command-line options accepted by programs in the
                 systemd suite.</para>

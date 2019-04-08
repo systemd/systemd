@@ -1,13 +1,15 @@
 #compdef machinectl
 # SPDX-License-Identifier: LGPL-2.1+
 
-__get_available_machines () {
+(( $+functions[__machinectl_get_machines] )) ||
+__machinectl_get_machines () {
     machinectl --no-legend list-images | {while read -r a b; do echo $a; done;}
 }
 
-_available_machines() {
+(( $+functions[_machinectl_machines] )) ||
+_machinectl_machines() {
     local -a _machines
-    _machines=("${(fo)$(__get_available_machines)}")
+    _machines=("${(fo)$(__machinectl_get_machines)}")
     typeset -U _machines
     if [[ -n "$_machines" ]]; then
         _describe 'machines' _machines
@@ -16,7 +18,7 @@ _available_machines() {
     fi
 }
 
-(( $+functions[_machinectl_command] )) || _machinectl_command()
+(( $+functions[_machinectl_commands] )) || _machinectl_commands()
 {
   local -a _machinectl_cmds
   _machinectl_cmds=(
@@ -60,8 +62,10 @@ _available_machines() {
         case $cmd in
           list*|cancel-transfer|pull-tar|pull-raw)
             msg="no options" ;;
+          clone)
+            _machinectl_machines ;;
           start)
-            _available_machines ;;
+            _machinectl_machines ;;
           *)
             _sd_machines
         esac
@@ -87,7 +91,7 @@ _arguments \
   {-H+,--host=}'[Operate on remote host.]:userathost:_sd_hosts_or_user_at_host' \
   {-M+,--machine=}'[Operate on local container.]:machine:_sd_machines' \
   {-p+,--property=}'[Limit output to specified property.]:property:(Name Id Timestamp TimestampMonotonic Service Scope Leader Class State RootDirectory)' \
-  {-a,--all}'[Show all proerties.]' \
+  {-a,--all}'[Show all properties.]' \
   {-q,--quiet}'[Suppress output.]' \
   {-l,--full}'[Do not ellipsize cgroup members.]' \
   '--kill-who=[Who to send signal to.]:killwho:(leader all)' \
@@ -98,4 +102,4 @@ _arguments \
   {-o+,--output=}'[Change journal output mode.]:output modes:_sd_outputmodes' \
   '--verify=[Verification mode for downloaded images.]:verify:(no checksum signature)' \
   '--force[Download image even if already exists.]' \
-  '*::machinectl command:_machinectl_command'
+  '*::machinectl command:_machinectl_commands'

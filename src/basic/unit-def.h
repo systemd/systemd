@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <stdbool.h>
 
 #include "macro.h"
@@ -30,8 +24,9 @@ typedef enum UnitType {
 typedef enum UnitLoadState {
         UNIT_STUB = 0,
         UNIT_LOADED,
-        UNIT_NOT_FOUND,
-        UNIT_ERROR,
+        UNIT_NOT_FOUND,    /* error condition #1: unit file not found */
+        UNIT_BAD_SETTING,  /* error condition #2: we couldn't parse some essential unit file setting */
+        UNIT_ERROR,        /* error condition #3: other "system" error, catchall for the rest */
         UNIT_MERGED,
         UNIT_MASKED,
         _UNIT_LOAD_STATE_MAX,
@@ -113,7 +108,7 @@ typedef enum ServiceState {
         SERVICE_EXITED,            /* Nothing is running anymore, but RemainAfterExit is true hence this is OK */
         SERVICE_RELOAD,
         SERVICE_STOP,              /* No STOP_PRE state, instead just register multiple STOP executables */
-        SERVICE_STOP_SIGABRT,      /* Watchdog timeout */
+        SERVICE_STOP_WATCHDOG,
         SERVICE_STOP_SIGTERM,
         SERVICE_STOP_SIGKILL,
         SERVICE_STOP_POST,

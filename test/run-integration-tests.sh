@@ -4,7 +4,7 @@ BUILD_DIR="$($(dirname "$0")/../tools/find-build-dir.sh)"
 if [ $# -gt 0 ]; then
         args="$@"
 else
-        args="clean setup run"
+        args="clean setup run clean-again"
 fi
 
 ninja -C "$BUILD_DIR"

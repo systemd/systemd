@@ -4,25 +4,27 @@
 
 COMMAND="$1"
 KERNEL_VERSION="$2"
-BOOT_DIR_ABS="$3"
+ENTRY_DIR_ABS="$3"
 KERNEL_IMAGE="$4"
+INITRD_OPTIONS_START="5"
 
 if ! [[ $KERNEL_INSTALL_MACHINE_ID ]]; then
     exit 0
 fi
 
-if ! [[ -d "$BOOT_DIR_ABS" ]]; then
+if ! [[ -d "$ENTRY_DIR_ABS" ]]; then
     exit 0
 fi
 
 MACHINE_ID=$KERNEL_INSTALL_MACHINE_ID
 
-BOOT_DIR="/$MACHINE_ID/$KERNEL_VERSION"
-BOOT_ROOT=${BOOT_DIR_ABS%$BOOT_DIR}
-LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
+ENTRY_DIR="/$MACHINE_ID/$KERNEL_VERSION"
+BOOT_ROOT=${ENTRY_DIR_ABS%$ENTRY_DIR}
 
 if [[ $COMMAND == remove ]]; then
-    exec rm -f "$LOADER_ENTRY"
+    rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
+    rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+"*".conf"
+    exit 0
 fi
 
 if ! [[ $COMMAND == add ]]; then
@@ -63,26 +65,61 @@ if ! [[ ${BOOT_OPTIONS[*]} ]]; then
     exit 1
 fi
 
-cp "$KERNEL_IMAGE" "$BOOT_DIR_ABS/linux" &&
-   chown root:root "$BOOT_DIR_ABS/linux" &&
-   chmod 0644 "$BOOT_DIR_ABS/linux" || {
-    echo "Could not copy '$KERNEL_IMAGE to '$BOOT_DIR_ABS/linux'." >&2
+if [[ -f /etc/kernel/tries ]]; then
+    read -r TRIES </etc/kernel/tries
+    if ! [[ "$TRIES" =~ ^[0-9]+$ ]] ; then
+        echo "/etc/kernel/tries does not contain an integer." >&2
+        exit 1
+    fi
+    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+$TRIES.conf"
+else
+    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
+fi
+
+cp "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" &&
+   chown root:root "$ENTRY_DIR_ABS/linux" &&
+   chmod 0644 "$ENTRY_DIR_ABS/linux" || {
+    echo "Could not copy '$KERNEL_IMAGE to '$ENTRY_DIR_ABS/linux'." >&2
     exit 1
 }
+
+INITRD_OPTIONS=( "${@:${INITRD_OPTIONS_START}}" )
+
+for initrd in "${INITRD_OPTIONS[@]}"; do
+    if [[ -f "${initrd}" ]]; then
+        initrd_basename="$(basename ${initrd})"
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Installing $ENTRY_DIR_ABS/${initrd_basename}"
+        cp "${initrd}" "$ENTRY_DIR_ABS/${initrd_basename}" &&
+            chown root:root "$ENTRY_DIR_ABS/${initrd_basename}" &&
+            chmod 0644 "$ENTRY_DIR_ABS/${initrd_basename}" || {
+             echo "Could not copy '${initrd}' to '$ENTRY_DIR_ABS/${initrd_basename}'." >&2
+             exit 1
+        }
+    fi
+done
+
+# If no initrd option is supplied, fallback to "initrd" which is
+# the name used by dracut when generating it in its kernel-install hook
+[[ ${#INITRD_OPTIONS[@]} == 0 ]] && INITRD_OPTIONS=( initrd )
 
 mkdir -p "${LOADER_ENTRY%/*}" || {
     echo "Could not create loader entry directory '${LOADER_ENTRY%/*}'." >&2
     exit 1
 }
 
+[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+    echo "Creating $LOADER_ENTRY"
 {
     echo "title      $PRETTY_NAME"
     echo "version    $KERNEL_VERSION"
     echo "machine-id $MACHINE_ID"
     echo "options    ${BOOT_OPTIONS[*]}"
-    echo "linux      $BOOT_DIR/linux"
-    [[ -f $BOOT_DIR_ABS/initrd ]] && \
-        echo "initrd     $BOOT_DIR/initrd"
+    echo "linux      $ENTRY_DIR/linux"
+    for initrd in "${INITRD_OPTIONS[@]}"; do
+        [[ -f $ENTRY_DIR_ABS/$(basename ${initrd}) ]] && \
+            echo "initrd     $ENTRY_DIR/$(basename ${initrd})"
+    done
     :
 } > "$LOADER_ENTRY" || {
     echo "Could not create loader entry '$LOADER_ENTRY'." >&2

@@ -1,23 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include "sd-journal.h"
 
+#include "chattr-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "rm-rf.h"
+#include "tests.h"
 #include "util.h"
 
 int main(int argc, char *argv[]) {
         sd_journal *j;
         int r, i, I = 100;
-        char t[] = "/tmp/journal-stream-XXXXXX";
+        char t[] = "/var/tmp/journal-stream-XXXXXX";
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         if (argc >= 2) {
                 r = safe_atoi(argv[1], &I);
@@ -28,6 +25,7 @@ int main(int argc, char *argv[]) {
         log_info("Running %d loops", I);
 
         assert_se(mkdtemp(t));
+        (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 
         for (i = 0; i < I; i++) {
                 r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);

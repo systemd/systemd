@@ -1,10 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-  Copyright 2013 Kay Sievers
-***/
 
 #include "acpi-fpdt.h"
 #include "boot-timestamps.h"

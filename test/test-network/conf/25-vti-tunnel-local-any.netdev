@@ -1,0 +1,7 @@
+[NetDev]
+Name=vtitun98
+Kind=vti
+
+[Tunnel]
+Local=remote
+Remote=10.65.223.239

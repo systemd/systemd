@@ -1,16 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010-2014 Lennart Poettering
-  Copyright 2014 Michal Schmidt
-***/
 
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "env-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "mempool.h"
+#include "process-util.h"
 #include "util.h"
 
 struct pool {
@@ -76,8 +73,21 @@ void mempool_free_tile(struct mempool *mp, void *p) {
         mp->freelist = p;
 }
 
-#ifdef VALGRIND
+bool mempool_enabled(void) {
+        static int b = -1;
 
+        if (!is_main_thread())
+                return false;
+
+        if (!mempool_use_allowed)
+                b = false;
+        if (b < 0)
+                b = getenv_bool("SYSTEMD_MEMPOOL") != 0;
+
+        return b;
+}
+
+#if VALGRIND
 void mempool_drop(struct mempool *mp) {
         struct pool *p = mp->first_pool;
         while (p) {
@@ -87,5 +97,4 @@ void mempool_drop(struct mempool *mp) {
                 p = n;
         }
 }
-
 #endif

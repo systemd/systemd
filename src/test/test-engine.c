@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stdio.h>
@@ -20,31 +15,23 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL, *h = NULL, *unit_with_multiple_dashes = NULL;
-        FILE *serial = NULL;
-        FDSet *fdset = NULL;
         Job *j;
         int r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                log_notice_errno(r, "Skipping test: cgroupfs not available");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         /* prepare the test */
-        assert_se(set_unit_path(get_testdata_dir("")) >= 0);
+        assert_se(set_unit_path(get_testdata_dir()) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &m);
-        if (MANAGER_SKIP_TEST(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return EXIT_TEST_SKIP;
-        }
+        if (MANAGER_SKIP_TEST(r))
+                return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
-        assert_se(manager_startup(m, serial, fdset) >= 0);
+        assert_se(manager_startup(m, NULL, NULL) >= 0);
 
         printf("Load1:\n");
         assert_se(manager_load_startable_unit_or_warn(m, "a.service", NULL, &a) >= 0);
@@ -53,7 +40,7 @@ int main(int argc, char *argv[]) {
         manager_dump_units(m, stdout, "\t");
 
         printf("Test1: (Trivial)\n");
-        r = manager_add_job(m, JOB_START, c, JOB_REPLACE, &err, &j);
+        r = manager_add_job(m, JOB_START, c, JOB_REPLACE, NULL, &err, &j);
         if (sd_bus_error_is_set(&err))
                 log_error("error: %s: %s", err.name, err.message);
         assert_se(r == 0);
@@ -66,15 +53,15 @@ int main(int argc, char *argv[]) {
         manager_dump_units(m, stdout, "\t");
 
         printf("Test2: (Cyclic Order, Unfixable)\n");
-        assert_se(manager_add_job(m, JOB_START, d, JOB_REPLACE, NULL, &j) == -EDEADLK);
+        assert_se(manager_add_job(m, JOB_START, d, JOB_REPLACE, NULL, NULL, &j) == -EDEADLK);
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Test3: (Cyclic Order, Fixable, Garbage Collector)\n");
-        assert_se(manager_add_job(m, JOB_START, e, JOB_REPLACE, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_START, e, JOB_REPLACE, NULL, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Test4: (Identical transaction)\n");
-        assert_se(manager_add_job(m, JOB_START, e, JOB_FAIL, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_START, e, JOB_FAIL, NULL, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Load3:\n");
@@ -82,21 +69,21 @@ int main(int argc, char *argv[]) {
         manager_dump_units(m, stdout, "\t");
 
         printf("Test5: (Colliding transaction, fail)\n");
-        assert_se(manager_add_job(m, JOB_START, g, JOB_FAIL, NULL, &j) == -EDEADLK);
+        assert_se(manager_add_job(m, JOB_START, g, JOB_FAIL, NULL, NULL, &j) == -EDEADLK);
 
         printf("Test6: (Colliding transaction, replace)\n");
-        assert_se(manager_add_job(m, JOB_START, g, JOB_REPLACE, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_START, g, JOB_REPLACE, NULL, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Test7: (Unmergeable job type, fail)\n");
-        assert_se(manager_add_job(m, JOB_STOP, g, JOB_FAIL, NULL, &j) == -EDEADLK);
+        assert_se(manager_add_job(m, JOB_STOP, g, JOB_FAIL, NULL, NULL, &j) == -EDEADLK);
 
         printf("Test8: (Mergeable job type, fail)\n");
-        assert_se(manager_add_job(m, JOB_RESTART, g, JOB_FAIL, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_RESTART, g, JOB_FAIL, NULL, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Test9: (Unmergeable job type, replace)\n");
-        assert_se(manager_add_job(m, JOB_STOP, g, JOB_REPLACE, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_STOP, g, JOB_REPLACE, NULL, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Load4:\n");
@@ -104,7 +91,7 @@ int main(int argc, char *argv[]) {
         manager_dump_units(m, stdout, "\t");
 
         printf("Test10: (Unmergeable job type of auxiliary job, fail)\n");
-        assert_se(manager_add_job(m, JOB_START, h, JOB_FAIL, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_START, h, JOB_FAIL, NULL, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 
         assert_se(!hashmap_get(a->dependencies[UNIT_PROPAGATES_RELOAD_TO], b));

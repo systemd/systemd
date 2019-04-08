@@ -3,9 +3,7 @@
 #define foosddhcpclienthfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2013 Intel Corporation. All rights reserved.
+  Copyright © 2013 Intel Corporation. All rights reserved.
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -25,6 +23,7 @@
 #include <net/ethernet.h>
 #include <netinet/in.h>
 #include <sys/types.h>
+#include <stdbool.h>
 
 #include "sd-dhcp-lease.h"
 #include "sd-event.h"
@@ -129,15 +128,24 @@ int sd_dhcp_client_set_client_id(
                 size_t data_len);
 int sd_dhcp_client_set_iaid_duid(
                 sd_dhcp_client *client,
+                bool iaid_set,
                 uint32_t iaid,
                 uint16_t duid_type,
                 const void *duid,
                 size_t duid_len);
+int sd_dhcp_client_set_iaid_duid_llt(
+                sd_dhcp_client *client,
+                bool iaid_set,
+                uint32_t iaid,
+                uint64_t llt_time);
 int sd_dhcp_client_set_duid(
                 sd_dhcp_client *client,
                 uint16_t duid_type,
                 const void *duid,
                 size_t duid_len);
+int sd_dhcp_client_set_duid_llt(
+                sd_dhcp_client *client,
+                uint64_t llt_time);
 int sd_dhcp_client_get_client_id(
                 sd_dhcp_client *client,
                 uint8_t *type,

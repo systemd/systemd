@@ -1,12 +1,23 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
-libcore_la_sources = '''
+libcore_shared_sources = '''
+        killall.c
+        killall.h
+        loopback-setup.c
+        loopback-setup.h
+        machine-id-setup.c
+        machine-id-setup.h
+        mount-setup.c
+        mount-setup.h
+'''.split()
+
+libcore_sources = '''
         audit-fd.c
         audit-fd.h
         automount.c
         automount.h
+        bpf-devices.c
+        bpf-devices.h
         bpf-firewall.c
         bpf-firewall.h
         cgroup.c
@@ -69,8 +80,6 @@ libcore_la_sources = '''
         job.h
         kill.c
         kill.h
-        killall.c
-        killall.h
         kmod-setup.c
         kmod-setup.h
         load-dropin.c
@@ -79,14 +88,8 @@ libcore_la_sources = '''
         load-fragment.h
         locale-setup.c
         locale-setup.h
-        loopback-setup.c
-        loopback-setup.h
-        machine-id-setup.c
-        machine-id-setup.h
         manager.c
         manager.h
-        mount-setup.c
-        mount-setup.h
         mount.c
         mount.h
         namespace.c
@@ -144,13 +147,24 @@ load_fragment_gperf_nulstr_c = custom_target(
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
+# A convenience library to share code with other binaries:
+# systemd-shutdown, systemd-remount-fs, systemd-machine-id-setup, …
+libcore_shared = static_library(
+        'core-shared',
+        libcore_shared_sources,
+        include_directories : includes,
+        dependencies : [versiondep,
+                        libmount])
+
 libcore = static_library(
         'core',
-        libcore_la_sources,
+        libcore_sources,
         load_fragment_gperf_c,
         load_fragment_gperf_nulstr_c,
         include_directories : includes,
-        dependencies : [threads,
+        link_whole : libcore_shared,
+        dependencies : [versiondep,
+                        threads,
                         librt,
                         libseccomp,
                         libpam,
@@ -162,37 +176,20 @@ libcore = static_library(
 
 systemd_sources = files('main.c')
 
-systemd_shutdown_sources = files('''
-        shutdown.c
-        umount.c
-        umount.h
-        mount-setup.c
-        mount-setup.h
-        killall.c
-        killall.h
-'''.split())
-
 in_files = [['macros.systemd',   rpmmacrosdir],
-            ['triggers.systemd', ''],
+            ['system.conf',      pkgsysconfdir],
             ['systemd.pc',       pkgconfigdatadir],
-            ['system.conf',      pkgsysconfdir]]
+            ['triggers.systemd', '']]
 
 foreach item : in_files
         file = item[0]
         dir = item[1]
 
-        # If 'no', disable generation completely.
-        # If '', generate, but do not install.
-        if dir != 'no'
-                gen = configure_file(
-                        input : file + '.in',
-                        output : file,
-                        configuration : substs)
-                if dir != ''
-                        install_data(gen,
-                                     install_dir : dir)
-                endif
-        endif
+        configure_file(
+                input : file + '.in',
+                output : file,
+                configuration : substs,
+                install_dir : dir == 'no' ? '' : dir)
 endforeach
 
 install_data('org.freedesktop.systemd1.conf',

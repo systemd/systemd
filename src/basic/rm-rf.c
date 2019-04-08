@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -13,13 +8,14 @@
 #include <sys/statfs.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
@@ -49,13 +45,15 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                 }
 
                 if (is_physical_fs(&sfs)) {
-                        /* We refuse to clean physical file systems
-                         * with this call, unless explicitly
-                         * requested. This is extra paranoia just to
-                         * be sure we never ever remove non-state
-                         * data */
+                        /* We refuse to clean physical file systems with this call,
+                         * unless explicitly requested. This is extra paranoia just
+                         * to be sure we never ever remove non-state data. */
+                        _cleanup_free_ char *path = NULL;
 
-                        log_error("Attempted to remove disk file system, and we can't allow that.");
+                        (void) fd_get_path(fd, &path);
+                        log_error("Attempted to remove disk file system under \"%s\", and we can't allow that.",
+                                  strna(path));
+
                         safe_close(fd);
                         return -EPERM;
                 }
@@ -167,15 +165,20 @@ int rm_rf(const char *path, RemoveFlags flags) {
 
         assert(path);
 
+        /* For now, don't support dropping subvols when also only dropping directories, since we can't do
+         * this race-freely. */
+        if (FLAGS_SET(flags, REMOVE_ONLY_DIRECTORIES|REMOVE_SUBVOLUME))
+                return -EINVAL;
+
         /* We refuse to clean the root file system with this
          * call. This is extra paranoia to never cause a really
          * seriously broken system. */
-        if (path_equal_or_files_same(path, "/", AT_SYMLINK_NOFOLLOW)) {
-                log_error("Attempted to remove entire root file system, and we can't allow that.");
-                return -EPERM;
-        }
+        if (path_equal_or_files_same(path, "/", AT_SYMLINK_NOFOLLOW))
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Attempted to remove entire root file system (\"%s\"), and we can't allow that.",
+                                       path);
 
-        if ((flags & (REMOVE_SUBVOLUME|REMOVE_ROOT|REMOVE_PHYSICAL)) == (REMOVE_SUBVOLUME|REMOVE_ROOT|REMOVE_PHYSICAL)) {
+        if (FLAGS_SET(flags, REMOVE_SUBVOLUME | REMOVE_ROOT | REMOVE_PHYSICAL)) {
                 /* Try to remove as subvolume first */
                 r = btrfs_subvol_remove(path, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                 if (r >= 0)
@@ -189,7 +192,6 @@ int rm_rf(const char *path, RemoveFlags flags) {
 
         fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
         if (fd < 0) {
-
                 if (!IN_SET(errno, ENOTDIR, ELOOP))
                         return -errno;
 
@@ -197,10 +199,10 @@ int rm_rf(const char *path, RemoveFlags flags) {
                         if (statfs(path, &s) < 0)
                                 return -errno;
 
-                        if (is_physical_fs(&s)) {
-                                log_error("Attempted to remove disk file system, and we can't allow that.");
-                                return -EPERM;
-                        }
+                        if (is_physical_fs(&s))
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                       "Attempted to remove files from a disk file system under \"%s\", refusing.",
+                                                       path);
                 }
 
                 if ((flags & REMOVE_ROOT) && !(flags & REMOVE_ONLY_DIRECTORIES))

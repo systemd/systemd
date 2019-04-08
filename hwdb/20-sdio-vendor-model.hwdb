@@ -110,6 +110,9 @@ sdio:c*v02D0dA94D*
 sdio:c*v02D0dA962*
  ID_MODEL_FROM_DATABASE=BCM43362 WLAN card
 
+sdio:c*v02D0dA9A6*
+ ID_MODEL_FROM_DATABASE=BCM43438 combo WLAN and Bluetooth Low Energy (BLE)    # As in RPi3B
+
 sdio:c*v02DB*
  ID_VENDOR_FROM_DATABASE=SyChip Inc.
 

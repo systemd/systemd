@@ -1,18 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/*
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * Copyright (C) 2012-2013 Kay Sievers <kay@vrfy.org>
- * Copyright (C) 2012 Harald Hoyer <harald@redhat.com>
- */
 
 #include <efi.h>
 #include <efilib.h>
@@ -24,7 +10,7 @@
  * the (ESP)\loader\entries\<vendor>-<revision>.conf convention and the
  * associated EFI variables.
  */
-static const EFI_GUID loader_guid = { 0x4a67b082, 0x0a4c, 0x41cf, {0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f} };
+const EFI_GUID loader_guid = { 0x4a67b082, 0x0a4c, 0x41cf, {0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f} };
 
 #ifdef __x86_64__
 UINT64 ticks_read(VOID) {
@@ -53,7 +39,7 @@ UINT64 ticks_freq(VOID) {
         uefi_call_wrapper(BS->Stall, 1, 1000);
         ticks_end = ticks_read();
 
-        return (ticks_end - ticks_start) * 1000;
+        return (ticks_end - ticks_start) * 1000UL;
 }
 
 UINT64 time_usec(VOID) {
@@ -70,10 +56,13 @@ UINT64 time_usec(VOID) {
                         return 0;
         }
 
-        return 1000 * 1000 * ticks / freq;
+        return 1000UL * 1000UL * ticks / freq;
 }
 
-EFI_STATUS parse_boolean(CHAR8 *v, BOOLEAN *b) {
+EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
+        if (!v)
+                return EFI_INVALID_PARAMETER;
+
         if (strcmpa(v, (CHAR8 *)"1") == 0 ||
             strcmpa(v, (CHAR8 *)"yes") == 0 ||
             strcmpa(v, (CHAR8 *)"y") == 0 ||
@@ -93,57 +82,74 @@ EFI_STATUS parse_boolean(CHAR8 *v, BOOLEAN *b) {
         return EFI_INVALID_PARAMETER;
 }
 
-EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, CHAR16 *name, CHAR8 *buf, UINTN size, BOOLEAN persistent) {
+EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID *buf, UINTN size, BOOLEAN persistent) {
         UINT32 flags;
 
         flags = EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
         if (persistent)
                 flags |= EFI_VARIABLE_NON_VOLATILE;
 
-        return uefi_call_wrapper(RT->SetVariable, 5, name, (EFI_GUID *)vendor, flags, size, buf);
+        return uefi_call_wrapper(RT->SetVariable, 5, (CHAR16*) name, (EFI_GUID *)vendor, flags, size, (VOID*) buf);
 }
 
-EFI_STATUS efivar_set(CHAR16 *name, CHAR16 *value, BOOLEAN persistent) {
-        return efivar_set_raw(&loader_guid, name, (CHAR8 *)value, value ? (StrLen(value)+1) * sizeof(CHAR16) : 0, persistent);
+EFI_STATUS efivar_set(const CHAR16 *name, const CHAR16 *value, BOOLEAN persistent) {
+        return efivar_set_raw(&loader_guid, name, value, value ? (StrLen(value)+1) * sizeof(CHAR16) : 0, persistent);
 }
 
 EFI_STATUS efivar_set_int(CHAR16 *name, UINTN i, BOOLEAN persistent) {
         CHAR16 str[32];
 
-        SPrint(str, 32, L"%d", i);
+        SPrint(str, 32, L"%u", i);
         return efivar_set(name, str, persistent);
 }
 
-EFI_STATUS efivar_get(CHAR16 *name, CHAR16 **value) {
+EFI_STATUS efivar_get(const CHAR16 *name, CHAR16 **value) {
         _cleanup_freepool_ CHAR8 *buf = NULL;
+        EFI_STATUS err;
         CHAR16 *val;
         UINTN size;
-        EFI_STATUS err;
 
         err = efivar_get_raw(&loader_guid, name, &buf, &size);
         if (EFI_ERROR(err))
                 return err;
 
-        val = StrDuplicate((CHAR16 *)buf);
+        /* Make sure there are no incomplete characters in the buffer */
+        if ((size % 2) != 0)
+                return EFI_INVALID_PARAMETER;
+
+        if (!value)
+                return EFI_SUCCESS;
+
+        /* Return buffer directly if it happens to be NUL terminated already */
+        if (size >= 2 && buf[size-2] == 0 && buf[size-1] == 0) {
+                *value = (CHAR16*) TAKE_PTR(buf);
+                return EFI_SUCCESS;
+        }
+
+        /* Make sure a terminating NUL is available at the end */
+        val = AllocatePool(size + 2);
         if (!val)
                 return EFI_OUT_OF_RESOURCES;
+
+        CopyMem(val, buf, size);
+        val[size/2] = 0; /* NUL terminate */
 
         *value = val;
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_int(CHAR16 *name, UINTN *i) {
+EFI_STATUS efivar_get_int(const CHAR16 *name, UINTN *i) {
         _cleanup_freepool_ CHAR16 *val = NULL;
         EFI_STATUS err;
 
         err = efivar_get(name, &val);
-        if (!EFI_ERROR(err))
+        if (!EFI_ERROR(err) && i)
                 *i = Atoi(val);
 
         return err;
 }
 
-EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, CHAR16 *name, CHAR8 **buffer, UINTN *size) {
+EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **buffer, UINTN *size) {
         _cleanup_freepool_ CHAR8 *buf = NULL;
         UINTN l;
         EFI_STATUS err;
@@ -153,10 +159,12 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, CHAR16 *name, CHAR8 **buffer, 
         if (!buf)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = uefi_call_wrapper(RT->GetVariable, 5, name, (EFI_GUID *)vendor, NULL, &l, buf);
+        err = uefi_call_wrapper(RT->GetVariable, 5, (CHAR16*) name, (EFI_GUID *)vendor, NULL, &l, buf);
         if (!EFI_ERROR(err)) {
-                *buffer = buf;
-                buf = NULL;
+
+                if (buffer)
+                        *buffer = TAKE_PTR(buf);
+
                 if (size)
                         *size = l;
         }
@@ -301,12 +309,12 @@ CHAR8 *strchra(CHAR8 *s, CHAR8 c) {
         return NULL;
 }
 
-EFI_STATUS file_read(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size) {
+EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size) {
         EFI_FILE_HANDLE handle;
         _cleanup_freepool_ CHAR8 *buf = NULL;
         EFI_STATUS err;
 
-        err = uefi_call_wrapper(dir->Open, 5, dir, &handle, name, EFI_FILE_MODE_READ, 0ULL);
+        err = uefi_call_wrapper(dir->Open, 5, dir, &handle, (CHAR16*) name, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return err;
 

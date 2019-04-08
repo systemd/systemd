@@ -1,6 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
- * Copyright 2018 Zbigniew Jędrzejewski-Szmek
- */
+/* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
 #include "gcrypt-util.h"

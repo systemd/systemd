@@ -1,10 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014  Tom Gundersen <teg@jklm.no>
-  Copyright 2014  Susant Sahani
-***/
 
 #include <net/if.h>
 
@@ -15,8 +9,7 @@
 #include "vlan-util.h"
 
 /* callback for brige netdev's parameter set */
-static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_(netdev_unrefp) NetDev *netdev = userdata;
+static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
         int r;
 
         assert(netdev);
@@ -54,7 +47,7 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
 
         r = sd_netlink_message_open_container(req, IFLA_LINKINFO);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_PROTINFO attribute: %m");
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
         r = sd_netlink_message_open_container_union(req, IFLA_INFO_DATA, netdev_kind_to_string(netdev->kind));
         if (r < 0)
@@ -135,7 +128,8 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
-        r = sd_netlink_call_async(netdev->manager->rtnl, req, netdev_bridge_set_handler, netdev, 0, NULL);
+        r = netlink_call_async(netdev->manager->rtnl, NULL, req, netdev_bridge_set_handler,
+                               netdev_destroy_callback, netdev);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 

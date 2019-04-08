@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Axis Communications AB. All rights reserved.
-  Copyright (C) 2015 Tom Gundersen
+  Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
 
 #include <arpa/inet.h>
@@ -17,13 +14,14 @@
 #include "alloc-util.h"
 #include "arp-util.h"
 #include "ether-addr-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "list.h"
 #include "random-util.h"
 #include "siphash24.h"
 #include "string-util.h"
-#include "util.h"
+#include "time-util.h"
 
 /* Constants from the RFC */
 #define PROBE_WAIT_USEC (1U * USEC_PER_SEC)
@@ -92,7 +90,7 @@ static void ipv4acd_set_state(sd_ipv4acd *acd, IPv4ACDState st, bool reset_count
 static void ipv4acd_reset(sd_ipv4acd *acd) {
         assert(acd);
 
-        acd->timer_event_source = sd_event_source_unref(acd->timer_event_source);
+        (void) event_source_disable(acd->timer_event_source);
         acd->receive_message_event_source = sd_event_source_unref(acd->receive_message_event_source);
 
         acd->fd = safe_close(acd->fd);
@@ -100,25 +98,10 @@ static void ipv4acd_reset(sd_ipv4acd *acd) {
         ipv4acd_set_state(acd, IPV4ACD_STATE_INIT, true);
 }
 
-sd_ipv4acd *sd_ipv4acd_ref(sd_ipv4acd *acd) {
-        if (!acd)
-                return NULL;
+static sd_ipv4acd *ipv4acd_free(sd_ipv4acd *acd) {
+        assert(acd);
 
-        assert_se(acd->n_ref >= 1);
-        acd->n_ref++;
-
-        return acd;
-}
-
-sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *acd) {
-        if (!acd)
-                return NULL;
-
-        assert_se(acd->n_ref >= 1);
-        acd->n_ref--;
-
-        if (acd->n_ref > 0)
-                return NULL;
+        acd->timer_event_source = sd_event_source_unref(acd->timer_event_source);
 
         ipv4acd_reset(acd);
         sd_ipv4acd_detach_event(acd);
@@ -126,19 +109,23 @@ sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *acd) {
         return mfree(acd);
 }
 
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_ipv4acd, sd_ipv4acd, ipv4acd_free);
+
 int sd_ipv4acd_new(sd_ipv4acd **ret) {
         _cleanup_(sd_ipv4acd_unrefp) sd_ipv4acd *acd = NULL;
 
         assert_return(ret, -EINVAL);
 
-        acd = new0(sd_ipv4acd, 1);
+        acd = new(sd_ipv4acd, 1);
         if (!acd)
                 return -ENOMEM;
 
-        acd->n_ref = 1;
-        acd->state = IPV4ACD_STATE_INIT;
-        acd->ifindex = -1;
-        acd->fd = -1;
+        *acd = (sd_ipv4acd) {
+                .n_ref = 1,
+                .state = IPV4ACD_STATE_INIT,
+                .ifindex = -1,
+                .fd = -1,
+        };
 
         *ret = TAKE_PTR(acd);
 
@@ -169,9 +156,7 @@ int sd_ipv4acd_stop(sd_ipv4acd *acd) {
 static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata);
 
 static int ipv4acd_set_next_wakeup(sd_ipv4acd *acd, usec_t usec, usec_t random_usec) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
         usec_t next_timeout, time_now;
-        int r;
 
         assert(acd);
 
@@ -182,20 +167,11 @@ static int ipv4acd_set_next_wakeup(sd_ipv4acd *acd, usec_t usec, usec_t random_u
 
         assert_se(sd_event_now(acd->event, clock_boottime_or_monotonic(), &time_now) >= 0);
 
-        r = sd_event_add_time(acd->event, &timer, clock_boottime_or_monotonic(), time_now + next_timeout, 0, ipv4acd_on_timeout, acd);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_priority(timer, acd->event_priority);
-        if (r < 0)
-                return r;
-
-        (void) sd_event_source_set_description(timer, "ipv4acd-timer");
-
-        sd_event_source_unref(acd->timer_event_source);
-        acd->timer_event_source = TAKE_PTR(timer);
-
-        return 0;
+        return event_reset_time(acd->event, &acd->timer_event_source,
+                                clock_boottime_or_monotonic(),
+                                time_now + next_timeout, 0,
+                                ipv4acd_on_timeout, acd,
+                                acd->event_priority, "ipv4acd-timer", true);
 }
 
 static bool ipv4acd_arp_conflict(sd_ipv4acd *acd, struct ether_arp *arp) {

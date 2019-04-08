@@ -1,0 +1,16 @@
+[Match]
+Name=veth99
+
+[Network]
+DHCP=ipv4
+IPv6AcceptRA=false
+
+[DHCP]
+Anonymize=true
+UseMTU=true
+UseRoutes=true
+SendHostname=true
+UseHostname=true
+Hostname=test-hostname
+ClientIdentifier=mac
+VendorClassIdentifier=SusantVendorTest

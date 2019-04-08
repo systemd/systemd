@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "dbus-job.h"
+#include "dbus-unit.h"
 #include "dbus.h"
 #include "job.h"
 #include "log.h"
@@ -55,7 +51,7 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
         /* Access is granted to the job owner */
         if (!sd_bus_track_contains(j->bus_track, sd_bus_message_get_sender(message))) {
 
-                /* And for everybody else consult PolicyKit */
+                /* And for everybody else consult polkit */
                 r = bus_verify_manage_units_async(j->unit->manager, message, error);
                 if (r < 0)
                         return r;
@@ -178,6 +174,9 @@ void bus_job_send_change_signal(Job *j) {
 
         assert(j);
 
+        /* Make sure that any change signal on the unit is reflected before we send out the change signal on the job */
+        bus_unit_send_pending_change_signal(j->unit, true);
+
         if (j->in_dbus_queue) {
                 LIST_REMOVE(dbus_queue, j->manager->dbus_job_queue, j);
                 j->in_dbus_queue = false;
@@ -188,6 +187,21 @@ void bus_job_send_change_signal(Job *j) {
                 log_debug_errno(r, "Failed to send job change signal for %u: %m", j->id);
 
         j->sent_dbus_new_signal = true;
+}
+
+void bus_job_send_pending_change_signal(Job *j, bool including_new) {
+        assert(j);
+
+        if (!j->in_dbus_queue)
+                return;
+
+        if (!j->sent_dbus_new_signal && !including_new)
+                return;
+
+        if (MANAGER_IS_RELOADING(j->unit->manager))
+                return;
+
+        bus_job_send_change_signal(j);
 }
 
 static int send_removed_signal(sd_bus *bus, void *userdata) {
@@ -226,6 +240,9 @@ void bus_job_send_removed_signal(Job *j) {
 
         if (!j->sent_dbus_new_signal)
                 bus_job_send_change_signal(j);
+
+        /* Make sure that any change signal on the unit is reflected before we send out the change signal on the job */
+        bus_unit_send_pending_change_signal(j->unit, true);
 
         r = bus_foreach_bus(j->manager, j->bus_track, send_removed_signal, j);
         if (r < 0)

@@ -1,0 +1,9 @@
+[Unit]
+Description=Nomem Leaf Service
+
+[Service]
+Slice=nomem.slice
+Type=oneshot
+ExecStart=/bin/true
+IOWeight=200
+MemoryAccounting=true

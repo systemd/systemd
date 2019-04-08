@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
-
 typedef struct DnsTransaction DnsTransaction;
 typedef enum DnsTransactionState DnsTransactionState;
 typedef enum DnsTransactionSource DnsTransactionSource;
@@ -136,6 +130,7 @@ struct DnsTransaction {
         unsigned block_gc;
 
         LIST_FIELDS(DnsTransaction, transactions_by_scope);
+        LIST_FIELDS(DnsTransaction, transactions_by_stream);
 };
 
 int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key);

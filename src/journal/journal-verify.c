@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <stddef.h>
@@ -22,6 +17,7 @@
 #include "lookup3.h"
 #include "macro.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 static void draw_progress(uint64_t p, usec_t *last_usec) {
@@ -65,10 +61,11 @@ static void draw_progress(uint64_t p, usec_t *last_usec) {
 }
 
 static uint64_t scale_progress(uint64_t scale, uint64_t p, uint64_t m) {
+        /* Calculates scale * p / m, but handles m == 0 safely, and saturates.
+         * Currently all callers use m >= 1, but we keep the check to be defensive.
+         */
 
-        /* Calculates scale * p / m, but handles m == 0 safely, and saturates */
-
-        if (p >= m || m == 0)
+        if (p >= m || m == 0) // lgtm[cpp/constant-comparison]
                 return scale;
 
         return scale * p / m;

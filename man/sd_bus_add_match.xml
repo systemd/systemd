@@ -1,28 +1,18 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  This file is part of systemd.
-
-  Copyright 2016 Julian Orth
+  Copyright © 2016 Julian Orth
 -->
 
-<refentry id="sd_bus_add_match">
+<refentry id="sd_bus_add_match" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_add_match</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <firstname>Julian</firstname>
-        <surname>Orth</surname>
-        <email>ju.orth@gmail.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -123,7 +113,7 @@
     name), from which the match string is internally generated. Optionally, these parameters may be specified as
     <constant>NULL</constant> in which case the relevant field of incoming signals is not tested.</para>
 
-    <para><function>sd_bus_match_signal_async()</function> is combines the signal matching logic of
+    <para><function>sd_bus_match_signal_async()</function> combines the signal matching logic of
     <function>sd_bus_match_signal()</function> with the asynchronous behaviour of
     <function>sd_bus_add_match_async()</function>.</para>
 
@@ -132,7 +122,9 @@
     at a later time with
     <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If specified
     as <constant>NULL</constant> the lifetime of the match is bound to the lifetime of the bus object itself, and the
-    match cannot be removed independently.</para>
+    match is generally not removed independently. See
+    <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+    details.</para>
 
     <para>The message <parameter>m</parameter> passed to the callback is only borrowed, that is, the callback should
     not call <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -162,9 +154,7 @@
   <refsect1>
     <title>Notes</title>
 
-    <para><function>sd_bus_add_match()</function> and the other functions described here are available as a shared
-    library, which can be compiled and linked to with the <constant>libsystemd</constant> <citerefentry
-    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry> file.</para>
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>
@@ -175,7 +165,8 @@
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_set_bus_client</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_bus_set_bus_client</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

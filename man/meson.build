@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 # This is lame, I know, but meson has no other include mechanism
 subdir('rules')
@@ -49,8 +47,8 @@ foreach tuple : xsltproc.found() ? manpages : []
         manaliases = []
         htmlaliases = []
         foreach alias : aliases
-                manaliases += [alias + '.' + section]
-                htmlaliases += [alias + '.html']
+                manaliases += alias + '.' + section
+                htmlaliases += alias + '.html'
         endforeach
 
         mandirn = join_paths(get_option('mandir'), 'man' + section)
@@ -64,7 +62,7 @@ foreach tuple : xsltproc.found() ? manpages : []
                         depend_files : custom_entities_ent,
                         install : want_man,
                         install_dir : mandirn)
-                man_pages += [p1]
+                man_pages += p1
 
                 p2 = []
                 foreach htmlalias : htmlaliases
@@ -77,9 +75,9 @@ foreach tuple : xsltproc.found() ? manpages : []
                                 dst = join_paths(docdir, 'html', htmlalias)
                                 cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
                                 meson.add_install_script('sh', '-c', cmd)
-                                p2 += [link]
+                                p2 += link
                         endif
-                        html_pages += [link]
+                        html_pages += link
                 endforeach
 
                 p3 = custom_target(
@@ -91,7 +89,7 @@ foreach tuple : xsltproc.found() ? manpages : []
                         depends : p2,
                         install : want_html,
                         install_dir : join_paths(docdir, 'html'))
-                html_pages += [p3]
+                html_pages += p3
 
                 source_xml_files += files(tuple[0] + '.xml')
         else
@@ -119,8 +117,8 @@ systemd_index_xml = custom_target(
         output : 'systemd.index.xml',
         command : [make_man_index_py, '@OUTPUT@'] + nonindex_xml_files)
 
-foreach tuple : want_man or want_html ? [['systemd.directives', '7', systemd_directives_xml],
-                                         ['systemd.index',      '7', systemd_index_xml]] : []
+foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directives_xml],
+                                    ['systemd.index',      '7', systemd_index_xml]] : []
         stem = tuple[0]
         section = tuple[1]
         xml = tuple[2]
@@ -137,7 +135,7 @@ foreach tuple : want_man or want_html ? [['systemd.directives', '7', systemd_dir
                 command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
                 install : want_man and have_lxml,
                 install_dir : mandirn)
-        man_pages += [p1]
+        man_pages += p1
 
         p2 = []
         if html == 'systemd.index.html'
@@ -151,9 +149,9 @@ foreach tuple : want_man or want_html ? [['systemd.directives', '7', systemd_dir
                         dst = join_paths(docdir, 'html', htmlalias)
                         cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
                         meson.add_install_script('sh', '-c', cmd)
-                        p2 += [link]
+                        p2 += link
                 endif
-                html_pages += [link]
+                html_pages += link
         endif
 
         p3 = custom_target(
@@ -165,10 +163,11 @@ foreach tuple : want_man or want_html ? [['systemd.directives', '7', systemd_dir
                 depends : p2,
                 install : want_html and have_lxml,
                 install_dir : join_paths(docdir, 'html'))
-        html_pages += [p3]
+        html_pages += p3
 endforeach
 
-# cannot use run_target until https://github.com/mesonbuild/meson/issues/1644 is resolved
+# Cannot use run_target because those targets are used in depends
+# Also see https://github.com/mesonbuild/meson/issues/368.
 man = custom_target(
         'man',
         output : 'man',
@@ -199,12 +198,9 @@ if git.found()
         custom_target(
                 'update-man-rules',
                 output : 'update-man-rules',
-                # slightly strange syntax because of
-                # https://github.com/mesonbuild/meson/issues/1643
-                # and https://github.com/mesonbuild/meson/issues/1512
                 command : ['sh', '-c',
                            'cd @0@ && '.format(meson.build_root()) +
-                           'python3 @0@/tools/make-man-rules.py `git ls-files ":/man/*.xml"` >t && '.format(meson.source_root()) +
+                           'python3 @0@/tools/make-man-rules.py $(git ls-files ":/man/*.xml") >t && '.format(project_source_root) +
                            'mv t @0@/rules/meson.build'.format(meson.current_source_dir())],
                 depend_files : custom_entities_ent)
 endif

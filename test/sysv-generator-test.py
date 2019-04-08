@@ -3,7 +3,7 @@
 #
 # systemd-sysv-generator integration test
 #
-# (C) 2015 Canonical Ltd.
+# © 2015 Canonical Ltd.
 # Author: Martin Pitt <martin.pitt@ubuntu.com>
 
 import collections

@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stdarg.h>
@@ -14,14 +9,16 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "escape.h"
+#include "fileio.h"
 #include "gunicode.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "utf8.h"
 #include "util.h"
-#include "fileio.h"
 
 int strcmp_ptr(const char *a, const char *b) {
 
@@ -132,7 +129,7 @@ static size_t strcspn_escaped(const char *s, const char *reject) {
 }
 
 /* Split a string into words. */
-const char* split(const char **state, size_t *l, const char *separator, bool quoted) {
+const char* split(const char **state, size_t *l, const char *separator, SplitFlags flags) {
         const char *current;
 
         current = *state;
@@ -148,20 +145,24 @@ const char* split(const char **state, size_t *l, const char *separator, bool quo
                 return NULL;
         }
 
-        if (quoted && strchr("\'\"", *current)) {
+        if (flags & SPLIT_QUOTES && strchr("\'\"", *current)) {
                 char quotechars[2] = {*current, '\0'};
 
                 *l = strcspn_escaped(current + 1, quotechars);
                 if (current[*l + 1] == '\0' || current[*l + 1] != quotechars[0] ||
                     (current[*l + 2] && !strchr(separator, current[*l + 2]))) {
                         /* right quote missing or garbage at the end */
+                        if (flags & SPLIT_RELAX) {
+                                *state = current + *l + 1 + (current[*l + 1] != '\0');
+                                return current + 1;
+                        }
                         *state = current;
                         return NULL;
                 }
                 *state = current++ + *l + 2;
-        } else if (quoted) {
+        } else if (flags & SPLIT_QUOTES) {
                 *l = strcspn_escaped(current, separator);
-                if (current[*l] && !strchr(separator, current[*l])) {
+                if (current[*l] && !strchr(separator, current[*l]) && !(flags & SPLIT_RELAX)) {
                         /* unfinished escape */
                         *state = current;
                         return NULL;
@@ -268,23 +269,12 @@ char *strjoin_real(const char *x, ...) {
 }
 
 char *strstrip(char *s) {
-        char *e;
-
         if (!s)
                 return NULL;
 
-        /* Drops trailing whitespace. Modifies the string in
-         * place. Returns pointer to first non-space character */
+        /* Drops trailing whitespace. Modifies the string in place. Returns pointer to first non-space character */
 
-        s += strspn(s, WHITESPACE);
-
-        for (e = strchr(s, 0); e > s; e --)
-                if (!strchr(WHITESPACE, e[-1]))
-                        break;
-
-        *e = 0;
-
-        return s;
+        return delete_trailing_chars(skip_leading_chars(s, WHITESPACE), WHITESPACE);
 }
 
 char *delete_chars(char *s, const char *bad) {
@@ -409,12 +399,7 @@ int ascii_strcasecmp_nn(const char *a, size_t n, const char *b, size_t m) {
         if (r != 0)
                 return r;
 
-        if (n < m)
-                return -1;
-        else if (n > m)
-                return 1;
-        else
-                return 0;
+        return CMP(n, m);
 }
 
 bool chars_intersect(const char *a, const char *b) {
@@ -453,9 +438,23 @@ bool string_has_cc(const char *p, const char *ok) {
         return false;
 }
 
+static int write_ellipsis(char *buf, bool unicode) {
+        if (unicode || is_locale_utf8()) {
+                buf[0] = 0xe2; /* tri-dot ellipsis: … */
+                buf[1] = 0x80;
+                buf[2] = 0xa6;
+        } else {
+                buf[0] = '.';
+                buf[1] = '.';
+                buf[2] = '.';
+        }
+
+        return 3;
+}
+
 static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
-        size_t x, need_space;
-        char *r;
+        size_t x, need_space, suffix_len;
+        char *t;
 
         assert(s);
         assert(percent <= 100);
@@ -491,8 +490,8 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
          * either for the UTF-8 encoded character or for three ASCII characters. */
         need_space = is_locale_utf8() ? 1 : 3;
 
-        r = new(char, new_length+3);
-        if (!r)
+        t = new(char, new_length+3);
+        if (!t)
                 return NULL;
 
         assert(new_length >= need_space);
@@ -500,23 +499,13 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         x = ((new_length - need_space) * percent + 50) / 100;
         assert(x <= new_length - need_space);
 
-        memcpy(r, s, x);
+        memcpy(t, s, x);
+        write_ellipsis(t + x, false);
+        suffix_len = new_length - x - need_space;
+        memcpy(t + x + 3, s + old_length - suffix_len, suffix_len);
+        *(t + x + 3 + suffix_len) = '\0';
 
-        if (is_locale_utf8()) {
-                r[x+0] = 0xe2; /* tri-dot ellipsis: … */
-                r[x+1] = 0x80;
-                r[x+2] = 0xa6;
-        } else {
-                r[x+0] = '.';
-                r[x+1] = '.';
-                r[x+2] = '.';
-        }
-
-        memcpy(r + x + 3,
-               s + old_length - (new_length - x - need_space),
-               new_length - x - need_space + 1);
-
-        return r;
+        return t;
 }
 
 char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
@@ -547,42 +536,56 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                 return strdup("");
 
         /* If no multibyte characters use ascii_ellipsize_mem for speed */
-        if (ascii_is_valid(s))
+        if (ascii_is_valid_n(s, old_length))
                 return ascii_ellipsize_mem(s, old_length, new_length, percent);
 
         x = ((new_length - 1) * percent) / 100;
         assert(x <= new_length - 1);
 
         k = 0;
-        for (i = s; k < x && i < s + old_length; i = utf8_next_char(i)) {
+        for (i = s; i < s + old_length; i = utf8_next_char(i)) {
                 char32_t c;
+                int w;
 
                 r = utf8_encoded_to_unichar(i, &c);
                 if (r < 0)
                         return NULL;
-                k += unichar_iswide(c) ? 2 : 1;
+
+                w = unichar_iswide(c) ? 2 : 1;
+                if (k + w <= x)
+                        k += w;
+                else
+                        break;
         }
 
-        if (k > x) /* last character was wide and went over quota */
-                x++;
-
-        for (j = s + old_length; k < new_length && j > i; ) {
+        for (j = s + old_length; j > i; ) {
                 char32_t c;
+                int w;
+                const char *jj;
 
-                j = utf8_prev_char(j);
-                r = utf8_encoded_to_unichar(j, &c);
+                jj = utf8_prev_char(j);
+                r = utf8_encoded_to_unichar(jj, &c);
                 if (r < 0)
                         return NULL;
-                k += unichar_iswide(c) ? 2 : 1;
+
+                w = unichar_iswide(c) ? 2 : 1;
+                if (k + w <= new_length) {
+                        k += w;
+                        j = jj;
+                } else
+                        break;
         }
         assert(i <= j);
 
         /* we don't actually need to ellipsize */
         if (i == j)
-                return memdup(s, old_length + 1);
+                return memdup_suffix0(s, old_length);
 
-        /* make space for ellipsis */
-        j = utf8_next_char(j);
+        /* make space for ellipsis, if possible */
+        if (j < s + old_length)
+                j = utf8_next_char(j);
+        else if (i > s)
+                i = utf8_prev_char(i);
 
         len = i - s;
         len2 = s + old_length - j;
@@ -596,34 +599,81 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         */
 
         memcpy(e, s, len);
-        e[len + 0] = 0xe2; /* tri-dot ellipsis: … */
-        e[len + 1] = 0x80;
-        e[len + 2] = 0xa6;
-
-        memcpy(e + len + 3, j, len2 + 1);
+        write_ellipsis(e + len, true);
+        memcpy(e + len + 3, j, len2);
+        *(e + len + 3 + len2) = '\0';
 
         return e;
 }
 
-char *ellipsize(const char *s, size_t length, unsigned percent) {
+char *cellescape(char *buf, size_t len, const char *s) {
+        /* Escape and ellipsize s into buffer buf of size len. Only non-control ASCII
+         * characters are copied as they are, everything else is escaped. The result
+         * is different then if escaping and ellipsization was performed in two
+         * separate steps, because each sequence is either stored in full or skipped.
+         *
+         * This function should be used for logging about strings which expected to
+         * be plain ASCII in a safe way.
+         *
+         * An ellipsis will be used if s is too long. It was always placed at the
+         * very end.
+         */
 
-        if (length == (size_t) -1)
-                return strdup(s);
+        size_t i = 0, last_char_width[4] = {}, k = 0, j;
 
-        return ellipsize_mem(s, strlen(s), length, percent);
-}
+        assert(len > 0); /* at least a terminating NUL */
 
-bool nulstr_contains(const char *nulstr, const char *needle) {
-        const char *i;
+        for (;;) {
+                char four[4];
+                int w;
 
-        if (!nulstr)
-                return false;
+                if (*s == 0) /* terminating NUL detected? then we are done! */
+                        goto done;
 
-        NULSTR_FOREACH(i, nulstr)
-                if (streq(i, needle))
-                        return true;
+                w = cescape_char(*s, four);
+                if (i + w + 1 > len) /* This character doesn't fit into the buffer anymore? In that case let's
+                                      * ellipsize at the previous location */
+                        break;
 
-        return false;
+                /* OK, there was space, let's add this escaped character to the buffer */
+                memcpy(buf + i, four, w);
+                i += w;
+
+                /* And remember its width in the ring buffer */
+                last_char_width[k] = w;
+                k = (k + 1) % 4;
+
+                s++;
+        }
+
+        /* Ellipsation is necessary. This means we might need to truncate the string again to make space for 4
+         * characters ideally, but the buffer is shorter than that in the first place take what we can get */
+        for (j = 0; j < ELEMENTSOF(last_char_width); j++) {
+
+                if (i + 4 <= len) /* nice, we reached our space goal */
+                        break;
+
+                k = k == 0 ? 3 : k - 1;
+                if (last_char_width[k] == 0) /* bummer, we reached the beginning of the strings */
+                        break;
+
+                assert(i >= last_char_width[k]);
+                i -= last_char_width[k];
+        }
+
+        if (i + 4 <= len) /* yay, enough space */
+                i += write_ellipsis(buf + i, false);
+        else if (i + 3 <= len) { /* only space for ".." */
+                buf[i++] = '.';
+                buf[i++] = '.';
+        } else if (i + 2 <= len) /* only space for a single "." */
+                buf[i++] = '.';
+        else
+                assert(i + 1 <= len);
+
+ done:
+        buf[i] = '\0';
+        return buf;
 }
 
 char* strshorten(char *s, size_t l) {
@@ -680,7 +730,7 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
         return ret;
 }
 
-static void advance_offsets(ssize_t diff, size_t offsets[2], size_t shift[2], size_t size) {
+static void advance_offsets(ssize_t diff, size_t offsets[static 2], size_t shift[static 2], size_t size) {
         if (!offsets)
                 return;
 
@@ -941,7 +991,7 @@ int free_and_strdup(char **p, const char *s) {
 
         assert(p);
 
-        /* Replaces a string pointer with an strdup()ed new string,
+        /* Replaces a string pointer with a strdup()ed new string,
          * possibly freeing the old one. */
 
         if (streq_ptr(*p, s))
@@ -960,21 +1010,31 @@ int free_and_strdup(char **p, const char *s) {
         return 1;
 }
 
-#if !HAVE_EXPLICIT_BZERO
-/*
- * Pointer to memset is volatile so that compiler must de-reference
- * the pointer and can't assume that it points to any function in
- * particular (such as memset, which it then might further "optimize")
- * This approach is inspired by openssl's crypto/mem_clr.c.
- */
-typedef void *(*memset_t)(void *,int,size_t);
+int free_and_strndup(char **p, const char *s, size_t l) {
+        char *t;
 
-static volatile memset_t memset_func = memset;
+        assert(p);
+        assert(s || l == 0);
 
-void explicit_bzero(void *p, size_t l) {
-        memset_func(p, '\0', l);
+        /* Replaces a string pointer with a strndup()ed new string,
+         * freeing the old one. */
+
+        if (!*p && !s)
+                return 0;
+
+        if (*p && s && strneq(*p, s, l) && (l > strlen(*p) || (*p)[l] == '\0'))
+                return 0;
+
+        if (s) {
+                t = strndup(s, l);
+                if (!t)
+                        return -ENOMEM;
+        } else
+                t = NULL;
+
+        free_and_replace(*p, t);
+        return 1;
 }
-#endif
 
 char* string_erase(char *x) {
         if (!x)
@@ -982,7 +1042,7 @@ char* string_erase(char *x) {
 
         /* A delicious drop of snake-oil! To be called on memory where
          * we stored passphrases or so, after we used them. */
-        explicit_bzero(x, strlen(x));
+        explicit_bzero_safe(x, strlen(x));
         return x;
 }
 

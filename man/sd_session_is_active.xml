@@ -1,29 +1,14 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
-
-<refentry id="sd_session_is_active" conditional='HAVE_PAM'>
+<refentry id="sd_session_is_active" conditional='HAVE_PAM'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_session_is_active</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -277,64 +262,45 @@
     <function>sd_session_get_tty()</function> return 0 or
     a positive integer. On failure, these calls return a
     negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
+
+          <listitem><para>The specified session does not exist.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENODATA</constant></term>
+
+          <listitem><para>The given field is not specified for the described session.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An input parameter was invalid (out of range, or <constant>NULL</constant>, where
+          that is not accepted).</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
-
-    <para>Returned errors may indicate the following problems:</para>
-
-    <variablelist>
-
-      <varlistentry>
-        <term><constant>-ENXIO</constant></term>
-
-        <listitem><para>The specified session does not exist.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><constant>-ENODATA</constant></term>
-
-        <listitem><para>The given field is not specified for the described
-        session.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
-
-        <listitem><para>An input parameter was invalid (out of range,
-        or NULL, where that is not accepted).</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
-
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
-    <title>Notes</title>
-
-    <para>The <function>sd_session_is_active()</function>,
-    <function>sd_session_get_state()</function>,
-    <function>sd_session_get_uid()</function>,
-    <function>sd_session_get_seat()</function>,
-    <function>sd_session_get_service()</function>,
-    <function>sd_session_get_type()</function>,
-    <function>sd_session_get_class()</function>,
-    <function>sd_session_get_display()</function>,
-    <function>sd_session_get_remote_host()</function>,
-    <function>sd_session_get_remote_user()</function> and
-    <function>sd_session_get_tty()</function>
-    interfaces are available as a shared library, which can
-    be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>

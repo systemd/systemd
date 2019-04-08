@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include "bus-util.h"
 #include "dbus-cgroup.h"
@@ -15,78 +10,33 @@
 #include "string-util.h"
 #include "unit.h"
 
-static int property_get_what(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Mount *m = userdata;
-        const char *d = NULL;
-
-        assert(bus);
-        assert(reply);
-        assert(m);
-
+static const char *mount_get_what(const Mount *m) {
         if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
-                d = m->parameters_proc_self_mountinfo.what;
-        else if (m->from_fragment && m->parameters_fragment.what)
-                d = m->parameters_fragment.what;
-
-        return sd_bus_message_append(reply, "s", d);
+                return m->parameters_proc_self_mountinfo.what;
+        if (m->from_fragment && m->parameters_fragment.what)
+                return m->parameters_fragment.what;
+        return NULL;
 }
 
-static int property_get_options(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Mount *m = userdata;
-        const char *d = NULL;
-
-        assert(bus);
-        assert(reply);
-        assert(m);
-
+static const char *mount_get_options(const Mount *m) {
         if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.options)
-                d = m->parameters_proc_self_mountinfo.options;
-        else if (m->from_fragment && m->parameters_fragment.options)
-                d = m->parameters_fragment.options;
-
-        return sd_bus_message_append(reply, "s", d);
+                return m->parameters_proc_self_mountinfo.options;
+        if (m->from_fragment && m->parameters_fragment.options)
+                return m->parameters_fragment.options;
+        return NULL;
 }
 
-static int property_get_type(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        const char *fstype = NULL;
-        Mount *m = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(m);
-
+static const char *mount_get_fstype(const Mount *m) {
         if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.fstype)
-                fstype = m->parameters_proc_self_mountinfo.fstype;
+                return m->parameters_proc_self_mountinfo.fstype;
         else if (m->from_fragment && m->parameters_fragment.fstype)
-                fstype = m->parameters_fragment.fstype;
-
-        return sd_bus_message_append(reply, "s", fstype);
+                return m->parameters_fragment.fstype;
+        return NULL;
 }
 
+static BUS_DEFINE_PROPERTY_GET(property_get_what, "s", Mount, mount_get_what);
+static BUS_DEFINE_PROPERTY_GET(property_get_options, "s", Mount, mount_get_options);
+static BUS_DEFINE_PROPERTY_GET(property_get_type, "s", Mount, mount_get_fstype);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, mount_result, MountResult);
 
 const sd_bus_vtable bus_mount_vtable[] = {
@@ -195,7 +145,7 @@ int bus_mount_set_property(
 int bus_mount_commit_properties(Unit *u) {
         assert(u);
 
-        unit_update_cgroup_members_masks(u);
+        unit_invalidate_cgroup_members_masks(u);
         unit_realize_cgroup(u);
 
         return 0;

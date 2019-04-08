@@ -315,11 +315,11 @@ uint32_t jenkins_hashlittle( const void *key, size_t length, uint32_t initval)
      * then masks off the part it's not allowed to read.  Because the
      * string is aligned, the masked-off tail is in the same word as the
      * rest of the string.  Every machine with memory protection I've seen
-     * does it on word boundaries, so is OK with this.  But VALGRIND will
+     * does it on word boundaries, so is OK with this.  But valgrind will
      * still catch it and complain.  The masking trick does make the hash
      * noticeably faster for short strings (like English words).
      */
-#if !defined(VALGRIND) && !defined(__SANITIZE_ADDRESS__)
+#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER
 
     switch(length)
     {
@@ -500,11 +500,11 @@ void jenkins_hashlittle2(
      * then masks off the part it's not allowed to read.  Because the
      * string is aligned, the masked-off tail is in the same word as the
      * rest of the string.  Every machine with memory protection I've seen
-     * does it on word boundaries, so is OK with this.  But VALGRIND will
+     * does it on word boundaries, so is OK with this.  But valgrind will
      * still catch it and complain.  The masking trick does make the hash
      * noticeably faster for short strings (like English words).
      */
-#if !defined(VALGRIND) && !defined(__SANITIZE_ADDRESS__)
+#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER
 
     switch(length)
     {
@@ -676,11 +676,11 @@ uint32_t jenkins_hashbig( const void *key, size_t length, uint32_t initval)
      * then shifts out the part it's not allowed to read.  Because the
      * string is aligned, the illegal read is in the same word as the
      * rest of the string.  Every machine with memory protection I've seen
-     * does it on word boundaries, so is OK with this.  But VALGRIND will
+     * does it on word boundaries, so is OK with this.  But valgrind will
      * still catch it and complain.  The masking trick does make the hash
      * noticeably faster for short strings (like English words).
      */
-#if !defined(VALGRIND) && !defined(__SANITIZE_ADDRESS__)
+#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER
 
     switch(length)
     {

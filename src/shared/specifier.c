@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stdbool.h>
@@ -15,6 +10,8 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "format-util.h"
+#include "fs-util.h"
 #include "hostname-util.h"
 #include "macro.h"
 #include "specifier.h"
@@ -25,14 +22,13 @@
 /*
  * Generic infrastructure for replacing %x style specifiers in
  * strings. Will call a callback for each replacement.
- *
  */
 
 /* Any ASCII character or digit: our pool of potential specifiers,
  * and "%" used for escaping. */
 #define POSSIBLE_SPECIFIERS ALPHANUMERICAL "%"
 
-int specifier_printf(const char *text, const Specifier table[], void *userdata, char **_ret) {
+int specifier_printf(const char *text, const Specifier table[], const void *userdata, char **_ret) {
         size_t l, allocated = 0;
         _cleanup_free_ char *ret = NULL;
         char *t;
@@ -107,7 +103,7 @@ int specifier_printf(const char *text, const Specifier table[], void *userdata, 
 
 /* Generic handler for simple string replacements */
 
-int specifier_string(char specifier, void *data, void *userdata, char **ret) {
+int specifier_string(char specifier, const void *data, const void *userdata, char **ret) {
         char *n;
 
         n = strdup(strempty(data));
@@ -118,7 +114,7 @@ int specifier_string(char specifier, void *data, void *userdata, char **ret) {
         return 0;
 }
 
-int specifier_machine_id(char specifier, void *data, void *userdata, char **ret) {
+int specifier_machine_id(char specifier, const void *data, const void *userdata, char **ret) {
         sd_id128_t id;
         char *n;
         int r;
@@ -135,7 +131,7 @@ int specifier_machine_id(char specifier, void *data, void *userdata, char **ret)
         return 0;
 }
 
-int specifier_boot_id(char specifier, void *data, void *userdata, char **ret) {
+int specifier_boot_id(char specifier, const void *data, const void *userdata, char **ret) {
         sd_id128_t id;
         char *n;
         int r;
@@ -152,7 +148,7 @@ int specifier_boot_id(char specifier, void *data, void *userdata, char **ret) {
         return 0;
 }
 
-int specifier_host_name(char specifier, void *data, void *userdata, char **ret) {
+int specifier_host_name(char specifier, const void *data, const void *userdata, char **ret) {
         char *n;
 
         n = gethostname_malloc();
@@ -163,7 +159,7 @@ int specifier_host_name(char specifier, void *data, void *userdata, char **ret) 
         return 0;
 }
 
-int specifier_kernel_release(char specifier, void *data, void *userdata, char **ret) {
+int specifier_kernel_release(char specifier, const void *data, const void *userdata, char **ret) {
         struct utsname uts;
         char *n;
         int r;
@@ -180,7 +176,25 @@ int specifier_kernel_release(char specifier, void *data, void *userdata, char **
         return 0;
 }
 
-int specifier_user_name(char specifier, void *data, void *userdata, char **ret) {
+int specifier_group_name(char specifier, const void *data, const void *userdata, char **ret) {
+        char *t;
+
+        t = gid_to_name(getgid());
+        if (!t)
+                return -ENOMEM;
+
+        *ret = t;
+        return 0;
+}
+
+int specifier_group_id(char specifier, const void *data, const void *userdata, char **ret) {
+        if (asprintf(ret, UID_FMT, getgid()) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+int specifier_user_name(char specifier, const void *data, const void *userdata, char **ret) {
         char *t;
 
         /* If we are UID 0 (root), this will not result in NSS, otherwise it might. This is good, as we want to be able
@@ -198,7 +212,7 @@ int specifier_user_name(char specifier, void *data, void *userdata, char **ret) 
         return 0;
 }
 
-int specifier_user_id(char specifier, void *data, void *userdata, char **ret) {
+int specifier_user_id(char specifier, const void *data, const void *userdata, char **ret) {
 
         if (asprintf(ret, UID_FMT, getuid()) < 0)
                 return -ENOMEM;
@@ -206,7 +220,7 @@ int specifier_user_id(char specifier, void *data, void *userdata, char **ret) {
         return 0;
 }
 
-int specifier_user_home(char specifier, void *data, void *userdata, char **ret) {
+int specifier_user_home(char specifier, const void *data, const void *userdata, char **ret) {
 
         /* On PID 1 (which runs as root) this will not result in NSS,
          * which is good. See above */
@@ -214,12 +228,46 @@ int specifier_user_home(char specifier, void *data, void *userdata, char **ret) 
         return get_home_dir(ret);
 }
 
-int specifier_user_shell(char specifier, void *data, void *userdata, char **ret) {
+int specifier_user_shell(char specifier, const void *data, const void *userdata, char **ret) {
 
         /* On PID 1 (which runs as root) this will not result in NSS,
          * which is good. See above */
 
         return get_shell(ret);
+}
+
+int specifier_tmp_dir(char specifier, const void *data, const void *userdata, char **ret) {
+        const char *p;
+        char *copy;
+        int r;
+
+        r = tmp_dir(&p);
+        if (r < 0)
+                return r;
+
+        copy = strdup(p);
+        if (!copy)
+                return -ENOMEM;
+
+        *ret = copy;
+        return 0;
+}
+
+int specifier_var_tmp_dir(char specifier, const void *data, const void *userdata, char **ret) {
+        const char *p;
+        char *copy;
+        int r;
+
+        r = var_tmp_dir(&p);
+        if (r < 0)
+                return r;
+
+        copy = strdup(p);
+        if (!copy)
+                return -ENOMEM;
+
+        *ret = copy;
+        return 0;
 }
 
 int specifier_escape_strv(char **l, char ***ret) {

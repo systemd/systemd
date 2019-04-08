@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include "alloc-util.h"
 #include "build.h"
@@ -19,6 +14,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "test-helper.h"
+#include "tests.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -301,7 +297,7 @@ static void test_shift_path(void) {
         test_shift_path_one("/foobar/waldo", "/", "/foobar/waldo");
         test_shift_path_one("/foobar/waldo", "", "/foobar/waldo");
         test_shift_path_one("/foobar/waldo", "/foobar", "/waldo");
-        test_shift_path_one("/foobar/waldo", "/fuckfuck", "/foobar/waldo");
+        test_shift_path_one("/foobar/waldo", "/hogehoge", "/foobar/waldo");
 }
 
 static void test_mask_supported(void) {
@@ -372,6 +368,17 @@ static void test_is_wanted(void) {
         assert_se(setenv("SYSTEMD_PROC_CMDLINE",
                          "systemd.unified_cgroup_hierarchy=0 "
                          "systemd.legacy_systemd_cgroup_controller=0", 1) >= 0);
+        test_is_wanted_print(false);
+
+        /* cgroup_no_v1=all implies unified cgroup hierarchy, unless otherwise
+         * explicitly specified. */
+        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
+                         "cgroup_no_v1=all", 1) >= 0);
+        test_is_wanted_print(false);
+
+        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
+                         "cgroup_no_v1=all "
+                         "systemd.unified_cgroup_hierarchy=0", 1) >= 0);
         test_is_wanted_print(false);
 }
 
@@ -452,9 +459,7 @@ static void test_cg_get_keyed_attribute(void) {
 }
 
 int main(void) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_path_decode_unit();
         test_path_get_unit();

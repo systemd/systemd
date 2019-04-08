@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2017 Intel Corporation. All rights reserved.
+  Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
 #include "sd-radv.h"
@@ -65,19 +63,34 @@ struct sd_radv {
         struct sd_radv_opt_dns *dnssl;
 };
 
+#define radv_prefix_opt__contents {             \
+        uint8_t type;                           \
+        uint8_t length;                         \
+        uint8_t prefixlen;                      \
+        uint8_t flags;                          \
+        be32_t valid_lifetime;                  \
+        be32_t preferred_lifetime;              \
+        uint32_t reserved;                      \
+        struct in6_addr in6_addr;               \
+}
+
+struct radv_prefix_opt radv_prefix_opt__contents;
+
+/* We need the opt substructure to be packed, because we use it in send(). But
+ * if we use _packed_, this means that the structure cannot be used directly in
+ * normal code in general, because the fields might not be properly aligned.
+ * But in this particular case, the structure is defined in a way that gives
+ * proper alignment, even without the explicit _packed_ attribute. To appease
+ * the compiler we use the "unpacked" structure, but we also verify that
+ * structure contains no holes, so offsets are the same when _packed_ is used.
+ */
+struct radv_prefix_opt__packed radv_prefix_opt__contents _packed_;
+assert_cc(sizeof(struct radv_prefix_opt) == sizeof(struct radv_prefix_opt__packed));
+
 struct sd_radv_prefix {
         unsigned n_ref;
 
-        struct {
-                uint8_t type;
-                uint8_t length;
-                uint8_t prefixlen;
-                uint8_t flags;
-                be32_t valid_lifetime;
-                be32_t preferred_lifetime;
-                uint32_t reserved;
-                struct in6_addr in6_addr;
-        } _packed_ opt;
+        struct radv_prefix_opt opt;
 
         LIST_FIELDS(struct sd_radv_prefix, prefix);
 
@@ -87,5 +100,4 @@ struct sd_radv_prefix {
 
 #define log_radv_full(level, error, fmt, ...) log_internal(level, error, __FILE__, __LINE__, __func__, "RADV: " fmt, ##__VA_ARGS__)
 #define log_radv_errno(error, fmt, ...) log_radv_full(LOG_DEBUG, error, fmt, ##__VA_ARGS__)
-#define log_radv_warning_errno(error, fmt, ...) log_radv_full(LOG_WARNING, error, fmt, ##__VA_ARGS__)
 #define log_radv(fmt, ...) log_radv_errno(0, fmt, ##__VA_ARGS__)

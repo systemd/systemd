@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
-# -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
-#  SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MIT
 #
-# This file is part of systemd. It is distrubuted under the MIT license, see
-# below.
-#
-# Copyright 2016 Zbigniew Jędrzejewski-Szmek
+# This file is distributed under the MIT license, see below.
 #
 # The MIT License (MIT)
 #
@@ -33,8 +29,7 @@ import sys
 import os
 
 try:
-    from pyparsing import (Word, White, Literal, ParserElement, Regex,
-                           LineStart, LineEnd,
+    from pyparsing import (Word, White, Literal, ParserElement, Regex, LineEnd,
                            OneOrMore, Combine, Or, Optional, Suppress, Group,
                            nums, alphanums, printables,
                            stringEnd, pythonStyleComment, QuotedString,

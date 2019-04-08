@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <string.h>
@@ -13,9 +8,12 @@
 #include "format-util.h"
 #include "logind-user.h"
 #include "logind.h"
+#include "missing_capability.h"
 #include "signal-util.h"
 #include "strv.h"
 #include "user-util.h"
+
+static BUS_DEFINE_PROPERTY_GET2(property_get_state, "s", User, user_get_state, user_state_to_string);
 
 static int property_get_display(
                 sd_bus *bus,
@@ -38,24 +36,6 @@ static int property_get_display(
                 return -ENOMEM;
 
         return sd_bus_message_append(reply, "(so)", u->display ? u->display->id : "", p);
-}
-
-static int property_get_state(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        User *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "s", user_state_to_string(user_get_state(u)));
 }
 
 static int property_get_sessions(
@@ -130,7 +110,7 @@ static int property_get_idle_since_hint(
         assert(reply);
         assert(u);
 
-        user_get_idle_hint(u, &t);
+        (void) user_get_idle_hint(u, &t);
         k = streq(property, "IdleSinceHint") ? t.realtime : t.monotonic;
 
         return sd_bus_message_append(reply, "t", k);

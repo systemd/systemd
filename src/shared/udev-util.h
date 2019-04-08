@@ -1,23 +1,32 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
+#include "sd-device.h"
 
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-***/
+#include "device-private.h"
+#include "time-util.h"
 
-#include "udev.h"
-#include "util.h"
+typedef enum ResolveNameTiming {
+        RESOLVE_NAME_NEVER,
+        RESOLVE_NAME_LATE,
+        RESOLVE_NAME_EARLY,
+        _RESOLVE_NAME_TIMING_MAX,
+        _RESOLVE_NAME_TIMING_INVALID = -1,
+} ResolveNameTiming;
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev*, udev_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_device*, udev_device_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_enumerate*, udev_enumerate_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_event*, udev_event_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_rules*, udev_rules_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl*, udev_ctrl_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl_connection*, udev_ctrl_connection_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl_msg*, udev_ctrl_msg_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_monitor*, udev_monitor_unref);
+ResolveNameTiming resolve_name_timing_from_string(const char *s) _pure_;
+const char *resolve_name_timing_to_string(ResolveNameTiming i) _const_;
 
-int udev_parse_config(void);
+int udev_parse_config_full(
+                unsigned *ret_children_max,
+                usec_t *ret_exec_delay_usec,
+                usec_t *ret_event_timeout_usec,
+                ResolveNameTiming *ret_resolve_name_timing);
+
+static inline int udev_parse_config(void) {
+        return udev_parse_config_full(NULL, NULL, NULL, NULL);
+}
+
+int device_wait_for_initialization(sd_device *device, const char *subsystem, sd_device **ret);
+int device_is_renaming(sd_device *dev);
+bool device_for_action(sd_device *dev, DeviceAction action);

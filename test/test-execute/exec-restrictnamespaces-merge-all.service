@@ -1,0 +1,8 @@
+[Unit]
+Description=Test merging RestrictNamespaces= with all flags
+
+[Service]
+RestrictNamespaces=mnt pid cgroup net uts ipc user
+RestrictNamespaces=net
+ExecStart=unshare -m -u -i -n -p -f
+Type=oneshot

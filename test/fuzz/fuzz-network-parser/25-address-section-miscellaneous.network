@@ -1,0 +1,10 @@
+[Match]
+Name=dummy98
+
+[Address]
+Address=10.2.3.4/16
+PreferredLifetime=0
+Scope=link
+
+[Address]
+Address=2001:0db8:0:f101::1/64

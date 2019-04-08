@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include "bus-match.h"
 #include "bus-message.h"
@@ -11,6 +6,8 @@
 #include "bus-util.h"
 #include "log.h"
 #include "macro.h"
+#include "memory-util.h"
+#include "tests.h"
 
 static bool mask[32];
 
@@ -82,9 +79,13 @@ int main(int argc, char *argv[]) {
         sd_bus_slot slots[19];
         int r;
 
+        test_setup_logging(LOG_INFO);
+
         r = sd_bus_open_user(&bus);
         if (r < 0)
-                return EXIT_TEST_SKIP;
+                r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_tests_skipped("Failed to connect to bus");
 
         assert_se(match_add(slots, &root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar.x',", 1) >= 0);
         assert_se(match_add(slots, &root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar.x',", 2) >= 0);

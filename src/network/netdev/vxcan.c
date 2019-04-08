@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2017 Susant Sahani
-***/
+#if HAVE_LINUX_CAN_VXCAN_H
+#include <linux/can/vxcan.h>
+#endif
 
-#include "netdev/vxcan.h"
 #include "missing.h"
+#include "netdev/vxcan.h"
 
 static int netdev_vxcan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         VxCan *v;

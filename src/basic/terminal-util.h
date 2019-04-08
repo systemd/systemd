@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -24,6 +18,7 @@
 #define ANSI_MAGENTA "\x1B[0;35m"
 #define ANSI_CYAN    "\x1B[0;36m"
 #define ANSI_WHITE   "\x1B[0;37m"
+#define ANSI_GREY    "\x1B[0;2;37m"
 
 /* Bold/highlighted */
 #define ANSI_HIGHLIGHT_BLACK   "\x1B[0;1;30m"
@@ -56,6 +51,9 @@
 /* Erase characters until the end of the line */
 #define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"
 
+/* Move cursor up one line */
+#define ANSI_REVERSE_LINEFEED "\x1BM"
+
 /* Set cursor to top left corner and clear screen */
 #define ANSI_HOME_CLEAR "\x1B[H\x1B[2J"
 
@@ -67,16 +65,16 @@ int open_terminal(const char *name, int mode);
 /* Flags for tweaking the way we become the controlling process of a terminal. */
 typedef enum AcquireTerminalFlags {
         /* Try to become the controlling process of the TTY. If we can't return -EPERM. */
-        ACQUIRE_TERMINAL_TRY = 0,
+        ACQUIRE_TERMINAL_TRY        = 0,
 
         /* Tell the kernel to forcibly make us the controlling process of the TTY. Returns -EPERM if the kernel doesn't allow that. */
-        ACQUIRE_TERMINAL_FORCE = 1,
+        ACQUIRE_TERMINAL_FORCE      = 1,
 
         /* If we can't become the controlling process of the TTY right-away, then wait until we can. */
-        ACQUIRE_TERMINAL_WAIT = 2,
+        ACQUIRE_TERMINAL_WAIT       = 2,
 
         /* Pick one of the above, and then OR this flag in, in order to request permissive behaviour, if we can't become controlling process then don't mind */
-        ACQUIRE_TERMINAL_PERMISSIVE = 4,
+        ACQUIRE_TERMINAL_PERMISSIVE = 1 << 2,
 } AcquireTerminalFlags;
 
 int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout);
@@ -135,6 +133,7 @@ DEFINE_ANSI_FUNC(highlight_yellow,           HIGHLIGHT_YELLOW);
 DEFINE_ANSI_FUNC(highlight_blue,             HIGHLIGHT_BLUE);
 DEFINE_ANSI_FUNC(highlight_magenta,          HIGHLIGHT_MAGENTA);
 DEFINE_ANSI_FUNC(normal,                     NORMAL);
+DEFINE_ANSI_FUNC(grey,                       GREY);
 
 DEFINE_ANSI_FUNC_UNDERLINE(underline,                  UNDERLINE, NORMAL);
 DEFINE_ANSI_FUNC_UNDERLINE(highlight_underline,        HIGHLIGHT_UNDERLINE, HIGHLIGHT);
@@ -157,14 +156,5 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode);
 
 int vt_default_utf8(void);
 int vt_reset_keyboard(int fd);
-
-int terminal_urlify(const char *url, const char *text, char **ret);
-int terminal_urlify_path(const char *path, const char *text, char **ret);
-
-typedef enum CatFlags {
-        CAT_FLAGS_MAIN_FILE_OPTIONAL = 1 << 1,
-} CatFlags;
-
-int cat_files(const char *file, char **dropins, CatFlags flags);
-
-void print_separator(void);
+int vt_restore(int fd);
+int vt_release(int fd, bool restore_vt);

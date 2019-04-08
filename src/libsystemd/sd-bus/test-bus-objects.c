@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include <pthread.h>
 #include <stdlib.h>
@@ -212,7 +207,7 @@ static const sd_bus_vtable vtable2[] = {
 static int enumerator_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
 
         if (object_path_startswith("/value", path))
-                assert_se(*nodes = strv_new("/value/a", "/value/b", "/value/c", NULL));
+                assert_se(*nodes = strv_new("/value/a", "/value/b", "/value/c"));
 
         return 1;
 }
@@ -220,7 +215,7 @@ static int enumerator_callback(sd_bus *bus, const char *path, void *userdata, ch
 static int enumerator2_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
 
         if (object_path_startswith("/value/a", path))
-                assert_se(*nodes = strv_new("/value/a/x", "/value/a/y", "/value/a/z", NULL));
+                assert_se(*nodes = strv_new("/value/a/x", "/value/a/y", "/value/a/z"));
 
         return 1;
 }

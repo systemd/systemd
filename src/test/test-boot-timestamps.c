@@ -1,31 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2013 Lennart Poettering
-  Copyright 2013 Kay Sievers
-***/
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "acpi-fpdt.h"
 #include "boot-timestamps.h"
 #include "efivars.h"
 #include "log.h"
+#include "tests.h"
 #include "util.h"
 
 static int test_acpi_fpdt(void) {
-        usec_t loader_start;
-        usec_t loader_exit;
-        char ts_start[FORMAT_TIMESPAN_MAX];
-        char ts_exit[FORMAT_TIMESPAN_MAX];
-        char ts_span[FORMAT_TIMESPAN_MAX];
+        char ts_start[FORMAT_TIMESPAN_MAX], ts_exit[FORMAT_TIMESPAN_MAX], ts_span[FORMAT_TIMESPAN_MAX];
+        usec_t loader_start, loader_exit;
         int r;
 
         r = acpi_get_boot_usec(&loader_start, &loader_exit);
         if (r < 0) {
                 bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES) || r == -ENODATA;
 
-                log_full_errno(ok ? LOG_DEBUG : LOG_ERR,
-                               r, "Failed to read ACPI FPDT: %m");
+                log_full_errno(ok ? LOG_DEBUG : LOG_ERR, r, "Failed to read ACPI FPDT: %m");
                 return ok ? 0 : r;
         }
 
@@ -37,19 +31,15 @@ static int test_acpi_fpdt(void) {
 }
 
 static int test_efi_loader(void) {
-        usec_t loader_start;
-        usec_t loader_exit;
-        char ts_start[FORMAT_TIMESPAN_MAX];
-        char ts_exit[FORMAT_TIMESPAN_MAX];
-        char ts_span[FORMAT_TIMESPAN_MAX];
+        char ts_start[FORMAT_TIMESPAN_MAX], ts_exit[FORMAT_TIMESPAN_MAX], ts_span[FORMAT_TIMESPAN_MAX];
+        usec_t loader_start, loader_exit;
         int r;
 
         r = efi_loader_get_boot_usec(&loader_start, &loader_exit);
         if (r < 0) {
-                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES);
+                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES) || r == -EOPNOTSUPP;
 
-                log_full_errno(ok ? LOG_DEBUG : LOG_ERR,
-                               r, "Failed to read EFI loader data: %m");
+                log_full_errno(ok ? LOG_DEBUG : LOG_ERR, r, "Failed to read EFI loader data: %m");
                 return ok ? 0 : r;
         }
 
@@ -62,17 +52,16 @@ static int test_efi_loader(void) {
 
 static int test_boot_timestamps(void) {
         char s[MAX(FORMAT_TIMESPAN_MAX, FORMAT_TIMESTAMP_MAX)];
-        int r;
         dual_timestamp fw, l, k;
+        int r;
 
         dual_timestamp_from_monotonic(&k, 0);
 
         r = boot_timestamps(NULL, &fw, &l);
         if (r < 0) {
-                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES);
+                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES) || r == -EOPNOTSUPP;
 
-                log_full_errno(ok ? LOG_DEBUG : LOG_ERR,
-                               r, "Failed to read variables: %m");
+                log_full_errno(ok ? LOG_DEBUG : LOG_ERR, r, "Failed to read variables: %m");
                 return ok ? 0 : r;
         }
 
@@ -87,8 +76,7 @@ static int test_boot_timestamps(void) {
 int main(int argc, char* argv[]) {
         int p, q, r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         p = test_acpi_fpdt();
         assert(p >= 0);
@@ -97,5 +85,8 @@ int main(int argc, char* argv[]) {
         r = test_boot_timestamps();
         assert(r >= 0);
 
-        return (p > 0 || q > 0 || r >> 0) ? EXIT_SUCCESS : EXIT_TEST_SKIP;
+        if (p == 0 && q == 0 && r == 0)
+                return log_tests_skipped("access to firmware variables not possible");
+
+        return EXIT_SUCCESS;
 }

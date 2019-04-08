@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -114,21 +108,18 @@ char *format_timestamp_us_utc(char *buf, size_t l, usec_t t);
 char *format_timestamp_relative(char *buf, size_t l, usec_t t);
 char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy);
 
-void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t);
-int dual_timestamp_deserialize(const char *value, dual_timestamp *t);
-int timestamp_deserialize(const char *value, usec_t *timestamp);
-
 int parse_timestamp(const char *t, usec_t *usec);
 
 int parse_sec(const char *t, usec_t *usec);
 int parse_sec_fix_0(const char *t, usec_t *usec);
+int parse_sec_def_infinity(const char *t, usec_t *usec);
 int parse_time(const char *t, usec_t *usec, usec_t default_unit);
 int parse_nsec(const char *t, nsec_t *nsec);
 
 bool ntp_synced(void);
 
 int get_timezones(char ***l);
-bool timezone_is_valid(const char *name);
+bool timezone_is_valid(const char *name, int log_level);
 
 bool clock_boottime_supported(void);
 bool clock_supported(clockid_t clock);
@@ -183,5 +174,7 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
 /* With a 32bit time_t we can't go beyond 2038... */
 #define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 2147483647000000)
 #else
-#error "Yuck, time_t is neither 4 not 8 bytes wide?"
+#error "Yuck, time_t is neither 4 nor 8 bytes wide?"
 #endif
+
+int time_change_fd(void);

@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
-***/
-
 #include "macro.h"
 
 enum {
@@ -22,6 +16,7 @@ enum {
         NETLINK_TYPE_CACHE_INFO,
         NETLINK_TYPE_NESTED,                    /* NLA_NESTED */
         NETLINK_TYPE_UNION,
+        NETLINK_TYPE_SOCKADDR,
 };
 
 typedef enum NLMatchType {
@@ -70,6 +65,7 @@ typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_VXLAN,
         NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL,
         NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL,
+        NL_UNION_LINK_INFO_DATA_ERSPAN,
         NL_UNION_LINK_INFO_DATA_IPGRETAP_TUNNEL,
         NL_UNION_LINK_INFO_DATA_IP6GRE_TUNNEL,
         NL_UNION_LINK_INFO_DATA_IP6GRETAP_TUNNEL,
@@ -82,6 +78,8 @@ typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_GENEVE,
         NL_UNION_LINK_INFO_DATA_VXCAN,
         NL_UNION_LINK_INFO_DATA_WIREGUARD,
+        NL_UNION_LINK_INFO_DATA_NETDEVSIM,
+        NL_UNION_LINK_INFO_DATA_CAN,
         _NL_UNION_LINK_INFO_DATA_MAX,
         _NL_UNION_LINK_INFO_DATA_INVALID = -1
 } NLUnionLinkInfoData;

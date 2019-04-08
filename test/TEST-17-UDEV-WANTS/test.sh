@@ -6,7 +6,7 @@ TEST_DESCRIPTION="UDEV SYSTEMD_WANTS property"
 TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
-QEMU_TIMEOUT=180
+QEMU_TIMEOUT=300
 
 test_setup() {
     create_empty_image

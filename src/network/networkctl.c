@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <getopt.h>
 #include <linux/if_addrlabel.h>
 #include <net/if.h>
 #include <stdbool.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 #include "sd-hwdb.h"
@@ -25,10 +23,13 @@
 #include "local-addresses.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "main-func.h"
 #include "netlink-util.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -36,24 +37,20 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
-#include "util.h"
 #include "verbs.h"
 
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_all = false;
 
 static char *link_get_type_string(unsigned short iftype, sd_device *d) {
-        const char *t;
+        const char *t, *devtype;
         char *p;
 
-        if (d) {
-                const char *devtype = NULL;
-
-                (void) sd_device_get_devtype(d, &devtype);
-                if (!isempty(devtype))
-                        return strdup(devtype);
-        }
+        if (d &&
+            sd_device_get_devtype(d, &devtype) >= 0 &&
+            !isempty(devtype))
+                return strdup(devtype);
 
         t = arphrd_to_name(iftype);
         if (!t)
@@ -71,7 +68,7 @@ static void operational_state_to_color(const char *state, const char **on, const
         assert(on);
         assert(off);
 
-        if (streq_ptr(state, "routable")) {
+        if (STRPTR_IN_SET(state, "routable", "enslaved")) {
                 *on = ansi_highlight_green();
                 *off = ansi_normal();
         } else if (streq_ptr(state, "degraded")) {
@@ -109,16 +106,14 @@ typedef struct LinkInfo {
         bool has_mtu:1;
 } LinkInfo;
 
-static int link_info_compare(const void *a, const void *b) {
-        const LinkInfo *x = a, *y = b;
-
-        return x->ifindex - y->ifindex;
+static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
+        return CMP(a->ifindex, b->ifindex);
 }
 
-static int decode_link(sd_netlink_message *m, LinkInfo *info) {
+static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
         const char *name;
         uint16_t type;
-        int r;
+        int ifindex, r;
 
         assert(m);
         assert(info);
@@ -130,7 +125,7 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info) {
         if (type != RTM_NEWLINK)
                 return 0;
 
-        r = sd_rtnl_message_link_get_ifindex(m, &info->ifindex);
+        r = sd_rtnl_message_link_get_ifindex(m, &ifindex);
         if (r < 0)
                 return r;
 
@@ -138,11 +133,21 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info) {
         if (r < 0)
                 return r;
 
+        if (patterns) {
+                char str[DECIMAL_STR_MAX(int)];
+
+                xsprintf(str, "%i", ifindex);
+
+                if (!strv_fnmatch(patterns, str, 0) && !strv_fnmatch(patterns, name, 0))
+                        return 0;
+        }
+
         r = sd_rtnl_message_link_get_type(m, &info->iftype);
         if (r < 0)
                 return r;
 
         strscpy(info->name, sizeof info->name, name);
+        info->ifindex = ifindex;
 
         info->has_mac_address =
                 sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &info->mac_address) >= 0 &&
@@ -155,54 +160,7 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info) {
         return 1;
 }
 
-static int acquire_link_info_strv(sd_netlink *rtnl, char **l, LinkInfo **ret) {
-        _cleanup_free_ LinkInfo *links = NULL;
-        char **i;
-        size_t c = 0;
-        int r;
-
-        assert(rtnl);
-        assert(ret);
-
-        links = new(LinkInfo, strv_length(l));
-        if (!links)
-                return log_oom();
-
-        STRV_FOREACH(i, l) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-                int ifindex;
-
-                if (parse_ifindex(*i, &ifindex) >= 0)
-                        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, ifindex);
-                else {
-                        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
-                        if (r < 0)
-                                return rtnl_log_create_error(r);
-
-                        r = sd_netlink_message_append_string(req, IFLA_IFNAME, *i);
-                }
-                if (r < 0)
-                        return rtnl_log_create_error(r);
-
-                r = sd_netlink_call(rtnl, req, 0, &reply);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to request link: %m");
-
-                r = decode_link(reply, links + c);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        c++;
-        }
-
-        qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
-
-        *ret = TAKE_PTR(links);
-
-        return (int) c;
-}
-
-static int acquire_link_info_all(sd_netlink *rtnl, LinkInfo **ret) {
+static int acquire_link_info(sd_netlink *rtnl, char **patterns, LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
         size_t allocated = 0, c = 0;
@@ -228,14 +186,14 @@ static int acquire_link_info_all(sd_netlink *rtnl, LinkInfo **ret) {
                 if (!GREEDY_REALLOC(links, allocated, c+1))
                         return -ENOMEM;
 
-                r = decode_link(i, links + c);
+                r = decode_link(i, links + c, patterns);
                 if (r < 0)
                         return r;
                 if (r > 0)
                         c++;
         }
 
-        qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
+        typesafe_qsort(links, c, link_info_compare);
 
         *ret = TAKE_PTR(links);
 
@@ -251,17 +209,14 @@ static int list_links(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        if (argc > 1)
-                c = acquire_link_info_strv(rtnl, argv + 1, &links);
-        else
-                c = acquire_link_info_all(rtnl, &links);
+        c = acquire_link_info(rtnl, argc > 1 ? argv + 1 : NULL, &links);
         if (c < 0)
                 return c;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         if (arg_legend)
-                printf("%3s %-16s %-18s %-11s %-10s\n",
+                printf("%3s %-16s %-18s %-16s %-10s\n",
                        "IDX",
                        "LINK",
                        "TYPE",
@@ -289,7 +244,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
                 t = link_get_type_string(links[i].iftype, d);
 
-                printf("%3i %-16s %-18s %s%-11s%s %s%-10s%s\n",
+                printf("%3i %-16s %-18s %s%-16s%s %s%-10s%s\n",
                        links[i].ifindex, links[i].name, strna(t),
                        on_color_operational, strna(operational_state), off_color_operational,
                        on_color_setup, strna(setup_state), off_color_setup);
@@ -636,6 +591,10 @@ static int next_lldp_neighbor(FILE *f, sd_lldp_neighbor **ret) {
         if (l != sizeof(u))
                 return -EBADMSG;
 
+        /* each LLDP packet is at most MTU size, but let's allow up to 4KiB just in case */
+        if (le64toh(u) >= 4096)
+                return -EBADMSG;
+
         raw = new(uint8_t, le64toh(u));
         if (!raw)
                 return -ENOMEM;
@@ -771,12 +730,10 @@ static int link_status_one(
                 (void) sd_device_get_property_value(d, "ID_NET_DRIVER", &driver);
                 (void) sd_device_get_property_value(d, "ID_PATH", &path);
 
-                r = sd_device_get_property_value(d, "ID_VENDOR_FROM_DATABASE", &vendor);
-                if (r < 0)
+                if (sd_device_get_property_value(d, "ID_VENDOR_FROM_DATABASE", &vendor) < 0)
                         (void) sd_device_get_property_value(d, "ID_VENDOR", &vendor);
 
-                r = sd_device_get_property_value(d, "ID_MODEL_FROM_DATABASE", &model);
-                if (r < 0)
+                if (sd_device_get_property_value(d, "ID_MODEL_FROM_DATABASE", &model) < 0)
                         (void) sd_device_get_property_value(d, "ID_MODEL", &model);
         }
 
@@ -787,7 +744,7 @@ static int link_status_one(
         (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
         (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
 
-        printf("%s%s%s %i: %s\n", on_color_operational, special_glyph(BLACK_CIRCLE), off_color_operational, info->ifindex, info->name);
+        printf("%s%s%s %i: %s\n", on_color_operational, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off_color_operational, info->ifindex, info->name);
 
         printf("       Link File: %s\n"
                "    Network File: %s\n"
@@ -855,7 +812,7 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
         printf("%s%s%s        State: %s%s%s\n",
-               on_color_operational, special_glyph(BLACK_CIRCLE), off_color_operational,
+               on_color_operational, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off_color_operational,
                on_color_operational, strna(operational_state), off_color_operational);
 
         (void) dump_addresses(rtnl, "       Address: ", 0);
@@ -882,7 +839,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_free_ LinkInfo *links = NULL;
         int r, c, i;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -893,11 +850,11 @@ static int link_status(int argc, char *argv[], void *userdata) {
                 log_debug_errno(r, "Failed to open hardware database: %m");
 
         if (arg_all)
-                c = acquire_link_info_all(rtnl, &links);
+                c = acquire_link_info(rtnl, NULL, &links);
         else if (argc <= 1)
                 return system_status(rtnl, hwdb);
         else
-                c = acquire_link_info_strv(rtnl, argv + 1, &links);
+                c = acquire_link_info(rtnl, argv + 1, &links);
         if (c < 0)
                 return c;
 
@@ -971,14 +928,11 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        if (argc > 1)
-                c = acquire_link_info_strv(rtnl, argv + 1, &links);
-        else
-                c = acquire_link_info_all(rtnl, &links);
+        c = acquire_link_info(rtnl, argc > 1 ? argv + 1 : NULL, &links);
         if (c < 0)
                 return c;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         if (arg_legend)
                 printf("%-16s %-17s %-16s %-11s %-17s %-16s\n",
@@ -1068,7 +1022,14 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("networkctl", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Query and control the networking subsystem.\n\n"
                "  -h --help             Show this help\n"
@@ -1077,11 +1038,16 @@ static void help(void) {
                "     --no-legend        Do not show the headers and footers\n"
                "  -a --all              Show status for all links\n\n"
                "Commands:\n"
-               "  list [LINK...]        List links\n"
-               "  status [LINK...]      Show link status\n"
-               "  lldp [LINK...]        Show LLDP neighbors\n"
+               "  list [PATTERN...]     List links\n"
+               "  status [PATTERN...]   Show link status\n"
+               "  lldp [PATTERN...]     Show LLDP neighbors\n"
                "  label                 Show current address label entries in the kernel\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1111,14 +1077,13 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case ARG_NO_LEGEND:
@@ -1160,7 +1125,7 @@ static void warn_networkd_missing(void) {
         fprintf(stderr, "WARNING: systemd-networkd is not running, output will be incomplete.\n\n");
 }
 
-int main(int argc, char* argv[]) {
+static int run(int argc, char* argv[]) {
         int r;
 
         log_parse_environment();
@@ -1168,14 +1133,11 @@ int main(int argc, char* argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         warn_networkd_missing();
 
-        r = networkctl_main(argc, argv);
-
-finish:
-        pager_close();
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return networkctl_main(argc, argv);
 }
+
+DEFINE_MAIN_FUNCTION(run);

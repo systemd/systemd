@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -12,13 +7,14 @@
 #include "log.h"
 #include "loop-util.h"
 #include "string-util.h"
+#include "tests.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         int r, i;
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         if (argc < 2) {
                 log_error("Requires one command line argument.");

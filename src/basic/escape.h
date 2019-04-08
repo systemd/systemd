@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -14,7 +8,7 @@
 #include <uchar.h>
 
 #include "string-util.h"
-#include "missing.h"
+#include "missing_type.h"
 
 /* What characters are special in the shell? */
 /* must be escaped outside and inside double-quotes */
@@ -45,7 +39,7 @@ typedef enum EscapeStyle {
 
 char *cescape(const char *s);
 char *cescape_length(const char *s, size_t n);
-size_t cescape_char(char c, char *buf);
+int cescape_char(char c, char *buf);
 
 int cunescape(const char *s, UnescapeFlags flags, char **ret);
 int cunescape_length(const char *s, size_t length, UnescapeFlags flags, char **ret);

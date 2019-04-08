@@ -1,14 +1,7 @@
 <?xml version="1.0"?>
-<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-                 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refsect1>
   <title>Environment</title>
@@ -30,7 +23,13 @@
       <term><varname>$SYSTEMD_LESS</varname></term>
 
       <listitem><para>Override the options passed to <command>less</command> (by default
-      <literal>FRSXMK</literal>).</para></listitem>
+      <literal>FRSXMK</literal>).</para>
+
+      <para>If the value of <varname>$SYSTEMD_LESS</varname> does not include <literal>K</literal>,
+      and the pager that is invoked is <command>less</command>,
+      <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> will be ignored by the
+      executable.  This allows <command>less</command> to handle
+      <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> itself.</para></listitem>
     </varlistentry>
 
     <varlistentry id='lesscharset'>

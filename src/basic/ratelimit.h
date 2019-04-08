@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <stdbool.h>
 
 #include "time-util.h"
@@ -43,4 +37,4 @@ typedef struct RateLimit {
                 _r->begin = 0;                           \
         } while (false)
 
-bool ratelimit_test(RateLimit *r);
+bool ratelimit_below(RateLimit *r);

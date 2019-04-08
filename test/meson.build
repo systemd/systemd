@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 test_data_files = '''
         a.service
@@ -20,6 +18,8 @@ test_data_files = '''
         hwdb/10-bad.hwdb
         journal-data/journal-1.txt
         journal-data/journal-2.txt
+        nomem.slice
+        nomemleaf.service
         parent-deep.slice
         parent.slice
         sched_idle_bad.service
@@ -47,12 +47,15 @@ test_data_files = '''
         test-execute/exec-cpuaffinity1.service
         test-execute/exec-cpuaffinity2.service
         test-execute/exec-cpuaffinity3.service
+        test-execute/exec-dynamicuser-fixeduser-adm.service
+        test-execute/exec-dynamicuser-fixeduser-games.service
         test-execute/exec-dynamicuser-fixeduser-one-supplementarygroup.service
         test-execute/exec-dynamicuser-fixeduser.service
         test-execute/exec-dynamicuser-statedir-migrate-step1.service
         test-execute/exec-dynamicuser-statedir-migrate-step2.service
         test-execute/exec-dynamicuser-statedir.service
         test-execute/exec-dynamicuser-supplementarygroups.service
+        test-execute/exec-environment-no-substitute.service
         test-execute/exec-environment-empty.service
         test-execute/exec-environment-multiple.service
         test-execute/exec-environment.service
@@ -64,7 +67,7 @@ test_data_files = '''
         test-execute/exec-ignoresigpipe-no.service
         test-execute/exec-ignoresigpipe-yes.service
         test-execute/exec-inaccessiblepaths-mount-propagation.service
-        test-execute/exec-inaccessiblepaths-proc.service
+        test-execute/exec-inaccessiblepaths-sys.service
         test-execute/exec-ioschedulingclass-best-effort.service
         test-execute/exec-ioschedulingclass-idle.service
         test-execute/exec-ioschedulingclass-none.service
@@ -91,6 +94,7 @@ test_data_files = '''
         test-execute/exec-privatenetwork-yes.service
         test-execute/exec-privatetmp-no.service
         test-execute/exec-privatetmp-yes.service
+        test-execute/exec-protecthome-tmpfs-vs-protectsystem-strict.service
         test-execute/exec-protectkernelmodules-no-capabilities.service
         test-execute/exec-protectkernelmodules-yes-capabilities.service
         test-execute/exec-protectkernelmodules-yes-mount-propagation.service
@@ -99,6 +103,9 @@ test_data_files = '''
         test-execute/exec-readonlypaths-with-bindpaths.service
         test-execute/exec-readonlypaths.service
         test-execute/exec-readwritepaths-mount-propagation.service
+        test-execute/exec-restrictnamespaces-merge-all.service
+        test-execute/exec-restrictnamespaces-merge-and.service
+        test-execute/exec-restrictnamespaces-merge-or.service
         test-execute/exec-restrictnamespaces-mnt-blacklist.service
         test-execute/exec-restrictnamespaces-mnt.service
         test-execute/exec-restrictnamespaces-no.service
@@ -114,6 +121,8 @@ test_data_files = '''
         test-execute/exec-specifier@.service
         test-execute/exec-standardinput-data.service
         test-execute/exec-standardinput-file.service
+        test-execute/exec-standardoutput-file.service
+        test-execute/exec-standardoutput-append.service
         test-execute/exec-supplementarygroups-multiple-groups-default-group-user.service
         test-execute/exec-supplementarygroups-multiple-groups-withgid.service
         test-execute/exec-supplementarygroups-multiple-groups-withuid.service
@@ -129,6 +138,7 @@ test_data_files = '''
         test-execute/exec-systemcallfilter-system-user-nfsnobody.service
         test-execute/exec-systemcallfilter-system-user-nobody.service
         test-execute/exec-systemcallfilter-system-user.service
+        test-execute/exec-systemcallfilter-with-errno-multi.service
         test-execute/exec-systemcallfilter-with-errno-name.service
         test-execute/exec-systemcallfilter-with-errno-number.service
         test-execute/exec-temporaryfilesystem-options.service
@@ -142,6 +152,7 @@ test_data_files = '''
         test-execute/exec-user-nobody.service
         test-execute/exec-user.service
         test-execute/exec-workingdirectory.service
+        test-execute/exec-workingdirectory-trailing-dot.service
         test-path/basic.target
         test-path/path-changed.path
         test-path/path-changed.service
@@ -205,16 +216,28 @@ endif
 ############################################################
 
 rule_syntax_check_py = find_program('rule-syntax-check.py')
-test('rule-syntax-check',
-     rule_syntax_check_py,
-     args : all_rules)
+if want_tests != 'false'
+        test('rule-syntax-check',
+             rule_syntax_check_py,
+             args : all_rules)
+endif
 
 ############################################################
 
 if conf.get('HAVE_SYSV_COMPAT') == 1
         sysv_generator_test_py = find_program('sysv-generator-test.py')
-        test('sysv-generator-test',
-             sysv_generator_test_py)
+        if want_tests != 'false'
+                test('sysv-generator-test',
+                     sysv_generator_test_py)
+        endif
+endif
+
+############################################################
+
+if install_tests
+        install_data('run-unit-tests.py',
+                     install_mode : 'rwxr-xr-x',
+                     install_dir : testsdir)
 endif
 
 ############################################################
@@ -225,21 +248,26 @@ custom_target(
         'sys',
         command : [sys_script_py, meson.current_build_dir()],
         output : 'sys',
-        build_by_default : true)
+        build_by_default : want_tests != 'false')
 
 if perl.found()
         udev_test_pl = find_program('udev-test.pl')
-        test('udev-test',
-             udev_test_pl)
+        if want_tests != 'false'
+                test('udev-test',
+                     udev_test_pl,
+                     timeout : 180)
+        endif
 else
         message('Skipping udev-test because perl is not available')
 endif
 
 if conf.get('ENABLE_HWDB') == 1
         hwdb_test_sh = find_program('hwdb-test.sh')
-        test('hwdb-test',
-             hwdb_test_sh,
-             timeout : 90)
+        if want_tests != 'false'
+                test('hwdb-test',
+                     hwdb_test_sh,
+                     timeout : 90)
+        endif
 endif
 
-subdir('fuzz-regressions')
+subdir('fuzz')

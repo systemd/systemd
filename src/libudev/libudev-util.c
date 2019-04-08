@@ -1,23 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
-***/
 
 #include <ctype.h>
 #include <errno.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
-#include "libudev.h"
+#include "sd-device.h"
 
-#include "MurmurHash2.h"
 #include "device-nodes.h"
-#include "libudev-private.h"
-#include "syslog-util.h"
+#include "libudev-util.h"
+#include "string-util.h"
+#include "strxcpyx.h"
 #include "utf8.h"
 
 /**
@@ -28,31 +19,28 @@
  */
 
 /* handle "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
-int util_resolve_subsys_kernel(struct udev *udev, const char *string,
-                               char *result, size_t maxsize, int read_value)
-{
-        char temp[UTIL_PATH_SIZE];
-        char *subsys;
-        char *sysname;
-        struct udev_device *dev;
-        char *attr;
+int util_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, bool read_value) {
+        char temp[UTIL_PATH_SIZE], *subsys, *sysname, *attr;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *val;
+        int r;
 
         if (string[0] != '[')
-                return -1;
+                return -EINVAL;
 
         strscpy(temp, sizeof(temp), string);
 
         subsys = &temp[1];
 
         sysname = strchr(subsys, '/');
-        if (sysname == NULL)
-                return -1;
+        if (!sysname)
+                return -EINVAL;
         sysname[0] = '\0';
         sysname = &sysname[1];
 
         attr = strchr(sysname, ']');
-        if (attr == NULL)
-                return -1;
+        if (!attr)
+                return -EINVAL;
         attr[0] = '\0';
         attr = &attr[1];
         if (attr[0] == '/')
@@ -60,55 +48,38 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
         if (attr[0] == '\0')
                 attr = NULL;
 
-        if (read_value && attr == NULL)
-                return -1;
+        if (read_value && !attr)
+                return -EINVAL;
 
-        dev = udev_device_new_from_subsystem_sysname(udev, subsys, sysname);
-        if (dev == NULL)
-                return -1;
+        r = sd_device_new_from_subsystem_sysname(&dev, subsys, sysname);
+        if (r < 0)
+                return r;
 
         if (read_value) {
-                const char *val;
-
-                val = udev_device_get_sysattr_value(dev, attr);
-                if (val != NULL)
-                        strscpy(result, maxsize, val);
-                else
+                r = sd_device_get_sysattr_value(dev, attr, &val);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                if (r == -ENOENT)
                         result[0] = '\0';
+                else
+                        strscpy(result, maxsize, val);
                 log_debug("value '[%s/%s]%s' is '%s'", subsys, sysname, attr, result);
         } else {
-                size_t l;
-                char *s;
+                r = sd_device_get_syspath(dev, &val);
+                if (r < 0)
+                        return r;
 
-                s = result;
-                l = strpcpyl(&s, maxsize, udev_device_get_syspath(dev), NULL);
-                if (attr != NULL)
-                        strpcpyl(&s, l, "/", attr, NULL);
-                log_debug("path '[%s/%s]%s' is '%s'", subsys, sysname, attr, result);
+                strscpyl(result, maxsize, val, attr ? "/" : NULL, attr ?: NULL, NULL);
+                log_debug("path '[%s/%s]%s' is '%s'", subsys, sysname, strempty(attr), result);
         }
-        udev_device_unref(dev);
         return 0;
 }
 
-int util_log_priority(const char *priority)
-{
-        char *endptr;
-        int prio;
-
-        prio = strtoul(priority, &endptr, 10);
-        if (endptr[0] == '\0' || isspace(endptr[0])) {
-                if (prio >= 0 && prio <= 7)
-                        return prio;
-                else
-                        return -ERANGE;
-        }
-
-        return log_level_from_string(priority);
-}
-
-size_t util_path_encode(const char *src, char *dest, size_t size)
-{
+size_t util_path_encode(const char *src, char *dest, size_t size) {
         size_t i, j;
+
+        assert(src);
+        assert(dest);
 
         for (i = 0, j = 0; src[i] != '\0'; i++) {
                 if (src[i] == '/') {
@@ -151,40 +122,43 @@ size_t util_path_encode(const char *src, char *dest, size_t size)
  *
  * Note this may be called with 'str' == 'to', i.e. to replace whitespace
  * in-place in a buffer.  This function can handle that situation.
+ *
+ * Note that only 'len' characters are read from 'str'.
  */
-int util_replace_whitespace(const char *str, char *to, size_t len)
-{
+size_t util_replace_whitespace(const char *str, char *to, size_t len) {
+        bool is_space = false;
         size_t i, j;
 
-        /* strip trailing whitespace */
-        len = strnlen(str, len);
-        while (len && isspace(str[len-1]))
-                len--;
+        assert(str);
+        assert(to);
 
-        /* strip leading whitespace */
-        i = 0;
-        while ((i < len) && isspace(str[i]))
-                i++;
+        i = strspn(str, WHITESPACE);
 
-        j = 0;
-        while (i < len) {
-                /* substitute multiple whitespace with a single '_' */
+        for (j = 0; j < len && i < len && str[i] != '\0'; i++) {
                 if (isspace(str[i])) {
-                        while (isspace(str[i]))
-                                i++;
-                        to[j++] = '_';
+                        is_space = true;
+                        continue;
                 }
-                to[j++] = str[i++];
+
+                if (is_space) {
+                        if (j + 1 >= len)
+                                break;
+
+                        to[j++] = '_';
+                        is_space = false;
+                }
+                to[j++] = str[i];
         }
+
         to[j] = '\0';
         return j;
 }
 
 /* allow chars in whitelist, plain ascii, hex-escaping and valid utf8 */
-int util_replace_chars(char *str, const char *white)
-{
-        size_t i = 0;
-        int replaced = 0;
+size_t util_replace_chars(char *str, const char *white) {
+        size_t i = 0, replaced = 0;
+
+        assert(str);
 
         while (str[i] != '\0') {
                 int len;
@@ -201,14 +175,14 @@ int util_replace_chars(char *str, const char *white)
                 }
 
                 /* accept valid utf8 */
-                len = utf8_encoded_valid_unichar(&str[i]);
+                len = utf8_encoded_valid_unichar(str + i, (size_t) -1);
                 if (len > 1) {
                         i += len;
                         continue;
                 }
 
                 /* if space is allowed, replace whitespace with ordinary space */
-                if (isspace(str[i]) && white != NULL && strchr(white, ' ') != NULL) {
+                if (isspace(str[i]) && white && strchr(white, ' ')) {
                         str[i] = ' ';
                         i++;
                         replaced++;
@@ -235,25 +209,6 @@ int util_replace_chars(char *str, const char *white)
  *
  * Returns: 0 if the entire string was copied, non-zero otherwise.
  **/
-_public_ int udev_util_encode_string(const char *str, char *str_enc, size_t len)
-{
+_public_ int udev_util_encode_string(const char *str, char *str_enc, size_t len) {
         return encode_devnode_name(str, str_enc, len);
-}
-
-unsigned int util_string_hash32(const char *str)
-{
-        return MurmurHash2(str, strlen(str), 0);
-}
-
-/* get a bunch of bit numbers out of the hash, and set the bits in our bit field */
-uint64_t util_string_bloom64(const char *str)
-{
-        uint64_t bits = 0;
-        unsigned int hash = util_string_hash32(str);
-
-        bits |= 1LLU << (hash & 63);
-        bits |= 1LLU << ((hash >> 6) & 63);
-        bits |= 1LLU << ((hash >> 12) & 63);
-        bits |= 1LLU << ((hash >> 18) & 63);
-        return bits;
 }

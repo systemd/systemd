@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Remove the Offline System Updates symlink
-Documentation=man:systemd.special(5) man:systemd.offline-updates(7)
+Documentation=man:systemd.special(7) man:systemd.offline-updates(7)
 After=system-update.target
 DefaultDependencies=no
 Conflicts=shutdown.target

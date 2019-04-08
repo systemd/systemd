@@ -2,24 +2,8 @@
 /*
  * expose input properties via udev
  *
- * Copyright (C) 2009 Martin Pitt <martin.pitt@ubuntu.com>
- * Portions Copyright (C) 2004 David Zeuthen, <david@fubar.dk>
- * Copyright (C) 2011 Kay Sievers <kay@vrfy.org>
- * Copyright (C) 2014 Carlos Garnacho <carlosg@gnome.org>
- * Copyright (C) 2014 David Herrmann <dh.herrmann@gmail.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Portions Copyright © 2004 David Zeuthen, <david@fubar.dk>
+ * Copyright © 2014 Carlos Garnacho <carlosg@gnome.org>
  */
 
 #include <errno.h>
@@ -31,11 +15,12 @@
 #include <linux/limits.h>
 #include <linux/input.h>
 
+#include "device-util.h"
 #include "fd-util.h"
 #include "missing.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "udev.h"
+#include "udev-builtin.h"
 #include "util.h"
 
 /* we must use this kernel-compatible implementation */
@@ -57,12 +42,12 @@ static const struct range high_key_blocks[] = {
         { KEY_ALS_TOGGLE, BTN_TRIGGER_HAPPY }
 };
 
-static inline int abs_size_mm(const struct input_absinfo *absinfo) {
+static int abs_size_mm(const struct input_absinfo *absinfo) {
         /* Resolution is defined to be in units/mm for ABS_X/Y */
         return (absinfo->maximum - absinfo->minimum) / absinfo->resolution;
 }
 
-static void extract_info(struct udev_device *dev, const char *devpath, bool test) {
+static void extract_info(sd_device *dev, const char *devpath, bool test) {
         char width[DECIMAL_STR_MAX(int)], height[DECIMAL_STR_MAX(int)];
         struct input_absinfo xabsinfo = {}, yabsinfo = {};
         _cleanup_close_ int fd = -1;
@@ -87,12 +72,11 @@ static void extract_info(struct udev_device *dev, const char *devpath, bool test
 
 /*
  * Read a capability attribute and return bitmask.
- * @param dev udev_device
+ * @param dev sd_device
  * @param attr sysfs attribute name (e. g. "capabilities/key")
  * @param bitmask: Output array which has a sizeof of bitmask_size
  */
-static void get_cap_mask(struct udev_device *dev,
-                         struct udev_device *pdev, const char* attr,
+static void get_cap_mask(sd_device *pdev, const char* attr,
                          unsigned long *bitmask, size_t bitmask_size,
                          bool test) {
         const char *v;
@@ -101,20 +85,20 @@ static void get_cap_mask(struct udev_device *dev,
         char* word;
         unsigned long val;
 
-        v = udev_device_get_sysattr_value(pdev, attr);
-        v = strempty(v);
+        if (sd_device_get_sysattr_value(pdev, attr, &v) < 0)
+                v = "";
 
         xsprintf(text, "%s", v);
-        log_debug("%s raw kernel attribute: %s", attr, text);
+        log_device_debug(pdev, "%s raw kernel attribute: %s", attr, text);
 
         memzero(bitmask, bitmask_size);
         i = 0;
         while ((word = strrchr(text, ' ')) != NULL) {
-                val = strtoul (word+1, NULL, 16);
-                if (i < bitmask_size/sizeof(unsigned long))
+                val = strtoul(word+1, NULL, 16);
+                if (i < bitmask_size / sizeof(unsigned long))
                         bitmask[i] = val;
                 else
-                        log_debug("ignoring %s block %lX which is larger than maximum size", attr, val);
+                        log_device_debug(pdev, "Ignoring %s block %lX which is larger than maximum size", attr, val);
                 *word = '\0';
                 ++i;
         }
@@ -122,27 +106,27 @@ static void get_cap_mask(struct udev_device *dev,
         if (i < bitmask_size / sizeof(unsigned long))
                 bitmask[i] = val;
         else
-                log_debug("ignoring %s block %lX which is larger than maximum size", attr, val);
+                log_device_debug(pdev, "Ignoring %s block %lX which is larger than maximum size", attr, val);
 
         if (test) {
                 /* printf pattern with the right unsigned long number of hex chars */
                 xsprintf(text, "  bit %%4u: %%0%zulX\n",
                          2 * sizeof(unsigned long));
-                log_debug("%s decoded bit map:", attr);
+                log_device_debug(pdev, "%s decoded bit map:", attr);
                 val = bitmask_size / sizeof (unsigned long);
                 /* skip over leading zeros */
                 while (bitmask[val-1] == 0 && val > 0)
                         --val;
                 for (i = 0; i < val; ++i) {
                         DISABLE_WARNING_FORMAT_NONLITERAL;
-                        log_debug(text, i * BITS_PER_LONG, bitmask[i]);
+                        log_device_debug(pdev, text, i * BITS_PER_LONG, bitmask[i]);
                         REENABLE_WARNING;
                 }
         }
 }
 
 /* pointer devices */
-static bool test_pointers(struct udev_device *dev,
+static bool test_pointers(sd_device *dev,
                           const unsigned long* bitmask_ev,
                           const unsigned long* bitmask_abs,
                           const unsigned long* bitmask_key,
@@ -264,7 +248,7 @@ static bool test_pointers(struct udev_device *dev,
 }
 
 /* key like devices */
-static bool test_key(struct udev_device *dev,
+static bool test_key(sd_device *dev,
                      const unsigned long* bitmask_ev,
                      const unsigned long* bitmask_key,
                      bool test) {
@@ -275,7 +259,7 @@ static bool test_key(struct udev_device *dev,
 
         /* do we have any KEY_* capability? */
         if (!test_bit(EV_KEY, bitmask_ev)) {
-                log_debug("test_key: no EV_KEY capability");
+                log_device_debug(dev, "test_key: no EV_KEY capability");
                 return false;
         }
 
@@ -283,7 +267,7 @@ static bool test_key(struct udev_device *dev,
         found = 0;
         for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i) {
                 found |= bitmask_key[i];
-                log_debug("test_key: checking bit block %lu for any keys; found=%i", (unsigned long)i*BITS_PER_LONG, found > 0);
+                log_device_debug(dev, "test_key: checking bit block %lu for any keys; found=%i", (unsigned long)i*BITS_PER_LONG, found > 0);
         }
         /* If there are no keys in the lower block, check the higher blocks */
         if (!found) {
@@ -291,7 +275,7 @@ static bool test_key(struct udev_device *dev,
                 for (block = 0; block < (sizeof(high_key_blocks) / sizeof(struct range)); ++block) {
                         for (i = high_key_blocks[block].start; i < high_key_blocks[block].end; ++i) {
                                 if (test_bit(i, bitmask_key)) {
-                                        log_debug("test_key: Found key %x in high block", i);
+                                        log_device_debug(dev, "test_key: Found key %x in high block", i);
                                         found = 1;
                                         break;
                                 }
@@ -307,7 +291,7 @@ static bool test_key(struct udev_device *dev,
         /* the first 32 bits are ESC, numbers, and Q to D; if we have all of
          * those, consider it a full keyboard; do not test KEY_RESERVED, though */
         mask = 0xFFFFFFFE;
-        if ((bitmask_key[0] & mask) == mask) {
+        if (FLAGS_SET(bitmask_key[0], mask)) {
                 udev_builtin_add_property(dev, test, "ID_INPUT_KEYBOARD", "1");
                 ret = true;
         }
@@ -315,8 +299,8 @@ static bool test_key(struct udev_device *dev,
         return ret;
 }
 
-static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], bool test) {
-        struct udev_device *pdev;
+static int builtin_input_id(sd_device *dev, int argc, char *argv[], bool test) {
+        sd_device *pdev;
         unsigned long bitmask_ev[NBITS(EV_MAX)];
         unsigned long bitmask_abs[NBITS(ABS_MAX)];
         unsigned long bitmask_key[NBITS(KEY_MAX)];
@@ -330,19 +314,28 @@ static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], boo
 
         /* walk up the parental chain until we find the real input device; the
          * argument is very likely a subdevice of this, like eventN */
-        pdev = dev;
-        while (pdev != NULL && udev_device_get_sysattr_value(pdev, "capabilities/ev") == NULL)
-                pdev = udev_device_get_parent_with_subsystem_devtype(pdev, "input", NULL);
+        for (pdev = dev; pdev; ) {
+                const char *s;
+
+                if (sd_device_get_sysattr_value(pdev, "capabilities/ev", &s) >= 0)
+                        break;
+
+                if (sd_device_get_parent_with_subsystem_devtype(pdev, "input", NULL, &pdev) >= 0)
+                        continue;
+
+                pdev = NULL;
+                break;
+        }
 
         if (pdev) {
                 /* Use this as a flag that input devices were detected, so that this
                  * program doesn't need to be called more than once per device */
                 udev_builtin_add_property(dev, test, "ID_INPUT", "1");
-                get_cap_mask(dev, pdev, "capabilities/ev", bitmask_ev, sizeof(bitmask_ev), test);
-                get_cap_mask(dev, pdev, "capabilities/abs", bitmask_abs, sizeof(bitmask_abs), test);
-                get_cap_mask(dev, pdev, "capabilities/rel", bitmask_rel, sizeof(bitmask_rel), test);
-                get_cap_mask(dev, pdev, "capabilities/key", bitmask_key, sizeof(bitmask_key), test);
-                get_cap_mask(dev, pdev, "properties", bitmask_props, sizeof(bitmask_props), test);
+                get_cap_mask(pdev, "capabilities/ev", bitmask_ev, sizeof(bitmask_ev), test);
+                get_cap_mask(pdev, "capabilities/abs", bitmask_abs, sizeof(bitmask_abs), test);
+                get_cap_mask(pdev, "capabilities/rel", bitmask_rel, sizeof(bitmask_rel), test);
+                get_cap_mask(pdev, "capabilities/key", bitmask_key, sizeof(bitmask_key), test);
+                get_cap_mask(pdev, "properties", bitmask_props, sizeof(bitmask_props), test);
                 is_pointer = test_pointers(dev, bitmask_ev, bitmask_abs,
                                            bitmask_key, bitmask_rel,
                                            bitmask_props, test);
@@ -356,12 +349,12 @@ static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], boo
 
         }
 
-        devnode = udev_device_get_devnode(dev);
-        sysname = udev_device_get_sysname(dev);
-        if (devnode && sysname && startswith(sysname, "event"))
+        if (sd_device_get_devname(dev, &devnode) >= 0 &&
+            sd_device_get_sysname(dev, &sysname) >= 0 &&
+            startswith(sysname, "event"))
                 extract_info(dev, devnode, test);
 
-        return EXIT_SUCCESS;
+        return 0;
 }
 
 const struct udev_builtin udev_builtin_input_id = {

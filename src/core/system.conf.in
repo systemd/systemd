@@ -23,9 +23,9 @@
 #CrashReboot=no
 #CtrlAltDelBurstAction=reboot-force
 #CPUAffinity=1 2
-#JoinControllers=cpu,cpuacct net_cls,net_prio
 #RuntimeWatchdogSec=0
 #ShutdownWatchdogSec=10min
+#WatchdogDevice=
 #CapabilityBoundingSet=
 #NoNewPrivileges=no
 #SystemCallArchitectures=
@@ -52,7 +52,7 @@
 #DefaultLimitSTACK=
 #DefaultLimitCORE=
 #DefaultLimitRSS=
-#DefaultLimitNOFILE=
+#DefaultLimitNOFILE=1024:@HIGH_RLIMIT_NOFILE@
 #DefaultLimitAS=
 #DefaultLimitNPROC=
 #DefaultLimitMEMLOCK=
@@ -62,5 +62,3 @@
 #DefaultLimitNICE=
 #DefaultLimitRTPRIO=
 #DefaultLimitRTTIME=
-#IPAddressAllow=
-#IPAddressDeny=

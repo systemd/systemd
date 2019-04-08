@@ -1,29 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <errno.h>
+#include <fcntl.h>
 #include <linux/seccomp.h>
 #include <seccomp.h>
 #include <stddef.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/shm.h>
+#include <sys/stat.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "errno-list.h"
 #include "macro.h"
 #include "nsflags.h"
+#include "nulstr-util.h"
 #include "process-util.h"
 #include "seccomp-util.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
-#include "errno-list.h"
 
 const uint32_t seccomp_local_archs[] = {
 
@@ -296,6 +293,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "pause\0"
                 "prlimit64\0"
                 "restart_syscall\0"
+                "rseq\0"
                 "rt_sigreturn\0"
                 "sched_yield\0"
                 "set_robust_list\0"
@@ -313,6 +311,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "io_cancel\0"
                 "io_destroy\0"
                 "io_getevents\0"
+                "io_pgetevents\0"
                 "io_setup\0"
                 "io_submit\0"
         },
@@ -375,8 +374,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .value =
                 "lookup_dcookie\0"
                 "perf_event_open\0"
-                "process_vm_readv\0"
-                "process_vm_writev\0"
                 "ptrace\0"
                 "rtas\0"
 #ifdef __NR_s390_runtime_instr
@@ -624,7 +621,9 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "bpf\0"
                 "capset\0"
                 "chroot\0"
+                "fanotify_init\0"
                 "nfsservctl\0"
+                "open_by_handle_at\0"
                 "pivot_root\0"
                 "quotactl\0"
                 "setdomainname\0"
@@ -637,7 +636,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "setresuid32\0"
                 "setreuid\0"
                 "setreuid32\0"
-                "setuid\0"
+                "setuid\0"      /* We list the explicit system calls here, as @setuid also includes setgid() which is not necessarily privileged */
                 "setuid32\0"
                 "vhangup\0"
         },
@@ -656,6 +655,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "rt_sigqueueinfo\0"
                 "rt_tgsigqueueinfo\0"
                 "setns\0"
+                "swapcontext\0" /* Some archs e.g. powerpc32 are using it to do userspace context switches */
                 "tgkill\0"
                 "times\0"
                 "tkill\0"
@@ -761,6 +761,74 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "sync_file_range\0"
                 "syncfs\0"
         },
+        [SYSCALL_FILTER_SET_SYSTEM_SERVICE] = {
+                .name = "@system-service",
+                .help = "General system service operations",
+                .value =
+                "@aio\0"
+                "@basic-io\0"
+                "@chown\0"
+                "@default\0"
+                "@file-system\0"
+                "@io-event\0"
+                "@ipc\0"
+                "@keyring\0"
+                "@memlock\0"
+                "@network-io\0"
+                "@process\0"
+                "@resources\0"
+                "@setuid\0"
+                "@signal\0"
+                "@sync\0"
+                "@timer\0"
+                "brk\0"
+                "capget\0"
+                "capset\0"
+                "copy_file_range\0"
+                "fadvise64\0"
+                "fadvise64_64\0"
+                "flock\0"
+                "get_mempolicy\0"
+                "getcpu\0"
+                "getpriority\0"
+                "getrandom\0"
+                "ioctl\0"
+                "ioprio_get\0"
+                "kcmp\0"
+                "madvise\0"
+                "mprotect\0"
+                "mremap\0"
+                "name_to_handle_at\0"
+                "oldolduname\0"
+                "olduname\0"
+                "personality\0"
+                "readahead\0"
+                "readdir\0"
+                "remap_file_pages\0"
+                "sched_get_priority_max\0"
+                "sched_get_priority_min\0"
+                "sched_getaffinity\0"
+                "sched_getattr\0"
+                "sched_getparam\0"
+                "sched_getscheduler\0"
+                "sched_rr_get_interval\0"
+                "sched_yield\0"
+                "sendfile\0"
+                "sendfile64\0"
+                "setfsgid\0"
+                "setfsgid32\0"
+                "setfsuid\0"
+                "setfsuid32\0"
+                "setpgid\0"
+                "setsid\0"
+                "splice\0"
+                "sysinfo\0"
+                "tee\0"
+                "umask\0"
+                "uname\0"
+                "userfaultfd\0"
+                "vmsplice\0"
+        },
         [SYSCALL_FILTER_SET_TIMER] = {
                 .name = "@timer",
                 .help = "Schedule operations by time",
@@ -793,11 +861,9 @@ const SyscallFilterSet *syscall_filter_set_find(const char *name) {
         return NULL;
 }
 
-static int seccomp_add_syscall_filter_set(scmp_filter_ctx seccomp, const SyscallFilterSet *set, uint32_t action, char **exclude);
+static int seccomp_add_syscall_filter_set(scmp_filter_ctx seccomp, const SyscallFilterSet *set, uint32_t action, char **exclude, bool log_missing);
 
-int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, uint32_t action, char **exclude) {
-        int r;
-
+int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, uint32_t action, char **exclude, bool log_missing) {
         assert(seccomp);
         assert(name);
 
@@ -808,37 +874,45 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, 
                 const SyscallFilterSet *other;
 
                 other = syscall_filter_set_find(name);
-                if (!other) {
-                        log_debug("Filter set %s is not known!", name);
-                        return -EINVAL;
-                }
+                if (!other)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Filter set %s is not known!",
+                                               name);
 
-                r = seccomp_add_syscall_filter_set(seccomp, other, action, exclude);
-                if (r < 0)
-                        return r;
+                return seccomp_add_syscall_filter_set(seccomp, other, action, exclude, log_missing);
+
         } else {
-                int id;
+                int id, r;
 
                 id = seccomp_syscall_resolve_name(name);
                 if (id == __NR_SCMP_ERROR) {
-                        log_debug("System call %s is not known, ignoring.", name);
+                        if (log_missing)
+                                log_debug("System call %s is not known, ignoring.", name);
                         return 0;
                 }
 
                 r = seccomp_rule_add_exact(seccomp, action, id, 0);
-                if (r < 0)
+                if (r < 0) {
                         /* If the system call is not known on this architecture, then that's fine, let's ignore it */
-                        log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m", name, id);
-        }
+                        bool ignore = r == -EDOM;
 
-        return 0;
+                        if (!ignore || log_missing)
+                                log_debug_errno(r, "Failed to add rule for system call %s() / %d%s: %m",
+                                                name, id, ignore ? ", ignoring" : "");
+                        if (!ignore)
+                                return r;
+                }
+
+                return 0;
+        }
 }
 
 static int seccomp_add_syscall_filter_set(
                 scmp_filter_ctx seccomp,
                 const SyscallFilterSet *set,
                 uint32_t action,
-                char **exclude) {
+                char **exclude,
+                bool log_missing) {
 
         const char *sys;
         int r;
@@ -847,7 +921,7 @@ static int seccomp_add_syscall_filter_set(
         assert(set);
 
         NULSTR_FOREACH(sys, set->value) {
-                r = seccomp_add_syscall_filter_item(seccomp, sys, action, exclude);
+                r = seccomp_add_syscall_filter_item(seccomp, sys, action, exclude, log_missing);
                 if (r < 0)
                         return r;
         }
@@ -855,14 +929,14 @@ static int seccomp_add_syscall_filter_set(
         return 0;
 }
 
-int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action) {
+int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action, bool log_missing) {
         uint32_t arch;
         int r;
 
         assert(set);
 
         /* The one-stop solution: allocate a seccomp object, add the specified filter to it, and apply it. Once for
-         * earch local arch. */
+         * each local arch. */
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
@@ -873,11 +947,9 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
                 if (r < 0)
                         return r;
 
-                r = seccomp_add_syscall_filter_set(seccomp, set, action, NULL);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to add filter set, ignoring: %m");
-                        continue;
-                }
+                r = seccomp_add_syscall_filter_set(seccomp, set, action, NULL, log_missing);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to add filter set: %m");
 
                 r = seccomp_load(seccomp);
                 if (IN_SET(r, -EPERM, -EACCES))
@@ -889,7 +961,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
         return 0;
 }
 
-int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, uint32_t action) {
+int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, uint32_t action, bool log_missing) {
         uint32_t arch;
         int r;
 
@@ -902,7 +974,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
                 Iterator i;
-                void *id, *val;
+                void *syscall_id, *val;
 
                 log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
@@ -910,20 +982,27 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
                 if (r < 0)
                         return r;
 
-                HASHMAP_FOREACH_KEY(val, id, set, i) {
+                HASHMAP_FOREACH_KEY(val, syscall_id, set, i) {
                         uint32_t a = action;
-                        int e = PTR_TO_INT(val);
+                        int id = PTR_TO_INT(syscall_id) - 1;
+                        int error = PTR_TO_INT(val);
 
-                        if (action != SCMP_ACT_ALLOW && e >= 0)
-                                a = SCMP_ACT_ERRNO(e);
+                        if (action != SCMP_ACT_ALLOW && error >= 0)
+                                a = SCMP_ACT_ERRNO(error);
 
-                        r = seccomp_rule_add_exact(seccomp, a, PTR_TO_INT(id) - 1, 0);
+                        r = seccomp_rule_add_exact(seccomp, a, id, 0);
                         if (r < 0) {
                                 /* If the system call is not known on this architecture, then that's fine, let's ignore it */
                                 _cleanup_free_ char *n = NULL;
+                                bool ignore;
 
-                                n = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
-                                log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m", strna(n), PTR_TO_INT(id) - 1);
+                                n = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, id);
+                                ignore = r == -EDOM;
+                                if (!ignore || log_missing)
+                                        log_debug_errno(r, "Failed to add rule for system call %s() / %d%s: %m",
+                                                        strna(n), id, ignore ? ", ignoring" : "");
+                                if (!ignore)
+                                        return r;
                         }
                 }
 
@@ -937,7 +1016,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
         return 0;
 }
 
-int seccomp_parse_syscall_filter_full(
+int seccomp_parse_syscall_filter(
                 const char *name,
                 int errno_num,
                 Hashmap *filter,
@@ -970,7 +1049,7 @@ int seccomp_parse_syscall_filter_full(
                          * away the SECCOMP_PARSE_LOG flag) since any issues in the group table are our own problem,
                          * not a problem in user configuration data and we shouldn't pretend otherwise by complaining
                          * about them. */
-                        r = seccomp_parse_syscall_filter_full(i, errno_num, filter, flags &~ SECCOMP_PARSE_LOG, unit, filename, line);
+                        r = seccomp_parse_syscall_filter(i, errno_num, filter, flags &~ SECCOMP_PARSE_LOG, unit, filename, line);
                         if (r < 0)
                                 return r;
                 }
@@ -992,7 +1071,15 @@ int seccomp_parse_syscall_filter_full(
                 if (!(flags & SECCOMP_PARSE_INVERT) == !!(flags & SECCOMP_PARSE_WHITELIST)) {
                         r = hashmap_put(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
                         if (r < 0)
-                                return flags & SECCOMP_PARSE_LOG ? log_oom() : -ENOMEM;
+                                switch (r) {
+                                case -ENOMEM:
+                                        return flags & SECCOMP_PARSE_LOG ? log_oom() : -ENOMEM;
+                                case -EEXIST:
+                                        assert_se(hashmap_update(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num)) == 0);
+                                        break;
+                                default:
+                                        return r;
+                                }
                 } else
                         (void) hashmap_remove(filter, INT_TO_PTR(id + 1));
         }
@@ -1007,7 +1094,7 @@ int seccomp_restrict_namespaces(unsigned long retain) {
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *s = NULL;
 
-                (void) namespace_flag_to_string_many(retain, &s);
+                (void) namespace_flags_to_string(retain, &s);
                 log_debug("Restricting namespace to: %s.", strna(s));
         }
 
@@ -1396,7 +1483,7 @@ int seccomp_restrict_realtime(void) {
 static int add_seccomp_syscall_filter(scmp_filter_ctx seccomp,
                                       uint32_t arch,
                                       int nr,
-                                      unsigned int arg_cnt,
+                                      unsigned arg_cnt,
                                       const struct scmp_arg_cmp arg) {
         int r;
 
@@ -1418,14 +1505,9 @@ static int add_seccomp_syscall_filter(scmp_filter_ctx seccomp,
 assert_cc(SCMP_SYS(shmget) > 0);
 assert_cc(SCMP_SYS(shmat) > 0);
 assert_cc(SCMP_SYS(shmdt) > 0);
-#elif defined(__i386__) || defined(__powerpc64__)
-assert_cc(SCMP_SYS(shmget) < 0);
-assert_cc(SCMP_SYS(shmat) < 0);
-assert_cc(SCMP_SYS(shmdt) < 0);
 #endif
 
 int seccomp_memory_deny_write_execute(void) {
-
         uint32_t arch;
         int r;
 
@@ -1440,6 +1522,7 @@ int seccomp_memory_deny_write_execute(void) {
                 case SCMP_ARCH_X86:
                         filter_syscall = SCMP_SYS(mmap2);
                         block_syscall = SCMP_SYS(mmap);
+                        shmat_syscall = SCMP_SYS(shmat);
                         break;
 
                 case SCMP_ARCH_PPC:
@@ -1506,7 +1589,7 @@ int seccomp_memory_deny_write_execute(void) {
                         continue;
 #endif
 
-                if (shmat_syscall != 0) {
+                if (shmat_syscall > 0) {
                         r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(shmat),
                                                        1,
                                                        SCMP_A2(SCMP_CMP_MASKED_EQ, SHM_EXEC, SHM_EXEC));
@@ -1674,6 +1757,209 @@ int seccomp_lock_personality(unsigned long personality) {
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to enable personality lock for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+        }
+
+        return 0;
+}
+
+int seccomp_protect_hostname(void) {
+        uint32_t arch;
+        int r;
+
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
+                if (r < 0)
+                        return r;
+
+                r = seccomp_rule_add_exact(
+                                seccomp,
+                                SCMP_ACT_ERRNO(EPERM),
+                                SCMP_SYS(sethostname),
+                                0);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to add sethostname() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                        continue;
+                }
+
+                r = seccomp_rule_add_exact(
+                                seccomp,
+                                SCMP_ACT_ERRNO(EPERM),
+                                SCMP_SYS(setdomainname),
+                                0);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to add setdomainname() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                        continue;
+                }
+
+                r = seccomp_load(seccomp);
+                if (IN_SET(r, -EPERM, -EACCES))
+                        return r;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to apply hostname restrictions for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+        }
+
+        return 0;
+}
+
+static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
+        /* Checks the mode_t parameter of the following system calls:
+         *
+         *       → chmod() + fchmod() + fchmodat()
+         *       → open() + creat() + openat()
+         *       → mkdir() + mkdirat()
+         *       → mknod() + mknodat()
+         *
+         * Returns error if *everything* failed, and 0 otherwise.
+         */
+        int r = 0;
+        bool any = false;
+
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(chmod),
+                        1,
+                        SCMP_A1(SCMP_CMP_MASKED_EQ, m, m));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for chmod: %m");
+        else
+                any = true;
+
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(fchmod),
+                        1,
+                        SCMP_A1(SCMP_CMP_MASKED_EQ, m, m));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for fchmod: %m");
+        else
+                any = true;
+
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(fchmodat),
+                        1,
+                        SCMP_A2(SCMP_CMP_MASKED_EQ, m, m));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for fchmodat: %m");
+        else
+                any = true;
+
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(mkdir),
+                        1,
+                        SCMP_A1(SCMP_CMP_MASKED_EQ, m, m));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for mkdir: %m");
+        else
+                any = true;
+
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(mkdirat),
+                        1,
+                        SCMP_A2(SCMP_CMP_MASKED_EQ, m, m));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for mkdirat: %m");
+        else
+                any = true;
+
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(mknod),
+                        1,
+                        SCMP_A1(SCMP_CMP_MASKED_EQ, m, m));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for mknod: %m");
+        else
+                any = true;
+
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(mknodat),
+                        1,
+                        SCMP_A2(SCMP_CMP_MASKED_EQ, m, m));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for mknodat: %m");
+        else
+                any = true;
+
+#if SCMP_SYS(open) > 0
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(open),
+                        2,
+                        SCMP_A1(SCMP_CMP_MASKED_EQ, O_CREAT, O_CREAT),
+                        SCMP_A2(SCMP_CMP_MASKED_EQ, m, m));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for open: %m");
+        else
+                any = true;
+#endif
+
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(openat),
+                        2,
+                        SCMP_A2(SCMP_CMP_MASKED_EQ, O_CREAT, O_CREAT),
+                        SCMP_A3(SCMP_CMP_MASKED_EQ, m, m));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for openat: %m");
+        else
+                any = true;
+
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(creat),
+                        1,
+                        SCMP_A1(SCMP_CMP_MASKED_EQ, m, m));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for creat: %m");
+        else
+                any = true;
+
+        return any ? 0 : r;
+}
+
+int seccomp_restrict_suid_sgid(void) {
+        uint32_t arch;
+        int r, k;
+
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
+                if (r < 0)
+                        return r;
+
+                r = seccomp_restrict_sxid(seccomp, S_ISUID);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to add suid rule for architecture %s, ignoring: %m", seccomp_arch_to_string(arch));
+
+                k = seccomp_restrict_sxid(seccomp, S_ISGID);
+                if (k < 0)
+                        log_debug_errno(r, "Failed to add sgid rule for architecture %s, ignoring: %m", seccomp_arch_to_string(arch));
+
+                if (r < 0 && k < 0)
+                        continue;
+
+                r = seccomp_load(seccomp);
+                if (IN_SET(r, -EPERM, -EACCES))
+                        return r;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to apply suid/sgid restrictions for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
         }
 
         return 0;

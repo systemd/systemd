@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-***/
 
 #include <netinet/in.h>
 #include <stdbool.h>
@@ -14,11 +9,11 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "io-util.h"
 #include "missing.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
 #include "netlink-util.h"
-#include "refcnt.h"
 #include "socket-util.h"
 #include "util.h"
 
@@ -93,11 +88,11 @@ static int broadcast_groups_get(sd_netlink *nl) {
 
 int socket_bind(sd_netlink *nl) {
         socklen_t addrlen;
-        int r, one = 1;
+        int r;
 
-        r = setsockopt(nl->fd, SOL_NETLINK, NETLINK_PKTINFO, &one, sizeof(one));
+        r = setsockopt_int(nl->fd, SOL_NETLINK, NETLINK_PKTINFO, true);
         if (r < 0)
-                return -errno;
+                return r;
 
         addrlen = sizeof(nl->sockaddr);
 
@@ -339,8 +334,7 @@ int socket_read_message(sd_netlink *rtnl) {
                             len, sizeof(uint8_t)))
                 return -ENOMEM;
 
-        iov.iov_base = rtnl->rbuffer;
-        iov.iov_len = rtnl->rbuffer_allocated;
+        iov = IOVEC_MAKE(rtnl->rbuffer, rtnl->rbuffer_allocated);
 
         /* read the pending message */
         r = socket_recv_message(rtnl->fd, &iov, &group, false);

@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
-
 #include "sd-bus.h"
 
 #include "machine.h"
@@ -31,5 +25,3 @@ int bus_machine_method_get_uid_shift(sd_bus_message *message, void *userdata, sd
 
 int machine_send_signal(Machine *m, bool new_machine);
 int machine_send_create_reply(Machine *m, sd_bus_error *error);
-
-int bus_reply_pair_array(sd_bus_message *m, char **l);

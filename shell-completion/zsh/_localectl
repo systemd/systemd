@@ -1,6 +1,7 @@
 #compdef localectl
 # SPDX-License-Identifier: LGPL-2.1+
 
+(( $+functions[_localectl_set-locale] )) ||
 _localectl_set-locale() {
     local -a _locales locale_fields
     locale_fields=(LANG LANGUAGE LC_CTYPE LC_NUMERIC LC_TIME \
@@ -21,6 +22,7 @@ _localectl_set-locale() {
     fi
 }
 
+(( $+functions[_localectl_set-keymap] )) ||
 _localectl_set-keymap() {
     local -a _keymaps
     if (( CURRENT <= 3 )); then
@@ -31,6 +33,7 @@ _localectl_set-keymap() {
     fi
 }
 
+(( $+functions[_localectl_set-x11-keymap] )) ||
 _localectl_set-x11-keymap() {
     if (( $+commands[pkg-config] )); then
         local -a _file _layout _model _variant _options
@@ -56,7 +59,8 @@ _localectl_set-x11-keymap() {
     fi
 }
 
-_localectl_command() {
+(( $+functions[_localectl_commands] )) ||
+_localectl_commands() {
     local -a _localectl_cmds
     _localectl_cmds=(
         'status:Show current locale settings'
@@ -91,4 +95,4 @@ _arguments \
     '--no-ask-password[Do not prompt for password]' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-M+,--machine=}'[Operate on local container]:machine' \
-    '*::localectl commands:_localectl_command'
+    '*::localectl commands:_localectl_commands'

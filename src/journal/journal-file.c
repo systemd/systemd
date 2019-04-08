@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -15,6 +10,8 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
@@ -25,11 +22,12 @@
 #include "journal-def.h"
 #include "journal-file.h"
 #include "lookup3.h"
+#include "memory-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
-#include "sd-event.h"
 #include "set.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -212,7 +210,7 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
         if (!f->writable)
                 return -EPERM;
 
-        if (!(f->fd >= 0 && f->header))
+        if (f->fd < 0 || !f->header)
                 return -EINVAL;
 
         /* An offlining journal is implicitly online and may modify f->header->state,
@@ -240,8 +238,10 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
                 sigset_t ss, saved_ss;
                 int k;
 
-                if (sigfillset(&ss) < 0)
-                        return -errno;
+                assert_se(sigfillset(&ss) >= 0);
+                /* Don't block SIGBUS since the offlining thread accesses a memory mapped file.
+                 * Asynchronous SIGBUS signals can safely be handled by either thread. */
+                assert_se(sigdelset(&ss, SIGBUS) >= 0);
 
                 r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
                 if (r > 0)
@@ -262,33 +262,35 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
 }
 
 static int journal_file_set_online(JournalFile *f) {
-        bool joined = false;
+        bool wait = true;
 
         assert(f);
 
         if (!f->writable)
                 return -EPERM;
 
-        if (!(f->fd >= 0 && f->header))
+        if (f->fd < 0 || !f->header)
                 return -EINVAL;
 
-        while (!joined) {
+        while (wait) {
                 switch (f->offline_state) {
                 case OFFLINE_JOINED:
                         /* No offline thread, no need to wait. */
-                        joined = true;
+                        wait = false;
                         break;
 
                 case OFFLINE_SYNCING:
                         if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_SYNCING, OFFLINE_CANCEL))
                                 continue;
                         /* Canceled syncing prior to offlining, no need to wait. */
+                        wait = false;
                         break;
 
                 case OFFLINE_AGAIN_FROM_SYNCING:
                         if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_AGAIN_FROM_SYNCING, OFFLINE_CANCEL))
                                 continue;
                         /* Canceled restart from syncing, no need to wait. */
+                        wait = false;
                         break;
 
                 case OFFLINE_AGAIN_FROM_OFFLINING:
@@ -303,7 +305,7 @@ static int journal_file_set_online(JournalFile *f) {
                         if (r < 0)
                                 return r;
 
-                        joined = true;
+                        wait = false;
                         break;
                 }
                 }
@@ -352,11 +354,8 @@ JournalFile* journal_file_close(JournalFile *f) {
 #endif
 
         if (f->post_change_timer) {
-                int enabled;
-
-                if (sd_event_source_get_enabled(f->post_change_timer, &enabled) >= 0)
-                        if (enabled == SD_EVENT_ONESHOT)
-                                journal_file_post_change(f);
+                if (sd_event_source_get_enabled(f->post_change_timer, NULL) > 0)
+                        journal_file_post_change(f);
 
                 (void) sd_event_source_set_enabled(f->post_change_timer, SD_EVENT_OFF);
                 sd_event_source_unref(f->post_change_timer);
@@ -375,7 +374,7 @@ JournalFile* journal_file_close(JournalFile *f) {
                  * reenable all the good bits COW usually provides
                  * (such as data checksumming). */
 
-                (void) chattr_fd(f->fd, 0, FS_NOCOW_FL);
+                (void) chattr_fd(f->fd, 0, FS_NOCOW_FL, NULL);
                 (void) btrfs_defrag_fd(f->fd);
         }
 
@@ -451,7 +450,10 @@ static int journal_file_refresh_header(JournalFile *f) {
         assert(f->header);
 
         r = sd_id128_get_machine(&f->header->machine_id);
-        if (r < 0)
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
+                /* We don't have a machine-id, let's continue without */
+                zero(f->header->machine_id);
+        else if (r < 0)
                 return r;
 
         r = sd_id128_get_boot(&boot_id);
@@ -568,13 +570,14 @@ static int journal_file_verify_header(JournalFile *f) {
 
                 if (state == STATE_ARCHIVED)
                         return -ESHUTDOWN; /* Already archived */
-                else if (state == STATE_ONLINE) {
-                        log_debug("Journal file %s is already online. Assuming unclean closing.", f->path);
-                        return -EBUSY;
-                } else if (state != STATE_OFFLINE) {
-                        log_debug("Journal file %s has unknown state %i.", f->path, state);
-                        return -EBUSY;
-                }
+                else if (state == STATE_ONLINE)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
+                                               "Journal file %s is already online. Assuming unclean closing.",
+                                               f->path);
+                else if (state != STATE_OFFLINE)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
+                                               "Journal file %s has unknown state %i.",
+                                               f->path, state);
 
                 if (f->header->field_hash_table_size == 0 || f->header->data_hash_table_size == 0)
                         return -EBADMSG;
@@ -582,10 +585,10 @@ static int journal_file_verify_header(JournalFile *f) {
                 /* Don't permit appending to files from the future. Because otherwise the realtime timestamps wouldn't
                  * be strictly ordered in the entries in the file anymore, and we can't have that since it breaks
                  * bisection. */
-                if (le64toh(f->header->tail_entry_realtime) > now(CLOCK_REALTIME)) {
-                        log_debug("Journal file %s is from the future, refusing to append new data to it that'd be older.", f->path);
-                        return -ETXTBSY;
-                }
+                if (le64toh(f->header->tail_entry_realtime) > now(CLOCK_REALTIME))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ETXTBSY),
+                                               "Journal file %s is from the future, refusing to append new data to it that'd be older.",
+                                               f->path);
         }
 
         f->compress_xz = JOURNAL_HEADER_COMPRESSED_XZ(f->header);
@@ -749,153 +752,124 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
         switch (o->object.type) {
 
         case OBJECT_DATA: {
-                if ((le64toh(o->data.entry_offset) == 0) ^ (le64toh(o->data.n_entries) == 0)) {
-                        log_debug("Bad n_entries: %"PRIu64": %"PRIu64,
-                                        le64toh(o->data.n_entries), offset);
-                        return -EBADMSG;
-                }
+                if ((le64toh(o->data.entry_offset) == 0) ^ (le64toh(o->data.n_entries) == 0))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Bad n_entries: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->data.n_entries),
+                                               offset);
 
-                if (le64toh(o->object.size) - offsetof(DataObject, payload) <= 0) {
-                        log_debug("Bad object size (<= %zu): %"PRIu64": %"PRIu64,
-                              offsetof(DataObject, payload),
-                              le64toh(o->object.size),
-                              offset);
-                        return -EBADMSG;
-                }
+                if (le64toh(o->object.size) - offsetof(DataObject, payload) <= 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Bad object size (<= %zu): %" PRIu64 ": %" PRIu64,
+                                               offsetof(DataObject, payload),
+                                               le64toh(o->object.size),
+                                               offset);
 
                 if (!VALID64(le64toh(o->data.next_hash_offset)) ||
                     !VALID64(le64toh(o->data.next_field_offset)) ||
                     !VALID64(le64toh(o->data.entry_offset)) ||
-                    !VALID64(le64toh(o->data.entry_array_offset))) {
-                        log_debug("Invalid offset, next_hash_offset="OFSfmt", next_field_offset="OFSfmt
-                                ", entry_offset="OFSfmt", entry_array_offset="OFSfmt": %"PRIu64,
-                              le64toh(o->data.next_hash_offset),
-                              le64toh(o->data.next_field_offset),
-                              le64toh(o->data.entry_offset),
-                              le64toh(o->data.entry_array_offset),
-                              offset);
-                        return -EBADMSG;
-                }
+                    !VALID64(le64toh(o->data.entry_array_offset)))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid offset, next_hash_offset=" OFSfmt ", next_field_offset=" OFSfmt ", entry_offset=" OFSfmt ", entry_array_offset=" OFSfmt ": %" PRIu64,
+                                               le64toh(o->data.next_hash_offset),
+                                               le64toh(o->data.next_field_offset),
+                                               le64toh(o->data.entry_offset),
+                                               le64toh(o->data.entry_array_offset),
+                                               offset);
 
                 break;
         }
 
         case OBJECT_FIELD:
-                if (le64toh(o->object.size) - offsetof(FieldObject, payload) <= 0) {
-                        log_debug(
-                              "Bad field size (<= %zu): %"PRIu64": %"PRIu64,
-                              offsetof(FieldObject, payload),
-                              le64toh(o->object.size),
-                              offset);
-                        return -EBADMSG;
-                }
+                if (le64toh(o->object.size) - offsetof(FieldObject, payload) <= 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Bad field size (<= %zu): %" PRIu64 ": %" PRIu64,
+                                               offsetof(FieldObject, payload),
+                                               le64toh(o->object.size),
+                                               offset);
 
                 if (!VALID64(le64toh(o->field.next_hash_offset)) ||
-                    !VALID64(le64toh(o->field.head_data_offset))) {
-                        log_debug(
-                              "Invalid offset, next_hash_offset="OFSfmt
-                              ", head_data_offset="OFSfmt": %"PRIu64,
-                              le64toh(o->field.next_hash_offset),
-                              le64toh(o->field.head_data_offset),
-                              offset);
-                        return -EBADMSG;
-                }
+                    !VALID64(le64toh(o->field.head_data_offset)))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid offset, next_hash_offset=" OFSfmt ", head_data_offset=" OFSfmt ": %" PRIu64,
+                                               le64toh(o->field.next_hash_offset),
+                                               le64toh(o->field.head_data_offset),
+                                               offset);
                 break;
 
         case OBJECT_ENTRY:
-                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0) {
-                        log_debug(
-                              "Bad entry size (<= %zu): %"PRIu64": %"PRIu64,
-                              offsetof(EntryObject, items),
-                              le64toh(o->object.size),
-                              offset);
-                        return -EBADMSG;
-                }
+                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Bad entry size (<= %zu): %" PRIu64 ": %" PRIu64,
+                                               offsetof(EntryObject, items),
+                                               le64toh(o->object.size),
+                                               offset);
 
-                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem) <= 0) {
-                        log_debug(
-                              "Invalid number items in entry: %"PRIu64": %"PRIu64,
-                              (le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem),
-                              offset);
-                        return -EBADMSG;
-                }
+                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem) <= 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid number items in entry: %" PRIu64 ": %" PRIu64,
+                                               (le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem),
+                                               offset);
 
-                if (le64toh(o->entry.seqnum) <= 0) {
-                        log_debug(
-                              "Invalid entry seqnum: %"PRIx64": %"PRIu64,
-                              le64toh(o->entry.seqnum),
-                              offset);
-                        return -EBADMSG;
-                }
+                if (le64toh(o->entry.seqnum) <= 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid entry seqnum: %" PRIx64 ": %" PRIu64,
+                                               le64toh(o->entry.seqnum),
+                                               offset);
 
-                if (!VALID_REALTIME(le64toh(o->entry.realtime))) {
-                        log_debug(
-                              "Invalid entry realtime timestamp: %"PRIu64": %"PRIu64,
-                              le64toh(o->entry.realtime),
-                              offset);
-                        return -EBADMSG;
-                }
+                if (!VALID_REALTIME(le64toh(o->entry.realtime)))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid entry realtime timestamp: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->entry.realtime),
+                                               offset);
 
-                if (!VALID_MONOTONIC(le64toh(o->entry.monotonic))) {
-                        log_debug(
-                              "Invalid entry monotonic timestamp: %"PRIu64": %"PRIu64,
-                              le64toh(o->entry.monotonic),
-                              offset);
-                        return -EBADMSG;
-                }
+                if (!VALID_MONOTONIC(le64toh(o->entry.monotonic)))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid entry monotonic timestamp: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->entry.monotonic),
+                                               offset);
 
                 break;
 
         case OBJECT_DATA_HASH_TABLE:
         case OBJECT_FIELD_HASH_TABLE:
                 if ((le64toh(o->object.size) - offsetof(HashTableObject, items)) % sizeof(HashItem) != 0 ||
-                    (le64toh(o->object.size) - offsetof(HashTableObject, items)) / sizeof(HashItem) <= 0) {
-                        log_debug(
-                              "Invalid %s hash table size: %"PRIu64": %"PRIu64,
-                              o->object.type == OBJECT_DATA_HASH_TABLE ? "data" : "field",
-                              le64toh(o->object.size),
-                              offset);
-                        return -EBADMSG;
-                }
+                    (le64toh(o->object.size) - offsetof(HashTableObject, items)) / sizeof(HashItem) <= 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid %s hash table size: %" PRIu64 ": %" PRIu64,
+                                               o->object.type == OBJECT_DATA_HASH_TABLE ? "data" : "field",
+                                               le64toh(o->object.size),
+                                               offset);
 
                 break;
 
         case OBJECT_ENTRY_ARRAY:
                 if ((le64toh(o->object.size) - offsetof(EntryArrayObject, items)) % sizeof(le64_t) != 0 ||
-                    (le64toh(o->object.size) - offsetof(EntryArrayObject, items)) / sizeof(le64_t) <= 0) {
-                        log_debug(
-                              "Invalid object entry array size: %"PRIu64": %"PRIu64,
-                              le64toh(o->object.size),
-                              offset);
-                        return -EBADMSG;
-                }
+                    (le64toh(o->object.size) - offsetof(EntryArrayObject, items)) / sizeof(le64_t) <= 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid object entry array size: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->object.size),
+                                               offset);
 
-                if (!VALID64(le64toh(o->entry_array.next_entry_array_offset))) {
-                        log_debug(
-                              "Invalid object entry array next_entry_array_offset: "OFSfmt": %"PRIu64,
-                              le64toh(o->entry_array.next_entry_array_offset),
-                              offset);
-                        return -EBADMSG;
-                }
+                if (!VALID64(le64toh(o->entry_array.next_entry_array_offset)))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid object entry array next_entry_array_offset: " OFSfmt ": %" PRIu64,
+                                               le64toh(o->entry_array.next_entry_array_offset),
+                                               offset);
 
                 break;
 
         case OBJECT_TAG:
-                if (le64toh(o->object.size) != sizeof(TagObject)) {
-                        log_debug(
-                              "Invalid object tag size: %"PRIu64": %"PRIu64,
-                              le64toh(o->object.size),
-                              offset);
-                        return -EBADMSG;
-                }
+                if (le64toh(o->object.size) != sizeof(TagObject))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid object tag size: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->object.size),
+                                               offset);
 
-                if (!VALID_EPOCH(le64toh(o->tag.epoch))) {
-                        log_debug(
-                              "Invalid object tag epoch: %"PRIu64": %"PRIu64,
-                              le64toh(o->tag.epoch),
-                              offset);
-                        return -EBADMSG;
-                }
+                if (!VALID_EPOCH(le64toh(o->tag.epoch)))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid object tag epoch: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->tag.epoch), offset);
 
                 break;
         }
@@ -914,16 +888,16 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         assert(ret);
 
         /* Objects may only be located at multiple of 64 bit */
-        if (!VALID64(offset)) {
-                log_debug("Attempt to move to object at non-64bit boundary: %" PRIu64, offset);
-                return -EBADMSG;
-        }
+        if (!VALID64(offset))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to object at non-64bit boundary: %" PRIu64,
+                                       offset);
 
         /* Object may not be located in the file header */
-        if (offset < le64toh(f->header->header_size)) {
-                log_debug("Attempt to move to object located in file header: %" PRIu64, offset);
-                return -EBADMSG;
-        }
+        if (offset < le64toh(f->header->header_size))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to object located in file header: %" PRIu64,
+                                       offset);
 
         r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), &t, &tsize);
         if (r < 0)
@@ -932,29 +906,29 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         o = (Object*) t;
         s = le64toh(o->object.size);
 
-        if (s == 0) {
-                log_debug("Attempt to move to uninitialized object: %" PRIu64, offset);
-                return -EBADMSG;
-        }
-        if (s < sizeof(ObjectHeader)) {
-                log_debug("Attempt to move to overly short object: %" PRIu64, offset);
-                return -EBADMSG;
-        }
+        if (s == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to uninitialized object: %" PRIu64,
+                                       offset);
+        if (s < sizeof(ObjectHeader))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to overly short object: %" PRIu64,
+                                       offset);
 
-        if (o->object.type <= OBJECT_UNUSED) {
-                log_debug("Attempt to move to object with invalid type: %" PRIu64, offset);
-                return -EBADMSG;
-        }
+        if (o->object.type <= OBJECT_UNUSED)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to object with invalid type: %" PRIu64,
+                                       offset);
 
-        if (s < minimum_header_size(o)) {
-                log_debug("Attempt to move to truncated object: %" PRIu64, offset);
-                return -EBADMSG;
-        }
+        if (s < minimum_header_size(o))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to truncated object: %" PRIu64,
+                                       offset);
 
-        if (type > OBJECT_UNUSED && o->object.type != type) {
-                log_debug("Attempt to move to object of unexpected type: %" PRIu64, offset);
-                return -EBADMSG;
-        }
+        if (type > OBJECT_UNUSED && o->object.type != type)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to object of unexpected type: %" PRIu64,
+                                       offset);
 
         if (s > tsize) {
                 r = journal_file_move_to(f, type, false, offset, s, &t, NULL);
@@ -1796,6 +1770,7 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
 static int journal_file_append_entry_internal(
                 JournalFile *f,
                 const dual_timestamp *ts,
+                const sd_id128_t *boot_id,
                 uint64_t xor_hash,
                 const EntryItem items[], unsigned n_items,
                 uint64_t *seqnum,
@@ -1821,6 +1796,8 @@ static int journal_file_append_entry_internal(
         o->entry.realtime = htole64(ts->realtime);
         o->entry.monotonic = htole64(ts->monotonic);
         o->entry.xor_hash = htole64(xor_hash);
+        if (boot_id)
+                f->header->boot_id = *boot_id;
         o->entry.boot_id = f->header->boot_id;
 
 #if HAVE_GCRYPT
@@ -1845,6 +1822,9 @@ static int journal_file_append_entry_internal(
 void journal_file_post_change(JournalFile *f) {
         assert(f);
 
+        if (f->fd < 0)
+                return;
+
         /* inotify() does not receive IN_MODIFY events from file
          * accesses done via mmap(). After each access we hence
          * trigger IN_MODIFY by truncating the journal file to its
@@ -1865,37 +1845,33 @@ static int post_change_thunk(sd_event_source *timer, uint64_t usec, void *userda
 }
 
 static void schedule_post_change(JournalFile *f) {
-        sd_event_source *timer;
-        int enabled, r;
         uint64_t now;
+        int r;
 
         assert(f);
         assert(f->post_change_timer);
 
-        timer = f->post_change_timer;
-
-        r = sd_event_source_get_enabled(timer, &enabled);
+        r = sd_event_source_get_enabled(f->post_change_timer, NULL);
         if (r < 0) {
                 log_debug_errno(r, "Failed to get ftruncate timer state: %m");
                 goto fail;
         }
-
-        if (enabled == SD_EVENT_ONESHOT)
+        if (r > 0)
                 return;
 
-        r = sd_event_now(sd_event_source_get_event(timer), CLOCK_MONOTONIC, &now);
+        r = sd_event_now(sd_event_source_get_event(f->post_change_timer), CLOCK_MONOTONIC, &now);
         if (r < 0) {
                 log_debug_errno(r, "Failed to get clock's now for scheduling ftruncate: %m");
                 goto fail;
         }
 
-        r = sd_event_source_set_time(timer, now+f->post_change_timer_period);
+        r = sd_event_source_set_time(f->post_change_timer, now + f->post_change_timer_period);
         if (r < 0) {
                 log_debug_errno(r, "Failed to set time for scheduling ftruncate: %m");
                 goto fail;
         }
 
-        r = sd_event_source_set_enabled(timer, SD_EVENT_ONESHOT);
+        r = sd_event_source_set_enabled(f->post_change_timer, SD_EVENT_ONESHOT);
         if (r < 0) {
                 log_debug_errno(r, "Failed to enable scheduled ftruncate: %m");
                 goto fail;
@@ -1932,17 +1908,18 @@ int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t)
         return r;
 }
 
-static int entry_item_cmp(const void *_a, const void *_b) {
-        const EntryItem *a = _a, *b = _b;
-
-        if (le64toh(a->object_offset) < le64toh(b->object_offset))
-                return -1;
-        if (le64toh(a->object_offset) > le64toh(b->object_offset))
-                return 1;
-        return 0;
+static int entry_item_cmp(const EntryItem *a, const EntryItem *b) {
+        return CMP(le64toh(a->object_offset), le64toh(b->object_offset));
 }
 
-int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqnum, Object **ret, uint64_t *offset) {
+int journal_file_append_entry(
+                JournalFile *f,
+                const dual_timestamp *ts,
+                const sd_id128_t *boot_id,
+                const struct iovec iovec[], unsigned n_iovec,
+                uint64_t *seqnum,
+                Object **ret, uint64_t *offset) {
+
         unsigned i;
         EntryItem *items;
         int r;
@@ -1953,7 +1930,16 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
         assert(f->header);
         assert(iovec || n_iovec == 0);
 
-        if (!ts) {
+        if (ts) {
+                if (!VALID_REALTIME(ts->realtime))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid realtime timestamp %" PRIu64 ", refusing entry.",
+                                               ts->realtime);
+                if (!VALID_MONOTONIC(ts->monotonic))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid monotomic timestamp %" PRIu64 ", refusing entry.",
+                                               ts->monotonic);
+        } else {
                 dual_timestamp_get(&_ts);
                 ts = &_ts;
         }
@@ -1982,9 +1968,9 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 
         /* Order by the position on disk, in order to improve seek
          * times for rotating media. */
-        qsort_safe(items, n_iovec, sizeof(EntryItem), entry_item_cmp);
+        typesafe_qsort(items, n_iovec, entry_item_cmp);
 
-        r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, seqnum, ret, offset);
+        r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, seqnum, ret, offset);
 
         /* If the memory mapping triggered a SIGBUS then we return an
          * IO error and ignore the error code passed down to us, since
@@ -2602,6 +2588,8 @@ void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset) {
 }
 
 int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
+        int r;
+
         assert(af);
         assert(af->header);
         assert(bf);
@@ -2621,10 +2609,9 @@ int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
 
                 /* If this is from the same seqnum source, compare
                  * seqnums */
-                if (af->current_seqnum < bf->current_seqnum)
-                        return -1;
-                if (af->current_seqnum > bf->current_seqnum)
-                        return 1;
+                r = CMP(af->current_seqnum, bf->current_seqnum);
+                if (r != 0)
+                        return r;
 
                 /* Wow! This is weird, different data but the same
                  * seqnums? Something is borked, but let's make the
@@ -2634,25 +2621,18 @@ int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
         if (sd_id128_equal(af->current_boot_id, bf->current_boot_id)) {
 
                 /* If the boot id matches, compare monotonic time */
-                if (af->current_monotonic < bf->current_monotonic)
-                        return -1;
-                if (af->current_monotonic > bf->current_monotonic)
-                        return 1;
+                r = CMP(af->current_monotonic, bf->current_monotonic);
+                if (r != 0)
+                        return r;
         }
 
         /* Otherwise, compare UTC time */
-        if (af->current_realtime < bf->current_realtime)
-                return -1;
-        if (af->current_realtime > bf->current_realtime)
-                return 1;
+        r = CMP(af->current_realtime, bf->current_realtime);
+        if (r != 0)
+                return r;
 
         /* Finally, compare by contents */
-        if (af->current_xor_hash < bf->current_xor_hash)
-                return -1;
-        if (af->current_xor_hash > bf->current_xor_hash)
-                return 1;
-
-        return 0;
+        return CMP(af->current_xor_hash, bf->current_xor_hash);
 }
 
 static int bump_array_index(uint64_t *i, direction_t direction, uint64_t n) {
@@ -2742,10 +2722,10 @@ int journal_file_next_entry(
         }
 
         /* Ensure our array is properly ordered. */
-        if (p > 0 && !check_properly_ordered(ofs, p, direction)) {
-                log_debug("%s: entry array not properly ordered at entry %" PRIu64, f->path, i);
-                return -EBADMSG;
-        }
+        if (p > 0 && !check_properly_ordered(ofs, p, direction))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "%s: entry array not properly ordered at entry %" PRIu64,
+                                       f->path, i);
 
         if (offset)
                 *offset = ofs;
@@ -2818,10 +2798,10 @@ int journal_file_next_entry_for_data(
         }
 
         /* Ensure our array is properly ordered. */
-        if (p > 0 && check_properly_ordered(ofs, p, direction)) {
-                log_debug("%s data entry array not properly ordered at entry %" PRIu64, f->path, i);
-                return -EBADMSG;
-        }
+        if (p > 0 && check_properly_ordered(ofs, p, direction))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "%s data entry array not properly ordered at entry %" PRIu64,
+                                       f->path, i);
 
         if (offset)
                 *offset = ofs;
@@ -3216,30 +3196,30 @@ int journal_file_open(
         if (fname && (flags & O_CREAT) && !endswith(fname, ".journal"))
                 return -EINVAL;
 
-        f = new0(JournalFile, 1);
+        f = new(JournalFile, 1);
         if (!f)
                 return -ENOMEM;
 
-        f->fd = fd;
-        f->mode = mode;
+        *f = (JournalFile) {
+                .fd = fd,
+                .mode = mode,
 
-        f->flags = flags;
-        f->prot = prot_from_flags(flags);
-        f->writable = (flags & O_ACCMODE) != O_RDONLY;
+                .flags = flags,
+                .prot = prot_from_flags(flags),
+                .writable = (flags & O_ACCMODE) != O_RDONLY,
+
 #if HAVE_LZ4
-        f->compress_lz4 = compress;
+                .compress_lz4 = compress,
 #elif HAVE_XZ
-        f->compress_xz = compress;
+                .compress_xz = compress,
 #endif
-
-        if (compress_threshold_bytes == (uint64_t) -1)
-                f->compress_threshold_bytes = DEFAULT_COMPRESS_THRESHOLD;
-        else
-                f->compress_threshold_bytes = MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes);
-
+                .compress_threshold_bytes = compress_threshold_bytes == (uint64_t) -1 ?
+                                            DEFAULT_COMPRESS_THRESHOLD :
+                                            MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
 #if HAVE_GCRYPT
-        f->seal = seal;
+                .seal = seal,
 #endif
+        };
 
         log_debug("Journal effective settings seal=%s compress=%s compress_threshold_bytes=%s",
                   yes_no(f->seal), yes_no(JOURNAL_FILE_COMPRESS(f)),
@@ -3429,72 +3409,143 @@ fail:
         return r;
 }
 
-int journal_file_rotate(JournalFile **f, bool compress, uint64_t compress_threshold_bytes, bool seal, Set *deferred_closes) {
+int journal_file_archive(JournalFile *f) {
         _cleanup_free_ char *p = NULL;
-        size_t l;
-        JournalFile *old_file, *new_file = NULL;
+
+        assert(f);
+
+        if (!f->writable)
+                return -EINVAL;
+
+        /* Is this a journal file that was passed to us as fd? If so, we synthesized a path name for it, and we refuse
+         * rotation, since we don't know the actual path, and couldn't rename the file hence. */
+        if (path_startswith(f->path, "/proc/self/fd"))
+                return -EINVAL;
+
+        if (!endswith(f->path, ".journal"))
+                return -EINVAL;
+
+        if (asprintf(&p, "%.*s@" SD_ID128_FORMAT_STR "-%016"PRIx64"-%016"PRIx64".journal",
+                     (int) strlen(f->path) - 8, f->path,
+                     SD_ID128_FORMAT_VAL(f->header->seqnum_id),
+                     le64toh(f->header->head_entry_seqnum),
+                     le64toh(f->header->head_entry_realtime)) < 0)
+                return -ENOMEM;
+
+        /* Try to rename the file to the archived version. If the file already was deleted, we'll get ENOENT, let's
+         * ignore that case. */
+        if (rename(f->path, p) < 0 && errno != ENOENT)
+                return -errno;
+
+        /* Sync the rename to disk */
+        (void) fsync_directory_of_file(f->fd);
+
+        /* Set as archive so offlining commits w/state=STATE_ARCHIVED. Previously we would set old_file->header->state
+         * to STATE_ARCHIVED directly here, but journal_file_set_offline() short-circuits when state != STATE_ONLINE,
+         * which would result in the rotated journal never getting fsync() called before closing.  Now we simply queue
+         * the archive state by setting an archive bit, leaving the state as STATE_ONLINE so proper offlining
+         * occurs. */
+        f->archive = true;
+
+        /* Currently, btrfs is not very good with out write patterns and fragments heavily. Let's defrag our journal
+         * files when we archive them */
+        f->defrag_on_close = true;
+
+        return 0;
+}
+
+JournalFile* journal_initiate_close(
+                JournalFile *f,
+                Set *deferred_closes) {
+
+        int r;
+
+        assert(f);
+
+        if (deferred_closes) {
+
+                r = set_put(deferred_closes, f);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to add file to deferred close set, closing immediately.");
+                else {
+                        (void) journal_file_set_offline(f, false);
+                        return NULL;
+                }
+        }
+
+        return journal_file_close(f);
+}
+
+int journal_file_rotate(
+                JournalFile **f,
+                bool compress,
+                uint64_t compress_threshold_bytes,
+                bool seal,
+                Set *deferred_closes) {
+
+        JournalFile *new_file = NULL;
         int r;
 
         assert(f);
         assert(*f);
 
-        old_file = *f;
-
-        if (!old_file->writable)
-                return -EINVAL;
-
-        /* Is this a journal file that was passed to us as fd? If so, we synthesized a path name for it, and we refuse
-         * rotation, since we don't know the actual path, and couldn't rename the file hence. */
-        if (path_startswith(old_file->path, "/proc/self/fd"))
-                return -EINVAL;
-
-        if (!endswith(old_file->path, ".journal"))
-                return -EINVAL;
-
-        l = strlen(old_file->path);
-        r = asprintf(&p, "%.*s@" SD_ID128_FORMAT_STR "-%016"PRIx64"-%016"PRIx64".journal",
-                     (int) l - 8, old_file->path,
-                     SD_ID128_FORMAT_VAL(old_file->header->seqnum_id),
-                     le64toh((*f)->header->head_entry_seqnum),
-                     le64toh((*f)->header->head_entry_realtime));
+        r = journal_file_archive(*f);
         if (r < 0)
+                return r;
+
+        r = journal_file_open(
+                        -1,
+                        (*f)->path,
+                        (*f)->flags,
+                        (*f)->mode,
+                        compress,
+                        compress_threshold_bytes,
+                        seal,
+                        NULL,            /* metrics */
+                        (*f)->mmap,
+                        deferred_closes,
+                        *f,              /* template */
+                        &new_file);
+
+        journal_initiate_close(*f, deferred_closes);
+        *f = new_file;
+
+        return r;
+}
+
+int journal_file_dispose(int dir_fd, const char *fname) {
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
+
+        assert(fname);
+
+        /* Renames a journal file to *.journal~, i.e. to mark it as corruped or otherwise uncleanly shutdown. Note that
+         * this is done without looking into the file or changing any of its contents. The idea is that this is called
+         * whenever something is suspicious and we want to move the file away and make clear that it is not accessed
+         * for writing anymore. */
+
+        if (!endswith(fname, ".journal"))
+                return -EINVAL;
+
+        if (asprintf(&p, "%.*s@%016" PRIx64 "-%016" PRIx64 ".journal~",
+                     (int) strlen(fname) - 8, fname,
+                     now(CLOCK_REALTIME),
+                     random_u64()) < 0)
                 return -ENOMEM;
 
-        /* Try to rename the file to the archived version. If the file
-         * already was deleted, we'll get ENOENT, let's ignore that
-         * case. */
-        r = rename(old_file->path, p);
-        if (r < 0 && errno != ENOENT)
+        if (renameat(dir_fd, fname, dir_fd, p) < 0)
                 return -errno;
 
-        /* Sync the rename to disk */
-        (void) fsync_directory_of_file(old_file->fd);
+        /* btrfs doesn't cope well with our write pattern and fragments heavily. Let's defrag all files we rotate */
+        fd = openat(dir_fd, p, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        if (fd < 0)
+                log_debug_errno(errno, "Failed to open file for defragmentation/FS_NOCOW_FL, ignoring: %m");
+        else {
+                (void) chattr_fd(fd, 0, FS_NOCOW_FL, NULL);
+                (void) btrfs_defrag_fd(fd);
+        }
 
-        /* Set as archive so offlining commits w/state=STATE_ARCHIVED.
-         * Previously we would set old_file->header->state to STATE_ARCHIVED directly here,
-         * but journal_file_set_offline() short-circuits when state != STATE_ONLINE, which
-         * would result in the rotated journal never getting fsync() called before closing.
-         * Now we simply queue the archive state by setting an archive bit, leaving the state
-         * as STATE_ONLINE so proper offlining occurs. */
-        old_file->archive = true;
-
-        /* Currently, btrfs is not very good with out write patterns
-         * and fragments heavily. Let's defrag our journal files when
-         * we archive them */
-        old_file->defrag_on_close = true;
-
-        r = journal_file_open(-1, old_file->path, old_file->flags, old_file->mode, compress,
-                              compress_threshold_bytes, seal, NULL, old_file->mmap, deferred_closes,
-                              old_file, &new_file);
-
-        if (deferred_closes &&
-            set_put(deferred_closes, old_file) >= 0)
-                (void) journal_file_set_offline(old_file, false);
-        else
-                (void) journal_file_close(old_file);
-
-        *f = new_file;
-        return r;
+        return 0;
 }
 
 int journal_file_open_reliably(
@@ -3511,8 +3562,6 @@ int journal_file_open_reliably(
                 JournalFile **ret) {
 
         int r;
-        size_t l;
-        _cleanup_free_ char *p = NULL;
 
         r = journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics, mmap_cache,
                               deferred_closes, template, ret);
@@ -3538,35 +3587,23 @@ int journal_file_open_reliably(
                 return r;
 
         /* The file is corrupted. Rotate it away and try it again (but only once) */
-
-        l = strlen(fname);
-        if (asprintf(&p, "%.*s@%016"PRIx64 "-%016"PRIx64 ".journal~",
-                     (int) l - 8, fname,
-                     now(CLOCK_REALTIME),
-                     random_u64()) < 0)
-                return -ENOMEM;
-
-        if (rename(fname, p) < 0)
-                return -errno;
-
-        /* btrfs doesn't cope well with our write pattern and
-         * fragments heavily. Let's defrag all files we rotate */
-
-        (void) chattr_path(p, 0, FS_NOCOW_FL);
-        (void) btrfs_defrag(p);
-
         log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
+
+        r = journal_file_dispose(AT_FDCWD, fname);
+        if (r < 0)
+                return r;
 
         return journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics, mmap_cache,
                                  deferred_closes, template, ret);
 }
 
-int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset) {
+int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p) {
         uint64_t i, n;
         uint64_t q, xor_hash = 0;
         int r;
         EntryItem *items;
         dual_timestamp ts;
+        const sd_id128_t *boot_id;
 
         assert(from);
         assert(to);
@@ -3578,6 +3615,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 
         ts.monotonic = le64toh(o->entry.monotonic);
         ts.realtime = le64toh(o->entry.realtime);
+        boot_id = &o->entry.boot_id;
 
         n = journal_file_entry_n_items(o);
         /* alloca() can't take 0, hence let's allocate at least one */
@@ -3637,7 +3675,8 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return r;
         }
 
-        r = journal_file_append_entry_internal(to, &ts, xor_hash, items, n, seqnum, ret, offset);
+        r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n,
+                                               NULL, NULL, NULL);
 
         if (mmap_cache_got_sigbus(to->mmap, to->cache_fd))
                 return -EIO;

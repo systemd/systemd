@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <getopt.h>
@@ -12,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "conf-files.h"
 #include "def.h"
@@ -19,15 +16,19 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "log.h"
+#include "main-func.h"
+#include "pager.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
-#include "terminal-util.h"
-#include "util.h"
 
 static char **arg_prefixes = NULL;
 static bool arg_cat_config = false;
+static PagerFlags arg_pager_flags = 0;
+
+STATIC_DESTRUCTOR_REGISTER(arg_prefixes, strv_freep);
 
 static int apply_all(OrderedHashmap *sysctl_options) {
         char *property, *value;
@@ -115,7 +116,7 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
 
                 value = strchr(p, '=');
                 if (!value) {
-                        log_error("Line is not an assignment at '%s:%u': %s", path, c, value);
+                        log_error("Line is not an assignment at '%s:%u': %s", path, c, p);
 
                         if (r == 0)
                                 r = -EINVAL;
@@ -163,14 +164,27 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
         return r;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-sysctl.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Applies kernel sysctl settings.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --cat-config       Show configuration files\n"
                "     --prefix=PATH      Only apply rules with the specified prefix\n"
-               , program_invocation_short_name);
+               "     --no-pager         Do not pipe output into a pager\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -179,6 +193,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_CAT_CONFIG,
                 ARG_PREFIX,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
@@ -186,6 +201,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",    no_argument,       NULL, ARG_VERSION    },
                 { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
                 { "prefix",     required_argument, NULL, ARG_PREFIX     },
+                { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
                 {}
         };
 
@@ -199,8 +215,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -231,6 +246,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -238,33 +257,28 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_cat_config && argc > optind) {
-                log_error("Positional arguments are not allowed with --cat-config");
-                return -EINVAL;
-        }
+        if (arg_cat_config && argc > optind)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Positional arguments are not allowed with --cat-config");
 
         return 1;
 }
 
-int main(int argc, char *argv[]) {
-        OrderedHashmap *sysctl_options = NULL;
-        int r = 0, k;
+static int run(int argc, char *argv[]) {
+        _cleanup_(ordered_hashmap_free_free_freep) OrderedHashmap *sysctl_options = NULL;
+        int r, k;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         umask(0022);
 
         sysctl_options = ordered_hashmap_new(&path_hash_ops);
-        if (!sysctl_options) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!sysctl_options)
+                return log_oom();
 
         r = 0;
 
@@ -281,14 +295,13 @@ int main(int argc, char *argv[]) {
                 char **f;
 
                 r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) CONF_PATHS_STRV("sysctl.d"));
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
 
                 if (arg_cat_config) {
-                        r = cat_files(NULL, files, 0);
-                        goto finish;
+                        (void) pager_open(arg_pager_flags);
+
+                        return cat_files(NULL, files, 0);
                 }
 
                 STRV_FOREACH(f, files) {
@@ -302,9 +315,7 @@ int main(int argc, char *argv[]) {
         if (k < 0 && r == 0)
                 r = k;
 
-finish:
-        ordered_hashmap_free_free_free(sysctl_options);
-        strv_free(arg_prefixes);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);

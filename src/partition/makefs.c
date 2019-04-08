@@ -1,9 +1,5 @@
 /***
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2017 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #include <fcntl.h>
@@ -15,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "dissect-image.h"
+#include "main-func.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -31,7 +28,7 @@ static int makefs(const char *type, const char *device) {
         if (access(mkfs, X_OK) != 0)
                 return log_error_errno(errno, "%s is not executable: %m", mkfs);
 
-        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -46,49 +43,41 @@ static int makefs(const char *type, const char *device) {
         return wait_for_terminate_and_check(mkfs, pid, WAIT_LOG);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         const char *device, *type;
         _cleanup_free_ char *detected = NULL;
         struct stat st;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
-        if (argc != 3) {
-                log_error("This program expects two arguments.");
-                return EXIT_FAILURE;
-        }
+        if (argc != 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program expects two arguments.");
 
         type = argv[1];
         device = argv[2];
 
-        if (stat(device, &st) < 0) {
-                r = log_error_errno(errno, "Failed to stat \"%s\": %m", device);
-                goto finish;
-        }
+        if (stat(device, &st) < 0)
+                return log_error_errno(errno, "Failed to stat \"%s\": %m", device);
 
         if (!S_ISBLK(st.st_mode))
                 log_info("%s is not a block device.", device);
 
         r = probe_filesystem(device, &detected);
-        if (r < 0) {
-                log_warning_errno(r,
-                                  r == -EUCLEAN ?
-                                  "Cannot reliably determine probe \"%s\", refusing to proceed." :
-                                  "Failed to probe \"%s\": %m",
-                                  device);
-                goto finish;
-        }
+        if (r < 0)
+                return log_warning_errno(r,
+                                         r == -EUCLEAN ?
+                                         "Cannot reliably determine probe \"%s\", refusing to proceed." :
+                                         "Failed to probe \"%s\": %m",
+                                         device);
 
         if (detected) {
                 log_info("%s is not empty (type %s), exiting", device, detected);
-                goto finish;
+                return 0;
         }
 
-        r = makefs(type, device);
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return makefs(type, device);
 }
+
+DEFINE_MAIN_FUNCTION(run);

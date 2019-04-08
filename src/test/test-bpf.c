@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Daniel Mack
-***/
 
 #include <linux/libbpf.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 #include "bpf-firewall.h"
@@ -18,6 +14,30 @@
 #include "test-helper.h"
 #include "tests.h"
 #include "unit.h"
+
+/* We use the same limit here that PID 1 bumps RLIMIT_MEMLOCK to if it can */
+#define CAN_MEMLOCK_SIZE (64U*1024U*1024U)
+
+static bool can_memlock(void) {
+        void *p;
+        bool b;
+
+        /* Let's see if we can mlock() a larger blob of memory. BPF programs are charged against
+         * RLIMIT_MEMLOCK, hence let's first make sure we can lock memory at all, and skip the test if we
+         * cannot. Why not check RLIMIT_MEMLOCK explicitly? Because in container environments the
+         * RLIMIT_MEMLOCK value we see might not match the RLIMIT_MEMLOCK value actually in effect. */
+
+        p = mmap(NULL, CAN_MEMLOCK_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_SHARED, -1, 0);
+        if (p == MAP_FAILED)
+                return false;
+
+        b = mlock(p, CAN_MEMLOCK_SIZE) >= 0;
+        if (b)
+                assert_se(munlock(p, CAN_MEMLOCK_SIZE) >= 0);
+
+        assert_se(munmap(p, CAN_MEMLOCK_SIZE) >= 0);
+        return b;
+}
 
 int main(int argc, char *argv[]) {
         struct bpf_insn exit_insn[] = {
@@ -31,19 +51,26 @@ int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         char log_buf[65535];
+        struct rlimit rl;
         int r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
+
+        if (is_run_on_travis_ci())
+                return log_tests_skipped("test-bpf fails on Travis CI: https://github.com/systemd/systemd/issues/9666");
+
+        assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
+        rl.rlim_cur = rl.rlim_max = MAX3(rl.rlim_cur, rl.rlim_max, CAN_MEMLOCK_SIZE);
+        (void) setrlimit(RLIMIT_MEMLOCK, &rl);
+
+        if (!can_memlock())
+                return log_tests_skipped("Can't use mlock(), skipping.");
 
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                log_notice("cgroupfs not available, skipping tests");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
-        assert_se(set_unit_path(get_testdata_dir("")) >= 0);
+        assert_se(set_unit_path(get_testdata_dir()) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &p);
@@ -52,16 +79,12 @@ int main(int argc, char *argv[]) {
         r = bpf_program_add_instructions(p, exit_insn, ELEMENTSOF(exit_insn));
         assert(r == 0);
 
-        if (getuid() != 0) {
-                log_notice("Not running as root, skipping kernel related tests.");
-                return EXIT_TEST_SKIP;
-        }
+        if (getuid() != 0)
+                return log_tests_skipped("not running as root");
 
         r = bpf_firewall_supported();
-        if (r == BPF_FIREWALL_UNSUPPORTED) {
-                log_notice("BPF firewalling not supported, skipping");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == BPF_FIREWALL_UNSUPPORTED)
+                return log_tests_skipped("BPF firewalling not supported");
         assert_se(r > 0);
 
         if (r == BPF_FIREWALL_SUPPORTED_WITH_MULTI)
@@ -76,7 +99,7 @@ int main(int argc, char *argv[]) {
 
         /* The simple tests suceeded. Now let's try full unit-based use-case. */
 
-        assert_se(manager_new(UNIT_FILE_USER, true, &m) >= 0);
+        assert_se(manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &m) >= 0);
         assert_se(manager_startup(m, NULL, NULL) >= 0);
 
         assert_se(u = unit_new(m, sizeof(Service)));
@@ -115,9 +138,8 @@ int main(int argc, char *argv[]) {
         unit_dump(u, stdout, NULL);
 
         r = bpf_firewall_compile(u);
-        if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM ))
-                /* Kernel doesn't support the necessary bpf bits, or masked out via seccomp? */
-                return EXIT_TEST_SKIP;
+        if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM))
+                return log_tests_skipped("Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
         assert_se(r >= 0);
 
         assert(u->ip_bpf_ingress);

@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <netinet/tcp.h>
 
@@ -35,15 +30,17 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         assert(m);
         assert(ret);
 
-        s = new0(DnsScope, 1);
+        s = new(DnsScope, 1);
         if (!s)
                 return -ENOMEM;
 
-        s->manager = m;
-        s->link = l;
-        s->protocol = protocol;
-        s->family = family;
-        s->resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC;
+        *s = (DnsScope) {
+                .manager = m,
+                .link = l,
+                .protocol = protocol,
+                .family = family,
+                .resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC,
+        };
 
         if (protocol == DNS_PROTOCOL_DNS) {
                 /* Copy DNSSEC mode from the link if it is set there,
@@ -52,12 +49,18 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                  * not update it from the on, even if the setting
                  * changes. */
 
-                if (l)
+                if (l) {
                         s->dnssec_mode = link_get_dnssec_mode(l);
-                else
+                        s->dns_over_tls_mode = link_get_dns_over_tls_mode(l);
+                } else {
                         s->dnssec_mode = manager_get_dnssec_mode(m);
-        } else
+                        s->dns_over_tls_mode = manager_get_dns_over_tls_mode(m);
+                }
+
+        } else {
                 s->dnssec_mode = DNSSEC_NO;
+                s->dns_over_tls_mode = DNS_OVER_TLS_NO;
+        }
 
         LIST_PREPEND(scopes, m->dns_scopes, s);
 
@@ -221,7 +224,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -EOPNOTSUPP;
 
-                if (!ratelimit_test(&s->ratelimit))
+                if (!ratelimit_below(&s->ratelimit))
                         return -EBUSY;
 
                 family = s->family;
@@ -246,7 +249,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
         case DNS_PROTOCOL_MDNS:
                 assert(fd < 0);
 
-                if (!ratelimit_test(&s->ratelimit))
+                if (!ratelimit_below(&s->ratelimit))
                         return -EBUSY;
 
                 family = s->family;
@@ -306,12 +309,12 @@ static int dns_scope_socket(
                 int family,
                 const union in_addr_union *address,
                 DnsServer *server,
-                uint16_t port) {
+                uint16_t port,
+                union sockaddr_union *ret_socket_address) {
 
         _cleanup_close_ int fd = -1;
-        union sockaddr_union sa = {};
+        union sockaddr_union sa;
         socklen_t salen;
-        static const int one = 1;
         int r, ifindex;
 
         assert(s);
@@ -322,36 +325,54 @@ static int dns_scope_socket(
 
                 ifindex = dns_server_ifindex(server);
 
-                sa.sa.sa_family = server->family;
-                if (server->family == AF_INET) {
-                        sa.in.sin_port = htobe16(port);
-                        sa.in.sin_addr = server->address.in;
+                switch (server->family) {
+                case AF_INET:
+                        sa = (union sockaddr_union) {
+                                .in.sin_family = server->family,
+                                .in.sin_port = htobe16(port),
+                                .in.sin_addr = server->address.in,
+                        };
                         salen = sizeof(sa.in);
-                } else if (server->family == AF_INET6) {
-                        sa.in6.sin6_port = htobe16(port);
-                        sa.in6.sin6_addr = server->address.in6;
-                        sa.in6.sin6_scope_id = ifindex;
+                        break;
+                case AF_INET6:
+                        sa = (union sockaddr_union) {
+                                .in6.sin6_family = server->family,
+                                .in6.sin6_port = htobe16(port),
+                                .in6.sin6_addr = server->address.in6,
+                                .in6.sin6_scope_id = ifindex,
+                        };
                         salen = sizeof(sa.in6);
-                } else
+                        break;
+                default:
                         return -EAFNOSUPPORT;
+                }
         } else {
                 assert(family != AF_UNSPEC);
                 assert(address);
 
-                sa.sa.sa_family = family;
                 ifindex = s->link ? s->link->ifindex : 0;
 
-                if (family == AF_INET) {
-                        sa.in.sin_port = htobe16(port);
-                        sa.in.sin_addr = address->in;
+                switch (family) {
+                case AF_INET:
+                        sa = (union sockaddr_union) {
+                                .in.sin_family = family,
+                                .in.sin_port = htobe16(port),
+                                .in.sin_addr = address->in,
+                        };
                         salen = sizeof(sa.in);
-                } else if (family == AF_INET6) {
-                        sa.in6.sin6_port = htobe16(port);
-                        sa.in6.sin6_addr = address->in6;
-                        sa.in6.sin6_scope_id = ifindex;
+                        break;
+                case AF_INET6:
+                        sa = (union sockaddr_union) {
+                                .in6.sin6_family = family,
+                                .in6.sin6_port = htobe16(port),
+                                .in6.sin6_addr = address->in6,
+                                .in6.sin6_scope_id = ifindex,
+                        };
                         salen = sizeof(sa.in6);
-                } else
+                        break;
+                default:
                         return -EAFNOSUPPORT;
+                }
         }
 
         fd = socket(sa.sa.sa_family, type|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
@@ -359,9 +380,9 @@ static int dns_scope_socket(
                 return -errno;
 
         if (type == SOCK_STREAM) {
-                r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+                r = setsockopt_int(fd, IPPROTO_TCP, TCP_NODELAY, true);
                 if (r < 0)
-                        return -errno;
+                        return r;
         }
 
         if (s->link) {
@@ -382,33 +403,95 @@ static int dns_scope_socket(
                 /* RFC 4795, section 2.5 requires the TTL to be set to 1 */
 
                 if (sa.sa.sa_family == AF_INET) {
-                        r = setsockopt(fd, IPPROTO_IP, IP_TTL, &one, sizeof(one));
+                        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, true);
                         if (r < 0)
-                                return -errno;
+                                return r;
                 } else if (sa.sa.sa_family == AF_INET6) {
-                        r = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &one, sizeof(one));
+                        r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, true);
                         if (r < 0)
-                                return -errno;
+                                return r;
                 }
         }
 
-        r = connect(fd, &sa.sa, salen);
-        if (r < 0 && errno != EINPROGRESS)
-                return -errno;
+        if (type == SOCK_DGRAM) {
+                /* Set IP_RECVERR or IPV6_RECVERR to get ICMP error feedback. See discussion in #10345. */
+
+                if (sa.sa.sa_family == AF_INET) {
+                        r = setsockopt_int(fd, IPPROTO_IP, IP_RECVERR, true);
+                        if (r < 0)
+                                return r;
+
+                        r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, true);
+                        if (r < 0)
+                                return r;
+
+                } else if (sa.sa.sa_family == AF_INET6) {
+                        r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVERR, true);
+                        if (r < 0)
+                                return r;
+
+                        r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, true);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (ret_socket_address)
+                *ret_socket_address = sa;
+        else {
+                r = connect(fd, &sa.sa, salen);
+                if (r < 0 && errno != EINPROGRESS)
+                        return -errno;
+        }
 
         return TAKE_FD(fd);
 }
 
 int dns_scope_socket_udp(DnsScope *s, DnsServer *server, uint16_t port) {
-        return dns_scope_socket(s, SOCK_DGRAM, AF_UNSPEC, NULL, server, port);
+        return dns_scope_socket(s, SOCK_DGRAM, AF_UNSPEC, NULL, server, port, NULL);
 }
 
-int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, DnsServer *server, uint16_t port) {
-        return dns_scope_socket(s, SOCK_STREAM, family, address, server, port);
+int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, DnsServer *server, uint16_t port, union sockaddr_union *ret_socket_address) {
+        /* If ret_socket_address is not NULL, the caller is responisble
+         * for calling connect() or sendmsg(). This is required by TCP
+         * Fast Open, to be able to send the initial SYN packet along
+         * with the first data packet. */
+        return dns_scope_socket(s, SOCK_STREAM, family, address, server, port, ret_socket_address);
 }
 
-DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain) {
+static DnsScopeMatch accept_link_local_reverse_lookups(const char *domain) {
+        assert(domain);
+
+        if (dns_name_endswith(domain, "254.169.in-addr.arpa") > 0)
+                return DNS_SCOPE_YES_BASE + 4; /* 4 labels match */
+
+        if (dns_name_endswith(domain, "8.e.f.ip6.arpa") > 0 ||
+            dns_name_endswith(domain, "9.e.f.ip6.arpa") > 0 ||
+            dns_name_endswith(domain, "a.e.f.ip6.arpa") > 0 ||
+            dns_name_endswith(domain, "b.e.f.ip6.arpa") > 0)
+                return DNS_SCOPE_YES_BASE + 5; /* 5 labels match */
+
+        return _DNS_SCOPE_MATCH_INVALID;
+}
+
+DnsScopeMatch dns_scope_good_domain(
+                DnsScope *s,
+                int ifindex,
+                uint64_t flags,
+                const char *domain) {
+
         DnsSearchDomain *d;
+
+        /* This returns the following return values:
+         *
+         *    DNS_SCOPE_NO         → This scope is not suitable for lookups of this domain, at all
+         *    DNS_SCOPE_MAYBE      → This scope is suitable, but only if nothing else wants it
+         *    DNS_SCOPE_YES_BASE+n → This scope is suitable, and 'n' suffix labels match
+         *
+         *  (The idea is that the caller will only use the scopes with the longest 'n' returned. If no scopes return
+         *  DNS_SCOPE_YES_BASE+n, then it should use those which returned DNS_SCOPE_MAYBE. It should never use those
+         *  which returned DNS_SCOPE_NO.)
+         */
 
         assert(s);
         assert(domain);
@@ -444,23 +527,47 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
         switch (s->protocol) {
 
         case DNS_PROTOCOL_DNS: {
-                DnsServer *dns_server;
+                bool has_search_domains = false;
+                int n_best = -1;
 
                 /* Never route things to scopes that lack DNS servers */
-                dns_server = dns_scope_get_dns_server(s);
-                if (!dns_server)
+                if (!dns_scope_get_dns_server(s))
                         return DNS_SCOPE_NO;
 
                 /* Always honour search domains for routing queries, except if this scope lacks DNS servers. Note that
                  * we return DNS_SCOPE_YES here, rather than just DNS_SCOPE_MAYBE, which means other wildcard scopes
                  * won't be considered anymore. */
-                LIST_FOREACH(domains, d, dns_scope_get_search_domains(s))
-                        if (dns_name_endswith(domain, d->name) > 0)
-                                return DNS_SCOPE_YES;
+                LIST_FOREACH(domains, d, dns_scope_get_search_domains(s)) {
 
-                /* If the DNS server has route-only domains, don't send other requests to it. This would be a privacy
-                 * violation, will most probably fail anyway, and adds unnecessary load. */
-                if (dns_server_limited_domains(dns_server))
+                        if (!d->route_only && !dns_name_is_root(d->name))
+                                has_search_domains = true;
+
+                        if (dns_name_endswith(domain, d->name) > 0) {
+                                int c;
+
+                                c = dns_name_count_labels(d->name);
+                                if (c < 0)
+                                        continue;
+
+                                if (c > n_best)
+                                        n_best = c;
+                        }
+                }
+
+                /* If there's a true search domain defined for this scope, and the query is single-label,
+                 * then let's resolve things here, prefereably. Note that LLMNR considers itself
+                 * authoritative for single-label names too, at the same preference, see below. */
+                if (has_search_domains && dns_name_is_single_label(domain))
+                        return DNS_SCOPE_YES_BASE + 1;
+
+                /* Let's return the number of labels in the best matching result */
+                if (n_best >= 0) {
+                        assert(n_best <= DNS_SCOPE_YES_END - DNS_SCOPE_YES_BASE);
+                        return DNS_SCOPE_YES_BASE + n_best;
+                }
+
+                /* See if this scope is suitable as default route. */
+                if (!dns_scope_is_default_route(s))
                         return DNS_SCOPE_NO;
 
                 /* Exclude link-local IP ranges */
@@ -478,25 +585,52 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                 return DNS_SCOPE_NO;
         }
 
-        case DNS_PROTOCOL_MDNS:
+        case DNS_PROTOCOL_MDNS: {
+                DnsScopeMatch m;
+
+                m = accept_link_local_reverse_lookups(domain);
+                if (m >= 0)
+                        return m;
+
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
-                    (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0) ||
-                    (dns_name_endswith(domain, "local") > 0 && /* only resolve names ending in .local via mDNS */
+                    (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0))
+                        return DNS_SCOPE_MAYBE;
+
+                if ((dns_name_endswith(domain, "local") > 0 && /* only resolve names ending in .local via mDNS */
                      dns_name_equal(domain, "local") == 0 &&   /* but not the single-label "local" name itself */
                      manager_is_own_hostname(s->manager, domain) <= 0)) /* never resolve the local hostname via mDNS */
-                        return DNS_SCOPE_MAYBE;
+                        return DNS_SCOPE_YES_BASE + 1; /* Return +1, as the top-level .local domain matches, i.e. one label */
 
                 return DNS_SCOPE_NO;
+        }
 
-        case DNS_PROTOCOL_LLMNR:
+        case DNS_PROTOCOL_LLMNR: {
+                DnsScopeMatch m;
+
+                m = accept_link_local_reverse_lookups(domain);
+                if (m >= 0)
+                        return m;
+
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
-                    (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0) ||
-                    (dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
+                    (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0))
+                        return DNS_SCOPE_MAYBE;
+
+                if ((dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
                      !is_gateway_hostname(domain) && /* don't resolve "gateway" with LLMNR, let nss-myhostname handle this */
                      manager_is_own_hostname(s->manager, domain) <= 0))  /* never resolve the local hostname via LLMNR */
-                        return DNS_SCOPE_MAYBE;
+                        return DNS_SCOPE_YES_BASE + 1; /* Return +1, as we consider ourselves authoritative
+                                                        * for single-label names, i.e. one label. This is
+                                                        * particular relevant as it means a "." route on some
+                                                        * other scope won't pull all traffic away from
+                                                        * us. (If people actually want to pull traffic away
+                                                        * from us they should turn off LLMNR on the
+                                                        * link). Note that unicast DNS scopes with search
+                                                        * domains also consider themselves authoritative for
+                                                        * single-label domains, at the same preference (see
+                                                        * above). */
 
                 return DNS_SCOPE_NO;
+        }
 
         default:
                 assert_not_reached("Unknown scope protocol");
@@ -759,7 +893,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         } else {
                 int fd;
 
-                if (!ratelimit_test(&s->ratelimit))
+                if (!ratelimit_below(&s->ratelimit))
                         return;
 
                 if (p->family == AF_INET)
@@ -1271,4 +1405,57 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
         }
 
         return 0;
+}
+
+static bool dns_scope_has_route_only_domains(DnsScope *scope) {
+        DnsSearchDomain *domain, *first;
+        bool route_only = false;
+
+        assert(scope);
+        assert(scope->protocol == DNS_PROTOCOL_DNS);
+
+        /* Returns 'true' if this scope is suitable for queries to specific domains only. For that we check
+         * if there are any route-only domains on this interface, as a heuristic to discern VPN-style links
+         * from non-VPN-style links. Returns 'false' for all other cases, i.e. if the scope is intended to
+         * take queries to arbitrary domains, i.e. has no routing domains set. */
+
+        if (scope->link)
+                first = scope->link->search_domains;
+        else
+                first = scope->manager->search_domains;
+
+        LIST_FOREACH(domains, domain, first) {
+                /* "." means "any domain", thus the interface takes any kind of traffic. Thus, we exit early
+                 * here, as it doesn't really matter whether this link has any route-only domains or not,
+                 * "~."  really trumps everything and clearly indicates that this interface shall receive all
+                 * traffic it can get. */
+                if (dns_name_is_root(DNS_SEARCH_DOMAIN_NAME(domain)))
+                        return false;
+
+                if (domain->route_only)
+                        route_only = true;
+        }
+
+        return route_only;
+}
+
+bool dns_scope_is_default_route(DnsScope *scope) {
+        assert(scope);
+
+        /* Only use DNS scopes as default routes */
+        if (scope->protocol != DNS_PROTOCOL_DNS)
+                return false;
+
+        /* The global DNS scope is always suitable as default route */
+        if (!scope->link)
+                return true;
+
+        /* Honour whatever is explicitly configured. This is really the best approach, and trumps any
+         * automatic logic. */
+        if (scope->link->default_route >= 0)
+                return scope->link->default_route;
+
+        /* Otherwise check if we have any route-only domains, as a sensible heuristic: if so, let's not
+         * volunteer as default route. */
+        return !dns_scope_has_route_only_domains(scope);
 }

@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 typedef struct Socket Socket;
 typedef struct SocketPeer SocketPeer;
 
 #include "mount.h"
 #include "service.h"
 #include "socket-util.h"
+#include "unit.h"
 
 typedef enum SocketExecCommand {
         SOCKET_EXEC_START_PRE,
@@ -72,6 +67,7 @@ struct Socket {
 
         unsigned n_accepted;
         unsigned n_connections;
+        unsigned n_refused;
         unsigned max_connections;
         unsigned max_connections_per_source;
 
@@ -182,3 +178,5 @@ SocketResult socket_result_from_string(const char *s) _pure_;
 
 const char* socket_port_type_to_string(SocketPort *p) _pure_;
 SocketType socket_port_type_from_string(const char *p) _pure_;
+
+DEFINE_CAST(SOCKET, Socket);

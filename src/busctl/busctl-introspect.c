@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include "sd-bus.h"
 
@@ -72,10 +67,9 @@ static int parse_xml_annotation(Context *context, uint64_t *flags) {
                         return t;
                 }
 
-                if (t == XML_END) {
-                        log_error("Premature end of XML data.");
-                        return -EBADMSG;
-                }
+                if (t == XML_END)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Premature end of XML data.");
 
                 switch (state) {
 
@@ -89,10 +83,10 @@ static int parse_xml_annotation(Context *context, uint64_t *flags) {
                                 else if (streq_ptr(name, "value"))
                                         state = STATE_VALUE;
 
-                                else {
-                                        log_error("Unexpected <annotation> attribute %s.", name);
-                                        return -EBADMSG;
-                                }
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                               "Unexpected <annotation> attribute %s.",
+                                                               name);
 
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
                                    (t == XML_TAG_CLOSE && streq_ptr(name, "annotation"))) {
@@ -121,10 +115,9 @@ static int parse_xml_annotation(Context *context, uint64_t *flags) {
 
                                 return 0;
 
-                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
-                                log_error("Unexpected token in <annotation>. (1)");
-                                return -EINVAL;
-                        }
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <annotation>. (1)");
 
                         break;
 
@@ -134,10 +127,9 @@ static int parse_xml_annotation(Context *context, uint64_t *flags) {
                                 free_and_replace(field, name);
 
                                 state = STATE_ANNOTATION;
-                        } else {
-                                log_error("Unexpected token in <annotation>. (2)");
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <annotation>. (2)");
 
                         break;
 
@@ -147,10 +139,9 @@ static int parse_xml_annotation(Context *context, uint64_t *flags) {
                                 free_and_replace(value, name);
 
                                 state = STATE_ANNOTATION;
-                        } else {
-                                log_error("Unexpected token in <annotation>. (3)");
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <annotation>. (3)");
 
                         break;
 
@@ -192,10 +183,8 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
         assert(context);
         assert(prefix);
 
-        if (n_depth > NODE_DEPTH_MAX) {
-                log_error("<node> depth too high.");
-                return -EINVAL;
-        }
+        if (n_depth > NODE_DEPTH_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "<node> depth too high.");
 
         for (;;) {
                 _cleanup_free_ char *name = NULL;
@@ -207,10 +196,8 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                         return t;
                 }
 
-                if (t == XML_END) {
-                        log_error("Premature end of XML data.");
-                        return -EBADMSG;
-                }
+                if (t == XML_END)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Premature end of XML data.");
 
                 switch (state) {
 
@@ -219,10 +206,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                                 if (streq_ptr(name, "name"))
                                         state = STATE_NODE_NAME;
-                                else {
-                                        log_error("Unexpected <node> attribute %s.", name);
-                                        return -EBADMSG;
-                                }
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                               "Unexpected <node> attribute %s.", name);
 
                         } else if (t == XML_TAG_OPEN) {
 
@@ -233,10 +219,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         r = parse_xml_node(context, np, n_depth+1);
                                         if (r < 0)
                                                 return r;
-                                } else {
-                                        log_error("Unexpected <node> tag %s.", name);
-                                        return -EBADMSG;
-                                }
+                                } else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                               "Unexpected <node> tag %s.", name);
 
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
                                    (t == XML_TAG_CLOSE && streq_ptr(name, "node"))) {
@@ -249,10 +234,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                                 return 0;
 
-                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
-                                log_error("Unexpected token in <node>. (1)");
-                                return -EINVAL;
-                        }
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <node>. (1)");
 
                         break;
 
@@ -276,10 +260,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                                 np = node_path;
                                 state = STATE_NODE;
-                        } else {
-                                log_error("Unexpected token in <node>. (2)");
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <node>. (2)");
 
                         break;
 
@@ -288,10 +271,10 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                         if (t == XML_ATTRIBUTE_NAME) {
                                 if (streq_ptr(name, "name"))
                                         state = STATE_INTERFACE_NAME;
-                                else {
-                                        log_error("Unexpected <interface> attribute %s.", name);
-                                        return -EBADMSG;
-                                }
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                               "Unexpected <interface> attribute %s.",
+                                                               name);
 
                         } else if (t == XML_TAG_OPEN) {
                                 if (streq_ptr(name, "method"))
@@ -305,10 +288,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         r = parse_xml_annotation(context, &context->interface_flags);
                                         if (r < 0)
                                                 return r;
-                                } else {
-                                        log_error("Unexpected <interface> tag %s.", name);
-                                        return -EINVAL;
-                                }
+                                } else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unexpected <interface> tag %s.", name);
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
                                    (t == XML_TAG_CLOSE && streq_ptr(name, "interface"))) {
 
@@ -324,10 +306,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                                 state = STATE_NODE;
 
-                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
-                                log_error("Unexpected token in <interface>. (1)");
-                                return -EINVAL;
-                        }
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <interface>. (1)");
 
                         break;
 
@@ -338,10 +319,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         free_and_replace(context->interface_name, name);
 
                                 state = STATE_INTERFACE;
-                        } else {
-                                log_error("Unexpected token in <interface>. (2)");
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <interface>. (2)");
 
                         break;
 
@@ -350,10 +330,10 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                         if (t == XML_ATTRIBUTE_NAME) {
                                 if (streq_ptr(name, "name"))
                                         state = STATE_METHOD_NAME;
-                                else {
-                                        log_error("Unexpected <method> attribute %s", name);
-                                        return -EBADMSG;
-                                }
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                               "Unexpected <method> attribute %s",
+                                                               name);
                         } else if (t == XML_TAG_OPEN) {
                                 if (streq_ptr(name, "arg"))
                                         state = STATE_METHOD_ARG;
@@ -361,10 +341,10 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         r = parse_xml_annotation(context, &context->member_flags);
                                         if (r < 0)
                                                 return r;
-                                } else {
-                                        log_error("Unexpected <method> tag %s.", name);
-                                        return -EINVAL;
-                                }
+                                } else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unexpected <method> tag %s.",
+                                                               name);
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
                                    (t == XML_TAG_CLOSE && streq_ptr(name, "method"))) {
 
@@ -380,10 +360,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                                 state = STATE_INTERFACE;
 
-                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
-                                log_error("Unexpected token in <method> (1).");
-                                return -EINVAL;
-                        }
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <method> (1).");
 
                         break;
 
@@ -394,10 +373,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         free_and_replace(context->member_name, name);
 
                                 state = STATE_METHOD;
-                        } else {
-                                log_error("Unexpected token in <method> (2).");
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <method> (2).");
 
                         break;
 
@@ -410,19 +388,19 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         state = STATE_METHOD_ARG_TYPE;
                                 else if (streq_ptr(name, "direction"))
                                         state = STATE_METHOD_ARG_DIRECTION;
-                                else {
-                                        log_error("Unexpected method <arg> attribute %s.", name);
-                                        return -EBADMSG;
-                                }
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                               "Unexpected method <arg> attribute %s.",
+                                                               name);
                         } else if (t == XML_TAG_OPEN) {
                                 if (streq_ptr(name, "annotation")) {
                                         r = parse_xml_annotation(context, NULL);
                                         if (r < 0)
                                                 return r;
-                                } else {
-                                        log_error("Unexpected method <arg> tag %s.", name);
-                                        return -EINVAL;
-                                }
+                                } else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unexpected method <arg> tag %s.",
+                                                               name);
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
                                    (t == XML_TAG_CLOSE && streq_ptr(name, "arg"))) {
 
@@ -444,10 +422,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                 }
 
                                 state = STATE_METHOD;
-                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
-                                log_error("Unexpected token in method <arg>. (1)");
-                                return -EINVAL;
-                        }
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in method <arg>. (1)");
 
                         break;
 
@@ -455,10 +432,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                         if (t == XML_ATTRIBUTE_VALUE)
                                 state = STATE_METHOD_ARG;
-                        else {
-                                log_error("Unexpected token in method <arg>. (2)");
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in method <arg>. (2)");
 
                         break;
 
@@ -468,10 +444,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                 free_and_replace(argument_type, name);
 
                                 state = STATE_METHOD_ARG;
-                        } else {
-                                log_error("Unexpected token in method <arg>. (3)");
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in method <arg>. (3)");
 
                         break;
 
@@ -481,10 +456,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                 free_and_replace(argument_direction, name);
 
                                 state = STATE_METHOD_ARG;
-                        } else {
-                                log_error("Unexpected token in method <arg>. (4)");
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in method <arg>. (4)");
 
                         break;
 
@@ -493,10 +467,10 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                         if (t == XML_ATTRIBUTE_NAME) {
                                 if (streq_ptr(name, "name"))
                                         state = STATE_SIGNAL_NAME;
-                                else {
-                                        log_error("Unexpected <signal> attribute %s.", name);
-                                        return -EBADMSG;
-                                }
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                               "Unexpected <signal> attribute %s.",
+                                                               name);
                         } else if (t == XML_TAG_OPEN) {
                                 if (streq_ptr(name, "arg"))
                                         state = STATE_SIGNAL_ARG;
@@ -504,10 +478,10 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         r = parse_xml_annotation(context, &context->member_flags);
                                         if (r < 0)
                                                 return r;
-                                } else {
-                                        log_error("Unexpected <signal> tag %s.", name);
-                                        return -EINVAL;
-                                }
+                                } else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unexpected <signal> tag %s.",
+                                                               name);
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
                                    (t == XML_TAG_CLOSE && streq_ptr(name, "signal"))) {
 
@@ -523,10 +497,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                                 state = STATE_INTERFACE;
 
-                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
-                                log_error("Unexpected token in <signal>. (1)");
-                                return -EINVAL;
-                        }
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <signal>. (1)");
 
                         break;
 
@@ -537,10 +510,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         free_and_replace(context->member_name, name);
 
                                 state = STATE_SIGNAL;
-                        } else {
-                                log_error("Unexpected token in <signal>. (2)");
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <signal>. (2)");
 
                         break;
 
@@ -553,19 +525,19 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         state = STATE_SIGNAL_ARG_TYPE;
                                 else if (streq_ptr(name, "direction"))
                                         state = STATE_SIGNAL_ARG_DIRECTION;
-                                else {
-                                        log_error("Unexpected signal <arg> attribute %s.", name);
-                                        return -EBADMSG;
-                                }
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                               "Unexpected signal <arg> attribute %s.",
+                                                               name);
                         } else if (t == XML_TAG_OPEN) {
                                 if (streq_ptr(name, "annotation")) {
                                         r = parse_xml_annotation(context, NULL);
                                         if (r < 0)
                                                 return r;
-                                } else {
-                                        log_error("Unexpected signal <arg> tag %s.", name);
-                                        return -EINVAL;
-                                }
+                                } else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unexpected signal <arg> tag %s.",
+                                                               name);
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
                                    (t == XML_TAG_CLOSE && streq_ptr(name, "arg"))) {
 
@@ -580,10 +552,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                 }
 
                                 state = STATE_SIGNAL;
-                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
-                                log_error("Unexpected token in signal <arg> (1).");
-                                return -EINVAL;
-                        }
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in signal <arg> (1).");
 
                         break;
 
@@ -591,10 +562,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                         if (t == XML_ATTRIBUTE_VALUE)
                                 state = STATE_SIGNAL_ARG;
-                        else {
-                                log_error("Unexpected token in signal <arg> (2).");
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in signal <arg> (2).");
 
                         break;
 
@@ -604,10 +574,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                 free_and_replace(argument_type, name);
 
                                 state = STATE_SIGNAL_ARG;
-                        } else {
-                                log_error("Unexpected token in signal <arg> (3).");
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in signal <arg> (3).");
 
                         break;
 
@@ -617,10 +586,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                 free_and_replace(argument_direction, name);
 
                                 state = STATE_SIGNAL_ARG;
-                        } else {
-                                log_error("Unexpected token in signal <arg>. (4)");
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in signal <arg>. (4)");
 
                         break;
 
@@ -633,20 +601,20 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         state  = STATE_PROPERTY_TYPE;
                                 else if (streq_ptr(name, "access"))
                                         state  = STATE_PROPERTY_ACCESS;
-                                else {
-                                        log_error("Unexpected <property> attribute %s.", name);
-                                        return -EBADMSG;
-                                }
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                               "Unexpected <property> attribute %s.",
+                                                               name);
                         } else if (t == XML_TAG_OPEN) {
 
                                 if (streq_ptr(name, "annotation")) {
                                         r = parse_xml_annotation(context, &context->member_flags);
                                         if (r < 0)
                                                 return r;
-                                } else {
-                                        log_error("Unexpected <property> tag %s.", name);
-                                        return -EINVAL;
-                                }
+                                } else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unexpected <property> tag %s.",
+                                                               name);
 
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
                                    (t == XML_TAG_CLOSE && streq_ptr(name, "property"))) {
@@ -663,10 +631,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                                 state = STATE_INTERFACE;
 
-                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
-                                log_error("Unexpected token in <property>. (1)");
-                                return -EINVAL;
-                        }
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <property>. (1)");
 
                         break;
 
@@ -677,10 +644,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         free_and_replace(context->member_name, name);
 
                                 state = STATE_PROPERTY;
-                        } else {
-                                log_error("Unexpected token in <property>. (2)");
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <property>. (2)");
 
                         break;
 
@@ -691,10 +657,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         free_and_replace(context->member_signature, name);
 
                                 state = STATE_PROPERTY;
-                        } else {
-                                log_error("Unexpected token in <property>. (3)");
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <property>. (3)");
 
                         break;
 
@@ -706,10 +671,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         context->member_writable = true;
 
                                 state = STATE_PROPERTY;
-                        } else {
-                                log_error("Unexpected token in <property>. (4)");
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected token in <property>. (4)");
 
                         break;
                 }

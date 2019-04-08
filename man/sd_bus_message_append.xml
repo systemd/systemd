@@ -1,14 +1,7 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
--->
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_message_append"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -16,15 +9,6 @@
   <refentryinfo>
     <title>sd_bus_message_append</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>A monkey with a typewriter</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -107,13 +91,12 @@
     values for each entry matching the element type of
     the dictionary entries.</para>
 
-    <para>The <function>sd_bus_message_appendv()</function> is equivalent to
-    the function <function>sd_bus_message_append()</function>,
-    except that it is called with a <literal>va_list</literal> instead of
-    a variable number of arguments. This function does not call the
-    <function>va_end()</function> macro. Because it invokes the
-    <function>va_arg()</function> macro, the value of ap
-    is undefined after the call.</para>
+    <para>The <function>sd_bus_message_appendv()</function> is equivalent to the
+    <function>sd_bus_message_append()</function>, except that it is called with
+    a <literal>va_list</literal> instead of a variable number of arguments. This
+    function does not call the <function>va_end()</function> macro. Because it
+    invokes the <function>va_arg()</function> macro, the value of
+    <parameter>ap</parameter> is undefined after the call.</para>
 
     <para>For further details on the D-Bus type system, please consult
     the <ulink
@@ -244,22 +227,13 @@ sd_bus_message_append(m, "ynqiuxtd", y, n, q, i, u, x, t, d);</programlisting>
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these functions return 0 or a positive
-    integer. On failure, these functions return a negative
+    <para>On success, these functions return 0 or a positive integer. On failure, they return a negative
     errno-style error code.</para>
+
+    <xi:include href="sd_bus_message_append_basic.xml" xpointer="errors" />
   </refsect1>
 
-  <xi:include href="sd_bus_message_append_basic.xml" xpointer="errors" />
-
-  <refsect1>
-    <title>Notes</title>
-
-    <para><function>sd_bus_open_user()</function> and other functions
-    described here are available as a shared library, which can be
-    compiled and linked to with the
-    <constant>libsystemd-bus</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>

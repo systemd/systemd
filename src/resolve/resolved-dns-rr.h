@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
- ***/
-
 #include <netinet/in.h>
 
 #include "bitmap.h"
@@ -15,6 +9,7 @@
 #include "in-addr-util.h"
 #include "list.h"
 #include "string-util.h"
+#include "time-util.h"
 
 typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;
@@ -86,7 +81,6 @@ struct DnsResourceKey {
                 .type = t,                              \
                 ._name = (char*) n,                     \
         })
-
 
 struct DnsTxtItem {
         size_t length;
@@ -251,7 +245,7 @@ struct DnsResourceRecord {
         };
 };
 
-static inline const void* DNS_RESOURCE_RECORD_RDATA(DnsResourceRecord *rr) {
+static inline const void* DNS_RESOURCE_RECORD_RDATA(const DnsResourceRecord *rr) {
         if (!rr)
                 return NULL;
 
@@ -262,7 +256,7 @@ static inline const void* DNS_RESOURCE_RECORD_RDATA(DnsResourceRecord *rr) {
         return (uint8_t*) rr->wire_format + rr->wire_format_rdata_offset;
 }
 
-static inline size_t DNS_RESOURCE_RECORD_RDATA_SIZE(DnsResourceRecord *rr) {
+static inline size_t DNS_RESOURCE_RECORD_RDATA_SIZE(const DnsResourceRecord *rr) {
         if (!rr)
                 return 0;
         if (!rr->wire_format)
@@ -272,7 +266,7 @@ static inline size_t DNS_RESOURCE_RECORD_RDATA_SIZE(DnsResourceRecord *rr) {
         return rr->wire_format_size - rr->wire_format_rdata_offset;
 }
 
-static inline uint8_t DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(DnsResourceRecord *rr) {
+static inline uint8_t DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(const DnsResourceRecord *rr) {
         assert(rr);
         assert(rr->key->type == DNS_TYPE_OPT);
 
@@ -315,6 +309,8 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr);
 int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
 int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
+int dns_resource_record_payload_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
+
 const char* dns_resource_record_to_string(DnsResourceRecord *rr);
 DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
@@ -333,7 +329,7 @@ bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
 DnsTxtItem *dns_txt_item_copy(DnsTxtItem *i);
 int dns_txt_item_new_empty(DnsTxtItem **ret);
 
-void dns_resource_record_hash_func(const void *i, struct siphash *state);
+void dns_resource_record_hash_func(const DnsResourceRecord *i, struct siphash *state);
 
 extern const struct hash_ops dns_resource_key_hash_ops;
 extern const struct hash_ops dns_resource_record_hash_ops;

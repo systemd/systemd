@@ -1,29 +1,13 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-resolved.service" conditional='ENABLE_RESOLVE'>
 
   <refentryinfo>
     <title>systemd-resolved.service</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Tom</firstname>
-        <surname>Gundersen</surname>
-        <email>teg@jklm.no</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -46,8 +30,8 @@
     <title>Description</title>
 
     <para><command>systemd-resolved</command> is a system service that provides network name resolution to local
-    applications. It implements a caching and validating DNS/DNSSEC stub resolver, as well as an LLMNR resolver and
-    responder. Local applications may submit network name resolution requests via three interfaces:</para>
+    applications. It implements a caching and validating DNS/DNSSEC stub resolver, as well as an LLMNR and MulticastDNS
+    resolver and responder. Local applications may submit network name resolution requests via three interfaces:</para>
 
     <itemizedlist>
       <listitem><para>The native, fully-featured API <command>systemd-resolved</command> exposes on the bus. See the
@@ -77,14 +61,23 @@
 
     <para>The DNS servers contacted are determined from the global settings in
     <filename>/etc/systemd/resolved.conf</filename>, the per-link static settings in
-    <filename>/etc/systemd/network/*.network</filename> files, the per-link dynamic settings received over DHCP and any
-    DNS server information made available by other system services. See
+    <filename>/etc/systemd/network/*.network</filename> files (in case
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+    used), the per-link dynamic settings received over DHCP, user request made via
+    <citerefentry><refentrytitle>resolvectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, and any DNS server
+    information made available by other system services. See
     <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details
     about systemd's own configuration files for DNS servers. To improve compatibility,
     <filename>/etc/resolv.conf</filename> is read in order to discover configured system DNS servers, but only if it is
-    not a symlink to <filename>/run/systemd/resolve/stub-resolv.conf</filename> or
-    <filename>/run/systemd/resolve/resolv.conf</filename> (see below).</para>
+    not a symlink to <filename>/run/systemd/resolve/stub-resolv.conf</filename>,
+    <filename>/usr/lib/systemd/resolv.conf</filename> or <filename>/run/systemd/resolve/resolv.conf</filename> (see
+    below).</para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Synthetic Records</title>
 
     <para><command>systemd-resolved</command> synthesizes DNS resource records (RRs) for the following cases:</para>
 
@@ -110,28 +103,36 @@
       to their configured addresses and back, but they will not affect lookups for
       non-address types (like MX).</para></listitem>
     </itemizedlist>
+  </refsect1>
 
-    <para>Lookup requests are routed to the available DNS servers
-    and LLMNR interfaces according to the following rules:</para>
+  <refsect1>
+    <title>Protocols and Routing</title>
+
+    <para>Lookup requests are routed to the available DNS servers, LLMNR and MulticastDNS interfaces according to the
+    following rules:</para>
 
     <itemizedlist>
-      <listitem><para>Lookups for the special hostname
-      <literal>localhost</literal> are never routed to the
-      network. (A few other, special domains are handled the same way.)</para></listitem>
+      <listitem><para>Lookups for the special hostname <literal>localhost</literal> are never routed to the network. (A
+      few other, special domains are handled the same way.)</para></listitem>
 
-      <listitem><para>Single-label names are routed to all local
-      interfaces capable of IP multicasting, using the LLMNR
-      protocol. Lookups for IPv4 addresses are only sent via LLMNR on
-      IPv4, and lookups for IPv6 addresses are only sent via LLMNR on
-      IPv6. Lookups for the locally configured host name and the
-      <literal>_gateway</literal> host name are never routed to
-      LLMNR.</para></listitem>
+      <listitem><para>Single-label names are routed to all local interfaces capable of IP multicasting, using the LLMNR
+      protocol. Lookups for IPv4 addresses are only sent via LLMNR on IPv4, and lookups for IPv6 addresses are only
+      sent via LLMNR on IPv6. Lookups for the locally configured host name and the <literal>_gateway</literal> host
+      name are never routed to LLMNR.</para></listitem>
 
-      <listitem><para>Multi-label names are routed to all local
-      interfaces that have a DNS server configured, plus the globally
-      configured DNS server if there is one. Address lookups from the
-      link-local address range are never routed to
-      DNS.</para></listitem>
+      <listitem><para>Multi-label names with the domain suffix <literal>.local</literal> are routed to all local
+      interfaces capable of IP multicasting, using the MulticastDNS protocol. As with LLMNR IPv4 address lookups are
+      sent via IPv4 and IPv6 address lookups are sent via IPv6.</para></listitem>
+
+      <listitem><para>Other multi-label names are routed to all local interfaces that have a DNS server configured,
+      plus the globally configured DNS server if there is one. Address lookups from the link-local address range are
+      never routed to DNS. Note that by default lookups for domains with the <literal>.local</literal> suffix are not
+      routed to DNS servers, unless the domain is specified explicitly as routing or search domain for the DNS server
+      and interface. This means that on networks where the <literal>.local</literal> domain is defined in a
+      site-specific DNS server, explicit search or routing domains need to be configured to make lookups within this
+      DNS domain work. Note that today it's generally recommended to avoid defining <literal>.local</literal> in a DNS
+      server, as <ulink url="https://tools.ietf.org/html/rfc6762">RFC6762</ulink> reserves this domain for exclusive
+      MulticastDNS use.</para></listitem>
     </itemizedlist>
 
     <para>If lookups are routed to multiple interfaces, the first
@@ -139,16 +140,45 @@
     lookup zones on all matching interfaces). If the lookup failed on
     all interfaces, the last failing response is returned.</para>
 
-    <para>Routing of lookups may be influenced by configuring
-    per-interface domain names. See
-    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details. Lookups for a hostname ending in one of the
-    per-interface domains are exclusively routed to the matching
-    interfaces.</para>
+    <para>Routing of lookups may be influenced by configuring per-interface domain names and other settings. See
+    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>resolvectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details. The
+    following query routing logic applies for unicast DNS traffic:</para>
+
+    <itemizedlist>
+      <listitem><para>If a name to look up matches (that is: is equal to or has as suffix) any of the configured search
+      or route-only domains of any link (or the globally configured DNS settings), the "best matching"
+      search/route-only domain is determined: the matching one with the most labels. The query is then sent to all DNS
+      servers of any links or the globally configured DNS servers associated with this "best matching"
+      search/route-only domain. (Note that more than one link might have this same "best matching" search/route-only
+      domain configured, in which case the query is sent to all of them in parallel).</para></listitem>
+
+      <listitem><para>If a query does not match any configured search/route-only domain (neither per-link nor global),
+      it is sent to all DNS servers that are configured on links with the "DNS default route" option set, as well as
+      the globally configured DNS server.</para></listitem>
+
+      <listitem><para>If there is no link configured as "DNS default route" and no global DNS server configured, the
+      compiled-in fallback DNS server is used.</para></listitem>
+
+      <listitem><para>Otherwise the query is failed as no suitable DNS servers could be determined.</para></listitem>
+    </itemizedlist>
+
+    <para>The "DNS default route" option is a boolean setting configureable with <command>resolvectl</command> or in
+    <filename>.network</filename> files. If not set, it is implicitly determined based on the configured DNS domains
+    for a link: if there's any route-only domain (not matching <literal>~.</literal>) it defaults to false, otherwise
+    to true.</para>
+
+    <para>Effectively this means: in order to preferably route all DNS queries not explicitly matched by
+    search/route-only domain configuration to a specific link, configure a <literal>~.</literal> route-only domain on
+    it. This will ensure that other links will not be considered for the queries (unless they too carry such a
+    route-only domain). In order to route all such DNS queries to a specific link only in case no other link is
+    preferable, then set the "DNS default route" option for the link to true, and do not configure a
+    <literal>~.</literal> route-only domain on it. Finally, in order to ensure that a specific link never receives any
+    DNS traffic not matching any of its configured search/route-only domains, set the "DNS default route" option for it
+    to false.</para>
 
     <para>See the <ulink url="https://www.freedesktop.org/wiki/Software/systemd/resolved"> resolved D-Bus API
     Documentation</ulink> for information about the APIs <filename>systemd-resolved</filename> provides.</para>
-
   </refsect1>
 
   <refsect1>
@@ -216,7 +246,7 @@
         <command>systemd-resolved</command> will flush all caches it maintains. Note that it should normally not be
         necessary to request this explicitly – except for debugging purposes – as <command>systemd-resolved</command>
         flushes the caches automatically anyway any time the host's network configuration changes. Sending this signal
-        to <command>systemd-resolved</command> is equivalent to the <command>resolvectl --flush-caches</command>
+        to <command>systemd-resolved</command> is equivalent to the <command>resolvectl flush-caches</command>
         command, however the latter is recommended since it operates in a synchronous way.</para></listitem>
       </varlistentry>
 
@@ -230,7 +260,7 @@
         should normally not be necessary to request this explicitly – except for debugging purposes – as
         <command>systemd-resolved</command> automatically forgets learnt information any time the DNS server
         configuration changes. Sending this signal to <command>systemd-resolved</command> is equivalent to the
-        <command>resolvectl --reset-server-features</command> command, however the latter is recommended since it
+        <command>resolvectl reset-server-features</command> command, however the latter is recommended since it
         operates in a synchronous way.</para></listitem>
       </varlistentry>
     </variablelist>

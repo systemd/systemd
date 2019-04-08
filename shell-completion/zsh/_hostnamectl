@@ -1,6 +1,7 @@
 #compdef hostnamectl
 # SPDX-License-Identifier: LGPL-2.1+
 
+(( $+functions[_hostnamectl_set-hostname] )) ||
 _hostnamectl_set-hostname() {
     if (( CURRENT <= 3 )); then
         _message "new hostname"
@@ -9,6 +10,7 @@ _hostnamectl_set-hostname() {
     fi
 }
 
+(( $+functions[_hostnamectl_set-icon-name] )) ||
 _hostnamectl_set-icon-name() {
     if (( CURRENT <= 3 )); then
         _message "new icon name"
@@ -17,6 +19,7 @@ _hostnamectl_set-icon-name() {
     fi
 }
 
+(( $+functions[_hostnamectl_set-chassis] )) ||
 _hostnamectl_set-chassis() {
     if (( CURRENT <= 3 )); then
         _chassis=( desktop laptop convertible server tablet handset watch embedded vm container )
@@ -26,6 +29,7 @@ _hostnamectl_set-chassis() {
     fi
 }
 
+(( $+functions[_hostnamectl_set-deployment] )) ||
 _hostnamectl_set-deployment() {
     if (( CURRENT <= 3 )); then
         _message "new environment"
@@ -34,6 +38,7 @@ _hostnamectl_set-deployment() {
     fi
 }
 
+(( $+functions[_hostnamectl_set-location] )) ||
 _hostnamectl_set-location() {
     if (( CURRENT <= 3 )); then
         _message "new location"
@@ -42,7 +47,8 @@ _hostnamectl_set-location() {
     fi
 }
 
-_hostnamectl_command() {
+(( $+functions[_hostnamectl_commands] )) ||
+_hostnamectl_commands() {
     local -a _hostnamectl_cmds
     _hostnamectl_cmds=(
         "status:Show current hostname settings"
@@ -78,4 +84,4 @@ _arguments -s \
     '--no-ask-password[Do not prompt for password]' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
-    '*::hostnamectl commands:_hostnamectl_command'
+    '*::hostnamectl commands:_hostnamectl_commands'

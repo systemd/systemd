@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-***/
 
 #include <netinet/ip.h>
 
@@ -146,9 +141,14 @@ int main(int argc, char* argv[]) {
         test_rr_lookup(bus, ".wilda.rhybar.ecdsa.0skar.cz", DNS_TYPE_A, BUS_ERROR_DNSSEC_FAILED);
         test_hostname_lookup(bus, ".wilda.rhybar.ecdsa.0skar.cz", AF_INET, BUS_ERROR_DNSSEC_FAILED);
 
+        /* Missing DS for DNSKEY */
+        test_rr_lookup(bus, "www.dnssec-bogus.sg", DNS_TYPE_A, BUS_ERROR_DNSSEC_FAILED);
+        test_hostname_lookup(bus, "www.dnssec-bogus.sg", AF_INET, BUS_ERROR_DNSSEC_FAILED);
+
         /* NXDOMAIN in NSEC domain */
         test_rr_lookup(bus, "hhh.nasa.gov", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
         test_hostname_lookup(bus, "hhh.nasa.gov", AF_UNSPEC, _BUS_ERROR_DNS "NXDOMAIN");
+        test_rr_lookup(bus, "_pgpkey-https._tcp.hkps.pool.sks-keyservers.net", DNS_TYPE_SRV, _BUS_ERROR_DNS "NXDOMAIN");
 
         /* wildcard, NSEC zone */
         test_rr_lookup(bus, ".wilda.nsec.0skar.cz", DNS_TYPE_A, NULL);

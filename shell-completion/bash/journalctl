@@ -3,7 +3,7 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2010 Ran Benita
+# Copyright © 2010 Ran Benita
 #
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
@@ -28,7 +28,7 @@ __contains_word () {
 __get_machines() {
         local a b
         (machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; echo ".host") | \
-		{ while read a b; do echo " $a"; done; } | sort -u;
+                { while read a b; do echo " $a"; done; } | sort -u;
 }
 
 __syslog_priorities=(emerg alert crit err warning notice info debug)
@@ -38,7 +38,7 @@ _journalctl() {
         local -A OPTS=(
                 [STANDALONE]='-a --all --full --system --user
                               --disk-usage -f --follow --header
-                              -h --help -l --local --new-id128 -m --merge --no-pager
+                              -h --help -l --local -m --merge --no-pager
                               --no-tail -q --quiet --setup-keys --verify
                               --version --list-catalog --update-catalog --list-boots
                               --show-cursor --dmesg -k --pager-end -e -r --reverse
@@ -46,11 +46,18 @@ _journalctl() {
                               --flush --rotate --sync --no-hostname -N --fields'
                        [ARG]='-b --boot -D --directory --file -F --field -t --identifier
                               -M --machine -o --output -u --unit --user-unit -p --priority
-                              --root'
+                              --root --case-sensitive'
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
-                              --after-cursor --verify-key
+                              --after-cursor --cursor-file --verify-key -g --grep
                               --vacuum-size --vacuum-time --vacuum-files --output-fields'
         )
+
+        # Use the default completion for shell redirect operators
+        if __contains_word "$prev" '>' '>>' '&>'; then
+                compopt -o filenames
+                COMPREPLY=( $(compgen -f -- "$cur") )
+                return 0;
+        fi
 
         if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
                 case $prev in
@@ -66,11 +73,11 @@ _journalctl() {
                                 compopt -o filenames
                         ;;
                         --output|-o)
-                                comps='short short-full short-iso short-iso-precise short-precise short-monotonic short-unix verbose export json json-pretty json-sse cat'
+                                comps=$( journalctl --output=help 2>/dev/null )
                         ;;
                         --field|-F)
                                 comps=$(journalctl --fields | sort 2>/dev/null)
-			;;
+                        ;;
                         --machine|-M)
                                 comps=$( __get_machines )
                         ;;
@@ -85,6 +92,9 @@ _journalctl() {
                         ;;
                         --identifier|-t)
                                 comps=$(journalctl -F 'SYSLOG_IDENTIFIER' 2>/dev/null)
+                        ;;
+                        --case-sensitive)
+                                comps='yes no'
                         ;;
                         *)
                                 return 0

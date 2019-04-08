@@ -1,0 +1,97 @@
+[Match]
+Name=wg98
+
+[Network]
+Address=fd8d:4d6d:3ccb:0500::1/64
+
+# nat64 via 1
+[Route]
+Destination = fd8d:4d6d:3ccb:0c79:2339:edce::/96
+
+# nat64 via 2
+[Route]
+Destination = fd8d:4d6d:3ccb:a072:80da:de4f::/96
+
+# nat64 via 3
+[Route]
+Destination = fd8d:4d6d:3ccb:f349:c4f0:10c1::/96
+
+# nat64 via 4
+[Route]
+Destination = fd8d:4d6d:3ccb:b684:4f81:2e3e::/96
+
+# nat64 via 5
+[Route]
+Destination = fd8d:4d6d:3ccb:c624:6bf7:4c09::/96
+
+# nat64 via 6
+[Route]
+Destination = fd8d:4d6d:3ccb:9c11:d820:2e96::/96
+
+# nat64 via 7
+[Route]
+Destination = fd8d:4d6d:3ccb:bad5:495d:8e9c::/96
+
+# nat64 via 8
+[Route]
+Destination = fd8d:4d6d:3ccb:1e54:1415:35d0::/96
+
+# nat64 via 9
+[Route]
+Destination = fd8d:4d6d:3ccb:1dbf:ca8a:32d3::/96
+
+# nat64 via 10
+[Route]
+Destination = fd8d:4d6d:3ccb:dcdd:d33b:90c9::/96
+
+# nat64 via 11
+[Route]
+Destination = fd8d:4d6d:3ccb:6f2e:6888:c6fd::/96
+
+# nat64 via 12
+[Route]
+Destination = fd8d:4d6d:3ccb:d4f9:05dc:9296::/96
+
+# nat64 via 13
+[Route]
+Destination = fd8d:4d6d:3ccb:b39c:9cdc:755a::/96
+
+# nat64 via 14
+[Route]
+Destination = fd8d:4d6d:3ccb:bfe5:c3c3:5d77::/96
+
+# nat64 via 15
+[Route]
+Destination = fd8d:4d6d:3ccb:900c:d437:ec27::/96
+
+# nat64 via 16
+[Route]
+Destination = fd8d:4d6d:3ccb:270d:b5dd:4a3f::/96
+
+# nat64 via 17
+[Route]
+Destination = fd8d:4d6d:3ccb:e2e1:ae15:103f::/96
+
+# nat64 via 18
+[Route]
+Destination = fd8d:4d6d:3ccb:5660:679d:3532::/96
+
+# nat64 via 19
+[Route]
+Destination = fd8d:4d6d:3ccb:6825:573f:30f3::/96
+
+# nat64 via 20
+[Route]
+Destination = fd8d:4d6d:3ccb:a94b:cd6a:a32d::/96
+
+# nat64 via 21
+[Route]
+Destination = fd8d:4d6d:3ccb:8d4d:0bab:7280::/96
+
+# nat64 via 22
+[Route]
+Destination = fd8d:4d6d:3ccb:a3f3:df38:19b0::/96
+
+# nat64 via 23
+[Route]
+Destination = fd8d:4d6d:3ccb:9742:9931:5217::/96

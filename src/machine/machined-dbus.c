@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <string.h>
@@ -26,27 +21,16 @@
 #include "machine-image.h"
 #include "machine-pool.h"
 #include "machined.h"
+#include "missing_capability.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 
-static int property_get_pool_path(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "s", "/var/lib/machines");
-}
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_pool_path, "s", "/var/lib/machines");
 
 static int property_get_pool_usage(
                 sd_bus *bus,
@@ -59,14 +43,9 @@ static int property_get_pool_usage(
 
         _cleanup_close_ int fd = -1;
         uint64_t usage = (uint64_t) -1;
-        struct stat st;
 
         assert(bus);
         assert(reply);
-
-        /* We try to read the quota info from /var/lib/machines, as
-         * well as the usage of the loopback file
-         * /var/lib/machines.raw, and pick the larger value. */
 
         fd = open("/var/lib/machines", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd >= 0) {
@@ -74,11 +53,6 @@ static int property_get_pool_usage(
 
                 if (btrfs_subvol_get_subtree_quota_fd(fd, 0, &q) >= 0)
                         usage = q.referenced;
-        }
-
-        if (stat("/var/lib/machines.raw", &st) >= 0) {
-                if (usage == (uint64_t) -1 || st.st_blocks * 512ULL > usage)
-                        usage = st.st_blocks * 512ULL;
         }
 
         return sd_bus_message_append(reply, "t", usage);
@@ -95,14 +69,9 @@ static int property_get_pool_limit(
 
         _cleanup_close_ int fd = -1;
         uint64_t size = (uint64_t) -1;
-        struct stat st;
 
         assert(bus);
         assert(reply);
-
-        /* We try to read the quota limit from /var/lib/machines, as
-         * well as the size of the loopback file
-         * /var/lib/machines.raw, and pick the smaller value. */
 
         fd = open("/var/lib/machines", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd >= 0) {
@@ -110,11 +79,6 @@ static int property_get_pool_limit(
 
                 if (btrfs_subvol_get_subtree_quota_fd(fd, 0, &q) >= 0)
                         size = q.referenced_max;
-        }
-
-        if (stat("/var/lib/machines.raw", &st) >= 0) {
-                if (size == (uint64_t) -1 || (uint64_t) st.st_size < size)
-                        size = st.st_size;
         }
 
         return sd_bus_message_append(reply, "t", size);
@@ -158,8 +122,8 @@ static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        r = image_find(name, NULL);
-        if (r == 0)
+        r = image_find(IMAGE_MACHINE, name, NULL);
+        if (r == -ENOENT)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
         if (r < 0)
                 return r;
@@ -463,14 +427,14 @@ static int method_register_machine(sd_bus_message *message, void *userdata, sd_b
         return method_register_machine_internal(message, false, userdata, error);
 }
 
-static int method_terminate_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+static int redirect_method_to_machine(sd_bus_message *message, Manager *m, sd_bus_error *error, sd_bus_message_handler_t method) {
         Machine *machine;
         const char *name;
         int r;
 
         assert(message);
         assert(m);
+        assert(method);
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
@@ -480,72 +444,28 @@ static int method_terminate_machine(sd_bus_message *message, void *userdata, sd_
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
-        return bus_machine_method_terminate(message, machine, error);
+        return method(message, machine, error);
+}
+
+static int method_terminate_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_terminate);
 }
 
 static int method_kill_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return sd_bus_error_set_errno(error, r);
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_kill(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_kill);
 }
 
 static int method_get_machine_addresses(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return sd_bus_error_set_errno(error, r);
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_get_addresses(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_get_addresses);
 }
 
 static int method_get_machine_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return sd_bus_error_set_errno(error, r);
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_get_os_release(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_get_os_release);
 }
 
 static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
         Manager *m = userdata;
         Image *image;
         Iterator i;
@@ -554,11 +474,11 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
         assert(m);
 
-        images = hashmap_new(&string_hash_ops);
+        images = hashmap_new(&image_hash_ops);
         if (!images)
                 return -ENOMEM;
 
-        r = image_discover(images);
+        r = image_discover(IMAGE_MACHINE, images);
         if (r < 0)
                 return r;
 
@@ -597,336 +517,89 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
 }
 
 static int method_open_machine_pty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return sd_bus_error_set_errno(error, r);
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_open_pty(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_open_pty);
 }
 
 static int method_open_machine_login(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_open_login(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_open_login);
 }
 
 static int method_open_machine_shell(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_open_shell(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_open_shell);
 }
 
 static int method_bind_mount_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_bind_mount(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_bind_mount);
 }
 
 static int method_copy_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_copy(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_copy);
 }
 
 static int method_open_machine_root_directory(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_open_root_directory(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_open_root_directory);
 }
 
 static int method_get_machine_uid_shift(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_get_uid_shift);
+}
+
+static int redirect_method_to_image(sd_bus_message *message, Manager *m, sd_bus_error *error, sd_bus_message_handler_t method) {
+        _cleanup_(image_unrefp) Image* i = NULL;
         const char *name;
         int r;
 
         assert(message);
         assert(m);
+        assert(method);
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
 
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+        if (!image_name_is_valid(name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
 
-        return bus_machine_method_get_uid_shift(message, machine, error);
+        r = image_find(IMAGE_MACHINE, name, &i);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
+        if (r < 0)
+                return r;
+
+        i->userdata = m;
+        return method(message, i, error);
 }
 
 static int method_remove_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(image_unrefp) Image* i = NULL;
-        const char *name;
-        int r;
-
-        assert(message);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        if (!image_name_is_valid(name))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
-
-        r = image_find(name, &i);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
-
-        i->userdata = userdata;
-        return bus_image_method_remove(message, i, error);
+        return redirect_method_to_image(message, userdata, error, bus_image_method_remove);
 }
 
 static int method_rename_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(image_unrefp) Image* i = NULL;
-        const char *old_name;
-        int r;
-
-        assert(message);
-
-        r = sd_bus_message_read(message, "s", &old_name);
-        if (r < 0)
-                return r;
-
-        if (!image_name_is_valid(old_name))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", old_name);
-
-        r = image_find(old_name, &i);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
-
-        i->userdata = userdata;
-        return bus_image_method_rename(message, i, error);
+        return redirect_method_to_image(message, userdata, error, bus_image_method_rename);
 }
 
 static int method_clone_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(image_unrefp) Image *i = NULL;
-        const char *old_name;
-        int r;
-
-        assert(message);
-
-        r = sd_bus_message_read(message, "s", &old_name);
-        if (r < 0)
-                return r;
-
-        if (!image_name_is_valid(old_name))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", old_name);
-
-        r = image_find(old_name, &i);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
-
-        i->userdata = userdata;
-        return bus_image_method_clone(message, i, error);
+        return redirect_method_to_image(message, userdata, error, bus_image_method_clone);
 }
 
 static int method_mark_image_read_only(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(image_unrefp) Image *i = NULL;
-        const char *name;
-        int r;
-
-        assert(message);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        if (!image_name_is_valid(name))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
-
-        r = image_find(name, &i);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
-
-        i->userdata = userdata;
-        return bus_image_method_mark_read_only(message, i, error);
+        return redirect_method_to_image(message, userdata, error, bus_image_method_mark_read_only);
 }
 
 static int method_get_image_hostname(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(image_unrefp) Image *i = NULL;
-        const char *name;
-        int r;
-
-        assert(message);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        if (!image_name_is_valid(name))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
-
-        r = image_find(name, &i);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
-
-        i->userdata = userdata;
-        return bus_image_method_get_hostname(message, i, error);
+        return redirect_method_to_image(message, userdata, error, bus_image_method_get_hostname);
 }
 
 static int method_get_image_machine_id(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(image_unrefp) Image *i = NULL;
-        const char *name;
-        int r;
-
-        assert(message);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        if (!image_name_is_valid(name))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
-
-        r = image_find(name, &i);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
-
-        i->userdata = userdata;
-        return bus_image_method_get_machine_id(message, i, error);
+        return redirect_method_to_image(message, userdata, error, bus_image_method_get_machine_id);
 }
 
 static int method_get_image_machine_info(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(image_unrefp) Image *i = NULL;
-        const char *name;
-        int r;
-
-        assert(message);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        if (!image_name_is_valid(name))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
-
-        r = image_find(name, &i);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
-
-        i->userdata = userdata;
-        return bus_image_method_get_machine_info(message, i, error);
+        return redirect_method_to_image(message, userdata, error, bus_image_method_get_machine_info);
 }
 
 static int method_get_image_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(image_unrefp) Image *i = NULL;
-        const char *name;
-        int r;
-
-        assert(message);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        if (!image_name_is_valid(name))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
-
-        r = image_find(name, &i);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
-
-        i->userdata = userdata;
-        return bus_image_method_get_os_release(message, i, error);
+        return redirect_method_to_image(message, userdata, error, bus_image_method_get_os_release);
 }
 
 static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
@@ -942,7 +615,7 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
         if (lseek(operation->extra_fd, 0, SEEK_SET) == (off_t) -1)
                 return -errno;
 
-        f = fdopen(operation->extra_fd, "re");
+        f = fdopen(operation->extra_fd, "r");
         if (!f)
                 return -errno;
 
@@ -964,8 +637,8 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
                 if (success) /* The resulting temporary file could not be updated, ignore it. */
                         return ret;
 
-                r = read_nul_string(f, &name);
-                if (r < 0 || isempty(name)) /* Same here... */
+                r = read_nul_string(f, LONG_LINE_MAX, &name);
+                if (r <= 0) /* Same here... */
                         return ret;
 
                 return sd_bus_error_set_errnof(error, ret, "Failed to remove image %s: %m", name);
@@ -987,10 +660,10 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
                 _cleanup_free_ char *name = NULL;
                 uint64_t size;
 
-                r = read_nul_string(f, &name);
+                r = read_nul_string(f, LONG_LINE_MAX, &name);
                 if (r < 0)
                         return r;
-                if (isempty(name)) /* reached the end */
+                if (r == 0) /* reached the end */
                         break;
 
                 errno = 0;
@@ -1069,7 +742,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
         if (r == 0) {
-                _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
+                _cleanup_hashmap_free_ Hashmap *images = NULL;
                 bool success = true;
                 Image *image;
                 Iterator i;
@@ -1077,13 +750,13 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                images = hashmap_new(&string_hash_ops);
+                images = hashmap_new(&image_hash_ops);
                 if (!images) {
                         r = -ENOMEM;
                         goto child_fail;
                 }
 
-                r = image_discover(images);
+                r = image_discover(IMAGE_MACHINE, images);
                 if (r < 0)
                         goto child_fail;
 
@@ -1186,18 +859,9 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
                 return 1; /* Will call us back */
 
         /* Set up the machine directory if necessary */
-        r = setup_machine_directory(limit, error);
+        r = setup_machine_directory(error);
         if (r < 0)
                 return r;
-
-        /* Resize the backing loopback device, if there is one, except if we asked to drop any limit */
-        if (limit != (uint64_t) -1) {
-                r = btrfs_resize_loopback("/var/lib/machines", limit, false);
-                if (r == -ENOTTY)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
-                if (r < 0 && r != -ENODEV) /* ignore ENODEV, as that's what is returned if the file system is not on loopback */
-                        return sd_bus_error_set_errnof(error, r, "Failed to adjust loopback limit: %m");
-        }
 
         (void) btrfs_qgroup_set_limit("/var/lib/machines", 0, limit);
 
@@ -1211,27 +875,7 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
 }
 
 static int method_set_image_limit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(image_unrefp) Image *i = NULL;
-        const char *name;
-        int r;
-
-        assert(message);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        if (!image_name_is_valid(name))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
-
-        r = image_find(name, &i);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
-
-        i->userdata = userdata;
-        return bus_image_method_set_limit(message, i, error);
+        return redirect_method_to_image(message, userdata, error, bus_image_method_set_limit);
 }
 
 static int method_map_from_machine_user(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1333,6 +977,10 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
 
                                 return -EIO;
                         }
+
+                        /* The private user namespace is disabled, ignoring. */
+                        if (uid_shift == 0)
+                                continue;
 
                         if (uid < uid_shift || uid >= uid_shift + uid_range)
                                 continue;
@@ -1451,6 +1099,10 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
 
                                 return -EIO;
                         }
+
+                        /* The private user namespace is disabled, ignoring. */
+                        if (gid_shift == 0)
+                                continue;
 
                         if (gid < gid_shift || gid >= gid_shift + gid_range)
                                 continue;
@@ -1684,17 +1336,14 @@ int manager_start_scope(
                         return r;
         }
 
-        r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, pid);
+        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
+                                  "PIDs", "au", 1, pid,
+                                  "Delegate", "b", 1,
+                                  "CollectMode", "s", "inactive-or-failed",
+                                  "AddRef", "b", 1,
+                                  "TasksMax", "t", UINT64_C(16384));
         if (r < 0)
                 return r;
-
-        r = sd_bus_message_append(m, "(sv)", "Delegate", "b", 1);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", UINT64_C(16384));
-        if (r < 0)
-                return bus_log_create_error(r);
 
         if (more_properties) {
                 r = sd_bus_message_copy(m, more_properties, true);
@@ -1730,6 +1379,26 @@ int manager_start_scope(
         }
 
         return 1;
+}
+
+int manager_unref_unit(
+                Manager *m,
+                const char *unit,
+                sd_bus_error *error) {
+
+        assert(m);
+        assert(unit);
+
+        return sd_bus_call_method(
+                        m->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "UnrefUnit",
+                        error,
+                        NULL,
+                        "s",
+                        unit);
 }
 
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
@@ -1911,31 +1580,4 @@ int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
                 *_machine = machine;
 
         return 0;
-}
-
-int bus_reply_pair_array(sd_bus_message *m, char **l) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        char **k, **v;
-        int r;
-
-        r = sd_bus_message_new_method_return(m, &reply);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(reply, 'a', "{ss}");
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH_PAIR(k, v, l) {
-                r = sd_bus_message_append(reply, "{ss}", *k, *v);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_close_container(reply);
-        if (r < 0)
-                return r;
-
-        return sd_bus_send(NULL, reply, NULL);
-
 }

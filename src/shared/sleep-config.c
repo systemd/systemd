@@ -1,17 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-  Copyright 2018 Dell Inc.
+  Copyright © 2018 Dell Inc.
 ***/
 
 #include <errno.h>
+#include <fcntl.h>
 #include <linux/fs.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <syslog.h>
 #include <unistd.h>
 
@@ -19,17 +20,21 @@
 #include "conf-parser.h"
 #include "def.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "sleep-config.h"
 #include "string-util.h"
 #include "strv.h"
 
-int parse_sleep_config(const char *verb, char ***_modes, char ***_states, usec_t *_delay) {
-
+int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, char ***ret_states, usec_t *ret_delay) {
+        int allow_suspend = -1, allow_hibernate = -1,
+            allow_s2h = -1, allow_hybrid_sleep = -1;
+        bool allow;
         _cleanup_strv_free_ char
                 **suspend_mode = NULL, **suspend_state = NULL,
                 **hibernate_mode = NULL, **hibernate_state = NULL,
@@ -38,13 +43,19 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states, usec_t
         usec_t delay = 180 * USEC_PER_MINUTE;
 
         const ConfigTableItem items[] = {
-                { "Sleep",   "SuspendMode",      config_parse_strv,  0, &suspend_mode  },
-                { "Sleep",   "SuspendState",     config_parse_strv,  0, &suspend_state },
-                { "Sleep",   "HibernateMode",    config_parse_strv,  0, &hibernate_mode  },
-                { "Sleep",   "HibernateState",   config_parse_strv,  0, &hibernate_state },
-                { "Sleep",   "HybridSleepMode",  config_parse_strv,  0, &hybrid_mode  },
-                { "Sleep",   "HybridSleepState", config_parse_strv,  0, &hybrid_state },
-                { "Sleep",   "HibernateDelaySec", config_parse_sec,  0, &delay},
+                { "Sleep", "AllowSuspend",              config_parse_tristate, 0, &allow_suspend },
+                { "Sleep", "AllowHibernation",          config_parse_tristate, 0, &allow_hibernate },
+                { "Sleep", "AllowSuspendThenHibernate", config_parse_tristate, 0, &allow_s2h },
+                { "Sleep", "AllowHybridSleep",          config_parse_tristate, 0, &allow_hybrid_sleep },
+
+                { "Sleep", "SuspendMode",               config_parse_strv, 0, &suspend_mode  },
+                { "Sleep", "SuspendState",              config_parse_strv, 0, &suspend_state },
+                { "Sleep", "HibernateMode",             config_parse_strv, 0, &hibernate_mode  },
+                { "Sleep", "HibernateState",            config_parse_strv, 0, &hibernate_state },
+                { "Sleep", "HybridSleepMode",           config_parse_strv, 0, &hybrid_mode  },
+                { "Sleep", "HybridSleepState",          config_parse_strv, 0, &hybrid_state },
+
+                { "Sleep", "HibernateDelaySec",         config_parse_sec,  0, &delay},
                 {}
         };
 
@@ -54,51 +65,63 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states, usec_t
                                         CONFIG_PARSE_WARN, NULL);
 
         if (streq(verb, "suspend")) {
+                allow = allow_suspend != 0;
+
                 /* empty by default */
                 modes = TAKE_PTR(suspend_mode);
 
                 if (suspend_state)
                         states = TAKE_PTR(suspend_state);
                 else
-                        states = strv_new("mem", "standby", "freeze", NULL);
+                        states = strv_new("mem", "standby", "freeze");
 
         } else if (streq(verb, "hibernate")) {
+                allow = allow_hibernate != 0;
+
                 if (hibernate_mode)
                         modes = TAKE_PTR(hibernate_mode);
                 else
-                        modes = strv_new("platform", "shutdown", NULL);
+                        modes = strv_new("platform", "shutdown");
 
                 if (hibernate_state)
                         states = TAKE_PTR(hibernate_state);
                 else
-                        states = strv_new("disk", NULL);
+                        states = strv_new("disk");
 
         } else if (streq(verb, "hybrid-sleep")) {
+                allow = allow_hybrid_sleep > 0 ||
+                        (allow_suspend != 0 && allow_hibernate != 0);
+
                 if (hybrid_mode)
                         modes = TAKE_PTR(hybrid_mode);
                 else
-                        modes = strv_new("suspend", "platform", "shutdown", NULL);
+                        modes = strv_new("suspend", "platform", "shutdown");
 
                 if (hybrid_state)
                         states = TAKE_PTR(hybrid_state);
                 else
-                        states = strv_new("disk", NULL);
+                        states = strv_new("disk");
 
-        } else if (streq(verb, "suspend-then-hibernate"))
+        } else if (streq(verb, "suspend-then-hibernate")) {
+                allow = allow_s2h > 0 ||
+                        (allow_suspend != 0 && allow_hibernate != 0);
+
                 modes = states = NULL;
-        else
+        } else
                 assert_not_reached("what verb");
 
         if ((!modes && STR_IN_SET(verb, "hibernate", "hybrid-sleep")) ||
             (!states && !streq(verb, "suspend-then-hibernate")))
                 return log_oom();
 
-        if (_modes)
-                *_modes = TAKE_PTR(modes);
-        if (_states)
-                *_states = TAKE_PTR(states);
-        if (_delay)
-                *_delay = delay;
+        if (ret_allow)
+                *ret_allow = allow;
+        if (ret_modes)
+                *ret_modes = TAKE_PTR(modes);
+        if (ret_states)
+                *ret_states = TAKE_PTR(states);
+        if (ret_delay)
+                *ret_delay = delay;
 
         return 0;
 }
@@ -141,12 +164,16 @@ int can_sleep_disk(char **types) {
                 return true;
 
         /* If /sys is read-only we cannot sleep */
-        if (access("/sys/power/disk", W_OK) < 0)
+        if (access("/sys/power/disk", W_OK) < 0) {
+                log_debug_errno(errno, "/sys/power/disk is not writable: %m");
                 return false;
+        }
 
         r = read_one_line_file("/sys/power/disk", &p);
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(r, "Couldn't read /sys/power/disk: %m");
                 return false;
+        }
 
         STRV_FOREACH(type, types) {
                 const char *word, *state;
@@ -178,8 +205,7 @@ int find_hibernate_location(char **device, char **type, size_t *size, size_t *us
         if (!f) {
                 log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
                          "Failed to retrieve open /proc/swaps: %m");
-                assert(errno > 0);
-                return -errno;
+                return negative_errno();
         }
 
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
@@ -196,18 +222,30 @@ int find_hibernate_location(char **device, char **type, size_t *size, size_t *us
                            "%zu "   /* used */
                            "%*i\n", /* priority */
                            &dev_field, &type_field, &size_field, &used_field);
+                if (k == EOF)
+                        break;
                 if (k != 4) {
-                        if (k == EOF)
-                                break;
-
                         log_warning("Failed to parse /proc/swaps:%u", i);
                         continue;
                 }
 
-                if (streq(type_field, "partition") && endswith(dev_field, "\\040(deleted)")) {
-                        log_warning("Ignoring deleted swapfile '%s'.", dev_field);
-                        continue;
+                if (streq(type_field, "file")) {
+
+                        if (endswith(dev_field, "\\040(deleted)")) {
+                                log_warning("Ignoring deleted swap file '%s'.", dev_field);
+                                continue;
+                        }
+
+                } else if (streq(type_field, "partition")) {
+                        const char *fn;
+
+                        fn = path_startswith(dev_field, "/dev/");
+                        if (fn && startswith(fn, "zram")) {
+                                log_debug("Ignoring compressed RAM swap device '%s'.", dev_field);
+                                continue;
+                        }
                 }
+
                 if (device)
                         *device = TAKE_PTR(dev_field);
                 if (type)
@@ -219,8 +257,8 @@ int find_hibernate_location(char **device, char **type, size_t *size, size_t *us
                 return 0;
         }
 
-        log_debug("No swap partitions were found.");
-        return -ENOSYS;
+        return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "No swap partitions were found.");
 }
 
 static bool enough_swap_for_hibernation(void) {
@@ -238,20 +276,19 @@ static bool enough_swap_for_hibernation(void) {
 
         r = get_proc_field("/proc/meminfo", "Active(anon)", WHITESPACE, &active);
         if (r < 0) {
-                log_error_errno(r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
+                log_debug_errno(r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
                 return false;
         }
 
         r = safe_atollu(active, &act);
         if (r < 0) {
-                log_error_errno(r, "Failed to parse Active(anon) from /proc/meminfo: %s: %m",
-                                active);
+                log_debug_errno(r, "Failed to parse Active(anon) from /proc/meminfo: %s: %m", active);
                 return false;
         }
 
         r = act <= (size - used) * HIBERNATION_SWAP_THRESHOLD;
-        log_debug("Hibernation is %spossible, Active(anon)=%llu kB, size=%zu kB, used=%zu kB, threshold=%.2g%%",
-                  r ? "" : "im", act, size, used, 100*HIBERNATION_SWAP_THRESHOLD);
+        log_debug("%s swap for hibernation, Active(anon)=%llu kB, size=%zu kB, used=%zu kB, threshold=%.2g%%",
+                  r ? "Enough" : "Not enough", act, size, used, 100*HIBERNATION_SWAP_THRESHOLD);
 
         return r;
 }
@@ -340,6 +377,8 @@ int read_fiemap(int fd, struct fiemap **ret) {
         return 0;
 }
 
+static int can_sleep_internal(const char *verb, bool check_allowed);
+
 static bool can_s2h(void) {
         const char *p;
         int r;
@@ -352,8 +391,8 @@ static bool can_s2h(void) {
         }
 
         FOREACH_STRING(p, "suspend", "hibernate") {
-                r = can_sleep(p);
-                if (IN_SET(r, 0, -ENOSPC)) {
+                r = can_sleep_internal(p, false);
+                if (IN_SET(r, 0, -ENOSPC, -EADV)) {
                         log_debug("Unable to %s system.", p);
                         return false;
                 }
@@ -364,18 +403,24 @@ static bool can_s2h(void) {
         return true;
 }
 
-int can_sleep(const char *verb) {
+static int can_sleep_internal(const char *verb, bool check_allowed) {
+        bool allow;
         _cleanup_strv_free_ char **modes = NULL, **states = NULL;
         int r;
 
         assert(STR_IN_SET(verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate"));
 
-        if (streq(verb, "suspend-then-hibernate"))
-                return can_s2h();
-
-        r = parse_sleep_config(verb, &modes, &states, NULL);
+        r = parse_sleep_config(verb, &allow, &modes, &states, NULL);
         if (r < 0)
                 return false;
+
+        if (check_allowed && !allow) {
+                log_debug("Sleep mode \"%s\" is disabled by configuration.", verb);
+                return false;
+        }
+
+        if (streq(verb, "suspend-then-hibernate"))
+                return can_s2h();
 
         if (!can_sleep_state(states) || !can_sleep_disk(modes))
                 return false;
@@ -387,4 +432,8 @@ int can_sleep(const char *verb) {
                 return -ENOSPC;
 
         return true;
+}
+
+int can_sleep(const char *verb) {
+        return can_sleep_internal(verb, true);
 }

@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -26,15 +21,18 @@
 #include "cap-list.h"
 #include "cgroup-util.h"
 #include "condition.h"
+#include "efivars.h"
+#include "env-file.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "glob-util.h"
 #include "hostname-util.h"
 #include "ima-util.h"
+#include "limits-util.h"
 #include "list.h"
 #include "macro.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -51,23 +49,25 @@
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
-        int r;
 
         assert(type >= 0);
         assert(type < _CONDITION_TYPE_MAX);
         assert((!parameter) == (type == CONDITION_NULL));
 
-        c = new0(Condition, 1);
+        c = new(Condition, 1);
         if (!c)
                 return NULL;
 
-        c->type = type;
-        c->trigger = trigger;
-        c->negate = negate;
+        *c = (Condition) {
+                .type = type,
+                .trigger = trigger,
+                .negate = negate,
+        };
 
-        r = free_and_strdup(&c->parameter, parameter);
-        if (r < 0) {
-                return mfree(c);
+        if (parameter) {
+                c->parameter = strdup(parameter);
+                if (!c->parameter)
+                        return mfree(c);
         }
 
         return c;
@@ -80,13 +80,17 @@ void condition_free(Condition *c) {
         free(c);
 }
 
-Condition* condition_free_list(Condition *first) {
+Condition* condition_free_list_type(Condition *head, ConditionType type) {
         Condition *c, *n;
 
-        LIST_FOREACH_SAFE(conditions, c, n, first)
-                condition_free(c);
+        LIST_FOREACH_SAFE(conditions, c, n, head)
+                if (type < 0 || c->type == type) {
+                        LIST_REMOVE(conditions, head, c);
+                        condition_free(c);
+                }
 
-        return NULL;
+        assert(type >= 0 || !head);
+        return head;
 }
 
 static int condition_test_kernel_command_line(Condition *c) {
@@ -103,7 +107,7 @@ static int condition_test_kernel_command_line(Condition *c) {
         if (r < 0)
                 return r;
 
-        equal = !!strchr(c->parameter, '=');
+        equal = strchr(c->parameter, '=');
 
         for (p = line;;) {
                 _cleanup_free_ char *word = NULL;
@@ -131,29 +135,77 @@ static int condition_test_kernel_command_line(Condition *c) {
         return false;
 }
 
-static int condition_test_kernel_version(Condition *c) {
-        enum {
-                /* Listed in order of checking. Note that some comparators are prefixes of others, hence the longest
-                 * should be listed first. */
-                LOWER_OR_EQUAL,
-                GREATER_OR_EQUAL,
-                LOWER,
-                GREATER,
-                EQUAL,
-                _ORDER_MAX,
-        };
+typedef enum {
+        /* Listed in order of checking. Note that some comparators are prefixes of others, hence the longest
+         * should be listed first. */
+        ORDER_LOWER_OR_EQUAL,
+        ORDER_GREATER_OR_EQUAL,
+        ORDER_LOWER,
+        ORDER_GREATER,
+        ORDER_EQUAL,
+        ORDER_UNEQUAL,
+        _ORDER_MAX,
+        _ORDER_INVALID = -1
+} OrderOperator;
+
+static OrderOperator parse_order(const char **s) {
 
         static const char *const prefix[_ORDER_MAX] = {
-                [LOWER_OR_EQUAL] = "<=",
-                [GREATER_OR_EQUAL] = ">=",
-                [LOWER] = "<",
-                [GREATER] = ">",
-                [EQUAL] = "=",
+                [ORDER_LOWER_OR_EQUAL] = "<=",
+                [ORDER_GREATER_OR_EQUAL] = ">=",
+                [ORDER_LOWER] = "<",
+                [ORDER_GREATER] = ">",
+                [ORDER_EQUAL] = "=",
+                [ORDER_UNEQUAL] = "!=",
         };
-        const char *p = NULL;
+
+        OrderOperator i;
+
+        for (i = 0; i < _ORDER_MAX; i++) {
+                const char *e;
+
+                e = startswith(*s, prefix[i]);
+                if (e) {
+                        *s = e;
+                        return i;
+                }
+        }
+
+        return _ORDER_INVALID;
+}
+
+static bool test_order(int k, OrderOperator p) {
+
+        switch (p) {
+
+        case ORDER_LOWER:
+                return k < 0;
+
+        case ORDER_LOWER_OR_EQUAL:
+                return k <= 0;
+
+        case ORDER_EQUAL:
+                return k == 0;
+
+        case ORDER_UNEQUAL:
+                return k != 0;
+
+        case ORDER_GREATER_OR_EQUAL:
+                return k >= 0;
+
+        case ORDER_GREATER:
+                return k > 0;
+
+        default:
+                assert_not_reached("unknown order");
+
+        }
+}
+
+static int condition_test_kernel_version(Condition *c) {
+        OrderOperator order;
         struct utsname u;
-        size_t i;
-        int k;
+        const char *p;
 
         assert(c);
         assert(c->parameter);
@@ -161,38 +213,64 @@ static int condition_test_kernel_version(Condition *c) {
 
         assert_se(uname(&u) >= 0);
 
-        for (i = 0; i < _ORDER_MAX; i++) {
-                p = startswith(c->parameter, prefix[i]);
-                if (p)
-                        break;
-        }
+        p = c->parameter;
+        order = parse_order(&p);
 
         /* No prefix? Then treat as glob string */
-        if (!p)
+        if (order < 0)
                 return fnmatch(skip_leading_chars(c->parameter, NULL), u.release, 0) == 0;
 
-        k = str_verscmp(u.release, skip_leading_chars(p, NULL));
+        return test_order(str_verscmp(u.release, skip_leading_chars(p, NULL)), order);
+}
 
-        switch (i) {
+static int condition_test_memory(Condition *c) {
+        OrderOperator order;
+        uint64_t m, k;
+        const char *p;
+        int r;
 
-        case LOWER:
-                return k < 0;
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_MEMORY);
 
-        case LOWER_OR_EQUAL:
-                return k <= 0;
+        m = physical_memory();
 
-        case EQUAL:
-                return k == 0;
+        p = c->parameter;
+        order = parse_order(&p);
+        if (order < 0)
+                order = ORDER_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
 
-        case GREATER_OR_EQUAL:
-                return k >= 0;
+        r = safe_atou64(p, &k);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse size: %m");
 
-        case GREATER:
-                return k > 0;
+        return test_order(CMP(m, k), order);
+}
 
-        default:
-                assert_not_reached("Can't compare");
-        }
+static int condition_test_cpus(Condition *c) {
+        OrderOperator order;
+        const char *p;
+        unsigned k;
+        int r, n;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_CPUS);
+
+        n = cpus_in_affinity_mask();
+        if (n < 0)
+                return log_debug_errno(n, "Failed to determine CPUs in affinity mask: %m");
+
+        p = c->parameter;
+        order = parse_order(&p);
+        if (order < 0)
+                order = ORDER_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
+
+        r = safe_atou(p, &k);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse number of CPUs: %m");
+
+        return test_order(CMP((unsigned) n, k), order);
 }
 
 static int condition_test_user(Condition *c) {
@@ -223,7 +301,7 @@ static int condition_test_user(Condition *c) {
                 return streq(c->parameter, "root");
 
         u = c->parameter;
-        r = get_user_creds(&u, &id, NULL, NULL, NULL);
+        r = get_user_creds(&u, &id, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
         if (r < 0)
                 return 0;
 
@@ -251,7 +329,7 @@ static int condition_test_control_group_controller(Condition *c) {
                 return 1;
         }
 
-        return (system_mask & wanted_mask) == wanted_mask;
+        return FLAGS_SET(system_mask, wanted_mask);
 }
 
 static int condition_test_group(Condition *c) {
@@ -381,15 +459,16 @@ static int condition_test_security(Condition *c) {
                 return use_ima();
         if (streq(c->parameter, "tomoyo"))
                 return mac_tomoyo_use();
+        if (streq(c->parameter, "uefi-secureboot"))
+                return is_efi_secure_boot();
 
         return false;
 }
 
 static int condition_test_capability(Condition *c) {
+        unsigned long long capabilities = (unsigned long long) -1;
         _cleanup_fclose_ FILE *f = NULL;
-        int value;
-        char line[LINE_MAX];
-        unsigned long long capabilities = -1;
+        int value, r;
 
         assert(c);
         assert(c->parameter);
@@ -407,11 +486,21 @@ static int condition_test_capability(Condition *c) {
         if (!f)
                 return -errno;
 
-        while (fgets(line, sizeof(line), f)) {
-                truncate_nl(line);
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                const char *p;
 
-                if (startswith(line, "CapBnd:")) {
-                        (void) sscanf(line+7, "%llx", &capabilities);
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                p = startswith(line, "CapBnd:");
+                if (p) {
+                        if (sscanf(line+7, "%llx", &capabilities) != 1)
+                                return -EIO;
+
                         break;
                 }
         }
@@ -464,7 +553,7 @@ static int condition_test_needs_update(Condition *c) {
                 uint64_t timestamp;
                 int r;
 
-                r = parse_env_file(p, NULL, "TIMESTAMP_NSEC", &timestamp_str, NULL);
+                r = parse_env_file(NULL, p, "TIMESTAMP_NSEC", &timestamp_str);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse timestamp file '%s', using mtime: %m", p);
                         return true;
@@ -617,6 +706,8 @@ int condition_test(Condition *c) {
                 [CONDITION_GROUP] = condition_test_group,
                 [CONDITION_CONTROL_GROUP_CONTROLLER] = condition_test_control_group_controller,
                 [CONDITION_NULL] = condition_test_null,
+                [CONDITION_CPUS] = condition_test_cpus,
+                [CONDITION_MEMORY] = condition_test_memory,
         };
 
         int r, b;
@@ -634,6 +725,52 @@ int condition_test(Condition *c) {
         b = (r > 0) == !c->negate;
         c->result = b ? CONDITION_SUCCEEDED : CONDITION_FAILED;
         return b;
+}
+
+bool condition_test_list(Condition *first, const char *(*to_string)(ConditionType t), condition_test_logger_t logger, void *userdata) {
+        Condition *c;
+        int triggered = -1;
+
+        assert(!!logger == !!to_string);
+
+        /* If the condition list is empty, then it is true */
+        if (!first)
+                return true;
+
+        /* Otherwise, if all of the non-trigger conditions apply and
+         * if any of the trigger conditions apply (unless there are
+         * none) we return true */
+        LIST_FOREACH(conditions, c, first) {
+                int r;
+
+                r = condition_test(c);
+
+                if (logger) {
+                        if (r < 0)
+                                logger(userdata, LOG_WARNING, r, __FILE__, __LINE__, __func__,
+                                       "Couldn't determine result for %s=%s%s%s, assuming failed: %m",
+                                       to_string(c->type),
+                                       c->trigger ? "|" : "",
+                                       c->negate ? "!" : "",
+                                       c->parameter);
+                        else
+                                logger(userdata, LOG_DEBUG, 0, __FILE__, __LINE__, __func__,
+                                       "%s=%s%s%s %s.",
+                                       to_string(c->type),
+                                       c->trigger ? "|" : "",
+                                       c->negate ? "!" : "",
+                                       c->parameter,
+                                       condition_result_to_string(c->result));
+                }
+
+                if (!c->trigger && r <= 0)
+                        return false;
+
+                if (c->trigger && triggered <= 0)
+                        triggered = r > 0;
+        }
+
+        return triggered != 0;
 }
 
 void condition_dump(Condition *c, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t)) {
@@ -682,7 +819,9 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_USER] = "ConditionUser",
         [CONDITION_GROUP] = "ConditionGroup",
         [CONDITION_CONTROL_GROUP_CONTROLLER] = "ConditionControlGroupController",
-        [CONDITION_NULL] = "ConditionNull"
+        [CONDITION_NULL] = "ConditionNull",
+        [CONDITION_CPUS] = "ConditionCPUs",
+        [CONDITION_MEMORY] = "ConditionMemory",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
@@ -710,7 +849,9 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_USER] = "AssertUser",
         [CONDITION_GROUP] = "AssertGroup",
         [CONDITION_CONTROL_GROUP_CONTROLLER] = "AssertControlGroupController",
-        [CONDITION_NULL] = "AssertNull"
+        [CONDITION_NULL] = "AssertNull",
+        [CONDITION_CPUS] = "AssertCPUs",
+        [CONDITION_MEMORY] = "AssertMemory",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(assert_type, ConditionType);

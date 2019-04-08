@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <unistd.h>
 
@@ -113,12 +108,20 @@ int manager_handle_action(
         else
                 supported = true;
 
+        if (!supported && IN_SET(handle, HANDLE_HIBERNATE, HANDLE_HYBRID_SLEEP, HANDLE_SUSPEND_THEN_HIBERNATE)) {
+                supported = can_sleep("suspend") > 0;
+                if (supported) {
+                        log_notice("Operation '%s' requested but not supported, using regular suspend instead.", handle_action_to_string(handle));
+                        handle = HANDLE_SUSPEND;
+                }
+        }
+
         if (!supported) {
                 log_warning("Requested operation not supported, ignoring.");
                 return -EOPNOTSUPP;
         }
 
-        if (m->action_what) {
+        if (m->action_what > 0) {
                 log_debug("Action already in progress, ignoring.");
                 return -EALREADY;
         }
@@ -134,7 +137,7 @@ int manager_handle_action(
             manager_is_inhibited(m, inhibit_operation, INHIBIT_BLOCK, NULL, false, false, 0, &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
-                get_process_comm(offending->pid, &comm);
+                (void) get_process_comm(offending->pid, &comm);
                 u = uid_to_name(offending->uid);
 
                 /* If this is just a recheck of the lid switch then don't warn about anything */
@@ -157,10 +160,8 @@ int manager_handle_action(
         log_info("%s", message_table[handle]);
 
         r = bus_manager_shutdown_or_sleep_now_or_later(m, target, inhibit_operation, &error);
-        if (r < 0) {
-                log_error("Failed to execute operation: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
 
         return 1;
 }

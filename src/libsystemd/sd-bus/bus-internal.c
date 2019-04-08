@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include "alloc-util.h"
 #include "bus-internal.h"
@@ -48,7 +43,7 @@ bool object_path_is_valid(const char *p) {
         if (slash)
                 return false;
 
-        return true;
+        return (q - p) <= BUS_PATH_SIZE_MAX;
 }
 
 char* object_path_startswith(const char *a, const char *b) {
@@ -154,26 +149,6 @@ bool service_name_is_valid(const char *p) {
                 return false;
 
         return true;
-}
-
-char* service_name_startswith(const char *a, const char *b) {
-        const char *p;
-
-        if (!service_name_is_valid(a) ||
-            !service_name_is_valid(b))
-                return NULL;
-
-        p = startswith(a, b);
-        if (!p)
-                return NULL;
-
-        if (*p == 0)
-                return (char*) p;
-
-        if (*p == '.')
-                return (char*) p + 1;
-
-        return NULL;
 }
 
 bool member_name_is_valid(const char *p) {

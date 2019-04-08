@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2014 Lennart Poettering
-***/
-
+#include <errno.h>
 #include <net/if_arp.h>
 #include <string.h>
 
 #include "arphrd-list.h"
 #include "macro.h"
+#include "missing_network.h"
 
 static const struct arphrd_name* lookup_arphrd(register const char *str, register GPERF_LEN_TYPE len);
 
@@ -21,7 +18,7 @@ const char *arphrd_to_name(int id) {
         if (id <= 0)
                 return NULL;
 
-        if (id >= (int) ELEMENTSOF(arphrd_names))
+        if ((size_t) id >= ELEMENTSOF(arphrd_names))
                 return NULL;
 
         return arphrd_names[id];
@@ -34,7 +31,7 @@ int arphrd_from_name(const char *name) {
 
         sc = lookup_arphrd(name, strlen(name));
         if (!sc)
-                return 0;
+                return -EINVAL;
 
         return sc->id;
 }

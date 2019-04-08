@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <dirent.h>
 #include <errno.h>
@@ -44,9 +39,8 @@ static bool match_uid_gid(uid_t subject_uid, gid_t subject_gid, uid_t delete_uid
 
 static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid, bool rm) {
         _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
         bool first = true;
-        int ret = 0;
+        int ret = 0, r;
 
         f = fopen("/proc/sysvipc/shm", "re");
         if (!f) {
@@ -56,19 +50,24 @@ static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid, bool rm) {
                 return log_warning_errno(errno, "Failed to open /proc/sysvipc/shm: %m");
         }
 
-        FOREACH_LINE(line, f, goto fail) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 unsigned n_attached;
                 pid_t cpid, lpid;
                 uid_t uid, cuid;
                 gid_t gid, cgid;
                 int shmid;
 
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_warning_errno(errno, "Failed to read /proc/sysvipc/shm: %m");
+                if (r == 0)
+                        break;
+
                 if (first) {
                         first = false;
                         continue;
                 }
-
-                truncate_nl(line);
 
                 if (sscanf(line, "%*i %i %*o %*u " PID_FMT " " PID_FMT " %u " UID_FMT " " GID_FMT " " UID_FMT " " GID_FMT,
                            &shmid, &cpid, &lpid, &n_attached, &uid, &gid, &cuid, &cgid) != 8)
@@ -100,16 +99,12 @@ static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid, bool rm) {
         }
 
         return ret;
-
-fail:
-        return log_warning_errno(errno, "Failed to read /proc/sysvipc/shm: %m");
 }
 
 static int clean_sysvipc_sem(uid_t delete_uid, gid_t delete_gid, bool rm) {
         _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
         bool first = true;
-        int ret = 0;
+        int ret = 0, r;
 
         f = fopen("/proc/sysvipc/sem", "re");
         if (!f) {
@@ -119,17 +114,22 @@ static int clean_sysvipc_sem(uid_t delete_uid, gid_t delete_gid, bool rm) {
                 return log_warning_errno(errno, "Failed to open /proc/sysvipc/sem: %m");
         }
 
-        FOREACH_LINE(line, f, goto fail) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 uid_t uid, cuid;
                 gid_t gid, cgid;
                 int semid;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to read /proc/sysvipc/sem: %m");
+                if (r == 0)
+                        break;
 
                 if (first) {
                         first = false;
                         continue;
                 }
-
-                truncate_nl(line);
 
                 if (sscanf(line, "%*i %i %*o %*u " UID_FMT " " GID_FMT " " UID_FMT " " GID_FMT,
                            &semid, &uid, &gid, &cuid, &cgid) != 5)
@@ -158,16 +158,12 @@ static int clean_sysvipc_sem(uid_t delete_uid, gid_t delete_gid, bool rm) {
         }
 
         return ret;
-
-fail:
-        return log_warning_errno(errno, "Failed to read /proc/sysvipc/sem: %m");
 }
 
 static int clean_sysvipc_msg(uid_t delete_uid, gid_t delete_gid, bool rm) {
         _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
         bool first = true;
-        int ret = 0;
+        int ret = 0, r;
 
         f = fopen("/proc/sysvipc/msg", "re");
         if (!f) {
@@ -177,18 +173,23 @@ static int clean_sysvipc_msg(uid_t delete_uid, gid_t delete_gid, bool rm) {
                 return log_warning_errno(errno, "Failed to open /proc/sysvipc/msg: %m");
         }
 
-        FOREACH_LINE(line, f, goto fail) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 uid_t uid, cuid;
                 gid_t gid, cgid;
                 pid_t cpid, lpid;
                 int msgid;
 
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to read /proc/sysvipc/msg: %m");
+                if (r == 0)
+                        break;
+
                 if (first) {
                         first = false;
                         continue;
                 }
-
-                truncate_nl(line);
 
                 if (sscanf(line, "%*i %i %*o %*u %*u " PID_FMT " " PID_FMT " " UID_FMT " " GID_FMT " " UID_FMT " " GID_FMT,
                            &msgid, &cpid, &lpid, &uid, &gid, &cuid, &cgid) != 7)
@@ -217,9 +218,6 @@ static int clean_sysvipc_msg(uid_t delete_uid, gid_t delete_gid, bool rm) {
         }
 
         return ret;
-
-fail:
-        return log_warning_errno(errno, "Failed to read /proc/sysvipc/msg: %m");
 }
 
 static int clean_posix_shm_internal(DIR *dir, uid_t uid, gid_t gid, bool rm) {

@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include "sd-path.h"
 
@@ -80,7 +75,6 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
         _cleanup_free_ char *b = NULL;
         _cleanup_free_ const char *fn = NULL;
         const char *c = NULL;
-        char line[LINE_MAX];
         size_t n;
         int r;
 
@@ -108,8 +102,15 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
          * xdg-user-dirs does upstream */
 
         n = strlen(field);
-        FOREACH_LINE(line, f, return -errno) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 char *l, *p, *e;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
                 l = strstrip(line);
 

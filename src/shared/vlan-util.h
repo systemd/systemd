@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-***/
-
 #include <stdbool.h>
 #include <inttypes.h>
+
+#include "conf-parser.h"
 
 #define VLANID_MAX 4094
 #define VLANID_INVALID UINT16_MAX
@@ -20,5 +16,5 @@ static inline bool vlanid_is_valid(uint16_t id) {
 
 int parse_vlanid(const char *p, uint16_t *ret);
 
-int config_parse_default_port_vlanid(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_vlanid(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_default_port_vlanid);
+CONFIG_PARSER_PROTOTYPE(config_parse_vlanid);

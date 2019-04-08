@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <sys/epoll.h>
@@ -16,11 +11,22 @@
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-util.h"
+#include "dbus-automount.h"
 #include "dbus-cgroup.h"
+#include "dbus-device.h"
 #include "dbus-execute.h"
 #include "dbus-job.h"
 #include "dbus-kill.h"
 #include "dbus-manager.h"
+#include "dbus-mount.h"
+#include "dbus-path.h"
+#include "dbus-scope.h"
+#include "dbus-service.h"
+#include "dbus-slice.h"
+#include "dbus-socket.h"
+#include "dbus-swap.h"
+#include "dbus-target.h"
+#include "dbus-timer.h"
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "fd-util.h"
@@ -30,6 +36,8 @@
 #include "mkdir.h"
 #include "process-util.h"
 #include "selinux-access.h"
+#include "serialize.h"
+#include "service.h"
 #include "special.h"
 #include "string-util.h"
 #include "strv.h"
@@ -40,23 +48,22 @@
 
 static void destroy_bus(Manager *m, sd_bus **bus);
 
-int bus_send_queued_message(Manager *m) {
+int bus_send_pending_reload_message(Manager *m) {
         int r;
 
         assert(m);
 
-        if (!m->queued_message)
+        if (!m->pending_reload_message)
                 return 0;
 
-        /* If we cannot get rid of this message we won't dispatch any
-         * D-Bus messages, so that we won't end up wanting to queue
-         * another message. */
+        /* If we cannot get rid of this message we won't dispatch any D-Bus messages, so that we won't end up wanting
+         * to queue another message. */
 
-        r = sd_bus_send(NULL, m->queued_message, NULL);
+        r = sd_bus_send(NULL, m->pending_reload_message, NULL);
         if (r < 0)
-                log_warning_errno(r, "Failed to send queued message: %m");
+                log_warning_errno(r, "Failed to send queued message, ignoring: %m");
 
-        m->queued_message = sd_bus_message_unref(m->queued_message);
+        m->pending_reload_message = sd_bus_message_unref(m->pending_reload_message);
 
         return 0;
 }
@@ -170,7 +177,7 @@ static int signal_activation_request(sd_bus_message *message, void *userdata, sd
                 goto failed;
         }
 
-        r = manager_add_job(m, JOB_START, u, JOB_REPLACE, &error, NULL);
+        r = manager_add_job(m, JOB_START, u, JOB_REPLACE, NULL, &error, NULL);
         if (r < 0)
                 goto failed;
 
@@ -229,7 +236,6 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
         path = sd_bus_message_get_path(message);
 
         if (object_path_startswith("/org/freedesktop/systemd1", path)) {
-
                 r = mac_selinux_access_check(message, verb, error);
                 if (r < 0)
                         return r;
@@ -257,7 +263,6 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
                 else
                         manager_load_unit_from_dbus_path(m, path, NULL, &u);
         }
-
         if (!u)
                 return 0;
 
@@ -606,7 +611,7 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
 }
 
 static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int nfd = -1;
         Manager *m = userdata;
         sd_id128_t id;
@@ -871,7 +876,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
 }
 
 int bus_init_api(Manager *m) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         if (m->api_bus)
@@ -935,7 +940,7 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
 }
 
 int bus_init_system(Manager *m) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         if (m->system_bus)
@@ -969,12 +974,9 @@ int bus_init_system(Manager *m) {
 
 int bus_init_private(Manager *m) {
         _cleanup_close_ int fd = -1;
-        union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX
-        };
+        union sockaddr_union sa = {};
         sd_event_source *s;
-        socklen_t salen;
-        int r;
+        int r, salen;
 
         assert(m);
 
@@ -987,27 +989,23 @@ int bus_init_private(Manager *m) {
                 if (getpid_cached() != 1)
                         return 0;
 
-                strcpy(sa.un.sun_path, "/run/systemd/private");
-                salen = SOCKADDR_UN_LEN(sa.un);
+                salen = sockaddr_un_set_path(&sa.un, "/run/systemd/private");
         } else {
-                size_t left = sizeof(sa.un.sun_path);
-                char *p = sa.un.sun_path;
-                const char *e;
+                const char *e, *joined;
 
                 e = secure_getenv("XDG_RUNTIME_DIR");
-                if (!e) {
-                        log_error("Failed to determine XDG_RUNTIME_DIR");
-                        return -EHOSTDOWN;
-                }
+                if (!e)
+                        return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                               "XDG_RUNTIME_DIR is not set, refusing.");
 
-                left = strpcpy(&p, left, e);
-                left = strpcpy(&p, left, "/systemd/private");
-
-                salen = sizeof(sa.un) - left;
+                joined = strjoina(e, "/systemd/private");
+                salen = sockaddr_un_set_path(&sa.un, joined);
         }
+        if (salen < 0)
+                return log_error_errno(salen, "Can't set path for AF_UNIX socket to bind to: %m");
 
         (void) mkdir_parents_label(sa.un.sun_path, 0755);
-        (void) unlink(sa.un.sun_path);
+        (void) sockaddr_un_unlink(&sa.un);
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
@@ -1030,9 +1028,8 @@ int bus_init_private(Manager *m) {
 
         (void) sd_event_source_set_description(s, "bus-connection");
 
-        m->private_listen_fd = fd;
+        m->private_listen_fd = TAKE_FD(fd);
         m->private_listen_event_source = s;
-        fd = -1;
 
         log_debug("Successfully created private D-Bus server.");
 
@@ -1074,8 +1071,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                         u->bus_track = sd_bus_track_unref(u->bus_track);
 
         /* Get rid of queued message on this bus */
-        if (m->queued_message && sd_bus_message_get_bus(m->queued_message) == *bus)
-                m->queued_message = sd_bus_message_unref(m->queued_message);
+        if (m->pending_reload_message && sd_bus_message_get_bus(m->pending_reload_message) == *bus)
+                m->pending_reload_message = sd_bus_message_unref(m->pending_reload_message);
 
         /* Possibly flush unwritten data, but only if we are
          * unprivileged, since we don't want to sync here */
@@ -1083,22 +1080,15 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                 sd_bus_flush(*bus);
 
         /* And destroy the object */
-        sd_bus_close(*bus);
-        *bus = sd_bus_unref(*bus);
+        *bus = sd_bus_close_unref(*bus);
 }
 
 void bus_done_api(Manager *m) {
-        assert(m);
-
-        if (m->api_bus)
-                destroy_bus(m, &m->api_bus);
+        destroy_bus(m, &m->api_bus);
 }
 
 void bus_done_system(Manager *m) {
-        assert(m);
-
-        if (m->system_bus)
-                destroy_bus(m, &m->system_bus);
+        destroy_bus(m, &m->system_bus);
 }
 
 void bus_done_private(Manager *m) {
@@ -1212,13 +1202,8 @@ void bus_track_serialize(sd_bus_track *t, FILE *f, const char *prefix) {
                 int c, j;
 
                 c = sd_bus_track_count_name(t, n);
-
-                for (j = 0; j < c; j++) {
-                        fputs(prefix, f);
-                        fputc('=', f);
-                        fputs(n, f);
-                        fputc('\n', f);
-                }
+                for (j = 0; j < c; j++)
+                        (void) serialize_item(f, prefix, n);
         }
 }
 
@@ -1292,4 +1277,39 @@ uint64_t manager_bus_n_queued_write(Manager *m) {
         }
 
         return c;
+}
+
+static void vtable_dump_bus_properties(FILE *f, const sd_bus_vtable *table) {
+        const sd_bus_vtable *i;
+
+        for (i = table; i->type != _SD_BUS_VTABLE_END; i++) {
+                if (!IN_SET(i->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY) ||
+                    (i->flags & (SD_BUS_VTABLE_DEPRECATED | SD_BUS_VTABLE_HIDDEN)) != 0)
+                        continue;
+
+                fprintf(f, "%s\n", i->x.property.member);
+        }
+}
+
+void dump_bus_properties(FILE *f) {
+        assert(f);
+
+        vtable_dump_bus_properties(f, bus_automount_vtable);
+        vtable_dump_bus_properties(f, bus_cgroup_vtable);
+        vtable_dump_bus_properties(f, bus_device_vtable);
+        vtable_dump_bus_properties(f, bus_exec_vtable);
+        vtable_dump_bus_properties(f, bus_job_vtable);
+        vtable_dump_bus_properties(f, bus_kill_vtable);
+        vtable_dump_bus_properties(f, bus_manager_vtable);
+        vtable_dump_bus_properties(f, bus_mount_vtable);
+        vtable_dump_bus_properties(f, bus_path_vtable);
+        vtable_dump_bus_properties(f, bus_scope_vtable);
+        vtable_dump_bus_properties(f, bus_service_vtable);
+        vtable_dump_bus_properties(f, bus_slice_vtable);
+        vtable_dump_bus_properties(f, bus_socket_vtable);
+        vtable_dump_bus_properties(f, bus_swap_vtable);
+        vtable_dump_bus_properties(f, bus_target_vtable);
+        vtable_dump_bus_properties(f, bus_timer_vtable);
+        vtable_dump_bus_properties(f, bus_unit_vtable);
+        vtable_dump_bus_properties(f, bus_unit_cgroup_vtable);
 }
