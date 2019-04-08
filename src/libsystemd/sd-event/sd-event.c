@@ -893,8 +893,10 @@ _public_ int sd_event_add_io(
         assert_return(!event_pid_changed(e), -ECHILD);
 
         s = source_new(e, !ret, SOURCE_IO);
-        if (!s)
+        if (!s) {
+                fd = safe_close(fd);
                 return -ENOMEM;
+        }
 
         s->wakeup = WAKEUP_EVENT_SOURCE;
         s->io.fd = fd;
