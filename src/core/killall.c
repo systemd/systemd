@@ -252,6 +252,12 @@ int broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t timeo
         sigset_t mask, oldmask;
         _cleanup_set_free_ Set *pids = NULL;
 
+        /* Send the specified signal to all remaining processes, if not excluded by ignore_proc().
+         * Return:
+         *  - The number of processes still "alive" after the timeout (that should have been killed)
+         *    if the function needs to wait for the end of the processes (wait_for_exit).
+         *  - Otherwise, the number of processes to which the specified signal was sent */
+
         if (wait_for_exit)
                 pids = set_new(NULL);
 
