@@ -628,10 +628,61 @@ MACAddress=00:a0:de:63:7a:e6
 [Link]
 Name=dmz0</programlisting>
 
-      <para><varname>NamePolicy=</varname> is not set, so <varname>Name=</varname> takes effect.
-      We use the <literal>10-</literal> prefix to order this file early in the list. Note that it
-      needs to before <literal>10-</literal>, i.e. it needs a numerical prefix, to have any effect
-      at all.</para>
+      <para><varname>NamePolicy=</varname> is not set, so <varname>Name=</varname> takes effect. We use the
+      <literal>10-</literal> prefix to order this file early in the list. Note that it needs to before
+      <literal>99-link</literal>, i.e. it needs a numerical prefix, to have any effect at all.</para>
+    </example>
+
+    <example>
+      <title>Debugging <varname>NamePolicy=</varname> assignments</title>
+
+      <programlisting>$ sudo SYSTEMD_LOG_LEVEL=debug udevadm test-builtin net_setup_link /sys/class/net/hub0
+…
+Parsed configuration file /usr/lib/systemd/network/99-default.link
+Parsed configuration file /etc/systemd/network/10-eth0.link
+ID_NET_DRIVER=cdc_ether
+Config file /etc/systemd/network/10-eth0.link applies to device hub0
+link_config: autonegotiation is unset or enabled, the speed and duplex are not writable.
+hub0: Device has name_assign_type=4
+Using default interface naming scheme 'v240'.
+hub0: Policies didn't yield a name, using specified Name=hub0.
+ID_NET_LINK_FILE=/etc/systemd/network/10-eth0.link
+ID_NET_NAME=hub0
+…</programlisting>
+
+     <para>Explicit <varname>Name=</varname> configuration wins in this case.</para>
+
+     <programlisting>sudo SYSTEMD_LOG_LEVEL=debug udevadm test-builtin net_setup_link /sys/class/net/enp0s31f6
+…
+Parsed configuration file /usr/lib/systemd/network/99-default.link
+Parsed configuration file /etc/systemd/network/10-eth0.link
+Created link configuration context.
+ID_NET_DRIVER=e1000e
+Config file /usr/lib/systemd/network/99-default.link applies to device enp0s31f6
+link_config: autonegotiation is unset or enabled, the speed and duplex are not writable.
+enp0s31f6: Device has name_assign_type=4
+Using default interface naming scheme 'v240'.
+enp0s31f6: Policy *keep*: keeping existing userspace name
+enp0s31f6: Device has addr_assign_type=0
+enp0s31f6: MAC on the device already matches policy *persistent*
+ID_NET_LINK_FILE=/usr/lib/systemd/network/99-default.link
+…
+</programlisting>
+
+     <para>In this case, the interface was already renamed, so the <option>keep</option> policy specified as
+     the first option in <filename noindex='true'>99-default.link</filename> means that the existing name is
+     preserved. If <option>keep</option> was removed, or if were in boot before the renaming has happened,
+     we might get the following instead:</para>
+
+     <programlisting>enp0s31f6: Policy *path* yields "enp0s31f6".
+enp0s31f6: Device has addr_assign_type=0
+enp0s31f6: MAC on the device already matches policy *persistent*
+ID_NET_LINK_FILE=/usr/lib/systemd/network/99-default.link
+ID_NET_NAME=enp0s31f6
+…
+</programlisting>
+
+      <para>Please note that the details of output are subject to change.</para>
     </example>
 
     <example>
