@@ -3554,6 +3554,54 @@ DFE000-DFEFFF     (base 16)		microtec Sicherheitstechnik GmbH
 				CHATILLON    92320
 				FR
 
+70-B3-D5   (hex)		Onethinx BV
+068000-068FFF     (base 16)		Onethinx BV
+				Punterweg 2
+				Zwolle  OV  8042 PB
+				NL
+
+70-B3-D5   (hex)		Worldsensing
+2C7000-2C7FFF     (base 16)		Worldsensing
+				Carrer Viriat 47, Edificio Numancia 1 7th floor
+				Barcelona  - Please Choose -  08014
+				ES
+
+70-B3-D5   (hex)		Fath Mechatronics
+DC3000-DC3FFF     (base 16)		Fath Mechatronics
+				Hügelmühle 31
+				Spalt  bavaria  91174
+				DE
+
+70-B3-D5   (hex)		Oxford Monitoring Solutions Ltd
+102000-102FFF     (base 16)		Oxford Monitoring Solutions Ltd
+				Oakfield Estate
+				Eynsham  Oxford  OX298JG
+				GB
+
+70-B3-D5   (hex)		Sensative AB
+2C0000-2C0FFF     (base 16)		Sensative AB
+				Mobilvägen 10
+				Lund    22362
+				SE
+
+70-B3-D5   (hex)		Astronomical Research Cameras, Inc.
+24C000-24CFFF     (base 16)		Astronomical Research Cameras, Inc.
+				2247 San Diego Ave #135
+				San Diego  CA  92110
+				US
+
+70-B3-D5   (hex)		Sicon srl
+D49000-D49FFF     (base 16)		Sicon srl
+				Via Sila 1/3
+				Isola Vicentina  Vicenza  36033
+				IT
+
+70-B3-D5   (hex)		ATGS
+726000-726FFF     (base 16)		ATGS
+				11 POLBINA ST.
+				MOSCOW    109388
+				RU
+
 70-B3-D5   (hex)		Flintab AB
 D60000-D60FFF     (base 16)		Flintab AB
 				Kabelvägen 4
@@ -5966,9 +6014,6 @@ B71000-B71FFF     (base 16)		Private
 				Indianapolis   IN  46239
 				US
 
-70-B3-D5   (hex)		Private
-580000-580FFF     (base 16)		Private
-
 70-B3-D5   (hex)		WICELL TECHNOLOGY
 BB0000-BB0FFF     (base 16)		WICELL TECHNOLOGY
 				61 Dien Bien Phu
@@ -7142,9 +7187,6 @@ FEA000-FEAFFF     (base 16)		Heng Dian Technology Co., Ltd
 				Moscow    109388
 				RU
 
-70-B3-D5   (hex)		Private
-401000-401FFF     (base 16)		Private
-
 70-B3-D5   (hex)		LG Electronics
 9E3000-9E3FFF     (base 16)		LG Electronics
 				10, Magokjungang 10-ro, Gangseo-gu
@@ -7429,6 +7471,30 @@ CD7000-CD7FFF     (base 16)		AutomationX GmbH
 				Lauzilgasse 13
 				Graz  Styria  8020
 				AT
+
+70-B3-D5   (hex)		Private
+580000-580FFF     (base 16)		Private
+
+70-B3-D5   (hex)		Private
+401000-401FFF     (base 16)		Private
+
+70-B3-D5   (hex)		Hermann Automation GmbH
+B2F000-B2FFFF     (base 16)		Hermann Automation GmbH
+				Erlenwiese 15
+				Mengerskirchen  Hessen  D-35794
+				DE
+
+70-B3-D5   (hex)		INTERNET PROTOCOLO LOGICA SL
+B58000-B58FFF     (base 16)		INTERNET PROTOCOLO LOGICA SL
+				Sector Foresta 43, local 26
+				Tres Cantos  Madrid  28760
+				ES
+
+70-B3-D5   (hex)		Legrand Electric Ltd
+093000-093FFF     (base 16)		Legrand Electric Ltd
+				Unit 10 Cowley Road
+				Blyth  Northumberland  NE24 5TF
+				GB
 
 70-B3-D5   (hex)		Schildknecht AG
 494000-494FFF     (base 16)		Schildknecht AG
@@ -11161,6 +11227,39 @@ E1E000-E1EFFF     (base 16)		Umano Medical Inc.
 
 70-B3-D5   (hex)		Private
 A9F000-A9FFFF     (base 16)		Private
+
+70-B3-D5   (hex)		KRONOTECH SRL
+D56000-D56FFF     (base 16)		KRONOTECH SRL
+				VIALE UNGHERIA 125
+				UDINE  ITALY/UDINE  33100
+				IT
+
+70-B3-D5   (hex)		Ascon Tecnologic S.r.l.
+57E000-57EFFF     (base 16)		Ascon Tecnologic S.r.l.
+				via Indipendenza, 56
+				Vigevano  PV  27029
+				IT
+
+70-B3-D5   (hex)		Private
+2D7000-2D7FFF     (base 16)		Private
+
+70-B3-D5   (hex)		GeoSpectrum Technologies Inc
+3CB000-3CBFFF     (base 16)		GeoSpectrum Technologies Inc
+				10 Akerley Blvd, #19
+				Dartmouth  Nova Scotia  B3B1J4
+				CA
+
+70-B3-D5   (hex)		Heim- & Bürokommunikation Ilmert e.K.
+DF4000-DF4FFF     (base 16)		Heim- & Bürokommunikation Ilmert e.K.
+				Jakobsbrunnenstr. 14
+				Frankfurt am Main    60386
+				DE
+
+70-B3-D5   (hex)		Echogear
+571000-571FFF     (base 16)		Echogear
+				12884 Frontrunner Blvd Ste 201
+				Draper  UT  84020
+				US
 
 70-B3-D5   (hex)		Innitive B.V.
 66B000-66BFFF     (base 16)		Innitive B.V.
@@ -14993,6 +15092,54 @@ CF8000-CF8FFF     (base 16)		Idneo Technologies S.A.U.
 				Barcelona  Barcelona  08028
 				ES
 
+70-B3-D5   (hex)		Syscom Instruments SA
+BE7000-BE7FFF     (base 16)		Syscom Instruments SA
+				industrie 21
+				Sainte-Croix    1450
+				CH
+
+70-B3-D5   (hex)		DAO QIN TECHNOLOGY CO.LTD.
+3BD000-3BDFFF     (base 16)		DAO QIN TECHNOLOGY CO.LTD.
+				No. 359, Zhongxiao Rd
+				Chishang Township  Taitung County  958
+				TW
+
+70-B3-D5   (hex)		MB connect line GmbH Fernwartungssysteme
+CC6000-CC6FFF     (base 16)		MB connect line GmbH Fernwartungssysteme
+				Winnettener Straße 6
+				Dinkelsbuehl  Bavaria  91550
+				DE
+
+70-B3-D5   (hex)		Technological Application and Production One Member Liability Company (Tecapro company)
+456000-456FFF     (base 16)		Technological Application and Production One Member Liability Company (Tecapro company)
+				18A Cong Hoa street
+				Ho Chi Minh city  Ho Chi Minh city  700000
+				VN
+
+70-B3-D5   (hex)		Yamamoto Works Ltd.
+DFB000-DFBFFF     (base 16)		Yamamoto Works Ltd.
+				3-1-3 Kashiwaza
+				Ageo  Saitama  3620075
+				JP
+
+70-B3-D5   (hex)		BAYKON Endüstriyel Kontrol Sistemleri San. ve Tic. A.Ş.
+258000-258FFF     (base 16)		BAYKON Endüstriyel Kontrol Sistemleri San. ve Tic. A.Ş.
+				Kimya Sanayicileri Org. San. Bolgesi Organik Cad. No:31
+				Istanbul  Tuzla   34956
+				TR
+
+70-B3-D5   (hex)		GlooVir Inc.
+47A000-47AFFF     (base 16)		GlooVir Inc.
+				#413, 96 Gajeongbuk-Ro
+				Daejeon  Yuseong  34111
+				KR
+
+70-B3-D5   (hex)		WARECUBE,INC
+463000-463FFF     (base 16)		WARECUBE,INC
+				#A-811, 142-10, Saneop-ro, 156beon-gil, Gwonseon-gu
+				Suwon-si    16648
+				KR
+
 70-B3-D5   (hex)		EMAC, Inc.
 8AB000-8ABFFF     (base 16)		EMAC, Inc.
 				2390 EMAC Way
@@ -18679,3 +18826,33 @@ ABD000-ABDFFF     (base 16)		wtec GmbH
 				19, Yangje-daero 11gil, Seocho-gu
 				Seoul    06772
 				KR
+
+70-B3-D5   (hex)		Prolan Zrt.
+C04000-C04FFF     (base 16)		Prolan Zrt.
+				Szentendrei út 1-3.
+				Budakalasz    2011
+				HU
+
+70-B3-D5   (hex)		Morgan Schaffer Inc.
+1F7000-1F7FFF     (base 16)		Morgan Schaffer Inc.
+				8300 rue St-Patrick bureau 150
+				LaSalle  Quebec  H8N 2H1
+				CA
+
+70-B3-D5   (hex)		Season Electronics Ltd
+65E000-65EFFF     (base 16)		Season Electronics Ltd
+				600 Nest Business Park 
+				Havant  Hampshire  PO9 5TL
+				GB
+
+70-B3-D5   (hex)		Beijing PanGu Company
+E54000-E54FFF     (base 16)		Beijing PanGu Company
+				Beijing agricultural college
+				Beijing    100010
+				CN
+
+70-B3-D5   (hex)		Innotas Elektronik GmbH
+C51000-C51FFF     (base 16)		Innotas Elektronik GmbH
+				Rathenaustr. 18a
+				Zittau    D-02763
+				DE
