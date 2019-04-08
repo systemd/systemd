@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hexdecoct.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
@@ -278,6 +279,7 @@ int read_full_stream_full(
 
         assert(f);
         assert(ret_contents);
+        assert(!(flags & READ_FULL_FILE_UNBASE64) || ret_size);
 
         n_next = LINE_MAX; /* Start size */
 
@@ -352,6 +354,12 @@ int read_full_stream_full(
                 }
 
                 n_next = MIN(n * 2, READ_FULL_BYTES_MAX);
+        }
+
+        if (flags & READ_FULL_FILE_UNBASE64) {
+                buf[l++] = 0;
+                r = unbase64mem_full(buf, l, flags & READ_FULL_FILE_SECURE, (void **) ret_contents, ret_size);
+                goto finalize;
         }
 
         if (!ret_size) {
