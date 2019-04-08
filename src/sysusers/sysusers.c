@@ -389,15 +389,15 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                 while ((r = fgetpwent_sane(original, &pw)) > 0) {
 
                         i = ordered_hashmap_get(users, pw->pw_name);
-                        if (i && i->todo_user) {
-                                log_error("%s: User \"%s\" already exists.", passwd_path, pw->pw_name);
-                                return -EEXIST;
-                        }
+                        if (i && i->todo_user)
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "%s: User \"%s\" already exists.",
+                                                       passwd_path, pw->pw_name);
 
-                        if (ordered_hashmap_contains(todo_uids, UID_TO_PTR(pw->pw_uid))) {
-                                log_error("%s: Detected collision for UID " UID_FMT ".", passwd_path, pw->pw_uid);
-                                return -EEXIST;
-                        }
+                        if (ordered_hashmap_contains(todo_uids, UID_TO_PTR(pw->pw_uid)))
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "%s: Detected collision for UID " UID_FMT ".",
+                                                       passwd_path, pw->pw_uid);
 
                         /* Make sure we keep the NIS entries (if any) at the end. */
                         if (IN_SET(pw->pw_name[0], '+', '-'))
@@ -592,15 +592,15 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                          * step that we don't generate duplicate entries. */
 
                         i = ordered_hashmap_get(groups, gr->gr_name);
-                        if (i && i->todo_group) {
-                                log_error("%s: Group \"%s\" already exists.", group_path, gr->gr_name);
-                                return -EEXIST;
-                        }
+                        if (i && i->todo_group)
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "%s: Group \"%s\" already exists.",
+                                                       group_path, gr->gr_name);
 
-                        if (ordered_hashmap_contains(todo_gids, GID_TO_PTR(gr->gr_gid))) {
-                                log_error("%s: Detected collision for GID " GID_FMT ".", group_path, gr->gr_gid);
-                                return  -EEXIST;
-                        }
+                        if (ordered_hashmap_contains(todo_gids, GID_TO_PTR(gr->gr_gid)))
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "%s: Detected collision for GID " GID_FMT ".",
+                                                       group_path, gr->gr_gid);
 
                         /* Make sure we keep the NIS entries (if any) at the end. */
                         if (IN_SET(gr->gr_name[0], '+', '-'))
@@ -687,10 +687,10 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
                 while ((r = fgetsgent_sane(original, &sg)) > 0) {
 
                         i = ordered_hashmap_get(groups, sg->sg_namp);
-                        if (i && i->todo_group) {
-                                log_error("%s: Group \"%s\" already exists.", gshadow_path, sg->sg_namp);
-                                return -EEXIST;
-                        }
+                        if (i && i->todo_group)
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "%s: Group \"%s\" already exists.",
+                                                       gshadow_path, sg->sg_namp);
 
                         r = putsgent_with_members(sg, gshadow);
                         if (r < 0)
@@ -1021,10 +1021,8 @@ static int add_user(Item *i) {
         if (!i->uid_set) {
                 for (;;) {
                         r = uid_range_next_lower(uid_range, n_uid_range, &search_uid);
-                        if (r < 0) {
-                                log_error("No free user ID available for %s.", i->name);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "No free user ID available for %s.", i->name);
 
                         r = uid_is_ok(search_uid, i->name, true);
                         if (r < 0)
@@ -1178,10 +1176,8 @@ static int add_group(Item *i) {
                 for (;;) {
                         /* We look for new GIDs in the UID pool! */
                         r = uid_range_next_lower(uid_range, n_uid_range, &search_uid);
-                        if (r < 0) {
-                                log_error("No free group ID available for %s.", i->name);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "No free group ID available for %s.", i->name);
 
                         r = gid_is_ok(search_uid);
                         if (r < 0)
@@ -1381,7 +1377,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 *id = NULL, *resolved_id = NULL,
                 *description = NULL, *resolved_description = NULL,
                 *home = NULL, *resolved_home = NULL,
-                *shell, *resolved_shell = NULL;
+                *shell = NULL, *resolved_shell = NULL;
         _cleanup_(item_freep) Item *i = NULL;
         Item *existing;
         OrderedHashmap *h;
@@ -1396,29 +1392,23 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         p = buffer;
         r = extract_many_words(&p, NULL, EXTRACT_QUOTES,
                                &action, &name, &id, &description, &home, &shell, NULL);
-        if (r < 0) {
-                log_error("[%s:%u] Syntax error.", fname, line);
-                return r;
-        }
-        if (r < 2) {
-                log_error("[%s:%u] Missing action and name columns.", fname, line);
-                return -EINVAL;
-        }
-        if (!isempty(p)) {
-                log_error("[%s:%u] Trailing garbage.", fname, line);
-                return -EINVAL;
-        }
+        if (r < 0)
+                return log_error_errno(r, "[%s:%u] Syntax error.", fname, line);
+        if (r < 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "[%s:%u] Missing action and name columns.", fname, line);
+        if (!isempty(p))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "[%s:%u] Trailing garbage.", fname, line);
 
         /* Verify action */
-        if (strlen(action) != 1) {
-                log_error("[%s:%u] Unknown modifier '%s'", fname, line, action);
-                return -EINVAL;
-        }
+        if (strlen(action) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "[%s:%u] Unknown modifier '%s'", fname, line, action);
 
-        if (!IN_SET(action[0], ADD_USER, ADD_GROUP, ADD_MEMBER, ADD_RANGE)) {
-                log_error("[%s:%u] Unknown command type '%c'.", fname, line, action[0]);
-                return -EBADMSG;
-        }
+        if (!IN_SET(action[0], ADD_USER, ADD_GROUP, ADD_MEMBER, ADD_RANGE))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "[%s:%u] Unknown command type '%c'.", fname, line, action[0]);
 
         /* Verify name */
         if (isempty(name) || streq(name, "-"))
@@ -1426,15 +1416,13 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         if (name) {
                 r = specifier_printf(name, specifier_table, NULL, &resolved_name);
-                if (r < 0) {
-                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, name);
-                        return r;
-                }
+                if (r < 0)
+                        log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s", fname, line, name);
 
-                if (!valid_user_group_name(resolved_name)) {
-                        log_error("[%s:%u] '%s' is not a valid user or group name.", fname, line, resolved_name);
-                        return -EINVAL;
-                }
+                if (!valid_user_group_name(resolved_name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] '%s' is not a valid user or group name.",
+                                               fname, line, resolved_name);
         }
 
         /* Verify id */
@@ -1443,10 +1431,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         if (id) {
                 r = specifier_printf(id, specifier_table, NULL, &resolved_id);
-                if (r < 0) {
-                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, name);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s",
+                                               fname, line, name);
         }
 
         /* Verify description */
@@ -1455,15 +1442,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         if (description) {
                 r = specifier_printf(description, specifier_table, NULL, &resolved_description);
-                if (r < 0) {
-                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, description);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s",
+                                               fname, line, description);
 
-                if (!valid_gecos(resolved_description)) {
-                        log_error("[%s:%u] '%s' is not a valid GECOS field.", fname, line, resolved_description);
-                        return -EINVAL;
-                }
+                if (!valid_gecos(resolved_description))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] '%s' is not a valid GECOS field.",
+                                               fname, line, resolved_description);
         }
 
         /* Verify home */
@@ -1472,15 +1458,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         if (home) {
                 r = specifier_printf(home, specifier_table, NULL, &resolved_home);
-                if (r < 0) {
-                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, home);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s",
+                                               fname, line, home);
 
-                if (!valid_home(resolved_home)) {
-                        log_error("[%s:%u] '%s' is not a valid home directory field.", fname, line, resolved_home);
-                        return -EINVAL;
-                }
+                if (!valid_home(resolved_home))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] '%s' is not a valid home directory field.",
+                                               fname, line, resolved_home);
         }
 
         /* Verify shell */
@@ -1489,42 +1474,39 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         if (shell) {
                 r = specifier_printf(shell, specifier_table, NULL, &resolved_shell);
-                if (r < 0) {
-                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, shell);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s",
+                                               fname, line, shell);
 
-                if (!valid_shell(resolved_shell)) {
-                        log_error("[%s:%u] '%s' is not a valid login shell field.", fname, line, resolved_shell);
-                        return -EINVAL;
-                }
+                if (!valid_shell(resolved_shell))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] '%s' is not a valid login shell field.",
+                                               fname, line, resolved_shell);
         }
 
         switch (action[0]) {
 
         case ADD_RANGE:
-                if (resolved_name) {
-                        log_error("[%s:%u] Lines of type 'r' don't take a name field.", fname, line);
-                        return -EINVAL;
-                }
+                if (resolved_name)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] Lines of type 'r' don't take a name field.",
+                                               fname, line);
 
-                if (!resolved_id) {
-                        log_error("[%s:%u] Lines of type 'r' require a ID range in the third field.", fname, line);
-                        return -EINVAL;
-                }
+                if (!resolved_id)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] Lines of type 'r' require a ID range in the third field.",
+                                               fname, line);
 
-                if (description || home || shell) {
-                        log_error("[%s:%u] Lines of type '%c' don't take a %s field.",
-                                  fname, line, action[0],
-                                  description ? "GECOS" : home ? "home directory" : "login shell");
-                        return -EINVAL;
-                }
+                if (description || home || shell)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] Lines of type '%c' don't take a %s field.",
+                                               fname, line, action[0],
+                                               description ? "GECOS" : home ? "home directory" : "login shell");
 
                 r = uid_range_add_str(&uid_range, &n_uid_range, resolved_id);
-                if (r < 0) {
-                        log_error("[%s:%u] Invalid UID range %s.", fname, line, resolved_id);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] Invalid UID range %s.", fname, line, resolved_id);
 
                 return 0;
 
@@ -1532,27 +1514,26 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 char **l;
 
                 /* Try to extend an existing member or group item */
-                if (!name) {
-                        log_error("[%s:%u] Lines of type 'm' require a user name in the second field.", fname, line);
-                        return -EINVAL;
-                }
+                if (!name)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] Lines of type 'm' require a user name in the second field.",
+                                               fname, line);
 
-                if (!resolved_id) {
-                        log_error("[%s:%u] Lines of type 'm' require a group name in the third field.", fname, line);
-                        return -EINVAL;
-                }
+                if (!resolved_id)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] Lines of type 'm' require a group name in the third field.",
+                                               fname, line);
 
-                if (!valid_user_group_name(resolved_id)) {
-                        log_error("[%s:%u] '%s' is not a valid user or group name.", fname, line, resolved_id);
-                        return -EINVAL;
-                }
+                if (!valid_user_group_name(resolved_id))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] '%s' is not a valid user or group name.",
+                                               fname, line, resolved_id);
 
-                if (description || home || shell) {
-                        log_error("[%s:%u] Lines of type '%c' don't take a %s field.",
-                                  fname, line, action[0],
-                                  description ? "GECOS" : home ? "home directory" : "login shell");
-                        return -EINVAL;
-                }
+                if (description || home || shell)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] Lines of type '%c' don't take a %s field.",
+                                               fname, line, action[0],
+                                               description ? "GECOS" : home ? "home directory" : "login shell");
 
                 r = ordered_hashmap_ensure_allocated(&members, &members_hash_ops);
                 if (r < 0)
@@ -1591,10 +1572,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         case ADD_USER:
-                if (!name) {
-                        log_error("[%s:%u] Lines of type 'u' require a user name in the second field.", fname, line);
-                        return -EINVAL;
-                }
+                if (!name)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] Lines of type 'u' require a user name in the second field.",
+                                               fname, line);
 
                 r = ordered_hashmap_ensure_allocated(&users, &item_hash_ops);
                 if (r < 0)
@@ -1635,17 +1616,16 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 break;
 
         case ADD_GROUP:
-                if (!name) {
-                        log_error("[%s:%u] Lines of type 'g' require a user name in the second field.", fname, line);
-                        return -EINVAL;
-                }
+                if (!name)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] Lines of type 'g' require a user name in the second field.",
+                                               fname, line);
 
-                if (description || home || shell) {
-                        log_error("[%s:%u] Lines of type '%c' don't take a %s field.",
-                                  fname, line, action[0],
-                                  description ? "GECOS" : home ? "home directory" : "login shell");
-                        return -EINVAL;
-                }
+                if (description || home || shell)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] Lines of type '%c' don't take a %s field.",
+                                               fname, line, action[0],
+                                               description ? "GECOS" : home ? "home directory" : "login shell");
 
                 r = ordered_hashmap_ensure_allocated(&groups, &item_hash_ops);
                 if (r < 0)
@@ -1680,7 +1660,6 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         existing = ordered_hashmap_get(h, i->name);
         if (existing) {
-
                 /* Two identical items are fine */
                 if (!item_equal(existing, i))
                         log_warning("Two or more conflicting lines for %s configured, ignoring.", i->name);

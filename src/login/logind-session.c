@@ -644,20 +644,26 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                                 s->leader,
                                 s->user->slice,
                                 description,
-                                STRV_MAKE(s->user->runtime_dir_service, s->user->service), /* These two have StopWhenUnneeded= set, hence add a dep towards them */
-                                STRV_MAKE("systemd-logind.service", "systemd-user-sessions.service", s->user->runtime_dir_service, s->user->service), /* And order us after some more */
+                                /* These two have StopWhenUnneeded= set, hence add a dep towards them */
+                                STRV_MAKE(s->user->runtime_dir_service,
+                                          s->user->service),
+                                /* And order us after some more */
+                                STRV_MAKE("systemd-logind.service",
+                                          "systemd-user-sessions.service",
+                                          s->user->runtime_dir_service,
+                                          s->user->service),
                                 s->user->home,
                                 properties,
                                 error,
                                 &s->scope_job);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to start session scope %s: %s", scope, bus_error_message(error, r));
+                        return log_error_errno(r, "Failed to start session scope %s: %s",
+                                               scope, bus_error_message(error, r));
 
                 s->scope = TAKE_PTR(scope);
         }
 
-        if (s->scope)
-                (void) hashmap_put(s->manager->session_units, s->scope, s);
+        (void) hashmap_put(s->manager->session_units, s->scope, s);
 
         return 0;
 }
