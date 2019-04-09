@@ -13,9 +13,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-/* This needs to be after sys/mount.h :( */
-#include <libmount.h>
-
 #include "sd-device.h"
 
 #include "alloc-util.h"
@@ -25,6 +22,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fstab-util.h"
+#include "libmount-util.h"
 #include "linux-3.13/dm-ioctl.h"
 #include "mount-setup.h"
 #include "mount-util.h"
@@ -37,9 +35,6 @@
 #include "umount.h"
 #include "util.h"
 #include "virt.h"
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_table*, mnt_free_table);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_iter*, mnt_free_iter);
 
 static void mount_point_free(MountPoint **head, MountPoint *m) {
         assert(head);
@@ -79,11 +74,10 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 struct libmnt_fs *fs;
                 const char *path, *fstype;
                 _cleanup_free_ char *options = NULL;
-                _cleanup_free_ char *p = NULL;
                 unsigned long remount_flags = 0u;
                 _cleanup_free_ char *remount_options = NULL;
                 bool try_remount_ro;
-                MountPoint *m;
+                _cleanup_free_ MountPoint *m = NULL;
 
                 r = mnt_table_next_fs(t, i, &fs);
                 if (r == 1)
@@ -95,18 +89,15 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 if (!path)
                         continue;
 
-                if (cunescape(path, UNESCAPE_RELAX, &p) < 0)
-                        return log_oom();
-
                 fstype = mnt_fs_get_fstype(fs);
 
                 /* Combine the generic VFS options with the FS-specific
                  * options. Duplicates are not a problem here, because the only
                  * options that should come up twice are typically ro/rw, which
-                 * are turned into MS_RDONLY or the invertion of it.
+                 * are turned into MS_RDONLY or the inversion of it.
                  *
                  * Even if there are duplicates later in mount_option_mangle()
-                 * it shouldn't hurt anyways as they override each other.
+                 * they shouldn't hurt anyways as they override each other.
                  */
                 if (!strextend_with_separator(&options, ",",
                                               mnt_fs_get_vfs_options(fs),
@@ -124,9 +115,9 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                  * and hence not worth spending time on. Also, in
                  * unprivileged containers we might lack the rights to
                  * unmount these things, hence don't bother. */
-                if (mount_point_is_api(p) ||
-                    mount_point_ignore(p) ||
-                    PATH_STARTSWITH_SET(p, "/dev", "/sys", "/proc"))
+                if (mount_point_is_api(path) ||
+                    mount_point_ignore(path) ||
+                    PATH_STARTSWITH_SET(path, "/dev", "/sys", "/proc"))
                         continue;
 
                 /* If we are in a container, don't attempt to
@@ -172,12 +163,15 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 if (!m)
                         return log_oom();
 
-                free_and_replace(m->path, p);
-                free_and_replace(m->remount_options, remount_options);
+                m->path = strdup(path);
+                if (!m->path)
+                        return log_oom();
+
+                m->remount_options = TAKE_PTR(remount_options);
                 m->remount_flags = remount_flags;
                 m->try_remount_ro = try_remount_ro;
 
-                LIST_PREPEND(mount_point, *head, m);
+                LIST_PREPEND(mount_point, *head, TAKE_PTR(m));
         }
 
         return 0;
@@ -201,10 +195,8 @@ int swap_list_get(const char *swaps, MountPoint **head) {
 
         for (;;) {
                 struct libmnt_fs *fs;
-
-                MountPoint *swap;
+                _cleanup_free_ MountPoint *swap = NULL;
                 const char *source;
-                _cleanup_free_ char *d = NULL;
 
                 r = mnt_table_next_fs(t, i, &fs);
                 if (r == 1)
@@ -216,16 +208,15 @@ int swap_list_get(const char *swaps, MountPoint **head) {
                 if (!source)
                         continue;
 
-                r = cunescape(source, UNESCAPE_RELAX, &d);
-                if (r < 0)
-                        return r;
-
                 swap = new0(MountPoint, 1);
                 if (!swap)
                         return -ENOMEM;
 
-                free_and_replace(swap->path, d);
-                LIST_PREPEND(mount_point, *head, swap);
+                swap->path = strdup(source);
+                if (!swap->path)
+                        return -ENOMEM;
+
+                LIST_PREPEND(mount_point, *head, TAKE_PTR(swap));
         }
 
         return 0;

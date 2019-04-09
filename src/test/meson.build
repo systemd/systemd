@@ -228,6 +228,11 @@ tests += [
          [],
          []],
 
+        [['src/test/test-libmount.c'],
+         [],
+         [threads,
+          libmount]],
+
         [['src/test/test-mount-util.c'],
          [],
          []],
