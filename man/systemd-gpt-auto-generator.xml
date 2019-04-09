@@ -35,7 +35,7 @@
     root, <filename>/home/</filename>, <filename>/srv/</filename>, the EFI System Partition, the Extended
     Boot Loader Partition and swap partitions and creates mount and swap units for them, based on the
     partition type GUIDs of GUID partition tables (GPT), see <ulink
-    url="https://www.uefi.org/specifications">UEFI Specification</ulink>, chapter 5.  It implements the <ulink
+    url="https://uefi.org/specifications">UEFI Specification</ulink>, chapter 5.  It implements the <ulink
     url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable Partitions
     Specification</ulink>. Note that this generator has no effect on non-GPT systems, and on specific mount
     points that are directories already containing files. Also, on systems where the units are explicitly
