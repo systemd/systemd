@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "macro.h"
@@ -27,6 +28,11 @@ typedef enum {
 
 } WriteStringFileFlags;
 
+typedef enum {
+        READ_FULL_FILE_SECURE   = 1 << 0,
+        READ_FULL_FILE_UNBASE64 = 1 << 1,
+} ReadFullFileFlags;
+
 int write_string_stream_ts(FILE *f, const char *line, WriteStringFileFlags flags, struct timespec *ts);
 static inline int write_string_stream(FILE *f, const char *line, WriteStringFileFlags flags) {
         return write_string_stream_ts(f, line, flags, NULL);
@@ -38,9 +44,15 @@ static inline int write_string_file(const char *fn, const char *line, WriteStrin
 
 int write_string_filef(const char *fn, WriteStringFileFlags flags, const char *format, ...) _printf_(3, 4);
 
-int read_one_line_file(const char *fn, char **line);
-int read_full_file(const char *fn, char **contents, size_t *size);
-int read_full_stream(FILE *f, char **contents, size_t *size);
+int read_one_line_file(const char *filename, char **line);
+int read_full_file_full(const char *filename, ReadFullFileFlags flags, char **contents, size_t *size);
+static inline int read_full_file(const char *filename, char **contents, size_t *size) {
+        return read_full_file_full(filename, 0, contents, size);
+}
+int read_full_stream_full(FILE *f, const char *filename, ReadFullFileFlags flags, char **contents, size_t *size);
+static inline int read_full_stream(FILE *f, char **contents, size_t *size) {
+        return read_full_stream_full(f, NULL, 0, contents, size);
+}
 
 int verify_file(const char *fn, const char *blob, bool accept_extra_nl);
 
@@ -76,3 +88,5 @@ static inline int read_nul_string(FILE *f, size_t limit, char **ret) {
 }
 
 int safe_fgetc(FILE *f, char *ret);
+
+int warn_file_is_world_accessible(const char *filename, struct stat *st, const char *unit, unsigned line);

@@ -53,6 +53,8 @@ static void wireguard_peer_free(WireguardPeer *peer) {
 
         free(peer->endpoint_host);
         free(peer->endpoint_port);
+        free(peer->preshared_key_file);
+        explicit_bzero_safe(peer->preshared_key, WG_KEY_LEN);
 
         free(peer);
 }
@@ -438,16 +440,18 @@ static int netdev_wireguard_post_create(NetDev *netdev, Link *link, sd_netlink_m
         return 0;
 }
 
-int config_parse_wireguard_listen_port(const char *unit,
-                                       const char *filename,
-                                       unsigned line,
-                                       const char *section,
-                                       unsigned section_line,
-                                       const char *lvalue,
-                                       int ltype,
-                                       const char *rvalue,
-                                       void *data,
-                                       void *userdata) {
+int config_parse_wireguard_listen_port(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         uint16_t *s = data;
         uint16_t port = 0;
         int r;
@@ -465,17 +469,17 @@ int config_parse_wireguard_listen_port(const char *unit,
         }
 
         *s = port;
-
         return 0;
 }
 
 static int wireguard_decode_key_and_warn(
                 const char *rvalue,
-                uint8_t *ret,
+                uint8_t ret[static WG_KEY_LEN],
                 const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *lvalue) {
+
         _cleanup_free_ void *key = NULL;
         size_t len;
         int r;
@@ -490,43 +494,50 @@ static int wireguard_decode_key_and_warn(
                 return 0;
         }
 
-        r = unbase64mem(rvalue, strlen(rvalue), &key, &len);
+        if (!streq(lvalue, "PublicKey"))
+                (void) warn_file_is_world_accessible(filename, NULL, unit, line);
+
+        r = unbase64mem_full(rvalue, strlen(rvalue), true, &key, &len);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Failed to decode wireguard key provided by %s=, ignoring assignment: %m", lvalue);
-                return 0;
+                goto finalize;
         }
         if (len != WG_KEY_LEN) {
                 log_syntax(unit, LOG_ERR, filename, line, 0,
                            "Wireguard key provided by %s= has invalid length (%zu bytes), ignoring assignment.",
                            lvalue, len);
-                return 0;
+                goto finalize;
         }
 
         memcpy(ret, key, WG_KEY_LEN);
-        return true;
+        r = 0;
+
+finalize:
+        explicit_bzero_safe(key, len);
+        return r;
 }
 
-int config_parse_wireguard_private_key(const char *unit,
-                                       const char *filename,
-                                       unsigned line,
-                                       const char *section,
-                                       unsigned section_line,
-                                       const char *lvalue,
-                                       int ltype,
-                                       const char *rvalue,
-                                       void *data,
-                                       void *userdata) {
+int config_parse_wireguard_private_key(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Wireguard *w;
 
         assert(data);
-
         w = WIREGUARD(data);
-
         assert(w);
 
-        return wireguard_decode_key_and_warn(rvalue, w->private_key, unit, filename, line, lvalue);
-
+        (void) wireguard_decode_key_and_warn(rvalue, w->private_key, unit, filename, line, lvalue);
+        return 0;
 }
 
 int config_parse_wireguard_private_key_file(
@@ -563,25 +574,24 @@ int config_parse_wireguard_private_key_file(
         return free_and_replace(w->private_key_file, path);
 }
 
-int config_parse_wireguard_preshared_key(const char *unit,
-                                         const char *filename,
-                                         unsigned line,
-                                         const char *section,
-                                         unsigned section_line,
-                                         const char *lvalue,
-                                         int ltype,
-                                         const char *rvalue,
-                                         void *data,
-                                         void *userdata) {
+int config_parse_wireguard_preshared_key(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
         Wireguard *w;
         int r;
 
         assert(data);
-
         w = WIREGUARD(data);
-
         assert(w);
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
@@ -596,25 +606,67 @@ int config_parse_wireguard_preshared_key(const char *unit,
         return 0;
 }
 
-int config_parse_wireguard_public_key(const char *unit,
-                                      const char *filename,
-                                      unsigned line,
-                                      const char *section,
-                                      unsigned section_line,
-                                      const char *lvalue,
-                                      int ltype,
-                                      const char *rvalue,
-                                      void *data,
-                                      void *userdata) {
+int config_parse_wireguard_preshared_key_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
+        _cleanup_free_ char *path = NULL;
+        Wireguard *w;
+        int r;
+
+        assert(data);
+        w = WIREGUARD(data);
+        assert(w);
+
+        r = wireguard_peer_new_static(w, filename, section_line, &peer);
+        if (r < 0)
+                return r;
+
+        if (isempty(rvalue)) {
+                peer->preshared_key_file = mfree(peer->preshared_key_file);
+                TAKE_PTR(peer);
+                return 0;
+        }
+
+        path = strdup(rvalue);
+        if (!path)
+                return log_oom();
+
+        if (path_simplify_and_warn(path, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue) < 0)
+                return 0;
+
+        free_and_replace(peer->preshared_key_file, path);
+        TAKE_PTR(peer);
+        return 0;
+}
+
+int config_parse_wireguard_public_key(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
         Wireguard *w;
         int r;
 
         assert(data);
-
         w = WIREGUARD(data);
-
         assert(w);
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
@@ -629,16 +681,17 @@ int config_parse_wireguard_public_key(const char *unit,
         return 0;
 }
 
-int config_parse_wireguard_allowed_ips(const char *unit,
-                                       const char *filename,
-                                       unsigned line,
-                                       const char *section,
-                                       unsigned section_line,
-                                       const char *lvalue,
-                                       int ltype,
-                                       const char *rvalue,
-                                       void *data,
-                                       void *userdata) {
+int config_parse_wireguard_allowed_ips(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
         union in_addr_union addr;
@@ -651,7 +704,6 @@ int config_parse_wireguard_allowed_ips(const char *unit,
         assert(data);
 
         w = WIREGUARD(data);
-
         assert(w);
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
@@ -696,16 +748,17 @@ int config_parse_wireguard_allowed_ips(const char *unit,
         return 0;
 }
 
-int config_parse_wireguard_endpoint(const char *unit,
-                                    const char *filename,
-                                    unsigned line,
-                                    const char *section,
-                                    unsigned section_line,
-                                    const char *lvalue,
-                                    int ltype,
-                                    const char *rvalue,
-                                    void *data,
-                                    void *userdata) {
+int config_parse_wireguard_endpoint(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
         const char *begin, *end;
@@ -717,7 +770,6 @@ int config_parse_wireguard_endpoint(const char *unit,
         assert(rvalue);
 
         w = WIREGUARD(data);
-
         assert(w);
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
@@ -775,16 +827,17 @@ int config_parse_wireguard_endpoint(const char *unit,
         return 0;
 }
 
-int config_parse_wireguard_keepalive(const char *unit,
-                                     const char *filename,
-                                     unsigned line,
-                                     const char *section,
-                                     unsigned section_line,
-                                     const char *lvalue,
-                                     int ltype,
-                                     const char *rvalue,
-                                     void *data,
-                                     void *userdata) {
+int config_parse_wireguard_keepalive(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
         uint16_t keepalive = 0;
@@ -795,7 +848,6 @@ int config_parse_wireguard_keepalive(const char *unit,
         assert(data);
 
         w = WIREGUARD(data);
-
         assert(w);
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
@@ -824,9 +876,7 @@ static void wireguard_init(NetDev *netdev) {
         Wireguard *w;
 
         assert(netdev);
-
         w = WIREGUARD(netdev);
-
         assert(w);
 
         w->flags = WGDEVICE_F_REPLACE_PEERS;
@@ -841,6 +891,7 @@ static void wireguard_done(NetDev *netdev) {
 
         sd_event_source_unref(w->resolve_retry_event_source);
 
+        explicit_bzero_safe(w->private_key, WG_KEY_LEN);
         free(w->private_key_file);
 
         hashmap_free_with_destructor(w->peers_by_section, wireguard_peer_free);
@@ -848,45 +899,34 @@ static void wireguard_done(NetDev *netdev) {
         set_free(w->peers_with_failed_endpoint);
 }
 
-static int wireguard_read_private_key_file(Wireguard *w, bool fatal) {
-        _cleanup_free_ char *contents = NULL;
-        _cleanup_free_ void *key = NULL;
-        size_t size, key_len;
-        NetDev *netdev;
-        int level, r;
+static int wireguard_read_key_file(const char *filename, uint8_t dest[static WG_KEY_LEN]) {
+        _cleanup_free_ char *key = NULL;
+        size_t key_len;
+        int r;
 
-        assert(w);
-
-        netdev = NETDEV(w);
-
-        if (!w->private_key_file)
+        if (!filename)
                 return 0;
 
-        level = fatal ? LOG_ERR : LOG_INFO;
-
-        r = read_full_file(w->private_key_file, &contents, &size);
+        r = read_full_file_full(filename, READ_FULL_FILE_SECURE | READ_FULL_FILE_UNBASE64, &key, &key_len);
         if (r < 0)
-                return log_netdev_full(netdev, level, r,
-                                       "Failed to read private key from '%s'%s: %m",
-                                       w->private_key_file, fatal ? "" : ", ignoring");
+                return r;
 
-        r = unbase64mem(contents, size, &key, &key_len);
-        if (r < 0)
-                return log_netdev_full(netdev, level, r,
-                                       "Failed to decode private key%s: %m",
-                                       fatal ? "" : ", ignoring");
+        if (key_len != WG_KEY_LEN) {
+                r = -EINVAL;
+                goto finalize;
+        }
 
-        if (key_len != WG_KEY_LEN)
-                return log_netdev_full(netdev, level, SYNTHETIC_ERRNO(EINVAL),
-                                       "Wireguard private key has invalid length (%zu bytes)%s: %m",
-                                       key_len, fatal ? "" : ", ignoring");
+        memcpy(dest, key, WG_KEY_LEN);
+        r = 0;
 
-        memcpy(w->private_key, key, WG_KEY_LEN);
-        return 0;
+finalize:
+        explicit_bzero_safe(key, key_len);
+        return r;
 }
 
 static int wireguard_peer_verify(WireguardPeer *peer) {
         NetDev *netdev = NETDEV(peer->wireguard);
+        int r;
 
         if (section_is_invalid(peer->section))
                 return -EINVAL;
@@ -897,28 +937,37 @@ static int wireguard_peer_verify(WireguardPeer *peer) {
                                               "Ignoring [WireGuardPeer] section from line %u.",
                                               peer->section->filename, peer->section->line);
 
+        r = wireguard_read_key_file(peer->preshared_key_file, peer->preshared_key);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r,
+                                              "%s: Failed to read preshared key from '%s'. "
+                                              "Ignoring [WireGuardPeer] section from line %u.",
+                                              peer->section->filename, peer->preshared_key_file,
+                                              peer->section->line);
+
         return 0;
 }
 
 static int wireguard_verify(NetDev *netdev, const char *filename) {
         WireguardPeer *peer, *peer_next;
         Wireguard *w;
-        bool empty;
         int r;
 
         assert(netdev);
         w = WIREGUARD(netdev);
         assert(w);
 
-        empty = eqzero(w->private_key);
-        if (empty && !w->private_key_file)
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "%s: Missing PrivateKey= or PrivateKeyFile=, ignoring.",
-                                              filename);
+        r = wireguard_read_key_file(w->private_key_file, w->private_key);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r,
+                                              "Failed to read private key from %s. Dropping network device %s.",
+                                              w->private_key_file, netdev->ifname);
 
-        r = wireguard_read_private_key_file(w, empty);
-        if (r < 0 && empty)
-                return r;
+        if (eqzero(w->private_key))
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "%s: Missing PrivateKey= or PrivateKeyFile=, "
+                                              "Dropping network device %s.",
+                                              filename, netdev->ifname);
 
         LIST_FOREACH_SAFE(peers, peer, peer_next, w->peers)
                 if (wireguard_peer_verify(peer) < 0)

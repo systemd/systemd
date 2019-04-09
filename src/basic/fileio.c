@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hexdecoct.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
@@ -264,26 +265,29 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         return 1;
 }
 
-int read_full_stream(
+int read_full_stream_full(
                 FILE *f,
+                const char *filename,
+                ReadFullFileFlags flags,
                 char **ret_contents,
                 size_t *ret_size) {
 
         _cleanup_free_ char *buf = NULL;
         struct stat st;
-        size_t n, l;
-        int fd;
+        size_t n, n_next, l;
+        int fd, r;
 
         assert(f);
         assert(ret_contents);
+        assert(!(flags & READ_FULL_FILE_UNBASE64) || ret_size);
 
-        n = LINE_MAX; /* Start size */
+        n_next = LINE_MAX; /* Start size */
 
         fd = fileno(f);
         if (fd >= 0) { /* If the FILE* object is backed by an fd (as opposed to memory or such, see fmemopen(), let's
                         * optimize our buffering) */
 
-                if (fstat(fileno(f), &st) < 0)
+                if (fstat(fd, &st) < 0)
                         return -errno;
 
                 if (S_ISREG(st.st_mode)) {
@@ -296,27 +300,44 @@ int read_full_stream(
                          * size of 0. Note that we increase the size to read here by one, so that the first read attempt
                          * already makes us notice the EOF. */
                         if (st.st_size > 0)
-                                n = st.st_size + 1;
+                                n_next = st.st_size + 1;
+
+                        if (flags & READ_FULL_FILE_SECURE)
+                                (void) warn_file_is_world_accessible(filename, &st, NULL, 0);
                 }
         }
 
-        l = 0;
+        n = l = 0;
         for (;;) {
                 char *t;
                 size_t k;
 
-                t = realloc(buf, n + 1);
-                if (!t)
-                        return -ENOMEM;
+                if (flags & READ_FULL_FILE_SECURE) {
+                        t = malloc(n_next + 1);
+                        if (!t) {
+                                r = -ENOMEM;
+                                goto finalize;
+                        }
+                        memcpy_safe(t, buf, n);
+                        explicit_bzero_safe(buf, n);
+                } else {
+                        t = realloc(buf, n_next + 1);
+                        if (!t)
+                                return -ENOMEM;
+                }
 
                 buf = t;
+                n = n_next;
+
                 errno = 0;
                 k = fread(buf + l, 1, n - l, f);
                 if (k > 0)
                         l += k;
 
-                if (ferror(f))
-                        return errno > 0 ? -errno : -EIO;
+                if (ferror(f)) {
+                        r = errno > 0 ? -errno : -EIO;
+                        goto finalize;
+                }
 
                 if (feof(f))
                         break;
@@ -327,10 +348,18 @@ int read_full_stream(
                 assert(l == n);
 
                 /* Safety check */
-                if (n >= READ_FULL_BYTES_MAX)
-                        return -E2BIG;
+                if (n >= READ_FULL_BYTES_MAX) {
+                        r = -E2BIG;
+                        goto finalize;
+                }
 
-                n = MIN(n * 2, READ_FULL_BYTES_MAX);
+                n_next = MIN(n * 2, READ_FULL_BYTES_MAX);
+        }
+
+        if (flags & READ_FULL_FILE_UNBASE64) {
+                buf[l++] = 0;
+                r = unbase64mem_full(buf, l, flags & READ_FULL_FILE_SECURE, (void **) ret_contents, ret_size);
+                goto finalize;
         }
 
         if (!ret_size) {
@@ -338,8 +367,10 @@ int read_full_stream(
                  * trailing NUL byte. But if there's an embedded NUL byte, then we should refuse operation as otherwise
                  * there'd be ambiguity about what we just read. */
 
-                if (memchr(buf, 0, l))
-                        return -EBADMSG;
+                if (memchr(buf, 0, l)) {
+                        r = -EBADMSG;
+                        goto finalize;
+                }
         }
 
         buf[l] = 0;
@@ -349,21 +380,27 @@ int read_full_stream(
                 *ret_size = l;
 
         return 0;
+
+finalize:
+        if (flags & READ_FULL_FILE_SECURE)
+                explicit_bzero_safe(buf, n);
+
+        return r;
 }
 
-int read_full_file(const char *fn, char **contents, size_t *size) {
+int read_full_file_full(const char *filename, ReadFullFileFlags flags, char **contents, size_t *size) {
         _cleanup_fclose_ FILE *f = NULL;
 
-        assert(fn);
+        assert(filename);
         assert(contents);
 
-        f = fopen(fn, "re");
+        f = fopen(filename, "re");
         if (!f)
                 return -errno;
 
         (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
-        return read_full_stream(f, contents, size);
+        return read_full_stream_full(f, filename, flags, contents, size);
 }
 
 int executable_is_script(const char *path, char **interpreter) {
@@ -817,4 +854,29 @@ int safe_fgetc(FILE *f, char *ret) {
                 *ret = k;
 
         return 1;
+}
+
+int warn_file_is_world_accessible(const char *filename, struct stat *st, const char *unit, unsigned line) {
+        struct stat _st;
+
+        if (!filename)
+                return 0;
+
+        if (!st) {
+                if (stat(filename, &_st) < 0)
+                        return -errno;
+                st = &_st;
+        }
+
+        if ((st->st_mode & S_IRWXO) == 0)
+                return 0;
+
+        if (unit)
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s has %04o mode that is too permissive, please adjust the access mode.",
+                           filename, st->st_mode & 07777);
+        else
+                log_warning("%s has %04o mode that is too permissive, please adjust the access mode.",
+                            filename, st->st_mode & 07777);
+        return 0;
 }

@@ -307,6 +307,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-vxlan.netdev',
         '25-wireguard-23-peers.netdev',
         '25-wireguard-23-peers.network',
+        '25-wireguard-preshared-key.txt',
         '25-wireguard-private-key.txt',
         '25-wireguard.netdev',
         '25-wireguard.network',
@@ -528,7 +529,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     def test_wireguard(self):
         self.copy_unit_to_networkd_unit_path('25-wireguard.netdev', '25-wireguard.network',
                                              '25-wireguard-23-peers.netdev', '25-wireguard-23-peers.network',
-                                             '25-wireguard-private-key.txt')
+                                             '25-wireguard-preshared-key.txt', '25-wireguard-private-key.txt')
         self.start_networkd(0)
         self.wait_online(['wg99:carrier', 'wg98:routable'])
 
@@ -551,6 +552,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             self.assertTrue(output, 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t192.168.27.3:51820')
             output = subprocess.check_output(['wg', 'show', 'wg99', 'private-key']).rstrip().decode('utf-8')
             self.assertTrue(output, 'EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'preshared-keys']).rstrip().decode('utf-8')
+            self.assertTrue(output, 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=	IIWIV17wutHv7t4cR6pOT91z6NSz/T8Arh0yaywhw3M=')
+            self.assertTrue(output, 'lsDtM3AbjxNlauRKzHEPfgS1Zp7cp/VX5Use/P4PQSc=	cPLOy1YUrEI0EMMIycPJmOo0aTu3RZnw8bL5meVD6m0=')
 
             output = subprocess.check_output(['wg', 'show', 'wg98', 'private-key']).rstrip().decode('utf-8')
             self.assertTrue(output, 'CJQUtcS9emY2fLYqDlpSZiE/QJyHkPWr+WHtZLZ90FU=')
