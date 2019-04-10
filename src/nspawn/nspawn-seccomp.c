@@ -187,7 +187,7 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **sys
                         return r;
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return log_error_errno(r, "Failed to install seccomp filter: %m");
                 if (r < 0)
                         log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
@@ -223,7 +223,7 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **sys
                 }
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return log_error_errno(r, "Failed to install seccomp audit filter: %m");
                 if (r < 0)
                         log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m", seccomp_arch_to_string(arch));

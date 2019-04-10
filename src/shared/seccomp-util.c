@@ -952,7 +952,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
                         return log_debug_errno(r, "Failed to add filter set: %m");
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
@@ -1007,7 +1007,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
                 }
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
@@ -1193,7 +1193,7 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                         continue;
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to install namespace restriction rules for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
@@ -1230,7 +1230,7 @@ int seccomp_protect_sysctl(void) {
                 }
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to install sysctl protection rules for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
@@ -1394,7 +1394,7 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                 }
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to install socket family rules for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
@@ -1471,7 +1471,7 @@ int seccomp_restrict_realtime(void) {
                 }
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to install realtime protection rules for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
@@ -1598,7 +1598,7 @@ int seccomp_memory_deny_write_execute(void) {
                 }
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to install MemoryDenyWriteExecute= rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
@@ -1651,7 +1651,7 @@ int seccomp_restrict_archs(Set *archs) {
                 return r;
 
         r = seccomp_load(seccomp);
-        if (IN_SET(r, -EPERM, -EACCES))
+        if (ERRNO_IS_SECCOMP_FATAL(r))
                 return r;
         if (r < 0)
                 log_debug_errno(r, "Failed to restrict system call architectures, skipping: %m");
@@ -1753,7 +1753,7 @@ int seccomp_lock_personality(unsigned long personality) {
                 }
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to enable personality lock for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
@@ -1794,7 +1794,7 @@ int seccomp_protect_hostname(void) {
                 }
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to apply hostname restrictions for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
@@ -1956,7 +1956,7 @@ int seccomp_restrict_suid_sgid(void) {
                         continue;
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to apply suid/sgid restrictions for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
