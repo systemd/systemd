@@ -32,11 +32,23 @@ static inline int negative_errno(void) {
  *
  * Hint #2: The kernel sends e.g., EHOSTUNREACH or ENONET to userspace in some ICMP error cases.  See the
  *          icmp_err_convert[] in net/ipv4/icmp.c in the kernel sources */
-#define ERRNO_IS_DISCONNECT(r)                                          \
-        IN_SET(abs(r),                                                  \
-               ENOTCONN, ECONNRESET, ECONNREFUSED, ECONNABORTED, EPIPE, \
-               ENETUNREACH, EHOSTUNREACH, ENOPROTOOPT, EHOSTDOWN,       \
-               ENONET, ESHUTDOWN)
+static inline bool ERRNO_IS_DISCONNECT(int r) {
+        return IN_SET(abs(r),
+                      ECONNABORTED,
+                      ECONNREFUSED,
+                      ECONNRESET,
+                      EHOSTDOWN,
+                      EHOSTUNREACH,
+                      ENETDOWN,
+                      ENETRESET,
+                      ENETUNREACH,
+                      ENONET,
+                      ENOPROTOOPT,
+                      ENOTCONN,
+                      EPIPE,
+                      EPROTO,
+                      ESHUTDOWN);
+}
 
 /* Resource exhaustion, could be our fault or general system trouble */
 #define ERRNO_IS_RESOURCE(r) \
