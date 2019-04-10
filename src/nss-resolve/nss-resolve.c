@@ -571,7 +571,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         r = sd_bus_message_rewind(reply, false);
         if (r < 0)
-                return r;
+                goto fail;
 
         if (c <= 0)
                 goto not_found;
