@@ -274,8 +274,8 @@ static int do_accept(const char* name, char **argv, char **envp, int fd) {
         if (fd_accepted < 0)
                 return log_error_errno(errno, "Failed to accept connection on fd:%d: %m", fd);
 
-        getsockname_pretty(fd_accepted, &local);
-        getpeername_pretty(fd_accepted, true, &peer);
+        (void) getsockname_pretty(fd_accepted, &local);
+        (void) getpeername_pretty(fd_accepted, true, &peer);
         log_info("Connection from %s to %s", strna(peer), strna(local));
 
         return fork_and_exec_process(name, argv, envp, fd_accepted);
