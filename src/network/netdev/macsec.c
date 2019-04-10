@@ -21,6 +21,14 @@
 #include "string-util.h"
 #include "util.h"
 
+static void security_association_clear(SecurityAssociation *sa) {
+        if (!sa)
+                return;
+
+        explicit_bzero_safe(sa->key, sa->key_len);
+        free(sa->key);
+}
+
 static void macsec_receive_association_free(ReceiveAssociation *c) {
         if (!c)
                 return;
@@ -29,7 +37,7 @@ static void macsec_receive_association_free(ReceiveAssociation *c) {
                 ordered_hashmap_remove(c->macsec->receive_associations_by_section, c->section);
 
         network_config_section_free(c->section);
-        free(c->sa.key);
+        security_association_clear(&c->sa);
 
         free(c);
 }
@@ -162,7 +170,7 @@ static void macsec_transmit_association_free(TransmitAssociation *a) {
                 ordered_hashmap_remove(a->macsec->transmit_associations_by_section, a->section);
 
         network_config_section_free(a->section);
-        free(a->sa.key);
+        security_association_clear(&a->sa);
 
         free(a);
 }
@@ -707,7 +715,7 @@ int config_parse_macsec_key(
 
         dest = a ? &a->sa : &b->sa;
 
-        r = unhexmem(rvalue, strlen(rvalue), &p, &l);
+        r = unhexmem_full(rvalue, strlen(rvalue), true, &p, &l);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Failed to parse key. Ignoring assignment: %m");
@@ -715,6 +723,7 @@ int config_parse_macsec_key(
         }
         if (l != 16) {
                 /* See DEFAULT_SAK_LEN in drivers/net/macsec.c */
+                explicit_bzero_safe(p, l);
                 log_syntax(unit, LOG_ERR, filename, line, 0,
                            "Invalid key length (%zu). Ignoring assignment", l);
                 return 0;
