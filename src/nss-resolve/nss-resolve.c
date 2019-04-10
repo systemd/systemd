@@ -118,7 +118,6 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         struct gaih_addrtuple *r_tuple, *r_tuple_first = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        enum nss_status ret = NSS_STATUS_UNAVAIL;
         const char *canonical = NULL;
         size_t l, ms, idx;
         char *r_name;
@@ -273,7 +272,7 @@ fail:
         UNPROTECT_ERRNO;
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
-        return ret;
+        return NSS_STATUS_UNAVAIL;
 
 not_found:
         *h_errnop = HOST_NOT_FOUND;
@@ -293,7 +292,6 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *r_name, *r_aliases, *r_addr, *r_addr_list;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        enum nss_status ret = NSS_STATUS_UNAVAIL;
         size_t l, idx, ms, alen;
         const char *canonical;
         int c, r, i = 0;
@@ -463,7 +461,7 @@ fail:
         UNPROTECT_ERRNO;
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
-        return ret;
+        return NSS_STATUS_UNAVAIL;
 
 not_found:
         *h_errnop = HOST_NOT_FOUND;
@@ -482,7 +480,6 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *r_name, *r_aliases, *r_addr, *r_addr_list;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        enum nss_status ret = NSS_STATUS_UNAVAIL;
         unsigned c = 0, i = 0;
         size_t ms = 0, idx;
         const char *n;
@@ -648,7 +645,7 @@ fail:
         UNPROTECT_ERRNO;
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
-        return ret;
+        return NSS_STATUS_UNAVAIL;
 
 not_found:
         *h_errnop = HOST_NOT_FOUND;
