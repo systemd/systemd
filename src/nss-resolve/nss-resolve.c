@@ -502,10 +502,8 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         }
 
         if (len != FAMILY_ADDRESS_SIZE(af)) {
-                UNPROTECT_ERRNO;
-                *errnop = EINVAL;
-                *h_errnop = NO_RECOVERY;
-                return NSS_STATUS_UNAVAIL;
+                r = -EINVAL;
+                goto fail;
         }
 
         if (avoid_deadlock()) {
