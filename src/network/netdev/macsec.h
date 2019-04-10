@@ -30,6 +30,7 @@ typedef struct SecurityAssociation {
         uint8_t key_id[MACSEC_KEYID_LEN];
         uint8_t *key;
         uint32_t key_len;
+        char *key_file;
 } SecurityAssociation;
 
 typedef struct TransmitAssociation {
@@ -76,3 +77,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_macsec_hw_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_macsec_packet_number);
 CONFIG_PARSER_PROTOTYPE(config_parse_macsec_key_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_macsec_key);
+CONFIG_PARSER_PROTOTYPE(config_parse_macsec_key_file);

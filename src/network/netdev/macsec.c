@@ -6,6 +6,7 @@
 #include <linux/genetlink.h>
 
 #include "conf-parser.h"
+#include "fileio.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "macsec.h"
@@ -15,6 +16,7 @@
 #include "network-internal.h"
 #include "networkd-address.h"
 #include "networkd-manager.h"
+#include "path-util.h"
 #include "sd-netlink.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -27,6 +29,7 @@ static void security_association_clear(SecurityAssociation *sa) {
 
         explicit_bzero_safe(sa->key, sa->key_len);
         free(sa->key);
+        free(sa->key_file);
 }
 
 static void macsec_receive_association_free(ReceiveAssociation *c) {
@@ -738,6 +741,59 @@ int config_parse_macsec_key(
         return 0;
 }
 
+int config_parse_macsec_key_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
+        _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
+        _cleanup_free_ char *path = NULL;
+        MACsec *s = userdata;
+        char **dest;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(section, "MACsecTransmitAssociation"))
+                r = macsec_transmit_association_new_static(s, filename, section_line, &a);
+        else
+                r = macsec_receive_association_new_static(s, filename, section_line, &b);
+        if (r < 0)
+                return r;
+
+        dest = a ? &a->sa.key_file : &b->sa.key_file;
+
+        if (isempty(rvalue)) {
+                *dest = mfree(*dest);
+                return 0;
+        }
+
+        path = strdup(rvalue);
+        if (!path)
+                return log_oom();
+
+        if (path_simplify_and_warn(path, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue) < 0)
+                return 0;
+
+        free_and_replace(*dest, path);
+        TAKE_PTR(a);
+        TAKE_PTR(b);
+
+        return 0;
+}
+
 int config_parse_macsec_key_id(
                 const char *unit,
                 const char *filename,
@@ -793,6 +849,36 @@ int config_parse_macsec_key_id(
         return 0;
 }
 
+static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
+        _cleanup_free_ uint8_t *key = NULL;
+        size_t key_len;
+        int r;
+
+        assert(netdev);
+        assert(sa);
+
+        if (!sa->key_file)
+                return 0;
+
+        r = read_full_file_full(sa->key_file, READ_FULL_FILE_SECURE | READ_FULL_FILE_UNHEX, (char **) &key, &key_len);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r,
+                                              "Failed to read key from '%s', ignoring: %m",
+                                              sa->key_file);
+        if (key_len != 16) {
+                explicit_bzero_safe(key, key_len);
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Invalid key length (%zu bytes), ignoring: %m",
+                                              key_len);
+        }
+
+        explicit_bzero_safe(sa->key, sa->key_len);
+        free_and_replace(sa->key, key);
+        sa->key_len = key_len;
+
+        return 0;
+}
+
 static int macsec_receive_channel_verify(ReceiveChannel *c) {
         NetDev *netdev;
         int r;
@@ -837,6 +923,7 @@ static int macsec_receive_channel_verify(ReceiveChannel *c) {
 
 static int macsec_transmit_association_verify(TransmitAssociation *t) {
         NetDev *netdev;
+        int r;
 
         assert(t);
         assert(t->macsec);
@@ -851,6 +938,10 @@ static int macsec_transmit_association_verify(TransmitAssociation *t) {
                                               "%s: MACsec transmit secure association without PacketNumber= configured. "
                                               "Ignoring [MACsecTransmitAssociation] section from line %u",
                                               t->section->filename, t->section->line);
+
+        r = macsec_read_key_file(netdev, &t->sa);
+        if (r < 0)
+                return r;
 
         if (t->sa.key_len <= 0)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
@@ -873,6 +964,10 @@ static int macsec_receive_association_verify(ReceiveAssociation *a) {
 
         if (section_is_invalid(a->section))
                 return -EINVAL;
+
+        r = macsec_read_key_file(netdev, &a->sa);
+        if (r < 0)
+                return r;
 
         if (a->sa.key_len <= 0)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),

@@ -183,6 +183,7 @@ MACAddress=
 PacketNumber=
 KeyId=
 Key=
+KeyFile=
 [MACsecReceiveChannel]
 Port=
 MACAddress=
@@ -190,3 +191,4 @@ MACAddress=
 PacketNumber=
 KeyId=
 Key=
+KeyFile=

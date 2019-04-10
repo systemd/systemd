@@ -931,6 +931,16 @@
           <literal>dffafc8d7b9a43d5b9a3dfbbf6a30c16</literal>.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>KeyFile=</varname></term>
+        <listitem>
+          <para>Takes a absolute path to a file which contains a 128-bit key encoded in a hexadecimal
+          string, which will be used in the transmission channel. When this option is specified,
+          <varname>Key=</varname> is ignored. Note that the file must be readable by the user
+          <literal>systemd-network</literal>, so it should be, e.g., owned by
+          <literal>root:systemd-network</literal> with a <literal>0640</literal> file mode.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>
@@ -966,6 +976,12 @@
       </varlistentry>
       <varlistentry>
         <term><varname>Key=</varname></term>
+        <listitem>
+          <para>Accepts the same key in <literal>[MACsecTransmitAssociation]</literal> section.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>KeyFile=</varname></term>
         <listitem>
           <para>Accepts the same key in <literal>[MACsecTransmitAssociation]</literal> section.</para>
         </listitem>
