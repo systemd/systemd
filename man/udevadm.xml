@@ -362,6 +362,10 @@
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
+
+      <para>See
+      <citerefentry><refentrytitle>systemd-udev-settle.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      for more information.</para>
     </refsect2>
 
     <refsect2><title>udevadm control <replaceable>option</replaceable></title>

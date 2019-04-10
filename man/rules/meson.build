@@ -774,6 +774,7 @@ manpages = [
    'systemd-tmpfiles-setup.service'],
   ''],
  ['systemd-tty-ask-password-agent', '1', [], ''],
+ ['systemd-udev-settle.service', '8', [], ''],
  ['systemd-udevd.service',
   '8',
   ['systemd-udevd',
