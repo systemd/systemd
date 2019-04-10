@@ -51,5 +51,9 @@ static inline bool ERRNO_IS_DISCONNECT(int r) {
 }
 
 /* Resource exhaustion, could be our fault or general system trouble */
-#define ERRNO_IS_RESOURCE(r) \
-        IN_SET(abs(r), ENOMEM, EMFILE, ENFILE)
+static inline bool ERRNO_IS_RESOURCE(int r) {
+        return IN_SET(abs(r),
+                      EMFILE,
+                      ENFILE,
+                      ENOMEM);
+}
