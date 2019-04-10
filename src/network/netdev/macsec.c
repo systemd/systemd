@@ -730,6 +730,8 @@ int config_parse_macsec_key(
         assert(rvalue);
         assert(data);
 
+        (void) warn_file_is_world_accessible(filename, NULL, unit, line);
+
         if (streq(section, "MACsecTransmitAssociation"))
                 r = macsec_transmit_association_new_static(s, filename, section_line, &a);
         else
