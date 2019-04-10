@@ -467,7 +467,7 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (nfd < 0) {
-                if (errno != -EAGAIN)
+                if (!ERRNO_IS_ACCEPT_AGAIN(errno))
                         log_warning_errno(errno, "Failed to accept() socket: %m");
         } else {
                 (void) getpeername_pretty(nfd, true, &peer);

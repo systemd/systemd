@@ -622,6 +622,9 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
 
         nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (nfd < 0) {
+                if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                        return 0;
+
                 log_warning_errno(errno, "Failed to accept private connection, ignoring: %m");
                 return 0;
         }
