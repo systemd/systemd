@@ -50,6 +50,16 @@ static inline bool ERRNO_IS_DISCONNECT(int r) {
                       ESHUTDOWN);
 }
 
+/* Transient errors we might get on accept() that we should ignore. As per error handling comment in
+ * the accept(2) man page. */
+static inline bool ERRNO_IS_ACCEPT_AGAIN(int r) {
+        return ERRNO_IS_DISCONNECT(r) ||
+                IN_SET(abs(r),
+                       EAGAIN,
+                       EINTR,
+                       EOPNOTSUPP);
+}
+
 /* Resource exhaustion, could be our fault or general system trouble */
 static inline bool ERRNO_IS_RESOURCE(int r) {
         return IN_SET(abs(r),
