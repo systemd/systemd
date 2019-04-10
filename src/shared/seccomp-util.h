@@ -95,6 +95,12 @@ extern const uint32_t seccomp_local_archs[];
              seccomp_local_archs[_i] != (uint32_t) -1;                  \
              (arch) = seccomp_local_archs[++_i])
 
+/* EACCES: does not have the CAP_SYS_ADMIN or no_new_privs == 1
+ * ENOMEM: out of memory, failed to allocate space for a libseccomp structure, or would exceed a defined constant
+ * EFAULT: addresses passed as args (by libseccomp) are invalid */
+#define ERRNO_IS_SECCOMP_FATAL(r)                                       \
+        IN_SET(abs(r), EPERM, EACCES, ENOMEM, EFAULT)
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(scmp_filter_ctx, seccomp_release);
 
 int parse_syscall_archs(char **l, Set **archs);
