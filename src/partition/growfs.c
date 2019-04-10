@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <linux/btrfs.h>
 #include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>

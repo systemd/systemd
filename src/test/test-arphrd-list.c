@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <net/if_arp.h>
+#include <linux/if_arp.h>
 #include <string.h>
 
 #include "macro.h"
-#include "missing_network.h"
 #include "string-util.h"
 
 _unused_ \

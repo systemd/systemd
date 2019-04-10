@@ -3,8 +3,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <linux/btrfs_tree.h>
 #include <linux/fs.h>
 #include <linux/loop.h>
+#include <linux/magic.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,7 +28,6 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "macro.h"
-#include "missing.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "smack-util.h"

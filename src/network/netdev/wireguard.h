@@ -2,10 +2,11 @@
 
 typedef struct Wireguard Wireguard;
 
+#include <linux/wireguard.h>
+
 #include "in-addr-util.h"
 #include "netdev.h"
 #include "socket-util.h"
-#include "wireguard-netlink.h"
 
 typedef struct WireguardIPmask {
         uint16_t family;

@@ -84,6 +84,23 @@ basic_sources = files('''
         label.h
         limits-util.c
         limits-util.h
+        linux/btrfs.h
+        linux/btrfs_tree.h
+        linux/can/vxcan.h
+        linux/fib_rules.h
+        linux/fou.h
+        linux/if.h
+        linux/if_addr.h
+        linux/if_arp.h
+        linux/if_bonding.h
+        linux/if_bridge.h
+        linux/if_link.h
+        linux/if_tun.h
+        linux/if_tunnel.h
+        linux/libc-compat.h
+        linux/netlink.h
+        linux/rtnetlink.h
+        linux/wireguard.h
         list.h
         locale-util.c
         locale-util.h
@@ -100,18 +117,10 @@ basic_sources = files('''
         mempool.h
         missing.h
         missing_audit.h
-        missing_btrfs.h
-        missing_btrfs_tree.h
         missing_capability.h
         missing_drm.h
-        missing_ethtool.h
         missing_fcntl.h
-        missing_fib_rules.h
-        missing_fou.h
         missing_fs.h
-        missing_if_bridge.h
-        missing_if_link.h
-        missing_if_tunnel.h
         missing_input.h
         missing_keyctl.h
         missing_magic.h
@@ -128,7 +137,6 @@ basic_sources = files('''
         missing_syscall.h
         missing_timerfd.h
         missing_type.h
-        missing_vxcan.h
         mkdir-label.c
         mkdir.c
         mkdir.h
@@ -227,7 +235,6 @@ basic_sources = files('''
 
 missing_audit_h = files('missing_audit.h')
 missing_capability_h = files('missing_capability.h')
-missing_network_h = files('missing_network.h')
 missing_socket_h = files('missing_socket.h')
 
 generate_af_list = find_program('generate-af-list.sh')
@@ -241,7 +248,7 @@ generate_arphrd_list = find_program('generate-arphrd-list.sh')
 arphrd_list_txt = custom_target(
         'arphrd-list.txt',
         output : 'arphrd-list.txt',
-        command : [generate_arphrd_list, cpp, config_h, missing_network_h],
+        command : [generate_arphrd_list, cpp, config_h],
         capture : true)
 
 generate_cap_list = find_program('generate-cap-list.sh')

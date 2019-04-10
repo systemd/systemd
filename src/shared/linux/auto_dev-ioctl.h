@@ -1,30 +1,23 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0+ WITH Linux-syscall-note */
 /*
- * Copyright © 2008 Red Hat, Inc. All rights reserved.
- * Copyright © 2008 Ian Kent <raven@themaw.net>
+ * Copyright 2008 Red Hat, Inc. All rights reserved.
+ * Copyright 2008 Ian Kent <raven@themaw.net>
  *
  * This file is part of the Linux kernel and is made available under
  * the terms of the GNU General Public License, version 2, or at your
  * option, any later version, incorporated herein by reference.
  */
 
-#ifndef _LINUX_AUTO_DEV_IOCTL_H
-#define _LINUX_AUTO_DEV_IOCTL_H
+#ifndef _UAPI_LINUX_AUTO_DEV_IOCTL_H
+#define _UAPI_LINUX_AUTO_DEV_IOCTL_H
 
 #include <linux/auto_fs.h>
-
-#ifdef __KERNEL__
 #include <linux/string.h>
-#else
-#include <string.h>
-#endif /* __KERNEL__ */
 
 #define AUTOFS_DEVICE_NAME		"autofs"
 
 #define AUTOFS_DEV_IOCTL_VERSION_MAJOR	1
 #define AUTOFS_DEV_IOCTL_VERSION_MINOR	0
-
-#define AUTOFS_DEVID_LEN		16
 
 #define AUTOFS_DEV_IOCTL_SIZE		sizeof(struct autofs_dev_ioctl)
 
@@ -119,19 +112,15 @@ struct autofs_dev_ioctl {
 	char path[0];
 };
 
-static inline void init_autofs_dev_ioctl(struct autofs_dev_ioctl *in) {
-	memset(in, 0, sizeof(struct autofs_dev_ioctl));
+static inline void init_autofs_dev_ioctl(struct autofs_dev_ioctl *in)
+{
+	memset(in, 0, AUTOFS_DEV_IOCTL_SIZE);
 	in->ver_major = AUTOFS_DEV_IOCTL_VERSION_MAJOR;
 	in->ver_minor = AUTOFS_DEV_IOCTL_VERSION_MINOR;
-	in->size = sizeof(struct autofs_dev_ioctl);
+	in->size = AUTOFS_DEV_IOCTL_SIZE;
 	in->ioctlfd = -1;
-	return;
 }
 
-/*
- * If you change this make sure you make the corresponding change
- * to autofs-dev-ioctl.c:lookup_ioctl()
- */
 enum {
 	/* Get various version info */
 	AUTOFS_DEV_IOCTL_VERSION_CMD = 0x71,
@@ -168,7 +157,9 @@ enum {
 	AUTOFS_DEV_IOCTL_ISMOUNTPOINT_CMD,
 };
 
+#ifndef AUTOFS_IOCTL
 #define AUTOFS_IOCTL 0x93
+#endif
 
 #define AUTOFS_DEV_IOCTL_VERSION \
 	_IOWR(AUTOFS_IOCTL, \
@@ -226,4 +217,4 @@ enum {
 	_IOWR(AUTOFS_IOCTL, \
 	      AUTOFS_DEV_IOCTL_ISMOUNTPOINT_CMD, struct autofs_dev_ioctl)
 
-#endif	/* _LINUX_AUTO_DEV_IOCTL_H */
+#endif	/* _UAPI_LINUX_AUTO_DEV_IOCTL_H */

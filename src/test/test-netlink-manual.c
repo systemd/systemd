@@ -2,9 +2,8 @@
 
 #include <arpa/inet.h>
 #include <libkmod.h>
-#include <linux/ip.h>
-#include <net/if.h>
 #include <linux/if_tunnel.h>
+#include <linux/ip.h>
 #include <sys/types.h>
 #include <unistd.h>
 

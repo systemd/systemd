@@ -9,7 +9,6 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
-#include "missing_if_bridge.h"
 #include "netlink-util.h"
 #include "networkd-brvlan.h"
 #include "networkd-link.h"

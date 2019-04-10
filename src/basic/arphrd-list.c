@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <net/if_arp.h>
+#include <linux/if_arp.h>
 #include <string.h>
 
 #include "arphrd-list.h"
 #include "macro.h"
-#include "missing_network.h"
 
 static const struct arphrd_name* lookup_arphrd(register const char *str, register GPERF_LEN_TYPE len);
 
