@@ -82,8 +82,13 @@ static void macsec_receive_channel_free(ReceiveChannel *c) {
         if (!c)
                 return;
 
-        if (c->macsec && c->section)
-                ordered_hashmap_remove(c->macsec->receive_channels_by_section, c->section);
+        if (c->macsec) {
+                if (c->sci.as_uint64 > 0)
+                        ordered_hashmap_remove(c->macsec->receive_channels, &c->sci.as_uint64);
+
+                if (c->section)
+                        ordered_hashmap_remove(c->macsec->receive_channels_by_section, c->section);
+        }
 
         network_config_section_free(c->section);
 
@@ -91,6 +96,24 @@ static void macsec_receive_channel_free(ReceiveChannel *c) {
 }
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(ReceiveChannel, macsec_receive_channel_free);
+
+static int macsec_receive_channel_new(MACsec *s, uint64_t sci, ReceiveChannel **ret) {
+        ReceiveChannel *c;
+
+        assert(s);
+
+        c = new(ReceiveChannel, 1);
+        if (!c)
+                return -ENOMEM;
+
+        *c = (ReceiveChannel) {
+                .macsec = s,
+                .sci.as_uint64 = sci,
+        };
+
+        *ret = c;
+        return 0;
+}
 
 static int macsec_receive_channel_new_static(MACsec *s, const char *filename, unsigned section_line, ReceiveChannel **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
@@ -112,14 +135,11 @@ static int macsec_receive_channel_new_static(MACsec *s, const char *filename, un
                 return 0;
         }
 
-        c = new(ReceiveChannel, 1);
-        if (!c)
-                return -ENOMEM;
+        r = macsec_receive_channel_new(s, 0, &c);
+        if (r < 0)
+                return r;
 
-        *c = (ReceiveChannel) {
-                .macsec = s,
-                .section = TAKE_PTR(n),
-        };
+        c->section = TAKE_PTR(n);
 
         r = ordered_hashmap_ensure_allocated(&s->receive_channels_by_section, &network_config_hash_ops);
         if (r < 0)
@@ -324,10 +344,16 @@ static int netdev_macsec_configure_receive_association(NetDev *netdev, ReceiveAs
         return 0;
 }
 
-static int macsec_receive_channel_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
+static int macsec_receive_channel_handler(sd_netlink *rtnl, sd_netlink_message *m, ReceiveChannel *c) {
+        NetDev *netdev;
+        unsigned i;
         int r;
 
-        assert(netdev);
+        assert(c);
+        assert(c->macsec);
+
+        netdev = NETDEV(c->macsec);
+
         assert(netdev->state != _NETDEV_STATE_INVALID);
 
         r = sd_netlink_message_get_errno(m);
@@ -345,7 +371,24 @@ static int macsec_receive_channel_handler(sd_netlink *rtnl, sd_netlink_message *
 
         log_netdev_debug(netdev, "Receive channel is configured");
 
+        for (i = 0; i < c->n_rxsa; i++) {
+                r = netdev_macsec_configure_receive_association(netdev, c->rxsa[i]);
+                if (r < 0) {
+                        log_netdev_warning_errno(netdev, r,
+                                                 "Failed to configure receive security association: %m");
+                        netdev_drop(netdev);
+                        return 1;
+                }
+        }
+
         return 1;
+}
+
+static void receive_channel_destroy_callback(ReceiveChannel *c) {
+        assert(c);
+        assert(c->macsec);
+
+        netdev_unref(NETDEV(c->macsec));
 }
 
 static int netdev_macsec_configure_receive_channel(NetDev *netdev, ReceiveChannel *c) {
@@ -364,7 +407,7 @@ static int netdev_macsec_configure_receive_channel(NetDev *netdev, ReceiveChanne
                 return r;
 
         r = netlink_call_async(netdev->manager->genl, NULL, m, macsec_receive_channel_handler,
-                               netdev_destroy_callback, netdev);
+                               receive_channel_destroy_callback, c);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Failed to configure receive channel: %m");
 
@@ -423,7 +466,6 @@ static int netdev_macsec_configure_transmit_association(NetDev *netdev, Transmit
 }
 
 static int netdev_macsec_configure(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        ReceiveAssociation *n;
         TransmitAssociation *a;
         ReceiveChannel *c;
         Iterator i;
@@ -440,14 +482,8 @@ static int netdev_macsec_configure(NetDev *netdev, Link *link, sd_netlink_messag
                         return r;
         }
 
-        ORDERED_HASHMAP_FOREACH(c, s->receive_channels_by_section, i) {
+        ORDERED_HASHMAP_FOREACH(c, s->receive_channels, i) {
                 r = netdev_macsec_configure_receive_channel(netdev, c);
-                if (r < 0)
-                        return r;
-        }
-
-        ORDERED_HASHMAP_FOREACH(n, s->receive_associations_by_section, i) {
-                r = netdev_macsec_configure_receive_association(netdev, n);
                 if (r < 0)
                         return r;
         }
@@ -750,6 +786,7 @@ int config_parse_macsec_key_id(
 
 static int macsec_receive_channel_verify(ReceiveChannel *c) {
         NetDev *netdev;
+        int r;
 
         assert(c);
         assert(c->macsec);
@@ -771,6 +808,21 @@ static int macsec_receive_channel_verify(ReceiveChannel *c) {
                                               "Ignoring [MACsecReceiveChannel] section from line %u",
                                               c->section->filename, c->section->line);
 
+        r = ordered_hashmap_ensure_allocated(&c->macsec->receive_channels, &uint64_hash_ops);
+        if (r < 0)
+                return log_oom();
+
+        r = ordered_hashmap_put(c->macsec->receive_channels, &c->sci.as_uint64, c);
+        if (r == -EEXIST)
+                return log_netdev_error_errno(netdev, r,
+                                              "%s: Multiple [MACsecReceiveChannel] sections have same SCI, "
+                                              "Ignoring [MACsecReceiveChannel] section from line %u",
+                                              c->section->filename, c->section->line);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r,
+                                              "%s: Failed to store [MACsecReceiveChannel] section at hashmap, "
+                                              "Ignoring [MACsecReceiveChannel] section from line %u",
+                                              c->section->filename, c->section->line);
         return 0;
 }
 
@@ -801,7 +853,9 @@ static int macsec_transmit_association_verify(TransmitAssociation *t) {
 }
 
 static int macsec_receive_association_verify(ReceiveAssociation *a) {
+        ReceiveChannel *c;
         NetDev *netdev;
+        int r;
 
         assert(a);
         assert(a->macsec);
@@ -829,6 +883,35 @@ static int macsec_receive_association_verify(ReceiveAssociation *a) {
                                               "Ignoring [MACsecReceiveAssociation] section from line %u",
                                               a->section->filename, a->section->line);
 
+        c = ordered_hashmap_get(a->macsec->receive_channels, &a->sci.as_uint64);
+        if (!c) {
+                _cleanup_(macsec_receive_channel_freep) ReceiveChannel *new_channel = NULL;
+
+                r = macsec_receive_channel_new(a->macsec, a->sci.as_uint64, &new_channel);
+                if (r < 0)
+                        return log_oom();
+
+                r = ordered_hashmap_ensure_allocated(&a->macsec->receive_channels, &uint64_hash_ops);
+                if (r < 0)
+                        return log_oom();
+
+                r = ordered_hashmap_put(a->macsec->receive_channels, &new_channel->sci.as_uint64, new_channel);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r,
+                                                      "%s: Failed to store receive channel at hashmap, "
+                                                      "Ignoring [MACsecReceiveAssociation] section from line %u",
+                                                      a->section->filename, a->section->line);
+                c = TAKE_PTR(new_channel);
+        }
+        if (c->n_rxsa >= MACSEC_MAX_ASSOCIATION_NUMBER)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(ERANGE),
+                                              "%s: Too many [MACsecReceiveAssociation] sections for the same receive channel, "
+                                              "Ignoring [MACsecReceiveAssociation] section from line %u",
+                                              a->section->filename, a->section->line);
+
+        a->sa.association_number = c->n_rxsa;
+        c->rxsa[c->n_rxsa++] = a;
+
         return 0;
 }
 
@@ -838,6 +921,7 @@ static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
         ReceiveAssociation *n;
         ReceiveChannel *c;
         Iterator i;
+        uint8_t an;
         int r;
 
         assert(netdev);
@@ -850,10 +934,24 @@ static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
                         macsec_receive_channel_free(c);
         }
 
+        an = 0;
         ORDERED_HASHMAP_FOREACH(a, v->transmit_associations_by_section, i) {
                 r = macsec_transmit_association_verify(a);
-                if (r < 0)
+                if (r < 0) {
                         macsec_transmit_association_free(a);
+                        continue;
+                }
+
+                if (an >= MACSEC_MAX_ASSOCIATION_NUMBER) {
+                        log_netdev_error(netdev,
+                                         "%s: Too many [MACsecTransmitAssociation] sections configured. "
+                                         "Ignoring [MACsecTransmitAssociation] section from line %u",
+                                         a->section->filename, a->section->line);
+                        macsec_transmit_association_free(a);
+                        continue;
+                }
+
+                a->sa.association_number = an++;
         }
 
         ORDERED_HASHMAP_FOREACH(n, v->receive_associations_by_section, i) {
@@ -886,6 +984,7 @@ static void macsec_done(NetDev *netdev) {
 
         assert(t);
 
+        ordered_hashmap_free_with_destructor(t->receive_channels, macsec_receive_channel_free);
         ordered_hashmap_free_with_destructor(t->receive_channels_by_section, macsec_receive_channel_free);
         ordered_hashmap_free_with_destructor(t->transmit_associations_by_section, macsec_transmit_association_free);
         ordered_hashmap_free_with_destructor(t->receive_associations_by_section, macsec_receive_association_free);

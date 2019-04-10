@@ -8,6 +8,9 @@
 #include "networkd-util.h"
 #include "sparse-endian.h"
 
+/* See the definition of MACSEC_NUM_AN in kernel's drivers/net/macsec.c */
+#define MACSEC_MAX_ASSOCIATION_NUMBER 4
+
 typedef struct MACsec MACsec;
 
 typedef union MACsecSCI {
@@ -49,6 +52,8 @@ typedef struct ReceiveChannel {
         NetworkConfigSection *section;
 
         MACsecSCI sci;
+        ReceiveAssociation *rxsa[MACSEC_MAX_ASSOCIATION_NUMBER];
+        unsigned n_rxsa;
 } ReceiveChannel;
 
 struct MACsec {
@@ -57,6 +62,7 @@ struct MACsec {
         uint16_t port;
         int encrypt;
 
+        OrderedHashmap *receive_channels;
         OrderedHashmap *receive_channels_by_section;
         OrderedHashmap *transmit_associations_by_section;
         OrderedHashmap *receive_associations_by_section;
