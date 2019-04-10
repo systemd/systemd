@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <stdint.h>
 #include <sys/socket.h>
+#include <linux/can/vxcan.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/genetlink.h>
@@ -10,6 +11,7 @@
 #include <linux/if.h>
 #include <linux/can/netlink.h>
 #include <linux/fib_rules.h>
+#include <linux/fou.h>
 #include <linux/if_addr.h>
 #include <linux/if_addrlabel.h>
 #include <linux/if_bridge.h>
@@ -17,14 +19,7 @@
 #include <linux/if_tunnel.h>
 #include <linux/l2tp.h>
 #include <linux/veth.h>
-
-#if HAVE_LINUX_FOU_H
-#include <linux/fou.h>
-#endif
-
-#if HAVE_LINUX_CAN_VXCAN_H
-#include <linux/can/vxcan.h>
-#endif
+#include <linux/wireguard.h>
 
 #include "macro.h"
 #include "missing.h"
@@ -32,7 +27,6 @@
 #include "sd-netlink.h"
 #include "string-table.h"
 #include "util.h"
-#include "wireguard-netlink.h"
 
 /* Maximum ARP IP target defined in kernel */
 #define BOND_MAX_ARP_TARGETS    16

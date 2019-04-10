@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <linux/netdevice.h>
 #include <netinet/ether.h>
 
 #include "sd-device.h"
@@ -15,7 +16,6 @@
 #include "link-config.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing_network.h"
 #include "naming-scheme.h"
 #include "netlink-util.h"
 #include "network-internal.h"

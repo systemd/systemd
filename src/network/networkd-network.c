@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <ctype.h>
-#include <net/if.h>
+#include <linux/netdevice.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"
@@ -10,7 +9,6 @@
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
-#include "missing_network.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"

@@ -23,7 +23,6 @@
 #include "resolve-private.h"
 #include "string-util.h"
 #include "strv.h"
-#include "wireguard-netlink.h"
 #include "wireguard.h"
 
 static void resolve_endpoints(NetDev *netdev);

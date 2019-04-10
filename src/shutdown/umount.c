@@ -5,6 +5,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/dm-ioctl.h>
 #include <linux/loop.h>
 #include <string.h>
 #include <sys/mount.h>
@@ -23,7 +24,6 @@
 #include "fd-util.h"
 #include "fstab-util.h"
 #include "libmount-util.h"
-#include "linux-3.13/dm-ioctl.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

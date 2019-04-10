@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <net/if.h>
+#include <linux/if.h>
 #include <stdio_ext.h>
+#include <unistd.h>
 
 #include "sd-network.h"
 
@@ -9,7 +11,6 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "resolved-link.h"

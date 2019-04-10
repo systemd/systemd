@@ -1,0 +1,3 @@
+The files in this directory are copied from kernel-5.0, and the following modifications are applied:
+- btrfs.h: drop '__user' attributes
+- if.h: drop '#include <linux/compiler.h>' and '__user' attributes
