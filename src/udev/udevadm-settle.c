@@ -13,10 +13,16 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+#include "sd-login.h"
+
 #include "libudev-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
-#include "udevadm.h"
 #include "udev-ctrl.h"
+#include "udevadm.h"
+#include "unit-def.h"
 #include "util.h"
 #include "virt.h"
 
@@ -79,6 +85,61 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int emit_deprecation_warning(void) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *unit = NULL, *unit_path = NULL;
+        _cleanup_strv_free_ char **a = NULL, **b = NULL;
+        int r;
+
+        r = sd_pid_get_unit(0, &unit);
+        if (r < 0 || !streq(unit, "systemd-udev-settle.service"))
+                return 0;
+
+        log_notice("systemd-udev-settle.service is deprecated.");
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open system bus, skipping dependency queries: %m");
+
+        unit_path = unit_dbus_path_from_name("systemd-udev-settle.service");
+        if (!unit_path)
+                return -ENOMEM;
+
+        (void) sd_bus_get_property_strv(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        unit_path,
+                        "org.freedesktop.systemd1.Unit",
+                        "WantedBy",
+                        NULL,
+                        &a);
+
+        (void) sd_bus_get_property_strv(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        unit_path,
+                        "org.freedesktop.systemd1.Unit",
+                        "RequiredBy",
+                        NULL,
+                        &b);
+
+        r = strv_extend_strv(&a, b, true);
+        if (r < 0)
+                return r;
+
+        if (!strv_isempty(a)) {
+                _cleanup_free_ char *t = NULL;
+
+                t = strv_join(a, ", ");
+                if (!t)
+                        return -ENOMEM;
+
+                log_notice("Hint: please fix %s not to pull it in.", t);
+        }
+
+        return 0;
+}
+
 int settle_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_queue_unrefp) struct udev_queue *queue = NULL;
         struct pollfd pfd;
@@ -127,6 +188,8 @@ int settle_main(int argc, char *argv[], void *userdata) {
                 .events = POLLIN,
                 .fd = r,
         };
+
+        (void) emit_deprecation_warning();
 
         for (;;) {
                 if (arg_exists && access(arg_exists, F_OK) >= 0)
