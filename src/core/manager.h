@@ -56,6 +56,14 @@ typedef enum StatusType {
         STATUS_TYPE_EMERGENCY,
 } StatusType;
 
+typedef enum OOMPolicy {
+        OOM_CONTINUE,          /* The kernel kills the process it wants to kill, and that's it */
+        OOM_STOP,              /* The kernel kills the process it wants to kill, and we stop the unit */
+        OOM_KILL,              /* The kernel kills the process it wants to kill, and all others in the unit, and we stop the unit */
+        _OOM_POLICY_MAX,
+        _OOM_POLICY_INVALID = -1
+} OOMPolicy;
+
 /* Notes:
  * 1. TIMESTAMP_FIRMWARE, TIMESTAMP_LOADER, TIMESTAMP_KERNEL, TIMESTAMP_INITRD,
  *    TIMESTAMP_SECURITY_START, and TIMESTAMP_SECURITY_FINISH are set only when
@@ -158,6 +166,9 @@ struct Manager {
 
         /* Units whose cgroup ran empty */
         LIST_HEAD(Unit, cgroup_empty_queue);
+
+        /* Units whose memory.event fired */
+        LIST_HEAD(Unit, cgroup_oom_queue);
 
         /* Target units whose default target dependencies haven't been set yet */
         LIST_HEAD(Unit, target_deps_queue);
@@ -268,10 +279,15 @@ struct Manager {
         /* Notifications from cgroups, when the unified hierarchy is used is done via inotify. */
         int cgroup_inotify_fd;
         sd_event_source *cgroup_inotify_event_source;
-        Hashmap *cgroup_inotify_wd_unit;
+
+        /* Maps for finding the unit for each inotify watch descriptor for the cgroup.events and
+         * memory.events cgroupv2 attributes. */
+        Hashmap *cgroup_control_inotify_wd_unit;
+        Hashmap *cgroup_memory_inotify_wd_unit;
 
         /* A defer event for handling cgroup empty events and processing them after SIGCHLD in all cases. */
         sd_event_source *cgroup_empty_event_source;
+        sd_event_source *cgroup_oom_event_source;
 
         /* Make sure the user cannot accidentally unmount our cgroup
          * file system */
@@ -327,6 +343,8 @@ struct Manager {
 
         uint64_t default_tasks_max;
         usec_t default_timer_accuracy_usec;
+
+        OOMPolicy default_oom_policy;
 
         int original_log_level;
         LogTarget original_log_target;
@@ -519,3 +537,6 @@ void manager_disable_confirm_spawn(void);
 const char *manager_timestamp_to_string(ManagerTimestamp m) _const_;
 ManagerTimestamp manager_timestamp_from_string(const char *s) _pure_;
 ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s);
+
+const char* oom_policy_to_string(OOMPolicy i) _const_;
+OOMPolicy oom_policy_from_string(const char *s) _pure_;

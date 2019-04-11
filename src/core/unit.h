@@ -200,6 +200,9 @@ typedef struct Unit {
         /* cgroup empty queue */
         LIST_FIELDS(Unit, cgroup_empty_queue);
 
+        /* cgroup OOM queue */
+        LIST_FIELDS(Unit, cgroup_oom_queue);
+
         /* Target dependencies queue */
         LIST_FIELDS(Unit, target_deps_queue);
 
@@ -246,13 +249,19 @@ typedef struct Unit {
         nsec_t cpu_usage_base;
         nsec_t cpu_usage_last; /* the most recently read value */
 
+        /* The  current counter of the oom_kill field in the memory.events cgroup attribute */
+        uint64_t oom_kill_last;
+
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
         CGroupMask cgroup_realized_mask;           /* In which hierarchies does this unit's cgroup exist? (only relevant on cgroup v1) */
         CGroupMask cgroup_enabled_mask;            /* Which controllers are enabled (or more correctly: enabled for the children) for this unit's cgroup? (only relevant on cgroup v2) */
         CGroupMask cgroup_invalidated_mask;        /* A mask specifiying controllers which shall be considered invalidated, and require re-realization */
         CGroupMask cgroup_members_mask;            /* A cache for the controllers required by all children of this cgroup (only relevant for slice units) */
-        int cgroup_inotify_wd;
+
+        /* Inotify watch descriptors for watching cgroup.events and memory.events on cgroupv2 */
+        int cgroup_control_inotify_wd;
+        int cgroup_memory_inotify_wd;
 
         /* Device Controller BPF program */
         BPFProgram *bpf_device_control_installed;
@@ -320,6 +329,7 @@ typedef struct Unit {
         bool in_gc_queue:1;
         bool in_cgroup_realize_queue:1;
         bool in_cgroup_empty_queue:1;
+        bool in_cgroup_oom_queue:1;
         bool in_target_deps_queue:1;
         bool in_stop_when_unneeded_queue:1;
 
@@ -494,9 +504,11 @@ typedef struct UnitVTable {
         /* Reset failed state if we are in failed state */
         void (*reset_failed)(Unit *u);
 
-        /* Called whenever any of the cgroups this unit watches for
-         * ran empty */
+        /* Called whenever any of the cgroups this unit watches for ran empty */
         void (*notify_cgroup_empty)(Unit *u);
+
+        /* Called whenever an OOM kill event on this unit was seen */
+        void (*notify_cgroup_oom)(Unit *u);
 
         /* Called whenever a process of this unit sends us a message */
         void (*notify_message)(Unit *u, const struct ucred *ucred, char **tags, FDSet *fds);

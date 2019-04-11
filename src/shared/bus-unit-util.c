@@ -1314,7 +1314,7 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 
         if (STR_IN_SET(field,
                        "PIDFile", "Type", "Restart", "BusName", "NotifyAccess",
-                       "USBFunctionDescriptors", "USBFunctionStrings"))
+                       "USBFunctionDescriptors", "USBFunctionStrings", "OOMPolicy"))
 
                 return bus_append_string(m, field, eq);
 
