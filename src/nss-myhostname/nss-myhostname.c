@@ -64,10 +64,8 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         } else if (is_gateway_hostname(name)) {
 
                 n_addresses = local_gateways(NULL, 0, AF_UNSPEC, &addresses);
-                if (n_addresses <= 0) {
-                        *h_errnop = HOST_NOT_FOUND;
-                        return NSS_STATUS_NOTFOUND;
-                }
+                if (n_addresses <= 0)
+                        goto not_found;
 
                 canonical = "_gateway";
 
@@ -81,10 +79,8 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 }
 
                 /* We respond to our local host name, our hostname suffixed with a single dot. */
-                if (!streq(name, hn) && !streq_ptr(startswith(name, hn), ".")) {
-                        *h_errnop = HOST_NOT_FOUND;
-                        return NSS_STATUS_NOTFOUND;
-                }
+                if (!streq(name, hn) && !streq_ptr(startswith(name, hn), "."))
+                        goto not_found;
 
                 n_addresses = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
                 if (n_addresses < 0)
@@ -164,6 +160,10 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         h_errno = 0;
 
         return NSS_STATUS_SUCCESS;
+
+not_found:
+        *h_errnop = HOST_NOT_FOUND;
+        return NSS_STATUS_NOTFOUND;
 }
 
 static enum nss_status fill_in_hostent(
@@ -339,10 +339,8 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
         } else if (is_gateway_hostname(name)) {
 
                 n_addresses = local_gateways(NULL, 0, af, &addresses);
-                if (n_addresses <= 0) {
-                        *h_errnop = HOST_NOT_FOUND;
-                        return NSS_STATUS_NOTFOUND;
-                }
+                if (n_addresses <= 0)
+                        goto not_found;
 
                 canonical = "_gateway";
 
@@ -355,10 +353,8 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         return NSS_STATUS_TRYAGAIN;
                 }
 
-                if (!streq(name, hn) && !streq_ptr(startswith(name, hn), ".")) {
-                        *h_errnop = HOST_NOT_FOUND;
-                        return NSS_STATUS_NOTFOUND;
-                }
+                if (!streq(name, hn) && !streq_ptr(startswith(name, hn), "."))
+                        goto not_found;
 
                 n_addresses = local_addresses(NULL, 0, af, &addresses);
                 if (n_addresses < 0)
@@ -381,6 +377,10 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         errnop, h_errnop,
                         ttlp,
                         canonp);
+
+not_found:
+        *h_errnop = HOST_NOT_FOUND;
+        return NSS_STATUS_NOTFOUND;
 }
 
 enum nss_status _nss_myhostname_gethostbyaddr2_r(
