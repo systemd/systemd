@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1237,22 +1238,22 @@ int flush_accept(int fd) {
                                 continue;
 
                         return -errno;
-
-                } else if (r == 0)
+                }
+                if (r == 0)
                         return 0;
 
                 cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
                 if (cfd < 0) {
-                        if (errno == EINTR)
-                                continue;
-
                         if (errno == EAGAIN)
                                 return 0;
+
+                        if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                                continue;
 
                         return -errno;
                 }
 
-                close(cfd);
+                safe_close(cfd);
         }
 }
 

@@ -271,11 +271,15 @@ static int do_accept(const char* name, char **argv, char **envp, int fd) {
         _cleanup_close_ int fd_accepted = -1;
 
         fd_accepted = accept4(fd, NULL, NULL, 0);
-        if (fd_accepted < 0)
-                return log_error_errno(errno, "Failed to accept connection on fd:%d: %m", fd);
+        if (fd_accepted < 0) {
+                if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                        return 0;
 
-        getsockname_pretty(fd_accepted, &local);
-        getpeername_pretty(fd_accepted, true, &peer);
+                return log_error_errno(errno, "Failed to accept connection on fd:%d: %m", fd);
+        }
+
+        (void) getsockname_pretty(fd_accepted, &local);
+        (void) getpeername_pretty(fd_accepted, true, &peer);
         log_info("Connection from %s to %s", strna(peer), strna(local));
 
         return fork_and_exec_process(name, argv, envp, fd_accepted);

@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <resolv.h>
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
@@ -289,7 +290,7 @@ static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *u
 
         cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (cfd < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
+                if (ERRNO_IS_ACCEPT_AGAIN(errno))
                         return 0;
 
                 return -errno;

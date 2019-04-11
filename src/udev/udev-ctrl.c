@@ -20,6 +20,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "io-util.h"
@@ -261,9 +262,10 @@ static int udev_ctrl_event_handler(sd_event_source *s, int fd, uint32_t revents,
 
         sock = accept4(fd, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK);
         if (sock < 0) {
-                if (errno != EINTR)
-                        log_error_errno(errno, "Failed to accept ctrl connection: %m");
-                return 0;
+                if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                        return 0;
+
+                return log_error_errno(errno, "Failed to accept ctrl connection: %m");
         }
 
         /* check peer credential of connection */

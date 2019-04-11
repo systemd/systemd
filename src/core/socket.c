@@ -2856,17 +2856,10 @@ static int socket_accept_do(Socket *s, int fd) {
         assert(s);
         assert(fd >= 0);
 
-        for (;;) {
-                cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK);
-                if (cfd < 0) {
-                        if (errno == EINTR)
-                                continue;
-
-                        return -errno;
-                }
-
-                break;
-        }
+        cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
+        if (cfd < 0)
+                /* Convert transient network errors into clean and well-defined EAGAIN */
+                return ERRNO_IS_ACCEPT_AGAIN(errno) ? -EAGAIN : -errno;
 
         return cfd;
 }
@@ -2904,6 +2897,8 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
                 pair[0] = safe_close(pair[0]);
 
                 cfd = socket_accept_do(s, fd);
+                if (cfd == -EAGAIN) /* spurious accept() */
+                        _exit(EXIT_SUCCESS);
                 if (cfd < 0) {
                         log_unit_error_errno(UNIT(s), cfd, "Failed to accept connection socket: %m");
                         _exit(EXIT_FAILURE);
@@ -2928,6 +2923,10 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
                 return r;
         }
 
+        /* If we received no fd, we got EIO here. If this happens with a process exit code of EXIT_SUCCESS
+         * this is a spurious accept(), let's convert that back to EAGAIN here. */
+        if (cfd == -EIO)
+                return -EAGAIN;
         if (cfd < 0)
                 return log_unit_error_errno(UNIT(s), cfd, "Failed to receive connection socket: %m");
 
@@ -2935,6 +2934,8 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
 
 shortcut:
         cfd = socket_accept_do(s, fd);
+        if (cfd == -EAGAIN) /* spurious accept(), skip it silently */
+                return -EAGAIN;
         if (cfd < 0)
                 return log_unit_error_errno(UNIT(s), cfd, "Failed to accept connection socket: %m");
 
@@ -2954,7 +2955,6 @@ static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
         log_unit_debug(UNIT(p->socket), "Incoming traffic");
 
         if (revents != EPOLLIN) {
-
                 if (revents & EPOLLHUP)
                         log_unit_error(UNIT(p->socket), "Got POLLHUP on a listening socket. The service probably invoked shutdown() on it, and should better not do that.");
                 else
@@ -2967,6 +2967,8 @@ static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
             socket_address_can_accept(&p->address)) {
 
                 cfd = socket_accept_in_cgroup(p->socket, p, fd);
+                if (cfd == -EAGAIN) /* Spurious accept() */
+                        return 0;
                 if (cfd < 0)
                         goto fail;
 

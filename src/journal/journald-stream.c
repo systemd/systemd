@@ -13,6 +13,7 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "env-file.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -605,7 +606,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 
         fd = accept4(s->stdout_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (fd < 0) {
-                if (errno == EAGAIN)
+                if (ERRNO_IS_ACCEPT_AGAIN(errno))
                         return 0;
 
                 return log_error_errno(errno, "Failed to accept stdout connection: %m");

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "missing_network.h"
 #include "resolved-dns-stub.h"
@@ -462,7 +463,7 @@ static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void
 
         cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (cfd < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
+                if (ERRNO_IS_ACCEPT_AGAIN(errno))
                         return 0;
 
                 return -errno;
