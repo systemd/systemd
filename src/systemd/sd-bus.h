@@ -36,6 +36,9 @@ _SD_BEGIN_DECLARATIONS;
 /* https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-marshaling-signature */
 #define SD_BUS_MAXIMUM_SIGNATURE_LENGTH 255
 
+/* https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names */
+#define SD_BUS_MAXIMUM_NAME_LENGTH 255
+
 /* Types */
 
 typedef struct sd_bus sd_bus;
