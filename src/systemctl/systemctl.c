@@ -5865,6 +5865,11 @@ static int cat(int argc, char *argv[], void *userdata) {
         bool first = true;
         int r;
 
+        /* Include all units by default - i.e. continue as if the --all
+         * option was used */
+        if (strv_isempty(arg_states))
+                arg_all = true;
+
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot remotely cat units.");
 
