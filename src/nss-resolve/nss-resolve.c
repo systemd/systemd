@@ -161,8 +161,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
-                    !bus_error_shall_fallback(&error))
+                if (!bus_error_shall_fallback(&error))
                         goto not_found;
 
                 /* Return NSS_STATUS_UNAVAIL when communication with systemd-resolved fails,
@@ -342,8 +341,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
-                    !bus_error_shall_fallback(&error))
+                if (!bus_error_shall_fallback(&error))
                         goto not_found;
 
                 goto fail;
@@ -543,8 +541,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
-                    !bus_error_shall_fallback(&error))
+                if (!bus_error_shall_fallback(&error))
                         goto not_found;
 
                 goto fail;
