@@ -30,6 +30,7 @@ test_setup() {
         ln -fs /dev/null $initdir/etc/systemd/system/systemd-machined.service
 
         # extend the watchdog
+        mkdir -p $initdir/etc/systemd/system/systemd-timedated.service.d
         cat >$initdir/etc/systemd/system/systemd-timedated.service.d/watchdog.conf <<EOF
 [Service]
 WatchdogSec=10min
