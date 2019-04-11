@@ -284,7 +284,7 @@ static int message_append_field_signature(
         /* dbus1 doesn't allow signatures over 8bit, let's enforce
          * this globally, to not risk convertability */
         l = strlen(s);
-        if (l > 255)
+        if (l > SD_BUS_MAXIMUM_SIGNATURE_LENGTH)
                 return -EINVAL;
 
         /* Signature "(yv)" where the variant contains "g" */
