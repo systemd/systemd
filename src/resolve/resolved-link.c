@@ -9,6 +9,7 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log-link.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "resolved-link.h"
@@ -597,7 +598,7 @@ static void link_read_settings(Link *l) {
 
         r = link_is_managed(l);
         if (r < 0) {
-                log_warning_errno(r, "Failed to determine whether interface %s is managed: %m", l->ifname);
+                log_link_warning_errno(l, r, "Failed to determine whether the interface is managed: %m");
                 return;
         }
         if (r == 0) {
@@ -614,35 +615,35 @@ static void link_read_settings(Link *l) {
 
         r = link_update_dns_servers(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNS servers for interface %s, ignoring: %m", l->ifname);
+                log_link_warning_errno(l, r, "Failed to read DNS servers for the interface, ignoring: %m");
 
         r = link_update_llmnr_support(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read LLMNR support for interface %s, ignoring: %m", l->ifname);
+                log_link_warning_errno(l, r, "Failed to read LLMNR support for the interface, ignoring: %m");
 
         r = link_update_mdns_support(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read mDNS support for interface %s, ignoring: %m", l->ifname);
+                log_link_warning_errno(l, r, "Failed to read mDNS support for the interface, ignoring: %m");
 
         r = link_update_dns_over_tls_mode(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNS-over-TLS mode for interface %s, ignoring: %m", l->ifname);
+                log_link_warning_errno(l, r, "Failed to read DNS-over-TLS mode for the interface, ignoring: %m");
 
         r = link_update_dnssec_mode(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNSSEC mode for interface %s, ignoring: %m", l->ifname);
+                log_link_warning_errno(l, r, "Failed to read DNSSEC mode for the interface, ignoring: %m");
 
         r = link_update_dnssec_negative_trust_anchors(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNSSEC negative trust anchors for interface %s, ignoring: %m", l->ifname);
+                log_link_warning_errno(l, r, "Failed to read DNSSEC negative trust anchors for the interface, ignoring: %m");
 
         r = link_update_search_domains(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->ifname);
+                log_link_warning_errno(l, r, "Failed to read search domains for the interface, ignoring: %m");
 
         r = link_update_default_route(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read default route setting for interface %s, proceeding anyway: %m", l->ifname);
+                log_link_warning_errno(l, r, "Failed to read default route setting for the interface, proceeding anyway: %m");
 }
 
 int link_update(Link *l) {
