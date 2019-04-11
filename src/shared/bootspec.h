@@ -79,6 +79,3 @@ static inline const char* boot_entry_title(const BootEntry *entry) {
 
 int find_esp_and_warn(const char *path, bool unprivileged_mode, char **ret_path, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid);
 int find_xbootldr_and_warn(const char *path, bool unprivileged_mode, char **ret_path,sd_id128_t *ret_uuid);
-
-const char* boot_entry_type_to_string(BootEntryType t) _const_;
-BootEntryType boot_entry_type_from_string(const char *s) _pure_;

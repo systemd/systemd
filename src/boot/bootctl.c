@@ -220,7 +220,7 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
 
         printf("          ESP: %s", esp_path);
         if (!sd_id128_is_null(partition))
-                printf(" (/dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x)", SD_ID128_FORMAT_VAL(partition));
+                printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")", SD_ID128_FORMAT_VAL(partition));
         printf("\n");
 
         r = enumerate_binaries(esp_path, "EFI/systemd", NULL);
@@ -262,7 +262,8 @@ static int print_efi_option(uint16_t id, bool in_order) {
         printf("        Title: %s%s%s\n", ansi_highlight(), strna(title), ansi_normal());
         printf("           ID: 0x%04X\n", id);
         printf("       Status: %sactive%s\n", active ? "" : "in", in_order ? ", boot-order" : "");
-        printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n", SD_ID128_FORMAT_VAL(partition));
+        printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
+               SD_ID128_FORMAT_VAL(partition));
         printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path);
         printf("\n");
 
@@ -309,21 +310,57 @@ static int status_variables(void) {
         return 0;
 }
 
+static int boot_entry_file_check(const char *root, const char *p) {
+        _cleanup_free_ char *path;
+
+        path = path_join(root, p);
+        if (!path)
+                return log_oom();
+
+        if (access(path, F_OK) < 0)
+                return -errno;
+
+        return 0;
+}
+
+static void boot_entry_file_list(const char *field, const char *root, const char *p, int *ret_status) {
+        int status = boot_entry_file_check(root, p);
+
+        printf("%13s%s", strempty(field), field ? ":" : " ");
+        if (status < 0) {
+                errno = -status;
+                printf("%s%s%s (%m)\n", ansi_highlight_red(), p, ansi_normal());
+        } else
+                printf("%s\n", p);
+
+        if (*ret_status == 0 && status < 0)
+                *ret_status = status;
+}
+
 static int boot_entry_show(const BootEntry *e, bool show_as_default) {
+        int status = 0;
+
+        /* Returns 0 on success, negative on processing error, and positive if something is wrong with the
+           boot entry itself. */
+
         assert(e);
 
-        printf("        title: %s%s%s%s%s%s\n"
-               "         type: %s\n",
-               ansi_highlight(),
-               boot_entry_title(e),
-               ansi_normal(),
-               ansi_highlight_green(),
-               show_as_default ? " (default)" : "",
-               ansi_normal(),
-               boot_entry_type_to_string(e->type));
+        printf("        title: %s%s%s" "%s%s%s\n",
+               ansi_highlight(), boot_entry_title(e), ansi_normal(),
+               ansi_highlight_green(), show_as_default ? " (default)" : "", ansi_normal());
 
         if (e->id)
                 printf("           id: %s\n", e->id);
+        if (e->path) {
+                _cleanup_free_ char *link = NULL;
+
+                /* Let's urlify the link to make it easy to view in an editor, but only if it is a text
+                 * file. Unified images are binary ELFs, and EFI variables are not pure text either. */
+                if (e->type == BOOT_ENTRY_CONF)
+                        (void) terminal_urlify_path(e->path, NULL, &link);
+
+                printf("       source: %s\n", link ?: e->path);
+        }
         if (e->version)
                 printf("      version: %s\n", e->version);
         if (e->machine_id)
@@ -331,16 +368,14 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
         if (e->architecture)
                 printf(" architecture: %s\n", e->architecture);
         if (e->kernel)
-                printf("        linux: %s\n", e->kernel);
-        if (!strv_isempty(e->initrd)) {
-                _cleanup_free_ char *t;
+                boot_entry_file_list("linux", e->root, e->kernel, &status);
 
-                t = strv_join(e->initrd, " ");
-                if (!t)
-                        return log_oom();
-
-                printf("       initrd: %s\n", t);
-        }
+        char **s;
+        STRV_FOREACH(s, e->initrd)
+                boot_entry_file_list(s == e->initrd ? "initrd" : NULL,
+                                     e->root,
+                                     *s,
+                                     &status);
         if (!strv_isempty(e->options)) {
                 _cleanup_free_ char *t;
 
@@ -351,9 +386,9 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
                 printf("      options: %s\n", t);
         }
         if (e->device_tree)
-                printf("   devicetree: %s\n", e->device_tree);
+                boot_entry_file_list("devicetree", e->root, e->device_tree, &status);
 
-        return 0;
+        return -status;
 }
 
 static int status_entries(
@@ -380,7 +415,8 @@ static int status_entries(
         printf("Boot Loader Entries:\n"
                "        $BOOT: %s", dollar_boot_path);
         if (!sd_id128_is_null(dollar_boot_partition_uuid))
-                printf(" (/dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x)", SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
+                printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")",
+                       SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
         printf("\n\n");
 
         r = boot_entries_load_config(esp_path, xbootldr_path, &config);
@@ -392,7 +428,11 @@ static int status_entries(
         else {
                 printf("Default Boot Loader Entry:\n");
 
-                boot_entry_show(config.entries + config.default_entry, false);
+                r = boot_entry_show(config.entries + config.default_entry, false);
+                if (r > 0)
+                        /* < 0 is already logged by the function itself, let's just emit an extra warning if
+                           the default entry is broken */
+                        printf("\nWARNING: default boot entry is broken\n");
         }
 
         return 0;
@@ -1150,7 +1190,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 if (stub)
                         printf("         Stub: %s\n", stub);
                 if (!sd_id128_is_null(loader_part_uuid))
-                        printf("          ESP: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+                        printf("          ESP: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                SD_ID128_FORMAT_VAL(loader_part_uuid));
                 else
                         printf("          ESP: n/a\n");

@@ -755,7 +755,7 @@ int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
         n_allocated = config->n_entries;
 
         STRV_FOREACH(i, found_by_loader) {
-                _cleanup_free_ char *c = NULL, *t = NULL;
+                _cleanup_free_ char *c = NULL, *t = NULL, *p = NULL;
                 char **a, **b;
 
                 if (boot_config_has_entry(config, *i))
@@ -776,6 +776,10 @@ int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
                                 break;
                         }
 
+                p = efi_variable_path(EFI_VENDOR_LOADER, "LoaderEntries");
+                if (!p)
+                        return log_oom();
+
                 if (!GREEDY_REALLOC0(config->entries, n_allocated, config->n_entries + 1))
                         return log_oom();
 
@@ -783,6 +787,7 @@ int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
                         .type = BOOT_ENTRY_LOADER,
                         .id = TAKE_PTR(c),
                         .title = TAKE_PTR(t),
+                        .path = TAKE_PTR(p),
                 };
         }
 
@@ -1418,11 +1423,3 @@ found:
 
         return 0;
 }
-
-static const char* const boot_entry_type_table[_BOOT_ENTRY_MAX] = {
-        [BOOT_ENTRY_CONF] = "conf",
-        [BOOT_ENTRY_UNIFIED] = "unified",
-        [BOOT_ENTRY_LOADER] = "loader",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(boot_entry_type, BootEntryType);
