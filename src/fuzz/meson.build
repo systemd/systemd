@@ -51,6 +51,10 @@ fuzzers += [
          [libshared],
          []],
 
+        [['src/fuzz/fuzz-varlink.c'],
+         [libshared],
+         []],
+
         [['src/fuzz/fuzz-unit-file.c'],
          [libcore,
           libshared],
