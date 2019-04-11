@@ -164,6 +164,8 @@ shared_sources = files('''
         uid-range.c
         uid-range.h
         utmp-wtmp.h
+        varlink.c
+        varlink.h
         verbs.c
         verbs.h
         vlan-util.c
