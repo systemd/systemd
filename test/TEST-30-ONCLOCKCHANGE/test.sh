@@ -29,6 +29,12 @@ test_setup() {
         ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
         ln -fs /dev/null $initdir/etc/systemd/system/systemd-machined.service
 
+        # extend the watchdog
+        cat >$initdir/etc/systemd/system/systemd-timedated.service.d/watchdog.conf <<EOF
+[Service]
+WatchdogSec=10min
+EOF
+
         # setup the testsuite service
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
 [Unit]
