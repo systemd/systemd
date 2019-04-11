@@ -147,6 +147,8 @@ static inline int ordered_hashmap_put(OrderedHashmap *h, const void *key, void *
         return hashmap_put(PLAIN_HASHMAP(h), key, value);
 }
 
+int hashmap_put_strdup(Hashmap **h, const char *k, const char *v);
+
 int hashmap_update(Hashmap *h, const void *key, void *value);
 static inline int ordered_hashmap_update(OrderedHashmap *h, const void *key, void *value) {
         return hashmap_update(PLAIN_HASHMAP(h), key, value);

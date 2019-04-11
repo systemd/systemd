@@ -978,6 +978,33 @@ static void test_hashmap_reserve(void) {
         assert_se(hashmap_reserve(m, UINT_MAX - 1) == -ENOMEM);
 }
 
+static void test_string_strv_hashmap(void) {
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        char **s;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(string_strv_hashmap_put(&m, "foo", "bar") == 1);
+        assert_se(string_strv_hashmap_put(&m, "foo", "bar") == 0);
+        assert_se(string_strv_hashmap_put(&m, "foo", "BAR") == 1);
+        assert_se(string_strv_hashmap_put(&m, "foo", "BAR") == 0);
+        assert_se(string_strv_hashmap_put(&m, "foo", "bar") == 0);
+        assert_se(hashmap_contains(m, "foo"));
+
+        s = hashmap_get(m, "foo");
+        assert_se(strv_equal(s, STRV_MAKE("bar", "BAR")));
+
+        assert_se(string_strv_hashmap_put(&m, "xxx", "bar") == 1);
+        assert_se(string_strv_hashmap_put(&m, "xxx", "bar") == 0);
+        assert_se(string_strv_hashmap_put(&m, "xxx", "BAR") == 1);
+        assert_se(string_strv_hashmap_put(&m, "xxx", "BAR") == 0);
+        assert_se(string_strv_hashmap_put(&m, "xxx", "bar") == 0);
+        assert_se(hashmap_contains(m, "xxx"));
+
+        s = hashmap_get(m, "xxx");
+        assert_se(strv_equal(s, STRV_MAKE("bar", "BAR")));
+}
+
 void test_hashmap_funcs(void) {
         log_parse_environment();
         log_open();
@@ -1012,4 +1039,5 @@ void test_hashmap_funcs(void) {
         test_hashmap_clear_free_free();
         test_hashmap_clear_free_with_destructor();
         test_hashmap_reserve();
+        test_string_strv_hashmap();
 }
