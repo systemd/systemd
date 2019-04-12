@@ -97,9 +97,6 @@ title: Coding Style
   program" code. (With one exception: it is OK to log with DEBUG level
   from any code, with the exception of maybe inner loops).
 
-- Always check OOM. There is no excuse. In program code, you can use
-  `log_oom()` for then printing a short message, but not in "library" code.
-
 - Do not issue NSS requests (that includes user name and host name
   lookups) from PID 1 as this might trigger deadlocks when those
   lookups involve synchronously talking to services that we would need
@@ -107,21 +104,6 @@ title: Coding Style
 
 - Do not synchronously talk to any other service from PID 1, due to
   risk of deadlocks.
-
-- Avoid fixed-size string buffers, unless you really know the maximum
-  size and that maximum size is small. They are a source of errors,
-  since they possibly result in truncated strings. It is often nicer
-  to use dynamic memory, `alloca()` or VLAs. If you do allocate fixed-size
-  strings on the stack, then it is probably only OK if you either
-  use a maximum size such as `LINE_MAX`, or count in detail the maximum
-  size a string can have. (`DECIMAL_STR_MAX` and `DECIMAL_STR_WIDTH`
-  macros are your friends for this!)
-
-  Or in other words, if you use `char buf[256]` then you are likely
-  doing something wrong!
-
-- Make use of `_cleanup_free_` and friends. It makes your code much
-  nicer to read (and shorter)!
 
 - Be exceptionally careful when formatting and parsing floating point
   numbers. Their syntax is locale dependent (i.e. `5.000` in en_US is
@@ -268,15 +250,6 @@ title: Coding Style
   which will always work regardless if `p` is initialized or not, and
   guarantees that `p` is `NULL` afterwards, all in just one line.
 
-- Use `alloca()`, but never forget that it is not OK to invoke `alloca()`
-  within a loop or within function call parameters. `alloca()` memory is
-  released at the end of a function, and not at the end of a `{}`
-  block. Thus, if you invoke it in a loop, you keep increasing the
-  stack pointer without ever releasing memory again. (VLAs have better
-  behavior in this case, so consider using them as an alternative.)
-  Regarding not using `alloca()` within function parameters, see the
-  BUGS section of the `alloca(3)` man page.
-
 - Instead of using `memzero()`/`memset()` to initialize structs allocated
   on the stack, please try to use c99 structure initializers. It's
   short, prettier and actually even faster at execution. Hence:
@@ -340,11 +313,6 @@ title: Coding Style
   the call away for fixed strings). The only exception is when declaring an
   array. In that case use STRLEN, which evaluates to a static constant and
   doesn't force the compiler to create a VLA.
-
-- If you want to concatenate two or more strings, consider using `strjoina()`
-  or `strjoin()` rather than `asprintf()`, as the latter is a lot slower. This
-  matters particularly in inner loops (but note that `strjoina()` cannot be
-  used there).
 
 - Please avoid using global variables as much as you can. And if you
   do use them make sure they are static at least, instead of
@@ -439,6 +407,38 @@ title: Coding Style
   `O_NONBLOCK` has a benefit: it bypasses any mandatory lock that might be in
   effect on the regular file. If in doubt consider turning off `O_NONBLOCK` again
   after opening.
+
+## Memory Allocation
+
+- Always check OOM. There is no excuse. In program code, you can use
+  `log_oom()` for then printing a short message, but not in "library" code.
+
+- Avoid fixed-size string buffers, unless you really know the maximum size and
+  that maximum size is small. They are a source of errors, since they possibly
+  result in truncated strings. It is often nicer to use dynamic memory,
+  `alloca()` or VLAs. If you do allocate fixed-size strings on the stack, then
+  it is probably only OK if you either use a maximum size such as `LINE_MAX`,
+  or count in detail the maximum size a string can have. (`DECIMAL_STR_MAX` and
+  `DECIMAL_STR_WIDTH` macros are your friends for this!)
+
+  Or in other words, if you use `char buf[256]` then you are likely doing
+  something wrong!
+
+- Make use of `_cleanup_free_` and friends. It makes your code much nicer to
+  read (and shorter)!
+
+- Use `alloca()`, but never forget that it is not OK to invoke `alloca()`
+  within a loop or within function call parameters. `alloca()` memory is
+  released at the end of a function, and not at the end of a `{}` block. Thus,
+  if you invoke it in a loop, you keep increasing the stack pointer without
+  ever releasing memory again. (VLAs have better behavior in this case, so
+  consider using them as an alternative.)  Regarding not using `alloca()`
+  within function parameters, see the BUGS section of the `alloca(3)` man page.
+
+- If you want to concatenate two or more strings, consider using `strjoina()`
+  or `strjoin()` rather than `asprintf()`, as the latter is a lot slower. This
+  matters particularly in inner loops (but note that `strjoina()` cannot be
+  used there).
 
 ## Types
 
