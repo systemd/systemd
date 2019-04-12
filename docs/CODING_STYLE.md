@@ -120,21 +120,12 @@ title: Coding Style
   Or in other words, if you use `char buf[256]` then you are likely
   doing something wrong!
 
-- Stay uniform. For example, always use `usec_t` for time
-  values. Do not mix `usec` and `msec`, and `usec` and whatnot.
-
 - Make use of `_cleanup_free_` and friends. It makes your code much
   nicer to read (and shorter)!
 
 - Be exceptionally careful when formatting and parsing floating point
   numbers. Their syntax is locale dependent (i.e. `5.000` in en_US is
   generally understood as 5, while in de_DE as 5000.).
-
-
-- Unless you allocate an array, `double` is always a better choice
-  than `float`. Processors speak `double` natively anyway, so there is
-  no speed benefit, and on calls like `printf()` `float`s get promoted
-  to `double`s anyway, so there is no point.
 
 - Do not mix function invocations with variable definitions in one
   line. Wrong:
@@ -160,19 +151,6 @@ title: Coding Style
 - Use `goto` for cleaning up, and only use it for that. i.e. you may
   only jump to the end of a function, and little else. Never jump
   backwards!
-
-- Think about the types you use. If a value cannot sensibly be
-  negative, do not use `int`, but use `unsigned`.
-
-- Use `char` only for actual characters. Use `uint8_t` or `int8_t`
-  when you actually mean a byte-sized signed or unsigned
-  integers. When referring to a generic byte, we generally prefer the
-  unsigned variant `uint8_t`. Do not use types based on `short`. They
-  *never* make sense. Use `int`, `long`, `long long`, all in
-  unsigned and signed fashion, and the fixed-size types
-  `uint8_t`, `uint16_t`, `uint32_t`, `uint64_t`, `int8_t`, `int16_t`, `int32_t` and so on,
-  as well as `size_t`, but nothing else. Do not use kernel types like
-  `u32` and so on, leave that to the kernel.
 
 - Public API calls (i.e. functions exported by our shared libraries)
   must be marked `_public_` and need to be prefixed with `sd_`. No
@@ -248,9 +226,6 @@ title: Coding Style
   - `F_DUPFD_CLOEXEC` should be used instead of `F_DUPFD`, and so on,
   - invocations of `fopen()` should take `e`.
 
-- Use the bool type for booleans, not integers. One exception: in public
-  headers (i.e those in `src/systemd/sd-*.h`) use integers after all, as `bool`
-  is C99 and in our public APIs we try to stick to C89 (with a few extension).
 
 - When you invoke certain calls like `unlink()`, or `mkdir_p()` and you
   know it is safe to ignore the error it might return (because a later
@@ -342,16 +317,6 @@ title: Coding Style
   always-true expression for an infinite while loop is, our
   recommendation is to simply write it without any such expression by
   using `for (;;)`.
-
-- Never use the `off_t` type, and particularly avoid it in public
-  APIs. It's really weirdly defined, as it usually is 64-bit and we
-  don't support it any other way, but it could in theory also be
-  32-bit. Which one it is depends on a compiler switch chosen by the
-  compiled program, which hence corrupts APIs using it unless they can
-  also follow the program's choice. Moreover, in systemd we should
-  parse values the same way on all architectures and cannot expose
-  `off_t` values over D-Bus. To avoid any confusion regarding conversion
-  and ABIs, always use simply `uint64_t` directly.
 
 - Commit message subject lines should be prefixed with an appropriate
   component name of some kind. For example "journal: ", "nspawn: " and
@@ -474,6 +439,41 @@ title: Coding Style
   `O_NONBLOCK` has a benefit: it bypasses any mandatory lock that might be in
   effect on the regular file. If in doubt consider turning off `O_NONBLOCK` again
   after opening.
+
+## Types
+
+- Think about the types you use. If a value cannot sensibly be negative, do not
+  use `int`, but use `unsigned`.
+
+- Use `char` only for actual characters. Use `uint8_t` or `int8_t` when you
+  actually mean a byte-sized signed or unsigned integers. When referring to a
+  generic byte, we generally prefer the unsigned variant `uint8_t`. Do not use
+  types based on `short`. They *never* make sense. Use `int`, `long`, `long
+  long`, all in unsigned and signed fashion, and the fixed-size types
+  `uint8_t`, `uint16_t`, `uint32_t`, `uint64_t`, `int8_t`, `int16_t`, `int32_t`
+  and so on, as well as `size_t`, but nothing else. Do not use kernel types
+  like `u32` and so on, leave that to the kernel.
+
+- Stay uniform. For example, always use `usec_t` for time values. Do not mix
+  `usec` and `msec`, and `usec` and whatnot.
+
+- Never use the `off_t` type, and particularly avoid it in public APIs. It's
+  really weirdly defined, as it usually is 64-bit and we don't support it any
+  other way, but it could in theory also be 32-bit. Which one it is depends on
+  a compiler switch chosen by the compiled program, which hence corrupts APIs
+  using it unless they can also follow the program's choice. Moreover, in
+  systemd we should parse values the same way on all architectures and cannot
+  expose `off_t` values over D-Bus. To avoid any confusion regarding conversion
+  and ABIs, always use simply `uint64_t` directly.
+
+- Unless you allocate an array, `double` is always a better choice than
+  `float`. Processors speak `double` natively anyway, so there is no speed
+  benefit, and on calls like `printf()` `float`s get promoted to `double`s
+  anyway, so there is no point.
+
+- Use the bool type for booleans, not integers. One exception: in public
+  headers (i.e those in `src/systemd/sd-*.h`) use integers after all, as `bool`
+  is C99 and in our public APIs we try to stick to C89 (with a few extension).
 
 ## Referencing Concepts
 
