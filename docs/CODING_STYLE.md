@@ -117,10 +117,6 @@ title: Coding Style
 
 - Do not write `foo ()`, write `foo()`.
 
-- Please use `streq()` and `strneq()` instead of `strcmp()`, `strncmp()` where
-  applicable (i.e. wherever you just care about equality/inequality, not about
-  the sorting order).
-
 - Preferably allocate stack variables on the top of the block:
 
   ```c
@@ -190,10 +186,6 @@ title: Coding Style
   and they inform fellow programmers about the expected validity and
   range of parameters.
 
-- Never use `strtol()`, `atoi()` and similar calls. Use `safe_atoli()`,
-  `safe_atou32()` and suchlike instead. They are much nicer to use in
-  most cases and correctly check for parsing errors.
-
 - For every function you add, think about whether it is a "logging"
   function or a "non-logging" function. "Logging" functions do logging
   on their own, "non-logging" function never log on their own and
@@ -253,13 +245,6 @@ title: Coding Style
   - `F_DUPFD_CLOEXEC` should be used instead of `F_DUPFD`, and so on,
   - invocations of `fopen()` should take `e`.
 
-- We never use the POSIX version of `basename()` (which glibc defines it in
-  `libgen.h`), only the GNU version (which glibc defines in `string.h`).
-  The only reason to include `libgen.h` is because `dirname()`
-  is needed. Every time you need that please immediately undefine
-  `basename()`, and add a comment about it, so that no code ever ends up
-  using the POSIX version!
-
 - Use the bool type for booleans, not integers. One exception: in public
   headers (i.e those in `src/systemd/sd-*.h`) use integers after all, as `bool`
   is C99 and in our public APIs we try to stick to C89 (with a few extension).
@@ -287,19 +272,6 @@ title: Coding Style
   object shouldn't be cast to `(void)`, since not using the return value does not
   hide any errors.
 
-- Don't invoke `exit()`, ever. It is not replacement for proper error
-  handling. Please escalate errors up your call chain, and use normal
-  `return` to exit from the main function of a process. If you
-  `fork()`ed off a child process, please use `_exit()` instead of `exit()`,
-  so that the exit handlers are not run.
-
-- Please never use `dup()`. Use `fcntl(fd, F_DUPFD_CLOEXEC, 3)`
-  instead. For two reason: first, you want `O_CLOEXEC` set on the new `fd`
-  (see above). Second, `dup()` will happily duplicate your `fd` as 0, 1,
-  2, i.e. stdin, stdout, stderr, should those `fd`s be closed. Given the
-  special semantics of those `fd`s, it's probably a good idea to avoid
-  them. `F_DUPFD_CLOEXEC` with `3` as parameter avoids them.
-
 - When you define a destructor or `unref()` call for an object, please
   accept a `NULL` object and simply treat this as NOP. This is similar
   to how libc `free()` works, which accepts `NULL` pointers and becomes a
@@ -326,8 +298,6 @@ title: Coding Style
   behavior in this case, so consider using them as an alternative.)
   Regarding not using `alloca()` within function parameters, see the
   BUGS section of the `alloca(3)` man page.
-
-- Use `memzero()` or even better `zero()` instead of `memset(..., 0, ...)`
 
 - Instead of using `memzero()`/`memset()` to initialize structs allocated
   on the stack, please try to use c99 structure initializers. It's
@@ -451,13 +421,6 @@ title: Coding Style
   for objects that unprivileged users may allocate, but also matters for
   everything else any user may allocated.
 
-- `htonl()`/`ntohl()` and `htons()`/`ntohs()` are weird. Please use `htobe32()` and
-  `htobe16()` instead, it's much more descriptive, and actually says what really
-  is happening, after all `htonl()` and `htons()` don't operate on `long`s and
-  `short`s as their name would suggest, but on `uint32_t` and `uint16_t`. Also,
-  "network byte order" is just a weird name for "big endian", hence we might
-  want to call it "big endian" right-away.
-
 - You might wonder what kind of common code belongs in `src/shared/` and what
   belongs in `src/basic/`. The split is like this: anything that is used to
   implement the public shared object we provide (sd-bus, sd-login, sd-id128,
@@ -521,6 +484,44 @@ title: Coding Style
   suffix it with `/`, to indicate that it is a directory, not a regular file
   (or other file system object).
 
+## Functions to Avoid
+
+- Use `memzero()` or even better `zero()` instead of `memset(..., 0, ...)`
+
+- Please use `streq()` and `strneq()` instead of `strcmp()`, `strncmp()` where
+  applicable (i.e. wherever you just care about equality/inequality, not about
+  the sorting order).
+
+- Never use `strtol()`, `atoi()` and similar calls. Use `safe_atoli()`,
+  `safe_atou32()` and suchlike instead. They are much nicer to use in most
+  cases and correctly check for parsing errors.
+
+- `htonl()`/`ntohl()` and `htons()`/`ntohs()` are weird. Please use `htobe32()`
+  and `htobe16()` instead, it's much more descriptive, and actually says what
+  really is happening, after all `htonl()` and `htons()` don't operate on
+  `long`s and `short`s as their name would suggest, but on `uint32_t` and
+  `uint16_t`. Also, "network byte order" is just a weird name for "big endian",
+  hence we might want to call it "big endian" right-away.
+
+- Please never use `dup()`. Use `fcntl(fd, F_DUPFD_CLOEXEC, 3)` instead. For
+  two reason: first, you want `O_CLOEXEC` set on the new `fd` (see
+  above). Second, `dup()` will happily duplicate your `fd` as 0, 1, 2,
+  i.e. stdin, stdout, stderr, should those `fd`s be closed. Given the special
+  semantics of those `fd`s, it's probably a good idea to avoid
+  them. `F_DUPFD_CLOEXEC` with `3` as parameter avoids them.
+
 - Don't use `fgets()`, it's too hard to properly handle errors such as overly
   long lines. Use `read_line()` instead, which is our own function that handles
   this much nicer.
+
+- Don't invoke `exit()`, ever. It is not replacement for proper error
+  handling. Please escalate errors up your call chain, and use normal `return`
+  to exit from the main function of a process. If you `fork()`ed off a child
+  process, please use `_exit()` instead of `exit()`, so that the exit handlers
+  are not run.
+
+- We never use the POSIX version of `basename()` (which glibc defines it in
+  `libgen.h`), only the GNU version (which glibc defines in `string.h`).  The
+  only reason to include `libgen.h` is because `dirname()` is needed. Every
+  time you need that please immediately undefine `basename()`, and add a
+  comment about it, so that no code ever ends up using the POSIX version!
