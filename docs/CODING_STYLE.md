@@ -73,14 +73,6 @@ title: Coding Style
 
 - To minimize strict aliasing violations, we prefer unions over casting.
 
-- Do not issue NSS requests (that includes user name and host name
-  lookups) from PID 1 as this might trigger deadlocks when those
-  lookups involve synchronously talking to services that we would need
-  to start up.
-
-- Do not synchronously talk to any other service from PID 1, due to
-  risk of deadlocks.
-
 - Be exceptionally careful when formatting and parsing floating point
   numbers. Their syntax is locale dependent (i.e. `5.000` in en_US is
   generally understood as 5, while in de_DE as 5000.).
@@ -418,6 +410,15 @@ title: Coding Style
 - Use the bool type for booleans, not integers. One exception: in public
   headers (i.e those in `src/systemd/sd-*.h`) use integers after all, as `bool`
   is C99 and in our public APIs we try to stick to C89 (with a few extension).
+
+## Deadlocks
+
+- Do not issue NSS requests (that includes user name and host name lookups)
+  from PID 1 as this might trigger deadlocks when those lookups involve
+  synchronously talking to services that we would need to start up.
+
+- Do not synchronously talk to any other service from PID 1, due to risk of
+  deadlocks.
 
 ## File Descriptors
 
