@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <stdio.h>
 #include <sys/mman.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "macro.h"
@@ -37,12 +39,15 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
                 return -errno;
         }
 
-        f = fdopen(fd, "w");
-        if (!f) {
-                unlink_noerrno(t);
+        /* This assumes that returned FILE object is short-lived and used within the same single-threaded
+         * context and never shared externally, hence locking is not necessary. */
+
+        r = fdopen_unlocked(fd, "w", &f);
+        if (r < 0) {
+                unlink(t);
                 free(t);
                 safe_close(fd);
-                return -errno;
+                return r;
         }
 
         *_f = f;

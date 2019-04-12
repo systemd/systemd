@@ -298,7 +298,7 @@ static int boot_entry_load_unified(
         if (!k)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not below root: %s", path);
 
-        f = fmemopen((void*) osrelease, strlen(osrelease), "r");
+        f = fmemopen_unlocked((void*) osrelease, strlen(osrelease), "r");
         if (!f)
                 return log_error_errno(errno, "Failed to open os-release buffer: %m");
 

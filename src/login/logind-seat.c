@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio_ext.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -97,7 +96,6 @@ int seat_save(Seat *s) {
         if (r < 0)
                 goto fail;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,

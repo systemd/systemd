@@ -2,7 +2,6 @@
 
 #include <net/if.h>
 #include <linux/if.h>
-#include <stdio_ext.h>
 #include <unistd.h>
 
 #include "sd-network.h"
@@ -1178,7 +1177,6 @@ int link_save_user(Link *l) {
         if (r < 0)
                 goto fail;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fputs("# This is private data. Do not parse.\n", f);

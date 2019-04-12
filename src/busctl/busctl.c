@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <getopt.h>
-#include <stdio_ext.h>
 
 #include "sd-bus.h"
 
@@ -997,11 +996,9 @@ static int introspect(int argc, char **argv, void *userdata) {
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        mf = open_memstream(&buf, &sz);
+                        mf = open_memstream_unlocked(&buf, &sz);
                         if (!mf)
                                 return log_oom();
-
-                        (void) __fsetlocking(mf, FSETLOCKING_BYCALLER);
 
                         r = format_cmdline(reply, mf, false);
                         if (r < 0)

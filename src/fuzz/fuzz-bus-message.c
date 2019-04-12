@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <errno.h>
-#include <stdio.h>
-
 #include "alloc-util.h"
 #include "bus-dump.h"
 #include "bus-message.h"
 #include "env-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fuzz.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -36,7 +34,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         TAKE_PTR(buffer);
 
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0)
-                assert_se(g = open_memstream(&out, &out_size));
+                assert_se(g = open_memstream_unlocked(&out, &out_size));
 
         bus_message_dump(m, g ?: stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
 

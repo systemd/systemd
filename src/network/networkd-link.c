@@ -4,7 +4,6 @@
 #include <linux/if.h>
 #include <linux/can/netlink.h>
 #include <unistd.h>
-#include <stdio_ext.h>
 
 #include "alloc-util.h"
 #include "bus-util.h"
@@ -4034,7 +4033,6 @@ int link_save(Link *link) {
         if (r < 0)
                 goto fail;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,

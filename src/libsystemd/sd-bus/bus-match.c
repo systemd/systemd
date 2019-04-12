@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <stdio_ext.h>
-
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-match.h"
@@ -861,11 +859,9 @@ char *bus_match_to_string(struct bus_match_component *components, unsigned n_com
 
         assert(components);
 
-        f = open_memstream(&buffer, &size);
+        f = open_memstream_unlocked(&buffer, &size);
         if (!f)
                 return NULL;
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         for (i = 0; i < n_components; i++) {
                 char buf[32];

@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <stdio_ext.h>
-
 #if HAVE_GCRYPT
-#include <gcrypt.h>
+#  include <gcrypt.h>
 #endif
 
 #include "alloc-util.h"
@@ -803,10 +801,9 @@ int dnssec_verify_rrset(
         /* Bring the RRs into canonical order */
         typesafe_qsort(list, n, rr_compare);
 
-        f = open_memstream(&sig_data, &sig_size);
+        f = open_memstream_unlocked(&sig_data, &sig_size);
         if (!f)
                 return -ENOMEM;
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         fwrite_uint16(f, rrsig->rrsig.type_covered);
         fwrite_uint8(f, rrsig->rrsig.algorithm);

@@ -6,7 +6,6 @@
 #include <limits.h>
 #include <signal.h>
 #include <stddef.h>
-#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -1016,11 +1015,11 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         }
 
         fs = procfs_file_alloca(pid, "cgroup");
-        f = fopen(fs, "re");
-        if (!f)
-                return errno == ENOENT ? -ESRCH : -errno;
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        r = fopen_unlocked(fs, "re", &f);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
@@ -2442,17 +2441,13 @@ int cg_kernel_controllers(Set **ret) {
         if (!controllers)
                 return -ENOMEM;
 
-        f = fopen("/proc/cgroups", "re");
-        if (!f) {
-                if (errno == ENOENT) {
-                        *ret = NULL;
-                        return 0;
-                }
-
-                return -errno;
+        r = fopen_unlocked("/proc/cgroups", "re", &f);
+        if (r == -ENOENT) {
+                *ret = NULL;
+                return 0;
         }
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        if (r < 0)
+                return r;
 
         /* Ignore the header line */
         (void) read_line(f, (size_t) -1, NULL);

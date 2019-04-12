@@ -3,7 +3,6 @@
 #include <sys/socket.h>
 #include <linux/if.h>
 #include <linux/fib_rules.h>
-#include <stdio_ext.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -1189,7 +1188,6 @@ static int manager_save(Manager *m) {
         if (r < 0)
                 return r;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,

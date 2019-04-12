@@ -6,7 +6,6 @@
 #include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -330,11 +329,9 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
         assert(c);
         assert(p);
 
-        f = open_memstream(&buf, &sz);
+        f = open_memstream_unlocked(&buf, &sz);
         if (!f)
                 return -ENOMEM;
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         if (c->weekdays_bits > 0 && c->weekdays_bits <= BITS_WEEKDAYS) {
                 format_weekdays(f, c);

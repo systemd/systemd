@@ -8,7 +8,6 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -106,7 +105,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
         char *k;
         _cleanup_free_ char *ans = NULL;
         const char *p;
-        int c;
+        int c, r;
 
         assert(line);
         assert(pid >= 0);
@@ -121,15 +120,11 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
          * comm_fallback is false). Returns 0 and sets *line otherwise. */
 
         p = procfs_file_alloca(pid, "cmdline");
-
-        f = fopen(p, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return -ESRCH;
-                return -errno;
-        }
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        r = fopen_unlocked(p, "re", &f);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
 
         if (max_length == 0) {
                 /* This is supposed to be a safety guard against runaway command lines. */
@@ -513,14 +508,11 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
                 return -EINVAL;
 
         p = procfs_file_alloca(pid, "status");
-        f = fopen(p, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return -ESRCH;
-                return -errno;
-        }
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        r = fopen_unlocked(p, "re", &f);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
@@ -602,14 +594,11 @@ int get_process_environ(pid_t pid, char **env) {
 
         p = procfs_file_alloca(pid, "environ");
 
-        f = fopen(p, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return -ESRCH;
-                return -errno;
-        }
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        r = fopen_unlocked(p, "re", &f);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
 
         for (;;) {
                 char c;
@@ -895,15 +884,11 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
 
         path = procfs_file_alloca(pid, "environ");
 
-        f = fopen(path, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return -ESRCH;
-
-                return -errno;
-        }
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        r = fopen_unlocked(path, "re", &f);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
 
         l = strlen(field);
         for (;;) {

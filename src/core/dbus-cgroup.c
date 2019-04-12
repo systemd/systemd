@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <arpa/inet.h>
-#include <stdio_ext.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -821,11 +820,9 @@ int bus_cgroup_set_property(
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_IO);
 
-                        f = open_memstream(&buf, &size);
+                        f = open_memstream_unlocked(&buf, &size);
                         if (!f)
                                 return -ENOMEM;
-
-                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
                         fprintf(f, "%s=\n", name);
                         LIST_FOREACH(device_limits, a, c->io_device_limits)
@@ -903,11 +900,9 @@ int bus_cgroup_set_property(
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_IO);
 
-                        f = open_memstream(&buf, &size);
+                        f = open_memstream_unlocked(&buf, &size);
                         if (!f)
                                 return -ENOMEM;
-
-                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
                         fputs("IODeviceWeight=\n", f);
                         LIST_FOREACH(device_weights, a, c->io_device_weights)
@@ -982,11 +977,9 @@ int bus_cgroup_set_property(
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_IO);
 
-                        f = open_memstream(&buf, &size);
+                        f = open_memstream_unlocked(&buf, &size);
                         if (!f)
                                 return -ENOMEM;
-
-                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
                         fputs("IODeviceLatencyTargetSec=\n", f);
                         LIST_FOREACH(device_latencies, a, c->io_device_latencies)
@@ -1077,11 +1070,9 @@ int bus_cgroup_set_property(
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_BLKIO);
 
-                        f = open_memstream(&buf, &size);
+                        f = open_memstream_unlocked(&buf, &size);
                         if (!f)
                                 return -ENOMEM;
-
-                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
                         if (read) {
                                 fputs("BlockIOReadBandwidth=\n", f);
@@ -1167,11 +1158,9 @@ int bus_cgroup_set_property(
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_BLKIO);
 
-                        f = open_memstream(&buf, &size);
+                        f = open_memstream_unlocked(&buf, &size);
                         if (!f)
                                 return -ENOMEM;
-
-                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
                         fputs("BlockIODeviceWeight=\n", f);
                         LIST_FOREACH(device_weights, a, c->blockio_device_weights)
@@ -1275,11 +1264,9 @@ int bus_cgroup_set_property(
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_DEVICES);
 
-                        f = open_memstream(&buf, &size);
+                        f = open_memstream_unlocked(&buf, &size);
                         if (!f)
                                 return -ENOMEM;
-
-                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
                         fputs("DeviceAllow=\n", f);
                         LIST_FOREACH(device_allow, a, c->device_allow)
@@ -1390,11 +1377,9 @@ int bus_cgroup_set_property(
                                 *list = ip_address_access_free_all(*list);
 
                         unit_invalidate_cgroup_bpf(u);
-                        f = open_memstream(&buf, &size);
+                        f = open_memstream_unlocked(&buf, &size);
                         if (!f)
                                 return -ENOMEM;
-
-                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
                         fputs(name, f);
                         fputs("=\n", f);

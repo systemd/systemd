@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "json-internal.h"
 #include "json.h"
 #include "string-util.h"
@@ -358,7 +359,7 @@ static void test_source(void) {
                "%s"
                "--- original end ---\n", data);
 
-        assert_se(f = fmemopen((void*) data, strlen(data), "r"));
+        assert_se(f = fmemopen_unlocked((void*) data, strlen(data), "r"));
 
         assert_se(json_parse_file(f, "waldo", &v, NULL, NULL) >= 0);
 

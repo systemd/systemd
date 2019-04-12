@@ -29,6 +29,52 @@
 
 #define READ_FULL_BYTES_MAX (4U*1024U*1024U)
 
+int fopen_unlocked(const char *path, const char *options, FILE **ret) {
+        assert(ret);
+
+        FILE *f = fopen(path, options);
+        if (!f)
+                return -errno;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+        *ret = f;
+        return 0;
+}
+
+int fdopen_unlocked(int fd, const char *options, FILE **ret) {
+        assert(ret);
+
+        FILE *f = fdopen(fd, options);
+        if (!f)
+                return -errno;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+        *ret = f;
+        return 0;
+}
+
+FILE* open_memstream_unlocked(char **ptr, size_t *sizeloc) {
+        FILE *f = open_memstream(ptr, sizeloc);
+        if (!f)
+                return NULL;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+        return f;
+}
+
+FILE* fmemopen_unlocked(void *buf, size_t size, const char *mode) {
+        FILE *f = fmemopen(buf, size, mode);
+        if (!f)
+                return NULL;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+        return f;
+}
+
 int write_string_stream_ts(
                 FILE *f,
                 const char *line,
@@ -95,7 +141,6 @@ static int write_string_file_atomic(
         if (r < 0)
                 return r;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod_umask(fileno(f), 0644);
 
         r = write_string_stream_ts(f, line, flags, ts);
@@ -141,11 +186,9 @@ int write_string_file_ts(
                 assert(!ts);
 
         if (flags & WRITE_STRING_FILE_CREATE) {
-                f = fopen(fn, "we");
-                if (!f) {
-                        r = -errno;
+                r = fopen_unlocked(fn, "we", &f);
+                if (r < 0)
                         goto fail;
-                }
         } else {
                 int fd;
 
@@ -157,15 +200,12 @@ int write_string_file_ts(
                         goto fail;
                 }
 
-                f = fdopen(fd, "w");
-                if (!f) {
-                        r = -errno;
+                r = fdopen_unlocked(fd, "w", &f);
+                if (r < 0) {
                         safe_close(fd);
                         goto fail;
                 }
         }
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         if (flags & WRITE_STRING_FILE_DISABLE_BUFFER)
                 setvbuf(f, NULL, _IONBF, 0);
@@ -213,15 +253,14 @@ int write_string_filef(
 
 int read_one_line_file(const char *fn, char **line) {
         _cleanup_fclose_ FILE *f = NULL;
+        int r;
 
         assert(fn);
         assert(line);
 
-        f = fopen(fn, "re");
-        if (!f)
-                return -errno;
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        r = fopen_unlocked(fn, "re", &f);
+        if (r < 0)
+                return r;
 
         return read_line(f, LONG_LINE_MAX, line);
 }
@@ -230,6 +269,7 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *buf = NULL;
         size_t l, k;
+        int r;
 
         assert(fn);
         assert(blob);
@@ -243,11 +283,9 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         if (!buf)
                 return -ENOMEM;
 
-        f = fopen(fn, "re");
-        if (!f)
-                return -errno;
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        r = fopen_unlocked(fn, "re", &f);
+        if (r < 0)
+                return r;
 
         /* We try to read one byte more than we need, so that we know whether we hit eof */
         errno = 0;
@@ -390,15 +428,14 @@ finalize:
 
 int read_full_file_full(const char *filename, ReadFullFileFlags flags, char **contents, size_t *size) {
         _cleanup_fclose_ FILE *f = NULL;
+        int r;
 
         assert(filename);
         assert(contents);
 
-        f = fopen(filename, "re");
-        if (!f)
-                return -errno;
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        r = fopen_unlocked(filename, "re", &f);
+        if (r < 0)
+                return r;
 
         return read_full_stream_full(f, filename, flags, contents, size);
 }

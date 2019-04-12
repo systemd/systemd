@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio_ext.h>
 #include <sys/mount.h>
 
 #include "alloc-util.h"
@@ -378,11 +377,9 @@ int dev_is_devtmpfs(void) {
         if (r < 0)
                 return r;
 
-        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-        if (!proc_self_mountinfo)
-                return -errno;
-
-        (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
+        r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo);
+        if (r < 0)
+                return r;
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
