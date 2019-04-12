@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <netinet/ether.h>
-#include <linux/if_bonding.h>
-
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "bond.h"
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "extract-word.h"
-#include "missing.h"
-#include "netdev/bond.h"
 #include "string-table.h"
 #include "string-util.h"
 
@@ -125,44 +121,6 @@ static const char *const bond_primary_reselect_table[_NETDEV_BOND_PRIMARY_RESELE
 DEFINE_STRING_TABLE_LOOKUP(bond_primary_reselect, BondPrimaryReselect);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_primary_reselect, bond_primary_reselect, BondPrimaryReselect, "Failed to parse bond primary reselect");
 
-static uint8_t bond_mode_to_kernel(BondMode mode) {
-        switch (mode) {
-        case NETDEV_BOND_MODE_BALANCE_RR:
-                return BOND_MODE_ROUNDROBIN;
-        case NETDEV_BOND_MODE_ACTIVE_BACKUP:
-                return BOND_MODE_ACTIVEBACKUP;
-        case NETDEV_BOND_MODE_BALANCE_XOR:
-                return BOND_MODE_XOR;
-        case NETDEV_BOND_MODE_BROADCAST:
-                return BOND_MODE_BROADCAST;
-        case NETDEV_BOND_MODE_802_3AD:
-                return BOND_MODE_8023AD;
-        case NETDEV_BOND_MODE_BALANCE_TLB:
-                return BOND_MODE_TLB;
-        case NETDEV_BOND_MODE_BALANCE_ALB:
-                return BOND_MODE_ALB;
-        default:
-                return (uint8_t) -1;
-        }
-}
-
-static uint8_t bond_xmit_hash_policy_to_kernel(BondXmitHashPolicy policy) {
-        switch (policy) {
-        case NETDEV_BOND_XMIT_HASH_POLICY_LAYER2:
-                return BOND_XMIT_POLICY_LAYER2;
-        case NETDEV_BOND_XMIT_HASH_POLICY_LAYER34:
-                return BOND_XMIT_POLICY_LAYER34;
-        case NETDEV_BOND_XMIT_HASH_POLICY_LAYER23:
-                return BOND_XMIT_POLICY_LAYER23;
-        case NETDEV_BOND_XMIT_HASH_POLICY_ENCAP23:
-                return BOND_XMIT_POLICY_ENCAP23;
-        case NETDEV_BOND_XMIT_HASH_POLICY_ENCAP34:
-                return BOND_XMIT_POLICY_ENCAP34;
-        default:
-                return (uint8_t) -1;
-        }
-}
-
 static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Bond *b;
         ArpIpTarget *target = NULL;
@@ -177,14 +135,13 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         assert(b);
 
         if (b->mode != _NETDEV_BOND_MODE_INVALID) {
-                r = sd_netlink_message_append_u8(m, IFLA_BOND_MODE, bond_mode_to_kernel(b->mode));
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_MODE, b->mode);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_MODE attribute: %m");
         }
 
         if (b->xmit_hash_policy != _NETDEV_BOND_XMIT_HASH_POLICY_INVALID) {
-                r = sd_netlink_message_append_u8(m, IFLA_BOND_XMIT_HASH_POLICY,
-                                                 bond_xmit_hash_policy_to_kernel(b->xmit_hash_policy));
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_XMIT_HASH_POLICY, b->xmit_hash_policy);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_XMIT_HASH_POLICY attribute: %m");
         }
