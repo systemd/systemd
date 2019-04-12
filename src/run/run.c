@@ -380,13 +380,31 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_with_timer = true;
                         break;
 
-                case ARG_ON_CALENDAR:
+                case ARG_ON_CALENDAR: {
+                        _cleanup_(calendar_spec_freep) CalendarSpec *cs = NULL;
+                        usec_t next, curr;
+
+                        /* Let's make sure the given calendar event is not in the past */
+                        curr = now(CLOCK_REALTIME);
+                        r = calendar_spec_from_string(optarg, &cs);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse calendar event specification");
+                        r = calendar_spec_next_usec(cs, curr, &next);
+                        if (r < 0) {
+                                /* The calendar event is in the past - in such case
+                                 * don't add an OnCalendar property and execute
+                                 * the command immediately instead */
+                                log_warning("Specified calendar event is in the past, executing immediately");
+                                break;
+                        }
+
                         r = add_timer_property("OnCalendar", optarg);
                         if (r < 0)
                                 return r;
 
                         arg_with_timer = true;
                         break;
+                }
 
                 case ARG_ON_TIMEZONE_CHANGE:
                         r = add_timer_property("OnTimezoneChange", "yes");
