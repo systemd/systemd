@@ -196,19 +196,6 @@ title: Coding Style
   failure. Use temporary variables for these cases and change the
   passed in variables only on success.
 
-- When you allocate a file descriptor, it should be made `O_CLOEXEC`
-  right from the beginning, as none of our files should leak to forked
-  binaries by default. Hence, whenever you open a file, `O_CLOEXEC` must
-  be specified, right from the beginning. This also applies to
-  sockets. Effectively, this means that all invocations to:
-
-  - `open()` must get `O_CLOEXEC` passed,
-  - `socket()` and `socketpair()` must get `SOCK_CLOEXEC` passed,
-  - `recvmsg()` must get `MSG_CMSG_CLOEXEC` set,
-  - `F_DUPFD_CLOEXEC` should be used instead of `F_DUPFD`, and so on,
-  - invocations of `fopen()` should take `e`.
-
-
 - When you invoke certain calls like `unlink()`, or `mkdir_p()` and you
   know it is safe to ignore the error it might return (because a later
   call would detect the failure anyway, or because the error is in an
@@ -398,16 +385,6 @@ title: Coding Style
   expansion. When doing the reverse, make sure to escape `%` in specifier-style
   first (i.e. `%` → `%%`), and then do C-style escaping where necessary.
 
-- It's a good idea to use `O_NONBLOCK` when opening 'foreign' regular files, i.e.
-  file system objects that are supposed to be regular files whose paths where
-  specified by the user and hence might actually refer to other types of file
-  system objects. This is a good idea so that we don't end up blocking on
-  'strange' file nodes, for example if the user pointed us to a FIFO or device
-  node which may block when opening. Moreover even for actual regular files
-  `O_NONBLOCK` has a benefit: it bypasses any mandatory lock that might be in
-  effect on the regular file. If in doubt consider turning off `O_NONBLOCK` again
-  after opening.
-
 ## Memory Allocation
 
 - Always check OOM. There is no excuse. In program code, you can use
@@ -474,6 +451,30 @@ title: Coding Style
 - Use the bool type for booleans, not integers. One exception: in public
   headers (i.e those in `src/systemd/sd-*.h`) use integers after all, as `bool`
   is C99 and in our public APIs we try to stick to C89 (with a few extension).
+
+## File Descriptors
+
+- When you allocate a file descriptor, it should be made `O_CLOEXEC` right from
+  the beginning, as none of our files should leak to forked binaries by
+  default. Hence, whenever you open a file, `O_CLOEXEC` must be specified,
+  right from the beginning. This also applies to sockets. Effectively, this
+  means that all invocations to:
+
+  - `open()` must get `O_CLOEXEC` passed,
+  - `socket()` and `socketpair()` must get `SOCK_CLOEXEC` passed,
+  - `recvmsg()` must get `MSG_CMSG_CLOEXEC` set,
+  - `F_DUPFD_CLOEXEC` should be used instead of `F_DUPFD`, and so on,
+  - invocations of `fopen()` should take `e`.
+
+- It's a good idea to use `O_NONBLOCK` when opening 'foreign' regular files,
+  i.e.  file system objects that are supposed to be regular files whose paths
+  where specified by the user and hence might actually refer to other types of
+  file system objects. This is a good idea so that we don't end up blocking on
+  'strange' file nodes, for example if the user pointed us to a FIFO or device
+  node which may block when opening. Moreover even for actual regular files
+  `O_NONBLOCK` has a benefit: it bypasses any mandatory lock that might be in
+  effect on the regular file. If in doubt consider turning off `O_NONBLOCK`
+  again after opening.
 
 ## Referencing Concepts
 
