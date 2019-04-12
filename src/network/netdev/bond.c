@@ -358,16 +358,17 @@ int config_parse_arp_ip_target_address(
         }
 }
 
-int config_parse_ad_actor_sys_prio(const char *unit,
-                                   const char *filename,
-                                   unsigned line,
-                                   const char *section,
-                                   unsigned section_line,
-                                   const char *lvalue,
-                                   int ltype,
-                                   const char *rvalue,
-                                   void *data,
-                                   void *userdata) {
+int config_parse_ad_actor_sys_prio(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
         Bond *b = userdata;
         uint16_t v;
         int r;
@@ -379,12 +380,15 @@ int config_parse_ad_actor_sys_prio(const char *unit,
 
         r = safe_atou16(rvalue, &v);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse actor system priority '%s', ignoring: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse actor system priority '%s', ignoring: %m", rvalue);
                 return 0;
         }
 
         if (v == 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse actor system priority '%s'. Range is [1,65535], ignoring.", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Failed to parse actor system priority '%s'. Range is [1,65535], ignoring.",
+                           rvalue);
                 return 0;
         }
 
@@ -393,16 +397,17 @@ int config_parse_ad_actor_sys_prio(const char *unit,
         return 0;
 }
 
-int config_parse_ad_user_port_key(const char *unit,
-                                  const char *filename,
-                                  unsigned line,
-                                  const char *section,
-                                  unsigned section_line,
-                                  const char *lvalue,
-                                  int ltype,
-                                  const char *rvalue,
-                                  void *data,
-                                  void *userdata) {
+int config_parse_ad_user_port_key(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
         Bond *b = userdata;
         uint16_t v;
         int r;
@@ -414,12 +419,14 @@ int config_parse_ad_user_port_key(const char *unit,
 
         r = safe_atou16(rvalue, &v);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse user port key '%s', ignoring: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse user port key '%s', ignoring: %m", rvalue);
                 return 0;
         }
 
         if (v > 1023) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse user port key '%s'. Range is [0,1023], ignoring.", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Failed to parse user port key '%s'. Range is [0…1023], ignoring.", rvalue);
                 return 0;
         }
 
