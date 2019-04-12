@@ -4,8 +4,8 @@
 #include <linux/if_bonding.h>
 
 #include "in-addr-util.h"
-#include "list.h"
 #include "netdev.h"
+#include "ordered-set.h"
 
 /*
  * Maximum number of targets supported by the kernel for a single
@@ -82,12 +82,6 @@ typedef enum BondPrimaryReselect {
         _NETDEV_BOND_PRIMARY_RESELECT_INVALID = -1,
 } BondPrimaryReselect;
 
-typedef struct ArpIpTarget {
-        union in_addr_union ip;
-
-        LIST_FIELDS(struct ArpIpTarget, arp_ip_target);
-} ArpIpTarget;
-
 typedef struct Bond {
         NetDev meta;
 
@@ -119,8 +113,7 @@ typedef struct Bond {
         usec_t arp_interval;
         usec_t lp_interval;
 
-        int n_arp_ip_targets;
-        ArpIpTarget *arp_ip_targets;
+        OrderedSet *arp_ip_targets;
 } Bond;
 
 DEFINE_NETDEV_CAST(BOND, Bond);

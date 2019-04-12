@@ -123,8 +123,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_primary_reselect, bond_primary_resele
 
 static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Bond *b;
-        ArpIpTarget *target = NULL;
-        int r, i = 0;
+        int r;
 
         assert(netdev);
         assert(!link);
@@ -269,13 +268,17 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_TLB_DYNAMIC_LB attribute: %m");
         }
 
-        if (b->arp_interval > 0 && b->n_arp_ip_targets > 0) {
+        if (b->arp_interval > 0 && !ordered_set_isempty(b->arp_ip_targets)) {
+                Iterator i;
+                void *val;
+                int n = 0;
+
                 r = sd_netlink_message_open_container(m, IFLA_BOND_ARP_IP_TARGET);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not open contaniner IFLA_BOND_ARP_IP_TARGET : %m");
 
-                LIST_FOREACH(arp_ip_target, target, b->arp_ip_targets) {
-                        r = sd_netlink_message_append_u32(m, i++, target->ip.in.s_addr);
+                ORDERED_SET_FOREACH(val, b->arp_ip_targets, i) {
+                        r = sd_netlink_message_append_u32(m, n++, PTR_TO_UINT32(val));
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_ALL_TARGETS attribute: %m");
                 }
@@ -288,16 +291,18 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         return 0;
 }
 
-int config_parse_arp_ip_target_address(const char *unit,
-                                       const char *filename,
-                                       unsigned line,
-                                       const char *section,
-                                       unsigned section_line,
-                                       const char *lvalue,
-                                       int ltype,
-                                       const char *rvalue,
-                                       void *data,
-                                       void *userdata) {
+int config_parse_arp_ip_target_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Bond *b = userdata;
         int r;
 
@@ -306,45 +311,51 @@ int config_parse_arp_ip_target_address(const char *unit,
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                b->arp_ip_targets = ordered_set_free(b->arp_ip_targets);
+                return 0;
+        }
+
         for (;;) {
-                _cleanup_free_ ArpIpTarget *buffer = NULL;
                 _cleanup_free_ char *n = NULL;
-                int f;
+                union in_addr_union ip;
 
                 r = extract_first_word(&rvalue, &n, NULL, 0);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Bond ARP ip target address, ignoring assignment: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse Bond ARP ip target address, ignoring assignment: %s",
+                                   rvalue);
                         return 0;
                 }
-
                 if (r == 0)
-                        break;
+                        return 0;
 
-                buffer = new0(ArpIpTarget, 1);
-                if (!buffer)
-                        return -ENOMEM;
-
-                r = in_addr_from_string_auto(n, &f, &buffer->ip);
+                r = in_addr_from_string(AF_INET, n, &ip);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Bond ARP ip target address is invalid, ignoring assignment: %s", n);
-                        return 0;
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Bond ARP ip target address is invalid, ignoring assignment: %s", n);
+                        continue;
                 }
 
-                if (f != AF_INET) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Bond ARP ip target address is invalid, ignoring assignment: %s", n);
-                        return 0;
+                r = ordered_set_ensure_allocated(&b->arp_ip_targets, NULL);
+                if (r < 0)
+                        return log_oom();
+
+                if (ordered_set_size(b->arp_ip_targets) >= NETDEV_BOND_ARP_TARGETS_MAX) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Too many ARP ip targets are specified. The maximum number is %d. Ignoring assignment: %s",
+                                   NETDEV_BOND_ARP_TARGETS_MAX, n);
+                        continue;
                 }
 
-                LIST_PREPEND(arp_ip_target, b->arp_ip_targets, TAKE_PTR(buffer));
-                b->n_arp_ip_targets++;
+                r = ordered_set_put(b->arp_ip_targets, UINT32_TO_PTR(ip.in.s_addr));
+                if (r == -EEXIST)
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Bond ARP ip target address is duplicated, ignoring assignment: %s", n);
+                if (r < 0)
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to store bond ARP ip target address '%s', ignoring assignment: %m", n);
         }
-
-        if (b->n_arp_ip_targets > NETDEV_BOND_ARP_TARGETS_MAX)
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "More than the maximum number of kernel-supported ARP ip targets specified: %d > %d",
-                           b->n_arp_ip_targets, NETDEV_BOND_ARP_TARGETS_MAX);
-
-        return 0;
 }
 
 int config_parse_ad_actor_sys_prio(const char *unit,
@@ -457,19 +468,13 @@ int config_parse_ad_actor_system(
 }
 
 static void bond_done(NetDev *netdev) {
-        ArpIpTarget *t = NULL, *n = NULL;
         Bond *b;
 
         assert(netdev);
-
         b = BOND(netdev);
-
         assert(b);
 
-        LIST_FOREACH_SAFE(arp_ip_target, t, n, b->arp_ip_targets)
-                free(t);
-
-        b->arp_ip_targets = NULL;
+        ordered_set_free(b->arp_ip_targets);
 }
 
 static void bond_init(NetDev *netdev) {
@@ -497,9 +502,6 @@ static void bond_init(NetDev *netdev) {
         b->packets_per_slave = PACKETS_PER_SLAVE_DEFAULT;
         b->num_grat_arp = GRATUITOUS_ARP_DEFAULT;
         b->lp_interval = LEARNING_PACKETS_INTERVAL_MIN_SEC;
-
-        LIST_HEAD_INIT(b->arp_ip_targets);
-        b->n_arp_ip_targets = 0;
 }
 
 const NetDevVTable bond_vtable = {
