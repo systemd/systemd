@@ -55,52 +55,14 @@ title: Coding Style
 
 - Do not write `foo ()`, write `foo()`.
 
-- Preferably allocate local variables on the top of the block:
-
-  ```c
-  {
-          int a, b;
-
-          a = 5;
-          b = a;
-  }
-  ```
-
 ## Other
 
-- structs in `PascalCase` (with exceptions, such as public API structs),
-  variables and functions in `snake_case`.
-
-- To minimize strict aliasing violations, we prefer unions over casting.
+- Please name structures in `PascalCase` (with exceptions, such as public API
+  structs), variables and functions in `snake_case`.
 
 - Be exceptionally careful when formatting and parsing floating point
   numbers. Their syntax is locale dependent (i.e. `5.000` in en_US is
   generally understood as 5, while in de_DE as 5000.).
-
-- Do not mix function invocations with variable definitions in one
-  line. Wrong:
-
-  ```c
-  {
-          int a = foobar();
-          uint64_t x = 7;
-  }
-  ```
-
-  Right:
-
-  ```c
-  {
-          int a;
-          uint64_t x = 7;
-
-          a = foobar();
-  }
-  ```
-
-- Use `goto` for cleaning up, and only use it for that. i.e. you may
-  only jump to the end of a function, and little else. Never jump
-  backwards!
 
 - Avoid static variables, except for caches and very few other
   cases. Think about thread-safety! While most of our code is never
@@ -116,27 +78,6 @@ title: Coding Style
   failure. Use temporary variables for these cases and change the
   passed in variables only on success.
 
-
-- Instead of using `memzero()`/`memset()` to initialize structs allocated
-  on the stack, please try to use c99 structure initializers. It's
-  short, prettier and actually even faster at execution. Hence:
-
-  ```c
-  struct foobar t = {
-          .foo = 7,
-          .bar = "bazz",
-  };
-  ```
-
-  instead of:
-
-  ```c
-  struct foobar t;
-  zero(t);
-  t.foo = 7;
-  t.bar = "bazz";
-  ```
-
 - The order in which header files are included doesn't matter too
   much. systemd-internal headers must not rely on an include order, so
   it is safe to include them in any order possible.
@@ -148,13 +89,6 @@ title: Coding Style
   Furthermore, in all three groups, order all includes alphabetically
   so duplicate includes can easily be detected.
 
-- To implement an endless loop, use `for (;;)` rather than `while (1)`.
-  The latter is a bit ugly anyway, since you probably really
-  meant `while (true)`. To avoid the discussion what the right
-  always-true expression for an infinite while loop is, our
-  recommendation is to simply write it without any such expression by
-  using `for (;;)`.
-
 - Avoid leaving long-running child processes around, i.e. `fork()`s that
   are not followed quickly by an `execv()` in the child. Resource
   management is unclear in this case, and memory CoW will result in
@@ -164,12 +98,6 @@ title: Coding Style
   or a similar call, unless you really know what you do. Just "giving
   something some time", or so is a lazy excuse. Always wait for the
   proper event, instead of doing time-based poll loops.
-
-- To determine the length of a constant string `"foo"`, don't bother with
-  `sizeof("foo")-1`, please use `strlen()` instead (both gcc and clang optimize
-  the call away for fixed strings). The only exception is when declaring an
-  array. In that case use STRLEN, which evaluates to a static constant and
-  doesn't force the compiler to create a VLA.
 
 - Please avoid using global variables as much as you can. And if you
   do use them make sure they are static at least, instead of
@@ -237,6 +165,76 @@ title: Coding Style
   string, always apply the C-style unescaping fist, followed by the specifier
   expansion. When doing the reverse, make sure to escape `%` in specifier-style
   first (i.e. `%` → `%%`), and then do C-style escaping where necessary.
+
+## Using C Constructs
+
+- Preferably allocate local variables on the top of the block:
+
+  ```c
+  {
+          int a, b;
+
+          a = 5;
+          b = a;
+  }
+  ```
+
+- Do not mix function invocations with variable definitions in one line. Wrong:
+
+  ```c
+  {
+          int a = foobar();
+          uint64_t x = 7;
+  }
+  ```
+
+  Right:
+
+  ```c
+  {
+          int a;
+          uint64_t x = 7;
+
+          a = foobar();
+  }
+  ```
+
+- Use `goto` for cleaning up, and only use it for that. i.e. you may only jump
+  to the end of a function, and little else. Never jump backwards!
+
+- To minimize strict aliasing violations, we prefer unions over casting.
+
+- Instead of using `memzero()`/`memset()` to initialize structs allocated on
+  the stack, please try to use c99 structure initializers. It's short, prettier
+  and actually even faster at execution. Hence:
+
+  ```c
+  struct foobar t = {
+          .foo = 7,
+          .bar = "bazz",
+  };
+  ```
+
+  instead of:
+
+  ```c
+  struct foobar t;
+  zero(t);
+  t.foo = 7;
+  t.bar = "bazz";
+  ```
+
+- To implement an endless loop, use `for (;;)` rather than `while (1)`.  The
+  latter is a bit ugly anyway, since you probably really meant `while
+  (true)`. To avoid the discussion what the right always-true expression for an
+  infinite while loop is, our recommendation is to simply write it without any
+  such expression by using `for (;;)`.
+
+- To determine the length of a constant string `"foo"`, don't bother with
+  `sizeof("foo")-1`, please use `strlen()` instead (both gcc and clang optimize
+  the call away for fixed strings). The only exception is when declaring an
+  array. In that case use STRLEN, which evaluates to a static constant and
+  doesn't force the compiler to create a VLA.
 
 ## Destructors
 
