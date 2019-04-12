@@ -74,13 +74,7 @@ title: Coding Style
 - structs in `PascalCase` (with exceptions, such as public API structs),
   variables and functions in `snake_case`.
 
-- The destructors always deregister the object from the next bigger
-  object, not the other way around.
-
 - To minimize strict aliasing violations, we prefer unions over casting.
-
-- For robustness reasons, destructors should be able to destruct
-  half-initialized objects, too.
 
 - Do not issue NSS requests (that includes user name and host name
   lookups) from PID 1 as this might trigger deadlocks when those
@@ -165,23 +159,6 @@ title: Coding Style
   failure. Use temporary variables for these cases and change the
   passed in variables only on success.
 
-- When you define a destructor or `unref()` call for an object, please
-  accept a `NULL` object and simply treat this as NOP. This is similar
-  to how libc `free()` works, which accepts `NULL` pointers and becomes a
-  NOP for them. By following this scheme a lot of `if` checks can be
-  removed before invoking your destructor, which makes the code
-  substantially more readable and robust.
-
-- Related to this: when you define a destructor or `unref()` call for an
-  object, please make it return the same type it takes and always
-  return `NULL` from it. This allows writing code like this:
-
-  ```c
-  p = foobar_unref(p);
-  ```
-
-  which will always work regardless if `p` is initialized or not, and
-  guarantees that `p` is `NULL` afterwards, all in just one line.
 
 - Instead of using `memzero()`/`memset()` to initialize structs allocated
   on the stack, please try to use c99 structure initializers. It's
@@ -313,6 +290,31 @@ title: Coding Style
   string, always apply the C-style unescaping fist, followed by the specifier
   expansion. When doing the reverse, make sure to escape `%` in specifier-style
   first (i.e. `%` → `%%`), and then do C-style escaping where necessary.
+
+## Destructors
+
+- The destructors always deregister the object from the next bigger object, not
+  the other way around.
+
+- For robustness reasons, destructors should be able to destruct
+  half-initialized objects, too.
+
+- When you define a destructor or `unref()` call for an object, please accept a
+  `NULL` object and simply treat this as NOP. This is similar to how libc
+  `free()` works, which accepts `NULL` pointers and becomes a NOP for them. By
+  following this scheme a lot of `if` checks can be removed before invoking
+  your destructor, which makes the code substantially more readable and robust.
+
+- Related to this: when you define a destructor or `unref()` call for an
+  object, please make it return the same type it takes and always return `NULL`
+  from it. This allows writing code like this:
+
+  ```c
+  p = foobar_unref(p);
+  ```
+
+  which will always work regardless if `p` is initialized or not,x and
+  guarantees that `p` is `NULL` afterwards, all in just one line.
 
 ## Error Handling
 
