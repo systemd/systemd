@@ -291,11 +291,18 @@ $ eog bootup.svg&amp;
       with the GraphViz
       <citerefentry project='die-net'><refentrytitle>dot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       tool. Use a command line like <command>systemd-analyze dot | dot -Tsvg >systemd.svg</command> to
-      generate a graphical dependency tree. Unless <option>--order</option> or <option>--require</option> is
-      passed, the generated graph will show both ordering and requirement dependencies. Optional pattern
-      globbing style specifications (e.g. <filename>*.target</filename>) may be given at the end. A unit
-      dependency is included in the graph if any of these patterns match either the origin or destination
-      node.</para>
+      generate a graphical dependency tree. Unless <option>--order</option>, <option>--require</option> or
+      <option>----dependency-kind=failure|triggers|order|require</option> is passed, the generated graph will
+      show ordering, requirement, failure and triggers dependencies. Optional pattern
+      globbing style specifications (e.g. <filename>*.target</filename>)
+      may be given at the end. A unit dependency is included in the
+      graph if any of these patterns match either the origin or
+      destination node. See
+      <citerefentry><refentrytitle>analyze.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      page for details of configuring edge colors and styles.
+      In addition, you can override configured colors and styles on
+      the command line using <option>--dependency-color</option> or
+      <option>--dependency-style</option>.</para>
 
       <example>
         <title>Plot all dependencies of any unit whose name starts with <literal>avahi-daemon</literal>
@@ -582,17 +589,27 @@ Service b@0.service not loaded, b.socket cannot be started.
       <varlistentry>
         <term><option>--order</option></term>
         <term><option>--require</option></term>
+        <term><option>--dependency-kind=failure|triggers|order|require</option></term>
 
         <listitem><para>When used in conjunction with the
         <command>dot</command> command (see above), selects which
         dependencies are shown in the dependency graph. If
-        <option>--order</option> is passed, only dependencies of type
+        <option>--order</option> (or <option>--dependency-kind=order</option>)
+        is passed, only dependencies of type
         <varname>After=</varname> or <varname>Before=</varname> are
-        shown. If <option>--require</option> is passed, only
+        shown. If <option>--require</option> (or
+        <option>--dependency-kind=require</option>) is passed, only
         dependencies of type <varname>Requires=</varname>,
-        <varname>Requisite=</varname>,
-        <varname>Wants=</varname> and <varname>Conflicts=</varname>
-        are shown. If neither is passed, this shows dependencies of
+        <varname>Requisite=</varname>, <varname>PartOf=</varname>,
+        <varname>Wants=</varname>, <varname>Conflicts=</varname>,
+        or <varname>BindsTo=</varname>
+        are shown.
+        If <option>--dependency-kind=failure</option> is passed,
+        only dependencies of type <varname>OnFailure=</varname> are shown.
+        If <option>--dependency-kind=triggers</option> is passed,
+        only dependencies of type <varname>Triggers</varname> are shown.
+        These can be socket, path, timer or automount units.
+        If neither is passed, this shows dependencies of
         all these types.</para></listitem>
       </varlistentry>
 
@@ -618,6 +635,22 @@ Service b@0.service not loaded, b.socket cannot be started.
         options will trim the list of edges matched by the positional
         arguments, if any are given, and fully determine the list of
         edges shown otherwise.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--dependency-color=</option></term>
+        <term><option>--dependency-style=</option></term>
+
+        <listitem><para>When used in conjunction with the
+        <command>dot</command> command (see above), this overrides
+        configured colors and styles. These options take an argument
+        composed of dependency and color or style, seperated by colons.
+        For example,
+        <option>--dependency-color=After:red</option>
+        <option>--dependency-style=After:dotted</option>
+        will paint unit dependencies of type After in red color
+        and dotted style. Use this option multiple times to change
+        multiple dependencies.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -687,6 +720,7 @@ Service b@0.service not loaded, b.socket cannot be started.
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>analyze.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     </para>
   </refsect1>
 

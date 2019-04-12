@@ -1,0 +1,106 @@
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<refentry id="analyze.conf"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>analyze.conf</title>
+    <productname>systemd</productname>
+
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>analyze.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>analyze.conf</refname>
+    <refname>analyze.conf.d</refname>
+    <refpurpose>Analyze configuration files</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/systemd/analyze.conf</filename></para>
+    <para><filename>/etc/systemd/analyze.conf.d/*.conf</filename></para>
+    <para><filename>/run/systemd/analyze.conf.d/*.conf</filename></para>
+    <para><filename>/usr/lib/systemd/analyze.conf.d/*.conf</filename></para>
+    <para><filename>~/.config/systemd/analyze.conf.d/*.conf</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These files configure the colors and styles of the <command>dot</command> command of
+    <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    See
+    <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    page for the details.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>All colors are configured in the
+    <literal>[Colors]</literal> section:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>After=</varname></term>
+        <term><varname>BindsTo=</varname></term>
+        <term><varname>Conflicts=</varname></term>
+        <term><varname>OnFailure=</varname></term>
+        <term><varname>PartOf=</varname></term>
+        <term><varname>Requires=</varname></term>
+        <term><varname>Requisite=</varname></term>
+        <term><varname>Triggers=</varname></term>
+        <term><varname>Wants=</varname></term>
+
+        <listitem><para>Colors for these dependencies.
+        From <citerefentry><refentrytitle>dot</refentrytitle><manvolnum>1</manvolnum></citerefentry>:
+        A colorvalue may be "h,s,v" (hue, saturation, brightness) floating point numbers between 0 and 1, or an X11
+color name such as white, black, red, green, blue, yellow, magenta, or cyan, or a "#rrggbb" (red, green, blue, 2 hex
+characters each) value.  See http://www.graphviz.org/content/attrs#kcolor and
+http://www.graphviz.org/content/color-names for further details.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>All styles are configured in the
+    <literal>[Styles]</literal> section:</para>
+    <variablelist>
+      <varlistentry>
+        <term><varname>After=</varname></term>
+        <term><varname>BindsTo=</varname></term>
+        <term><varname>Conflicts=</varname></term>
+        <term><varname>OnFailure=</varname></term>
+        <term><varname>PartOf=</varname></term>
+        <term><varname>Requires=</varname></term>
+        <term><varname>Requisite=</varname></term>
+        <term><varname>Triggers=</varname></term>
+        <term><varname>Wants=</varname></term>
+
+        <listitem><para>Styles for these dependencies.
+        From <citerefentry><refentrytitle>dot</refentrytitle><manvolnum>1</manvolnum></citerefentry>:
+        Possible values: solid dashed dotted bold invis
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The defaults for all values are listed as comments in the
+    template <filename>/etc/systemd/analyze.conf</filename> file that
+    is installed by default.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>dot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
