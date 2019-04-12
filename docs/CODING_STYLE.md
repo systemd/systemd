@@ -68,9 +68,6 @@ title: Coding Style
 
 ## Other
 
-- Variables and functions **must** be static, unless they have a
-  prototype, and are supposed to be exported.
-
 - structs in `PascalCase` (with exceptions, such as public API structs),
   variables and functions in `snake_case`.
 
@@ -112,10 +109,6 @@ title: Coding Style
 - Use `goto` for cleaning up, and only use it for that. i.e. you may
   only jump to the end of a function, and little else. Never jump
   backwards!
-
-- Public API calls (i.e. functions exported by our shared libraries)
-  must be marked `_public_` and need to be prefixed with `sd_`. No
-  other functions should be prefixed like that.
 
 - For every function you add, think about whether it is a "logging"
   function or a "non-logging" function. "Logging" functions do logging
@@ -232,16 +225,6 @@ title: Coding Style
   concept. It's also OK to store data that is inherently global in
   global variables, for example data parsed from command lines, see
   below.
-
-- When exposing public C APIs, be careful what function parameters you make
-  `const`. For example, a parameter taking a context object should probably not
-  be `const`, even if you are writing an otherwise read-only accessor function
-  for it. The reason is that making it `const` fixates the contract that your
-  call won't alter the object ever, as part of the API. However, that's often
-  quite a promise, given that this even prohibits object-internal caching or
-  lazy initialization of object variables. Moreover, it's usually not too useful
-  for client applications. Hence, please be careful and avoid `const` on object
-  parameters, unless you are very sure `const` is appropriate.
 
 - Make sure to enforce limits on every user controllable resource. If the user
   can allocate resources in your code, your code must enforce some form of
@@ -471,6 +454,25 @@ title: Coding Style
   - Do not print full `help()` on error, be specific about the error.
   - Do not print messages to stdout on error.
   - Do not POSIX_ME_HARDER unless necessary, i.e. avoid `+` in option string.
+
+## Exporting Symbols
+
+- Variables and functions **must** be static, unless they have a prototype, and
+  are supposed to be exported.
+
+- Public API calls (i.e. functions exported by our shared libraries)
+  must be marked `_public_` and need to be prefixed with `sd_`. No
+  other functions should be prefixed like that.
+
+- When exposing public C APIs, be careful what function parameters you make
+  `const`. For example, a parameter taking a context object should probably not
+  be `const`, even if you are writing an otherwise read-only accessor function
+  for it. The reason is that making it `const` fixates the contract that your
+  call won't alter the object ever, as part of the API. However, that's often
+  quite a promise, given that this even prohibits object-internal caching or
+  lazy initialization of object variables. Moreover, it's usually not too
+  useful for client applications. Hence, please be careful and avoid `const` on
+  object parameters, unless you are very sure `const` is appropriate.
 
 ## Referencing Concepts
 
