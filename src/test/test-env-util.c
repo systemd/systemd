@@ -122,10 +122,10 @@ static void test_env_strv_get_n(void) {
 
         assert_se(!strv_env_get_n(env, "PATH__", 4, 0));
         assert_se(!strv_env_get_n(env, "PATH", 4, 0));
-        assert_se(streq(strv_env_get_n(env, "PATH__", 4, REPLACE_ENV_USE_ENVIRONMENT),
-                        getenv("PATH")));
-        assert_se(streq(strv_env_get_n(env, "PATH", 4, REPLACE_ENV_USE_ENVIRONMENT),
-                        getenv("PATH")));
+        assert_se(streq_ptr(strv_env_get_n(env, "PATH__", 4, REPLACE_ENV_USE_ENVIRONMENT),
+                            getenv("PATH")));
+        assert_se(streq_ptr(strv_env_get_n(env, "PATH", 4, REPLACE_ENV_USE_ENVIRONMENT),
+                            getenv("PATH")));
 }
 
 static void test_replace_env(bool braceless) {
