@@ -87,7 +87,8 @@ typedef enum DotArgColorStyle {
 
 static char** arg_dot_from_patterns = NULL;
 static char** arg_dot_to_patterns = NULL;
-static char** arg_dot_dependency_colors_styles = NULL;
+static char *arg_dependency_color[_UNIT_DEPENDENCY_MAX] = {};
+static char *arg_dependency_style[_UNIT_DEPENDENCY_MAX] = {};
 static usec_t arg_fuzz = 0;
 static PagerFlags arg_pager_flags = 0;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -100,10 +101,8 @@ static unsigned arg_iterations = 1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_dot_dependency_colors_styles, strv_freep);
-
-static char *arg_dependency_color[_UNIT_DEPENDENCY_MAX] = {};
-static char *arg_dependency_style[_UNIT_DEPENDENCY_MAX] = {};
+STATIC_DESTRUCTOR_REGISTER(arg_dependency_color, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_dependency_style, freep);
 
 struct boot_times {
         usec_t firmware_time;
@@ -1166,7 +1165,7 @@ static int graph_one_property(sd_bus *bus,
 static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *from_patterns[], char *to_patterns[]) {
         int r;
 
-        static const struct ArgDotDep {
+        static const struct {
                 DotDependencyKind kind;
                 UnitDependency dependency;
         } dependency_table[] = {
@@ -1185,15 +1184,16 @@ static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *fro
         assert(u);
 
         for (size_t i = 0; i < ELEMENTSOF(dependency_table); i++) {
-                if (arg_dot_dependency_kind == DOT_DEPENDENCY_ALL || arg_dot_dependency_kind == dependency_table[i].kind) {
-                        r = graph_one_property(bus, u,
-                                               unit_dependency_to_string(dependency_table[i].dependency),
-                                               arg_dependency_color[dependency_table[i].dependency],
-                                               arg_dependency_style[dependency_table[i].dependency],
-                                               patterns, from_patterns, to_patterns);
-                        if (r < 0)
-                                return r;
-                }
+                if (arg_dot_dependency_kind != DOT_DEPENDENCY_ALL && arg_dot_dependency_kind != dependency_table[i].kind)
+                        continue;
+
+                r = graph_one_property(bus, u,
+                                       unit_dependency_to_string(dependency_table[i].dependency),
+                                       arg_dependency_color[dependency_table[i].dependency],
+                                       arg_dependency_style[dependency_table[i].dependency],
+                                       patterns, from_patterns, to_patterns);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -1289,7 +1289,6 @@ static int dot(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **expanded_from_patterns = NULL;
         _cleanup_strv_free_ char **expanded_to_patterns = NULL;
         int r;
-        int d;
         UnitInfo u;
         _cleanup_strv_free_ char **config_dirs = NULL;
         char *arg_dependency_color_save[_UNIT_DEPENDENCY_MAX] = {};
@@ -1317,35 +1316,34 @@ static int dot(int argc, char *argv[], void *userdata) {
                 {}
         };
 
-        static const char * const colors[] = {
-                "black",    /* UNIT_REQUIRES */
-                "blue",     /* UNIT_REQUISITE */
-                "grey66",   /* UNIT_WANTS */
-                "magenta",  /* UNIT_BINDS_TO */
-                "black",    /* UNIT_PART_OF */
-                NULL,
-                NULL,
-                NULL,
-                NULL,
-                NULL,
-                "red",      /* UNIT_CONFLICTS */
-                NULL,
-                NULL,
-                "green",    /* UNIT_AFTER */
-                "orange",   /* UNIT_ON_FAILURE */
-                "grey66"    /* UNIT_TRIGGERS */
+        static const char * const colors[_UNIT_DEPENDENCY_MAX] = {
+                [UNIT_REQUIRES] = "black",
+                [UNIT_REQUISITE] = "blue",
+                [UNIT_WANTS] = "grey66",
+                [UNIT_BINDS_TO] = "magenta",
+                [UNIT_PART_OF] = "black",
+                [UNIT_CONFLICTS] = "red",
+                [UNIT_AFTER] = "green",
+                [UNIT_ON_FAILURE] = "orange",
+                [UNIT_TRIGGERS] = "grey66",
         };
 
         for (UnitDependency dependency = UNIT_REQUIRES; dependency <= UNIT_TRIGGERS; ++dependency) {
                 if (colors[dependency]) {
-                        if (arg_dependency_color[dependency])
+                        if (arg_dependency_color[dependency]) {
                                 arg_dependency_color_save[dependency] = strdup(arg_dependency_color[dependency]);
-                        else
+
+                                if (!arg_dependency_color_save[dependency])
+                                        return log_oom();
+                        } else
                                 arg_dependency_color[dependency] = strdup(colors[dependency]);
 
-                        if (arg_dependency_style[dependency])
+                        if (arg_dependency_style[dependency]) {
                                 arg_dependency_style_save[dependency] = strdup(arg_dependency_style[dependency]);
-                        else {
+
+                                if (!arg_dependency_style_save[dependency])
+                                        return log_oom();
+                        } else {
                                 if (dependency == UNIT_PART_OF)
                                         arg_dependency_style[dependency] = strdup("dashed");
                                 else if (dependency == UNIT_TRIGGERS)
@@ -1445,11 +1443,6 @@ static int dot(int argc, char *argv[], void *userdata) {
         if (on_tty())
                 log_notice("-- You probably want to process this output with graphviz' dot tool.\n"
                            "-- Try a shell pipeline like 'systemd-analyze dot | dot -Tsvg > systemd.svg'!\n");
-
-        for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
-                free(arg_dependency_color[d]);
-                free(arg_dependency_style[d]);
-        }
 
         return 0;
 }
@@ -2010,45 +2003,45 @@ static int do_security(int argc, char *argv[], void *userdata) {
         return analyze_security(bus, strv_skip(argv, 1), 0);
 }
 
-static int parse_arg_color_style(DotArgColorStyle color_or_style, const char *arg_dot_color_style) {
-        char delim[] = ":";
+static int parse_arg_color_style(DotArgColorStyle color_or_style, const char *dot_color_style) {
         const char *p;
         int r;
 
-        p = arg_dot_color_style;
+        p = dot_color_style;
         _cleanup_free_ char *word = NULL;
 
-        r = extract_first_word(&p, &word, delim, 0);
-        if (r == 0)
-                return r;
+        r = extract_first_word(&p, &word, ":", 0);
+        if (r == 0) {
+                log_error("Invalid syntax: %s", dot_color_style);
+                return -1;
+        }
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
-                log_error("Invalid syntax, ignoring: %s", arg_dot_color_style);
+                log_error("Invalid syntax: %s", dot_color_style);
                 return r;
         }
 
-        for (UnitDependency dependency = UNIT_REQUIRES; dependency <= UNIT_TRIGGERS; ++dependency) {
-                if (streq(unit_dependency_to_string(dependency), word)) {  /* unit found */
-                        r = extract_first_word(&p, &word, delim, 0);
-                        if (r == 0)
-                                break;
-                        if (r == -ENOMEM)
-                                return log_oom();
-                        if (r < 0) {
-                                log_error("Invalid syntax, ignoring: %s", arg_dot_color_style);
-                                break;
-                        }
+        if (!p) {
+                log_error("Invalid syntax: %s", dot_color_style);
+                return -1;
+        }
 
-                        if (word) {  /* color or style found */
-                                if (color_or_style == DOT_ARG_COLOR)
-                                        arg_dependency_color[dependency] = strdup(word);
-                                else
-                                        arg_dependency_style[dependency] = strdup(word);
+        UnitDependency d;
+        d = unit_dependency_from_string(word);
+        if (d < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown dependency type: %s", word);
 
-                                break;
-                        }
-                }
+        if (color_or_style == DOT_ARG_COLOR) {
+                arg_dependency_color[d] = strdup(p);
+
+                if (!arg_dependency_color[d])
+                        return log_oom();
+        } else {
+                arg_dependency_style[d] = strdup(p);
+
+                if (!arg_dependency_style[d])
+                        return log_oom();
         }
 
         return r;
@@ -2074,8 +2067,6 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --global              Operate on global user configuration\n"
                "  -H --host=[USER@]HOST    Operate on remote host\n"
                "  -M --machine=CONTAINER   Operate on local container\n"
-               "     --order               Show only order in the graph\n"
-               "     --require             Show only requirement in the graph\n"
                "     --dependency-kind=failure|triggers|order|require\n"
                "                           Show only dependencies of specified type in the graph\n"
                "     --from-pattern=GLOB   Show only origins in the graph\n"
@@ -2085,9 +2076,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --man[=BOOL]          Do [not] check for existence of man pages\n"
                "     --generators[=BOOL]   Do [not] run unit generators (requires privileges)\n"
                "     --iterations=N        Show the specified number of iterations\n"
-               "     --dependency-color=Dependency:color\n"
+               "     --dependency-color=DEPENDENCY:COLOR\n"
                "                           Use color in the graph for dependency\n"
-               "     --dependency-style=Dependency:style\n"
+               "     --dependency-style=DEPENDENCY:STYLE\n"
                "                           Use style in the graph for dependency\n"
                "\nCommands:\n"
                "  time                     Print time spent in the kernel\n"
@@ -2139,23 +2130,23 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'                  },
-                { "version",      no_argument,       NULL, ARG_VERSION          },
-                { "order",        no_argument,       NULL, ARG_ORDER            },
-                { "require",      no_argument,       NULL, ARG_REQUIRE          },
-                { "root",         required_argument, NULL, ARG_ROOT             },
-                { "system",       no_argument,       NULL, ARG_SYSTEM           },
-                { "user",         no_argument,       NULL, ARG_USER             },
-                { "global",       no_argument,       NULL, ARG_GLOBAL           },
-                { "from-pattern", required_argument, NULL, ARG_DOT_FROM_PATTERN },
-                { "to-pattern",   required_argument, NULL, ARG_DOT_TO_PATTERN   },
-                { "fuzz",         required_argument, NULL, ARG_FUZZ             },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER         },
-                { "man",          optional_argument, NULL, ARG_MAN              },
-                { "generators",   optional_argument, NULL, ARG_GENERATORS       },
-                { "host",         required_argument, NULL, 'H'                  },
-                { "machine",      required_argument, NULL, 'M'                  },
-                { "iterations",   required_argument, NULL, ARG_ITERATIONS       },
+                { "help",             no_argument,       NULL, 'h'                  },
+                { "version",          no_argument,       NULL, ARG_VERSION          },
+                { "order",            no_argument,       NULL, ARG_ORDER            },
+                { "require",          no_argument,       NULL, ARG_REQUIRE          },
+                { "root",             required_argument, NULL, ARG_ROOT             },
+                { "system",           no_argument,       NULL, ARG_SYSTEM           },
+                { "user",             no_argument,       NULL, ARG_USER             },
+                { "global",           no_argument,       NULL, ARG_GLOBAL           },
+                { "from-pattern",     required_argument, NULL, ARG_DOT_FROM_PATTERN },
+                { "to-pattern",       required_argument, NULL, ARG_DOT_TO_PATTERN   },
+                { "fuzz",             required_argument, NULL, ARG_FUZZ             },
+                { "no-pager",         no_argument,       NULL, ARG_NO_PAGER         },
+                { "man",              optional_argument, NULL, ARG_MAN              },
+                { "generators",       optional_argument, NULL, ARG_GENERATORS       },
+                { "host",             required_argument, NULL, 'H'                  },
+                { "machine",          required_argument, NULL, 'M'                  },
+                { "iterations",       required_argument, NULL, ARG_ITERATIONS       },
                 { "dependency-kind",  required_argument, NULL, ARG_DEPENDENCY_KIND  },
                 { "dependency-color", required_argument, NULL, ARG_DEPENDENCY_COLOR },
                 { "dependency-style", required_argument, NULL, ARG_DEPENDENCY_STYLE },
@@ -2202,13 +2193,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DEPENDENCY_KIND:
                         if (streq(optarg, "order"))
-                            arg_dot_dependency_kind = DOT_DEPENDENCY_ORDER;
+                                arg_dot_dependency_kind = DOT_DEPENDENCY_ORDER;
                         else if (streq(optarg, "require"))
-                            arg_dot_dependency_kind = DOT_DEPENDENCY_REQUIRE;
+                                arg_dot_dependency_kind = DOT_DEPENDENCY_REQUIRE;
                         else if (streq(optarg, "failure"))
-                            arg_dot_dependency_kind = DOT_DEPENDENCY_FAILURE;
+                                arg_dot_dependency_kind = DOT_DEPENDENCY_FAILURE;
                         else if (streq(optarg, "triggers"))
-                            arg_dot_dependency_kind = DOT_DEPENDENCY_TRIGGERS;
+                                arg_dot_dependency_kind = DOT_DEPENDENCY_TRIGGERS;
+                        else {
+                                log_error("Unknown dependency kind: %s", optarg);
+                                return -1;
+                        }
+
                         break;
 
                 case ARG_DOT_FROM_PATTERN:
@@ -2342,6 +2338,7 @@ static int run(int argc, char *argv[]) {
         };
 
         int r;
+        int d;
 
         setlocale(LC_ALL, "");
         setlocale(LC_NUMERIC, "C"); /* we want to format/parse floats in C style */
@@ -2353,7 +2350,14 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        return dispatch_verb(argc, argv, verbs, NULL);
+        r = dispatch_verb(argc, argv, verbs, NULL);
+
+        for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
+                free(arg_dependency_color[d]);
+                free(arg_dependency_style[d]);
+        }
+
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);

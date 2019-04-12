@@ -291,7 +291,7 @@ $ eog bootup.svg&amp;
       with the GraphViz
       <citerefentry project='die-net'><refentrytitle>dot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       tool. Use a command line like <command>systemd-analyze dot | dot -Tsvg >systemd.svg</command> to
-      generate a graphical dependency tree. Unless <option>--order</option>, <option>--require</option> or
+      generate a graphical dependency tree. Unless
       <option>----dependency-kind=failure|triggers|order|require</option> is passed, the generated graph will
       show ordering, requirement, failure and triggers dependencies. Optional pattern
       globbing style specifications (e.g. <filename>*.target</filename>)
@@ -587,18 +587,16 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
-        <term><option>--order</option></term>
-        <term><option>--require</option></term>
         <term><option>--dependency-kind=failure|triggers|order|require</option></term>
 
         <listitem><para>When used in conjunction with the
         <command>dot</command> command (see above), selects which
         dependencies are shown in the dependency graph. If
-        <option>--order</option> (or <option>--dependency-kind=order</option>)
+        <option>--dependency-kind=order</option>
         is passed, only dependencies of type
         <varname>After=</varname> or <varname>Before=</varname> are
-        shown. If <option>--require</option> (or
-        <option>--dependency-kind=require</option>) is passed, only
+        shown. If or
+        <option>--dependency-kind=require</option> is passed, only
         dependencies of type <varname>Requires=</varname>,
         <varname>Requisite=</varname>, <varname>PartOf=</varname>,
         <varname>Wants=</varname>, <varname>Conflicts=</varname>,
