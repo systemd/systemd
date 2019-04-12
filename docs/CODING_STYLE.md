@@ -82,21 +82,6 @@ title: Coding Style
 - For robustness reasons, destructors should be able to destruct
   half-initialized objects, too.
 
-- Error codes are returned as negative `Exxx`. e.g. `return -EINVAL`. There
-  are some exceptions: for constructors, it is OK to return `NULL` on
-  OOM. For lookup functions, `NULL` is fine too for "not found".
-
-  Be strict with this. When you write a function that can fail due to
-  more than one cause, it *really* should have an `int` as the return value
-  for the error code.
-
-- Do not bother with error checking whether writing to stdout/stderr
-  worked.
-
-- Do not log errors from "library" code, only do so from "main
-  program" code. (With one exception: it is OK to log with DEBUG level
-  from any code, with the exception of maybe inner loops).
-
 - Do not issue NSS requests (that includes user name and host name
   lookups) from PID 1 as this might trigger deadlocks when those
   lookups involve synchronously talking to services that we would need
@@ -137,17 +122,6 @@ title: Coding Style
 - Public API calls (i.e. functions exported by our shared libraries)
   must be marked `_public_` and need to be prefixed with `sd_`. No
   other functions should be prefixed like that.
-
-- In public API calls, you **must** validate all your input arguments for
-  programming error with `assert_return()` and return a sensible return
-  code. In all other calls, it is recommended to check for programming
-  errors with a more brutal `assert()`. We are more forgiving to public
-  users than for ourselves! Note that `assert()` and `assert_return()`
-  really only should be used for detecting programming errors, not for
-  runtime errors. `assert()` and `assert_return()` by usage of `_likely_()`
-  inform the compiler that he should not expect these checks to fail,
-  and they inform fellow programmers about the expected validity and
-  range of parameters.
 
 - For every function you add, think about whether it is a "logging"
   function or a "non-logging" function. "Logging" functions do logging
@@ -196,29 +170,6 @@ title: Coding Style
   failure. Use temporary variables for these cases and change the
   passed in variables only on success.
 
-- When you invoke certain calls like `unlink()`, or `mkdir_p()` and you
-  know it is safe to ignore the error it might return (because a later
-  call would detect the failure anyway, or because the error is in an
-  error path and you thus couldn't do anything about it anyway), then
-  make this clear by casting the invocation explicitly to `(void)`. Code
-  checks like Coverity understand that, and will not complain about
-  ignored error codes. Hence, please use this:
-
-  ```c
-  (void) unlink("/foo/bar/baz");
-  ```
-
-  instead of just this:
-
-  ```c
-  unlink("/foo/bar/baz");
-  ```
-
-  Don't cast function calls to `(void)` that return no error
-  conditions. Specifically, the various `xyz_unref()` calls that return a `NULL`
-  object shouldn't be cast to `(void)`, since not using the return value does not
-  hide any errors.
-
 - When you define a destructor or `unref()` call for an object, please
   accept a `NULL` object and simply treat this as NOP. This is similar
   to how libc `free()` works, which accepts `NULL` pointers and becomes a
@@ -256,9 +207,6 @@ title: Coding Style
   t.foo = 7;
   t.bar = "bazz";
   ```
-
-- When returning a return code from `main()`, please preferably use
-  `EXIT_FAILURE` and `EXIT_SUCCESS` as defined by libc.
 
 - The order in which header files are included doesn't matter too
   much. systemd-internal headers must not rely on an include order, so
@@ -377,6 +325,58 @@ title: Coding Style
   string, always apply the C-style unescaping fist, followed by the specifier
   expansion. When doing the reverse, make sure to escape `%` in specifier-style
   first (i.e. `%` → `%%`), and then do C-style escaping where necessary.
+
+## Error Handling
+
+- Error codes are returned as negative `Exxx`. e.g. `return -EINVAL`. There are
+  some exceptions: for constructors, it is OK to return `NULL` on OOM. For
+  lookup functions, `NULL` is fine too for "not found".
+
+  Be strict with this. When you write a function that can fail due to more than
+  one cause, it *really* should have an `int` as the return value for the error
+  code.
+
+- Do not bother with error checking whether writing to stdout/stderr worked.
+
+- Do not log errors from "library" code, only do so from "main program"
+  code. (With one exception: it is OK to log with DEBUG level from any code,
+  with the exception of maybe inner loops).
+
+- In public API calls, you **must** validate all your input arguments for
+  programming error with `assert_return()` and return a sensible return
+  code. In all other calls, it is recommended to check for programming errors
+  with a more brutal `assert()`. We are more forgiving to public users than for
+  ourselves! Note that `assert()` and `assert_return()` really only should be
+  used for detecting programming errors, not for runtime errors. `assert()` and
+  `assert_return()` by usage of `_likely_()` inform the compiler that he should
+  not expect these checks to fail, and they inform fellow programmers about the
+  expected validity and range of parameters.
+
+- When you invoke certain calls like `unlink()`, or `mkdir_p()` and you know it
+  is safe to ignore the error it might return (because a later call would
+  detect the failure anyway, or because the error is in an error path and you
+  thus couldn't do anything about it anyway), then make this clear by casting
+  the invocation explicitly to `(void)`. Code checks like Coverity understand
+  that, and will not complain about ignored error codes. Hence, please use
+  this:
+
+  ```c
+  (void) unlink("/foo/bar/baz");
+  ```
+
+  instead of just this:
+
+  ```c
+  unlink("/foo/bar/baz");
+  ```
+
+  Don't cast function calls to `(void)` that return no error
+  conditions. Specifically, the various `xyz_unref()` calls that return a
+  `NULL` object shouldn't be cast to `(void)`, since not using the return value
+  does not hide any errors.
+
+- When returning a return code from `main()`, please preferably use
+  `EXIT_FAILURE` and `EXIT_SUCCESS` as defined by libc.
 
 ## Memory Allocation
 
