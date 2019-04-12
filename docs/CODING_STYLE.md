@@ -475,6 +475,8 @@ title: Coding Style
   effect on the regular file. If in doubt consider turning off `O_NONBLOCK` again
   after opening.
 
+## Referencing Concepts
+
 - When referring to a configuration file option in the documentation and such,
   please always suffix it with `=`, to indicate that it is a configuration file
   setting.
