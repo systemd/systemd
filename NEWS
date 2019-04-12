@@ -69,7 +69,7 @@ CHANGES WITH 242:
         * Two new conditions for units have been added: ConditionMemory= may be
           used to conditionalize a unit based on installed system
           RAM. ConditionCPUs= may be used to conditionalize a unit based on
-          install CPU cores.
+          installed CPU cores.
 
         * The @default system call filter group understood by SystemCallFilter=
           has been updated to include the new rseq() system call introduced in
