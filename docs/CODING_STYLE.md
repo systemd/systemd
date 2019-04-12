@@ -161,11 +161,6 @@ title: Coding Style
   `is_main_thread()` to detect whether the calling thread is the main
   thread.
 
-- Command line option parsing:
-  - Do not print full `help()` on error, be specific about the error.
-  - Do not print messages to stdout on error.
-  - Do not POSIX_ME_HARDER unless necessary, i.e. avoid `+` in option string.
-
 - Do not write functions that clobber call-by-reference variables on
   failure. Use temporary variables for these cases and change the
   passed in variables only on success.
@@ -260,13 +255,6 @@ title: Coding Style
   concept. It's also OK to store data that is inherently global in
   global variables, for example data parsed from command lines, see
   below.
-
-- If you parse a command line, and want to store the parsed parameters
-  in global variables, please consider prefixing their names with
-  `arg_`. We have been following this naming rule in most of our
-  tools, and we should continue to do so, as it makes it easy to
-  identify command line parameter variables, and makes it clear why it
-  is OK that they are global variables.
 
 - When exposing public C APIs, be careful what function parameters you make
   `const`. For example, a parameter taking a context object should probably not
@@ -468,6 +456,19 @@ title: Coding Style
   `O_NONBLOCK` has a benefit: it bypasses any mandatory lock that might be in
   effect on the regular file. If in doubt consider turning off `O_NONBLOCK`
   again after opening.
+
+## Command Line
+
+- If you parse a command line, and want to store the parsed parameters in
+  global variables, please consider prefixing their names with `arg_`. We have
+  been following this naming rule in most of our tools, and we should continue
+  to do so, as it makes it easy to identify command line parameter variables,
+  and makes it clear why it is OK that they are global variables.
+
+- Command line option parsing:
+  - Do not print full `help()` on error, be specific about the error.
+  - Do not print messages to stdout on error.
+  - Do not POSIX_ME_HARDER unless necessary, i.e. avoid `+` in option string.
 
 ## Referencing Concepts
 
