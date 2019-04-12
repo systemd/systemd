@@ -55,53 +55,49 @@ title: Coding Style
 
 - Do not write `foo ()`, write `foo()`.
 
-## Other
+## Code Organization and Semantics
 
 - Please name structures in `PascalCase` (with exceptions, such as public API
   structs), variables and functions in `snake_case`.
 
-- Avoid static variables, except for caches and very few other
-  cases. Think about thread-safety! While most of our code is never
-  used in threaded environments, at least the library code should make
-  sure it works correctly in them. Instead of doing a lot of locking
-  for that, we tend to prefer using TLS to do per-thread caching (which
-  only works for small, fixed-size cache objects), or we disable
-  caching for any thread that is not the main thread. Use
-  `is_main_thread()` to detect whether the calling thread is the main
-  thread.
+- Avoid static variables, except for caches and very few other cases. Think
+  about thread-safety! While most of our code is never used in threaded
+  environments, at least the library code should make sure it works correctly
+  in them. Instead of doing a lot of locking for that, we tend to prefer using
+  TLS to do per-thread caching (which only works for small, fixed-size cache
+  objects), or we disable caching for any thread that is not the main
+  thread. Use `is_main_thread()` to detect whether the calling thread is the
+  main thread.
 
 - Do not write functions that clobber call-by-reference variables on
-  failure. Use temporary variables for these cases and change the
-  passed in variables only on success.
+  failure. Use temporary variables for these cases and change the passed in
+  variables only on success.
 
 - The order in which header files are included doesn't matter too
-  much. systemd-internal headers must not rely on an include order, so
-  it is safe to include them in any order possible.
-  However, to not clutter global includes, and to make sure internal
-  definitions will not affect global headers, please always include the
-  headers of external components first (these are all headers enclosed
-  in <>), followed by our own exported headers (usually everything
-  that's prefixed by `sd-`), and then followed by internal headers.
-  Furthermore, in all three groups, order all includes alphabetically
+  much. systemd-internal headers must not rely on an include order, so it is
+  safe to include them in any order possible.  However, to not clutter global
+  includes, and to make sure internal definitions will not affect global
+  headers, please always include the headers of external components first
+  (these are all headers enclosed in <>), followed by our own exported headers
+  (usually everything that's prefixed by `sd-`), and then followed by internal
+  headers.  Furthermore, in all three groups, order all includes alphabetically
   so duplicate includes can easily be detected.
 
-- Please avoid using global variables as much as you can. And if you
-  do use them make sure they are static at least, instead of
-  exported. Especially in library-like code it is important to avoid
-  global variables. Why are global variables bad? They usually hinder
-  generic reusability of code (since they break in threaded programs,
-  and usually would require locking there), and as the code using them
-  has side-effects make programs non-transparent. That said, there are
-  many cases where they explicitly make a lot of sense, and are OK to
-  use. For example, the log level and target in `log.c` is stored in a
-  global variable, and that's OK and probably expected by most. Also
-  in many cases we cache data in global variables. If you add more
-  caches like this, please be careful however, and think about
-  threading. Only use static variables if you are sure that
-  thread-safety doesn't matter in your case. Alternatively, consider
-  using TLS, which is pretty easy to use with gcc's `thread_local`
-  concept. It's also OK to store data that is inherently global in
-  global variables, for example data parsed from command lines, see
+- Please avoid using global variables as much as you can. And if you do use
+  them make sure they are static at least, instead of exported. Especially in
+  library-like code it is important to avoid global variables. Why are global
+  variables bad? They usually hinder generic reusability of code (since they
+  break in threaded programs, and usually would require locking there), and as
+  the code using them has side-effects make programs non-transparent. That
+  said, there are many cases where they explicitly make a lot of sense, and are
+  OK to use. For example, the log level and target in `log.c` is stored in a
+  global variable, and that's OK and probably expected by most. Also in many
+  cases we cache data in global variables. If you add more caches like this,
+  please be careful however, and think about threading. Only use static
+  variables if you are sure that thread-safety doesn't matter in your
+  case. Alternatively, consider using TLS, which is pretty easy to use with
+  gcc's `thread_local` concept. It's also OK to store data that is inherently
+  global in global variables, for example data parsed from command lines, see
   below.
 
 - You might wonder what kind of common code belongs in `src/shared/` and what
