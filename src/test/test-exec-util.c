@@ -324,7 +324,7 @@ static void test_environment_gathering(void) {
         assert_se(chmod(name3, 0755) == 0);
 
         /* When booting in containers or without initramfs there might not be
-         * any PATH in the environ and if there is no PATH /bin/sh built-in
+         * any PATH in the environment and if there is no PATH /bin/sh built-in
          * PATH may leak and override systemd's DEFAULT_PATH which is not
          * good. Force our own PATH in environment, to prevent expansion of sh
          * built-in $PATH */
@@ -361,7 +361,10 @@ static void test_environment_gathering(void) {
         assert_se(streq(strv_env_get(env, "PATH"), DEFAULT_PATH ":/no/such/file"));
 
         /* reset environ PATH */
-        (void) setenv("PATH", old, 1);
+        if (old)
+                (void) setenv("PATH", old, 1);
+        else
+                (void) unsetenv("PATH");
 }
 
 static void test_error_catching(void) {
