@@ -19,6 +19,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* when killing due to service watchdog timeout maybe detect whether target
+  process is under ptracing and then log loudly and continue instead.
+
 * tweak journald context caching. In addition to caching per-process attributes
   keyed by PID, cache per-cgroup attributes (i.e. the various xattrs we read)
   keyed by cgroup path, and guarded by ctime changes. This should provide us
