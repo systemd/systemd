@@ -3262,7 +3262,7 @@ static int outer_child(
                         arg_userns_mode != USER_NAMESPACE_NO,
                         arg_uid_shift,
                         arg_uid_range,
-                        arg_selinux_context);
+                        arg_selinux_apifs_context);
         if (r < 0)
                 return r;
 
