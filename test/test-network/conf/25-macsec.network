@@ -1,0 +1,6 @@
+[Match]
+Name=macsec99
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.3/16

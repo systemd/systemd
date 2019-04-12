@@ -290,6 +290,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-ipip-tunnel.netdev',
         '25-ipvlan.netdev',
         '25-isatap-tunnel.netdev',
+        '25-macsec.key',
+        '25-macsec.netdev',
+        '25-macsec.network',
         '25-sit-tunnel-local-any.netdev',
         '25-sit-tunnel-remote-any.netdev',
         '25-sit-tunnel.netdev',
@@ -322,6 +325,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'ipip.network',
         'ipvlan.network',
         'isatap.network',
+        'macsec.network',
         'macvlan.network',
         'macvtap.network',
         'sit.network',
@@ -874,6 +878,35 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'remcsumtx')
         self.assertRegex(output, 'remcsumrx')
         self.assertRegex(output, 'gbp')
+
+    def test_macsec(self):
+        self.copy_unit_to_networkd_unit_path('25-macsec.netdev', '25-macsec.network', '25-macsec.key',
+                                             'macsec.network', '12-dummy.netdev')
+        self.start_networkd(0)
+
+        self.wait_online(['dummy98:degraded', 'macsec99:routable'])
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'macsec99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'macsec99@dummy98')
+        self.assertRegex(output, 'macsec sci [0-9a-f]*000b')
+        self.assertRegex(output, 'encrypt on')
+
+        output = subprocess.check_output(['ip', 'macsec', 'show', 'macsec99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'encrypt on')
+        self.assertRegex(output, 'TXSC: [0-9a-f]*000b on SA 1')
+        self.assertRegex(output, '0: PN [0-9]*, state on, key 01000000000000000000000000000000')
+        self.assertRegex(output, '1: PN [0-9]*, state on, key 02030000000000000000000000000000')
+        self.assertRegex(output, 'RXSC: c619528fe6a00100, state on')
+        self.assertRegex(output, '0: PN [0-9]*, state on, key 02030405000000000000000000000000')
+        self.assertRegex(output, '1: PN [0-9]*, state on, key 02030405060000000000000000000000')
+        self.assertRegex(output, '2: PN [0-9]*, state off, key 02030405060700000000000000000000')
+        self.assertRegex(output, '3: PN [0-9]*, state off, key 02030405060708000000000000000000')
+        self.assertNotRegex(output, 'key 02030405067080900000000000000000')
+        self.assertRegex(output, 'RXSC: 8c16456c83a90002, state on')
+        self.assertRegex(output, '0: PN [0-9]*, state off, key 02030400000000000000000000000000')
+
 
 class NetworkdL2TPTests(unittest.TestCase, Utilities):
 

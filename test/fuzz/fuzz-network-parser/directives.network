@@ -111,6 +111,7 @@ IPv6Token=
 Description=
 VXLAN=
 L2TP=
+MACsec=
 LinkLocalAddressing=
 ConfigureWithoutCarrier=
 NTP=
