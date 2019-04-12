@@ -110,34 +110,6 @@ title: Coding Style
   only jump to the end of a function, and little else. Never jump
   backwards!
 
-- For every function you add, think about whether it is a "logging"
-  function or a "non-logging" function. "Logging" functions do logging
-  on their own, "non-logging" function never log on their own and
-  expect their callers to log. All functions in "library" code,
-  i.e. in `src/shared/` and suchlike must be "non-logging". Every time a
-  "logging" function calls a "non-logging" function, it should log
-  about the resulting errors. If a "logging" function calls another
-  "logging" function, then it should not generate log messages, so
-  that log messages are not generated twice for the same errors.
-
-- If possible, do a combined log & return operation:
-
-  ```c
-  r = operation(...);
-  if (r < 0)
-          return log_(error|warning|notice|...)_errno(r, "Failed to ...: %m");
-  ```
-
-  If the error value is "synthetic", i.e. it was not received from
-  the called function, use `SYNTHETIC_ERRNO` wrapper to tell the logging
-  system to not log the errno value, but still return it:
-
-  ```c
-  n = read(..., s, sizeof s);
-  if (n != sizeof s)
-          return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read ...");
-  ```
-
 - Avoid static variables, except for caches and very few other
   cases. Think about thread-safety! While most of our code is never
   used in threaded environments, at least the library code should make
@@ -350,6 +322,35 @@ title: Coding Style
 
 - When returning a return code from `main()`, please preferably use
   `EXIT_FAILURE` and `EXIT_SUCCESS` as defined by libc.
+
+## Logging
+
+- For every function you add, think about whether it is a "logging" function or
+  a "non-logging" function. "Logging" functions do logging on their own,
+  "non-logging" function never log on their own and expect their callers to
+  log. All functions in "library" code, i.e. in `src/shared/` and suchlike must
+  be "non-logging". Every time a "logging" function calls a "non-logging"
+  function, it should log about the resulting errors. If a "logging" function
+  calls another "logging" function, then it should not generate log messages,
+  so that log messages are not generated twice for the same errors.
+
+- If possible, do a combined log & return operation:
+
+  ```c
+  r = operation(...);
+  if (r < 0)
+          return log_(error|warning|notice|...)_errno(r, "Failed to ...: %m");
+  ```
+
+  If the error value is "synthetic", i.e. it was not received from
+  the called function, use `SYNTHETIC_ERRNO` wrapper to tell the logging
+  system to not log the errno value, but still return it:
+
+  ```c
+  n = read(..., s, sizeof s);
+  if (n != sizeof s)
+          return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read ...");
+  ```
 
 ## Memory Allocation
 
