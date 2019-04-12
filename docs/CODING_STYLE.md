@@ -4,14 +4,16 @@ title: Coding Style
 
 # Coding Style
 
+## Formatting
+
 - 8ch indent, no tabs, except for files in `man/` which are 2ch indent, and
   still no tabs, and shell scripts, which are 4ch indent, and no tabs either.
 
-- We prefer `/* comments */` over `// comments` in code you commit, please. This
-  way `// comments` are left for developers to use for local, temporary
-  commenting of code for debug purposes (i.e. uncommittable stuff), making such
-  comments easily discernible from explanatory, documenting code comments
-  (i.e. committable stuff).
+- We prefer `/* comments */` over `// comments` in code you commit,
+  please. This way `// comments` are left for developers to use for local,
+  temporary commenting of code for debug purposes (i.e. uncommittable stuff),
+  making such comments easily discernible from explanatory, documenting code
+  comments (i.e. committable stuff).
 
 - Don't break code lines too eagerly. We do **not** force line breaks at 80ch,
   all of today's screens should be much larger than that. But then again, don't
@@ -20,6 +22,51 @@ title: Coding Style
   you automatically, if you let them (as well as a few other things). Please
   note that emacs loads `.dir-locals.el` automatically, but vim needs to be
   configured to load `.vimrc`, see that file for instructions.
+
+- Try to write this:
+
+  ```c
+  void foo() {
+  }
+  ```
+
+  instead of this:
+
+  ```c
+  void foo()
+  {
+  }
+  ```
+
+- Single-line `if` blocks should not be enclosed in `{}`. Write this:
+
+  ```c
+  if (foobar)
+          waldo();
+  ```
+
+  instead of this:
+
+  ```c
+  if (foobar) {
+          waldo();
+  }
+  ```
+
+- Do not write `foo ()`, write `foo()`.
+
+- Preferably allocate local variables on the top of the block:
+
+  ```c
+  {
+          int a, b;
+
+          a = 5;
+          b = a;
+  }
+  ```
+
+## Other
 
 - Variables and functions **must** be static, unless they have a
   prototype, and are supposed to be exported.
@@ -83,50 +130,6 @@ title: Coding Style
   numbers. Their syntax is locale dependent (i.e. `5.000` in en_US is
   generally understood as 5, while in de_DE as 5000.).
 
-- Try to use this:
-
-  ```c
-  void foo() {
-  }
-  ```
-
-  instead of this:
-
-  ```c
-  void foo()
-  {
-  }
-  ```
-
-  But it is OK if you do not.
-
-- Single-line `if` blocks should not be enclosed in `{}`. Use this:
-
-  ```c
-  if (foobar)
-          waldo();
-  ```
-
-  instead of this:
-
-  ```c
-  if (foobar) {
-          waldo();
-  }
-  ```
-
-- Do not write `foo ()`, write `foo()`.
-
-- Preferably allocate stack variables on the top of the block:
-
-  ```c
-  {
-          int a, b;
-
-          a = 5;
-          b = a;
-  }
-  ```
 
 - Unless you allocate an array, `double` is always a better choice
   than `float`. Processors speak `double` natively anyway, so there is
