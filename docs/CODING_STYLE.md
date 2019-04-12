@@ -278,13 +278,6 @@ title: Coding Style
   recommendation is to simply write it without any such expression by
   using `for (;;)`.
 
-- Commit message subject lines should be prefixed with an appropriate
-  component name of some kind. For example "journal: ", "nspawn: " and
-  so on.
-
-- Do not use "Signed-Off-By:" in your commit messages. That's a kernel
-  thing we don't do in the systemd project.
-
 - Avoid leaving long-running child processes around, i.e. `fork()`s that
   are not followed quickly by an `execv()` in the child. Resource
   management is unclear in this case, and memory CoW will result in
@@ -531,3 +524,11 @@ title: Coding Style
   only reason to include `libgen.h` is because `dirname()` is needed. Every
   time you need that please immediately undefine `basename()`, and add a
   comment about it, so that no code ever ends up using the POSIX version!
+
+# Committing to git
+
+- Commit message subject lines should be prefixed with an appropriate component
+  name of some kind. For example "journal: ", "nspawn: " and so on.
+
+- Do not use "Signed-Off-By:" in your commit messages. That's a kernel thing we
+  don't do in the systemd project.
