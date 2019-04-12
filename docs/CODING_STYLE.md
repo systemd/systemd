@@ -60,10 +60,6 @@ title: Coding Style
 - Please name structures in `PascalCase` (with exceptions, such as public API
   structs), variables and functions in `snake_case`.
 
-- Be exceptionally careful when formatting and parsing floating point
-  numbers. Their syntax is locale dependent (i.e. `5.000` in en_US is
-  generally understood as 5, while in de_DE as 5000.).
-
 - Avoid static variables, except for caches and very few other
   cases. Think about thread-safety! While most of our code is never
   used in threaded environments, at least the library code should make
@@ -89,16 +85,6 @@ title: Coding Style
   Furthermore, in all three groups, order all includes alphabetically
   so duplicate includes can easily be detected.
 
-- Avoid leaving long-running child processes around, i.e. `fork()`s that
-  are not followed quickly by an `execv()` in the child. Resource
-  management is unclear in this case, and memory CoW will result in
-  unexpected penalties in the parent much, much later on.
-
-- Don't block execution for arbitrary amounts of time using `usleep()`
-  or a similar call, unless you really know what you do. Just "giving
-  something some time", or so is a lazy excuse. Always wait for the
-  proper event, instead of doing time-based poll loops.
-
 - Please avoid using global variables as much as you can. And if you
   do use them make sure they are static at least, instead of
   exported. Especially in library-like code it is important to avoid
@@ -117,13 +103,6 @@ title: Coding Style
   concept. It's also OK to store data that is inherently global in
   global variables, for example data parsed from command lines, see
   below.
-
-- Make sure to enforce limits on every user controllable resource. If the user
-  can allocate resources in your code, your code must enforce some form of
-  limits after which it will refuse operation. It's fine if it is hard-coded (at
-  least initially), but it needs to be there. This is particularly important
-  for objects that unprivileged users may allocate, but also matters for
-  everything else any user may allocated.
 
 - You might wonder what kind of common code belongs in `src/shared/` and what
   belongs in `src/basic/`. The split is like this: anything that is used to
@@ -155,16 +134,6 @@ title: Coding Style
   and Linux/GNU-specific APIs, we generally prefer the POSIX APIs. If there
   aren't, we are happy to use GNU or Linux APIs, and expect non-GNU
   implementations of libc to catch up with glibc.
-
-- Whenever installing a signal handler, make sure to set `SA_RESTART` for it, so
-  that interrupted system calls are automatically restarted, and we minimize
-  hassles with handling `EINTR` (in particular as `EINTR` handling is pretty broken
-  on Linux).
-
-- When applying C-style unescaping as well as specifier expansion on the same
-  string, always apply the C-style unescaping fist, followed by the specifier
-  expansion. When doing the reverse, make sure to escape `%` in specifier-style
-  first (i.e. `%` → `%%`), and then do C-style escaping where necessary.
 
 ## Using C Constructs
 
@@ -373,6 +342,39 @@ title: Coding Style
   or `strjoin()` rather than `asprintf()`, as the latter is a lot slower. This
   matters particularly in inner loops (but note that `strjoina()` cannot be
   used there).
+
+## Runtime Behaviour
+
+- Avoid leaving long-running child processes around, i.e. `fork()`s that are
+  not followed quickly by an `execv()` in the child. Resource management is
+  unclear in this case, and memory CoW will result in unexpected penalties in
+  the parent much, much later on.
+
+- Don't block execution for arbitrary amounts of time using `usleep()` or a
+  similar call, unless you really know what you do. Just "giving something some
+  time", or so is a lazy excuse. Always wait for the proper event, instead of
+  doing time-based poll loops.
+
+- Whenever installing a signal handler, make sure to set `SA_RESTART` for it,
+  so that interrupted system calls are automatically restarted, and we minimize
+  hassles with handling `EINTR` (in particular as `EINTR` handling is pretty
+  broken on Linux).
+
+- When applying C-style unescaping as well as specifier expansion on the same
+  string, always apply the C-style unescaping fist, followed by the specifier
+  expansion. When doing the reverse, make sure to escape `%` in specifier-style
+  first (i.e. `%` → `%%`), and then do C-style escaping where necessary.
+
+- Be exceptionally careful when formatting and parsing floating point
+  numbers. Their syntax is locale dependent (i.e. `5.000` in en_US is generally
+  understood as 5, while in de_DE as 5000.).
+
+- Make sure to enforce limits on every user controllable resource. If the user
+  can allocate resources in your code, your code must enforce some form of
+  limits after which it will refuse operation. It's fine if it is hard-coded
+  (at least initially), but it needs to be there. This is particularly
+  important for objects that unprivileged users may allocate, but also matters
+  for everything else any user may allocated.
 
 ## Types
 
