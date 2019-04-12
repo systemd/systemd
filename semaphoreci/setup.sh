@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -ex
 
 # default to Debian testing

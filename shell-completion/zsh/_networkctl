@@ -1,33 +1,33 @@
-#compdef networkctl
+#compdef networkctl                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 
 (( $+functions[_networkctl_commands] )) ||
-_networkctl_commands(){
-    local -a _networkctl_cmds
-    _networkctl_cmds=(
+    _networkctl_commands() {
+        local -a _networkctl_cmds
+        _networkctl_cmds=(
             'list:List existing links'
 	    'status:Show information about the specified links'
 	    'lldp:Show Link Layer Discovery Protocol status'
 	    'label:Show address labels'
-    )
-    if (( CURRENT == 1 )); then
-        _describe -t commands 'networkctl command' _networkctl_cmds
-    else
-        local curcontext="$curcontext"
-        local -a _links
-        cmd="${${_networkctl_cmds[(r)$words[1]:*]%%:*}}"
-        if [ $cmd = "status" ]; then
-            _links=( "${(foa)$(networkctl list --no-legend | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $2,$0}' 2>/dev/null)}" )
-            if [[ -n "$_links" ]]; then
-                _describe -t links 'links' _links
-            else
-                _message "no links"
-            fi
+        )
+        if (( CURRENT == 1 )); then
+            _describe -t commands 'networkctl command' _networkctl_cmds
         else
-            _message "no more options"
+            local curcontext="$curcontext"
+            local -a _links
+            cmd="${${_networkctl_cmds[(r)$words[1]:*]%%:*}}"
+            if [ $cmd = "status" ]; then
+                _links=( "${(foa)$(networkctl list --no-legend | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $2,$0}' 2>/dev/null)}" )
+                if [[ -n "$_links" ]]; then
+                    _describe -t links 'links' _links
+                else
+                    _message "no links"
+                fi
+            else
+                _message "no more options"
+            fi
         fi
-    fi
-}
+    }
 
 _arguments \
     {-a,--all}'[Show all links with status]' \

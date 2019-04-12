@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/bin/bash
 
 # The official unmodified version of the script can be found at
 # https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh
@@ -24,32 +24,32 @@ echo -e "\033[33;1mNote: COVERITY_SCAN_PROJECT_NAME and COVERITY_SCAN_TOKEN are 
 
 # Do not run on pull requests
 if [ "${TRAVIS_PULL_REQUEST}" = "true" ]; then
-  echo -e "\033[33;1mINFO: Skipping Coverity Analysis: branch is a pull request.\033[0m"
-  exit 0
+    echo -e "\033[33;1mINFO: Skipping Coverity Analysis: branch is a pull request.\033[0m"
+    exit 0
 fi
 
 # Verify this branch should run
 if [[ "${TRAVIS_BRANCH^^}" =~ "${COVERITY_SCAN_BRANCH_PATTERN^^}" ]]; then
-  echo -e "\033[33;1mCoverity Scan configured to run on branch ${TRAVIS_BRANCH}\033[0m"
+    echo -e "\033[33;1mCoverity Scan configured to run on branch ${TRAVIS_BRANCH}\033[0m"
 else
-  echo -e "\033[33;1mCoverity Scan NOT configured to run on branch ${TRAVIS_BRANCH}\033[0m"
-  exit 1
+    echo -e "\033[33;1mCoverity Scan NOT configured to run on branch ${TRAVIS_BRANCH}\033[0m"
+    exit 1
 fi
 
 # Verify upload is permitted
 AUTH_RES=`curl -s --form project="$COVERITY_SCAN_PROJECT_NAME" --form token="$COVERITY_SCAN_TOKEN" $SCAN_URL/api/upload_permitted`
 if [ "$AUTH_RES" = "Access denied" ]; then
-  echo -e "\033[33;1mCoverity Scan API access denied. Check COVERITY_SCAN_PROJECT_NAME and COVERITY_SCAN_TOKEN.\033[0m"
-  exit 1
-else
-  AUTH=`echo $AUTH_RES | python -c "import sys, json; print(json.load(sys.stdin)['upload_permitted'])"`
-  if [ "$AUTH" = "True" ]; then
-    echo -e "\033[33;1mCoverity Scan analysis authorized per quota.\033[0m"
-  else
-    WHEN=`echo $AUTH_RES | python -c "import sys, json; print(json.load(sys.stdin)['next_upload_permitted_at'])"`
-    echo -e "\033[33;1mCoverity Scan analysis NOT authorized until $WHEN.\033[0m"
+    echo -e "\033[33;1mCoverity Scan API access denied. Check COVERITY_SCAN_PROJECT_NAME and COVERITY_SCAN_TOKEN.\033[0m"
     exit 1
-  fi
+else
+    AUTH=`echo $AUTH_RES | python -c "import sys, json; print(json.load(sys.stdin)['upload_permitted'])"`
+    if [ "$AUTH" = "True" ]; then
+        echo -e "\033[33;1mCoverity Scan analysis authorized per quota.\033[0m"
+    else
+        WHEN=`echo $AUTH_RES | python -c "import sys, json; print(json.load(sys.stdin)['next_upload_permitted_at'])"`
+        echo -e "\033[33;1mCoverity Scan analysis NOT authorized until $WHEN.\033[0m"
+        exit 1
+    fi
 fi
 
 TOOL_DIR=`find $TOOL_BASE -type d -name 'cov-analysis*'`
@@ -62,8 +62,8 @@ export CCACHE_DISABLE=1
 # --------------------
 _help()
 {
-	# displays help and exits
-	cat <<-EOF
+    # displays help and exits
+    cat <<-EOF
 		USAGE: $0 [CMD] [OPTIONS]
 
 		CMD
@@ -87,98 +87,98 @@ _help()
 		  -t, --tar ARCHIVE  Use custom .tgz archive instead of intermediate directory or pre-archived .tgz
                          (by default 'analysis-result.tgz'
 	EOF
-	return;
+    return;
 }
 
 _pack()
 {
-	RESULTS_ARCHIVE=${RESULTS_ARCHIVE:-'analysis-results.tgz'}
+    RESULTS_ARCHIVE=${RESULTS_ARCHIVE:-'analysis-results.tgz'}
 
-	echo -e "\033[33;1mTarring Coverity Scan Analysis results...\033[0m"
-	tar czf $RESULTS_ARCHIVE $RESULTS_DIR
-	SHA=`git rev-parse --short HEAD`
+    echo -e "\033[33;1mTarring Coverity Scan Analysis results...\033[0m"
+    tar czf $RESULTS_ARCHIVE $RESULTS_DIR
+    SHA=`git rev-parse --short HEAD`
 
-	PACKED=true
+    PACKED=true
 }
 
 
 _build()
 {
-	echo -e "\033[33;1mRunning Coverity Scan Analysis Tool...\033[0m"
-	local _cov_build_options=""
-	#local _cov_build_options="--return-emit-failures 8 --parse-error-threshold 85"
-	eval "${COVERITY_SCAN_BUILD_COMMAND_PREPEND}"
-	COVERITY_UNSUPPORTED=1 cov-build --dir $RESULTS_DIR $_cov_build_options sh -c "$COVERITY_SCAN_BUILD_COMMAND"
-	cov-import-scm --dir $RESULTS_DIR --scm git --log $RESULTS_DIR/scm_log.txt
+    echo -e "\033[33;1mRunning Coverity Scan Analysis Tool...\033[0m"
+    local _cov_build_options=""
+    #local _cov_build_options="--return-emit-failures 8 --parse-error-threshold 85"
+    eval "${COVERITY_SCAN_BUILD_COMMAND_PREPEND}"
+    COVERITY_UNSUPPORTED=1 cov-build --dir $RESULTS_DIR $_cov_build_options sh -c "$COVERITY_SCAN_BUILD_COMMAND"
+    cov-import-scm --dir $RESULTS_DIR --scm git --log $RESULTS_DIR/scm_log.txt
 
-	if [ $? != 0 ]; then
-	  echo -e "\033[33;1mCoverity Scan Build failed: $TEXT.\033[0m"
-		return 1
-	fi
+    if [ $? != 0 ]; then
+	echo -e "\033[33;1mCoverity Scan Build failed: $TEXT.\033[0m"
+	return 1
+    fi
 
-	[ -z $TAR ] || [ $TAR = false ] && return 0
+    [ -z $TAR ] || [ $TAR = false ] && return 0
 
-	if [ "$TAR" = true ]; then
-		_pack
-	fi
+    if [ "$TAR" = true ]; then
+	_pack
+    fi
 }
 
 
 _upload()
 {
-	# pack results
-	[ -z $PACKED ] || [ $PACKED = false ] && _pack
+    # pack results
+    [ -z $PACKED ] || [ $PACKED = false ] && _pack
 
-	# Upload results
-	echo -e "\033[33;1mUploading Coverity Scan Analysis results...\033[0m"
-	response=$(curl \
-	  --silent --write-out "\n%{http_code}\n" \
-	  --form project=$COVERITY_SCAN_PROJECT_NAME \
-	  --form token=$COVERITY_SCAN_TOKEN \
-	  --form email=$COVERITY_SCAN_NOTIFICATION_EMAIL \
-	  --form file=@$RESULTS_ARCHIVE \
-	  --form version=$SHA \
-	  --form description="Travis CI build" \
-	  $UPLOAD_URL)
-	printf "\033[33;1mThe response is\033[0m\n%s\n" "$response"
-	status_code=$(echo "$response" | sed -n '$p')
-	# Coverity Scan used to respond with 201 on successfully receieving analysis results.
-	# Now for some reason it sends 200 and may change back in the foreseeable future.
-	# See https://github.com/pmem/pmdk/commit/7b103fd2dd54b2e5974f71fb65c81ab3713c12c5
-	if [ "$status_code" != "200" ]; then
-	  TEXT=$(echo "$response" | sed '$d')
-	  echo -e "\033[33;1mCoverity Scan upload failed: $TEXT.\033[0m"
-	  exit 1
-	fi
+    # Upload results
+    echo -e "\033[33;1mUploading Coverity Scan Analysis results...\033[0m"
+    response=$(curl \
+	           --silent --write-out "\n%{http_code}\n" \
+	           --form project=$COVERITY_SCAN_PROJECT_NAME \
+	           --form token=$COVERITY_SCAN_TOKEN \
+	           --form email=$COVERITY_SCAN_NOTIFICATION_EMAIL \
+	           --form file=@$RESULTS_ARCHIVE \
+	           --form version=$SHA \
+	           --form description="Travis CI build" \
+	           $UPLOAD_URL)
+    printf "\033[33;1mThe response is\033[0m\n%s\n" "$response"
+    status_code=$(echo "$response" | sed -n '$p')
+    # Coverity Scan used to respond with 201 on successfully receieving analysis results.
+    # Now for some reason it sends 200 and may change back in the foreseeable future.
+    # See https://github.com/pmem/pmdk/commit/7b103fd2dd54b2e5974f71fb65c81ab3713c12c5
+    if [ "$status_code" != "200" ]; then
+	TEXT=$(echo "$response" | sed '$d')
+	echo -e "\033[33;1mCoverity Scan upload failed: $TEXT.\033[0m"
+	exit 1
+    fi
 
-	echo -e "\n\033[33;1mCoverity Scan Analysis completed succesfully.\033[0m"
-	exit 0
+    echo -e "\n\033[33;1mCoverity Scan Analysis completed succesfully.\033[0m"
+    exit 0
 }
 
 # PARSE COMMAND LINE OPTIONS
 # --------------------------
 
 case $1 in
-	-h|--help)
-		_help
-		exit 0
-		;;
-	build)
-		CMD='build'
-		TEMP=`getopt -o ho:t --long help,out-dir:,tar -n '$0' -- "$@"`
-		_ec=$?
-		[[ $_ec -gt 0 ]] && _help && exit $_ec
-		shift
-		;;
-	upload)
-		CMD='upload'
-		TEMP=`getopt -o hd:t: --long help,result-dir:tar: -n '$0' -- "$@"`
-		_ec=$?
-		[[ $_ec -gt 0 ]] && _help && exit $_ec
-		shift
-		;;
-	*)
-		_help && exit 1 ;;
+    -h|--help)
+	_help
+	exit 0
+	;;
+    build)
+	CMD='build'
+	TEMP=`getopt -o ho:t --long help,out-dir:,tar -n '$0' -- "$@"`
+	_ec=$?
+	[[ $_ec -gt 0 ]] && _help && exit $_ec
+	shift
+	;;
+    upload)
+	CMD='upload'
+	TEMP=`getopt -o hd:t: --long help,result-dir:tar: -n '$0' -- "$@"`
+	_ec=$?
+	[[ $_ec -gt 0 ]] && _help && exit $_ec
+	shift
+	;;
+    *)
+	_help && exit 1 ;;
 esac
 
 RESULTS_DIR='cov-int'
@@ -188,46 +188,46 @@ if [ $? != 0 ] ; then exit 1 ; fi
 
 # extract options and their arguments into variables.
 if [[ $CMD == 'build' ]]; then
-	TAR=false
-	while true ; do
-			case $1 in
-				-h|--help)
-					_help
-					exit 0
-					;;
-				-o|--out-dir)
-					RESULTS_DIR="$2"
-					shift 2
-					;;
-				-t|--tar)
-					TAR=true
-					shift
-					;;
-			--) _build; shift ; break ;;
-			*) echo "Internal error" ; _help && exit 6 ;;
-		esac
-	done
+    TAR=false
+    while true ; do
+	case $1 in
+	    -h|--help)
+		_help
+		exit 0
+		;;
+	    -o|--out-dir)
+		RESULTS_DIR="$2"
+		shift 2
+		;;
+	    -t|--tar)
+		TAR=true
+		shift
+		;;
+	    --) _build; shift ; break ;;
+	    *) echo "Internal error" ; _help && exit 6 ;;
+	esac
+    done
 
 elif [[ $CMD == 'upload' ]]; then
-	while true ; do
-			case $1 in
-				-h|--help)
-					_help
-					exit 0
-					;;
-				-d|--result-dir)
-					CHANGE_DEFAULT_DIR=true
-					RESULTS_DIR="$2"
-					shift 2
-					;;
-				-t|--tar)
-					RESULTS_ARCHIVE="$2"
-					[ -z $CHANGE_DEFAULT_DIR ] || [ $CHANGE_DEFAULT_DIR = false ] && PACKED=true
-					shift 2
-					;;
-			--) _upload; shift ; break ;;
-			*) echo "Internal error" ; _help && exit 6 ;;
-		esac
-	done
+    while true ; do
+	case $1 in
+	    -h|--help)
+		_help
+		exit 0
+		;;
+	    -d|--result-dir)
+		CHANGE_DEFAULT_DIR=true
+		RESULTS_DIR="$2"
+		shift 2
+		;;
+	    -t|--tar)
+		RESULTS_ARCHIVE="$2"
+		[ -z $CHANGE_DEFAULT_DIR ] || [ $CHANGE_DEFAULT_DIR = false ] && PACKED=true
+		shift 2
+		;;
+	    --) _upload; shift ; break ;;
+	    *) echo "Internal error" ; _help && exit 6 ;;
+	esac
+    done
 
 fi

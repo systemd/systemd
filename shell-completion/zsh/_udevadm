@@ -1,4 +1,4 @@
-#compdef udevadm
+#compdef udevadm                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 
 (( $+functions[_udevadm_info] )) ||
@@ -141,7 +141,6 @@ _udevadm_commands(){
         fi
     fi
 }
-
 
 _arguments \
     '--debug[Print debug messages to stderr]' \

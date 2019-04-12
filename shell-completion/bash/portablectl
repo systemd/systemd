@@ -3,7 +3,6 @@
 #
 # This file is part of systemd.
 #
-#
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation; either version 2.1 of the License, or
@@ -18,95 +17,95 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word () {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
 }
 
 __get_machines() {
-        local a b
-        machinectl list --no-legend --no-pager 2>/dev/null |
-                { while read a b; do echo " $a"; done; };
+    local a b
+    machinectl list --no-legend --no-pager 2>/dev/null |
+        { while read a b; do echo " $a"; done; };
 }
 
 _portablectl() {
-        local i n comps verb
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local -A OPTS=(
-                [STANDALONE]='-q --quiet --runtime --no-reload --cat --no-pager --no-legend
+    local i n comps verb
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local -A OPTS=(
+        [STANDALONE]='-q --quiet --runtime --no-reload --cat --no-pager --no-legend
                               --no-ask-password -h --help --version'
-                [ARG]='-p --profile --copy -H --host -M --machine'
-        )
+        [ARG]='-p --profile --copy -H --host -M --machine'
+    )
 
-        local -A VERBS=(
-                [STANDALONE]='list'
-                [IMAGE]='attach detach inspect is-attached set-limit'
-                [IMAGES]='remove'
-                [IMAGE_WITH_BOOL]='read-only'
-        )
+    local -A VERBS=(
+        [STANDALONE]='list'
+        [IMAGE]='attach detach inspect is-attached set-limit'
+        [IMAGES]='remove'
+        [IMAGE_WITH_BOOL]='read-only'
+    )
 
-        if __contains_word "$prev" ${OPTS[ARG]}; then
-                case $prev in
-                        --profile|-p)
-                                comps="default nonetwork strict trusted"
-                                ;;
-                        --copy)
-                                comps="copy symlink auto"
-                                ;;
-                        --host|-H)
-                                comps=$(compgen -A hostname)
-                                ;;
-                        --machine|-M)
-                                comps=$( __get_machines )
-                                ;;
-                esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
-        fi
-
-        if [[ "$cur" = -* ]]; then
-                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
-                return 0
-        fi
-
-        for ((i=0; i < COMP_CWORD; i++)); do
-                if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
-                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                        verb=${COMP_WORDS[i]}
-                        break
-                fi
-        done
-
-        n=$(($COMP_CWORD - $i))
-
-        if [[ -z $verb ]]; then
-                comps=${VERBS[*]}
-        elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
-                comps=''
-        elif __contains_word "$verb" ${VERBS[IMAGE]}; then
-                if [[ $n == 1 ]]; then
-                        comps=$( compgen -A file -- "$cur" )
-                        compopt -o filenames
-                else
-                        comps=''
-                fi
-        elif __contains_word "$verb" ${VERBS[IMAGES]}; then
-                comps=$( compgen -A file -- "$cur" )
-                compopt -o filenames
-        elif __contains_word "$verb" ${VERBS[IMAGE_WITH_BOOL]}; then
-                if [[ $n == 1 ]]; then
-                        comps=$( compgen -A file -- "$cur" )
-                        compopt -o filenames
-                elif [[ $n == 2 ]]; then
-                        comps='yes no'
-                else
-                        comps=''
-                fi
-        fi
-
-        COMPREPLY=( $(compgen -o filenames -W '$comps' -- "$cur") )
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --profile|-p)
+                comps="default nonetwork strict trusted"
+                ;;
+            --copy)
+                comps="copy symlink auto"
+                ;;
+            --host|-H)
+                comps=$(compgen -A hostname)
+                ;;
+            --machine|-M)
+                comps=$( __get_machines )
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
         return 0
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    for ((i=0; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+            verb=${COMP_WORDS[i]}
+            break
+        fi
+    done
+
+    n=$(($COMP_CWORD - $i))
+
+    if [[ -z $verb ]]; then
+        comps=${VERBS[*]}
+    elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
+        comps=''
+    elif __contains_word "$verb" ${VERBS[IMAGE]}; then
+        if [[ $n == 1 ]]; then
+            comps=$( compgen -A file -- "$cur" )
+            compopt -o filenames
+        else
+            comps=''
+        fi
+    elif __contains_word "$verb" ${VERBS[IMAGES]}; then
+        comps=$( compgen -A file -- "$cur" )
+        compopt -o filenames
+    elif __contains_word "$verb" ${VERBS[IMAGE_WITH_BOOL]}; then
+        if [[ $n == 1 ]]; then
+            comps=$( compgen -A file -- "$cur" )
+            compopt -o filenames
+        elif [[ $n == 2 ]]; then
+            comps='yes no'
+        else
+            comps=''
+        fi
+    fi
+
+    COMPREPLY=( $(compgen -o filenames -W '$comps' -- "$cur") )
+    return 0
 }
 
 complete -F _portablectl portablectl

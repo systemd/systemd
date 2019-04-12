@@ -4,8 +4,8 @@ title: Coding Style
 
 # Coding Style
 
-- 8ch indent, no tabs, except for files in `man/` which are 2ch indent,
-  and still no tabs.
+- 8ch indent, no tabs, except for files in `man/` which are 2ch indent, and
+  still no tabs, and shell scripts, which are 4ch indent, and no tabs either.
 
 - We prefer `/* comments */` over `// comments` in code you commit, please. This
   way `// comments` are left for developers to use for local, temporary
@@ -17,7 +17,9 @@ title: Coding Style
   all of today's screens should be much larger than that. But then again, don't
   overdo it, ~109ch should be enough really. The `.editorconfig`, `.vimrc` and
   `.dir-locals.el` files contained in the repository will set this limit up for
-  you automatically, if you let them (as well as a few other things).
+  you automatically, if you let them (as well as a few other things). Please
+  note that emacs loads `.dir-locals.el` automatically, but vim needs to be
+  configured to load `.vimrc`, see that file for instructions.
 
 - Variables and functions **must** be static, unless they have a
   prototype, and are supposed to be exported.

@@ -19,10 +19,10 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word () {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
 }
 
 __get_all_sessions () { loginctl --no-legend list-sessions | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
@@ -30,96 +30,96 @@ __get_all_users    () { loginctl --no-legend list-users    | { while read -r a b
 __get_all_seats    () { loginctl --no-legend list-seats    | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
 
 __get_machines() {
-        local a b
-        machinectl list --no-legend --no-pager 2>/dev/null |
-                { while read a b; do echo " $a"; done; };
+    local a b
+    machinectl list --no-legend --no-pager 2>/dev/null |
+        { while read a b; do echo " $a"; done; };
 }
 
 _loginctl () {
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local i verb comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local i verb comps
 
-        local -A OPTS=(
-               [STANDALONE]='--all -a --help -h --no-pager --version
-                             --no-legend --no-ask-password -l --full --value'
-                      [ARG]='--host -H --kill-who --property -p --signal -s -M --machine
-                             -n --lines -o --output'
-        )
+    local -A OPTS=(
+        [STANDALONE]='--all -a --help -h --no-pager --version
+                      --no-legend --no-ask-password -l --full --value'
+        [ARG]='--host -H --kill-who --property -p --signal -s -M --machine
+                      -n --lines -o --output'
+    )
 
-        if __contains_word "$prev" ${OPTS[ARG]}; then
-                case $prev in
-                        --signal|-s)
-                                _signals
-                                return
-                        ;;
-                        --kill-who)
-                                comps='all leader'
-                        ;;
-                        --host|-H)
-                                comps=$(compgen -A hostname)
-                        ;;
-                        --machine|-M)
-                                comps=$( __get_machines )
-                        ;;
-                        --property|-p)
-                                comps=''
-                        ;;
-                        --output|-o)
-                                comps=$( loginctl --output=help 2>/dev/null )
-                        ;;
-                esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
-        fi
-
-
-        if [[ "$cur" = -* ]]; then
-                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
-                return 0
-        fi
-
-        local -A VERBS=(
-                [SESSIONS]='session-status show-session activate lock-session unlock-session terminate-session kill-session'
-                [USERS]='user-status show-user enable-linger disable-linger terminate-user kill-user'
-                [SEATS]='seat-status show-seat terminate-seat'
-                [STANDALONE]='list-sessions lock-sessions unlock-sessions list-users list-seats flush-devices'
-                [ATTACH]='attach'
-        )
-
-        for ((i=0; i < COMP_CWORD; i++)); do
-                if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
-                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                        verb=${COMP_WORDS[i]}
-                        break
-                fi
-        done
-
-        if   [[ -z $verb ]]; then
-                comps="${VERBS[*]}"
-
-        elif __contains_word "$verb" ${VERBS[SESSIONS]}; then
-                comps=$( __get_all_sessions )
-
-        elif __contains_word "$verb" ${VERBS[USERS]}; then
-                comps=$( __get_all_users )
-
-        elif __contains_word "$verb" ${VERBS[SEATS]}; then
-                comps=$( __get_all_seats )
-
-        elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --signal|-s)
+                _signals
+                return
+                ;;
+            --kill-who)
+                comps='all leader'
+                ;;
+            --host|-H)
+                comps=$(compgen -A hostname)
+                ;;
+            --machine|-M)
+                comps=$( __get_machines )
+                ;;
+            --property|-p)
                 comps=''
-
-        elif __contains_word "$verb" ${VERBS[ATTACH]}; then
-                if [[ $prev = $verb ]]; then
-                        comps=$( __get_all_seats )
-                else
-                        comps=$(compgen -A file -- "$cur" )
-                        compopt -o filenames
-                fi
-        fi
-
+                ;;
+            --output|-o)
+                comps=$( loginctl --output=help 2>/dev/null )
+                ;;
+        esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
         return 0
+    fi
+
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    local -A VERBS=(
+        [SESSIONS]='session-status show-session activate lock-session unlock-session terminate-session kill-session'
+        [USERS]='user-status show-user enable-linger disable-linger terminate-user kill-user'
+        [SEATS]='seat-status show-seat terminate-seat'
+        [STANDALONE]='list-sessions lock-sessions unlock-sessions list-users list-seats flush-devices'
+        [ATTACH]='attach'
+    )
+
+    for ((i=0; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+            verb=${COMP_WORDS[i]}
+            break
+        fi
+    done
+
+    if   [[ -z $verb ]]; then
+        comps="${VERBS[*]}"
+
+    elif __contains_word "$verb" ${VERBS[SESSIONS]}; then
+        comps=$( __get_all_sessions )
+
+    elif __contains_word "$verb" ${VERBS[USERS]}; then
+        comps=$( __get_all_users )
+
+    elif __contains_word "$verb" ${VERBS[SEATS]}; then
+        comps=$( __get_all_seats )
+
+    elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
+        comps=''
+
+    elif __contains_word "$verb" ${VERBS[ATTACH]}; then
+        if [[ $prev = $verb ]]; then
+            comps=$( __get_all_seats )
+        else
+            comps=$(compgen -A file -- "$cur" )
+            compopt -o filenames
+        fi
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
 }
 
 complete -F _loginctl loginctl

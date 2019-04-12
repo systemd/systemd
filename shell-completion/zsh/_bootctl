@@ -1,4 +1,4 @@
-#compdef bootctl
+#compdef bootctl                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 
 (( $+functions[_bootctl_commands] )) || _bootctl_commands()

@@ -17,16 +17,16 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __systemctl() {
-        local mode=$1; shift 1
-        systemctl $mode --full --no-legend "$@"
+    local mode=$1; shift 1
+    systemctl $mode --full --no-legend "$@"
 }
 
 __get_slice_units () { __systemctl $1 list-units --all -t slice \
-        | { while read -r a b c d; do echo " $a"; done; }; }
+                           | { while read -r a b c d; do echo " $a"; done; }; }
 
 __get_machines() {
-        local a b
-        machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+    local a b
+    machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
 _systemd_run() {

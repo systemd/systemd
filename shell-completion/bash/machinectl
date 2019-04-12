@@ -3,7 +3,6 @@
 #
 # This file is part of systemd.
 #
-#
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation; either version 2.1 of the License, or
@@ -18,99 +17,100 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word() {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
 }
 
 __get_machines() {
-        local a b
-        (machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; echo ".host") | \
-		{ while read a b; do echo " $a"; done; } | sort -u;
+    local a b
+    (machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; echo ".host") | \
+	{ while read a b; do echo " $a"; done; } | sort -u;
 }
 
 _machinectl() {
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local i verb comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local i verb comps
 
-        local -A OPTS=(
-               [STANDALONE]='--all -a -l --full --help -h --no-ask-password --no-legend --no-pager --version --value
-                             --mkdir --read-only --force -q --quiet'
-                      [ARG]='--host -H --kill-who -M --machine --property -p --signal -s --uid -E --setenv -n --lines
-                             -o --output --verify --format --max-addresses'
-        )
+    local -A OPTS=(
+        [STANDALONE]='--all -a -l --full --help -h --no-ask-password --no-legend --no-pager --version --value
+                      --mkdir --read-only --force -q --quiet'
+        [ARG]='--host -H --kill-who -M --machine --property -p --signal -s --uid -E --setenv -n --lines
+                      -o --output --verify --format --max-addresses'
+    )
 
-        local -A VERBS=(
-               [STANDALONE]='list list-images clean pull-tar pull-raw list-transfers cancel-transfer import-fs'
-                 [MACHINES]='status show start stop login shell enable disable poweroff reboot terminate kill bind copy-to copy-from
-                             image-status show-image clone rename read-only remove set-limit export-tar export-raw'
-                     [FILE]='import-tar import-raw'
-        )
+    local -A VERBS=(
+        [STANDALONE]='list list-images clean pull-tar pull-raw list-transfers cancel-transfer import-fs'
+        [MACHINES]='status show start stop login shell enable disable poweroff reboot terminate kill bind
+                    copy-to copy-from image-status show-image clone rename read-only remove set-limit
+                    export-tar export-raw'
+        [FILE]='import-tar import-raw'
+    )
 
-        _init_completion || return
+    _init_completion || return
 
-        for ((i=0; i <= COMP_CWORD; i++)); do
-                if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
-                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                        verb=${COMP_WORDS[i]}
-                        break
-                fi
-        done
-
-        if __contains_word "$prev" ${OPTS[ARG]}; then
-                case $prev in
-                        --signal|-s)
-                                _signals
-                                return
-                        ;;
-                        --kill-who)
-                                comps='all leader'
-                        ;;
-                        --host|-H)
-                                comps=$(compgen -A hostname)
-                        ;;
-                        --machine|-M)
-                                comps=$( __get_machines )
-                        ;;
-                        --property|-p)
-                                comps=''
-                        ;;
-                        --output|-o)
-                                comps=$( machinectl --output=help 2>/dev/null )
-                        ;;
-                        --verify)
-                                comps=$( machinectl --verify=help 2>/dev/null )
-                        ;;
-                        --format)
-                                comps='uncompressed xz gzip bzip2'
-                        ;;
-                esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
+    for ((i=0; i <= COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+            verb=${COMP_WORDS[i]}
+            break
         fi
+    done
 
-        if [[ "$cur" = -* ]]; then
-                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
-                return 0
-        fi
-
-        if [[ -z $verb ]]; then
-                comps=${VERBS[*]}
-
-        elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
-                comps=''
-
-        elif __contains_word "$verb" ${VERBS[MACHINES]}; then
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --signal|-s)
+                _signals
+                return
+                ;;
+            --kill-who)
+                comps='all leader'
+                ;;
+            --host|-H)
+                comps=$(compgen -A hostname)
+                ;;
+            --machine|-M)
                 comps=$( __get_machines )
-
-        elif __contains_word "$verb" ${VERBS[FILE]}; then
-                comps=$(compgen -f -- "cur")
-                compopt -o filenames
-        fi
-
+                ;;
+            --property|-p)
+                comps=''
+                ;;
+            --output|-o)
+                comps=$( machinectl --output=help 2>/dev/null )
+                ;;
+            --verify)
+                comps=$( machinectl --verify=help 2>/dev/null )
+                ;;
+            --format)
+                comps='uncompressed xz gzip bzip2'
+                ;;
+        esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
         return 0
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    if [[ -z $verb ]]; then
+        comps=${VERBS[*]}
+
+    elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
+        comps=''
+
+    elif __contains_word "$verb" ${VERBS[MACHINES]}; then
+        comps=$( __get_machines )
+
+    elif __contains_word "$verb" ${VERBS[FILE]}; then
+        comps=$(compgen -f -- "cur")
+        compopt -o filenames
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
 }
 
 complete -F _machinectl machinectl

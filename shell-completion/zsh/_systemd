@@ -1,4 +1,4 @@
-#compdef systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-detect-virt systemd-machine-id-setup systemd-notify systemd-tty-ask-password-agent
+#compdef systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-detect-virt systemd-machine-id-setup systemd-notify systemd-tty-ask-password-agent                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 
 local curcontext="$curcontext" state lstate line
@@ -11,7 +11,7 @@ case "$service" in
             '--no-tty[Ask question via agent even on TTY]' \
             '--accept-cached[Accept cached passwords]' \
             '--multiple[List multiple passwords if available]'
-    ;;
+        ;;
     systemd-cat)
         _arguments \
             {-h,--help}'[Show this help]' \
@@ -20,7 +20,7 @@ case "$service" in
             {-p+,--priority=}'[Set priority value.]:value:({0..7})' \
             '--level-prefix=[Control whether level prefix shall be parsed.]:boolean:(1 0)' \
             ':Message'
-    ;;
+        ;;
     systemd-cgls)
         _arguments \
             {-h,--help}'[Show this help]' \
@@ -29,7 +29,7 @@ case "$service" in
             {-a,--all}'[Show all groups, including empty]' \
             '-k[Include kernel threads in output]' \
             ':cgroups:(cpuset cpu cpuacct memory devices freezer blkio)'
-    ;;
+        ;;
     systemd-cgtop)
         _arguments \
             {-h,--help}'[Show this help]' \
@@ -43,7 +43,7 @@ case "$service" in
             {-n+,--iterations=}'[Run for N iterations before exiting]:number of iterations:' \
             {-b,--batch}'[Run in batch mode, accepting no input]' \
             '--depth=[Maximum traversal depth]:maximum depth:'
-    ;;
+        ;;
     systemd-detect-virt)
         _arguments \
             {-h,--help}'[Show this help]' \
@@ -51,12 +51,12 @@ case "$service" in
             {-c,--container}'[Only detect whether we are run in a container]' \
             {-v,--vm}'[Only detect whether we are run in a VM]' \
             {-q,--quiet}"[Don't output anything, just set return value]"
-    ;;
+        ;;
     systemd-machine-id-setup)
         _arguments \
             {-h,--help}'[Show this help]' \
             '--version[Show package version]'
-    ;;
+        ;;
     systemd-notify)
         _arguments \
             {-h,--help}'[Show this help]' \
@@ -65,7 +65,7 @@ case "$service" in
             '--pid=[Inform the init system about the main PID of the daemon]:daemon main PID:_pids' \
             '--status=[Send a free-form status string for the daemon to the init systemd]:status string:' \
             '--booted[Returns 0 if the system was booted up with systemd]'
-    ;;
+        ;;
     systemd-tty-ask-password-agent)
         _arguments \
             {-h,--help}'[Prints a short help text and exits.]' \
@@ -76,8 +76,6 @@ case "$service" in
             '--wall[Forward password requests to wall(1).]' \
             '--plymouth[Ask question with plymouth(8).]' \
             '--console[Ask question on /dev/console.]'
-    ;;
+        ;;
     *) _message 'eh?' ;;
 esac
-
-#vim: set ft=zsh sw=4 ts=4 et

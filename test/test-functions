@@ -159,15 +159,15 @@ run_qemu() {
         exit 1
     fi
 
-if [[ "$LOOKS_LIKE_SUSE" ]]; then
-    PARAMS+="rd.hostonly=0"
-elif [[ "$LOOKS_LIKE_ARCH" ]]; then
-    PARAMS+="rw"
-else
-    PARAMS+="ro"
-fi
+    if [[ "$LOOKS_LIKE_SUSE" ]]; then
+        PARAMS+="rd.hostonly=0"
+    elif [[ "$LOOKS_LIKE_ARCH" ]]; then
+        PARAMS+="rw"
+    else
+        PARAMS+="ro"
+    fi
 
-KERNEL_APPEND="$PARAMS \
+    KERNEL_APPEND="$PARAMS \
 root=/dev/sda1 \
 raid=noautodetect \
 loglevel=2 \
@@ -560,7 +560,10 @@ strip_binaries() {
         return 0
     fi
     ddebug "Strip binaries"
-    find "$initdir" -executable -not -path '*/lib/modules/*.ko' -type f | xargs strip --strip-unneeded | ddebug
+    find "$initdir" -executable -not -path '*/lib/modules/*.ko' -type f | \
+        xargs strip --strip-unneeded |& \
+        grep -v 'file format not recognized' | \
+        ddebug
 }
 
 create_rc_local() {
@@ -1636,7 +1639,7 @@ do_test() {
         exit 0
     fi
 
-# Detect lib paths
+    # Detect lib paths
     [[ $libdir ]] || for libdir in /lib64 /lib; do
         [[ -d $libdir ]] && libdirs+=" $libdir" && break
     done

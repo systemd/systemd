@@ -1,6 +1,5 @@
-#compdef systemd-resolve
+#compdef systemd-resolve                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
-
 #
 # This file is part of systemd.
 #
@@ -18,32 +17,32 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 (( $+functions[_systemd-resolve_protocols] )) ||
-_systemd-resolve_protocols() {
-    local -a _protocol
-    _protocol=( $(_call_program protocol ${service} --legend=no --protocol help; echo help) )
-    _values 'protocol' "$_protocol[@]"
-}
+    _systemd-resolve_protocols() {
+        local -a _protocol
+        _protocol=( $(_call_program protocol ${service} --legend=no --protocol help; echo help) )
+        _values 'protocol' "$_protocol[@]"
+    }
 
 (( $+functions[_systemd-resolve_types] )) ||
-_systemd-resolve_types() {
-    local -a _type
-    _type=( $(_call_program type ${service} --legend=no --type help; echo help) )
-    _values 'type' "$_type[@]"
-}
+    _systemd-resolve_types() {
+        local -a _type
+        _type=( $(_call_program type ${service} --legend=no --type help; echo help) )
+        _values 'type' "$_type[@]"
+    }
 
 (( $+functions[_systemd-resolve_classes] )) ||
-_systemd-resolve_classes() {
-    local -a _class
-    _class=( $(_call_program class ${service} --legend=no --class help; echo help) )
-    _values 'class' "$_class[@]"
-}
+    _systemd-resolve_classes() {
+        local -a _class
+        _class=( $(_call_program class ${service} --legend=no --class help; echo help) )
+        _values 'class' "$_class[@]"
+    }
 
 (( $+functions[_systemd-resolve_none] )) ||
-_systemd-resolve_none() {
-    _alternative : \
-        'domain:DNS address:' \
-        'address:email address:'
-}
+    _systemd-resolve_none() {
+        _alternative : \
+                     'domain:DNS address:' \
+                     'address:email address:'
+    }
 
 _arguments \
     {-h,--help}'[Print a short help text and exit]' \
