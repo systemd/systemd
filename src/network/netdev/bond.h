@@ -111,7 +111,7 @@ typedef struct Bond {
 
         uint16_t ad_actor_sys_prio;
         uint16_t ad_user_port_key;
-        struct ether_addr *ad_actor_system;
+        struct ether_addr ad_actor_system;
 
         usec_t miimon;
         usec_t updelay;

@@ -253,8 +253,8 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_USER_PORT_KEY attribute: %m");
         }
 
-        if (b->ad_actor_system) {
-                r = sd_netlink_message_append_ether_addr(m, IFLA_BOND_AD_ACTOR_SYSTEM, b->ad_actor_system);
+        if (!ether_addr_is_null(&b->ad_actor_system)) {
+                r = sd_netlink_message_append_ether_addr(m, IFLA_BOND_AD_ACTOR_SYSTEM, &b->ad_actor_system);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_ACTOR_SYSTEM attribute: %m");
         }
@@ -417,18 +417,19 @@ int config_parse_ad_user_port_key(const char *unit,
         return 0;
 }
 
-int config_parse_ad_actor_system(const char *unit,
-                                 const char *filename,
-                                 unsigned line,
-                                 const char *section,
-                                 unsigned section_line,
-                                 const char *lvalue,
-                                 int ltype,
-                                 const char *rvalue,
-                                 void *data,
-                                 void *userdata) {
+int config_parse_ad_actor_system(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
         Bond *b = userdata;
-        _cleanup_free_ struct ether_addr *n = NULL;
+        struct ether_addr n;
         int r;
 
         assert(filename);
@@ -436,22 +437,21 @@ int config_parse_ad_actor_system(const char *unit,
         assert(rvalue);
         assert(data);
 
-        n = new0(struct ether_addr, 1);
-        if (!n)
-                return log_oom();
-
-        r = ether_addr_from_string(rvalue, n);
+        r = ether_addr_from_string(rvalue, &n);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Not a valid MAC address %s. Ignoring assignment: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Not a valid MAC address %s. Ignoring assignment: %m",
+                           rvalue);
+                return 0;
+        }
+        if (ether_addr_is_null(&n) || (n.ether_addr_octet[0] & 0x01)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Not a valid MAC address %s, can not be null or multicast. Ignoring assignment.",
+                           rvalue);
                 return 0;
         }
 
-        if (ether_addr_is_null(n) || (n->ether_addr_octet[0] & 0x01)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address %s, can not be null or multicast. Ignoring assignment.", rvalue);
-                return 0;
-        }
-
-        free_and_replace(b->ad_actor_system, n);
+        b->ad_actor_system = n;
 
         return 0;
 }
@@ -465,8 +465,6 @@ static void bond_done(NetDev *netdev) {
         b = BOND(netdev);
 
         assert(b);
-
-        free(b->ad_actor_system);
 
         LIST_FOREACH_SAFE(arp_ip_target, t, n, b->arp_ip_targets)
                 free(t);
