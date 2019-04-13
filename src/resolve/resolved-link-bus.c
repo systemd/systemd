@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <net/if.h>
+
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
@@ -190,9 +192,9 @@ static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
         assert(l);
 
         if (l->flags & IFF_LOOPBACK)
-                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is loopback device.", l->name);
+                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is loopback device.", l->ifname);
         if (l->is_managed)
-                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is managed.", l->name);
+                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is managed.", l->ifname);
 
         return 0;
 }
