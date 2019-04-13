@@ -71,7 +71,13 @@ static inline BootEntry* boot_config_default_entry(BootConfig *config) {
 void boot_config_free(BootConfig *config);
 int boot_entries_load_config(const char *esp_path, const char *xbootldr_path, BootConfig *config);
 int boot_entries_load_config_auto(const char *override_esp_path, const char *override_xbootldr_path, BootConfig *config);
+#if ENABLE_EFI
 int boot_entries_augment_from_loader(BootConfig *config, bool only_auto);
+#else
+static inline int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
+        return -EOPNOTSUPP;
+}
+#endif
 
 static inline const char* boot_entry_title(const BootEntry *entry) {
         return entry->show_title ?: entry->title ?: entry->id;

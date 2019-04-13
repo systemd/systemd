@@ -725,8 +725,8 @@ int boot_entries_load_config_auto(
         return boot_entries_load_config(esp_where, xbootldr_where, config);
 }
 
+#if ENABLE_EFI
 int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
-
         static const char * const title_table[] = {
                 /* Pretty names for a few well-known automatically discovered entries. */
                 "auto-osx",                      "macOS",
@@ -793,6 +793,7 @@ int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
 
         return 0;
 }
+#endif
 
 /********************************************************************************/
 

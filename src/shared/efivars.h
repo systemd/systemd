@@ -79,6 +79,10 @@ static inline int efi_set_reboot_to_firmware(bool value) {
         return -EOPNOTSUPP;
 }
 
+static inline char* efi_variable_path(sd_id128_t vendor, const char *name) {
+        return NULL;
+}
+
 static inline int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, void **value, size_t *size) {
         return -EOPNOTSUPP;
 }
