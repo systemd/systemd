@@ -599,13 +599,6 @@ int mount_all(const char *dest,
                   MOUNT_FATAL },
                 { "tmpfs",           "/run",            "tmpfs", "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL },
-
-#if HAVE_SELINUX
-                { "/sys/fs/selinux", "/sys/fs/selinux", NULL,    NULL,        MS_BIND,
-                  0 },  /* Bind mount first */
-                { NULL,              "/sys/fs/selinux", NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
-                  0 },  /* Then, make it r/o */
-#endif
         };
 
         bool use_userns = (mount_settings & MOUNT_USE_USERNS);
