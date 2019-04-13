@@ -563,7 +563,7 @@ int config_parse_macsec_port(
         _cleanup_(macsec_receive_channel_free_or_set_invalidp) ReceiveChannel *c = NULL;
         MACsec *s = userdata;
         uint16_t port;
-        be16_t *dest;
+        void *dest;
         int r;
 
         assert(filename);
@@ -600,7 +600,7 @@ int config_parse_macsec_port(
                 return 0;
         }
 
-        *dest = htobe16(port);
+        unaligned_write_be16(dest, port);
 
         TAKE_PTR(b);
         TAKE_PTR(c);
