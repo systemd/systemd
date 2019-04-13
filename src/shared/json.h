@@ -135,15 +135,17 @@ struct json_variant_foreach_state {
 
 #define JSON_VARIANT_ARRAY_FOREACH(i, v)                                \
         for (struct json_variant_foreach_state _state = { (v), 0 };     \
-             _state.idx < json_variant_elements(_state.variant) &&      \
+             json_variant_is_array(_state.variant) &&                   \
+                     _state.idx < json_variant_elements(_state.variant) && \
                      ({ i = json_variant_by_index(_state.variant, _state.idx); \
                              true; });                                  \
              _state.idx++)
 
 #define JSON_VARIANT_OBJECT_FOREACH(k, e, v)                            \
         for (struct json_variant_foreach_state _state = { (v), 0 };     \
-             _state.idx < json_variant_elements(_state.variant) &&      \
-                     ({ k = json_variant_by_index(_state.variant, _state.idx); \
+             json_variant_is_object(_state.variant) &&                  \
+                     _state.idx < json_variant_elements(_state.variant) && \
+                     ({ k = json_variant_string(json_variant_by_index(_state.variant, _state.idx)); \
                              e = json_variant_by_index(_state.variant, _state.idx + 1); \
                              true; });                                  \
              _state.idx += 2)
