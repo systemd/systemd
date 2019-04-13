@@ -1421,14 +1421,13 @@ static int setup_signals(Server *s) {
         if (r < 0)
                 return r;
 
-        /* Let's process SIGTERM late, so that we flush all queued
-         * messages to disk before we exit */
+        /* Let's process SIGTERM late, so that we flush all queued messages to disk before we exit */
         r = sd_event_source_set_priority(s->sigterm_event_source, SD_EVENT_PRIORITY_NORMAL+20);
         if (r < 0)
                 return r;
 
-        /* When journald is invoked on the terminal (when debugging),
-         * it's useful if C-c is handled equivalent to SIGTERM. */
+        /* When journald is invoked on the terminal (when debugging), it's useful if C-c is handled
+         * equivalent to SIGTERM. */
         r = sd_event_add_signal(s->event, &s->sigint_event_source, SIGINT, dispatch_sigterm, s);
         if (r < 0)
                 return r;
@@ -1437,11 +1436,9 @@ static int setup_signals(Server *s) {
         if (r < 0)
                 return r;
 
-        /* SIGRTMIN+1 causes an immediate sync. We process this very
-         * late, so that everything else queued at this point is
-         * really written to disk. Clients can watch
-         * /run/systemd/journal/synced with inotify until its mtime
-         * changes to see when a sync happened. */
+        /* SIGRTMIN+1 causes an immediate sync. We process this very late, so that everything else queued at
+         * this point is really written to disk. Clients can watch /run/systemd/journal/synced with inotify
+         * until its mtime changes to see when a sync happened. */
         r = sd_event_add_signal(s->event, &s->sigrtmin1_event_source, SIGRTMIN+1, dispatch_sigrtmin1, s);
         if (r < 0)
                 return r;
@@ -1759,23 +1756,17 @@ static int server_connect_notify(Server *s) {
         assert(!s->notify_event_source);
 
         /*
-          So here's the problem: we'd like to send notification
-          messages to PID 1, but we cannot do that via sd_notify(),
-          since that's synchronous, and we might end up blocking on
-          it. Specifically: given that PID 1 might block on
-          dbus-daemon during IPC, and dbus-daemon is logging to us,
-          and might hence block on us, we might end up in a deadlock
-          if we block on sending PID 1 notification messages — by
-          generating a full blocking circle. To avoid this, let's
-          create a non-blocking socket, and connect it to the
-          notification socket, and then wait for POLLOUT before we
-          send anything. This should efficiently avoid any deadlocks,
-          as we'll never block on PID 1, hence PID 1 can safely block
-          on dbus-daemon which can safely block on us again.
-
-          Don't think that this issue is real? It is, see:
-          https://github.com/systemd/systemd/issues/1505
-        */
+         * So here's the problem: we'd like to send notification messages to PID 1, but we cannot do that via
+         * sd_notify(), since that's synchronous, and we might end up blocking on it. Specifically: given
+         * that PID 1 might block on dbus-daemon during IPC, and dbus-daemon is logging to us, and might
+         * hence block on us, we might end up in a deadlock if we block on sending PID 1 notification
+         * messages — by generating a full blocking circle. To avoid this, let's create a non-blocking
+         * socket, and connect it to the notification socket, and then wait for POLLOUT before we send
+         * anything. This should efficiently avoid any deadlocks, as we'll never block on PID 1, hence PID 1
+         * can safely block on dbus-daemon which can safely block on us again.
+         *
+         * Don't think that this issue is real? It is, see: https://github.com/systemd/systemd/issues/1505
+         */
 
         e = getenv("NOTIFY_SOCKET");
         if (!e)
@@ -1807,8 +1798,7 @@ static int server_connect_notify(Server *s) {
                         return log_error_errno(r, "Failed to add watchdog time event: %m");
         }
 
-        /* This should fire pretty soon, which we'll use to send the
-         * READY=1 event. */
+        /* This should fire pretty soon, which we'll use to send the READY=1 event. */
 
         return 0;
 }
@@ -1820,32 +1810,43 @@ int server_init(Server *s) {
 
         assert(s);
 
-        zero(*s);
-        s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->audit_fd = s->hostname_fd = s->notify_fd = -1;
-        s->compress.enabled = true;
-        s->compress.threshold_bytes = (uint64_t) -1;
-        s->seal = true;
-        s->read_kmsg = true;
+        *s = (Server) {
+                .syslog_fd = -1,
+                .native_fd = -1,
+                .stdout_fd = -1,
+                .dev_kmsg_fd = -1,
+                .audit_fd = -1,
+                .hostname_fd = -1,
+                .notify_fd = -1,
 
-        s->watchdog_usec = USEC_INFINITY;
+                .compress.enabled = true,
+                .compress.threshold_bytes = (uint64_t) -1,
+                .seal = true,
+                .read_kmsg = true,
 
-        s->sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC;
-        s->sync_scheduled = false;
+                .watchdog_usec = USEC_INFINITY,
 
-        s->rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
-        s->rate_limit_burst = DEFAULT_RATE_LIMIT_BURST;
+                .sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC,
+                .sync_scheduled = false,
 
-        s->forward_to_wall = true;
+                .rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL,
+                .rate_limit_burst = DEFAULT_RATE_LIMIT_BURST,
 
-        s->max_file_usec = DEFAULT_MAX_FILE_USEC;
+                .forward_to_wall = true,
 
-        s->max_level_store = LOG_DEBUG;
-        s->max_level_syslog = LOG_DEBUG;
-        s->max_level_kmsg = LOG_NOTICE;
-        s->max_level_console = LOG_INFO;
-        s->max_level_wall = LOG_EMERG;
+                .max_file_usec = DEFAULT_MAX_FILE_USEC,
 
-        s->line_max = DEFAULT_LINE_MAX;
+                .max_level_store = LOG_DEBUG,
+                .max_level_syslog = LOG_DEBUG,
+                .max_level_kmsg = LOG_NOTICE,
+                .max_level_console = LOG_INFO,
+                .max_level_wall = LOG_EMERG,
+
+                .line_max = DEFAULT_LINE_MAX,
+
+                .runtime_storage.name = "Runtime Journal",
+                .system_storage.name = "System Journal",
+        };
 
         journal_reset_metrics(&s->system_storage.metrics);
         journal_reset_metrics(&s->runtime_storage.metrics);
@@ -1996,9 +1997,6 @@ int server_init(Server *s) {
         server_cache_boot_id(s);
         server_cache_machine_id(s);
 
-        s->runtime_storage.name = "Runtime journal";
-        s->system_storage.name = "System journal";
-
         s->runtime_storage.path = strjoin("/run/log/journal/", SERVER_MACHINE_ID(s));
         s->system_storage.path  = strjoin("/var/log/journal/", SERVER_MACHINE_ID(s));
         if (!s->runtime_storage.path || !s->system_storage.path)
@@ -2082,8 +2080,7 @@ void server_done(Server *s) {
         free(s->runtime_storage.path);
         free(s->system_storage.path);
 
-        if (s->mmap)
-                mmap_cache_unref(s->mmap);
+        mmap_cache_unref(s->mmap);
 }
 
 static const char* const storage_table[_STORAGE_MAX] = {
@@ -2157,20 +2154,25 @@ int config_parse_line_max(
         return 0;
 }
 
-int config_parse_compress(const char* unit,
-                          const char *filename,
-                          unsigned line,
-                          const char *section,
-                          unsigned section_line,
-                          const char *lvalue,
-                          int ltype,
-                          const char *rvalue,
-                          void *data,
-                          void *userdata) {
+int config_parse_compress(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         JournalCompressOptions* compress = data;
         int r;
 
-        if (streq(rvalue, "1")) {
+        if (isempty(rvalue)) {
+                compress->enabled = true;
+                compress->threshold_bytes = (uint64_t) -1;
+        } else if (streq(rvalue, "1")) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Compress= ambiguously specified as 1, enabling compression with default threshold");
                 compress->enabled = true;
@@ -2178,15 +2180,18 @@ int config_parse_compress(const char* unit,
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Compress= ambiguously specified as 0, disabling compression");
                 compress->enabled = false;
-        } else if ((r = parse_boolean(rvalue)) >= 0)
-                compress->enabled = r;
-        else if (parse_size(rvalue, 1024, &compress->threshold_bytes) == 0)
-                compress->enabled = true;
-        else if (isempty(rvalue)) {
-                compress->enabled = true;
-                compress->threshold_bytes = (uint64_t) -1;
-        } else
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Compress= value, ignoring: %s", rvalue);
+        } else {
+                r = parse_boolean(rvalue);
+                if (r < 0) {
+                        r = parse_size(rvalue, 1024, &compress->threshold_bytes);
+                        if (r < 0)
+                                log_syntax(unit, LOG_ERR, filename, line, r,
+                                           "Failed to parse Compress= value, ignoring: %s", rvalue);
+                        else
+                                compress->enabled = true;
+                } else
+                        compress->enabled = r;
+        }
 
         return 0;
 }
