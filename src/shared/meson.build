@@ -102,7 +102,6 @@ shared_sources = files('''
         linux/bpf_insn.h
         linux/dm-ioctl.h
         linux/ethtool.h
-        linux/netdevice.h
         lockfile-util.c
         lockfile-util.h
         log-link.h

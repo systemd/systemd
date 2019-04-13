@@ -99,6 +99,7 @@ basic_sources = files('''
         linux/if_tun.h
         linux/if_tunnel.h
         linux/libc-compat.h
+        linux/netdevice.h
         linux/netlink.h
         linux/rtnetlink.h
         linux/wireguard.h
