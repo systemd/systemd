@@ -100,6 +100,7 @@ basic_sources = files('''
         linux/if_tunnel.h
         linux/in.h
         linux/in6.h
+        linux/l2tp.h
         linux/libc-compat.h
         linux/netdevice.h
         linux/netlink.h
