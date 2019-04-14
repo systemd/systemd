@@ -53,6 +53,7 @@ static BUS_DEFINE_PROPERTY_GET2(property_get_system_state, "s", Manager, manager
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_timer_slack_nsec, "t", (uint64_t) prctl(PR_GET_TIMERSLACK));
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_hashmap_size, "u", Hashmap *, hashmap_size);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_set_size, "u", Set *, set_size);
+static BUS_DEFINE_PROPERTY_GET(property_get_default_timeout_abort_usec, "t", Manager, manager_default_timeout_abort_usec);
 
 static int property_get_virtualization(
                 sd_bus *bus,
@@ -285,27 +286,6 @@ static int property_set_runtime_watchdog(
                 return r;
 
         return watchdog_set_timeout(t);
-}
-
-static int property_get_default_timeout_abort_usec(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Manager *m = userdata;
-        usec_t t;
-
-        assert(bus);
-        assert(reply);
-        assert(m);
-
-        t = manager_default_timeout_abort_usec(m);
-
-        return sd_bus_message_append(reply, "t", t);
 }
 
 static int bus_get_unit_by_name(Manager *m, sd_bus_message *message, const char *name, Unit **ret_unit, sd_bus_error *error) {
