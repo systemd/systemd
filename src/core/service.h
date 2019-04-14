@@ -98,7 +98,7 @@ struct Service {
         usec_t timeout_start_usec;
         usec_t timeout_stop_usec;
         usec_t timeout_abort_usec;
-        usec_t timeout_abort_set;
+        bool timeout_abort_set;
         usec_t runtime_max_usec;
 
         dual_timestamp watchdog_timestamp;
