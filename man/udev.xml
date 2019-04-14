@@ -437,6 +437,8 @@
             <para>Note that running programs that access the network or mount/unmount
             filesystems is not allowed inside of udev rules, due to the default sandbox
             that is enforced on <filename>systemd-udevd.service</filename>.</para>
+            <para>Please also note that <literal>:=</literal> and <literal>=</literal> are clearing
+            both, program and builtin commands.</para>
           </listitem>
         </varlistentry>
 
