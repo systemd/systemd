@@ -2441,6 +2441,12 @@ int udev_rules_apply_to_event(
                 }
                 case TK_A_RUN_BUILTIN:
                 case TK_A_RUN_PROGRAM: {
+                        
+                        if (event->run_final)
+                                break;
+                        if (cur->key.op == OP_ASSIGN_FINAL)
+                                event->run_final = true;
+                        
                         _cleanup_free_ char *cmd = NULL;
 
                         if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
