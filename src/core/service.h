@@ -192,6 +192,7 @@ struct Service {
 };
 
 static inline usec_t service_timeout_abort_usec(Service *s) {
+        assert(s);
         return s->timeout_abort_set ? s->timeout_abort_usec : s->timeout_stop_usec;
 }
 
