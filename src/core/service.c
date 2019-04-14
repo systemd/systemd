@@ -861,16 +861,19 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sRestartSec: %s\n"
                 "%sTimeoutStartSec: %s\n"
-                "%sTimeoutStopSec: %s\n"
-                "%sTimeoutAbortSec: %s\n"
-                "%sRuntimeMaxSec: %s\n"
-                "%sWatchdogSec: %s\n",
+                "%sTimeoutStopSec: %s\n",
                 prefix, format_timespan(buf_restart, sizeof(buf_restart), s->restart_usec, USEC_PER_SEC),
                 prefix, format_timespan(buf_start, sizeof(buf_start), s->timeout_start_usec, USEC_PER_SEC),
-                prefix, format_timespan(buf_stop, sizeof(buf_stop), s->timeout_stop_usec, USEC_PER_SEC),
-                prefix, s->timeout_abort_set
-                                ? format_timespan(buf_abort, sizeof(buf_abort), s->timeout_abort_usec, USEC_PER_SEC)
-                                : "",
+                prefix, format_timespan(buf_stop, sizeof(buf_stop), s->timeout_stop_usec, USEC_PER_SEC));
+
+        if (s->timeout_abort_set)
+                fprintf(f,
+                        "%sTimeoutAbortSec: %s\n",
+                        prefix, format_timespan(buf_abort, sizeof(buf_abort), s->timeout_abort_usec, USEC_PER_SEC));
+
+        fprintf(f,
+                "%sRuntimeMaxSec: %s\n"
+                "%sWatchdogSec: %s\n",
                 prefix, format_timespan(buf_runtime, sizeof(buf_runtime), s->runtime_max_usec, USEC_PER_SEC),
                 prefix, format_timespan(buf_watchdog, sizeof(buf_watchdog), s->watchdog_usec, USEC_PER_SEC));
 
