@@ -359,6 +359,7 @@ int read_full_stream_full(
                         }
                         memcpy_safe(t, buf, n);
                         explicit_bzero_safe(buf, n);
+                        buf = mfree(buf);
                 } else {
                         t = realloc(buf, n_next + 1);
                         if (!t)
