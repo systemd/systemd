@@ -98,7 +98,11 @@ basic_sources = files('''
         linux/if_macsec.h
         linux/if_tun.h
         linux/if_tunnel.h
+        linux/in.h
+        linux/in6.h
+        linux/l2tp.h
         linux/libc-compat.h
+        linux/netdevice.h
         linux/netlink.h
         linux/rtnetlink.h
         linux/wireguard.h
