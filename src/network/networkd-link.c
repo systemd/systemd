@@ -721,6 +721,10 @@ static void link_set_state(Link *link, LinkState state) {
         if (link->state == state)
                 return;
 
+        log_link_debug(link, "State changed: %s -> %s",
+                       link_state_to_string(link->state),
+                       link_state_to_string(state));
+
         link->state = state;
 
         link_send_changed(link, "AdministrativeState", NULL);
