@@ -1450,13 +1450,12 @@ void manager_free(Manager *m) {
         }
 
         m->dirty_links = set_free_with_destructor(m->dirty_links, link_unref);
-        m->links = hashmap_free(m->links);
-        m->links_requesting_uuid = set_free(m->links_requesting_uuid);
-        set_free(m->duids_requesting_uuid);
+        m->links_requesting_uuid = set_free_with_destructor(m->links_requesting_uuid, link_unref);
+        m->links = hashmap_free_with_destructor(m->links, link_unref);
 
+        m->duids_requesting_uuid = set_free(m->duids_requesting_uuid);
         while ((network = m->networks))
                 network_free(network);
-
         hashmap_free(m->networks_by_name);
 
         m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);

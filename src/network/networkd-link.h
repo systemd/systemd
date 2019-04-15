@@ -122,7 +122,7 @@ typedef struct Link {
 
         Hashmap *bound_by_links;
         Hashmap *bound_to_links;
-        Hashmap *slaves;
+        Set *slaves;
 } Link;
 
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
