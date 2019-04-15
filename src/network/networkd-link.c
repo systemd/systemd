@@ -1455,7 +1455,7 @@ static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
 
         log_link_debug(link, "Setting MTU done.");
 
-        if (link->state == LINK_STATE_PENDING)
+        if (link->state == LINK_STATE_INITIALIZED)
                 (void) link_configure_after_setting_mtu(link);
 
         return 1;
@@ -2644,7 +2644,7 @@ static int link_enter_join_netdev(Link *link) {
 
         assert(link);
         assert(link->network);
-        assert(link->state == LINK_STATE_PENDING);
+        assert(link->state == LINK_STATE_INITIALIZED);
 
         link_set_state(link, LINK_STATE_CONFIGURING);
 
@@ -3057,7 +3057,7 @@ static int link_configure(Link *link) {
 
         assert(link);
         assert(link->network);
-        assert(link->state == LINK_STATE_PENDING);
+        assert(link->state == LINK_STATE_INITIALIZED);
 
         if (STRPTR_IN_SET(link->kind, "can", "vcan"))
                 return link_configure_can(link);
@@ -3206,7 +3206,7 @@ static int link_configure_after_setting_mtu(Link *link) {
 
         assert(link);
         assert(link->network);
-        assert(link->state == LINK_STATE_PENDING);
+        assert(link->state == LINK_STATE_INITIALIZED);
 
         if (link->setting_mtu)
                 return 0;
@@ -3357,10 +3357,13 @@ static int link_initialized_and_synced(Link *link) {
         assert(link->ifname);
         assert(link->manager);
 
-        if (link->state != LINK_STATE_PENDING)
+        /* We may get called either from the asynchronous netlink callback,
+         * or directly for link_add() if running in a container. See link_add(). */
+        if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED))
                 return 1;
 
         log_link_debug(link, "Link state is up-to-date");
+        link_set_state(link, LINK_STATE_INITIALIZED);
 
         r = link_new_bound_by_list(link);
         if (r < 0)
@@ -3436,6 +3439,7 @@ int link_initialized(Link *link, sd_device *device) {
                 return 0;
 
         log_link_debug(link, "udev initialized link");
+        link_set_state(link, LINK_STATE_INITIALIZED);
 
         link->sd_device = sd_device_ref(device);
 
@@ -4353,6 +4357,7 @@ void link_clean(Link *link) {
 
 static const char* const link_state_table[_LINK_STATE_MAX] = {
         [LINK_STATE_PENDING] = "pending",
+        [LINK_STATE_INITIALIZED] = "initialized",
         [LINK_STATE_CONFIGURING] = "configuring",
         [LINK_STATE_CONFIGURED] = "configured",
         [LINK_STATE_UNMANAGED] = "unmanaged",

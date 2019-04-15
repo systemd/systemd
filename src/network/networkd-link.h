@@ -20,12 +20,13 @@
 #include "set.h"
 
 typedef enum LinkState {
-        LINK_STATE_PENDING,
-        LINK_STATE_CONFIGURING,
-        LINK_STATE_CONFIGURED,
-        LINK_STATE_UNMANAGED,
-        LINK_STATE_FAILED,
-        LINK_STATE_LINGER,
+        LINK_STATE_PENDING,     /* udev has not initialized the link */
+        LINK_STATE_INITIALIZED, /* udev has initialized the link */
+        LINK_STATE_CONFIGURING, /* configuring addresses, routes, etc. */
+        LINK_STATE_CONFIGURED,  /* everything is configured */
+        LINK_STATE_UNMANAGED,   /* Unmanaged=yes is set */
+        LINK_STATE_FAILED,      /* at least one configuration process failed */
+        LINK_STATE_LINGER,      /* RTM_DELLINK for the link has been received */
         _LINK_STATE_MAX,
         _LINK_STATE_INVALID = -1
 } LinkState;
