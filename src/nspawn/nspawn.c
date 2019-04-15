@@ -3702,7 +3702,8 @@ static int merge_settings(Settings *settings, const char *path) {
                                 plus |= UINT64_C(1) << CAP_NET_ADMIN;
                         else
                                 minus |= UINT64_C(1) << CAP_NET_ADMIN;
-                }
+                } else
+                        plus |= UINT64_C(1) << CAP_NET_ADMIN;
 
                 if (!arg_settings_trusted && plus != 0) {
                         if (settings->capability != 0)
