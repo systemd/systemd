@@ -420,6 +420,7 @@ struct Manager {
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
+        assert(m);
         return m->default_timeout_abort_set ? m->default_timeout_abort_usec : m->default_timeout_stop_usec;
 }
 

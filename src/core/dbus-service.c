@@ -28,27 +28,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, service_result, Service
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_restart, service_restart, ServiceRestart);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_notify_access, notify_access, NotifyAccess);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_emergency_action, emergency_action, EmergencyAction);
-
-static int property_get_timeout_abort_usec(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Service *s = userdata;
-        usec_t t;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        t = service_timeout_abort_usec(s);
-
-        return sd_bus_message_append(reply, "t", t);
-}
+static BUS_DEFINE_PROPERTY_GET(property_get_timeout_abort_usec, "t", Service, service_timeout_abort_usec);
 
 static int property_get_exit_status_set(
                 sd_bus *bus,
