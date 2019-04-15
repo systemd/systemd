@@ -116,6 +116,8 @@ static int context_read_data(Context *c) {
                 return r;
 
         r = id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, &c->uuid);
+        if (r == -ENOENT)
+                r = id128_read("/sys/firmware/devicetree/base/vm,uuid", ID128_UUID, &c->uuid);
         if (r < 0)
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to read product UUID, ignoring: %m");
