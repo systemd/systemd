@@ -68,6 +68,11 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
                                 log_info("Initializing machine ID from KVM UUID.");
                                 return 0;
                         }
+                        /* on POWER, it's exported here instead */
+                        if (id128_read("/sys/firmware/devicetree/base/vm,uuid", ID128_UUID, ret) >= 0) {
+                                log_info("Initializing machine ID from KVM UUID.");
+                                return 0;
+                        }
                 }
         }
 
