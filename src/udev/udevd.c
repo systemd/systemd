@@ -26,6 +26,9 @@
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#if HAVE_PARTED
+#include <parted/parted.h>
+#endif /* HAVE_PARTED */
 
 #include "sd-daemon.h"
 #include "sd-event.h"
@@ -1093,6 +1096,94 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
         return 1;
 }
 
+#if HAVE_PARTED
+#define LINUX_SPECIFIC(dev)     ((LinuxSpecific *)(dev)->arch_specific)
+
+typedef struct _LinuxSpecific   LinuxSpecific;
+
+struct _LinuxSpecific {
+        int     fd;
+        int     major;
+        int     minor;
+        char*   dmtype;         /**< device map target type */
+#if defined __s390__ || defined __s390x__
+        unsigned int real_sector_size;
+        unsigned int devno;
+#endif
+};
+
+static int _ped_device_open(PedDevice *dev)
+{
+        int r;
+        LinuxSpecific*  arch_specific = LINUX_SPECIFIC(dev);
+
+        if (!dev->open_count) {
+                arch_specific->fd = open(dev->path, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+                if (arch_specific->fd == -1)
+                        return 0;
+
+                r = flock(arch_specific->fd, LOCK_EX|LOCK_NB);
+                if (r < 0) {
+                        close(arch_specific->fd);
+                        return 0;
+                }
+
+                dev->read_only = 1;
+                dev->open_count++;
+
+                return 1;
+        }
+
+        r = flock(arch_specific->fd, LOCK_EX|LOCK_NB);
+        if (r < 0)
+                return 0;
+
+        dev->open_count++;
+
+        return 1;
+}
+
+static int reread_partition_table(const char *dev_name)
+{
+        PedDevice *dev = ped_device_get(dev_name);
+        PedDiskType*    disk_type;
+        PedDisk*        disk;
+
+        if (!_ped_device_open(dev))
+                return 0;
+
+        disk_type = ped_disk_probe(dev);
+        if (disk_type && !strcmp(disk_type->name, "loop"))
+                return 1;
+        else if (!disk_type) {
+                /* Partition table not found, so create dummy, empty one */
+                disk_type = ped_disk_type_get("msdos");
+                if (!disk_type)
+                        goto error;
+
+                disk = ped_disk_new_fresh(dev, disk_type);
+                if (!disk)
+                        goto error_destroy_disk;
+        } else {
+                disk = ped_disk_new(dev);
+                if (!disk)
+                        goto error;
+        }
+        if (!ped_disk_commit_to_os(disk))
+                goto error_destroy_disk;
+
+        ped_disk_destroy(disk);
+        ped_device_close(dev);
+        return 1;
+
+error_destroy_disk:
+        ped_disk_destroy(disk);
+error:
+        ped_device_close(dev);
+        return 0;
+}
+#endif /* HAVE_PARTED */
+
 static int synthesize_change(sd_device *dev) {
         const char *subsystem, *sysname, *devname, *syspath, *devtype;
         char filename[PATH_MAX];
@@ -1124,6 +1215,13 @@ static int synthesize_change(sd_device *dev) {
                 _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
                 bool part_table_read = false, has_partitions = false;
                 sd_device *d;
+#if HAVE_PARTED
+                /*
+                 * Try to re-read the partition table. Avoid removing and
+                 * re-adding unmodified partitions.
+                 */
+                reread_partition_table(devname);
+#else
                 int fd;
 
                 /*
@@ -1142,6 +1240,7 @@ static int synthesize_change(sd_device *dev) {
                         if (r >= 0)
                                 part_table_read = true;
                 }
+#endif /* HAVE_PARTED */
 
                 /* search for partitions */
                 r = sd_device_enumerator_new(&e);

@@ -241,6 +241,8 @@ option('ima', type : 'boolean',
 
 option('acl', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libacl support')
+option('parted', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'libparted support')
 option('audit', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libaudit support')
 option('blkid', type : 'combo', choices : ['auto', 'true', 'false'],

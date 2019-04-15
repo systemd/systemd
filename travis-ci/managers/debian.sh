@@ -15,7 +15,7 @@ CONT_NAME="${CONT_NAME:-debian-$DEBIAN_RELEASE-$RANDOM}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(python3-libevdev python3-pyparsing clang)
+ADDITIONAL_DEPS=(python3-libevdev python3-pyparsing clang libparted-dev)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"

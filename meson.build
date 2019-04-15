@@ -879,6 +879,16 @@ else
 endif
 conf.set10('HAVE_ACL', have)
 
+want_parted = get_option('parted')
+if want_parted != 'false' and not fuzzer_build
+        libparted = cc.find_library('parted', required : want_parted == 'true')
+        have = libparted.found()
+else
+        have = false
+        libparted = []
+endif
+conf.set10('HAVE_PARTED', have)
+
 want_audit = get_option('audit')
 if want_audit != 'false' and not fuzzer_build
         libaudit = dependency('audit', required : want_audit == 'true')
@@ -2578,6 +2588,7 @@ exe = executable('systemd-udevd',
                                  libkmod,
                                  libidn,
                                  libacl,
+                                 libparted,
                                  libblkid],
                  install_rpath : udev_rpath,
                  install : true,
