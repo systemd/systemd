@@ -31,6 +31,7 @@
  *                                         — USB port number chain
  *   v<slot>                               - VIO slot number (IBM PowerVM)
  *   a<vendor><model>i<instance>           — Platform bus ACPI instance id
+ *   i<addr>n<phys_port_name>	           — Netdevsim bus address and port name
  *
  * All multi-function PCI devices will carry the [f<function>] number in the
  * device name, including the function 0 device.
@@ -126,6 +127,7 @@ enum netname_type{
         NET_CCW,
         NET_VIO,
         NET_PLATFORM,
+        NET_NETDEVSIM,
 };
 
 struct netnames {
@@ -145,6 +147,7 @@ struct netnames {
         char ccw_busid[IFNAMSIZ];
         char vio_slot[IFNAMSIZ];
         char platform_path[IFNAMSIZ];
+        char netdevsim_path[IFNAMSIZ];
 };
 
 struct virtfn_info {
@@ -794,6 +797,43 @@ static int names_mac(sd_device *dev, struct netnames *names) {
         return 0;
 }
 
+static int names_netdevsim(sd_device *dev, struct netnames *names) {
+        sd_device *netdevsimdev;
+        const char *sysname;
+        unsigned addr;
+        const char *port_name = NULL;
+        int r;
+        bool ok;
+
+        if (!naming_scheme_has(NAMING_NETDEVSIM))
+                return 0;
+
+        assert(dev);
+        assert(names);
+
+        r = sd_device_get_parent_with_subsystem_devtype(dev, "netdevsim", NULL, &netdevsimdev);
+        if (r < 0)
+                return r;
+        r = sd_device_get_sysname(netdevsimdev, &sysname);
+        if (r < 0)
+                return r;
+
+        if (sscanf(sysname, "netdevsim%u", &addr) != 1)
+                return -EINVAL;
+
+        r = sd_device_get_sysattr_value(dev, "phys_port_name", &port_name);
+        if (r < 0)
+                return r;
+
+        ok = snprintf_ok(names->netdevsim_path, sizeof(names->netdevsim_path), "i%un%s", addr, port_name);
+        if (!ok)
+                return -ENOBUFS;
+
+        names->type = NET_NETDEVSIM;
+
+        return 0;
+}
+
 /* IEEE Organizationally Unique Identifier vendor string */
 static int ieee_oui(sd_device *dev, struct netnames *names, bool test) {
         char str[32];
@@ -894,6 +934,16 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
 
                 if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.platform_path))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+                return 0;
+        }
+
+        /* get netdevsim path names */
+        if (names_netdevsim(dev, &names) >= 0 && names.type == NET_NETDEVSIM) {
+                char str[IFNAMSIZ];
+
+                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.netdevsim_path))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+
                 return 0;
         }
 
