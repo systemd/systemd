@@ -29,6 +29,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_notify_access, notify_access, N
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_emergency_action, emergency_action, EmergencyAction);
 static BUS_DEFINE_PROPERTY_GET(property_get_timeout_abort_usec, "t", Service, service_timeout_abort_usec);
 static BUS_DEFINE_PROPERTY_GET(property_get_watchdog_usec, "t", Service, service_get_watchdog_usec);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_timeout_failure_mode, service_timeout_failure_mode, ServiceTimeoutFailureMode);
 
 static int property_get_exit_status_set(
                 sd_bus *bus,
@@ -101,6 +102,8 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("TimeoutStartUSec", "t", bus_property_get_usec, offsetof(Service, timeout_start_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Service, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutAbortUSec", "t", property_get_timeout_abort_usec, 0, 0),
+        SD_BUS_PROPERTY("TimeoutStartFailureMode", "s", property_get_timeout_failure_mode, offsetof(Service, timeout_start_failure_mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("TimeoutStopFailureMode", "s", property_get_timeout_failure_mode, offsetof(Service, timeout_stop_failure_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeMaxUSec", "t", bus_property_get_usec, offsetof(Service, runtime_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WatchdogUSec", "t", property_get_watchdog_usec, 0, 0),
         BUS_PROPERTY_DUAL_TIMESTAMP("WatchdogTimestamp", offsetof(Service, watchdog_timestamp), 0),
@@ -259,6 +262,7 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE(service_type, ServiceType, service_type_fr
 static BUS_DEFINE_SET_TRANSIENT_PARSE(service_restart, ServiceRestart, service_restart_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(oom_policy, OOMPolicy, oom_policy_from_string);
 static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(bus_name, sd_bus_service_name_is_valid);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(timeout_failure_mode, ServiceTimeoutFailureMode, service_timeout_failure_mode_from_string);
 
 static int bus_service_set_transient_property(
                 Service *s,
@@ -315,6 +319,12 @@ static int bus_service_set_transient_property(
                         s->timeout_abort_set = true;
                 return r;
         }
+
+        if (streq(name, "TimeoutStartFailureMode"))
+                return bus_set_transient_timeout_failure_mode(u, name, &s->timeout_start_failure_mode, message, flags, error);
+
+        if (streq(name, "TimeoutStopFailureMode"))
+                return bus_set_transient_timeout_failure_mode(u, name, &s->timeout_stop_failure_mode, message, flags, error);
 
         if (streq(name, "RuntimeMaxUSec"))
                 return bus_set_transient_usec(u, name, &s->runtime_max_usec, message, flags, error);

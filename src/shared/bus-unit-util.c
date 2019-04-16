@@ -1490,7 +1490,9 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                               "NotifyAccess",
                               "USBFunctionDescriptors",
                               "USBFunctionStrings",
-                              "OOMPolicy"))
+                              "OOMPolicy",
+                              "TimeoutStartFailureMode",
+                              "TimeoutStopFailureMode"))
                 return bus_append_string(m, field, eq);
 
         if (STR_IN_SET(field, "PermissionsStartOnly",
