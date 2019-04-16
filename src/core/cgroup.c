@@ -372,31 +372,36 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
         return 0;
 }
 
-uint64_t unit_get_ancestor_memory_low(Unit *u) {
-        CGroupContext *c;
-
-        /* 1. Is MemoryLow set in this unit? If so, use that.
-         * 2. Is DefaultMemoryLow set in any ancestor? If so, use that.
-         * 3. Otherwise, return CGROUP_LIMIT_MIN. */
-
-        assert(u);
-
-        c = unit_get_cgroup_context(u);
-
-        if (c->memory_low_set)
-                return c->memory_low;
-
-        while (UNIT_ISSET(u->slice)) {
-                u = UNIT_DEREF(u->slice);
-                c = unit_get_cgroup_context(u);
-
-                if (c->default_memory_low_set)
-                        return c->default_memory_low;
-        }
-
-        /* We've reached the root, but nobody had DefaultMemoryLow set, so set it to the kernel default. */
-        return CGROUP_LIMIT_MIN;
+#define UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(entry)                       \
+        uint64_t unit_get_ancestor_##entry(Unit *u) {                   \
+                CGroupContext *c;                                       \
+                                                                        \
+                /* 1. Is entry set in this unit? If so, use that.       \
+                 * 2. Is the default for this entry set in any          \
+                 *    ancestor? If so, use that.                        \
+                 * 3. Otherwise, return CGROUP_LIMIT_MIN. */            \
+                                                                        \
+                assert(u);                                              \
+                                                                        \
+                c = unit_get_cgroup_context(u);                         \
+                                                                        \
+                if (c->entry##_set)                                     \
+                        return c->entry;                                \
+                                                                        \
+                while (UNIT_ISSET(u->slice)) {                          \
+                        u = UNIT_DEREF(u->slice);                       \
+                        c = unit_get_cgroup_context(u);                 \
+                                                                        \
+                        if (c->default_##entry##_set)                   \
+                                return c->default_##entry;              \
+                }                                                       \
+                                                                        \
+                /* We've reached the root, but nobody had default for   \
+                 * this entry set, so set it to the kernel default. */  \
+                return CGROUP_LIMIT_MIN;                                \
 }
+
+UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_low);
 
 static int lookup_block_device(const char *p, dev_t *ret) {
         struct stat st;
