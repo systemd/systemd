@@ -234,6 +234,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sStartupIOWeight=%" PRIu64 "\n"
                 "%sBlockIOWeight=%" PRIu64 "\n"
                 "%sStartupBlockIOWeight=%" PRIu64 "\n"
+                "%sDefaultMemoryMin=%" PRIu64 "\n"
                 "%sDefaultMemoryLow=%" PRIu64 "\n"
                 "%sMemoryMin=%" PRIu64 "\n"
                 "%sMemoryLow=%" PRIu64 "\n"
@@ -260,6 +261,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->startup_io_weight,
                 prefix, c->blockio_weight,
                 prefix, c->startup_blockio_weight,
+                prefix, c->default_memory_min,
                 prefix, c->default_memory_low,
                 prefix, c->memory_min,
                 prefix, c->memory_low,
@@ -414,6 +416,7 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
 }
 
 UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_low);
+UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_min);
 
 static void cgroup_xattr_apply(Unit *u) {
         char ids[SD_ID128_STRING_MAX];
