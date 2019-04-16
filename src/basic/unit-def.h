@@ -127,6 +127,7 @@ typedef enum ServiceState {
         SERVICE_STOP_SIGTERM,
         SERVICE_STOP_SIGKILL,
         SERVICE_STOP_POST,
+        SERVICE_FINAL_WATCHDOG,    /* In case the STOP_POST executable needs to be aborted. */
         SERVICE_FINAL_SIGTERM,     /* In case the STOP_POST executable hangs, we shoot that down, too */
         SERVICE_FINAL_SIGKILL,
         SERVICE_FAILED,

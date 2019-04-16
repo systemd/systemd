@@ -185,6 +185,7 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_STOP_SIGTERM] = "stop-sigterm",
         [SERVICE_STOP_SIGKILL] = "stop-sigkill",
         [SERVICE_STOP_POST] = "stop-post",
+        [SERVICE_FINAL_WATCHDOG] = "final-watchdog",
         [SERVICE_FINAL_SIGTERM] = "final-sigterm",
         [SERVICE_FINAL_SIGKILL] = "final-sigkill",
         [SERVICE_FAILED] = "failed",

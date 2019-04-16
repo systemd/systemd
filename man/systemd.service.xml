@@ -560,16 +560,12 @@
 
       <varlistentry>
         <term><varname>TimeoutStartSec=</varname></term>
-        <listitem><para>Configures the time to wait for start-up. If a
-        daemon service does not signal start-up completion within the
-        configured time, the service will be considered failed and
-        will be shut down again. Takes a unit-less value in seconds,
-        or a time span value such as "5min 20s". Pass
-        <literal>infinity</literal> to disable the timeout logic. Defaults to
-        <varname>DefaultTimeoutStartSec=</varname> from the manager
-        configuration file, except when
-        <varname>Type=oneshot</varname> is used, in which case the
-        timeout is disabled by default (see
+        <listitem><para>Configures the time to wait for start-up. If a daemon service does not signal start-up
+        completion within the configured time, the service will be considered failed and will be shut down again. The
+        precise action depends on the <varname>TimeoutStartFailureMode=</varname> option. Takes a unit-less value in
+        seconds, or a time span value such as "5min 20s". Pass <literal>infinity</literal> to disable the timeout logic.
+        Defaults to <varname>DefaultTimeoutStartSec=</varname> from the manager configuration file, except when
+        <varname>Type=oneshot</varname> is used, in which case the timeout is disabled by default (see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
         </para>
 
@@ -588,7 +584,8 @@
         <listitem><para>This option serves two purposes. First, it configures the time to wait for each
         <varname>ExecStop=</varname> command. If any of them times out, subsequent <varname>ExecStop=</varname> commands
         are skipped and the service will be terminated by <constant>SIGTERM</constant>. If no <varname>ExecStop=</varname>
-        commands are specified, the service gets the <constant>SIGTERM</constant> immediately. Second, it configures the time
+        commands are specified, the service gets the <constant>SIGTERM</constant> immediately. This default behavior
+        can be changed by the <varname>TimeoutStopFailureMode=</varname> option. Second, it configures the time
         to wait for the service itself to stop. If it doesn't terminate in the specified time, it will be forcibly terminated
         by <constant>SIGKILL</constant> (see <varname>KillMode=</varname> in
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
@@ -643,6 +640,28 @@
         <listitem><para>A shorthand for configuring both
         <varname>TimeoutStartSec=</varname> and
         <varname>TimeoutStopSec=</varname> to the specified value.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TimeoutStartFailureMode=</varname></term>
+        <term><varname>TimeoutStopFailureMode=</varname></term>
+
+        <listitem><para>These options configure the action that is taken in case a daemon service does not signal
+        start-up within its configured <varname>TimeoutStartSec=</varname>, respectively if it does not stop within
+        <varname>TimeoutStopSec=</varname>. Takes one of <option>terminate</option>, <option>abort</option> and
+        <option>kill</option>. Both options default to <option>terminate</option>.</para>
+
+        <para>If <option>terminate</option> is set the service will be gracefully terminated by sending the signal
+        specified in <varname>KillSignal=</varname> (defaults to <constant>SIGTERM</constant>, see
+        <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>). If the
+        service does not terminate the <varname>FinalKillSignal=</varname> is sent after
+        <varname>TimeoutStopSec=</varname>. If <option>abort</option> is set, <varname>WatchdogSignal=</varname> is sent
+        instead and <varname>TimeoutAbortSec=</varname> applies before sending <varname>FinalKillSignal=</varname>.
+        This setting may be used to analyze services that fail to start-up or shut-down intermittently.
+        By using <option>kill</option> the service is immediately terminated by sending
+        <varname>FinalKillSignal=</varname> without any further timeout. This setting can be used to expedite the
+        shutdown of failing services.
         </para></listitem>
       </varlistentry>
 

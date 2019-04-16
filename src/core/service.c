@@ -56,6 +56,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_STOP_SIGTERM] = UNIT_DEACTIVATING,
         [SERVICE_STOP_SIGKILL] = UNIT_DEACTIVATING,
         [SERVICE_STOP_POST] = UNIT_DEACTIVATING,
+        [SERVICE_FINAL_WATCHDOG] = UNIT_DEACTIVATING,
         [SERVICE_FINAL_SIGTERM] = UNIT_DEACTIVATING,
         [SERVICE_FINAL_SIGKILL] = UNIT_DEACTIVATING,
         [SERVICE_FAILED] = UNIT_FAILED,
@@ -79,6 +80,7 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_STOP_SIGTERM] = UNIT_DEACTIVATING,
         [SERVICE_STOP_SIGKILL] = UNIT_DEACTIVATING,
         [SERVICE_STOP_POST] = UNIT_DEACTIVATING,
+        [SERVICE_FINAL_WATCHDOG] = UNIT_DEACTIVATING,
         [SERVICE_FINAL_SIGTERM] = UNIT_DEACTIVATING,
         [SERVICE_FINAL_SIGKILL] = UNIT_DEACTIVATING,
         [SERVICE_FAILED] = UNIT_FAILED,
@@ -857,10 +859,14 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sRestartSec: %s\n"
                 "%sTimeoutStartSec: %s\n"
-                "%sTimeoutStopSec: %s\n",
+                "%sTimeoutStopSec: %s\n"
+                "%sTimeoutStartFailureMode: %s\n"
+                "%sTimeoutStopFailureMode: %s\n",
                 prefix, format_timespan(buf_restart, sizeof(buf_restart), s->restart_usec, USEC_PER_SEC),
                 prefix, format_timespan(buf_start, sizeof(buf_start), s->timeout_start_usec, USEC_PER_SEC),
-                prefix, format_timespan(buf_stop, sizeof(buf_stop), s->timeout_stop_usec, USEC_PER_SEC));
+                prefix, format_timespan(buf_stop, sizeof(buf_stop), s->timeout_stop_usec, USEC_PER_SEC),
+                prefix, service_timeout_failure_mode_to_string(s->timeout_start_failure_mode),
+                prefix, service_timeout_failure_mode_to_string(s->timeout_stop_failure_mode));
 
         if (s->timeout_abort_set)
                 fprintf(f,
@@ -1072,7 +1078,7 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_RUNNING,
                     SERVICE_RELOAD,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
+                    SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                     SERVICE_AUTO_RESTART,
                     SERVICE_CLEANING))
                 s->timer_event_source = sd_event_source_unref(s->timer_event_source);
@@ -1081,7 +1087,7 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING, SERVICE_RELOAD,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
+                    SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
                 service_unwatch_main_pid(s);
                 s->main_command = NULL;
         }
@@ -1090,7 +1096,7 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                     SERVICE_RELOAD,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
+                    SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                     SERVICE_CLEANING)) {
                 service_unwatch_control_pid(s);
                 s->control_command = NULL;
@@ -1106,7 +1112,7 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING, SERVICE_RELOAD,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL) &&
+                    SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL) &&
             !(state == SERVICE_DEAD && UNIT(s)->job))
                 service_close_socket_fd(s);
 
@@ -1154,6 +1160,7 @@ static usec_t service_coldplug_timeout(Service *s) {
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->timeout_stop_usec);
 
         case SERVICE_STOP_WATCHDOG:
+        case SERVICE_FINAL_WATCHDOG:
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, service_timeout_abort_usec(s));
 
         case SERVICE_AUTO_RESTART:
@@ -1187,7 +1194,7 @@ static int service_coldplug(Unit *u) {
                     SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING, SERVICE_RELOAD,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))) {
+                    SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))) {
                 r = unit_watch_pid(UNIT(s), s->main_pid, false);
                 if (r < 0)
                         return r;
@@ -1199,7 +1206,7 @@ static int service_coldplug(Unit *u) {
                    SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                    SERVICE_RELOAD,
                    SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
+                   SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                    SERVICE_CLEANING)) {
                 r = unit_watch_pid(UNIT(s), s->control_pid, false);
                 if (r < 0)
@@ -1859,6 +1866,7 @@ static int state_to_kill_operation(Service *s, ServiceState state) {
         switch (state) {
 
         case SERVICE_STOP_WATCHDOG:
+        case SERVICE_FINAL_WATCHDOG:
                 return KILL_WATCHDOG;
 
         case SERVICE_STOP_SIGTERM:
@@ -1879,7 +1887,7 @@ static int state_to_kill_operation(Service *s, ServiceState state) {
 }
 
 static void service_enter_signal(Service *s, ServiceState state, ServiceResult f) {
-        int r;
+        int kill_operation, r;
 
         assert(s);
 
@@ -1893,10 +1901,11 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
          * died now */
         (void) unit_enqueue_rewatch_pids(UNIT(s));
 
+        kill_operation = state_to_kill_operation(s, state);
         r = unit_kill_context(
                         UNIT(s),
                         &s->kill_context,
-                        state_to_kill_operation(s, state),
+                        kill_operation,
                         s->main_pid,
                         s->control_pid,
                         s->main_pid_alien);
@@ -1905,7 +1914,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
 
         if (r > 0) {
                 r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC),
-                                      state == SERVICE_STOP_WATCHDOG ? service_timeout_abort_usec(s) : s->timeout_stop_usec));
+                                      kill_operation == KILL_WATCHDOG ? service_timeout_abort_usec(s) : s->timeout_stop_usec));
                 if (r < 0)
                         goto fail;
 
@@ -1914,7 +1923,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
                 service_enter_signal(s, SERVICE_STOP_SIGKILL, SERVICE_SUCCESS);
         else if (IN_SET(state, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL))
                 service_enter_stop_post(s, SERVICE_SUCCESS);
-        else if (state == SERVICE_FINAL_SIGTERM && s->kill_context.send_sigkill)
+        else if (IN_SET(state, SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM) && s->kill_context.send_sigkill)
                 service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_SUCCESS);
         else
                 service_enter_dead(s, SERVICE_SUCCESS, true);
@@ -2444,7 +2453,7 @@ static int service_start(Unit *u) {
          * please! */
         if (IN_SET(s->state,
                    SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL, SERVICE_CLEANING))
+                   SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL, SERVICE_CLEANING))
                 return -EAGAIN;
 
         /* Already on it! */
@@ -2515,7 +2524,7 @@ static int service_stop(Unit *u) {
         /* Already on it */
         if (IN_SET(s->state,
                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))
+                   SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))
                 return 0;
 
         /* A restart will be scheduled or is in progress. */
@@ -3321,6 +3330,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                 break;
 
         case SERVICE_STOP_POST:
+        case SERVICE_FINAL_WATCHDOG:
         case SERVICE_FINAL_SIGTERM:
         case SERVICE_FINAL_SIGKILL:
                 if (main_pid_good(s) <= 0 && control_pid_good(s) <= 0)
@@ -3521,6 +3531,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                                 break;
 
+                        case SERVICE_FINAL_WATCHDOG:
                         case SERVICE_FINAL_SIGTERM:
                         case SERVICE_FINAL_SIGKILL:
 
@@ -3674,6 +3685,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
                                 break;
 
+                        case SERVICE_FINAL_WATCHDOG:
                         case SERVICE_FINAL_SIGTERM:
                         case SERVICE_FINAL_SIGKILL:
                                 if (main_pid_good(s) <= 0)
@@ -3720,13 +3732,32 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
         case SERVICE_CONDITION:
         case SERVICE_START_PRE:
         case SERVICE_START:
-                log_unit_warning(UNIT(s), "%s operation timed out. Terminating.", service_state_to_string(s->state));
-                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_TIMEOUT);
-                break;
-
         case SERVICE_START_POST:
-                log_unit_warning(UNIT(s), "Start-post operation timed out. Stopping.");
-                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_TIMEOUT);
+                switch (s->timeout_start_failure_mode) {
+
+                case SERVICE_TIMEOUT_TERMINATE:
+                        log_unit_warning(UNIT(s), "%s operation timed out. Terminating.", service_state_to_string(s->state));
+                        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_TIMEOUT);
+                        break;
+
+                case SERVICE_TIMEOUT_ABORT:
+                        log_unit_warning(UNIT(s), "%s operation timed out. Aborting.", service_state_to_string(s->state));
+                        service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_TIMEOUT);
+                        break;
+
+                case SERVICE_TIMEOUT_KILL:
+                        if (s->kill_context.send_sigkill) {
+                                log_unit_warning(UNIT(s), "%s operation timed out. Killing.", service_state_to_string(s->state));
+                                service_enter_signal(s, SERVICE_STOP_SIGKILL, SERVICE_FAILURE_TIMEOUT);
+                        } else {
+                                log_unit_warning(UNIT(s), "%s operation timed out. Skipping SIGKILL.", service_state_to_string(s->state));
+                                service_enter_stop_post(s, SERVICE_FAILURE_TIMEOUT);
+                        }
+                        break;
+
+                default:
+                        assert_not_reached("unknown timeout mode");
+                }
                 break;
 
         case SERVICE_RUNNING:
@@ -3742,17 +3773,48 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                 break;
 
         case SERVICE_STOP:
-                log_unit_warning(UNIT(s), "Stopping timed out. Terminating.");
-                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_TIMEOUT);
+                switch (s->timeout_stop_failure_mode) {
+
+                case SERVICE_TIMEOUT_TERMINATE:
+                        log_unit_warning(UNIT(s), "Stopping timed out. Terminating.");
+                        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_TIMEOUT);
+                        break;
+
+                case SERVICE_TIMEOUT_ABORT:
+                        log_unit_warning(UNIT(s), "Stopping timed out. Aborting.");
+                        service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_TIMEOUT);
+                        break;
+
+                case SERVICE_TIMEOUT_KILL:
+                        if (s->kill_context.send_sigkill) {
+                                log_unit_warning(UNIT(s), "Stopping timed out. Killing.");
+                                service_enter_signal(s, SERVICE_STOP_SIGKILL, SERVICE_FAILURE_TIMEOUT);
+                        } else {
+                                log_unit_warning(UNIT(s), "Stopping timed out. Skipping SIGKILL.");
+                                service_enter_stop_post(s, SERVICE_FAILURE_TIMEOUT);
+                        }
+                        break;
+
+                default:
+                        assert_not_reached("unknown timeout mode");
+                }
                 break;
 
         case SERVICE_STOP_WATCHDOG:
-                log_unit_warning(UNIT(s), "State 'stop-watchdog' timed out. Terminating.");
-                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_TIMEOUT);
+                if (s->kill_context.send_sigkill) {
+                        log_unit_warning(UNIT(s), "State 'stop-watchdog' timed out. Killing.");
+                        service_enter_signal(s, SERVICE_STOP_SIGKILL, SERVICE_FAILURE_TIMEOUT);
+                } else {
+                        log_unit_warning(UNIT(s), "State 'stop-watchdog' timed out. Skipping SIGKILL.");
+                        service_enter_stop_post(s, SERVICE_FAILURE_TIMEOUT);
+                }
                 break;
 
         case SERVICE_STOP_SIGTERM:
-                if (s->kill_context.send_sigkill) {
+                if (s->timeout_stop_failure_mode == SERVICE_TIMEOUT_ABORT) {
+                        log_unit_warning(UNIT(s), "State 'stop-sigterm' timed out. Aborting.");
+                        service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_TIMEOUT);
+                } else if (s->kill_context.send_sigkill) {
                         log_unit_warning(UNIT(s), "State 'stop-sigterm' timed out. Killing.");
                         service_enter_signal(s, SERVICE_STOP_SIGKILL, SERVICE_FAILURE_TIMEOUT);
                 } else {
@@ -3772,16 +3834,52 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                 break;
 
         case SERVICE_STOP_POST:
-                log_unit_warning(UNIT(s), "State 'stop-post' timed out. Terminating.");
-                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_TIMEOUT);
+                switch (s->timeout_stop_failure_mode) {
+
+                case SERVICE_TIMEOUT_TERMINATE:
+                        log_unit_warning(UNIT(s), "State 'stop-post' timed out. Terminating.");
+                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_TIMEOUT);
+                        break;
+
+                case SERVICE_TIMEOUT_ABORT:
+                        log_unit_warning(UNIT(s), "State 'stop-post' timed out. Aborting.");
+                        service_enter_signal(s, SERVICE_FINAL_WATCHDOG, SERVICE_FAILURE_TIMEOUT);
+                        break;
+
+                case SERVICE_TIMEOUT_KILL:
+                        if (s->kill_context.send_sigkill) {
+                                log_unit_warning(UNIT(s), "State 'stop-post' timed out. Killing.");
+                                service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_FAILURE_TIMEOUT);
+                        } else {
+                                log_unit_warning(UNIT(s), "State 'stop-post' timed out. Skipping SIGKILL. Entering failed mode.");
+                                service_enter_dead(s, SERVICE_FAILURE_TIMEOUT, false);
+                        }
+                        break;
+
+                default:
+                        assert_not_reached("unknown timeout mode");
+                }
+                break;
+
+        case SERVICE_FINAL_WATCHDOG:
+                if (s->kill_context.send_sigkill) {
+                        log_unit_warning(UNIT(s), "State 'final-watchdog' timed out. Killing.");
+                        service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_FAILURE_TIMEOUT);
+                } else {
+                        log_unit_warning(UNIT(s), "State 'final-watchdog' timed out. Skipping SIGKILL. Entering failed mode.");
+                        service_enter_dead(s, SERVICE_FAILURE_TIMEOUT, false);
+                }
                 break;
 
         case SERVICE_FINAL_SIGTERM:
-                if (s->kill_context.send_sigkill) {
-                        log_unit_warning(UNIT(s), "State 'stop-final-sigterm' timed out. Killing.");
+                if (s->timeout_stop_failure_mode == SERVICE_TIMEOUT_ABORT) {
+                        log_unit_warning(UNIT(s), "State 'final-sigterm' timed out. Aborting.");
+                        service_enter_signal(s, SERVICE_FINAL_WATCHDOG, SERVICE_FAILURE_TIMEOUT);
+                } else if (s->kill_context.send_sigkill) {
+                        log_unit_warning(UNIT(s), "State 'final-sigterm' timed out. Killing.");
                         service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_FAILURE_TIMEOUT);
                 } else {
-                        log_unit_warning(UNIT(s), "State 'stop-final-sigterm' timed out. Skipping SIGKILL. Entering failed mode.");
+                        log_unit_warning(UNIT(s), "State 'final-sigterm' timed out. Skipping SIGKILL. Entering failed mode.");
                         service_enter_dead(s, SERVICE_FAILURE_TIMEOUT, false);
                 }
 
@@ -4263,6 +4361,7 @@ static bool service_needs_console(Unit *u) {
                       SERVICE_STOP_SIGTERM,
                       SERVICE_STOP_SIGKILL,
                       SERVICE_STOP_POST,
+                      SERVICE_FINAL_WATCHDOG,
                       SERVICE_FINAL_SIGTERM,
                       SERVICE_FINAL_SIGKILL);
 }
@@ -4416,6 +4515,14 @@ static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult);
+
+static const char* const service_timeout_failure_mode_table[_SERVICE_TIMEOUT_FAILURE_MODE_MAX] = {
+        [SERVICE_TIMEOUT_TERMINATE] = "terminate",
+        [SERVICE_TIMEOUT_ABORT] = "abort",
+        [SERVICE_TIMEOUT_KILL] = "kill",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(service_timeout_failure_mode, ServiceTimeoutFailureMode);
 
 const UnitVTable service_vtable = {
         .object_size = sizeof(Service),
