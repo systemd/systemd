@@ -3102,9 +3102,16 @@ int config_parse_memory_limit(
                         c->default_memory_low = CGROUP_LIMIT_MIN;
                 else
                         c->default_memory_low = bytes;
-        } else if (streq(lvalue, "MemoryMin"))
+        } else if (streq(lvalue, "DefaultMemoryMin")) {
+                c->default_memory_min_set = true;
+                if (isempty(rvalue))
+                        c->default_memory_min = CGROUP_LIMIT_MIN;
+                else
+                        c->default_memory_min = bytes;
+        } else if (streq(lvalue, "MemoryMin")) {
                 c->memory_min = bytes;
-        else if (streq(lvalue, "MemoryLow")) {
+                c->memory_min_set = true;
+        } else if (streq(lvalue, "MemoryLow")) {
                 c->memory_low = bytes;
                 c->memory_low_set = true;
         } else if (streq(lvalue, "MemoryHigh"))

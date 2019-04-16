@@ -669,6 +669,9 @@ int bus_cgroup_set_property(
         if (streq(name, "MemoryLow"))
                 return bus_cgroup_set_memory(u, name, &c->memory_low, message, flags, error);
 
+        if (streq(name, "DefaultMemoryMin"))
+                return bus_cgroup_set_memory(u, name, &c->default_memory_min, message, flags, error);
+
         if (streq(name, "DefaultMemoryLow"))
                 return bus_cgroup_set_memory(u, name, &c->default_memory_low, message, flags, error);
 
@@ -689,6 +692,9 @@ int bus_cgroup_set_property(
 
         if (streq(name, "MemoryLowScale"))
                 return bus_cgroup_set_memory_scale(u, name, &c->memory_low, message, flags, error);
+
+        if (streq(name, "DefaultMemoryMinScale"))
+                return bus_cgroup_set_memory_scale(u, name, &c->default_memory_min, message, flags, error);
 
         if (streq(name, "DefaultMemoryLowScale"))
                 return bus_cgroup_set_memory_scale(u, name, &c->default_memory_low, message, flags, error);

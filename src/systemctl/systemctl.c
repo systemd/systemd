@@ -3918,6 +3918,7 @@ typedef struct UnitStatusInfo {
         uint64_t ip_ingress_bytes;
         uint64_t ip_egress_bytes;
 
+        uint64_t default_memory_min;
         uint64_t default_memory_low;
 
         LIST_HEAD(ExecStatusInfo, exec);
@@ -5030,6 +5031,7 @@ static int show_one(
                 { "Where",                          "s",              NULL,           offsetof(UnitStatusInfo, where)                             },
                 { "What",                           "s",              NULL,           offsetof(UnitStatusInfo, what)                              },
                 { "MemoryCurrent",                  "t",              NULL,           offsetof(UnitStatusInfo, memory_current)                    },
+                { "DefaultMemoryMin",               "t",              NULL,           offsetof(UnitStatusInfo, default_memory_min)                },
                 { "DefaultMemoryLow",               "t",              NULL,           offsetof(UnitStatusInfo, default_memory_low)                },
                 { "MemoryMin",                      "t",              NULL,           offsetof(UnitStatusInfo, memory_min)                        },
                 { "MemoryLow",                      "t",              NULL,           offsetof(UnitStatusInfo, memory_low)                        },
