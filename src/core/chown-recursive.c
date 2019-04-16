@@ -133,17 +133,17 @@ int path_chown_recursive(
         if (fd < 0)
                 return -errno;
 
-        if (!uid_is_valid(uid) && !gid_is_valid(gid))
+        if (!uid_is_valid(uid) && !gid_is_valid(gid) && (mask & 07777) == 07777)
                 return 0; /* nothing to do */
 
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        /* Let's take a shortcut: if the top-level directory is properly owned, we don't descend into the whole tree,
-         * under the assumption that all is OK anyway. */
-
+        /* Let's take a shortcut: if the top-level directory is properly owned, we don't descend into the
+         * whole tree, under the assumption that all is OK anyway. */
         if ((!uid_is_valid(uid) || st.st_uid == uid) &&
-            (!gid_is_valid(gid) || st.st_gid == gid))
+            (!gid_is_valid(gid) || st.st_gid == gid) &&
+            ((st.st_mode & ~mask & 07777) == 0))
                 return 0;
 
         return chown_recursive_internal(TAKE_FD(fd), &st, uid, gid, mask); /* we donate the fd to the call, regardless if it succeeded or failed */
