@@ -401,10 +401,10 @@ static int bus_cgroup_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "DelegateControllers")) {
+        } else if (STR_IN_SET(name, "DelegateControllers", "DisableControllers")) {
                 CGroupMask mask = 0;
 
-                if (!UNIT_VTABLE(u)->can_delegate)
+                if (streq(name, "DelegateControllers") && !UNIT_VTABLE(u)->can_delegate)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
 
                 r = sd_bus_message_enter_container(message, 'a', "s");
@@ -439,13 +439,25 @@ static int bus_cgroup_set_transient_property(
                         if (r < 0)
                                 return r;
 
-                        c->delegate = true;
-                        if (mask == 0)
-                                c->delegate_controllers = 0;
-                        else
-                                c->delegate_controllers |= mask;
+                        if (streq(name, "DelegateControllers")) {
 
-                        unit_write_settingf(u, flags, name, "Delegate=%s", strempty(t));
+                                c->delegate = true;
+                                if (mask == 0)
+                                        c->delegate_controllers = 0;
+                                else
+                                        c->delegate_controllers |= mask;
+
+                                unit_write_settingf(u, flags, name, "Delegate=%s", strempty(t));
+
+                        } else if (streq(name, "DisableControllers")) {
+
+                                if (mask == 0)
+                                        c->disable_controllers = 0;
+                                else
+                                        c->disable_controllers |= mask;
+
+                                unit_write_settingf(u, flags, name, "%s=%s", name, strempty(t));
+                        }
                 }
 
                 return 1;
@@ -1426,7 +1438,7 @@ int bus_cgroup_set_property(
                 return 1;
         }
 
-        if (u->transient && u->load_state == UNIT_STUB)
+        if (streq(name, "DisableControllers") || (u->transient && u->load_state == UNIT_STUB))
                 return bus_cgroup_set_transient_property(u, c, name, message, flags, error);
 
         return 0;

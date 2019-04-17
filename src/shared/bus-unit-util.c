@@ -396,6 +396,10 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
                 return bus_append_cg_blkio_weight_parse(m, field, eq);
 
+        if (streq(field, "DisableControllers"))
+
+                return bus_append_strv(m, "DisableControllers", eq, EXTRACT_QUOTES);
+
         if (streq(field, "Delegate")) {
 
                 r = parse_boolean(eq);
