@@ -1050,6 +1050,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         if (!*bus)
                 return;
 
+        bus_enter_closing(*bus);
+
         /* Make sure all bus slots watching names are released. */
         HASHMAP_FOREACH(u, m->watch_bus, i) {
                 if (!u->match_bus_slot)
