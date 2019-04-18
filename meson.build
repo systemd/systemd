@@ -300,7 +300,14 @@ else
 endif
 
 if want_libfuzzer
-        fuzzing_engine = meson.get_compiler('cpp').find_library('Fuzzer')
+        fuzzing_engine = meson.get_compiler('cpp').find_library('Fuzzer', required : false)
+        if fuzzing_engine.found()
+                add_project_arguments('-fsanitize-coverage=trace-pc-guard,trace-cmp', language : 'c')
+        elif cc.has_argument('-fsanitize=fuzzer-no-link')
+                add_project_arguments('-fsanitize=fuzzer-no-link', language : 'c')
+        else
+                error('Looks like neither libFuzzer nor -fsanitize=fuzzer-no-link is supported')
+        endif
 elif want_ossfuzz
         fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
 endif
@@ -2816,9 +2823,16 @@ foreach tuple : fuzzers
         dependencies = tuple[2]
         defs = tuple.length() >= 4 ? tuple[3] : []
         incs = tuple.length() >= 5 ? tuple[4] : includes
+        link_args = []
 
-        if fuzzer_build
+        if want_ossfuzz
                 dependencies += fuzzing_engine
+        elif want_libfuzzer
+                if fuzzing_engine.found()
+                        dependencies += fuzzing_engine
+                else
+                        link_args += ['-fsanitize=fuzzer']
+                endif
         else
                 sources += 'src/fuzz/fuzz-main.c'
         endif
@@ -2832,6 +2846,7 @@ foreach tuple : fuzzers
                 link_with : link_with,
                 dependencies : dependencies,
                 c_args : defs,
+                link_args: link_args,
                 install : false)
 endforeach
 endif
