@@ -15,7 +15,7 @@ CONT_NAME="${CONT_NAME:-debian-$DEBIAN_RELEASE-$RANDOM}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(python3-libevdev python3-pyparsing clang)
+ADDITIONAL_DEPS=(python3-libevdev python3-pyparsing clang zip git wget)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"
@@ -48,6 +48,11 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC ninja -v -C build
             docker exec -e "TRAVIS=$TRAVIS" -it $CONT_NAME ninja -C build test
             $DOCKER_EXEC tools/check-directives.sh
+
+            if [[ "$phase" = "RUN_CLANG" ]]; then
+                $DOCKER_EXEC tools/oss-fuzz.sh
+                $DOCKER_EXEC timeout --preserve-status 5 ./out/fuzz-unit-file
+            fi
             ;;
         RUN_ASAN|RUN_CLANG_ASAN)
             if [[ "$phase" = "RUN_CLANG_ASAN" ]]; then
