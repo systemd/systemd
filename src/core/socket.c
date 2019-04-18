@@ -2256,7 +2256,9 @@ static void flush_ports(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                (void) flush_accept(p->fd);
+                if (socket_address_can_accept(&p->address))
+                        (void) flush_accept(p->fd);
+
                 (void) flush_fd(p->fd);
         }
 }
