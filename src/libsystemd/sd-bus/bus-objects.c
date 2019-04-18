@@ -1701,7 +1701,8 @@ struct sd_bus_vtable_original {
 #define VTABLE_ELEMENT_SIZE sizeof(struct sd_bus_vtable)
 
 static int vtable_features(const sd_bus_vtable *vtable) {
-        if (vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_ORIGINAL)
+        if (vtable[0].x.start.element_size < VTABLE_ELEMENT_SIZE ||
+            !vtable[0].x.start.vtable_format_reference)
                 return 0;
         return vtable[0].x.start.features;
 }
@@ -1927,6 +1928,9 @@ fail:
 
         return r;
 }
+
+/* This symbol exists solely to tell the linker that the "new" vtable format is used. */
+_public_ const unsigned sd_bus_object_vtable_format = 242;
 
 _public_ int sd_bus_add_object_vtable(
                 sd_bus *bus,
