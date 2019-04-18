@@ -289,7 +289,7 @@
               </term>
               <listitem>
                 <para>shows the full-structured entry items with all
-                fields.</para>
+                fields. Each entry starts with _SOURCE_REALTIME_TIMESTAMP.</para>
               </listitem>
             </varlistentry>
 
