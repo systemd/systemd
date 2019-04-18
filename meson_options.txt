@@ -327,5 +327,7 @@ option('ok-color', type: 'combo',
 
 option('oss-fuzz', type : 'boolean', value : 'false',
        description : 'build against oss-fuzz')
+option('oss-fuzz-without-fuzzing-engine', type : 'boolean', value : 'false',
+       description : 'build against oss-fuzz (without FuzzingEngine)')
 option('llvm-fuzz', type : 'boolean', value : 'false',
        description : 'build against LLVM libFuzzer')

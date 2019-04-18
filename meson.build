@@ -31,11 +31,12 @@ substs.set('PROJECT_VERSION',      meson.project_version())
 project_source_root = meson.current_source_dir()
 
 want_ossfuzz = get_option('oss-fuzz')
+want_ossfuzz_without_fuzzing_engine = get_option('oss-fuzz-without-fuzzing-engine')
 want_libfuzzer = get_option('llvm-fuzz')
-if want_ossfuzz and want_libfuzzer
-        error('only one of oss-fuzz and llvm-fuzz can be specified')
+if want_ossfuzz + want_ossfuzz_without_fuzzing_engine + want_libfuzzer > 1
+        error('only one of oss-fuzz, oss-fuzz-without-fuzzing-engine or llvm-fuzz can be specified')
 endif
-fuzzer_build = want_ossfuzz or want_libfuzzer
+fuzzer_build = want_ossfuzz or want_ossfuzz_without_fuzzing_engine or want_libfuzzer
 
 #####################################################################
 
@@ -2827,6 +2828,8 @@ foreach tuple : fuzzers
 
         if want_ossfuzz
                 dependencies += fuzzing_engine
+        elif want_ossfuzz_without_fuzzing_engine
+                link_args += ['-fsanitize=fuzzer']
         elif want_libfuzzer
                 if fuzzing_engine.found()
                         dependencies += fuzzing_engine

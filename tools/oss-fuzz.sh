@@ -27,13 +27,16 @@ build=$WORK/build
 rm -rf $build
 mkdir -p $build
 
-fuzzflag="oss-fuzz=true"
-if [ -z "$FUZZING_ENGINE" ]; then
+if [ -z "$LIB_FUZZING_ENGINE" ]; then
     fuzzflag="llvm-fuzz=true"
+elif [[ "$LIB_FUZZING_ENGINE" = "-fsanitize=fuzzer" ]]; then
+    fuzzflag="oss-fuzz-without-fuzzing-engine=true"
+else
+    fuzzflag="oss-fuzz=true"
 fi
 
 meson $build -D$fuzzflag -Db_lundef=false
-ninja -C $build fuzzers
+ninja -v -C $build fuzzers
 
 # The seed corpus is a separate flat archive for each fuzzer,
 # with a fixed name ${fuzzer}_seed_corpus.zip.
