@@ -1668,7 +1668,7 @@ static bool names_are_valid(const char *signature, const char **names, names_fla
 
 /* the current version of this struct is defined in sd-bus-vtable.h, but we need to list here the historical versions
    to make sure the calling code is compatible with one of these */
-struct sd_bus_vtable_original {
+struct sd_bus_vtable_221 {
         uint8_t type:8;
         uint64_t flags:56;
         union {
@@ -1696,12 +1696,15 @@ struct sd_bus_vtable_original {
         } x;
 };
 /* Structure size up to v241 */
-#define VTABLE_ELEMENT_SIZE_ORIGINAL sizeof(struct sd_bus_vtable_original)
-/* Current structure size */
-#define VTABLE_ELEMENT_SIZE sizeof(struct sd_bus_vtable)
+#define VTABLE_ELEMENT_SIZE_221 sizeof(struct sd_bus_vtable_221)
+
+/* Size of the structure when "features" field was added. If the structure definition is augmented, a copy of
+ * the structure definition will need to be made (similarly to the sd_bus_vtable_221 above), and this
+ * definition updated to refer to it. */
+#define VTABLE_ELEMENT_SIZE_242 sizeof(struct sd_bus_vtable)
 
 static int vtable_features(const sd_bus_vtable *vtable) {
-        if (vtable[0].x.start.element_size < VTABLE_ELEMENT_SIZE ||
+        if (vtable[0].x.start.element_size < VTABLE_ELEMENT_SIZE_242 ||
             !vtable[0].x.start.vtable_format_reference)
                 return 0;
         return vtable[0].x.start.features;
@@ -1712,13 +1715,7 @@ bool bus_vtable_has_names(const sd_bus_vtable *vtable) {
 }
 
 const sd_bus_vtable* bus_vtable_next(const sd_bus_vtable *vtable, const sd_bus_vtable *v) {
-        if (vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_ORIGINAL) {
-                const struct sd_bus_vtable_original *v2 = (const struct sd_bus_vtable_original *)v;
-                v2++;
-                v = (const sd_bus_vtable*)v2;
-        } else /* current version */
-                v++;
-        return v;
+        return (const sd_bus_vtable*) ((char*) v + vtable[0].x.start.element_size);
 }
 
 static int add_object_vtable_internal(
@@ -1745,8 +1742,8 @@ static int add_object_vtable_internal(
         assert_return(interface_name_is_valid(interface), -EINVAL);
         assert_return(vtable, -EINVAL);
         assert_return(vtable[0].type == _SD_BUS_VTABLE_START, -EINVAL);
-        assert_return(vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_ORIGINAL ||
-                      vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE,
+        assert_return(vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_221 ||
+                      vtable[0].x.start.element_size >= VTABLE_ELEMENT_SIZE_242,
                       -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!streq(interface, "org.freedesktop.DBus.Properties") &&

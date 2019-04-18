@@ -61,7 +61,7 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-struct sd_bus_vtable_original {
+struct sd_bus_vtable_221 {
         uint8_t type:8;
         uint64_t flags:56;
         union {
@@ -89,13 +89,13 @@ struct sd_bus_vtable_original {
         } x;
 };
 
-static const struct sd_bus_vtable_original vtable_format_original[] = {
+static const struct sd_bus_vtable_221 vtable_format_221[] = {
         {
                 .type = _SD_BUS_VTABLE_START,
                 .flags = 0,
                 .x = {
                         .start = {
-                                .element_size = sizeof(struct sd_bus_vtable_original)
+                                .element_size = sizeof(struct sd_bus_vtable_221)
                         },
                 },
         },
@@ -129,7 +129,7 @@ static void test_vtable(void) {
         assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable", vtable, &c) >= 0);
         assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable2", vtable, &c) >= 0);
         /* the cast on the line below is needed to test with the old version of the table */
-        assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtableOriginal", (const sd_bus_vtable *)vtable_format_original, &c) >= 0);
+        assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable221", (const sd_bus_vtable *)vtable_format_221, &c) >= 0);
 
         assert(sd_bus_set_address(bus, DEFAULT_BUS_PATH) >= 0);
         r = sd_bus_start(bus);
