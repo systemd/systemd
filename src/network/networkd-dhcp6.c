@@ -141,7 +141,7 @@ int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link) {
 
                 (void) in_addr_to_string(AF_INET6, &pd_prefix, &buf);
 
-                r = route_add(link, AF_INET6, &pd_prefix, pd_prefix_len, 0, 0, 0, &route);
+                r = route_add(link, AF_INET6, &pd_prefix, pd_prefix_len, NULL, 0, 0, 0, &route);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Failed to add unreachable route to delete for DHCPv6 delegated subnet %s/%u: %m",
                                                strnull(buf),
@@ -295,7 +295,7 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
 
                         table = link_get_dhcp_route_table(link);
 
-                        r = route_add(link, AF_INET6, &pd_prefix, pd_prefix_len, 0, 0, table, &route);
+                        r = route_add(link, AF_INET6, &pd_prefix, pd_prefix_len, NULL, 0, 0, table, &route);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to add unreachable route for DHCPv6 delegated subnet %s/%u: %m",
                                                        strnull(buf),
@@ -732,7 +732,7 @@ static int dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link) {
         assert_return(addr, -EINVAL);
 
         r = route_add(link, AF_INET6, (union in_addr_union *) addr, 64,
-                      0, 0, 0, &route);
+                      NULL, 0, 0, 0, &route);
         if (r < 0)
                 return r;
 
@@ -799,7 +799,7 @@ int dhcp6_prefix_remove(Manager *m, struct in6_addr *addr) {
                 return -EINVAL;
 
         (void) sd_radv_remove_prefix(l->radv, addr, 64);
-        r = route_get(l, AF_INET6, (union in_addr_union *) addr, 64, 0, 0, 0, &route);
+        r = route_get(l, AF_INET6, (union in_addr_union *) addr, 64, NULL, 0, 0, 0, &route);
         if (r < 0)
                 return r;
 

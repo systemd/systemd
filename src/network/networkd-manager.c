@@ -432,7 +432,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 return 0;
         }
 
-        (void) route_get(link, family, &dst, dst_prefixlen, tos, priority, table, &route);
+        (void) route_get(link, family, &dst, dst_prefixlen, &gw, tos, priority, table, &route);
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *buf_dst = NULL, *buf_dst_prefixlen = NULL,
@@ -466,7 +466,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
         case RTM_NEWROUTE:
                 if (!route) {
                         /* A route appeared that we did not request */
-                        r = route_add_foreign(link, family, &dst, dst_prefixlen, tos, priority, table, &route);
+                        r = route_add_foreign(link, family, &dst, dst_prefixlen, &gw, tos, priority, table, &route);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to remember foreign route, ignoring: %m");
                                 return 0;

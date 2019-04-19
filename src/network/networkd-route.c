@@ -198,7 +198,11 @@ static int route_compare_func(const Route *a, const Route *b) {
                 if (r != 0)
                         return r;
 
-                return memcmp(&a->dst, &b->dst, FAMILY_ADDRESS_SIZE(a->family));
+                r = memcmp(&a->dst, &b->dst, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+
+                return memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
         default:
                 /* treat any other address family as AF_UNSPEC */
                 return 0;
@@ -318,6 +322,7 @@ int route_get(Link *link,
               int family,
               const union in_addr_union *dst,
               unsigned char dst_prefixlen,
+              const union in_addr_union *gw,
               unsigned char tos,
               uint32_t priority,
               uint32_t table,
@@ -332,6 +337,7 @@ int route_get(Link *link,
                 .family = family,
                 .dst = *dst,
                 .dst_prefixlen = dst_prefixlen,
+                .gw = gw ? *gw : IN_ADDR_NULL,
                 .tos = tos,
                 .priority = priority,
                 .table = table,
@@ -360,6 +366,7 @@ static int route_add_internal(
                 int family,
                 const union in_addr_union *dst,
                 unsigned char dst_prefixlen,
+                const union in_addr_union *gw,
                 unsigned char tos,
                 uint32_t priority,
                 uint32_t table,
@@ -379,6 +386,8 @@ static int route_add_internal(
         route->family = family;
         route->dst = *dst;
         route->dst_prefixlen = dst_prefixlen;
+        route->dst = *dst;
+        route->gw = gw ? *gw : IN_ADDR_NULL;
         route->tos = tos;
         route->priority = priority;
         route->table = table;
@@ -406,18 +415,20 @@ int route_add_foreign(
                 int family,
                 const union in_addr_union *dst,
                 unsigned char dst_prefixlen,
+                const union in_addr_union *gw,
                 unsigned char tos,
                 uint32_t priority,
                 uint32_t table,
                 Route **ret) {
 
-        return route_add_internal(link, &link->routes_foreign, family, dst, dst_prefixlen, tos, priority, table, ret);
+        return route_add_internal(link, &link->routes_foreign, family, dst, dst_prefixlen, gw, tos, priority, table, ret);
 }
 
 int route_add(Link *link,
               int family,
               const union in_addr_union *dst,
               unsigned char dst_prefixlen,
+              const union in_addr_union *gw,
               unsigned char tos,
               uint32_t priority,
               uint32_t table,
@@ -426,10 +437,10 @@ int route_add(Link *link,
         Route *route;
         int r;
 
-        r = route_get(link, family, dst, dst_prefixlen, tos, priority, table, &route);
+        r = route_get(link, family, dst, dst_prefixlen, gw, tos, priority, table, &route);
         if (r == -ENOENT) {
                 /* Route does not exist, create a new one */
-                r = route_add_internal(link, &link->routes, family, dst, dst_prefixlen, tos, priority, table, &route);
+                r = route_add_internal(link, &link->routes, family, dst, dst_prefixlen, gw, tos, priority, table, &route);
                 if (r < 0)
                         return r;
         } else if (r == 0) {
@@ -628,7 +639,7 @@ int route_configure(
                 return 0;
         }
 
-        if (route_get(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, NULL) <= 0 &&
+        if (route_get(link, route->family, &route->dst, route->dst_prefixlen, &route->gw, route->tos, route->priority, route->table, NULL) <= 0 &&
             set_size(link->routes) >= routes_max())
                 return log_link_error_errno(link, SYNTHETIC_ERRNO(E2BIG),
                                             "Too many routes are configured, refusing: %m");
@@ -804,7 +815,7 @@ int route_configure(
 
         lifetime = route->lifetime;
 
-        r = route_add(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, &route);
+        r = route_add(link, route->family, &route->dst, route->dst_prefixlen, &route->gw, route->tos, route->priority, route->table, &route);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not add route: %m");
 

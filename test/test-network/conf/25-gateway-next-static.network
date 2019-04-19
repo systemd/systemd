@@ -1,0 +1,6 @@
+[Match]
+Name=dummy98
+
+[Network]
+Address=149.10.124.58/28
+Gateway=149.10.124.60
