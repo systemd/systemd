@@ -699,6 +699,9 @@ static Link *link_free(Link *link) {
         link->routes = set_free_with_destructor(link->routes, route_free);
         link->routes_foreign = set_free_with_destructor(link->routes_foreign, route_free);
 
+        link->neighbors = set_free_with_destructor(link->neighbors, neighbor_free);
+        link->neighbors_foreign = set_free_with_destructor(link->neighbors_foreign, neighbor_free);
+
         link->addresses = set_free_with_destructor(link->addresses, address_free);
         link->addresses_foreign = set_free_with_destructor(link->addresses_foreign, address_free);
 
@@ -2347,6 +2350,22 @@ static bool link_is_static_address_configured(Link *link, Address *address) {
         return false;
 }
 
+static bool link_is_neighbor_configured(Link *link, Neighbor *neighbor) {
+        Neighbor *net_neighbor;
+
+        assert(link);
+        assert(neighbor);
+
+        if (!link->network)
+                return false;
+
+        LIST_FOREACH(neighbors, net_neighbor, link->network->neighbors)
+                if (neighbor_equal(net_neighbor, neighbor))
+                        return true;
+
+        return false;
+}
+
 static bool link_is_static_route_configured(Link *link, Route *route) {
         Route *net_route;
 
@@ -2392,6 +2411,7 @@ static bool link_address_is_dynamic(Link *link, Address *address) {
 
 static int link_drop_foreign_config(Link *link) {
         Address *address;
+        Neighbor *neighbor;
         Route *route;
         Iterator i;
         int r;
@@ -2413,6 +2433,18 @@ static int link_drop_foreign_config(Link *link) {
                                 return log_link_error_errno(link, r, "Failed to add address: %m");
                 } else {
                         r = address_remove(address, link, NULL);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        SET_FOREACH(neighbor, link->neighbors_foreign, i) {
+                if (link_is_neighbor_configured(link, neighbor)) {
+                        r = neighbor_add(link, neighbor->family, &neighbor->in_addr, &neighbor->lladdr, neighbor->lladdr_size, NULL);
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = neighbor_remove(neighbor, link, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -2456,6 +2488,7 @@ static int link_drop_foreign_config(Link *link) {
 
 static int link_drop_config(Link *link) {
         Address *address, *pool_address;
+        Neighbor *neighbor;
         Route *route;
         Iterator i;
         int r;
@@ -2477,6 +2510,12 @@ static int link_drop_config(Link *link) {
                                 break;
                         }
                 }
+        }
+
+        SET_FOREACH(neighbor, link->neighbors, i) {
+                r = neighbor_remove(neighbor, link, NULL);
+                if (r < 0)
+                        return r;
         }
 
         SET_FOREACH(route, link->routes, i) {

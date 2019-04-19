@@ -372,7 +372,7 @@ int sd_rtnl_message_new_neigh(sd_netlink *rtnl, sd_netlink_message **ret, uint16
         int r;
 
         assert_return(rtnl_message_type_is_neigh(nlmsg_type), -EINVAL);
-        assert_return(IN_SET(ndm_family, AF_INET, AF_INET6, PF_BRIDGE), -EINVAL);
+        assert_return(IN_SET(ndm_family, AF_UNSPEC, AF_INET, AF_INET6, PF_BRIDGE), -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);

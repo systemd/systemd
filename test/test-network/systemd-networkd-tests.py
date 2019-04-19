@@ -1422,6 +1422,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-ip6gre-tunnel-remote-any.netdev',
         '25-ipv6-address-label-section.network',
         '25-neighbor-section.network',
+        '25-neighbor-next.network',
         '25-neighbor-ipv6.network',
         '25-neighbor-ip-dummy.network',
         '25-neighbor-ip.network',
@@ -1699,10 +1700,33 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['dummy98:degraded'], timeout='40s')
 
+        print('### ip neigh list dev dummy98')
         output = check_output('ip neigh list dev dummy98')
         print(output)
         self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
         self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
+
+    def test_neighbor_reconfigure(self):
+        copy_unit_to_networkd_unit_path('25-neighbor-section.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:degraded'], timeout='40s')
+
+        print('### ip neigh list dev dummy98')
+        output = check_output('ip neigh list dev dummy98')
+        print(output)
+        self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
+        self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
+
+        remove_unit_from_networkd_path(['25-neighbor-section.network'])
+        copy_unit_to_networkd_unit_path('25-neighbor-next.network')
+        restart_networkd(3)
+        self.wait_online(['dummy98:degraded'], timeout='40s')
+        print('### ip neigh list dev dummy98')
+        output = check_output('ip neigh list dev dummy98')
+        print(output)
+        self.assertNotRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
+        self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:66.*PERMANENT')
+        self.assertNotRegex(output, '2004:da8:1::1.*PERMANENT')
 
     def test_neighbor_gre(self):
         copy_unit_to_networkd_unit_path('25-neighbor-ip.network', '25-neighbor-ipv6.network', '25-neighbor-ip-dummy.network',

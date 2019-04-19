@@ -869,6 +869,13 @@ int sd_netlink_add_match(
                                 return r;
 
                         break;
+                case RTM_NEWNEIGH:
+                case RTM_DELNEIGH:
+                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_NEIGH);
+                        if (r < 0)
+                                return r;
+
+                        break;
                 case RTM_NEWROUTE:
                 case RTM_DELROUTE:
                         r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV4_ROUTE);

@@ -95,6 +95,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate addresses: %m");
 
+        r = manager_rtnl_enumerate_neighbors(m);
+        if (r < 0)
+                return log_error_errno(r, "Could not enumerate neighbors: %m");
+
         r = manager_rtnl_enumerate_routes(m);
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate routes: %m");
