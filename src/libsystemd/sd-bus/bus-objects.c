@@ -888,6 +888,7 @@ int introspect_path(
                 const char *path,
                 struct node *n,
                 bool require_fallback,
+                bool ignore_nodes_modified,
                 bool *found_object,
                 char **ret,
                 sd_bus_error *error) {
@@ -899,10 +900,16 @@ int introspect_path(
         bool empty;
         int r;
 
+        if (!n) {
+                n = hashmap_get(bus->nodes, path);
+                if (!n)
+                        return -ENOENT;
+        }
+
         r = get_child_nodes(bus, path, n, 0, &s, error);
         if (r < 0)
                 return r;
-        if (bus->nodes_modified)
+        if (bus->nodes_modified && !ignore_nodes_modified)
                 return 0;
 
         r = introspect_begin(&intro, bus->trusted);
@@ -922,7 +929,7 @@ int introspect_path(
                 r = node_vtable_get_userdata(bus, path, c, NULL, error);
                 if (r < 0)
                         return r;
-                if (bus->nodes_modified)
+                if (bus->nodes_modified && !ignore_nodes_modified)
                         return 0;
                 if (r == 0)
                         continue;
@@ -955,11 +962,12 @@ int introspect_path(
                 r = bus_node_exists(bus, n, path, require_fallback);
                 if (r <= 0)
                         return r;
-                if (bus->nodes_modified)
+                if (bus->nodes_modified && !ignore_nodes_modified)
                         return 0;
         }
 
-        *found_object = true;
+        if (found_object)
+                *found_object = true;
 
         r = introspect_write_child_nodes(&intro, s, path);
         if (r < 0)
@@ -989,7 +997,7 @@ static int process_introspect(
         assert(n);
         assert(found_object);
 
-        r = introspect_path(bus, m->path, n, require_fallback, found_object, &s, &error);
+        r = introspect_path(bus, m->path, n, require_fallback, false, found_object, &s, &error);
         if (r < 0)
                 return bus_maybe_reply_error(m, r, &error);
         if (r == 0)

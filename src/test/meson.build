@@ -911,7 +911,8 @@ tests += [
          [],
          [threads]],
 
-        [['src/libsystemd/sd-bus/test-bus-vtable.c'],
+        [['src/libsystemd/sd-bus/test-bus-vtable.c',
+          'src/libsystemd/sd-bus/test-vtable-data.h'],
          [],
          []],
 
@@ -934,7 +935,8 @@ tests += [
          [threads],
          '', 'manual'],
 
-        [['src/libsystemd/sd-bus/test-bus-introspect.c'],
+        [['src/libsystemd/sd-bus/test-bus-introspect.c',
+          'src/libsystemd/sd-bus/test-vtable-data.h'],
          [],
          []],
 

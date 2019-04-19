@@ -14,6 +14,7 @@ int introspect_path(
                 const char *path,
                 struct node *n,
                 bool require_fallback,
+                bool ignore_nodes_modified,
                 bool *found_object,
                 char **ret,
                 sd_bus_error *error);
