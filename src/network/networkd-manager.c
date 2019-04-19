@@ -488,6 +488,184 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
         return 1;
 }
 
+static int manager_rtnl_process_neighbor_lladdr(sd_netlink_message *message, union lladdr_union *lladdr, size_t *size, char **str) {
+        int r;
+
+        assert(message);
+        assert(lladdr);
+        assert(size);
+        assert(str);
+
+        *str = NULL;
+
+        r = sd_netlink_message_read(message, NDA_LLADDR, sizeof(lladdr->ip.in6), &lladdr->ip.in6);
+        if (r >= 0) {
+                *size = sizeof(lladdr->ip.in6);
+                if (in_addr_to_string(AF_INET6, &lladdr->ip, str) < 0)
+                        log_warning_errno(r, "Could not print lower address: %m");
+                return r;
+        }
+
+        r = sd_netlink_message_read(message, NDA_LLADDR, sizeof(lladdr->mac), &lladdr->mac);
+        if (r >= 0) {
+                *size = sizeof(lladdr->mac);
+                *str = new(char, ETHER_ADDR_TO_STRING_MAX);
+                if (!*str) {
+                        log_oom();
+                        return r;
+                }
+                ether_addr_to_string(&lladdr->mac, *str);
+                return r;
+        }
+
+        r = sd_netlink_message_read(message, NDA_LLADDR, sizeof(lladdr->ip.in), &lladdr->ip.in);
+        if (r >= 0) {
+                *size = sizeof(lladdr->ip.in);
+                if (in_addr_to_string(AF_INET, &lladdr->ip, str) < 0)
+                        log_warning_errno(r, "Could not print lower address: %m");
+                return r;
+        }
+
+        return r;
+}
+
+int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
+        Manager *m = userdata;
+        Link *link = NULL;
+        Neighbor *neighbor = NULL;
+        int ifindex, family, r;
+        uint16_t type, state;
+        union in_addr_union in_addr = IN_ADDR_NULL;
+        _cleanup_free_ char *addr_str = NULL;
+        union lladdr_union lladdr;
+        size_t lladdr_size = 0;
+        _cleanup_free_ char *lladdr_str = NULL;
+
+        assert(rtnl);
+        assert(message);
+        assert(m);
+
+        if (sd_netlink_message_is_error(message)) {
+                r = sd_netlink_message_get_errno(message);
+                if (r < 0)
+                        log_warning_errno(r, "rtnl: failed to receive neighbor message, ignoring: %m");
+
+                return 0;
+        }
+
+        r = sd_netlink_message_get_type(message, &type);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
+                return 0;
+        } else if (!IN_SET(type, RTM_NEWNEIGH, RTM_DELNEIGH)) {
+                log_warning("rtnl: received unexpected message type %u when processing neighbor, ignoring.", type);
+                return 0;
+        }
+
+        r = sd_rtnl_message_neigh_get_state(message, &state);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received neighbor message with invalid state, ignoring: %m");
+                return 0;
+        } else if (!FLAGS_SET(state, NUD_PERMANENT)) {
+                log_debug("rtnl: received non-static neighbor, ignoring.");
+                return 0;
+        }
+
+        r = sd_rtnl_message_neigh_get_ifindex(message, &ifindex);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get ifindex from message, ignoring: %m");
+                return 0;
+        } else if (ifindex <= 0) {
+                log_warning("rtnl: received neighbor message with invalid ifindex %d, ignoring.", ifindex);
+                return 0;
+        }
+
+        r = link_get(m, ifindex, &link);
+        if (r < 0 || !link) {
+                /* when enumerating we might be out of sync, but we will get the neighbor again, so just
+                 * ignore it */
+                if (!m->enumerating)
+                        log_warning("rtnl: received neighbor for link '%d' we don't know about, ignoring.", ifindex);
+                return 0;
+        }
+
+        r = sd_rtnl_message_neigh_get_family(message, &family);
+        if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
+                log_link_warning(link, "rtnl: received neighbor message with invalid family, ignoring.");
+                return 0;
+        }
+
+        switch (family) {
+        case AF_INET:
+                r = sd_netlink_message_read_in_addr(message, NDA_DST, &in_addr.in);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "rtnl: received neighbor message without valid address, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
+        case AF_INET6:
+                r = sd_netlink_message_read_in6_addr(message, NDA_DST, &in_addr.in6);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "rtnl: received neighbor message without valid address, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
+        default:
+                assert_not_reached("Received unsupported address family");
+        }
+
+        if (in_addr_to_string(family, &in_addr, &addr_str) < 0)
+                log_link_warning_errno(link, r, "Could not print address: %m");
+
+        r = manager_rtnl_process_neighbor_lladdr(message, &lladdr, &lladdr_size, &lladdr_str);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received neighbor message with invalid lladdr, ignoring: %m");
+                return 0;
+        }
+
+        (void) neighbor_get(link, family, &in_addr, &lladdr, lladdr_size, &neighbor);
+
+        switch (type) {
+        case RTM_NEWNEIGH:
+                if (neighbor)
+                        log_link_debug(link, "Remembering neighbor: %s->%s",
+                                       strnull(addr_str), strnull(lladdr_str));
+                else {
+                        /* A neighbor appeared that we did not request */
+                        r = neighbor_add_foreign(link, family, &in_addr, &lladdr, lladdr_size, &neighbor);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to remember foreign neighbor %s->%s, ignoring: %m",
+                                                       strnull(addr_str), strnull(lladdr_str));
+                                return 0;
+                        } else
+                                log_link_debug(link, "Remembering foreign neighbor: %s->%s",
+                                               strnull(addr_str), strnull(lladdr_str));
+                }
+
+                break;
+
+        case RTM_DELNEIGH:
+                if (neighbor) {
+                        log_link_debug(link, "Forgetting neighbor: %s->%s",
+                                       strnull(addr_str), strnull(lladdr_str));
+                        (void) neighbor_free(neighbor);
+                } else
+                        log_link_info(link, "Kernel removed a neighbor we don't remember: %s->%s, ignoring.",
+                                      strnull(addr_str), strnull(lladdr_str));
+
+                break;
+
+        default:
+                assert_not_reached("Received invalid RTNL message type");
+        }
+
+        return 1;
+}
+
 int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
         _cleanup_free_ char *buf = NULL;
         Manager *m = userdata;
@@ -1011,6 +1189,14 @@ static int manager_connect_rtnl(Manager *m) {
                 return r;
 
         r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELADDR, &manager_rtnl_process_address, NULL, m, "network-rtnl_process_address");
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWNEIGH, &manager_rtnl_process_neighbor, NULL, m, "network-rtnl_process_neighbor");
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELNEIGH, &manager_rtnl_process_neighbor, NULL, m, "network-rtnl_process_neighbor");
         if (r < 0)
                 return r;
 
@@ -1546,6 +1732,41 @@ int manager_rtnl_enumerate_addresses(Manager *m) {
                 m->enumerating = true;
 
                 k = manager_rtnl_process_address(m->rtnl, addr, m);
+                if (k < 0)
+                        r = k;
+
+                m->enumerating = false;
+        }
+
+        return r;
+}
+
+int manager_rtnl_enumerate_neighbors(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        sd_netlink_message *neigh;
+        int r;
+
+        assert(m);
+        assert(m->rtnl);
+
+        r = sd_rtnl_message_new_neigh(m->rtnl, &req, RTM_GETNEIGH, 0, AF_UNSPEC);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(m->rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
+
+        for (neigh = reply; neigh; neigh = sd_netlink_message_next(neigh)) {
+                int k;
+
+                m->enumerating = true;
+
+                k = manager_rtnl_process_neighbor(m->rtnl, neigh, m);
                 if (k < 0)
                         r = k;
 
