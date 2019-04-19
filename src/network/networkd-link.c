@@ -2441,7 +2441,7 @@ static int link_drop_foreign_config(Link *link) {
                         continue;
 
                 if (link_is_static_route_configured(link, route)) {
-                        r = route_add(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, NULL);
+                        r = route_add(link, route->family, &route->dst, route->dst_prefixlen, &route->gw, route->tos, route->priority, route->table, NULL);
                         if (r < 0)
                                 return r;
                 } else {
@@ -3014,7 +3014,7 @@ network_file_fail:
                                 continue;
                         }
 
-                        r = route_add(link, family, &route_dst, prefixlen, tos, priority, table, &route);
+                        r = route_add(link, family, &route_dst, prefixlen, NULL, tos, priority, table, &route);
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to add route: %m");
 

@@ -1430,6 +1430,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-link-section-unmanaged.network',
         '25-route-ipv6-src.network',
         '25-route-static.network',
+        '25-gateway-static.network',
+        '25-gateway-next-static.network',
         '25-sysctl-disable-ipv6.network',
         '25-sysctl.network',
         'configure-without-carrier.network',
@@ -1631,6 +1633,26 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip route show type prohibit')
         print(output)
         self.assertRegex(output, 'prohibit 202.54.1.4 proto static')
+
+    def test_gateway_reconfigure(self):
+        copy_unit_to_networkd_unit_path('25-gateway-static.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+        print('### ip -4 route show dev dummy98 default')
+        output = check_output('ip -4 route show dev dummy98 default')
+        print(output)
+        self.assertRegex(output, 'default via 149.10.124.59 proto static')
+        self.assertNotRegex(output, '149.10.124.60')
+
+        remove_unit_from_networkd_path(['25-gateway-static.network'])
+        copy_unit_to_networkd_unit_path('25-gateway-next-static.network')
+        restart_networkd(3)
+        self.wait_online(['dummy98:routable'])
+        print('### ip -4 route show dev dummy98 default')
+        output = check_output('ip -4 route show dev dummy98 default')
+        print(output)
+        self.assertNotRegex(output, '149.10.124.59')
+        self.assertRegex(output, 'default via 149.10.124.60 proto static')
 
     def test_ip_route_ipv6_src_route(self):
         # a dummy device does not make the addresses go through tentative state, so we
