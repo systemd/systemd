@@ -894,7 +894,7 @@ static int process_introspect(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_set_free_free_ Set *s = NULL;
         const char *previous_interface = NULL;
-        struct introspect intro;
+        _cleanup_(introspect_free) struct introspect intro = {};
         struct node_vtable *c;
         bool empty;
         int r;
@@ -925,14 +925,10 @@ static int process_introspect(
                         continue;
 
                 r = node_vtable_get_userdata(bus, m->path, c, NULL, &error);
-                if (r < 0) {
-                        r = bus_maybe_reply_error(m, r, &error);
-                        goto finish;
-                }
-                if (bus->nodes_modified) {
-                        r = 0;
-                        goto finish;
-                }
+                if (r < 0)
+                        return bus_maybe_reply_error(m, r, &error);
+                if (bus->nodes_modified)
+                        return 0;
                 if (r == 0)
                         continue;
 
@@ -942,7 +938,6 @@ static int process_introspect(
                         continue;
 
                 if (!streq_ptr(previous_interface, c->interface)) {
-
                         if (previous_interface)
                                 fputs(" </interface>\n", intro.f);
 
@@ -951,7 +946,7 @@ static int process_introspect(
 
                 r = introspect_write_interface(&intro, c->vtable);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 previous_interface = c->interface;
         }
@@ -963,35 +958,27 @@ static int process_introspect(
                 /* Nothing?, let's see if we exist at all, and if not
                  * refuse to do anything */
                 r = bus_node_exists(bus, n, m->path, require_fallback);
-                if (r <= 0) {
-                        r = bus_maybe_reply_error(m, r, &error);
-                        goto finish;
-                }
-                if (bus->nodes_modified) {
-                        r = 0;
-                        goto finish;
-                }
+                if (r <= 0)
+                        return bus_maybe_reply_error(m, r, &error);
+                if (bus->nodes_modified)
+                        return 0;
         }
 
         *found_object = true;
 
         r = introspect_write_child_nodes(&intro, s, m->path);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = introspect_finish(&intro, bus, m, &reply);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = sd_bus_send(bus, reply, NULL);
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = 1;
-
-finish:
-        introspect_free(&intro);
-        return r;
+        return 1;
 }
 
 static int object_manager_serialize_path(

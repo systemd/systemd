@@ -28,7 +28,7 @@ static const sd_bus_vtable vtable[] = {
 };
 
 int main(int argc, char *argv[]) {
-        struct introspect intro;
+        _cleanup_(introspect_free) struct introspect intro = {};
 
         test_setup_logging(LOG_DEBUG);
 
@@ -40,8 +40,6 @@ int main(int argc, char *argv[]) {
 
         fflush(intro.f);
         fputs(intro.introspection, stdout);
-
-        introspect_free(&intro);
 
         return 0;
 }
