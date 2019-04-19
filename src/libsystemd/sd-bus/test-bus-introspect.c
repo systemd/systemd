@@ -27,10 +27,9 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int main(int argc, char *argv[]) {
-        _cleanup_(introspect_free) struct introspect intro = {};
-
-        test_setup_logging(LOG_DEBUG);
+static void test_manual_introspection(void) {
+        struct introspect intro = {};
+        _cleanup_free_ char *s = NULL;
 
         assert_se(introspect_begin(&intro, false) >= 0);
 
@@ -38,8 +37,14 @@ int main(int argc, char *argv[]) {
         assert_se(introspect_write_interface(&intro, vtable) >= 0);
         fputs(" </interface>\n", intro.f);
 
-        fflush(intro.f);
-        fputs(intro.introspection, stdout);
+        assert_se(introspect_finish(&intro, &s) == 0);
+        fputs(s, stdout);
+}
+
+int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_DEBUG);
+
+        test_manual_introspection();
 
         return 0;
 }
