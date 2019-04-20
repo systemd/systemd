@@ -200,7 +200,8 @@
       <command>systemd-resolved</command> with correct search domains settings. This mode of operation is
       recommended.</para></listitem>
 
-      <listitem><para>A static file <filename>/usr/lib/systemd/resolv.conf</filename> is provided that lists
+      <listitem><para>A static file <filename>/usr/lib/systemd/resolv.conf</filename> (or 
+      <filename>/lib/systemd/resolv.conf</filename>) is provided that lists
       the 127.0.0.53 DNS stub (see above) as only DNS server. This file may be symlinked from
       <filename>/etc/resolv.conf</filename> in order to connect all local clients that bypass local DNS APIs to
       <command>systemd-resolved</command>. This file does not contain any search domains.</para></listitem>
