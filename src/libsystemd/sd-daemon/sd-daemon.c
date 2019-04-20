@@ -213,7 +213,7 @@ static int sd_is_socket_internal(int fd, int type, int listening) {
                 if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &other_type, &l) < 0)
                         return -errno;
 
-                if (l != sizeof(other_type))
+                if ((size_t)l != sizeof(other_type))
                         return -EINVAL;
 
                 if (other_type != type)
@@ -227,7 +227,7 @@ static int sd_is_socket_internal(int fd, int type, int listening) {
                 if (getsockopt(fd, SOL_SOCKET, SO_ACCEPTCONN, &accepting, &l) < 0)
                         return -errno;
 
-                if (l != sizeof(accepting))
+                if ((size_t)l != sizeof(accepting))
                         return -EINVAL;
 
                 if (!accepting != !listening)
@@ -254,7 +254,7 @@ _public_ int sd_is_socket(int fd, int family, int type, int listening) {
                 if (getsockname(fd, &sockaddr.sa, &l) < 0)
                         return -errno;
 
-                if (l < sizeof(sa_family_t))
+                if ((size_t)l < sizeof(sa_family_t))
                         return -EINVAL;
 
                 return sockaddr.sa.sa_family == family;
@@ -278,7 +278,7 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
         if (getsockname(fd, &sockaddr.sa, &l) < 0)
                 return -errno;
 
-        if (l < sizeof(sa_family_t))
+        if ((size_t)l < sizeof(sa_family_t))
                 return -EINVAL;
 
         if (!IN_SET(sockaddr.sa.sa_family, AF_INET, AF_INET6))
@@ -318,7 +318,7 @@ _public_ int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr* addr
         if (getsockname(fd, &sockaddr.sa, &l) < 0)
                 return -errno;
 
-        if (l < sizeof(sa_family_t))
+        if ((size_t)l < sizeof(sa_family_t))
                 return -EINVAL;
 
         if (sockaddr.sa.sa_family != addr->sa_family)
@@ -327,7 +327,7 @@ _public_ int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr* addr
         if (sockaddr.sa.sa_family == AF_INET) {
                 const struct sockaddr_in *in = (const struct sockaddr_in *) addr;
 
-                if (l < sizeof(struct sockaddr_in) || addr_len < sizeof(struct sockaddr_in))
+                if ((size_t)l < sizeof(struct sockaddr_in) || addr_len < sizeof(struct sockaddr_in))
                         return -EINVAL;
 
                 if (in->sin_port != 0 &&
@@ -339,7 +339,7 @@ _public_ int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr* addr
         } else {
                 const struct sockaddr_in6 *in = (const struct sockaddr_in6 *) addr;
 
-                if (l < sizeof(struct sockaddr_in6) || addr_len < sizeof(struct sockaddr_in6))
+                if ((size_t)l < sizeof(struct sockaddr_in6) || addr_len < sizeof(struct sockaddr_in6))
                         return -EINVAL;
 
                 if (in->sin6_port != 0 &&
@@ -373,7 +373,7 @@ _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path
         if (getsockname(fd, &sockaddr.sa, &l) < 0)
                 return -errno;
 
-        if (l < sizeof(sa_family_t))
+        if ((size_t)l < sizeof(sa_family_t))
                 return -EINVAL;
 
         if (sockaddr.sa.sa_family != AF_UNIX)
