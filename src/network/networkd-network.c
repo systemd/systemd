@@ -172,6 +172,14 @@ int network_verify(Network *network) {
         assert(network);
         assert(network->filename);
 
+        if (set_isempty(network->match_mac) && strv_isempty(network->match_path) &&
+            strv_isempty(network->match_driver) && strv_isempty(network->match_type) &&
+            strv_isempty(network->match_name) && !network->conditions)
+                log_warning("%s: No valid settings found in the [Match] section. "
+                            "The file will match all interfaces. "
+                            "If that is intended, please add Name=* in the [Match] section.",
+                            network->filename);
+
         /* skip out early if configuration does not match the environment */
         if (!condition_test_list(network->conditions, NULL, NULL, NULL))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),

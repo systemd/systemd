@@ -60,8 +60,13 @@
   <refsect1>
     <title>[Match] Section Options</title>
 
-    <para>A link file is said to match a device if each of the entries in the [Match] section matches, or if
-    the section is empty. The following keys are accepted:</para>
+    <para>A link file is said to match a device if all matches specified by the
+    <literal>[Match]</literal> section are satisfied. When a link file does not contain valid settings
+    in <literal>[Match]</literal> section, then the file will match all devices and
+    <command>systemd-udevd</command> warns about that. Hint: to avoid the warning and to make it clear
+    that all interfaces shall be matched, add the following:
+    <programlisting>OriginalName=*</programlisting>
+    The following keys are accepted:</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
