@@ -77,9 +77,13 @@
       is applied, all later files are ignored, even if they match as
       well.</para>
 
-      <para>A network file is said to match a device if each of the
-      entries in the <literal>[Match]</literal> section matches, or if
-      the section is empty. The following keys are accepted:</para>
+      <para>A network file is said to match a network interface if all matches specified by the
+      <literal>[Match]</literal> section are satisfied. When a network file does not contain valid
+      settings in <literal>[Match]</literal> section, then the file will match all interfaces and
+      <command>systemd-networkd</command> warns about that. Hint: to avoid the warning and to make it
+      clear that all interfaces shall be matched, add the following:
+      <programlisting>Name=*</programlisting>
+      The following keys are accepted:</para>
 
       <variablelist class='network-directives'>
         <varlistentry>

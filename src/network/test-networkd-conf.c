@@ -173,6 +173,7 @@ static void test_config_parse_address_one(const char *rvalue, int family, unsign
 
         assert_se(network = new0(Network, 1));
         assert_se(network->filename = strdup("hogehoge.network"));
+        assert_se(config_parse_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*", &network->match_name, network) == 0);
         assert_se(config_parse_address("network", "filename", 1, "section", 1, "Address", 0, rvalue, network, network) == 0);
         assert_se(network->n_static_addresses == 1);
         assert_se(network_verify(network) >= 0);
