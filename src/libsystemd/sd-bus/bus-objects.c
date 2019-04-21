@@ -22,7 +22,7 @@ static int node_vtable_get_userdata(
                 sd_bus_error *error) {
 
         sd_bus_slot *s;
-        void *u, *found_u;
+        void *u, *found_u = NULL;
         int r;
 
         assert(bus);
