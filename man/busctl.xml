@@ -141,6 +141,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--xml-interface</option></term>
+
+        <listitem>
+          <para>When used with the <command>introspect</command> call, dump the XML description received from
+          the D-Bus <constant>org.freedesktop.DBus.Introspectable.Introspect</constant> call instead of the
+          normal output.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--json=</option><replaceable>MODE</replaceable></term>
 
         <listitem>
