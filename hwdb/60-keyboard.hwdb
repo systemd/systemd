@@ -1071,8 +1071,8 @@ evdev:input:b0003v046DpC309*
  KEYBOARD_KEY_c0207=save         # Save (F8)
  KEYBOARD_KEY_c0194=file         # My Computer (F9)
  KEYBOARD_KEY_c01a7=documents    # My Documents (F10)
- KEYBOARD_KEY_c01b6=images       # My Pictures (F11) ??
- KEYBOARD_KEY_c01b7=sound        # My Music (F12) ??
+ KEYBOARD_KEY_c01b6=images       # My Pictures (F11)
+ KEYBOARD_KEY_c01b7=audio        # My Music (F12)
 
 
 ###########################################################
