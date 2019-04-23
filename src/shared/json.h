@@ -230,10 +230,11 @@ typedef enum JsonDispatchFlags {
         JSON_PERMISSIVE = 1 << 0, /* Shall parsing errors be considered fatal for this property? */
         JSON_MANDATORY  = 1 << 1, /* Should existence of this property be mandatory? */
         JSON_LOG        = 1 << 2, /* Should the parser log about errors? */
+        JSON_SAFE       = 1 << 3, /* Don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_string() */
 
         /* The following two may be passed into log_json() in addition to the three above */
-        JSON_DEBUG      = 1 << 3, /* Indicates that this log message is a debug message */
-        JSON_WARNING    = 1 << 4, /* Indicates that this log message is a warning message */
+        JSON_DEBUG      = 1 << 4, /* Indicates that this log message is a debug message */
+        JSON_WARNING    = 1 << 5, /* Indicates that this log message is a warning message */
 } JsonDispatchFlags;
 
 typedef int (*JsonDispatchCallback)(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);

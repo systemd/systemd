@@ -3611,6 +3611,9 @@ int json_dispatch_string(const char *name, JsonVariant *variant, JsonDispatchFla
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
+        if ((flags & JSON_SAFE) && !string_is_safe(json_variant_string(variant)))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains unsafe characters, refusing.", strna(name));
+
         r = free_and_strdup(s, json_variant_string(variant));
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to allocate string: %m");
@@ -3634,6 +3637,9 @@ int json_dispatch_strv(const char *name, JsonVariant *variant, JsonDispatchFlags
 
         /* Let's be flexible here: accept a single string in place of a single-item array */
         if (json_variant_is_string(variant)) {
+                if ((flags & JSON_SAFE) && !string_is_safe(json_variant_string(variant)))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains unsafe characters, refusing.", strna(name));
+
                 l = strv_new(json_variant_string(variant));
                 if (!l)
                         return log_oom();
@@ -3648,6 +3654,9 @@ int json_dispatch_strv(const char *name, JsonVariant *variant, JsonDispatchFlags
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
                 if (!json_variant_is_string(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a string.");
+
+                if ((flags & JSON_SAFE) && !string_is_safe(json_variant_string(e)))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains unsafe characters, refusing.", strna(name));
 
                 r = strv_extend(&l, json_variant_string(e));
                 if (r < 0)
