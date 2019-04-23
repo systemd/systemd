@@ -242,8 +242,9 @@ CHANGES WITH 242:
           a different layout of the bootloader partitions (for example grub2).
 
         * During package installation (with `ninja install`), we would create
-          symlinks for systemd-networkd.service, systemd-networkd.socket,
-          systemd-resolved.service, remote-cryptsetup.target, remote-fs.target,
+          symlinks for getty@tty1.service, systemd-networkd.service,
+          systemd-networkd.socket, systemd-resolved.service,
+          remote-cryptsetup.target, remote-fs.target,
           systemd-networkd-wait-online.service, and systemd-timesyncd.service
           in /etc, as if `systemctl enable` was called for those units, to make
           the system usable immediately after installation. Now this is not
