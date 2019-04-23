@@ -1087,14 +1087,14 @@ evdev:name:AT Translated Set 2 keyboard:phys:sp/serio*/input*:ev:120013:*
  KEYBOARD_KEY_85=rightmeta                              # Right grab releases on a different scancode
  KEYBOARD_KEY_d6=kbdillumtoggle                         # Fn+Space
  KEYBOARD_KEY_69=rotate_display
- KEYBOARD_KEY_65=kp8                                    # up
- KEYBOARD_KEY_66=kp2                                    # down
- KEYBOARD_KEY_67=kp4                                    # left
- KEYBOARD_KEY_68=kp6                                    # right
- KEYBOARD_KEY_e5=kp9                                    # pgup
- KEYBOARD_KEY_e6=kp3                                    # pgdn
- KEYBOARD_KEY_e7=kp7                                    # home
- KEYBOARD_KEY_e8=kp1                                    # end
+ KEYBOARD_KEY_65=btn_dpad_up
+ KEYBOARD_KEY_66=btn_dpad_down
+ KEYBOARD_KEY_67=btn_dpad_left
+ KEYBOARD_KEY_68=btn_dpad_right
+ KEYBOARD_KEY_e5=btn_north
+ KEYBOARD_KEY_e6=btn_south
+ KEYBOARD_KEY_e7=btn_west
+ KEYBOARD_KEY_e8=btn_east
 
 ###########################################################
 # Onkyo
