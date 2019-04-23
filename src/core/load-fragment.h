@@ -110,6 +110,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_disable_controllers);
 CONFIG_PARSER_PROTOTYPE(config_parse_oom_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_numa_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_numa_mask);
+CONFIG_PARSER_PROTOTYPE(config_parse_ip_filter_bpf_progs);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

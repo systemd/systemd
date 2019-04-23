@@ -45,6 +45,9 @@ struct security_info {
         bool ip_address_allow_localhost;
         bool ip_address_allow_other;
 
+        bool ip_filters_custom_ingress;
+        bool ip_filters_custom_egress;
+
         char *keyring_mode;
         bool lock_personality;
         bool memory_deny_write_execute;
@@ -590,7 +593,10 @@ static int assess_ip_address_allow(
         assert(ret_badness);
         assert(ret_description);
 
-        if (!info->ip_address_deny_all) {
+        if (info->ip_filters_custom_ingress || info->ip_filters_custom_egress) {
+                d = strdup("Service defines custom ingress/egress IP filters with BPF programs");
+                b = 0;
+        } else if (!info->ip_address_deny_all) {
                 d = strdup("Service does not define an IP address whitelist");
                 b = 10;
         } else if (info->ip_address_allow_other) {
@@ -1824,6 +1830,33 @@ static int property_read_ip_address_allow(
         return sd_bus_message_exit_container(m);
 }
 
+static int property_read_ip_filters(
+                sd_bus *bus,
+                const char *member,
+                sd_bus_message *m,
+                sd_bus_error *error,
+                void *userdata) {
+
+        struct security_info *info = userdata;
+        _cleanup_(strv_freep) char **l = NULL;
+        int r;
+
+        assert(bus);
+        assert(member);
+        assert(m);
+
+        r = sd_bus_message_read_strv(m, &l);
+        if (r < 0)
+                return r;
+
+        if (streq(member, "IPIngressFilterPath"))
+                info->ip_filters_custom_ingress = !strv_isempty(l);
+        else if (streq(member, "IPEgressFilterPath"))
+                info->ip_filters_custom_ingress = !strv_isempty(l);
+
+        return 0;
+}
+
 static int property_read_device_allow(
                 sd_bus *bus,
                 const char *member,
@@ -1873,6 +1906,8 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
                 { "FragmentPath",            "s",       NULL,                                    offsetof(struct security_info, fragment_path)             },
                 { "IPAddressAllow",          "a(iayu)", property_read_ip_address_allow,          0                                                         },
                 { "IPAddressDeny",           "a(iayu)", property_read_ip_address_allow,          0                                                         },
+                { "IPIngressFilterPath",     "as",      property_read_ip_filters,                0                                                         },
+                { "IPEgressFilterPath",      "as",      property_read_ip_filters,                0                                                         },
                 { "Id",                      "s",       NULL,                                    offsetof(struct security_info, id)                        },
                 { "KeyringMode",             "s",       NULL,                                    offsetof(struct security_info, keyring_mode)              },
                 { "LoadState",               "s",       NULL,                                    offsetof(struct security_info, load_state)                },

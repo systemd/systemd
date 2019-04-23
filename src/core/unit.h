@@ -10,6 +10,7 @@
 #include "emergency-action.h"
 #include "install.h"
 #include "list.h"
+#include "set.h"
 #include "unit-name.h"
 #include "cgroup.h"
 
@@ -281,6 +282,10 @@ typedef struct Unit {
 
         BPFProgram *ip_bpf_ingress, *ip_bpf_ingress_installed;
         BPFProgram *ip_bpf_egress, *ip_bpf_egress_installed;
+        Set *ip_bpf_custom_ingress;
+        Set *ip_bpf_custom_ingress_installed;
+        Set *ip_bpf_custom_egress;
+        Set *ip_bpf_custom_egress_installed;
 
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 

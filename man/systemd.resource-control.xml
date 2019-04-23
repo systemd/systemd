@@ -619,6 +619,39 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPIngressFilterPath=<replaceable>BPF_FS_PROGRAMM_PATH</replaceable></varname></term>
+        <term><varname>IPEgressFilterPath=<replaceable>BPF_FS_PROGRAMM_PATH</replaceable></varname></term>
+
+        <listitem>
+          <para>Add custom network traffic filters implemented as BPF programs, applying to all IP packets
+          sent and received over <constant>AF_INET</constant> and <constant>AF_INET6</constant> sockets.
+          Takes an absolute path to a pinned BPF program in the BPF virtual filesystem (<filename>/sys/fs/bpf/</filename>).
+          </para>
+
+          <para>The filters configured with this option are applied to all sockets created by processes
+          of this unit (or in the case of socket units, associated with it). The filters are loaded in addition
+          to filters any of the parent slice units this unit might be a member of as well as any
+          <varname>IPAddressAllow=</varname> and <varname>IPAddressDeny=</varname> filters in any of these units.
+          By default there are no filters specified.</para>
+
+          <para>If these settings are used multiple times in the same unit all the specified programs are attached. If an
+          empty string is assigned to these settings the program list is reset and all previous specified programs ignored.</para>
+
+          <para>Note that for socket-activated services, the IP filter programs configured on the socket unit apply to
+          all sockets associated with it directly, but not to any sockets created by the ultimately activated services
+          for it. Conversely, the IP filter programs configured for the service are not applied to any sockets passed into
+          the service via socket activation. Thus, it is usually a good idea, to replicate the IP filter programs on both
+          the socket and the service unit, however it often makes sense to maintain one configuration more open and the other
+          one more restricted, depending on the usecase.</para>
+
+          <para>Note that these settings might not be supported on some systems (for example if eBPF control group
+          support is not enabled in the underlying kernel or container manager). These settings will fail the service in
+          that case. If compatibility with such systems is desired it is hence recommended to attach your filter manually
+          (requires <varname>Delegate=</varname><constant>yes</constant>) instead of using this setting.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DeviceAllow=</varname></term>
 
         <listitem>

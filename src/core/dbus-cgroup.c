@@ -362,6 +362,8 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IPAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, ip_accounting), 0),
         SD_BUS_PROPERTY("IPAddressAllow", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_allow), 0),
         SD_BUS_PROPERTY("IPAddressDeny", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_deny), 0),
+        SD_BUS_PROPERTY("IPIngressFilterPath", "as", NULL, offsetof(CGroupContext, ip_filters_ingress), 0),
+        SD_BUS_PROPERTY("IPEgressFilterPath", "as", NULL, offsetof(CGroupContext, ip_filters_egress), 0),
         SD_BUS_PROPERTY("DisableControllers", "as", property_get_cgroup_mask, offsetof(CGroupContext, disable_controllers), 0),
         SD_BUS_VTABLE_END
 };
@@ -458,6 +460,80 @@ static int bus_cgroup_set_transient_property(
                                         c->disable_controllers |= mask;
 
                                 unit_write_settingf(u, flags, name, "%s=%s", name, strempty(t));
+                        }
+                }
+
+                return 1;
+        } else if (STR_IN_SET(name, "IPIngressFilterPath", "IPEgressFilterPath")) {
+                char ***filters;
+                size_t n = 0;
+
+                filters = streq(name, "IPIngressFilterPath") ? &c->ip_filters_ingress : &c->ip_filters_egress;
+                r = sd_bus_message_enter_container(message, 'a', "s");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        const char *path;
+
+                        r = sd_bus_message_read(message, "s", &path);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        if (!path_is_normalized(path) || !path_is_absolute(path))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects a normalized absolute path.", name);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags) && !strv_contains(*filters, path)) {
+                                r = strv_extend(filters, path);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+                        n++;
+                }
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        char **entry;
+                        size_t size = 0;
+
+                        if (n == 0)
+                                *filters = strv_free(*filters);
+
+                        unit_invalidate_cgroup_bpf(u);
+                        f = open_memstream_unlocked(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fputs(name, f);
+                        fputs("=\n", f);
+
+                        STRV_FOREACH(entry, *filters)
+                                fprintf(f, "%s=%s\n", name, *entry);
+
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_setting(u, flags, name, buf);
+
+                        if (*filters) {
+                                r = bpf_firewall_supported();
+                                if (r < 0)
+                                        return r;
+                                if (r != BPF_FIREWALL_SUPPORTED_WITH_MULTI) {
+                                        static bool warned = false;
+
+                                        log_full(warned ? LOG_DEBUG : LOG_WARNING,
+                                                 "Transient unit %s configures an IP firewall with BPF, but the local system does not support BPF/cgroup firewalling with mulitiple filters.\n"
+                                                 "Starting this unit will fail! (This warning is only shown for the first started transient unit using IP firewalling.)", u->id);
+                                        warned = true;
+                                }
                         }
                 }
 

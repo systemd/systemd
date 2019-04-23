@@ -12,6 +12,7 @@
 
 #include "all-units.h"
 #include "alloc-util.h"
+#include "bpf-firewall.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
@@ -681,6 +682,11 @@ void unit_free(Unit *u) {
         bpf_program_unref(u->ip_bpf_ingress_installed);
         bpf_program_unref(u->ip_bpf_egress);
         bpf_program_unref(u->ip_bpf_egress_installed);
+
+        set_free(u->ip_bpf_custom_ingress);
+        set_free(u->ip_bpf_custom_egress);
+        set_free(u->ip_bpf_custom_ingress_installed);
+        set_free(u->ip_bpf_custom_egress_installed);
 
         bpf_program_unref(u->bpf_device_control_installed);
 
@@ -5499,6 +5505,12 @@ int unit_prepare_exec(Unit *u) {
         int r;
 
         assert(u);
+
+        /* Load any custom firewall BPF programs here once to test if they are existing and actually loadable.
+         * Fail here early since later errors in the call chain unit_realize_cgroup to cgroup_context_apply are ignored. */
+        r = bpf_firewall_load_custom(u);
+        if (r < 0)
+                return r;
 
         /* Prepares everything so that we can fork of a process for this unit */
 
