@@ -595,12 +595,6 @@ static int write_root_shadow(const char *path, const struct spwd *p) {
 
 static int process_root_password(void) {
 
-        static const char table[] =
-                "abcdefghijklmnopqrstuvwxyz"
-                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                "0123456789"
-                "./";
-
         struct spwd item = {
                 .sp_namp = (char*) "root",
                 .sp_min = -1,
@@ -610,12 +604,9 @@ static int process_root_password(void) {
                 .sp_expire = -1,
                 .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
         };
-
+        _cleanup_free_ char *salt = NULL;
         _cleanup_close_ int lock = -1;
-        char salt[3+16+1+1];
-        uint8_t raw[16];
-        unsigned i;
-        char *j;
+        struct crypt_data cd = {};
 
         const char *etc_shadow;
         int r;
@@ -659,27 +650,15 @@ static int process_root_password(void) {
         if (!arg_root_password)
                 return 0;
 
-        /* Insist on the best randomness by setting RANDOM_BLOCK, this is about keeping passwords secret after all. */
-        r = genuine_random_bytes(raw, 16, RANDOM_BLOCK);
+        r = make_salt(&salt);
         if (r < 0)
                 return log_error_errno(r, "Failed to get salt: %m");
 
-        /* We only bother with SHA512 hashed passwords, the rest is legacy, and we don't do legacy. */
-        assert_cc(sizeof(table) == 64 + 1);
-        j = stpcpy(salt, "$6$");
-        for (i = 0; i < 16; i++)
-                j[i] = table[raw[i] & 63];
-        j[i++] = '$';
-        j[i] = 0;
-
         errno = 0;
-        item.sp_pwdp = crypt(arg_root_password, salt);
-        if (!item.sp_pwdp) {
-                if (!errno)
-                        errno = EINVAL;
-
-                return log_error_errno(errno, "Failed to encrypt password: %m");
-        }
+        item.sp_pwdp = crypt_r(arg_root_password, salt, &cd);
+        if (!item.sp_pwdp)
+                return log_error_errno(errno == 0 ? SYNTHETIC_ERRNO(EINVAL) : errno,
+                                       "Failed to encrypt password: %m");
 
         item.sp_lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
 
