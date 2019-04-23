@@ -29,10 +29,15 @@ static inline int libmount_parse(
         if (!table || !iter)
                 return -ENOMEM;
 
+        /* If source or path are specified, we use on the functions which ignore utab.
+         * Only if both are empty, we use mnt_table_parse_mtab(). */
+
         if (source)
                 r = mnt_table_parse_stream(table, source, path);
+        else if (path)
+                r = mnt_table_parse_file(table, path);
         else
-                r = mnt_table_parse_mtab(table, path);
+                r = mnt_table_parse_mtab(table, NULL);
         if (r < 0)
                 return r;
 
