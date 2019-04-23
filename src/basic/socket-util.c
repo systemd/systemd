@@ -1225,9 +1225,22 @@ int flush_accept(int fd) {
                 .fd = fd,
                 .events = POLLIN,
         };
-        int r;
+        int r, b;
+        socklen_t l = sizeof(b);
 
-        /* Similar to flush_fd() but flushes all incoming connection by accepting them and immediately closing them. */
+        /* Similar to flush_fd() but flushes all incoming connection by accepting them and immediately
+         * closing them.  */
+
+        if (getsockopt(fd, SOL_SOCKET, SO_ACCEPTCONN, &b, &l) < 0)
+                return -errno;
+
+        assert(l == sizeof(b));
+        if (!b) /* Let's check if this is a socket accepting connections before calling accept(). That's
+                 * because accept4() can return EOPNOTSUPP in the fd we are called on is not a listening
+                 * socket, or in case the incoming TCP connection transiently triggered that (see accept(2)
+                 * man page for details). The latter case is a transient error we should continue looping
+                 * on. The former case however is fatal. */
+                return -ENOTTY;
 
         for (;;) {
                 int cfd;
