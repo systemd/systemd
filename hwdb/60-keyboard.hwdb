@@ -1086,7 +1086,7 @@ evdev:name:AT Translated Set 2 keyboard:phys:sp/serio*/input*:ev:120013:*
  KEYBOARD_KEY_dc=rightmeta                              # right grab
  KEYBOARD_KEY_85=rightmeta                              # Right grab releases on a different scancode
  KEYBOARD_KEY_d6=kbdillumtoggle                         # Fn+Space
- KEYBOARD_KEY_69=switchvideomode                        # Brightness key
+ KEYBOARD_KEY_69=rotate_display
  KEYBOARD_KEY_65=kp8                                    # up
  KEYBOARD_KEY_66=kp2                                    # down
  KEYBOARD_KEY_67=kp4                                    # left
