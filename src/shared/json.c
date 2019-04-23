@@ -3421,7 +3421,7 @@ int json_dispatch_strv(const char *name, JsonVariant *variant, JsonDispatchFlags
 
                 r = strv_extend(&l, json_variant_string(e));
                 if (r < 0)
-                        return json_log(variant, flags, r, "Failed to append array element: %m");
+                        return json_log(e, flags, r, "Failed to append array element: %m");
         }
 
         strv_free_and_replace(*s, l);
