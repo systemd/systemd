@@ -174,6 +174,8 @@ int json_variant_filter(JsonVariant **v, char **to_remove);
 
 int json_variant_set_field(JsonVariant **v, const char *field, JsonVariant *value);
 
+int json_variant_strv(JsonVariant *v, char ***ret);
+
 typedef enum JsonParseFlags {
         JSON_PARSE_SENSITIVE = 1 << 0, /* mark variant as "sensitive", i.e. something containing secret key material or such */
 } JsonParseFlags;

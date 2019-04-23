@@ -1814,6 +1814,66 @@ int json_variant_set_field(JsonVariant **v, const char *field, JsonVariant *valu
         return 1;
 }
 
+int json_variant_strv(JsonVariant *v, char ***ret) {
+        char **l = NULL;
+        size_t n, i;
+        bool sensitive;
+        int r;
+
+        assert(ret);
+
+        if (!v || json_variant_is_null(v)) {
+                l = new0(char*, 1);
+                if (!l)
+                        return -ENOMEM;
+
+                *ret = l;
+                return 0;
+        }
+
+        if (!json_variant_is_array(v))
+                return -EINVAL;
+
+        sensitive = v->sensitive;
+
+        n = json_variant_elements(v);
+        l = new(char*, n+1);
+        if (!l)
+                return -ENOMEM;
+
+        for (i = 0; i < n; i++) {
+                JsonVariant *e;
+
+                assert_se(e = json_variant_by_index(v, i));
+                sensitive = sensitive || e->sensitive;
+
+                if (!json_variant_is_string(e)) {
+                        l[i] = NULL;
+                        r = -EINVAL;
+                        goto fail;
+                }
+
+                l[i] = strdup(json_variant_string(e));
+                if (!l[i]) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        }
+
+        l[i] = NULL;
+        *ret = TAKE_PTR(l);
+
+        return 0;
+
+fail:
+        if (sensitive)
+                strv_free_erase(l);
+        else
+                strv_free(l);
+
+        return r;
+}
+
 static int json_variant_copy(JsonVariant **nv, JsonVariant *v) {
         JsonVariantType t;
         JsonVariant *c;
