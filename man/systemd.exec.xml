@@ -180,6 +180,13 @@
         is used. In this case the source path refers to a path on the host file system, while the destination path
         refers to a path below the root directory of the unit.</para>
 
+        <para>Note that the destination directory must exist or systemd must be able to create it.  Thus, it
+        is not possible to use those options for mount points nested underneath paths specified in
+        <varname>InaccessiblePaths=</varname>, or under <filename>/home/</filename> and other protected
+        directories if <varname>ProtectHome=yes</varname> is
+        specified. <varname>TemporaryFileSystem=</varname> with <literal>:ro</literal> or
+        <varname>ProtectHome=tmpfs</varname> should be used instead.</para>
+
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
@@ -822,23 +829,25 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>ProtectHome=</varname></term>
 
         <listitem><para>Takes a boolean argument or the special values <literal>read-only</literal> or
-        <literal>tmpfs</literal>. If true, the directories <filename>/home</filename>, <filename>/root</filename> and
-        <filename>/run/user</filename> are made inaccessible and empty for processes invoked by this unit. If set to
-        <literal>read-only</literal>, the three directories are made read-only instead. If set to <literal>tmpfs</literal>,
-        temporary file systems are mounted on the three directories in read-only mode. The value <literal>tmpfs</literal>
-        is useful to hide home directories not relevant to the processes invoked by the unit, while necessary directories
-        are still visible by combining with <varname>BindPaths=</varname> or <varname>BindReadOnlyPaths=</varname>.</para>
+        <literal>tmpfs</literal>. If true, the directories <filename>/home</filename>,
+        <filename>/root</filename>, and <filename>/run/user</filename> are made inaccessible and empty for
+        processes invoked by this unit. If set to <literal>read-only</literal>, the three directories are
+        made read-only instead. If set to <literal>tmpfs</literal>, temporary file systems are mounted on the
+        three directories in read-only mode. The value <literal>tmpfs</literal> is useful to hide home
+        directories not relevant to the processes invoked by the unit, while still allowing necessary
+        directories to be made visible when listed in <varname>BindPaths=</varname> or
+        <varname>BindReadOnlyPaths=</varname>.</para>
 
         <para>Setting this to <literal>yes</literal> is mostly equivalent to set the three directories in
         <varname>InaccessiblePaths=</varname>. Similarly, <literal>read-only</literal> is mostly equivalent to
         <varname>ReadOnlyPaths=</varname>, and <literal>tmpfs</literal> is mostly equivalent to
-        <varname>TemporaryFileSystem=</varname>.</para>
+        <varname>TemporaryFileSystem=</varname> with <literal>:ro</literal>.</para>
 
-        <para> It is recommended to enable this setting for all long-running services (in particular network-facing
-        ones), to ensure they cannot get access to private user data, unless the services actually require access to
-        the user's private data. This setting is implied if <varname>DynamicUser=</varname> is set. This setting cannot
-        ensure protection in all cases. In general it has the same limitations as <varname>ReadOnlyPaths=</varname>,
-        see below.</para>
+        <para>It is recommended to enable this setting for all long-running services (in particular
+        network-facing ones), to ensure they cannot get access to private user data, unless the services
+        actually require access to the user's private data. This setting is implied if
+        <varname>DynamicUser=</varname> is set. This setting cannot ensure protection in all cases. In
+        general it has the same limitations as <varname>ReadOnlyPaths=</varname>, see below.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
@@ -1053,7 +1062,7 @@ StateDirectory=aaa/bbb ccc</programlisting>
 
         <para>This is useful to hide files or directories not relevant to the processes invoked by the unit, while necessary
         files or directories can be still accessed by combining with <varname>BindPaths=</varname> or
-        <varname>BindReadOnlyPaths=</varname>. See the example below.</para>
+        <varname>BindReadOnlyPaths=</varname>:</para>
 
         <para>Example: if a unit has the following,
         <programlisting>TemporaryFileSystem=/var:ro
