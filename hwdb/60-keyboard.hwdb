@@ -1040,6 +1040,8 @@ evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][a
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnOLPC:pnXO:*
 # XO-1.75 and XO-1.4 (sp/ is the Security Processor)
 evdev:name:AT Translated Set 2 keyboard:phys:sp/serio*/input*:ev:120013:*
+ KEYBOARD_LED_CAPSLOCK=0
+ KEYBOARD_LED_NUMLOCK=0
  KEYBOARD_KEY_59=fn
  KEYBOARD_KEY_81=fn_esc
  KEYBOARD_KEY_f9=camera
