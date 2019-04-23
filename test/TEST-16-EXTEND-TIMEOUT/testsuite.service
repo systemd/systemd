@@ -12,7 +12,7 @@ Wants=testsuite-fail-runtime.service
 StopWhenUnneeded=yes
 
 [Service]
-
 Type=simple
+TimeoutStartSec=infinity
 ExecStartPre=/assess.sh
 ExecStart=/bin/true
