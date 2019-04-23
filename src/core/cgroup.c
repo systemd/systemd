@@ -199,6 +199,9 @@ void cgroup_context_done(CGroupContext *c) {
 
         c->ip_address_allow = ip_address_access_free_all(c->ip_address_allow);
         c->ip_address_deny = ip_address_access_free_all(c->ip_address_deny);
+
+        c->ip_filters_ingress = strv_free(c->ip_filters_ingress);
+        c->ip_filters_egress = strv_free(c->ip_filters_egress);
 }
 
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
@@ -210,6 +213,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         CGroupBlockIODeviceWeight *w;
         CGroupDeviceAllow *a;
         IPAddressAccessItem *iaai;
+        char **path;
         char u[FORMAT_TIMESPAN_MAX];
         char v[FORMAT_TIMESPAN_MAX];
 
@@ -360,6 +364,12 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 (void) in_addr_to_string(iaai->family, &iaai->address, &k);
                 fprintf(f, "%sIPAddressDeny=%s/%u\n", prefix, strnull(k), iaai->prefixlen);
         }
+
+        STRV_FOREACH(path, c->ip_filters_ingress)
+                fprintf(f, "%sIPIngressFilterPath=%s\n", prefix, *path);
+
+        STRV_FOREACH(path, c->ip_filters_egress)
+                fprintf(f, "%sIPEgressFilterPath=%s\n", prefix, *path);
 }
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
@@ -945,6 +955,7 @@ static void cgroup_apply_firewall(Unit *u) {
         if (bpf_firewall_compile(u) < 0)
                 return;
 
+        (void) bpf_firewall_load_custom(u);
         (void) bpf_firewall_install(u);
 }
 
@@ -1353,7 +1364,9 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
 
         if (c->ip_accounting ||
             c->ip_address_allow ||
-            c->ip_address_deny)
+            c->ip_address_deny ||
+            c->ip_filters_ingress ||
+            c->ip_filters_egress)
                 return true;
 
         /* If any parent slice has an IP access list defined, it applies too */
@@ -1918,6 +1931,12 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
 
         if (set_isempty(pids))
                 return 0;
+
+        /* Load any custom firewall BPF programs here once to test if they are existing and actually loadable.
+         * Fail here early since later errors in the call chain unit_realize_cgroup to cgroup_context_apply are ignored. */
+        r = bpf_firewall_load_custom(u);
+        if (r < 0)
+                return r;
 
         r = unit_realize_cgroup(u);
         if (r < 0)

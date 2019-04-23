@@ -758,6 +758,18 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
+        if (STR_IN_SET(field, "IPIngressFilterPath", "IPEgressFilterPath")) {
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", field, "as", 0);
+                else
+                        r = sd_bus_message_append(m, "(sv)", field, "as", 1, eq);
+
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
         return 0;
 }
 

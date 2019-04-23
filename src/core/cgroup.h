@@ -114,6 +114,9 @@ struct CGroupContext {
         LIST_HEAD(IPAddressAccessItem, ip_address_allow);
         LIST_HEAD(IPAddressAccessItem, ip_address_deny);
 
+        char **ip_filters_ingress;
+        char **ip_filters_egress;
+
         /* For legacy hierarchies */
         uint64_t cpu_shares;
         uint64_t startup_cpu_shares;

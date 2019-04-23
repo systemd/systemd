@@ -18,6 +18,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "all-units.h"
+#include "bpf-firewall.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-util.h"
@@ -4452,6 +4453,66 @@ int config_parse_disable_controllers(
         }
 
         c->disable_controllers |= disabled_mask;
+
+        return 0;
+}
+
+int config_parse_ip_filter_bpf_progs(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *resolved = NULL;
+        Unit *u = userdata;
+        char ***paths = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(paths);
+
+        if (isempty(rvalue)) {
+                *paths = strv_free(*paths);
+                return 0;
+        }
+
+        r = unit_full_printf(u, rvalue, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
+
+        if (strv_contains(*paths, resolved))
+                return 0;
+
+        r = strv_extend(paths, resolved);
+        if (r < 0)
+                return log_oom();
+
+        r = bpf_firewall_supported();
+        if (r < 0)
+                return r;
+        if (r != BPF_FIREWALL_SUPPORTED_WITH_MULTI) {
+                static bool warned = false;
+
+                log_full(warned ? LOG_DEBUG : LOG_WARNING,
+                         "File %s:%u configures an IP firewall with BPF programs (%s=%s), but the local system does not support BPF/cgroup based firewalling with multiple filters.\n"
+                         "Starting this unit will fail! (This warning is only shown for the first loaded unit using IP firewalling.)", filename, line, lvalue, rvalue);
+
+                warned = true;
+        }
 
         return 0;
 }

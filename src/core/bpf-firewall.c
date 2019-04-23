@@ -587,6 +587,95 @@ int bpf_firewall_compile(Unit *u) {
         return 0;
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(filter_prog_hash_ops, void, trivial_hash_func, trivial_compare_func, BPFProgram, bpf_program_unref);
+
+static int load_bpf_progs_from_fs_to_set(Unit *u, char **filter_paths, Set **set) {
+        char **bpf_fs_path;
+
+        set_clear(*set);
+
+        STRV_FOREACH(bpf_fs_path, filter_paths) {
+                _cleanup_free_ BPFProgram *prog = NULL;
+                int r;
+
+                r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &prog);
+                if (r < 0)
+                        return log_unit_error_errno(u, r, "Can't allocate CGROUP SKB BPF program: %m");
+
+                r = bpf_program_load_from_bpf_fs(prog, *bpf_fs_path);
+                if (r < 0)
+                        return log_unit_error_errno(u, r, "Loading of ingress BPF program %s failed: %m", *bpf_fs_path);
+
+                r = set_ensure_allocated(set, &filter_prog_hash_ops);
+                if (r < 0)
+                        return log_unit_error_errno(u, r, "Can't allocate BPF program set: %m");
+
+                r = set_put(*set, prog);
+                if (r < 0)
+                        return log_unit_error_errno(u, r, "Can't add program to BPF program set: %m");
+                TAKE_PTR(prog);
+        }
+
+        return 0;
+}
+
+int bpf_firewall_load_custom(Unit *u) {
+        CGroupContext *cc;
+        int r, supported;
+
+        assert(u);
+
+        cc = unit_get_cgroup_context(u);
+        if (!cc)
+                return 0;
+
+        if (!(cc->ip_filters_ingress || cc->ip_filters_egress))
+                return 0;
+
+        supported = bpf_firewall_supported();
+        if (supported < 0)
+                return supported;
+
+        if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI)
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP), "BPF_F_ALLOW_MULTI not supported on this manager, cannot attach custom BPF programs.");
+
+        r = load_bpf_progs_from_fs_to_set(u, cc->ip_filters_ingress, &u->ip_bpf_custom_ingress);
+        if (r < 0)
+                return r;
+        r = load_bpf_progs_from_fs_to_set(u, cc->ip_filters_egress, &u->ip_bpf_custom_egress);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int attach_custom_bpf_progs(Unit *u, const char *path, int attach_type, Set **set, Set **set_installed) {
+        BPFProgram *prog;
+        Iterator i;
+        int r;
+
+        assert(u);
+
+        set_clear(*set_installed);
+
+        SET_FOREACH(prog, *set, i) {
+                r = bpf_program_cgroup_attach(prog, attach_type, path, BPF_F_ALLOW_MULTI);
+                if (r < 0)
+                        return log_unit_error_errno(u, r, "Attaching custom egress BPF program to cgroup %s failed: %m", path);
+                /* Remember that these BPF programs are installed now. */
+                r = set_ensure_allocated(set_installed, &filter_prog_hash_ops);
+                if (r < 0)
+                        return log_unit_error_errno(u, r, "Can't allocate BPF program set: %m");
+
+                r = set_put(*set_installed, prog);
+                if (r < 0)
+                        return log_unit_error_errno(u, r, "Can't add program to BPF program set: %m");
+                bpf_program_ref(prog);
+        }
+
+        return 0;
+}
+
 int bpf_firewall_install(Unit *u) {
         _cleanup_free_ char *path = NULL;
         CGroupContext *cc;
@@ -614,6 +703,9 @@ int bpf_firewall_install(Unit *u) {
                 log_unit_debug(u, "BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
                 return -EOPNOTSUPP;
         }
+        if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI &&
+            (!set_isempty(u->ip_bpf_custom_ingress) || !set_isempty(u->ip_bpf_custom_egress)))
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP), "BPF_F_ALLOW_MULTI not supported on this manager, cannot attach custom BPF programs.");
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL, &path);
         if (r < 0)
@@ -628,7 +720,8 @@ int bpf_firewall_install(Unit *u) {
         u->ip_bpf_ingress_installed = bpf_program_unref(u->ip_bpf_ingress_installed);
 
         if (u->ip_bpf_egress) {
-                r = bpf_program_cgroup_attach(u->ip_bpf_egress, BPF_CGROUP_INET_EGRESS, path, flags);
+                r = bpf_program_cgroup_attach(u->ip_bpf_egress, BPF_CGROUP_INET_EGRESS, path,
+                                              flags | (set_isempty(u->ip_bpf_custom_egress) ? 0 : BPF_F_ALLOW_MULTI));
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Attaching egress BPF program to cgroup %s failed: %m", path);
 
@@ -637,12 +730,21 @@ int bpf_firewall_install(Unit *u) {
         }
 
         if (u->ip_bpf_ingress) {
-                r = bpf_program_cgroup_attach(u->ip_bpf_ingress, BPF_CGROUP_INET_INGRESS, path, flags);
+                r = bpf_program_cgroup_attach(u->ip_bpf_ingress, BPF_CGROUP_INET_INGRESS, path,
+                                              flags | (set_isempty(u->ip_bpf_custom_ingress) ? 0 : BPF_F_ALLOW_MULTI));
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Attaching ingress BPF program to cgroup %s failed: %m", path);
 
                 u->ip_bpf_ingress_installed = bpf_program_ref(u->ip_bpf_ingress);
         }
+
+        r = attach_custom_bpf_progs(u, path, BPF_CGROUP_INET_EGRESS, &u->ip_bpf_custom_egress, &u->ip_bpf_custom_egress_installed);
+        if (r < 0)
+                return r;
+
+        r = attach_custom_bpf_progs(u, path, BPF_CGROUP_INET_INGRESS, &u->ip_bpf_custom_ingress, &u->ip_bpf_custom_ingress_installed);
+        if (r < 0)
+                return r;
 
         return 0;
 }
