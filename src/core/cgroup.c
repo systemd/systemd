@@ -202,6 +202,7 @@ void cgroup_context_done(CGroupContext *c) {
 }
 
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
+        _cleanup_free_ char *disable_controllers_str = NULL;
         CGroupIODeviceLimit *il;
         CGroupIODeviceWeight *iw;
         CGroupIODeviceLatency *l;
@@ -216,6 +217,8 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         assert(f);
 
         prefix = strempty(prefix);
+
+        (void) cg_mask_to_string(c->disable_controllers, &disable_controllers_str);
 
         fprintf(f,
                 "%sCPUAccounting=%s\n"
@@ -243,6 +246,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sMemoryLimit=%" PRIu64 "\n"
                 "%sTasksMax=%" PRIu64 "\n"
                 "%sDevicePolicy=%s\n"
+                "%sDisableControllers=%s\n"
                 "%sDelegate=%s\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->io_accounting),
@@ -269,6 +273,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->memory_limit,
                 prefix, c->tasks_max,
                 prefix, cgroup_device_policy_to_string(c->device_policy),
+                prefix, strnull(disable_controllers_str),
                 prefix, yes_no(c->delegate));
 
         if (c->delegate) {
