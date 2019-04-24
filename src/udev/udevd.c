@@ -549,6 +549,7 @@ static int worker_spawn(Manager *manager, struct event *event) {
 }
 
 static void event_run(Manager *manager, struct event *event) {
+        static bool log_children_max_reached = true;
         struct worker *worker;
         Iterator i;
         int r;
@@ -573,10 +574,18 @@ static void event_run(Manager *manager, struct event *event) {
         }
 
         if (hashmap_size(manager->workers) >= arg_children_max) {
-                if (arg_children_max > 1)
+
+                /* Avoid spamming the debug logs if the limit is already reached and
+                 * many events still need to be processed */
+                if (log_children_max_reached && arg_children_max > 1) {
                         log_debug("Maximum number (%u) of children reached.", hashmap_size(manager->workers));
+                        log_children_max_reached = false;
+                }
                 return;
         }
+
+        /* Re-enable the debug message for the next batch of events */
+        log_children_max_reached = true;
 
         /* start new worker and pass initial device */
         worker_spawn(manager, event);
