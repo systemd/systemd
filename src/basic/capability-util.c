@@ -238,23 +238,20 @@ static int drop_from_file(const char *fn, uint64_t keep) {
         if (r < 0)
                 return r;
 
-        assert_cc(sizeof(hi) == sizeof(unsigned));
-        assert_cc(sizeof(lo) == sizeof(unsigned));
-
-        k = sscanf(p, "%u %u", &lo, &hi);
+        k = sscanf(p, "%" PRIu32 " %" PRIu32, &lo, &hi);
         if (k != 2)
                 return -EIO;
 
-        current = (uint64_t) lo | ((uint64_t) hi << 32ULL);
+        current = (uint64_t) lo | ((uint64_t) hi << 32);
         after = current & keep;
 
         if (current == after)
                 return 0;
 
-        lo = (unsigned) (after & 0xFFFFFFFFULL);
-        hi = (unsigned) ((after >> 32ULL) & 0xFFFFFFFFULL);
+        lo = after & UINT32_C(0xFFFFFFFF);
+        hi = (after >> 32) & UINT32_C(0xFFFFFFFF);
 
-        return write_string_filef(fn, WRITE_STRING_FILE_CREATE, "%u %u", lo, hi);
+        return write_string_filef(fn, 0, "%" PRIu32 " %" PRIu32, lo, hi);
 }
 
 int capability_bounding_set_drop_usermode(uint64_t keep) {
