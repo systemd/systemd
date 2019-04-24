@@ -114,7 +114,7 @@ __get_all_unit_files () { { __systemctl $1 list-unit-files "$2*"; } | { while re
 __get_machines() {
     local a b
     { machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; } | \
-	{ while read a b; do echo " $a"; done; }
+        { while read a b; do echo " $a"; done; }
 }
 
 _systemctl () {
