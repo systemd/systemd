@@ -403,15 +403,12 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
                 assert(u);                                              \
                                                                         \
                 c = unit_get_cgroup_context(u);                         \
-                                                                        \
-                if (c->entry##_set)                                     \
+                if (c && c->entry##_set)                                \
                         return c->entry;                                \
                                                                         \
-                while (UNIT_ISSET(u->slice)) {                          \
-                        u = UNIT_DEREF(u->slice);                       \
+                while ((u = UNIT_DEREF(u->slice))) {                    \
                         c = unit_get_cgroup_context(u);                 \
-                                                                        \
-                        if (c->default_##entry##_set)                   \
+                        if (c && c->default_##entry##_set)              \
                                 return c->default_##entry;              \
                 }                                                       \
                                                                         \
