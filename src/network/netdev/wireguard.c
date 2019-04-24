@@ -452,22 +452,23 @@ int config_parse_wireguard_listen_port(
                 void *userdata) {
 
         uint16_t *s = data;
-        uint16_t port = 0;
         int r;
 
         assert(rvalue);
         assert(data);
 
-        if (!streq(rvalue, "auto")) {
-                r = parse_ip_port(rvalue, s);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Invalid port specification, ignoring assignment: %s", rvalue);
-                        return 0;
-                }
+        if (isempty(rvalue) || streq(rvalue, "auto")) {
+                *s = 0;
+                return 0;
         }
 
-        *s = port;
+        r = parse_ip_port(rvalue, s);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Invalid port specification, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
         return 0;
 }
 
