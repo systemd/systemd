@@ -76,6 +76,13 @@ static int toggle_utf8(const char *name, int fd, bool utf8) {
 
         assert(name);
 
+        r = vt_verify_kbmode(fd);
+        if (r == -EBUSY) {
+                log_warning_errno(r, "Virtual console %s is not in K_XLATE or K_UNICODE: %m", name);
+                return 0;
+        } else if (r < 0)
+                return log_warning_errno(r, "Failed to verify kbdmode on %s: %m", name);
+
         r = ioctl(fd, KDSKBMODE, utf8 ? K_UNICODE : K_XLATE);
         if (r < 0)
                 return log_warning_errno(errno, "Failed to %s UTF-8 kbdmode on %s: %m", enable_disable(utf8), name);
