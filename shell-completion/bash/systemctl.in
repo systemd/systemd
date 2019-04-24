@@ -114,11 +114,12 @@ __get_all_unit_files () { { __systemctl $1 list-unit-files "$2*"; } | { while re
 __get_machines() {
     local a b
     { machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; } | \
-	{ while read a b; do echo " $a"; done; }
+        { while read a b; do echo " $a"; done; }
 }
 
 _systemctl () {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local cur_orig=$cur
     local i verb comps mode
 
     local -A OPTS=(
@@ -221,6 +222,13 @@ _systemctl () {
         fi
     done
 
+    # When trying to match a unit name with certain special characters in its name (i.e
+    # foo\x2dbar:01) they get escaped by bash along the way, thus causing any possible
+    # match to fail. Let's unescape such characters in the verb we're trying to
+    # autocomplete to avoid this, however, use the original verb (cur_orig)
+    # during the final match (COMPREPLY)
+    cur="$(echo $cur | xargs echo)"
+
     if [[ -z $verb ]]; then
         comps="${VERBS[*]}"
 
@@ -306,7 +314,7 @@ _systemctl () {
                      | { while read -r a b; do echo " $a"; done; } )
     fi
 
-    COMPREPLY=( $(compgen -o filenames -W '$comps' -- "$cur") )
+    COMPREPLY=( $(compgen -o filenames -W '$comps' -- "$cur_orig") )
     return 0
 }
 
