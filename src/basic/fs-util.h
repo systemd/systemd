@@ -13,6 +13,13 @@
 #include "errno-util.h"
 #include "time-util.h"
 
+#define MODE_INVALID ((mode_t) -1)
+
+/* The following macros add 1 when converting things, since 0 is a valid mode, while the pointer
+ * NULL is special */
+#define PTR_TO_MODE(p) ((mode_t) ((uintptr_t) (p)-1))
+#define MODE_TO_PTR(u) ((void *) ((uintptr_t) (u)+1))
+
 int unlink_noerrno(const char *path);
 
 int rmdir_parents(const char *path, const char *stop);
