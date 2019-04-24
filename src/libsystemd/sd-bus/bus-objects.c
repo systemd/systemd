@@ -22,7 +22,7 @@ static int node_vtable_get_userdata(
                 sd_bus_error *error) {
 
         sd_bus_slot *s;
-        void *u, *found_u;
+        void *u, *found_u = NULL;
         int r;
 
         assert(bus);
@@ -883,31 +883,33 @@ static int bus_node_exists(
         return 0;
 }
 
-static int process_introspect(
+int introspect_path(
                 sd_bus *bus,
-                sd_bus_message *m,
+                const char *path,
                 struct node *n,
                 bool require_fallback,
-                bool *found_object) {
+                bool ignore_nodes_modified,
+                bool *found_object,
+                char **ret,
+                sd_bus_error *error) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_set_free_free_ Set *s = NULL;
         const char *previous_interface = NULL;
-        struct introspect intro;
+        _cleanup_(introspect_free) struct introspect intro = {};
         struct node_vtable *c;
         bool empty;
         int r;
 
-        assert(bus);
-        assert(m);
-        assert(n);
-        assert(found_object);
+        if (!n) {
+                n = hashmap_get(bus->nodes, path);
+                if (!n)
+                        return -ENOENT;
+        }
 
-        r = get_child_nodes(bus, m->path, n, 0, &s, &error);
+        r = get_child_nodes(bus, path, n, 0, &s, error);
         if (r < 0)
-                return bus_maybe_reply_error(m, r, &error);
-        if (bus->nodes_modified)
+                return r;
+        if (bus->nodes_modified && !ignore_nodes_modified)
                 return 0;
 
         r = introspect_begin(&intro, bus->trusted);
@@ -924,15 +926,11 @@ static int process_introspect(
                 if (require_fallback && !c->is_fallback)
                         continue;
 
-                r = node_vtable_get_userdata(bus, m->path, c, NULL, &error);
-                if (r < 0) {
-                        r = bus_maybe_reply_error(m, r, &error);
-                        goto finish;
-                }
-                if (bus->nodes_modified) {
-                        r = 0;
-                        goto finish;
-                }
+                r = node_vtable_get_userdata(bus, path, c, NULL, error);
+                if (r < 0)
+                        return r;
+                if (bus->nodes_modified && !ignore_nodes_modified)
+                        return 0;
                 if (r == 0)
                         continue;
 
@@ -942,7 +940,6 @@ static int process_introspect(
                         continue;
 
                 if (!streq_ptr(previous_interface, c->interface)) {
-
                         if (previous_interface)
                                 fputs(" </interface>\n", intro.f);
 
@@ -951,7 +948,7 @@ static int process_introspect(
 
                 r = introspect_write_interface(&intro, c->vtable);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 previous_interface = c->interface;
         }
@@ -962,36 +959,64 @@ static int process_introspect(
         if (empty) {
                 /* Nothing?, let's see if we exist at all, and if not
                  * refuse to do anything */
-                r = bus_node_exists(bus, n, m->path, require_fallback);
-                if (r <= 0) {
-                        r = bus_maybe_reply_error(m, r, &error);
-                        goto finish;
-                }
-                if (bus->nodes_modified) {
-                        r = 0;
-                        goto finish;
-                }
+                r = bus_node_exists(bus, n, path, require_fallback);
+                if (r <= 0)
+                        return r;
+                if (bus->nodes_modified && !ignore_nodes_modified)
+                        return 0;
         }
 
-        *found_object = true;
+        if (found_object)
+                *found_object = true;
 
-        r = introspect_write_child_nodes(&intro, s, m->path);
+        r = introspect_write_child_nodes(&intro, s, path);
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = introspect_finish(&intro, bus, m, &reply);
+        r = introspect_finish(&intro, ret);
         if (r < 0)
-                goto finish;
+                return r;
+
+        return 1;
+}
+
+static int process_introspect(
+                sd_bus *bus,
+                sd_bus_message *m,
+                struct node *n,
+                bool require_fallback,
+                bool *found_object) {
+
+        _cleanup_free_ char *s = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+
+        assert(bus);
+        assert(m);
+        assert(n);
+        assert(found_object);
+
+        r = introspect_path(bus, m->path, n, require_fallback, false, found_object, &s, &error);
+        if (r < 0)
+                return bus_maybe_reply_error(m, r, &error);
+        if (r == 0)
+                /* nodes_modified == true */
+                return 0;
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "s", s);
+        if (r < 0)
+                return r;
 
         r = sd_bus_send(bus, reply, NULL);
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = 1;
-
-finish:
-        introspect_free(&intro);
-        return r;
+        return 1;
 }
 
 static int object_manager_serialize_path(
@@ -1668,7 +1693,7 @@ static bool names_are_valid(const char *signature, const char **names, names_fla
 
 /* the current version of this struct is defined in sd-bus-vtable.h, but we need to list here the historical versions
    to make sure the calling code is compatible with one of these */
-struct sd_bus_vtable_original {
+struct sd_bus_vtable_221 {
         uint8_t type:8;
         uint64_t flags:56;
         union {
@@ -1696,12 +1721,16 @@ struct sd_bus_vtable_original {
         } x;
 };
 /* Structure size up to v241 */
-#define VTABLE_ELEMENT_SIZE_ORIGINAL sizeof(struct sd_bus_vtable_original)
-/* Current structure size */
-#define VTABLE_ELEMENT_SIZE sizeof(struct sd_bus_vtable)
+#define VTABLE_ELEMENT_SIZE_221 sizeof(struct sd_bus_vtable_221)
+
+/* Size of the structure when "features" field was added. If the structure definition is augmented, a copy of
+ * the structure definition will need to be made (similarly to the sd_bus_vtable_221 above), and this
+ * definition updated to refer to it. */
+#define VTABLE_ELEMENT_SIZE_242 sizeof(struct sd_bus_vtable)
 
 static int vtable_features(const sd_bus_vtable *vtable) {
-        if (vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_ORIGINAL)
+        if (vtable[0].x.start.element_size < VTABLE_ELEMENT_SIZE_242 ||
+            !vtable[0].x.start.vtable_format_reference)
                 return 0;
         return vtable[0].x.start.features;
 }
@@ -1711,13 +1740,7 @@ bool bus_vtable_has_names(const sd_bus_vtable *vtable) {
 }
 
 const sd_bus_vtable* bus_vtable_next(const sd_bus_vtable *vtable, const sd_bus_vtable *v) {
-        if (vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_ORIGINAL) {
-                const struct sd_bus_vtable_original *v2 = (const struct sd_bus_vtable_original *)v;
-                v2++;
-                v = (const sd_bus_vtable*)v2;
-        } else /* current version */
-                v++;
-        return v;
+        return (const sd_bus_vtable*) ((char*) v + vtable[0].x.start.element_size);
 }
 
 static int add_object_vtable_internal(
@@ -1744,8 +1767,8 @@ static int add_object_vtable_internal(
         assert_return(interface_name_is_valid(interface), -EINVAL);
         assert_return(vtable, -EINVAL);
         assert_return(vtable[0].type == _SD_BUS_VTABLE_START, -EINVAL);
-        assert_return(vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_ORIGINAL ||
-                      vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE,
+        assert_return(vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_221 ||
+                      vtable[0].x.start.element_size >= VTABLE_ELEMENT_SIZE_242,
                       -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!streq(interface, "org.freedesktop.DBus.Properties") &&
@@ -1927,6 +1950,9 @@ fail:
 
         return r;
 }
+
+/* This symbol exists solely to tell the linker that the "new" vtable format is used. */
+_public_ const unsigned sd_bus_object_vtable_format = 242;
 
 _public_ int sd_bus_add_object_vtable(
                 sd_bus *bus,

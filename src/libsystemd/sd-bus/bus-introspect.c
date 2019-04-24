@@ -172,13 +172,10 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
         return 0;
 }
 
-int introspect_finish(struct introspect *i, sd_bus *bus, sd_bus_message *m, sd_bus_message **reply) {
-        sd_bus_message *q;
+int introspect_finish(struct introspect *i, char **ret) {
         int r;
 
         assert(i);
-        assert(m);
-        assert(reply);
 
         fputs("</node>\n", i->f);
 
@@ -186,25 +183,17 @@ int introspect_finish(struct introspect *i, sd_bus *bus, sd_bus_message *m, sd_b
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_return(m, &q);
-        if (r < 0)
-                return r;
+        i->f = safe_fclose(i->f);
+        *ret = TAKE_PTR(i->introspection);
 
-        r = sd_bus_message_append(q, "s", i->introspection);
-        if (r < 0) {
-                sd_bus_message_unref(q);
-                return r;
-        }
-
-        *reply = q;
         return 0;
 }
 
 void introspect_free(struct introspect *i) {
         assert(i);
 
-        safe_fclose(i->f);
+        /* Normally introspect_finish() does all the work, this is just a backup for error paths */
 
+        safe_fclose(i->f);
         free(i->introspection);
-        zero(*i);
 }
