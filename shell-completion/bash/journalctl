@@ -86,6 +86,7 @@ _journalctl() {
                 ;;
             --unit|-u)
                 comps=$(journalctl -F '_SYSTEMD_UNIT' 2>/dev/null)
+                compopt -o filenames
                 ;;
             --user-unit)
                 comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
@@ -100,7 +101,7 @@ _journalctl() {
                 return 0
                 ;;
         esac
-        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        COMPREPLY=( $(compgen -o filenames -W '$comps' -- "$cur") )
         return 0
     fi
 
