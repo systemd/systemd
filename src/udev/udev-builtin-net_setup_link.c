@@ -74,7 +74,7 @@ static bool builtin_net_setup_link_validate(void) {
         return link_config_should_reload(ctx);
 }
 
-const struct udev_builtin udev_builtin_net_setup_link = {
+const UdevBuiltin udev_builtin_net_setup_link = {
         .name = "net_setup_link",
         .cmd = builtin_net_setup_link,
         .init = builtin_net_setup_link_init,

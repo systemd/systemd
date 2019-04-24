@@ -12,7 +12,7 @@
 
 static bool initialized;
 
-static const struct udev_builtin *const builtins[_UDEV_BUILTIN_MAX] = {
+static const UdevBuiltin *const builtins[_UDEV_BUILTIN_MAX] = {
 #if HAVE_BLKID
         [UDEV_BUILTIN_BLKID] = &udev_builtin_blkid,
 #endif
@@ -75,7 +75,7 @@ void udev_builtin_list(void) {
                         fprintf(stderr, "  %-14s  %s\n", builtins[i]->name, builtins[i]->help);
 }
 
-const char *udev_builtin_name(enum udev_builtin_cmd cmd) {
+const char *udev_builtin_name(UdevBuiltinCommand cmd) {
         assert(cmd >= 0 && cmd < _UDEV_BUILTIN_MAX);
 
         if (!builtins[cmd])
@@ -84,7 +84,7 @@ const char *udev_builtin_name(enum udev_builtin_cmd cmd) {
         return builtins[cmd]->name;
 }
 
-bool udev_builtin_run_once(enum udev_builtin_cmd cmd) {
+bool udev_builtin_run_once(UdevBuiltinCommand cmd) {
         assert(cmd >= 0 && cmd < _UDEV_BUILTIN_MAX);
 
         if (!builtins[cmd])
@@ -93,8 +93,8 @@ bool udev_builtin_run_once(enum udev_builtin_cmd cmd) {
         return builtins[cmd]->run_once;
 }
 
-enum udev_builtin_cmd udev_builtin_lookup(const char *command) {
-        enum udev_builtin_cmd i;
+UdevBuiltinCommand udev_builtin_lookup(const char *command) {
+        UdevBuiltinCommand i;
         size_t n;
 
         assert(command);
@@ -108,7 +108,7 @@ enum udev_builtin_cmd udev_builtin_lookup(const char *command) {
         return _UDEV_BUILTIN_INVALID;
 }
 
-int udev_builtin_run(sd_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test) {
+int udev_builtin_run(sd_device *dev, UdevBuiltinCommand cmd, const char *command, bool test) {
         _cleanup_strv_free_ char **argv = NULL;
 
         assert(dev);

@@ -22,7 +22,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "tests.h"
-#include "udev.h"
+#include "udev-event.h"
 
 static int fake_filesystems(void) {
         static const struct fakefs {

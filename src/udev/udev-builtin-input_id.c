@@ -357,7 +357,7 @@ static int builtin_input_id(sd_device *dev, int argc, char *argv[], bool test) {
         return 0;
 }
 
-const struct udev_builtin udev_builtin_input_id = {
+const UdevBuiltin udev_builtin_input_id = {
         .name = "input_id",
         .cmd = builtin_input_id,
         .help = "Input device properties",

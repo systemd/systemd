@@ -73,7 +73,7 @@ finish:
         return r;
 }
 
-const struct udev_builtin udev_builtin_uaccess = {
+const UdevBuiltin udev_builtin_uaccess = {
         .name = "uaccess",
         .cmd = builtin_uaccess,
         .help = "Manage device node user ACL",
