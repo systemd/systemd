@@ -701,7 +701,7 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
                 return false;
 
         (void) sd_network_link_get_operational_state(l->ifindex, &state);
-        if (state && !STR_IN_SET(state, "unknown", "degraded", "routable"))
+        if (state && !STR_IN_SET(state, "unknown", "degraded", "degraded-carrier", "routable"))
                 return false;
 
         LIST_FOREACH(addresses, a, l->addresses)
