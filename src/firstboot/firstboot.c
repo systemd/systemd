@@ -253,7 +253,7 @@ static int process_locale(void) {
 
         if (arg_copy_locale && arg_root) {
 
-                mkdir_parents(etc_localeconf, 0755);
+                (void) mkdir_parents(etc_localeconf, 0755);
                 r = copy_file("/etc/locale.conf", etc_localeconf, 0, 0644, 0, 0, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
@@ -278,7 +278,7 @@ static int process_locale(void) {
 
         locales[i] = NULL;
 
-        mkdir_parents(etc_localeconf, 0755);
+        (void) mkdir_parents(etc_localeconf, 0755);
         r = write_env_file(etc_localeconf, locales);
         if (r < 0)
                 return log_error_errno(r, "Failed to write %s: %m", etc_localeconf);
@@ -327,7 +327,7 @@ static int process_keymap(void) {
 
         if (arg_copy_keymap && arg_root) {
 
-                mkdir_parents(etc_vconsoleconf, 0755);
+                (void) mkdir_parents(etc_vconsoleconf, 0755);
                 r = copy_file("/etc/vconsole.conf", etc_vconsoleconf, 0, 0644, 0, 0, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
@@ -411,7 +411,7 @@ static int process_timezone(void) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read host timezone: %m");
 
-                        mkdir_parents(etc_localtime, 0755);
+                        (void) mkdir_parents(etc_localtime, 0755);
                         if (symlink(p, etc_localtime) < 0)
                                 return log_error_errno(errno, "Failed to create %s symlink: %m", etc_localtime);
 
@@ -429,7 +429,7 @@ static int process_timezone(void) {
 
         e = strjoina("../usr/share/zoneinfo/", arg_timezone);
 
-        mkdir_parents(etc_localtime, 0755);
+        (void) mkdir_parents(etc_localtime, 0755);
         if (symlink(e, etc_localtime) < 0)
                 return log_error_errno(errno, "Failed to create %s symlink: %m", etc_localtime);
 
@@ -624,7 +624,7 @@ static int process_root_password(void) {
         if (laccess(etc_shadow, F_OK) >= 0)
                 return 0;
 
-        mkdir_parents(etc_shadow, 0755);
+        (void) mkdir_parents(etc_shadow, 0755);
 
         lock = take_etc_passwd_lock(arg_root);
         if (lock < 0)

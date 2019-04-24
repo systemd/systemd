@@ -213,7 +213,7 @@ static int run(int argc, char *argv[]) {
                 }
 
                 /* Flush out all rules */
-                write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
+                (void) write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
 
                 STRV_FOREACH(f, files) {
                         k = apply_file(*f, true);
