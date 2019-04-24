@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "env-file.h"
@@ -10,7 +9,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "udev-util.h"
-#include "udev.h"
 
 static const char* const resolve_name_timing_table[_RESOLVE_NAME_TIMING_MAX] = {
         [RESOLVE_NAME_NEVER] = "never",

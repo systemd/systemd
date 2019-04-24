@@ -15,6 +15,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "format-util.h"
 #include "libudev-util.h"
 #include "netlink-util.h"
@@ -27,10 +28,11 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
+#include "udev-event.h"
 #include "udev-node.h"
 #include "udev-util.h"
 #include "udev-watch.h"
-#include "udev.h"
+#include "user-util.h"
 
 typedef struct Spawn {
         const char *cmd;
@@ -60,6 +62,9 @@ UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rt
                 .birth_usec = now(CLOCK_MONOTONIC),
                 .exec_delay_usec = exec_delay_usec,
                 .rtnl = sd_netlink_ref(rtnl),
+                .uid = UID_INVALID,
+                .gid = GID_INVALID,
+                .mode = MODE_INVALID,
         };
 
         return event;
@@ -752,19 +757,23 @@ static int update_devnode(UdevEvent *event) {
         if (event->dev_db_clone)
                 (void) udev_node_update_old_links(dev, event->dev_db_clone);
 
-        if (!event->owner_set) {
+        if (!uid_is_valid(event->uid)) {
                 r = device_get_devnode_uid(dev, &event->uid);
                 if (r < 0 && r != -ENOENT)
                         return log_device_error_errno(dev, r, "Failed to get devnode UID: %m");
+                if (r == -ENOENT)
+                        event->uid = 0;
         }
 
-        if (!event->group_set) {
+        if (!gid_is_valid(event->gid)) {
                 r = device_get_devnode_gid(dev, &event->gid);
                 if (r < 0 && r != -ENOENT)
                         return log_device_error_errno(dev, r, "Failed to get devnode GID: %m");
+                if (r == -ENOENT)
+                        event->gid = 0;
         }
 
-        if (!event->mode_set) {
+        if (event->mode == MODE_INVALID) {
                 r = device_get_devnode_mode(dev, &event->mode);
                 if (r < 0 && r != -ENOENT)
                         return log_device_error_errno(dev, r, "Failed to get devnode mode: %m");
@@ -778,7 +787,10 @@ static int update_devnode(UdevEvent *event) {
                 }
         }
 
-        apply = device_for_action(dev, DEVICE_ACTION_ADD) || event->owner_set || event->group_set || event->mode_set;
+        apply = device_for_action(dev, DEVICE_ACTION_ADD) ||
+                uid_is_valid(event->uid) ||
+                gid_is_valid(event->gid) ||
+                event->mode != MODE_INVALID;
         return udev_node_add(dev, apply, event->mode, event->uid, event->gid, event->seclabel_list);
 }
 
@@ -899,22 +911,32 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec) {
         const char *cmd;
         void *val;
         Iterator i;
+        int r;
 
         ORDERED_HASHMAP_FOREACH_KEY(val, cmd, event->run_list, i) {
-                enum udev_builtin_cmd builtin_cmd = PTR_TO_INT(val);
+                UdevBuiltinCommand builtin_cmd = PTR_TO_UDEV_BUILTIN_CMD(val);
                 char command[UTIL_PATH_SIZE];
 
-                udev_event_apply_format(event, cmd, command, sizeof(command), false);
+                (void) udev_event_apply_format(event, cmd, command, sizeof(command), false);
 
-                if (builtin_cmd >= 0 && builtin_cmd < _UDEV_BUILTIN_MAX)
-                        udev_builtin_run(event->dev, builtin_cmd, command, false);
-                else {
+                if (builtin_cmd != _UDEV_BUILTIN_INVALID) {
+                        log_device_debug(event->dev, "Running built-in command \"%s\"", command);
+                        r = udev_builtin_run(event->dev, builtin_cmd, command, false);
+                        if (r < 0)
+                                log_device_debug_errno(event->dev, r, "Failed to run built-in command \"%s\", ignoring: %m", command);
+                } else {
                         if (event->exec_delay_usec > 0) {
-                                log_debug("delay execution of '%s'", command);
+                                char buf[FORMAT_TIMESPAN_MAX];
+
+                                log_device_debug(event->dev, "Delaying execution of \"%s\" for %s.",
+                                                 command, format_timespan(buf, sizeof(buf), event->exec_delay_usec, USEC_PER_SEC));
                                 (void) usleep(event->exec_delay_usec);
                         }
 
-                        (void) udev_event_spawn(event, timeout_usec, false, command, NULL, 0);
+                        log_device_debug(event->dev, "Running command \"%s\"", command);
+                        r = udev_event_spawn(event, timeout_usec, false, command, NULL, 0);
+                        if (r > 0) /* returned value is positive when program fails */
+                                log_device_debug(event->dev, "Command \"%s\" returned %d (error), ignoring.", command, r);
                 }
         }
 }

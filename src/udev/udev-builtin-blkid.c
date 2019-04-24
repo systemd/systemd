@@ -310,7 +310,7 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         return 0;
 }
 
-const struct udev_builtin udev_builtin_blkid = {
+const UdevBuiltin udev_builtin_blkid = {
         .name = "blkid",
         .cmd = builtin_blkid,
         .help = "Filesystem and partition probing",
