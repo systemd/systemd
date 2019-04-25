@@ -83,6 +83,7 @@ _journalctl() {
                 ;;
             --priority|-p)
                 comps=${__syslog_priorities[*]}
+                compopt -o nosort
                 ;;
             --unit|-u)
                 comps=$(journalctl -F '_SYSTEMD_UNIT' 2>/dev/null)
