@@ -119,8 +119,7 @@ __get_machines() {
 
 _systemctl () {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-    local cur_orig=$cur
-    local i verb comps mode
+    local i verb comps mode cur_orig
 
     local -A OPTS=(
         [STANDALONE]='--all -a --reverse --after --before --defaults --force -f --full -l --global
@@ -223,11 +222,26 @@ _systemctl () {
     done
 
     # When trying to match a unit name with certain special characters in its name (i.e
-    # foo\x2dbar:01) they get escaped by bash along the way, thus causing any possible
-    # match to fail. Let's unescape such characters in the verb we're trying to
-    # autocomplete to avoid this, however, use the original verb (cur_orig)
-    # during the final match (COMPREPLY)
-    cur="$(echo $cur | xargs echo)"
+    # foo\x2dbar:01) they get (un)escaped by bash along the way, thus causing any possible
+    # match to fail.
+    # The following condition solves two cases:
+    # 1) We're trying to complete an already escaped unit name part,
+    #    i.e foo\\x2dba. In this case we need to unescape the name, so it
+    #    gets properly matched with the systemctl output (i.e. foo\x2dba).
+    #    However, we need to keep the original escaped name as well for the
+    #    final match, as the completion machinery does the unescaping
+    #    automagically.
+    # 2) We're trying to complete an unescaped (literal) unit name part,
+    #    i.e. foo\x2dba. That means we don't have to do the unescaping
+    #    required for correct matching with systemctl's output, however,
+    #    we need to escape the name for the final match, where the completion
+    #    expects the string to be escaped.
+    cur_orig=$cur
+    if [[ $cur =~ '\\' ]]; then
+        cur="$(echo $cur | xargs echo)"
+    else
+        cur_orig="$(printf '%q' $cur)"
+    fi
 
     if [[ -z $verb ]]; then
         comps="${VERBS[*]}"
