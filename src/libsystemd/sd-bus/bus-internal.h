@@ -326,8 +326,8 @@ struct sd_bus {
  * with enough entropy yet and might delay the boot */
 #define BUS_AUTH_TIMEOUT ((usec_t) DEFAULT_TIMEOUT_USEC)
 
-#define BUS_WQUEUE_MAX (192*1024)
-#define BUS_RQUEUE_MAX (192*1024)
+#define BUS_WQUEUE_MAX (384*1024)
+#define BUS_RQUEUE_MAX (384*1024)
 
 #define BUS_MESSAGE_SIZE_MAX (128*1024*1024)
 #define BUS_AUTH_SIZE_MAX (64*1024)
