@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
+#include "dropin.h"
+#include "generator.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
@@ -14,7 +17,7 @@ static char *arg_default_unit = NULL;
 static const char *arg_dest = "/tmp";
 static char **arg_mask = NULL;
 static char **arg_wants = NULL;
-static bool arg_debug_shell = false;
+static char *arg_debug_shell = NULL;
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
@@ -50,15 +53,16 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return log_oom();
 
         } else if (proc_cmdline_key_streq(key, "systemd.debug_shell")) {
+                const char *t = NULL;
 
-                if (value) {
-                        r = parse_boolean(value);
-                        if (r < 0)
-                                log_error("Failed to parse systemd.debug_shell= argument '%s', ignoring.", value);
-                        else
-                                arg_debug_shell = r;
-                } else
-                        arg_debug_shell = true;
+                r = value ? parse_boolean(value) : 1;
+                if (r < 0)
+                        t = skip_dev_prefix(value);
+                else if (r > 0)
+                        t = skip_dev_prefix(DEBUGTTY);
+
+                if (free_and_strdup(&arg_debug_shell, t) < 0)
+                        return log_oom();
 
         } else if (streq(key, "systemd.unit")) {
 
@@ -136,6 +140,23 @@ static int generate_wants_symlinks(void) {
         return r;
 }
 
+static void install_debug_shell_dropin(const char *dir) {
+        int r;
+
+        if (streq(arg_debug_shell, skip_dev_prefix(DEBUGTTY)))
+                return;
+
+        r = write_drop_in_format(dir, "debug-shell.service", 50, "tty",
+                        "[Unit]\n"
+                        "Description=Early root shell on /dev/%s FOR DEBUGGING ONLY\n"
+                        "ConditionPathExists=\n"
+                        "[Service]\n"
+                        "TTYPath=/dev/%s",
+                        arg_debug_shell, arg_debug_shell);
+        if (r < 0)
+                log_warning_errno(r, "Failed to write drop-in for debug-shell.service, ignoring: %m");
+}
+
 int main(int argc, char *argv[]) {
         int r, q;
 
@@ -164,6 +185,8 @@ int main(int argc, char *argv[]) {
                         r = log_oom();
                         goto finish;
                 }
+
+                install_debug_shell_dropin(arg_dest);
         }
 
         r = generate_mask_symlinks();
