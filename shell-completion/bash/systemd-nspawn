@@ -102,8 +102,8 @@ _systemd_nspawn() {
                 comps='no auto guest try-guest host try-host'
                 ;;
             --bind|--bind-ro)
-                compopt -o nospace
-                comps=$(compgen -S/ -A directory -- "$cur" )
+                compopt -o nospace -o filenames
+                comps=$(compgen -f -- "$cur" )
                 ;;
             --tmpfs)
                 compopt -o nospace
