@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Download and extract coverity tool
 
 # Environment check
