@@ -13,7 +13,7 @@ env:
 stages:
     # Run Coverity periodically instead of for each commit/PR
     - name: Coverity
-      if: type = cron
+      if: type = pull_request
 
 jobs:
     include:
