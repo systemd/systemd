@@ -113,6 +113,9 @@ Unit *unit_new(Manager *m, size_t size) {
         RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
 
+        for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
+                u->io_accounting_last[i] = UINT64_MAX;
+
         return u;
 }
 
@@ -159,7 +162,6 @@ static void unit_init(Unit *u) {
 
                 cc->cpu_accounting = u->manager->default_cpu_accounting;
                 cc->io_accounting = u->manager->default_io_accounting;
-                cc->ip_accounting = u->manager->default_ip_accounting;
                 cc->blockio_accounting = u->manager->default_blockio_accounting;
                 cc->memory_accounting = u->manager->default_memory_accounting;
                 cc->tasks_accounting = u->manager->default_tasks_accounting;
@@ -2122,11 +2124,11 @@ void unit_trigger_notify(Unit *u) {
 }
 
 static int unit_log_resources(Unit *u) {
-        struct iovec iovec[1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + 4];
-        bool any_traffic = false, have_ip_accounting = false;
-        _cleanup_free_ char *igress = NULL, *egress = NULL;
+        struct iovec iovec[1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + _CGROUP_IO_ACCOUNTING_METRIC_MAX + 4];
+        bool any_traffic = false, have_ip_accounting = false, any_io = false, have_io_accounting = false;
+        _cleanup_free_ char *igress = NULL, *egress = NULL, *rr = NULL, *wr = NULL;
         size_t n_message_parts = 0, n_iovec = 0;
-        char* message_parts[3 + 1], *t;
+        char* message_parts[1 + 2 + 2 + 1], *t;
         nsec_t nsec = NSEC_INFINITY;
         CGroupIPAccountingMetric m;
         size_t i;
@@ -2136,6 +2138,12 @@ static int unit_log_resources(Unit *u) {
                 [CGROUP_IP_INGRESS_PACKETS] = "IP_METRIC_INGRESS_PACKETS",
                 [CGROUP_IP_EGRESS_BYTES]    = "IP_METRIC_EGRESS_BYTES",
                 [CGROUP_IP_EGRESS_PACKETS]  = "IP_METRIC_EGRESS_PACKETS",
+        };
+        const char* const io_fields[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+                [CGROUP_IO_READ_BYTES]       = "IO_METRIC_READ_BYTES",
+                [CGROUP_IO_WRITE_BYTES]      = "IO_METRIC_WRITE_BYTES",
+                [CGROUP_IO_READ_OPERATIONS]  = "IO_METRIC_READ_OPERATIONS",
+                [CGROUP_IO_WRITE_OPERATIONS] = "IO_METRIC_WRITE_OPERATIONS",
         };
 
         assert(u);
@@ -2164,6 +2172,66 @@ static int unit_log_resources(Unit *u) {
                 }
 
                 message_parts[n_message_parts++] = t;
+        }
+
+        for (CGroupIOAccountingMetric k = 0; k < _CGROUP_IO_ACCOUNTING_METRIC_MAX; k++) {
+                char buf[FORMAT_BYTES_MAX] = "";
+                uint64_t value = UINT64_MAX;
+
+                assert(io_fields[k]);
+
+                (void) unit_get_io_accounting(u, k, k > 0, &value);
+                if (value == UINT64_MAX)
+                        continue;
+
+                have_io_accounting = true;
+                if (value > 0)
+                        any_io = true;
+
+                /* Format IO accounting data for inclusion in the structured log message */
+                if (asprintf(&t, "%s=%" PRIu64, io_fields[k], value) < 0) {
+                        r = log_oom();
+                        goto finish;
+                }
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
+
+                /* Format the IO accounting data for inclusion in the human language message string, but only
+                 * for the bytes counters (and not for the operations counters) */
+                if (k == CGROUP_IO_READ_BYTES) {
+                        assert(!rr);
+                        rr = strjoin("read ", format_bytes(buf, sizeof(buf), value), " from disk");
+                        if (!rr) {
+                                r = log_oom();
+                                goto finish;
+                        }
+                } else if (k == CGROUP_IO_WRITE_BYTES) {
+                        assert(!wr);
+                        wr = strjoin("written ", format_bytes(buf, sizeof(buf), value), " to disk");
+                        if (!wr) {
+                                r = log_oom();
+                                goto finish;
+                        }
+                }
+        }
+
+        if (have_io_accounting) {
+                if (any_io) {
+                        if (rr)
+                                message_parts[n_message_parts++] = TAKE_PTR(rr);
+                        if (wr)
+                                message_parts[n_message_parts++] = TAKE_PTR(wr);
+
+                } else {
+                        char *k;
+
+                        k = strdup("no IO");
+                        if (!k) {
+                                r = log_oom();
+                                goto finish;
+                        }
+
+                        message_parts[n_message_parts++] = k;
+                }
         }
 
         for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++) {
@@ -3203,6 +3271,20 @@ static const char *const ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC
         [CGROUP_IP_EGRESS_PACKETS] = "ip-accounting-egress-packets",
 };
 
+static const char *const io_accounting_metric_field_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IO_READ_BYTES] = "io-accounting-read-bytes-base",
+        [CGROUP_IO_WRITE_BYTES] = "io-accounting-write-bytes-base",
+        [CGROUP_IO_READ_OPERATIONS] = "io-accounting-read-operations-base",
+        [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-base",
+};
+
+static const char *const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IO_READ_BYTES] = "io-accounting-read-bytes-last",
+        [CGROUP_IO_WRITE_BYTES] = "io-accounting-write-bytes-last",
+        [CGROUP_IO_READ_OPERATIONS] = "io-accounting-read-operations-last",
+        [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-last",
+};
+
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         CGroupIPAccountingMetric m;
         int r;
@@ -3248,6 +3330,13 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
 
         if (u->oom_kill_last > 0)
                 (void) serialize_item_format(f, "oom-kill-last", "%" PRIu64, u->oom_kill_last);
+
+        for (CGroupIOAccountingMetric im = 0; im < _CGROUP_IO_ACCOUNTING_METRIC_MAX; im++) {
+                (void) serialize_item_format(f, io_accounting_metric_field_base[im], "%" PRIu64, u->io_accounting_base[im]);
+
+                if (u->io_accounting_last[im] != UINT64_MAX)
+                        (void) serialize_item_format(f, io_accounting_metric_field_last[im], "%" PRIu64, u->io_accounting_last[im]);
+        }
 
         if (u->cgroup_path)
                 (void) serialize_item(f, "cgroup", u->cgroup_path);
@@ -3324,8 +3413,8 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                CGroupIPAccountingMetric m;
                 char *l, *v;
+                ssize_t m;
                 size_t k;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
@@ -3577,10 +3666,8 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 }
 
                 /* Check if this is an IP accounting metric serialization field */
-                for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++)
-                        if (streq(l, ip_accounting_metric_field[m]))
-                                break;
-                if (m < _CGROUP_IP_ACCOUNTING_METRIC_MAX) {
+                m = string_table_lookup(ip_accounting_metric_field, ELEMENTSOF(ip_accounting_metric_field), l);
+                if (m >= 0) {
                         uint64_t c;
 
                         r = safe_atou64(v, &c);
@@ -3588,6 +3675,30 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug(u, "Failed to parse IP accounting value %s, ignoring.", v);
                         else
                                 u->ip_accounting_extra[m] = c;
+                        continue;
+                }
+
+                m = string_table_lookup(io_accounting_metric_field_base, ELEMENTSOF(io_accounting_metric_field_base), l);
+                if (m >= 0) {
+                        uint64_t c;
+
+                        r = safe_atou64(v, &c);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse IO accounting base value %s, ignoring.", v);
+                        else
+                                u->io_accounting_base[m] = c;
+                        continue;
+                }
+
+                m = string_table_lookup(io_accounting_metric_field_last, ELEMENTSOF(io_accounting_metric_field_last), l);
+                if (m >= 0) {
+                        uint64_t c;
+
+                        r = safe_atou64(v, &c);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse IO accounting last value %s, ignoring.", v);
+                        else
+                                u->io_accounting_last[m] = c;
                         continue;
                 }
 
@@ -5394,8 +5505,7 @@ int unit_prepare_exec(Unit *u) {
         (void) unit_realize_cgroup(u);
 
         if (u->reset_accounting) {
-                (void) unit_reset_cpu_accounting(u);
-                (void) unit_reset_ip_accounting(u);
+                (void) unit_reset_accounting(u);
                 u->reset_accounting = false;
         }
 

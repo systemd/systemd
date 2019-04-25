@@ -252,6 +252,10 @@ typedef struct Unit {
         /* The  current counter of the oom_kill field in the memory.events cgroup attribute */
         uint64_t oom_kill_last;
 
+        /* Where the io.stat data was at the time the unit was started */
+        uint64_t io_accounting_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX];
+        uint64_t io_accounting_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX]; /* the most recently read value */
+
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
         CGroupMask cgroup_realized_mask;           /* In which hierarchies does this unit's cgroup exist? (only relevant on cgroup v1) */

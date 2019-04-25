@@ -4125,9 +4125,10 @@ typedef struct UnitStatusInfo {
         uint64_t cpu_usage_nsec;
         uint64_t tasks_current;
         uint64_t tasks_max;
-
         uint64_t ip_ingress_bytes;
         uint64_t ip_egress_bytes;
+        uint64_t io_read_bytes;
+        uint64_t io_write_bytes;
 
         uint64_t default_memory_min;
         uint64_t default_memory_low;
@@ -4483,6 +4484,14 @@ static void print_status_info(
                 printf("       IP: %s in, %s out\n",
                         format_bytes(buf_in, sizeof(buf_in), i->ip_ingress_bytes),
                         format_bytes(buf_out, sizeof(buf_out), i->ip_egress_bytes));
+        }
+
+        if (i->io_read_bytes != UINT64_MAX && i->io_write_bytes != UINT64_MAX) {
+                char buf_in[FORMAT_BYTES_MAX], buf_out[FORMAT_BYTES_MAX];
+
+                printf("       IO: %s read, %s written\n",
+                        format_bytes(buf_in, sizeof(buf_in), i->io_read_bytes),
+                        format_bytes(buf_out, sizeof(buf_out), i->io_write_bytes));
         }
 
         if (i->tasks_current != (uint64_t) -1) {
@@ -5495,6 +5504,8 @@ static int show_one(
                 { "TasksMax",                       "t",              NULL,           offsetof(UnitStatusInfo, tasks_max)                         },
                 { "IPIngressBytes",                 "t",              NULL,           offsetof(UnitStatusInfo, ip_ingress_bytes)                  },
                 { "IPEgressBytes",                  "t",              NULL,           offsetof(UnitStatusInfo, ip_egress_bytes)                   },
+                { "IOReadBytes",                    "t",              NULL,           offsetof(UnitStatusInfo, io_read_bytes)                     },
+                { "IOWriteBytes",                   "t",              NULL,           offsetof(UnitStatusInfo, io_write_bytes)                    },
                 { "ExecStartPre",                   "a(sasbttttuii)", map_exec,       0                                                           },
                 { "ExecStart",                      "a(sasbttttuii)", map_exec,       0                                                           },
                 { "ExecStartPost",                  "a(sasbttttuii)", map_exec,       0                                                           },
@@ -5519,6 +5530,8 @@ static int show_one(
                 .tasks_max = (uint64_t) -1,
                 .ip_ingress_bytes = (uint64_t) -1,
                 .ip_egress_bytes = (uint64_t) -1,
+                .io_read_bytes = UINT64_MAX,
+                .io_write_bytes = UINT64_MAX,
         };
         char **pp;
         int r;

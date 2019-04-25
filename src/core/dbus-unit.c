@@ -19,6 +19,7 @@
 #include "selinux-access.h"
 #include "signal-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -1029,27 +1030,54 @@ static int property_get_ip_counter(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupIPAccountingMetric metric;
-        uint64_t value = (uint64_t) -1;
+        static const char *const table[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+                [CGROUP_IP_INGRESS_BYTES]   = "IPIngressBytes",
+                [CGROUP_IP_EGRESS_BYTES]    = "IPEgressBytes",
+                [CGROUP_IP_INGRESS_PACKETS] = "IPIngressPackets",
+                [CGROUP_IP_EGRESS_PACKETS]  = "IPEgressPackets",
+        };
+
+        uint64_t value = UINT64_MAX;
         Unit *u = userdata;
+        ssize_t metric;
 
         assert(bus);
         assert(reply);
         assert(property);
         assert(u);
 
-        if (streq(property, "IPIngressBytes"))
-                metric = CGROUP_IP_INGRESS_BYTES;
-        else if (streq(property, "IPIngressPackets"))
-                metric = CGROUP_IP_INGRESS_PACKETS;
-        else if (streq(property, "IPEgressBytes"))
-                metric = CGROUP_IP_EGRESS_BYTES;
-        else {
-                assert(streq(property, "IPEgressPackets"));
-                metric = CGROUP_IP_EGRESS_PACKETS;
-        }
-
+        assert_se((metric = string_table_lookup(table, ELEMENTSOF(table), property)) >= 0);
         (void) unit_get_ip_accounting(u, metric, &value);
+        return sd_bus_message_append(reply, "t", value);
+}
+
+static int property_get_io_counter(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        static const char *const table[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+                [CGROUP_IO_READ_BYTES]       = "IOReadBytes",
+                [CGROUP_IO_WRITE_BYTES]      = "IOWriteBytes",
+                [CGROUP_IO_READ_OPERATIONS]  = "IOReadOperations",
+                [CGROUP_IO_WRITE_OPERATIONS] = "IOWriteOperations",
+        };
+
+        uint64_t value = UINT64_MAX;
+        Unit *u = userdata;
+        ssize_t metric;
+
+        assert(bus);
+        assert(reply);
+        assert(property);
+        assert(u);
+
+        assert_se((metric = string_table_lookup(table, ELEMENTSOF(table), property)) >= 0);
+        (void) unit_get_io_accounting(u, metric, false, &value);
         return sd_bus_message_append(reply, "t", value);
 }
 
@@ -1176,6 +1204,10 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IPIngressPackets", "t", property_get_ip_counter, 0, 0),
         SD_BUS_PROPERTY("IPEgressBytes", "t", property_get_ip_counter, 0, 0),
         SD_BUS_PROPERTY("IPEgressPackets", "t", property_get_ip_counter, 0, 0),
+        SD_BUS_PROPERTY("IOReadBytes", "t", property_get_io_counter, 0, 0),
+        SD_BUS_PROPERTY("IOReadOperations", "t", property_get_io_counter, 0, 0),
+        SD_BUS_PROPERTY("IOWriteBytes", "t", property_get_io_counter, 0, 0),
+        SD_BUS_PROPERTY("IOWriteOperations", "t", property_get_io_counter, 0, 0),
         SD_BUS_METHOD("GetProcesses", NULL, "a(sus)", bus_unit_method_get_processes, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("AttachProcesses", "sau", NULL, bus_unit_method_attach_processes, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END

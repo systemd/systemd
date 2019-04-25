@@ -330,8 +330,7 @@ static int scope_start(Unit *u) {
                 return r;
 
         (void) unit_realize_cgroup(u);
-        (void) unit_reset_cpu_accounting(u);
-        (void) unit_reset_ip_accounting(u);
+        (void) unit_reset_accounting(u);
 
         unit_export_state_files(u);
 
