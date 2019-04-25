@@ -3365,7 +3365,7 @@ static int link_initialized_and_synced(Link *link) {
         /* We may get called either from the asynchronous netlink callback,
          * or directly for link_add() if running in a container. See link_add(). */
         if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED))
-                return 1;
+                return 0;
 
         log_link_debug(link, "Link state is up-to-date");
         link_set_state(link, LINK_STATE_INITIALIZED);
@@ -3383,7 +3383,7 @@ static int link_initialized_and_synced(Link *link) {
                                 &link->mac, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
-                        return 1;
+                        return 0;
                 } else if (r == 0 && network->unmanaged) {
                         link_enter_unmanaged(link);
                         return 0;
@@ -3420,7 +3420,7 @@ static int link_initialized_and_synced(Link *link) {
         if (r < 0)
                 return r;
 
-        return 1;
+        return 0;
 }
 
 static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
