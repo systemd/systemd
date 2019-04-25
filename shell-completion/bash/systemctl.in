@@ -273,7 +273,7 @@ _systemctl () {
 
     elif __contains_word "$verb" ${VERBS[ISOLATABLE_UNITS]}; then
         comps=$( __filter_units_by_properties $mode AllowIsolate=yes \
-                                              $( __get_all_units $mode "$cur" ) )
+                                              $( __get_non_template_units $mode "$cur" ) )
         compopt -o filenames
 
     elif __contains_word "$verb" ${VERBS[FAILED_UNITS]}; then
