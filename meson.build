@@ -789,6 +789,7 @@ conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 
 substs.set('SUSHELL', get_option('debug-shell'))
 substs.set('DEBUGTTY', get_option('debug-tty'))
+conf.set_quoted('DEBUGTTY', get_option('debug-tty'))
 
 enable_debug_hashmap = false
 enable_debug_mmap_cache = false
