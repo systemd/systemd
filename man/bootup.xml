@@ -156,7 +156,9 @@
     using systemd as well. In this case, boot up inside the initrd
     follows the following structure.</para>
 
-    <para>The default target in the initrd is
+    <para>systemd detects that it is run within an initrd by checking
+    for the file <filename>/etc/initrd-release</filename>.
+    The default target in the initrd is
     <filename>initrd.target</filename>. The bootup process begins
     identical to the system manager bootup (see above) until it
     reaches <filename>basic.target</filename>. From there, systemd
