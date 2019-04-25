@@ -36,6 +36,12 @@ else
     exit 1
 fi
 
+# According to https://www.ssllabs.com/ssltest/analyze.html?d=scan.coverity.com&latest,
+# the certificate chain is incomplete. Let's complete it manually by downloading the
+# missing piece (which is far from ideal but better than -k). This should be removed
+# once it ends up in /etc/pki/tls/certs/ca-bundle.crt officially.
+curl -L https://entrust.com/root-certificates/entrust_l1k.cer | tee -a /etc/pki/tls/certs/ca-bundle.crt
+
 # Verify upload is permitted
 AUTH_RES=`curl -s --show-error --form project="$COVERITY_SCAN_PROJECT_NAME" --form token="$COVERITY_SCAN_TOKEN" $SCAN_URL/api/upload_permitted`
 if [ "$AUTH_RES" = "Access denied" ]; then
