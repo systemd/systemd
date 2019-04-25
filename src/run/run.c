@@ -382,21 +382,22 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_ON_CALENDAR: {
                         _cleanup_(calendar_spec_freep) CalendarSpec *cs = NULL;
-                        usec_t next, curr;
 
                         /* Let's make sure the given calendar event is not in the past */
-                        curr = now(CLOCK_REALTIME);
                         r = calendar_spec_from_string(optarg, &cs);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse calendar event specification");
-                        r = calendar_spec_next_usec(cs, curr, &next);
-                        if (r < 0) {
-                                /* The calendar event is in the past - in such case
-                                 * don't add an OnCalendar property and execute
-                                 * the command immediately instead */
-                                log_warning("Specified calendar event is in the past, executing immediately");
-                                break;
-                        }
+                                return log_error_errno(r, "Failed to parse calendar event specification: %m");
+
+                        r = calendar_spec_next_usec(cs, now(CLOCK_REALTIME), NULL);
+                        if (r == -ENOENT)
+                                /* The calendar event is in the past - let's warn about this, but install it
+                                 * anyway as it is. The service manager will trigger the service right-away
+                                 * then, but everything is discoverable as usual. Moreover, the server side
+                                 * might have a different clock or timezone than we do, hence it should
+                                 * decide when or whether to run something. */
+                                log_warning("Specified calendar expression is in the past, proceeding anyway.");
+                        else if (r < 0)
+                                return log_error_errno(r, "Failed to calculate next time calendar expression elapses: %m");
 
                         r = add_timer_property("OnCalendar", optarg);
                         if (r < 0)
