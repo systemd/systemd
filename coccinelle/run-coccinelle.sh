@@ -2,6 +2,7 @@
 
 top="$(git rev-parse --show-toplevel)"
 files="$(git ls-files ':/*.[ch]')"
+iso_defs="$top/coccinelle/systemd-definitions.iso"
 args=
 
 case "$1" in
@@ -21,7 +22,7 @@ for SCRIPT in ${@-$top/coccinelle/*.cocci} ; do
     TMPFILE=`mktemp`
     echo "+ spatch --sp-file $SCRIPT $args ..."
     parallel --halt now,fail=1 --keep-order --noswap --max-args=20 \
-             spatch --sp-file $SCRIPT $args ::: $files \
+             spatch --iso-file $iso_defs --sp-file $SCRIPT $args ::: $files \
              2>"$TMPFILE" || cat "$TMPFILE"
     echo -e "--x-- Processed $SCRIPT --x--\n"
 done
