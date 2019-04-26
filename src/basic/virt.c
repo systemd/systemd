@@ -436,6 +436,7 @@ int detect_container(void) {
                 { "lxc-libvirt",    VIRTUALIZATION_LXC_LIBVIRT    },
                 { "systemd-nspawn", VIRTUALIZATION_SYSTEMD_NSPAWN },
                 { "docker",         VIRTUALIZATION_DOCKER         },
+                { "podman",         VIRTUALIZATION_PODMAN         },
                 { "rkt",            VIRTUALIZATION_RKT            },
                 { "wsl",            VIRTUALIZATION_WSL            },
         };
@@ -655,6 +656,7 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_LXC] = "lxc",
         [VIRTUALIZATION_OPENVZ] = "openvz",
         [VIRTUALIZATION_DOCKER] = "docker",
+        [VIRTUALIZATION_PODMAN] = "podman",
         [VIRTUALIZATION_RKT] = "rkt",
         [VIRTUALIZATION_WSL] = "wsl",
         [VIRTUALIZATION_CONTAINER_OTHER] = "container-other",
