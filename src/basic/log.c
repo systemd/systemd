@@ -336,7 +336,7 @@ static int write_to_console(
 
         char location[256], prefix[1 + DECIMAL_STR_MAX(int) + 2];
         struct iovec iovec[6] = {};
-        bool highlight;
+        const char *on = NULL, *off = NULL;
         size_t n = 0;
 
         if (console_fd < 0)
@@ -347,18 +347,19 @@ static int write_to_console(
                 iovec[n++] = IOVEC_MAKE_STRING(prefix);
         }
 
-        highlight = LOG_PRI(level) <= LOG_ERR && show_color;
+        if (show_color)
+                get_log_colors(LOG_PRI(level), &on, &off, NULL);
 
         if (show_location) {
                 (void) snprintf(location, sizeof location, "(%s:%i) ", file, line);
                 iovec[n++] = IOVEC_MAKE_STRING(location);
         }
 
-        if (highlight)
-                iovec[n++] = IOVEC_MAKE_STRING(ANSI_HIGHLIGHT_RED);
+        if (on)
+                iovec[n++] = IOVEC_MAKE_STRING(on);
         iovec[n++] = IOVEC_MAKE_STRING(buffer);
-        if (highlight)
-                iovec[n++] = IOVEC_MAKE_STRING(ANSI_NORMAL);
+        if (off)
+                iovec[n++] = IOVEC_MAKE_STRING(off);
         iovec[n++] = IOVEC_MAKE_STRING("\n");
 
         if (writev(console_fd, iovec, n) < 0) {
