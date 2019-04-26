@@ -390,11 +390,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = calendar_spec_next_usec(cs, now(CLOCK_REALTIME), NULL);
                         if (r == -ENOENT)
-                                /* The calendar event is in the past - let's warn about this, but install it
-                                 * anyway as it is. The service manager will trigger the service right-away
-                                 * then, but everything is discoverable as usual. Moreover, the server side
-                                 * might have a different clock or timezone than we do, hence it should
-                                 * decide when or whether to run something. */
+                                /* The calendar event is in the past — let's warn about this, but install it
+                                 * anyway as is. The service manager will trigger the service right away.
+                                 * Moreover, the server side might have a different clock or timezone than we
+                                 * do, hence it should decide when or whether to run something. */
                                 log_warning("Specified calendar expression is in the past, proceeding anyway.");
                         else if (r < 0)
                                 return log_error_errno(r, "Failed to calculate next time calendar expression elapses: %m");
