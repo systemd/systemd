@@ -77,6 +77,7 @@ units = [
         ['system-update.target',                ''],
         ['system-update-pre.target',            ''],
         ['system-update-cleanup.service',       ''],
+        ['system-update-etc-cleanup.service',   ''],
         ['systemd-ask-password-console.path',   '',
          'sysinit.target.wants/'],
         ['systemd-ask-password-wall.path',      '',
