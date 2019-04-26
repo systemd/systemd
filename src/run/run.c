@@ -1652,6 +1652,7 @@ static int run(int argc, char* argv[]) {
         _cleanup_free_ char *description = NULL;
         int r, retval = EXIT_SUCCESS;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

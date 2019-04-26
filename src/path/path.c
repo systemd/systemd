@@ -171,6 +171,7 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char* argv[]) {
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

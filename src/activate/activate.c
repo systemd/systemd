@@ -474,6 +474,7 @@ int main(int argc, char **argv, char **envp) {
         int r, n;
         int epoll_fd = -1;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

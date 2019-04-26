@@ -127,6 +127,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_close_ int outfd = -1, errfd = -1, saved_stderr = -1;
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 
