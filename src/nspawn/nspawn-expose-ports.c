@@ -219,7 +219,7 @@ int expose_port_watch_rtnl(
 
         r = sd_netlink_attach_event(rtnl, event, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to add to even loop: %m");
+                return log_error_errno(r, "Failed to add to event loop: %m");
 
         *ret = TAKE_PTR(rtnl);
 
