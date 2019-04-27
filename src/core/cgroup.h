@@ -25,7 +25,7 @@ typedef enum CGroupDevicePolicy {
         /* Everything forbidden, except built-in ones and listed ones. */
         CGROUP_CLOSED,
 
-        /* Everythings forbidden, except for the listed devices */
+        /* Everything forbidden, except for the listed devices */
         CGROUP_STRICT,
 
         _CGROUP_DEVICE_POLICY_MAX,

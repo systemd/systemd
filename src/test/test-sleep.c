@@ -61,7 +61,7 @@ static void test_sleep(void) {
                 **reboot = strv_new("reboot"),
                 **platform = strv_new("platform"),
                 **shutdown = strv_new("shutdown"),
-                **freez = strv_new("freeze");
+                **freeze = strv_new("freeze");
         int r;
 
         log_info("/* %s */", __func__);
@@ -74,7 +74,7 @@ static void test_sleep(void) {
         log_info("Hibernate+Reboot configured: %s", yes_no(can_sleep_disk(reboot) > 0));
         log_info("Hibernate+Platform configured: %s", yes_no(can_sleep_disk(platform) > 0));
         log_info("Hibernate+Shutdown configured: %s", yes_no(can_sleep_disk(shutdown) > 0));
-        log_info("Freeze configured: %s", yes_no(can_sleep_state(freez) > 0));
+        log_info("Freeze configured: %s", yes_no(can_sleep_state(freeze) > 0));
 
         log_info("/= running system =/");
         r = can_sleep("suspend");

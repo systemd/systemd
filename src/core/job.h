@@ -72,7 +72,7 @@ enum JobMode {
         JOB_REPLACE,             /* Replace an existing conflicting job */
         JOB_REPLACE_IRREVERSIBLY,/* Like JOB_REPLACE + produce irreversible jobs */
         JOB_ISOLATE,             /* Start a unit, and stop all others */
-        JOB_FLUSH,               /* Flush out all other queued jobs when queing this one */
+        JOB_FLUSH,               /* Flush out all other queued jobs when queueing this one */
         JOB_IGNORE_DEPENDENCIES, /* Ignore both requirement and ordering dependencies */
         JOB_IGNORE_REQUIREMENTS, /* Ignore requirement dependencies */
         _JOB_MODE_MAX,

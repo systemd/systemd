@@ -321,7 +321,7 @@ static int print_field(FILE* file, sd_journal *j) {
         assert(arg_field);
 
         /* A (user-specified) field may appear more than once for a given entry.
-         * We will print all of the occurences.
+         * We will print all of the occurrences.
          * This is different below for fields that systemd-coredump uses,
          * because they cannot meaningfully appear more than once.
          */
@@ -790,7 +790,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                 /* If neither path or file are specified, we will write to stdout. Let's now check
                  * if stdout is connected to a tty. We checked that the file exists, or that the
                  * core might be stored in the journal. In this second case, if we found the entry,
-                 * in all likelyhood we will be able to access the COREDUMP= field.  In either case,
+                 * in all likelihood we will be able to access the COREDUMP= field.  In either case,
                  * we stop before doing any "real" work, i.e. before starting decompression or
                  * reading from the file or creating temporary files.
                  */

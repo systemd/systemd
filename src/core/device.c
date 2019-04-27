@@ -420,7 +420,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                 /* So here's a special hack, to compensate for the fact that the udev database's reload cycles are not
                  * synchronized with our own reload cycles: when we detect that the SYSTEMD_WANTS property of a device
                  * changes while the device unit is already up, let's manually trigger any new units listed in it not
-                 * seen before. This typically appens during the boot-time switch root transition, as udev devices
+                 * seen before. This typically happens during the boot-time switch root transition, as udev devices
                  * will generally already be up in the initrd, but SYSTEMD_WANTS properties get then added through udev
                  * rules only available on the host system, and thus only when the initial udev coldplug trigger runs.
                  *
@@ -525,7 +525,7 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
 
                 delete = false;
 
-                /* Let's remove all dependencies generated due to udev properties. We'll readd whatever is configured
+                /* Let's remove all dependencies generated due to udev properties. We'll re-add whatever is configured
                  * now below. */
                 unit_remove_dependencies(u, UNIT_DEPENDENCY_UDEV);
         } else {
@@ -921,7 +921,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
         /* A change event can signal that a device is becoming ready, in particular if
          * the device is using the SYSTEMD_READY logic in udev
-         * so we need to reach the else block of the follwing if, even for change events */
+         * so we need to reach the else block of the following if, even for change events */
         if (action == DEVICE_ACTION_REMOVE) {
                 r = swap_process_device_remove(m, dev);
                 if (r < 0)

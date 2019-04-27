@@ -390,7 +390,7 @@ static int remount_with_timeout(MountPoint *m, int umount_log_level) {
 
         assert(m);
 
-        /* Due to the possiblity of a remount operation hanging, we
+        /* Due to the possibility of a remount operation hanging, we
          * fork a child process and set a timeout. If the timeout
          * lapses, the assumption is that that particular remount
          * failed. */
@@ -428,7 +428,7 @@ static int umount_with_timeout(MountPoint *m, int umount_log_level) {
 
         assert(m);
 
-        /* Due to the possiblity of a umount operation hanging, we
+        /* Due to the possibility of a umount operation hanging, we
          * fork a child process and set a timeout. If the timeout
          * lapses, the assumption is that that particular umount
          * failed. */
@@ -486,7 +486,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, int umount
                          * underlying mount. There's nothing we can do
                          * about it for the general case, but we can
                          * do something about it if it is aliased
-                         * somehwere else via a bind mount. If we
+                         * somewhere else via a bind mount. If we
                          * explicitly remount the super block of that
                          * alias read-only we hence should be
                          * relatively safe regarding keeping a dirty fs

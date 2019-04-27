@@ -120,7 +120,7 @@ int dnstls_stream_shutdown(DnsStream *stream, int error) {
         assert(stream->encrypted);
         assert(stream->dnstls_data.session);
 
-        /* Store TLS Ticket for faster succesive TLS handshakes */
+        /* Store TLS Ticket for faster successive TLS handshakes */
         if (stream->server && stream->server->dnstls_data.session_data.size == 0 && stream->dnstls_data.handshake == GNUTLS_E_SUCCESS)
                 gnutls_session_get_data2(stream->dnstls_data.session, &stream->server->dnstls_data.session_data);
 

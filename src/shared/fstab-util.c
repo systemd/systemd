@@ -121,7 +121,7 @@ int fstab_filter_options(const char *opts, const char *names,
                         t++;
                         continue;
                 found:
-                        /* Keep the last occurence found */
+                        /* Keep the last occurrence found */
                         n = name;
                         if (value) {
                                 free(v);

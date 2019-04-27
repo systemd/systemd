@@ -314,7 +314,7 @@
         <term><varname>RemainAfterElapse=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, an elapsed
-        timer will stay loaded, and its state remains queriable. If
+        timer will stay loaded, and its state remains queryable. If
         false, an elapsed timer unit that cannot elapse anymore is
         unloaded. Turning this off is particularly useful for
         transient timer units that shall disappear after they first

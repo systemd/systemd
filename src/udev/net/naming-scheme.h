@@ -5,7 +5,7 @@
 
 #include "macro.h"
 
-/* So here's the deal: net_id is supposed to be an excercise in providing stable names for network devices. However, we
+/* So here's the deal: net_id is supposed to be an exercise in providing stable names for network devices. However, we
  * also want to keep updating the naming scheme used in future versions of net_id. These two goals of course are
  * contradictory: on one hand we want things to not change and on the other hand we want them to improve. Our way out
  * of this dilemma is to introduce the "naming scheme" concept: each time we improve the naming logic we define a new

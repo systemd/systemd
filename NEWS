@@ -753,7 +753,7 @@ CHANGES WITH 240:
         * Journal messages that are generated whenever a unit enters the failed
           state are now tagged with a unique MESSAGE_ID. Similarly, messages
           generated whenever a service process exits are now made recognizable,
-          too. A taged message is also emitted whenever a unit enters the
+          too. A tagged message is also emitted whenever a unit enters the
           "dead" state on success.
 
         * systemd-run gained a new switch --working-directory= for configuring
@@ -995,7 +995,7 @@ CHANGES WITH 239:
           not created by systemd-sysusers anymore.
 
           NOTE: This has a chance of breaking nss-ldap and similar NSS modules
-          that embedd a network facing module into any process using getpwuid()
+          that embed a network facing module into any process using getpwuid()
           or related call: the dynamic allocation of the user ID for
           systemd-resolved.service means the service manager has to check NSS
           if the user name is already taken when forking off the service. Since
@@ -1264,7 +1264,7 @@ CHANGES WITH 239:
           PrivateDevices=, ProtectSystem=, …) are used. This option is hence
           primarily useful for services that do not use any of the other file
           system namespacing options. One such service is systemd-udevd.service
-          wher this is now used by default.
+          where this is now used by default.
 
         * ConditionSecurity= gained a new value "uefi-secureboot" that is true
           when the system is booted in UEFI "secure mode".
@@ -2247,7 +2247,7 @@ CHANGES WITH 234:
           /etc/machine-id. If the machine ID could not be determined,
           $KERNEL_INSTALL_MACHINE_ID will be empty. Plugins should not put
           anything in the entry directory (passed as the second argument) if
-          $KERNEL_INSTALL_MACHINE_ID is empty. For backwards compatiblity, a
+          $KERNEL_INSTALL_MACHINE_ID is empty. For backwards compatibility, a
           temporary directory is passed as the entry directory and removed
           after all the plugins exit.
 
@@ -5975,7 +5975,7 @@ CHANGES WITH 214:
         * We temporarily dropped the "-l" switch for fsck invocations,
           since they collide with the flock() logic above. util-linux
           upstream has been changed already to avoid this conflict,
-          and we will readd "-l" as soon as util-linux with this
+          and we will re-add "-l" as soon as util-linux with this
           change has been released.
 
         * The dependency on libattr has been removed. Since a long
@@ -6261,7 +6261,7 @@ CHANGES WITH 213:
           where the local administrator's configuration in /etc always
           overrides any other settings.
 
-        Contributions fron: Ali H. Caliskan, Alison Chaiken, Bas van
+        Contributions from: Ali H. Caliskan, Alison Chaiken, Bas van
         den Berg, Brandon Philips, Cristian Rodríguez, Daniel Buch,
         Dan Kilman, Dave Reisner, David Härdeman, David Herrmann,
         David Strauss, Dimitris Spingos, Djalal Harouni, Eelco

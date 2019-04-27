@@ -146,7 +146,7 @@ static int run(int argc, char *argv[]) {
 
         saved_stderr = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
 
-        r = rearrange_stdio(STDIN_FILENO, outfd, errfd < 0 ? outfd : errfd); /* Invalidates fd on succcess + error! */
+        r = rearrange_stdio(STDIN_FILENO, outfd, errfd < 0 ? outfd : errfd); /* Invalidates fd on success + error! */
         TAKE_FD(outfd);
         TAKE_FD(errfd);
         if (r < 0)

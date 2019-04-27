@@ -357,7 +357,7 @@
 
     <para><command>systemd-boot</command> implements a simple boot counting mechanism on top of the <ulink
     url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>, for automatic and unattended
-    fallback to older kernel versions/boot loader entries when a specific entry continously fails. Any boot loader
+    fallback to older kernel versions/boot loader entries when a specific entry continuously fails. Any boot loader
     entry file and unified kernel image file that contains a <literal>+</literal> followed by one or two numbers (if
     two they need to be separated by a <literal>-</literal>), before the <filename>.conf</filename> or
     <filename>.efi</filename> suffix is subject to boot counting: the first of the two numbers ('tries left') is

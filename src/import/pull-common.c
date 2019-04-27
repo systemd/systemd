@@ -436,7 +436,7 @@ int pull_verify(PullJob *main_job,
         }
 
         if (!mkdtemp(gpg_home)) {
-                r = log_error_errno(errno, "Failed to create tempory home for gpg: %m");
+                r = log_error_errno(errno, "Failed to create temporary home for gpg: %m");
                 goto finish;
         }
 

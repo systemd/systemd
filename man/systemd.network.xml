@@ -637,7 +637,7 @@
           <para>Note that if this option is enabled a userspace implementation of the IPv6 RA protocol is
           used, and the kernel's own implementation remains disabled, since `networkd` needs to know all
           details supplied in the advertisements, and these are not available from the kernel if the kernel's
-          own implemenation is used.</para>
+          own implementation is used.</para>
         </listitem>
         </varlistentry>
         <varlistentry>
@@ -1077,7 +1077,7 @@
         <varlistentry>
           <term><varname>InvertRule=</varname></term>
           <listitem>
-            <para>A boolean. Specifies wheather the rule to be inverted. Defaults to false.</para>
+            <para>A boolean. Specifies whether the rule to be inverted. Defaults to false.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1197,7 +1197,7 @@
         <varlistentry>
           <term><varname>InitialAdvertisedReceiveWindow=</varname></term>
           <listitem>
-            <para>The TCP initial advertised receive window is the amount of receive data (in bytes) that can initally be buffered at one time
+            <para>The TCP initial advertised receive window is the amount of receive data (in bytes) that can initially be buffered at one time
             on a connection. The sending host can send only that amount of data before waiting for an acknowledgment and window update
             from the receiving host. Takes a size in bytes between 1 and 4294967295 (2^32 - 1). The usual suffixes K, M, G are supported
             and are understood to the base of 1024. When unset, the kernel's default will be used.

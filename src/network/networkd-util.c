@@ -62,7 +62,7 @@ int config_parse_address_family_boolean_with_kernel(
 
         /* This function is mostly obsolete now. It simply redirects
          * "kernel" to "no". In older networkd versions we used to
-         * distuingish IPForward=off from IPForward=kernel, where the
+         * distinguish IPForward=off from IPForward=kernel, where the
          * former would explicitly turn off forwarding while the
          * latter would simply not touch the setting. But that logic
          * is gone, hence silently accept the old setting, but turn it
@@ -84,7 +84,7 @@ int config_parse_address_family_boolean_with_kernel(
 }
 
 /* Router lifetime can be set with netlink interface since kernel >= 4.5
- * so for the supported kernel we dont need to expire routes in userspace */
+ * so for the supported kernel we don't need to expire routes in userspace */
 int kernel_route_expiration_supported(void) {
         static int cached = -1;
         int r;

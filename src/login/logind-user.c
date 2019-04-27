@@ -369,7 +369,7 @@ int user_start(User *u) {
                 return 0;
 
         /* If u->stopping is set, the user is marked for removal and service stop-jobs are queued. We have to clear
-         * that flag before queing the start-jobs again. If they succeed, the user object can be re-used just fine
+         * that flag before queueing the start-jobs again. If they succeed, the user object can be re-used just fine
          * (pid1 takes care of job-ordering and proper restart), but if they fail, we want to force another user_stop()
          * so possibly pending units are stopped. */
         u->stopping = false;

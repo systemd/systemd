@@ -1,7 +1,7 @@
 # Puts together an nspawn container and runs networkd-test.py in it, inside a
 # network namespace and everything. Run this with "mkosi
 # --default=mkosi.default.networkd-test boot". This will start the test and
-# eventually exit with sucess in case the test succeeded.
+# eventually exit with success in case the test succeeded.
 
 [Distribution]
 Distribution=fedora

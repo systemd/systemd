@@ -247,7 +247,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                         /*
                          * Console fonts supported by the kernel are limited in size to 32 x 32 and maximum 512
                          * characters. Thus with 1 bit per pixel it requires up to 65536 bytes. The height always
-                         * requries 32 per glyph, regardless of the actual height - see the comment above #define
+                         * requires 32 per glyph, regardless of the actual height - see the comment above #define
                          * max_font_size 65536 in drivers/tty/vt/vt.c for more details.
                          */
                         fontbuf = malloc_multiply((cfo.width + 7) / 8 * 32, cfo.charcount);

@@ -1899,7 +1899,7 @@ static int bus_unit_set_transient_property(
                  * transient units, but still). And "References" and "ReferencedBy" is already used as unit reference
                  * dependency type, hence let's not confuse things with that.
                  *
-                 * Note that we don't acually add the reference to the bus track. We do that only after the setup of
+                 * Note that we don't actually add the reference to the bus track. We do that only after the setup of
                  * the transient unit is complete, so that setting this property multiple times in the same transient
                  * unit creation call doesn't count as individual references. */
 

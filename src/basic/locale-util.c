@@ -235,7 +235,7 @@ bool is_locale_utf8(void) {
                 goto out;
         }
 
-        /* For LC_CTYPE=="C" return true, because CTYPE is effectly
+        /* For LC_CTYPE=="C" return true, because CTYPE is effectively
          * unset and everything can do to UTF-8 nowadays. */
         set = setlocale(LC_CTYPE, NULL);
         if (!set) {

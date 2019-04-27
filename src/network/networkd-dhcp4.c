@@ -471,7 +471,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                         if (r < 0)
                                 log_link_warning_errno(link, r, "Unable to shorten overlong DHCP hostname '%s', ignoring: %m", dhcpname);
                         if (r == 1)
-                                log_link_notice(link, "Overlong DCHP hostname received, shortened from '%s' to '%s'", dhcpname, hostname);
+                                log_link_notice(link, "Overlong DHCP hostname received, shortened from '%s' to '%s'", dhcpname, hostname);
                 }
 
                 if (hostname) {

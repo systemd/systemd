@@ -434,7 +434,7 @@ static int portable_extract_by_path(
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to receive item: %m");
 
-                        /* We can't really distuingish a zero-length datagram without any fds from EOF (both are signalled the
+                        /* We can't really distinguish a zero-length datagram without any fds from EOF (both are signalled the
                          * same way by recvmsg()). Hence, accept either as end notification. */
                         if (isempty(name) && fd < 0)
                                 break;

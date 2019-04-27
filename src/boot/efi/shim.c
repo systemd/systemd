@@ -158,7 +158,7 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         if (status != EFI_SUCCESS)
                 return status;
 
-        /* No need to check return value, this already happend in efi_main() */
+        /* No need to check return value, this already happened in efi_main() */
         root = LibOpenRoot(h);
         dev_path_str = DevicePathToStr(dev_path);
 

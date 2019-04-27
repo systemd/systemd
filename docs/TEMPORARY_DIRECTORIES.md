@@ -154,7 +154,7 @@ strategies to avoid these issues:
    in these directories when they are no longer needed, in particular when the
    program dies unexpectedly. Note: this strategy is only really suitable for
    packages that operate in a "system wide singleton" fashion with "long"
-   persistance of its data or state, i.e. as opposed to programs that run in
+   persistence of its data or state, i.e. as opposed to programs that run in
    multiple parallel or short-living instances. This is because a private
    directory under `/run` (and the other mentioned directories) is itself
    system and package specific singleton with greater longevity.

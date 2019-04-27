@@ -1263,7 +1263,7 @@ static int get_boots(
                         goto finish;
                 }
 
-                /* At this point the read pointer is positioned at the oldest/newest occurence of the reference boot
+                /* At this point the read pointer is positioned at the oldest/newest occurrence of the reference boot
                  * ID. After flushing the matches, one more invocation of _previous()/_next() will hence place us at
                  * the following entry, which must then have an older/newer boot ID */
         } else {
@@ -2427,7 +2427,7 @@ int main(int argc, char *argv[]) {
         if (arg_follow) {
                 poll_fd = sd_journal_get_fd(j);
                 if (poll_fd == -EMFILE) {
-                        log_warning_errno(poll_fd, "Insufficent watch descriptors available. Reverting to -n.");
+                        log_warning_errno(poll_fd, "Insufficient watch descriptors available. Reverting to -n.");
                         arg_follow = false;
                 } else if (poll_fd == -EMEDIUMTYPE) {
                         log_error_errno(poll_fd, "The --follow switch is not supported in conjunction with reading from STDIN.");

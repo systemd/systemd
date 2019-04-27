@@ -12,7 +12,7 @@
 
 /*
   In case you wonder why we have our own JSON implementation, here are a couple of reasons why this implementation has
-  benefits over various other implementatins:
+  benefits over various other implementations:
 
   - We need support for 64bit signed and unsigned integers, i.e. the full 64,5bit range of -9223372036854775808…18446744073709551615
   - All our variants are immutable after creation
@@ -211,7 +211,7 @@ int json_buildv(JsonVariant **ret, va_list ap);
 typedef enum JsonDispatchFlags {
         /* The following three may be set in JsonDispatch's .flags field or the json_dispatch() flags parameter  */
         JSON_PERMISSIVE = 1 << 0, /* Shall parsing errors be considered fatal for this property? */
-        JSON_MANDATORY  = 1 << 1, /* Should existance of this property be mandatory? */
+        JSON_MANDATORY  = 1 << 1, /* Should existence of this property be mandatory? */
         JSON_LOG        = 1 << 2, /* Should the parser log about errors? */
 
         /* The following two may be passed into log_json() in addition to the three above */

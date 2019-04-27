@@ -344,7 +344,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 .dhcp_use_dns = true,
                 .dhcp_use_hostname = true,
                 .dhcp_use_routes = true,
-                /* NOTE: this var might be overwriten by network_apply_anonymize_if_set */
+                /* NOTE: this var might be overwritten by network_apply_anonymize_if_set */
                 .dhcp_send_hostname = true,
                 /* To enable/disable RFC7844 Anonymity Profiles */
                 .dhcp_anonymize = false,
@@ -860,7 +860,7 @@ int config_parse_dhcp(
         if (s < 0) {
 
                 /* Previously, we had a slightly different enum here,
-                 * support its values for compatbility. */
+                 * support its values for compatibility. */
 
                 if (streq(rvalue, "none"))
                         s = ADDRESS_FAMILY_NO;

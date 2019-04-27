@@ -1868,7 +1868,7 @@ static int socket_coldplug(Unit *u) {
                    SOCKET_RUNNING)) {
 
                 /* Originally, we used to simply reopen all sockets here that we didn't have file descriptors
-                 * for. However, this is problematic, as we won't traverse throught the SOCKET_START_CHOWN state for
+                 * for. However, this is problematic, as we won't traverse through the SOCKET_START_CHOWN state for
                  * them, and thus the UID/GID wouldn't be right. Hence, instead simply check if we have all fds open,
                  * and if there's a mismatch, warn loudly. */
 
@@ -2873,7 +2873,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         assert(p);
         assert(fd >= 0);
 
-        /* Similar to socket_address_listen_in_cgroup(), but for accept() rathern than socket(): make sure that any
+        /* Similar to socket_address_listen_in_cgroup(), but for accept() rather than socket(): make sure that any
          * connection socket is also properly associated with the cgroup. */
 
         if (!IN_SET(p->address.sockaddr.sa.sa_family, AF_INET, AF_INET6))

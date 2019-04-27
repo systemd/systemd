@@ -387,7 +387,7 @@ int fd_get_path(int fd, char **ret) {
         r = readlink_malloc(procfs_path, ret);
         if (r == -ENOENT) {
                 /* ENOENT can mean two things: that the fd does not exist or that /proc is not mounted. Let's make
-                 * things debuggable and distuingish the two. */
+                 * things debuggable and distinguish the two. */
 
                 if (access("/proc/self/fd/", F_OK) < 0)
                         /* /proc is not available or not set up properly, we're most likely in some chroot

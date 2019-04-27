@@ -367,7 +367,7 @@ int curl_header_strdup(const void *contents, size_t sz, const char *field, char 
         if (memchr(p, 0, sz))
                 return 0;
 
-        /* Skip over preceeding whitespace */
+        /* Skip over preceding whitespace */
         while (sz > 0 && strchr(WHITESPACE, p[0])) {
                 p++;
                 sz--;

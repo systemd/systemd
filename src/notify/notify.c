@@ -192,7 +192,7 @@ static int run(int argc, char* argv[]) {
         if (!n)
                 return log_oom();
 
-        /* If this is requested change to the requested UID/GID. Note thta we only change the real UID here, and leave
+        /* If this is requested change to the requested UID/GID. Note that we only change the real UID here, and leave
            the effective UID in effect (which is 0 for this to work). That's because we want the privileges to fake the
            ucred data, and sd_pid_notify() uses the real UID for filling in ucred. */
 

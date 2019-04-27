@@ -89,7 +89,7 @@
 #define JOBS_IN_PROGRESS_PERIOD_USEC (USEC_PER_SEC / 3)
 #define JOBS_IN_PROGRESS_PERIOD_DIVISOR 3
 
-/* If there are more than 1K bus messages queue across our API and direct busses, then let's not add more on top until
+/* If there are more than 1K bus messages queue across our API and direct buses, then let's not add more on top until
  * the queue gets more empty. */
 #define MANAGER_BUS_BUSY_THRESHOLD 1024LU
 
@@ -1051,7 +1051,7 @@ static int manager_setup_user_lookup_fd(Manager *m) {
                  * resolutions */
                 r = sd_event_source_set_priority(m->user_lookup_event_source, SD_EVENT_PRIORITY_NORMAL-11);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to set priority ot user lookup event source: %m");
+                        return log_error_errno(errno, "Failed to set priority of user lookup event source: %m");
 
                 (void) sd_event_source_set_description(m->user_lookup_event_source, "user-lookup");
         }
@@ -1659,7 +1659,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         r = lookup_paths_reduce(&m->lookup_paths);
         if (r < 0)
-                log_warning_errno(r, "Failed ot reduce unit file paths, ignoring: %m");
+                log_warning_errno(r, "Failed to reduce unit file paths, ignoring: %m");
 
         manager_build_unit_path_cache(m);
 
@@ -1709,7 +1709,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 /* Connect to the bus if we are good for it */
                 manager_setup_bus(m);
 
-                /* Now that we are connected to all possible busses, let's deserialize who is tracking us. */
+                /* Now that we are connected to all possible buses, let's deserialize who is tracking us. */
                 r = bus_track_coldplug(m, &m->subscribed, false, m->deserialized_subscribed);
                 if (r < 0)
                         log_warning_errno(r, "Failed to deserialized tracked clients, ignoring: %m");
@@ -2195,8 +2195,8 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                  * overly full before this call we shouldn't increase it in size too wildly in one step, and we
                  * shouldn't monopolize CPU time with generating these messages. Note the difference in counting of
                  * this "budget" and the "threshold" above: the "budget" is decreased only once per generated message,
-                 * regardless how many busses/direct connections it is enqueued on, while the "threshold" is applied to
-                 * each queued instance of bus message, i.e. if the same message is enqueued to five busses/direct
+                 * regardless how many buses/direct connections it is enqueued on, while the "threshold" is applied to
+                 * each queued instance of bus message, i.e. if the same message is enqueued to five buses/direct
                  * connections it will be counted five times. This difference in counting ("references"
                  * vs. "instances") is primarily a result of the fact that it's easier to implement it this way,
                  * however it also reflects the thinking that the "threshold" should put a limit on used queue memory,
@@ -2511,7 +2511,7 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
                 if (array) {
                         size_t n = 0;
 
-                        /* Cound how many entries the array has */
+                        /* Count how many entries the array has */
                         while (array[n])
                                 n++;
 
@@ -3548,7 +3548,7 @@ int manager_reload(Manager *m) {
 
         r = lookup_paths_reduce(&m->lookup_paths);
         if (r < 0)
-                log_warning_errno(r, "Failed ot reduce unit file paths, ignoring: %m");
+                log_warning_errno(r, "Failed to reduce unit file paths, ignoring: %m");
 
         manager_build_unit_path_cache(m);
 

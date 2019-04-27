@@ -1495,7 +1495,7 @@ static int verify_arguments(void) {
 
         /* We don't support --private-users-chown together with any of the volatile modes since we couldn't
          * change the read-only part of the tree (i.e. /usr) anyway, or because it would trigger a massive
-         * copy-up (in case of overlay) making the entire excercise pointless. */
+         * copy-up (in case of overlay) making the entire exercise pointless. */
         if (arg_userns_chown && arg_volatile_mode != VOLATILE_NO)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--volatile= and --private-users-chown may not be combined.");
 
@@ -3293,7 +3293,7 @@ static int outer_child(
 
         /* Mark everything as shared so our mounts get propagated down. This is
          * required to make new bind mounts available in systemd services
-         * inside the containter that create a new mount namespace.
+         * inside the container that create a new mount namespace.
          * See https://github.com/systemd/systemd/issues/3860
          * Further submounts (such as /dev) done after this will inherit the
          * shared propagation mode. */
@@ -3715,7 +3715,7 @@ static int merge_settings(Settings *settings, const char *path) {
                 /* Copy the full capabilities over too */
                 if (capability_quintet_is_set(&settings->full_capabilities)) {
                         if (!arg_settings_trusted)
-                                log_warning("Ignoring capabilitiy settings, file %s is not trusted.", path);
+                                log_warning("Ignoring capability settings, file %s is not trusted.", path);
                         else
                                 arg_full_capabilities = settings->full_capabilities;
                 }

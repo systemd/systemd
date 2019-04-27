@@ -1182,7 +1182,7 @@ bool colors_enabled(void) {
          * (which is the explicit way to turn colors on/off). If that didn't work we turn colors off unless we are on a
          * TTY. And if we are on a TTY we turn it off if $TERM is set to "dumb". There's one special tweak though: if
          * we are PID 1 then we do not check whether we are connected to a TTY, because we don't keep /dev/console open
-         * continously due to fear of SAK, and hence things are a bit weird. */
+         * continuously due to fear of SAK, and hence things are a bit weird. */
 
         if (cached_colors_enabled < 0) {
                 int val;

@@ -1083,12 +1083,12 @@ static int verify_esp(
          *
          *  -ENOENT        → if 'searching' is set, and the dir doesn't exist
          *  -EADDRNOTAVAIL → if 'searching' is set, and the dir doesn't look like an ESP
-         *  -EACESS        → if 'unprivileged_mode' is set, and we have trouble acessing the thing
+         *  -EACESS        → if 'unprivileged_mode' is set, and we have trouble accessing the thing
          */
 
         relax_checks = getenv_bool("SYSTEMD_RELAX_ESP_CHECKS") > 0;
 
-        /* Non-root user can only check the status, so if an error occured in the following, it does not cause any
+        /* Non-root user can only check the status, so if an error occurred in the following, it does not cause any
          * issues. Let's also, silence the error messages. */
 
         if (!relax_checks) {

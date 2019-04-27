@@ -734,7 +734,7 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         }
 
                         /* Fall-through: NXDOMAIN/SERVFAIL is good enough for us. This is because some DNS servers
-                         * erronously return NXDOMAIN/SERVFAIL for empty non-terminals (Akamai...) or missing DS
+                         * erroneously return NXDOMAIN/SERVFAIL for empty non-terminals (Akamai...) or missing DS
                          * records (Facebook), and we need to handle that nicely, when asking for parent SOA or similar
                          * RRs to make unsigned proofs. */
 
@@ -1502,7 +1502,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
         /*
          * For mDNS, we want to coalesce as many open queries in pending transactions into one single
          * query packet on the wire as possible. To achieve that, we iterate through all pending transactions
-         * in our current scope, and see whether their timing contraints allow them to be sent.
+         * in our current scope, and see whether their timing constraints allow them to be sent.
          */
 
         assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
@@ -2026,7 +2026,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
         if (t->answer_source != DNS_TRANSACTION_NETWORK)
                 return 0; /* We only need to validate stuff from the network */
         if (!dns_transaction_dnssec_supported(t))
-                return 0; /* If we can't do DNSSEC anyway there's no point in geting the auxiliary RRs */
+                return 0; /* If we can't do DNSSEC anyway there's no point in getting the auxiliary RRs */
 
         DNS_ANSWER_FOREACH(rr, t->answer) {
 
@@ -2066,7 +2066,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                          * RRs for stuff we didn't really ask for, and
                          * also to avoid request loops, where
                          * additional RRs from one transaction result
-                         * in another transaction whose additonal RRs
+                         * in another transaction whose additional RRs
                          * point back to the original transaction, and
                          * we deadlock. */
                         r = dns_name_endswith(dns_resource_key_name(t->key), rr->rrsig.signer);

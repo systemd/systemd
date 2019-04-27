@@ -239,7 +239,7 @@ static void dns_server_reset_counters(DnsServer *s) {
          *
          * This is particularly important to deal with certain Belkin routers which break OPT for certain lookups (A),
          * but pass traffic through for others (AAAA). If we detect the broken behaviour on one lookup we should not
-         * reenable it for another, because we cannot validate things anyway, given that the RRSIG/OPT data will be
+         * re-enable it for another, because we cannot validate things anyway, given that the RRSIG/OPT data will be
          * incomplete. */
 }
 
@@ -879,7 +879,7 @@ void dns_server_unref_stream(DnsServer *s) {
 
         /* Detaches the default stream of this server. Some special care needs to be taken here, as that stream and
          * this server reference each other. First, take the stream out of the server. It's destructor will check if it
-         * is registered with us, hence let's invalidate this separatly, so that it is already unregistered. */
+         * is registered with us, hence let's invalidate this separately, so that it is already unregistered. */
         ref = TAKE_PTR(s->stream);
 
         /* And then, unref it */

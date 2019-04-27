@@ -44,7 +44,7 @@
 
     <para><function>sd_bus_close()</function> disconnects the specified bus connection. When this call is invoked and
     the specified bus object refers to an active connection it is immediately terminated. No further messages may be
-    sent or receieved on it. Any messages queued in the bus object (both incoming and outgoing) are released. If
+    sent or received on it. Any messages queued in the bus object (both incoming and outgoing) are released. If
     invoked on <constant>NULL</constant> bus object or when the bus connection is already closed this function executes
     no operation. This call does not free or unreference the bus object itself. Use
     <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry> for that.</para>

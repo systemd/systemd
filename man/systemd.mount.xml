@@ -312,7 +312,7 @@
         <listitem><para>The file system will be initialized
         on the device. If the device is not "empty", i.e. it contains any signature,
         the operation will be skipped. It is hence expected that this option
-        remains set even after the device has been initalized.</para>
+        remains set even after the device has been initialized.</para>
 
         <para>Note that this option can only be used in
         <filename>/etc/fstab</filename>, and will be ignored when part of the

@@ -532,7 +532,7 @@ _public_ int sd_bus_get_name_creds(
                                 if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
                                         return r;
 
-                                /* If we got an unknown method error, fall back to the invidual calls... */
+                                /* If we got an unknown method error, fall back to the individual calls... */
                                 need_separate_calls = true;
                                 sd_bus_error_free(&error);
 

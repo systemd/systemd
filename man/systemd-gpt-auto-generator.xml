@@ -234,7 +234,7 @@
         <term><varname>root=</varname></term>
 
         <listitem><para>When used with the special value <literal>gpt-auto</literal>, automatic discovery of
-        the root parition based on the GPT partition type is enabled.  Any other value disables this
+        the root partition based on the GPT partition type is enabled.  Any other value disables this
         generator.</para></listitem>
       </varlistentry>
 

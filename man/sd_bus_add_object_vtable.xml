@@ -277,7 +277,7 @@
           </para>
 
           <para>Equivalent to <constant>SD_BUS_SIGNAL_WITH_NAMES()</constant> with the
-          <replaceable>names</replaceable> paramater unset (i.e. no parameter names).</para>
+          <replaceable>names</replaceable> parameter unset (i.e. no parameter names).</para>
           </listitem>
         </varlistentry>
 
