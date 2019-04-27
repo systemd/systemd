@@ -1971,7 +1971,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
 
 #if HAS_FEATURE_MEMORY_SANITIZER
                 /* msan doesn't instrument stpncpy, so it thinks
-                 * n is later used unitialized:
+                 * n is later used uninitialized:
                  * https://github.com/google/sanitizers/issues/926
                  */
                 zero(n);
@@ -2616,7 +2616,7 @@ int cg_enable_everywhere(
         if (r < 0)
                 return r;
         if (r == 0) {
-                /* On the legacy hiearchy there's no concept of "enabling" controllers in cgroups defined. Let's claim
+                /* On the legacy hierarchy there's no concept of "enabling" controllers in cgroups defined. Let's claim
                  * complete success right away. (If you wonder why we return the full mask here, rather than zero: the
                  * caller tends to use the returned mask later on to compare if all controllers where properly joined,
                  * and if not requeues realization. This use is the primary purpose of the return value, hence let's

@@ -845,7 +845,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 }
         }
 
-        /* Generic fallback using the orginal order in which the cells where added. */
+        /* Generic fallback using the original order in which the cells where added. */
         return CMP(index_a, index_b);
 }
 

@@ -180,7 +180,7 @@ bool member_name_is_valid(const char *p) {
  * Complex pattern match
  * This checks whether @a is a 'complex-prefix' of @b, or @b is a
  * 'complex-prefix' of @a, based on strings that consist of labels with @c as
- * spearator. This function returns true if:
+ * separator. This function returns true if:
  *   - both strings are equal
  *   - either is a prefix of the other and ends with @c
  * The second rule makes sure that either string needs to be fully included in

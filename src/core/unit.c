@@ -807,7 +807,7 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
         assert(other);
         assert(d < _UNIT_DEPENDENCY_MAX);
 
-        /* Fix backwards pointers. Let's iterate through all dependendent units of the other unit. */
+        /* Fix backwards pointers. Let's iterate through all dependent units of the other unit. */
         HASHMAP_FOREACH_KEY(v, back, other->dependencies[d], i) {
                 UnitDependency k;
 
@@ -5144,7 +5144,7 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         p->prefix = u->manager->prefix;
         SET_FLAG(p->flags, EXEC_PASS_LOG_UNIT|EXEC_CHOWN_DIRECTORIES, MANAGER_IS_SYSTEM(u->manager));
 
-        /* Copy paramaters from unit */
+        /* Copy parameters from unit */
         p->cgroup_path = u->cgroup_path;
         SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, unit_cgroup_delegate(u));
 

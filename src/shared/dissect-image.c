@@ -48,7 +48,7 @@
 
 int probe_filesystem(const char *node, char **ret_fstype) {
         /* Try to find device content type and return it in *ret_fstype. If nothing is found,
-         * 0/NULL will be returned. -EUCLEAN will be returned for ambigous results, and an
+         * 0/NULL will be returned. -EUCLEAN will be returned for ambiguous results, and an
          * different error otherwise. */
 
 #if HAVE_BLKID

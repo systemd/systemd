@@ -512,7 +512,7 @@
         <replaceable>description</replaceable>.</literal>, <literal>Reached target
         <replaceable>description</replaceable>.</literal>, <literal>Failed to start
         <replaceable>description</replaceable>.</literal>), so it should be capitalized, and should
-        not be a full sentence or a phrase with a continous verb. Bad examples include
+        not be a full sentence or a phrase with a continuous verb. Bad examples include
         <literal>exiting the container</literal> or <literal>updating the database once per
         day.</literal>.</para>
         </listitem>
@@ -886,7 +886,7 @@
         of powering down the system with similar semantics. <option>exit</option> causes the manager to exit following
         the normal shutdown procedure, and <option>exit-force</option> causes it terminate without shutting down
         services. When <option>exit</option> or <option>exit-force</option> is used by default the exit status of the
-        main process of the unit (if this applies) is returned from the service manager. However, this may be overriden
+        main process of the unit (if this applies) is returned from the service manager. However, this may be overridden
         with <varname>FailureActionExitStatus=</varname>/<varname>SuccessActionExitStatus=</varname>, see
         below.</para></listitem>
       </varlistentry>
@@ -1273,7 +1273,7 @@
         <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>, <literal>!=</literal>,
         <literal>&gt;=</literal>, <literal>&gt;</literal>. Compares the number of CPUs in the CPU affinity mask
         configured of the service manager itself with the specified number, adhering to the specified
-        comparision operator. On physical systems the number of CPUs in the affinity mask of the service
+        comparison operator. On physical systems the number of CPUs in the affinity mask of the service
         manager usually matches the number of physical CPUs, but in special and virtual environments might
         differ. In particular, in containers the affinity mask usually matches the number of CPUs assigned to
         the container and not the physically available ones.</para>

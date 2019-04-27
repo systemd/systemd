@@ -70,7 +70,7 @@
           <listitem><para><parameter>m</parameter> or both <parameter>type</parameter> and
           <parameter>contents</parameter> are <constant>NULL</constant>.</para>
 
-          <para>Arguments do not satisfy other contraints listed above.</para>
+          <para>Arguments do not satisfy other constraints listed above.</para>
           </listitem>
         </varlistentry>
 

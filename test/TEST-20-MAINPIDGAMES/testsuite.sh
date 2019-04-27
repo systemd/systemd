@@ -42,11 +42,11 @@ test `systemctl show -p MainPID --value testsuite.service` -eq $$
 systemd-notify MAINPID=1073741824
 test `systemctl show -p MainPID --value testsuite.service` -eq $$
 
-# Change it again to the external PID, without priviliges this time. This should be ignored, because the PID is from outside of our cgroup and we lack privileges.
+# Change it again to the external PID, without privileges this time. This should be ignored, because the PID is from outside of our cgroup and we lack privileges.
 systemd-notify --uid=1000 MAINPID=$EXTERNALPID
 test `systemctl show -p MainPID --value testsuite.service` -eq $$
 
-# Change it again to the internal PID, without priviliges this time. This should work, as the process is on our cgroup, and that's enough even if we lack privileges.
+# Change it again to the internal PID, without privileges this time. This should work, as the process is on our cgroup, and that's enough even if we lack privileges.
 systemd-notify --uid=1000 MAINPID=$INTERNALPID
 test `systemctl show -p MainPID --value testsuite.service` -eq $INTERNALPID
 

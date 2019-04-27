@@ -1144,7 +1144,7 @@ static void cgroup_context_apply(
                         }
                 }
 
-                /* The bandwith limits are something that make sense to be applied to the host's root but not container
+                /* The bandwidth limits are something that make sense to be applied to the host's root but not container
                  * roots, as there we want the container manager to handle it */
                 if (is_host_root || !is_local_root) {
                         if (has_io) {
@@ -1310,7 +1310,7 @@ static void cgroup_context_apply(
                          * it also counts. But if the user never set a limit through us (i.e. we are the default of
                          * "unbounded") we leave things unmodified. For this we manage a global boolean that we turn on
                          * the first time we set a limit. Note that this boolean is flushed out on manager reload,
-                         * which is desirable so that there's an offical way to release control of the sysctl from
+                         * which is desirable so that there's an official way to release control of the sysctl from
                          * systemd: set the limit to unbounded and reload. */
 
                         if (c->tasks_max != CGROUP_LIMIT_MAX) {

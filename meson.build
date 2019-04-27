@@ -1234,7 +1234,7 @@ if want_remote != 'false'
                      conf.get('HAVE_LIBCURL') == 1]
         # sd-j-remote requires µhttpd, and sd-j-upload requires libcurl, so
         # it's possible to build one without the other. Complain only if
-        # support was explictly requested. The auxiliary files like sysusers
+        # support was explicitly requested. The auxiliary files like sysusers
         # config should be installed when any of the programs are built.
         if want_remote == 'true' and not (have_deps[0] and have_deps[1])
                 error('remote support was requested, but dependencies are not available')

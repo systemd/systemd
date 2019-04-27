@@ -765,7 +765,7 @@ static int submit_coredump(
                 return log_error_errno(r, "Failed to drop privileges: %m");
 
 #if HAVE_ELFUTILS
-        /* Try to get a strack trace if we can */
+        /* Try to get a stack trace if we can */
         if (coredump_size <= arg_process_size_max) {
                 _cleanup_free_ char *stacktrace = NULL;
 

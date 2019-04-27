@@ -611,7 +611,7 @@ static int cd_media_info(int fd) {
         if (!cd_media_cd_rom)
                 cd_media_state = media_status[header[2] & 3];
 
-        /* fresh DVD-RW in restricted overwite mode reports itself as
+        /* fresh DVD-RW in restricted overwrite mode reports itself as
          * "appendable"; change it to "blank" to make it consistent with what
          * gets reported after blanking, and what userspace expects  */
         if (cd_media_dvd_rw_ro && (header[2] & 3) == 1)

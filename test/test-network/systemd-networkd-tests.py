@@ -2049,7 +2049,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '192.168.5.*')
 
-        # Stoping dnsmasq as networkd won't be allowed to renew the DHCP lease.
+        # Stopping dnsmasq as networkd won't be allowed to renew the DHCP lease.
         self.stop_dnsmasq(dnsmasq_pid_file)
 
         # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120

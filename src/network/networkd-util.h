@@ -35,7 +35,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
 extern const struct hash_ops network_config_hash_ops;
 
 static inline bool section_is_invalid(NetworkConfigSection *section) {
-        /* If this retuns false, then it does _not_ mean the section is valid. */
+        /* If this returns false, then it does _not_ mean the section is valid. */
 
         if (!section)
                 return false;

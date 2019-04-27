@@ -163,7 +163,7 @@
       <listitem><para>Otherwise the query is failed as no suitable DNS servers could be determined.</para></listitem>
     </itemizedlist>
 
-    <para>The "DNS default route" option is a boolean setting configureable with <command>resolvectl</command> or in
+    <para>The "DNS default route" option is a boolean setting configurable with <command>resolvectl</command> or in
     <filename>.network</filename> files. If not set, it is implicitly determined based on the configured DNS domains
     for a link: if there's any route-only domain (not matching <literal>~.</literal>) it defaults to false, otherwise
     to true.</para>

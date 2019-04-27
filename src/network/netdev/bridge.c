@@ -8,7 +8,7 @@
 #include "networkd-manager.h"
 #include "vlan-util.h"
 
-/* callback for brige netdev's parameter set */
+/* callback for bridge netdev's parameter set */
 static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
         int r;
 

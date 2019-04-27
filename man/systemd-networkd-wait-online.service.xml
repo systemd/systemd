@@ -55,7 +55,7 @@
         one is necessary to access some network resources. When used, all other interfaces are ignored.
         This option may be used more than once to wait for multiple network interfaces. When this
         option is specified multiple times, then <command>systemd-networkd-wait-online</command> waits
-        for all specified interfaces to be online. Optinally, required minimum operational state can be
+        for all specified interfaces to be online. Optionally, required minimum operational state can be
         specified after a colon <literal>:</literal>. Please see
         <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for possible operational states. If the operational state is not specified here, then

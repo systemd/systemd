@@ -161,7 +161,7 @@ int create_subcgroup(pid_t pid, bool keep_unit, CGroupUnified unified_requested)
          * attributes. Hence, let's insert an intermediary cgroup to cover that case too.
          *
          * Note that we only bother with the main hierarchy here, not with any secondary ones. On the unified setup
-         * that's fine because there's only one hiearchy anyway and controllers are enabled directly on it. On the
+         * that's fine because there's only one hierarchy anyway and controllers are enabled directly on it. On the
          * legacy setup, this is fine too, since delegation of controllers is generally not safe there, hence we won't
          * do it. */
 

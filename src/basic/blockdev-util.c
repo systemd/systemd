@@ -59,7 +59,7 @@ int get_block_device(const char *path, dev_t *dev) {
         assert(path);
         assert(dev);
 
-        /* Get's the block device directly backing a file system. If
+        /* Gets the block device directly backing a file system. If
          * the block device is encrypted, returns the device mapper
          * block device. */
 

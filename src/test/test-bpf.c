@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
 
         p = bpf_program_unref(p);
 
-        /* The simple tests suceeded. Now let's try full unit-based use-case. */
+        /* The simple tests succeeded. Now let's try full unit-based use-case. */
 
         assert_se(manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &m) >= 0);
         assert_se(manager_startup(m, NULL, NULL) >= 0);

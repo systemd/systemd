@@ -99,7 +99,7 @@ static int files_add(
 
                 /* Does this node have the executable bit set? */
                 if (flags & CONF_FILES_EXECUTABLE)
-                        /* As requested: check if the file is marked exectuable. Note that we don't check access(X_OK)
+                        /* As requested: check if the file is marked executable. Note that we don't check access(X_OK)
                          * here, as we care about whether the file is marked executable at all, and not whether it is
                          * executable for us, because if so, such errors are stuff we should log about. */
 

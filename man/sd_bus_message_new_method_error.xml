@@ -116,7 +116,7 @@
     project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     format string <parameter>format</parameter> and corresponding arguments.
     <literal>%m</literal> may be used in the format string to refer to the error
-    string corresponding to the specified errno code. The error message is initalized
+    string corresponding to the specified errno code. The error message is initialized
     using the error identifier generated from <constant>error</constant> and the
     formatted string. (If <parameter>error</parameter> is zero, no error is actually
     set, and an error reply with no information is created.)</para>

@@ -279,7 +279,7 @@ KERNEL=="ttyACM0", SYMLINK+="modem"
 EOF
         },
         {
-                desc            => "sustitution of sysfs value (%s{file})",
+                desc            => "substitution of sysfs value (%s{file})",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => "disk-ATA-sda",
                 rules           => <<EOF

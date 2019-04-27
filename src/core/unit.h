@@ -51,7 +51,7 @@ static inline bool UNIT_IS_INACTIVE_OR_FAILED(UnitActiveState t) {
  * use this so that we can selectively flush out parts of dependencies again. Note that the same dependency might be
  * created as a result of multiple "reasons", hence the bitmask. */
 typedef enum UnitDependencyMask {
-        /* Configured directly by the unit file, .wants/.requries symlink or drop-in, or as an immediate result of a
+        /* Configured directly by the unit file, .wants/.requires symlink or drop-in, or as an immediate result of a
          * non-dependency option configured that way.  */
         UNIT_DEPENDENCY_FILE               = 1 << 0,
 
@@ -260,7 +260,7 @@ typedef struct Unit {
         char *cgroup_path;
         CGroupMask cgroup_realized_mask;           /* In which hierarchies does this unit's cgroup exist? (only relevant on cgroup v1) */
         CGroupMask cgroup_enabled_mask;            /* Which controllers are enabled (or more correctly: enabled for the children) for this unit's cgroup? (only relevant on cgroup v2) */
-        CGroupMask cgroup_invalidated_mask;        /* A mask specifiying controllers which shall be considered invalidated, and require re-realization */
+        CGroupMask cgroup_invalidated_mask;        /* A mask specifying controllers which shall be considered invalidated, and require re-realization */
         CGroupMask cgroup_members_mask;            /* A cache for the controllers required by all children of this cgroup (only relevant for slice units) */
 
         /* Inotify watch descriptors for watching cgroup.events and memory.events on cgroupv2 */

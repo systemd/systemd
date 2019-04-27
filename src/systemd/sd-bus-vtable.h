@@ -54,11 +54,11 @@ enum {
 
 extern const unsigned sd_bus_object_vtable_format;
 
-/* Note: unused areas in the sd_bus_vtable[] array must be initalized to 0. The stucture contains an embedded
- * union, and the compiler is NOT required to initalize the unused areas of the union when the rest of the
- * structure is initalized. Normally the array is defined as read-only data, in which case the linker places
- * it in the BSS section, which is always fully initalized, so this is not a concern. But if the array is
- * created on the stack or on the heap, care must be taken to initalize the unused areas, for examply by
+/* Note: unused areas in the sd_bus_vtable[] array must be initialized to 0. The structure contains an embedded
+ * union, and the compiler is NOT required to initialize the unused areas of the union when the rest of the
+ * structure is initialized. Normally the array is defined as read-only data, in which case the linker places
+ * it in the BSS section, which is always fully initialized, so this is not a concern. But if the array is
+ * created on the stack or on the heap, care must be taken to initialize the unused areas, for examply by
  * first memsetting the whole region to zero before filling the data in. */
 
 struct sd_bus_vtable {

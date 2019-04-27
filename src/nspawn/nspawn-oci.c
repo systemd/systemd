@@ -58,6 +58,7 @@
  * /bin/mount regarding NFS and FUSE required?
  * what does terminal=false mean?
  * sysctl inside or outside? whitelisting?
+ * swapiness typo -> swappiness
  *
  * Unsupported:
  *

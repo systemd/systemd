@@ -452,7 +452,7 @@ int dns_scope_socket_udp(DnsScope *s, DnsServer *server, uint16_t port) {
 }
 
 int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, DnsServer *server, uint16_t port, union sockaddr_union *ret_socket_address) {
-        /* If ret_socket_address is not NULL, the caller is responisble
+        /* If ret_socket_address is not NULL, the caller is responsible
          * for calling connect() or sendmsg(). This is required by TCP
          * Fast Open, to be able to send the initial SYN packet along
          * with the first data packet. */

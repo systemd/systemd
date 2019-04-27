@@ -15,7 +15,7 @@ int path_is_os_tree(const char *path) {
         assert(path);
 
         /* Does the path exist at all? If not, generate an error immediately. This is useful so that a missing root dir
-         * always results in -ENOENT, and we can properly distuingish the case where the whole root doesn't exist from
+         * always results in -ENOENT, and we can properly distinguish the case where the whole root doesn't exist from
          * the case where just the os-release file is missing. */
         if (laccess(path, F_OK) < 0)
                 return -errno;

@@ -445,7 +445,7 @@ void server_process_audit_message(
         if (IN_SET(nl->nlmsg_type, NLMSG_NOOP, NLMSG_ERROR))
                 return;
 
-        /* Except AUDIT_USER, all messsages below AUDIT_FIRST_USER_MSG are control messages, let's ignore those */
+        /* Except AUDIT_USER, all messages below AUDIT_FIRST_USER_MSG are control messages, let's ignore those */
         if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG && nl->nlmsg_type != AUDIT_USER)
                 return;
 

@@ -717,7 +717,7 @@ static void test_read_line_one_file(FILE *f) {
         line = mfree(line);
 
         /* read_line() stopped when it hit the limit, that means when we continue reading we'll read at the first
-         * character after the previous limit. Let's make use of tha to continue our test. */
+         * character after the previous limit. Let's make use of that to continue our test. */
         assert_se(read_line(f, 1024, &line) == 62 && streq(line, "line that is supposed to be truncated, because it is so long"));
         line = mfree(line);
 

@@ -182,7 +182,7 @@ REQUIREMENTS:
         To build in directory build/:
           meson build/ && ninja -C build
 
-        Any configuration options can be specfied as -Darg=value... arguments
+        Any configuration options can be specified as -Darg=value... arguments
         to meson. After the build directory is initially configured, meson will
         refuse to run again, and options must be changed with:
           mesonconf -Darg=value...

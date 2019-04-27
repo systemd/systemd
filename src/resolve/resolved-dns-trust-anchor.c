@@ -222,7 +222,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
 
         r = dns_name_is_valid(domain);
         if (r < 0)
-                return log_warning_errno(r, "Failed to chack validity of domain name '%s', at line %s:%u, ignoring line: %m", domain, path, line);
+                return log_warning_errno(r, "Failed to check validity of domain name '%s', at line %s:%u, ignoring line: %m", domain, path, line);
         if (r == 0) {
                 log_warning("Domain name %s is invalid, at line %s:%u, ignoring line.", domain, path, line);
                 return -EINVAL;
@@ -392,7 +392,7 @@ static int dns_trust_anchor_load_negative(DnsTrustAnchor *d, const char *path, u
 
         r = dns_name_is_valid(domain);
         if (r < 0)
-                return log_warning_errno(r, "Failed to chack validity of domain name '%s', at line %s:%u, ignoring line: %m", domain, path, line);
+                return log_warning_errno(r, "Failed to check validity of domain name '%s', at line %s:%u, ignoring line: %m", domain, path, line);
         if (r == 0) {
                 log_warning("Domain name %s is invalid, at line %s:%u, ignoring line.", domain, path, line);
                 return -EINVAL;

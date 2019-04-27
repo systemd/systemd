@@ -111,7 +111,7 @@ static bool is_root_cgroup(const char *path) {
          *
          * There's one extra complication in all of this, though 😣: if the path to the cgroup indicates we are in the
          * root cgroup this might actually not be the case, because cgroup namespacing might be in effect
-         * (CLONE_NEWCGROUP). Since there's no nice way to distuingish a real cgroup root from a fake namespaced one we
+         * (CLONE_NEWCGROUP). Since there's no nice way to distinguish a real cgroup root from a fake namespaced one we
          * do an explicit container check here, under the assumption that CLONE_NEWCGROUP is generally used when
          * container managers are used too.
          *

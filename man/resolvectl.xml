@@ -255,7 +255,7 @@
           through external means. The <option>dns</option> command expects IPv4 or IPv6 address specifications of DNS
           servers to use. The <option>domain</option> command expects valid DNS domains, possibly prefixed with
           <literal>~</literal>, and configures a per-interface search or route-only domain. The
-          <option>default-route</option> command expects a boolean paremeter, and configures whether the link may be
+          <option>default-route</option> command expects a boolean parameter, and configures whether the link may be
           used as default route for DNS lookups, i.e. if it is suitable for lookups on domains no other link explicitly
           is configured for. The <option>llmnr</option>, <option>mdns</option>, <option>dnssec</option> and
           <option>dnsovertls</option> commands may be used to configure the per-interface LLMNR, MulticastDNS, DNSSEC

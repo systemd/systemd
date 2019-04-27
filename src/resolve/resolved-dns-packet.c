@@ -1949,7 +1949,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
         case DNS_TYPE_NSEC: {
 
                 /*
-                 * RFC6762, section 18.14 explictly states mDNS should use name compression.
+                 * RFC6762, section 18.14 explicitly states mDNS should use name compression.
                  * This contradicts RFC3845, section 2.1.1
                  */
 

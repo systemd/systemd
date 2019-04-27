@@ -55,7 +55,7 @@ int parse_uid(const char *s, uid_t *ret) {
 
         if (!uid_is_valid(uid))
                 return -ENXIO; /* we return ENXIO instead of EINVAL
-                                * here, to make it easy to distuingish
+                                * here, to make it easy to distinguish
                                 * invalid numeric uids from invalid
                                 * strings. */
 

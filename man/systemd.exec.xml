@@ -1304,7 +1304,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability
         (e.g. setting <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. By default,
         no restrictions apply, all address families are accessible to processes. If assigned the empty string, any
-        previous address familiy restriction changes are undone. This setting does not affect commands prefixed with
+        previous address family restriction changes are undone. This setting does not affect commands prefixed with
         <literal>+</literal>.</para>
 
         <para>Use this option to limit exposure of processes to remote access, in particular via exotic and sensitive
@@ -1928,7 +1928,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         <para>Note that services which specify <option>DefaultDependencies=no</option> and use
         <varname>StandardInput=</varname> or <varname>StandardOutput=</varname> with
         <option>tty</option>/<option>tty-force</option>/<option>tty-fail</option>, should specify
-        <option>After=systemd-vconsole-setup.service</option>, to make sure that the tty intialization is
+        <option>After=systemd-vconsole-setup.service</option>, to make sure that the tty initialization is
         finished before they start.</para></listitem>
       </varlistentry>
 

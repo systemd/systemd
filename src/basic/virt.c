@@ -234,7 +234,7 @@ static int detect_vm_xen_dom0(void) {
                 if (streq(cap, "control_d"))
                         break;
         if (!cap) {
-                log_debug("Virtualization XEN DomU found (/proc/xen/capabilites)");
+                log_debug("Virtualization XEN DomU found (/proc/xen/capabilities)");
                 return 0;
         }
 

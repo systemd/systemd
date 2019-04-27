@@ -888,7 +888,7 @@ static int find_symlinks_in_scope(
 
         /* As we iterate over the list of search paths in paths->search_path, we may encounter "same name"
          * symlinks. The ones which are "below" (i.e. have lower priority) than the unit file itself are
-         * efectively masked, so we should ignore them. */
+         * effectively masked, so we should ignore them. */
 
         STRV_FOREACH(p, paths->search_path)  {
                 bool same_name_link = false;
@@ -2946,7 +2946,7 @@ static int pattern_match_multiple_instances(
         int r;
 
         /* If no ret is needed or the rule itself does not have instances
-         * initalized, we return not matching */
+         * initialized, we return not matching */
         if (!ret || !rule.instances)
                 return 0;
 

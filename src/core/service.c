@@ -737,7 +737,7 @@ static int service_add_extras(Service *s) {
 
         /* If no OOM policy was explicitly set, then default to the configure default OOM policy. Except when
          * delegation is on, in that case it we assume the payload knows better what to do and can process
-         * things in a more focussed way. */
+         * things in a more focused way. */
         if (s->oom_policy < 0)
                 s->oom_policy = s->cgroup_context.delegate ? OOM_CONTINUE : UNIT(s)->manager->default_oom_policy;
 
@@ -1752,7 +1752,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                  * user can still introspect the counter. Do so on the next start. */
                 s->flush_n_restarts = true;
 
-        /* The new state is in effect, let's decrease the fd store ref counter again. Let's also readd us to the GC
+        /* The new state is in effect, let's decrease the fd store ref counter again. Let's also re-add us to the GC
          * queue, so that the fd store is possibly gc'ed again */
         s->n_keep_fd_store--;
         unit_add_to_gc_queue(UNIT(s));
@@ -2095,7 +2095,7 @@ static void service_enter_start(Service *s) {
 
                 /* We force a fake state transition here. Otherwise, the unit would go directly from
                  * SERVICE_DEAD to SERVICE_DEAD without SERVICE_ACTIVATING or SERVICE_ACTIVE
-                 * inbetween. This way we can later trigger actions that depend on the state
+                 * in between. This way we can later trigger actions that depend on the state
                  * transition, including SuccessAction=. */
                 service_set_state(s, SERVICE_START);
 
@@ -3788,7 +3788,7 @@ static void service_notify_message(
 
                         r = service_is_suitable_main_pid(s, new_main_pid, LOG_WARNING);
                         if (r == 0) {
-                                /* The new main PID is a bit suspicous, which is OK if the sender is privileged. */
+                                /* The new main PID is a bit suspicious, which is OK if the sender is privileged. */
 
                                 if (ucred->uid == 0) {
                                         log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, but we'll accept it as the request to change it came from a privileged process.", new_main_pid);

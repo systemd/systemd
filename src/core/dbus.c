@@ -1257,7 +1257,7 @@ uint64_t manager_bus_n_queued_write(Manager *m) {
         sd_bus *b;
         int r;
 
-        /* Returns the total number of messages queued for writing on all our direct and API busses. */
+        /* Returns the total number of messages queued for writing on all our direct and API buses. */
 
         SET_FOREACH(b, m->private_buses, i) {
                 uint64_t k;

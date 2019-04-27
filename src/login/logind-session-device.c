@@ -156,7 +156,7 @@ static int session_device_open(SessionDevice *sd, bool active) {
 
         case DEVICE_TYPE_UNKNOWN:
         default:
-                /* fallback for devices wihout synchronizations */
+                /* fallback for devices without synchronizations */
                 break;
         }
 

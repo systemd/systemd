@@ -3842,7 +3842,7 @@ int link_update(Link *link, sd_netlink_message *m) {
         assert(m);
 
         if (link->state == LINK_STATE_LINGER) {
-                log_link_info(link, "Link readded");
+                log_link_info(link, "Link re-added");
                 link_set_state(link, LINK_STATE_CONFIGURING);
 
                 r = link_new_carrier_maps(link);

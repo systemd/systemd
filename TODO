@@ -163,7 +163,7 @@ Features:
   selected user is resolvable in the service even if it ships its own /etc/passwd)
 
 * Fix DECIMAL_STR_MAX or DECIMAL_STR_WIDTH. One includes a trailing NUL, the
-  other doesn't. What a desaster. Probably to exclude it. Also
+  other doesn't. What a disaster. Probably to exclude it. Also
   DECIMAL_STR_WIDTH should probably add an extra "-" into account for negative
   numbers.
 
@@ -192,7 +192,7 @@ Features:
   specific paths only like this.
 
 * add CopyFile= or so as unit file setting that may be used to copy files or
-  directory trees from the host to te services RootImage= and RootDirectory=
+  directory trees from the host to the services RootImage= and RootDirectory=
   environment. Which we can use for /etc/machine-id and in particular
   /etc/resolv.conf. Should be smart and do something useful on read-only
   images, for example fallback to read-only bind mounting the file instead.
@@ -452,7 +452,7 @@ Features:
 * PID 1 should send out sd_notify("WATCHDOG=1") messages (for usage in the --user mode, and when run via nspawn)
 
 * there's probably something wrong with having user mounts below /sys,
-  as we have for debugfs. for exmaple, src/core/mount.c handles mounts
+  as we have for debugfs. for example, src/core/mount.c handles mounts
   prefixed with /sys generally special.
   http://lists.freedesktop.org/archives/systemd-devel/2015-June/032962.html
 
@@ -514,7 +514,7 @@ Features:
 
 * systemctl: if some operation fails, show log output?
 
-* systemctl edit: use equvalent of cat() to insert existing config as a comment, prepended with #.
+* systemctl edit: use equivalent of cat() to insert existing config as a comment, prepended with #.
   Upon editor exit, lines with one # are removed, lines with two # are left with one #, etc.
 
 * exponential backoff in timesyncd when we cannot reach a server
@@ -726,7 +726,7 @@ Features:
   - sd-journal: speed up sd_journal_get_data() with transparent hash table in bg
   - journald: when dropping msgs due to ratelimit make sure to write
     "dropped %u messages" not only when we are about to print the next
-    message that works, but alraedy after a short tiemout
+    message that works, but already after a short timeout
   - check if we can make journalctl by default use --follow mode inside of less if called without args?
   - maybe add API to send pairs of iovecs via sd_journal_send
   - journal: add a setgid "systemd-journal" utility to invoke from libsystemd-journal, which passes fds via STDOUT and does PK access

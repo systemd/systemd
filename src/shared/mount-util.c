@@ -516,7 +516,7 @@ int mount_option_mangle(
          * See more examples in test-mount-utils.c.
          *
          * Note that if 'options' does not contain any non-mount-flag options,
-         * then '*ret_remaining_options' is set to NULL instread of empty string.
+         * then '*ret_remaining_options' is set to NULL instead of empty string.
          * Note that this does not check validity of options stored in
          * '*ret_remaining_options'.
          * Note that if 'options' is NULL, then this just copies 'mount_flags'

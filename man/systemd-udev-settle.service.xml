@@ -33,7 +33,7 @@
 
   <para><emphasis>Using this service is not recommended.</emphasis> There can be no guarantee that hardware
   is fully discovered at any specific time, because the kernel does hardware detection asynchronously, and
-  certain busses and devices take a very long time to become ready, and also additional hardware may be
+  certain buses and devices take a very long time to become ready, and also additional hardware may be
   plugged in at any time. Instead, services should subscribe to udev events and react to any new hardware as
   it is discovered. Services that, based on configuration, expect certain devices to appear, may warn or
   report failure after a timeout. This timeout should be tailored to the hardware type. Waiting for

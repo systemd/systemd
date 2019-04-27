@@ -219,7 +219,7 @@ static void sync_with_progress(void) {
 
         BLOCK_SIGNALS(SIGCHLD);
 
-        /* Due to the possiblity of the sync operation hanging, we fork a child process and monitor the progress. If
+        /* Due to the possibility of the sync operation hanging, we fork a child process and monitor the progress. If
          * the timeout lapses, the assumption is that that particular sync stalled. */
 
         r = asynchronous_sync(&pid);

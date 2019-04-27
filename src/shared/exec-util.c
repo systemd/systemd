@@ -105,7 +105,7 @@ static int do_execute(
                         return log_oom();
         }
 
-        /* Abort execution of this process after the timout. We simply rely on SIGALRM as
+        /* Abort execution of this process after the timeout. We simply rely on SIGALRM as
          * default action terminating the process, and turn on alarm(). */
 
         if (timeout != USEC_INFINITY)

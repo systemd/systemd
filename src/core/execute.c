@@ -2202,7 +2202,7 @@ static int setup_exec_directory(
                 }
 
                 /* Lock down the access mode (we use chmod_and_chown() to make this idempotent. We don't
-                 * specifiy UID/GID here, so that path_chown_recursive() can optimize things depending on the
+                 * specify UID/GID here, so that path_chown_recursive() can optimize things depending on the
                  * current UID/GID ownership.) */
                 r = chmod_and_chown(pp ?: p, context->directories[type].mode, UID_INVALID, GID_INVALID);
                 if (r < 0)
@@ -2487,7 +2487,7 @@ static int apply_mount_namespace(
         bind_mount_free_many(bind_mounts, n_bind_mounts);
 
         /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports
-         * that with a special, recognizable error ENOANO. In this case, silently proceeed, but only if exclusively
+         * that with a special, recognizable error ENOANO. In this case, silently proceed, but only if exclusively
          * sandboxing options were used, i.e. nothing such as RootDirectory= or BindMount= that would result in a
          * completely different execution environment. */
         if (r == -ENOANO) {

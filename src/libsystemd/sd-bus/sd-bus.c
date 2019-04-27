@@ -465,9 +465,9 @@ static int synthesize_connected_signal(sd_bus *bus) {
 
         /* If enabled, synthesizes a local "Connected" signal mirroring the local "Disconnected" signal. This is called
          * whenever we fully established a connection, i.e. after the authorization phase, and after receiving the
-         * Hello() reply. Or in other words, whenver we enter BUS_RUNNING state.
+         * Hello() reply. Or in other words, whenever we enter BUS_RUNNING state.
          *
-         * This is useful so that clients can start doing stuff whenver the connection is fully established in a way
+         * This is useful so that clients can start doing stuff whenever the connection is fully established in a way
          * that works independently from whether we connected to a full bus or just a direct connection. */
 
         if (!bus->connected_signal)
@@ -1204,7 +1204,7 @@ _public_ int sd_bus_open_with_description(sd_bus **ret, const char *description)
         assert_return(ret, -EINVAL);
 
         /* Let's connect to the starter bus if it is set, and
-         * otherwise to the bus that is appropropriate for the scope
+         * otherwise to the bus that is appropriate for the scope
          * we are running in */
 
         e = secure_getenv("DBUS_STARTER_BUS_TYPE");
@@ -3869,7 +3869,7 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
          *     For each matched label, the *decoded* label is stored in the
          *     passed output argument, and the caller is responsible to free
          *     it. Note that the output arguments are only modified if the
-         *     actualy path matched the template. Otherwise, they're left
+         *     actually path matched the template. Otherwise, they're left
          *     untouched.
          *
          * This function returns <0 on error, 0 if the path does not match the

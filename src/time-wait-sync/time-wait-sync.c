@@ -241,7 +241,7 @@ static int run(int argc, char * argv[]) {
         }
 
         if (state.has_watchfile)
-                log_debug("Exit enabled by: /run/systemd/timesync/synchonized");
+                log_debug("Exit enabled by: /run/systemd/timesync/synchronized");
 
         if (state.adjtime_state == TIME_ERROR)
                 log_info("Exit without adjtimex synchronized.");

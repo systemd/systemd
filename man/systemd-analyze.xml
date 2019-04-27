@@ -337,7 +337,7 @@ $ eog targets.svg</programlisting>
       </example>
 
       <para>Note that this verb prints the list that is compiled into <command>systemd-analyze</command>
-      itself, and does not comunicate with the running manager. Use
+      itself, and does not communicate with the running manager. Use
       <programlisting>systemctl [--user] [--global] show -p UnitPath --value</programlisting>
       to retrieve the actual list that the manager uses, with any empty directories omitted.</para>
     </refsect2>

@@ -33,7 +33,7 @@
 
 /* Both the old and new names are defines, check for the new one. */
 
-/* Compatiblity with libmicrohttpd < 0.9.38 */
+/* Compatibility with libmicrohttpd < 0.9.38 */
 #ifndef MHD_HTTP_NOT_ACCEPTABLE
 #  define MHD_HTTP_NOT_ACCEPTABLE MHD_HTTP_METHOD_NOT_ACCEPTABLE
 #endif
