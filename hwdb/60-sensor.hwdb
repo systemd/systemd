@@ -57,6 +57,12 @@
 # automatically flip their output for an upside-down display when the device
 # is held upright.
 #
+#    ACCEL_LOCATION=<location>
+#
+# where <location> is the location of the sensor. This value could be 'base'
+# or 'display'. The default, when unset, is equivalent to:
+#    ACCEL_LOCATION=display
+#
 # Sort by brand, model
 
 #########################################
