@@ -668,7 +668,7 @@ static bool elect_display_filter(Session *s) {
 
 static int elect_display_compare(Session *s1, Session *s2) {
         /* Indexed by SessionType. Lower numbers mean more preferred. */
-        const int type_ranks[_SESSION_TYPE_MAX] = {
+        static const int type_ranks[_SESSION_TYPE_MAX] = {
                 [SESSION_UNSPECIFIED] = 0,
                 [SESSION_TTY] = -2,
                 [SESSION_X11] = -3,
