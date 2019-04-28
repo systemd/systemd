@@ -7,6 +7,7 @@ typedef enum KillWho KillWho;
 #include "list.h"
 #include "login-util.h"
 #include "logind-user.h"
+#include "string-util.h"
 
 typedef enum SessionState {
         SESSION_OPENING,  /* Session scope is being created */
@@ -183,3 +184,11 @@ int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_
 int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error);
+
+static inline bool SESSION_IS_SELF(const char *name) {
+        return isempty(name) || streq(name, "self");
+}
+
+static inline bool SESSION_IS_AUTO(const char *name) {
+        return streq_ptr(name, "auto");
+}

@@ -77,3 +77,11 @@ int seat_send_signal(Seat *s, bool new_seat);
 int seat_send_changed(Seat *s, const char *properties, ...) _sentinel_;
 
 int bus_seat_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error);
+
+static inline bool SEAT_IS_SELF(const char *name) {
+        return isempty(name) || streq(name, "self");
+}
+
+static inline bool SEAT_IS_AUTO(const char *name) {
+        return streq_ptr(name, "auto");
+}
