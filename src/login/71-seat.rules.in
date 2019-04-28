@@ -14,6 +14,10 @@ SUBSYSTEM=="sound", KERNEL=="card*", TAG+="seat"
 SUBSYSTEM=="input", KERNEL=="input*", TAG+="seat"
 SUBSYSTEM=="graphics", KERNEL=="fb[0-9]*", TAG+="seat"
 
+# Assign keyboard and LCD backlights to the seat
+SUBSYSTEM=="leds", TAG+="seat"
+SUBSYSTEM=="backlight", TAG+="seat"
+
 # HyperV currently doesn't do DRM, hence we need to synthesize for HyperV's fb device instead
 SUBSYSTEM=="graphics", KERNEL=="fb[0-9]", DRIVERS=="hyperv_fb", TAG+="master-of-seat"
 
