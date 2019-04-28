@@ -663,7 +663,7 @@ static bool elect_display_filter(Session *s) {
         /* Return true if the session is a candidate for the user’s ‘primary session’ or ‘display’. */
         assert(s);
 
-        return s->class == SESSION_USER && s->started && !s->stopping;
+        return IN_SET(s->class, SESSION_USER, SESSION_GREETER) && s->started && !s->stopping;
 }
 
 static int elect_display_compare(Session *s1, Session *s2) {
