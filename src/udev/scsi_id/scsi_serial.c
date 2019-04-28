@@ -524,7 +524,7 @@ static int check_fill_0x83_id(struct scsi_id_device *dev_scsi,
 
         if (id_search->id_type == SCSI_ID_NAA && wwn != NULL) {
                 strncpy(wwn, &serial[s], 16);
-                if (wwn_vendor_extension != NULL)
+                if (wwn_vendor_extension)
                         strncpy(wwn_vendor_extension, &serial[s + 16], 16);
         }
 
@@ -729,7 +729,7 @@ static int do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
          * specific type where we prepend '0' + vendor + model.
          */
         len = buf[3];
-        if (serial != NULL) {
+        if (serial) {
                 serial[0] = 'S';
                 ser_ind = prepend_vendor_model(dev_scsi, &serial[1]);
                 if (ser_ind < 0)
@@ -738,7 +738,7 @@ static int do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
                 for (i = 4; i < len + 4; i++, ser_ind++)
                         serial[ser_ind] = buf[i];
         }
-        if (serial_short != NULL) {
+        if (serial_short) {
                 memcpy(serial_short, &buf[4], len);
                 serial_short[len] = '\0';
         }

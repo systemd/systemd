@@ -2397,7 +2397,7 @@ static int specifier_expansion_from_arg(Item *i) {
 
         assert(i);
 
-        if (i->argument == NULL)
+        if (!i->argument)
                 return 0;
 
         switch (i->type) {

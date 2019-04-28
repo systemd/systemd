@@ -158,7 +158,7 @@ static int enumerate_print_list(struct udev_enumerate *enumerate) {
 
                 device = udev_device_new_from_syspath(udev_enumerate_get_udev(enumerate),
                                                       udev_list_entry_get_name(list_entry));
-                if (device != NULL) {
+                if (device) {
                         log_info("device: '%s' (%s)",
                                  udev_device_get_syspath(device),
                                  udev_device_get_subsystem(device));
@@ -249,7 +249,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate '%s'", subsystem == NULL ? "<all>" : subsystem);
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_add_match_subsystem(udev_enumerate, subsystem);
         udev_enumerate_scan_devices(udev_enumerate);
@@ -258,7 +258,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate 'net' + duplicated scan + null + zero");
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_add_match_subsystem(udev_enumerate, "net");
         udev_enumerate_scan_devices(udev_enumerate);
@@ -278,7 +278,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate 'block'");
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_add_match_subsystem(udev_enumerate,"block");
         r = udev_enumerate_add_match_is_initialized(udev_enumerate);
@@ -292,7 +292,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate 'not block'");
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_add_nomatch_subsystem(udev_enumerate, "block");
         udev_enumerate_scan_devices(udev_enumerate);
@@ -301,7 +301,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate 'pci, mem, vc'");
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_add_match_subsystem(udev_enumerate, "pci");
         udev_enumerate_add_match_subsystem(udev_enumerate, "mem");
@@ -312,7 +312,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate 'subsystem'");
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_scan_subsystems(udev_enumerate);
         enumerate_print_list(udev_enumerate);
@@ -320,7 +320,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate 'property IF_FS_*=filesystem'");
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_add_match_property(udev_enumerate, "ID_FS*", "filesystem");
         udev_enumerate_scan_devices(udev_enumerate);

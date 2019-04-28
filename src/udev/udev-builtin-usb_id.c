@@ -196,7 +196,7 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
                              desc->bInterfaceProtocol) != 7)
                         continue;
 
-                if (strstr(ifs_str, if_str) != NULL)
+                if (strstr(ifs_str, if_str))
                         continue;
 
                 memcpy(&ifs_str[strpos], if_str, 8),

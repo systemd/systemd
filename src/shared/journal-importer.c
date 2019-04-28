@@ -94,7 +94,7 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
 
                         c = memchr(imp->buf + start, '\n',
                                    imp->filled - start);
-                        if (c != NULL)
+                        if (c)
                                 break;
                 }
 

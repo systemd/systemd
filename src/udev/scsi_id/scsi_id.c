@@ -157,7 +157,7 @@ static int get_file_options(const char *vendor, const char *model,
         int retval = 0;
 
         f = fopen(config_file, "re");
-        if (f == NULL) {
+        if (!f) {
                 if (errno == ENOENT)
                         return 1;
                 else {
@@ -181,7 +181,7 @@ static int get_file_options(const char *vendor, const char *model,
                 vendor_in = model_in = options_in = NULL;
 
                 buf = fgets(buffer, MAX_BUFFER_LEN, f);
-                if (buf == NULL)
+                if (!buf)
                         break;
                 lineno++;
                 if (buf[strlen(buffer) - 1] != '\n') {
@@ -239,7 +239,7 @@ static int get_file_options(const char *vendor, const char *model,
                         break;
                 }
                 if (vendor == NULL) {
-                        if (vendor_in == NULL)
+                        if (!vendor_in)
                                 break;
                 } else if (vendor_in &&
                            startswith(vendor, vendor_in) &&

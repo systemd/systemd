@@ -95,7 +95,7 @@ static bool is_mounted(const char *device) {
                 return false;
 
         fp = fopen("/proc/self/mountinfo", "re");
-        if (fp == NULL)
+        if (!fp)
                 return false;
         while (fscanf(fp, "%*s %*s %i:%i %*[^\n]", &maj, &min) == 2) {
                 if (makedev(maj, min) == statbuf.st_rdev) {
@@ -1026,7 +1026,7 @@ work:
         if (cd_media_hddvd_rw)
                 printf("ID_CDROM_MEDIA_HDDVD_RW=1\n");
 
-        if (cd_media_state != NULL)
+        if (cd_media_state)
                 printf("ID_CDROM_MEDIA_STATE=%s\n", cd_media_state);
         if (cd_media_session_next > 0)
                 printf("ID_CDROM_MEDIA_SESSION_NEXT=%u\n", cd_media_session_next);
