@@ -31,6 +31,7 @@ struct Manager {
         Hashmap *users;
         Hashmap *inhibitors;
         Hashmap *buttons;
+        Hashmap *brightness_writers;
 
         LIST_HEAD(Seat, seat_gc_queue);
         LIST_HEAD(Session, session_gc_queue);

@@ -12,29 +12,31 @@ logind_gperf_c = custom_target(
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 liblogind_core_sources = files('''
-        logind-core.c
-        logind-device.c
-        logind-device.h
-        logind-button.c
-        logind-button.h
+        logind-acl.h
         logind-action.c
         logind-action.h
-        logind-seat.c
-        logind-seat.h
-        logind-session.c
-        logind-session.h
-        logind-session-device.c
-        logind-session-device.h
-        logind-user.c
-        logind-user.h
+        logind-brightness.c
+        logind-brightness.h
+        logind-button.c
+        logind-button.h
+        logind-core.c
+        logind-dbus.c
+        logind-device.c
+        logind-device.h
         logind-inhibit.c
         logind-inhibit.h
-        logind-dbus.c
-        logind-session-dbus.c
         logind-seat-dbus.c
+        logind-seat.c
+        logind-seat.h
+        logind-session-dbus.c
+        logind-session-device.c
+        logind-session-device.h
+        logind-session.c
+        logind-session.h
         logind-user-dbus.c
+        logind-user.c
+        logind-user.h
         logind-utmp.c
-        logind-acl.h
 '''.split())
 
 liblogind_core_sources += [logind_gperf_c]

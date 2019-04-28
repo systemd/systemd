@@ -179,3 +179,5 @@ static inline int bus_open_system_watch_bind(sd_bus **ret) {
 }
 
 int bus_reply_pair_array(sd_bus_message *m, char **l);
+
+extern const struct hash_ops bus_message_hash_ops;

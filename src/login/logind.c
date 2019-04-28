@@ -117,6 +117,7 @@ static Manager* manager_unref(Manager *m) {
         hashmap_free(m->users);
         hashmap_free(m->inhibitors);
         hashmap_free(m->buttons);
+        hashmap_free(m->brightness_writers);
 
         hashmap_free(m->user_units);
         hashmap_free(m->session_units);
@@ -1214,7 +1215,7 @@ static int run(int argc, char *argv[]) {
         (void) mkdir_label("/run/systemd/users", 0755);
         (void) mkdir_label("/run/systemd/sessions", 0755);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, SIGCHLD, -1) >= 0);
 
         r = manager_new(&m);
         if (r < 0)

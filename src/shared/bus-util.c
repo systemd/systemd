@@ -1767,3 +1767,13 @@ int bus_reply_pair_array(sd_bus_message *m, char **l) {
 
         return sd_bus_send(NULL, reply, NULL);
 }
+
+static void bus_message_unref_wrapper(void *m) {
+        sd_bus_message_unref(m);
+}
+
+const struct hash_ops bus_message_hash_ops = {
+        .hash = trivial_hash_func,
+        .compare = trivial_compare_func,
+        .free_value = bus_message_unref_wrapper,
+};
