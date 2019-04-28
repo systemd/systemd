@@ -974,6 +974,17 @@ evdev:input:b0005v046DpB305*
  KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
  KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
 
+# MX5500 keyboard (HID proxy mode and bluetooth matches)
+evdev:input:b0003v046DpB30B*
+evdev:input:b0005v046DpB30B*
+ KEYBOARD_KEY_c0183=media	# HUT says consumer control configuration, kbd says Media Center
+ KEYBOARD_KEY_c100e=images      # Camera icon, "Photo Gallery"
+ KEYBOARD_KEY_c100f=config      # Window with gear icon
+ KEYBOARD_KEY_c1038=prog1	# Smartkey A → XF86Launch1
+ KEYBOARD_KEY_c1039=prog2	# Smartkey B → XF86Launch2
+ KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
+ KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
+
 # iTouch
 evdev:input:b0003v046DpC308*
  KEYBOARD_KEY_90001=shop                                # Shopping
