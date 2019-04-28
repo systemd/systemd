@@ -1854,7 +1854,6 @@ static int link_acquire_ipv4_conf(Link *link) {
         int r;
 
         assert(link);
-        assert(link->network);
         assert(link->manager);
         assert(link->manager->event);
 
