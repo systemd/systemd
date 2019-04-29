@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <malloc.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -65,7 +64,7 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
                 return NULL;
 
         *p = q;
-        *allocated = _unlikely_(size == 0) ? newalloc : malloc_usable_size(q) / size;
+        *allocated = newalloc;
         return q;
 }
 
