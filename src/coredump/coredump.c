@@ -1036,10 +1036,7 @@ static int send_iovec(const struct iovec iovec[], size_t n_iovec, int input_fd) 
                                          * (truncated) copy of what we want to send, and the second one
                                          * contains the trailing dots. */
                                         copy[0] = iovec[i];
-                                        copy[1] = (struct iovec) {
-                                                .iov_base = (char[]) { '.', '.', '.' },
-                                                .iov_len = 3,
-                                        };
+                                        copy[1] = IOVEC_MAKE(((char[]){'.', '.', '.'}), 3);
 
                                         mh.msg_iov = copy;
                                         mh.msg_iovlen = 2;

@@ -693,8 +693,7 @@ bool manager_all_buttons_ignored(Manager *m) {
                 return false;
         if (m->handle_lid_switch != HANDLE_IGNORE)
                 return false;
-        if (m->handle_lid_switch_ep != _HANDLE_ACTION_INVALID &&
-            m->handle_lid_switch_ep != HANDLE_IGNORE)
+        if (!IN_SET(m->handle_lid_switch_ep, _HANDLE_ACTION_INVALID, HANDLE_IGNORE))
                 return false;
         if (m->handle_lid_switch_docked != HANDLE_IGNORE)
                 return false;

@@ -203,8 +203,7 @@ static int cd_capability_compat(int fd) {
 
         capability = ioctl(fd, CDROM_GET_CAPABILITY, NULL);
         if (capability < 0) {
-                log_debug("CDROM_GET_CAPABILITY failed");
-                return -1;
+                return log_debug_errno(errno, "CDROM_GET_CAPABILITY failed");
         }
 
         if (capability & CDC_CD_R)
@@ -226,8 +225,7 @@ static int cd_capability_compat(int fd) {
 
 static int cd_media_compat(int fd) {
         if (ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK) {
-                log_debug("CDROM_DRIVE_STATUS != CDS_DISC_OK");
-                return -1;
+                return log_debug_errno(errno, "CDROM_DRIVE_STATUS != CDS_DISC_OK");
         }
         cd_media = 1;
         return 0;
@@ -249,8 +247,7 @@ static int cd_inquiry(int fd) {
         }
 
         if ((inq[0] & 0x1F) != 5) {
-                log_debug("not an MMC unit");
-                return -1;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "not an MMC unit");
         }
 
         log_debug("INQUIRY: [%.8s][%.16s][%.4s]", inq + 8, inq + 16, inq + 32);
@@ -474,8 +471,8 @@ static int cd_profiles_old_mmc(int fd) {
                         cd_media_track_count_data = 1;
                         return 0;
                 } else {
-                        log_debug("no current profile, assuming no media");
-                        return -1;
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                               "no current profile, assuming no media");
                 }
         };
 
@@ -660,8 +657,8 @@ static int cd_media_info(int fd) {
 
                         len = format[3];
                         if (len & 7 || len < 16) {
-                                log_debug("invalid format capacities length");
-                                return -1;
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "invalid format capacities length");
                         }
 
                         switch(format[8] & 3) {
@@ -680,8 +677,8 @@ static int cd_media_info(int fd) {
 
                             case 3:
                                 cd_media = 0; //return no media
-                                log_debug("format capacities returned no media");
-                                return -1;
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                                       "format capacities returned no media");
                         }
                 }
 
