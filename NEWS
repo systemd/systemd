@@ -2,6 +2,22 @@ systemd System and Service Manager
 
 CHANGES WITH 243 in spe:
 
+        * Previously, filters defined with SystemCallFilter= would have the
+          effect that an calling an offending system call would terminate the
+          calling thread. This behaviour never made much sense, since killing
+          individual threads of unexpecting processes is likely to create more
+          problems than it solves. With this release the default action changed
+          from killing the thread to killing the whole process. For this to
+          work correctly both a kernel version (>= 4.14) and a libseccomp
+          version (>= 2.4.0) supporting this new seccomp action is required. If
+          an older kernel or libseccomp is used the old behaviour continues to
+          be used. This change does not affect any services that have no system
+          call filters defined, or that use SystemCallErrorNumber= (and thus
+          see EPERM or another error instead of being killed when calling an
+          offending system call). Note that systemd documentation always
+          claimed that the whole process is killed. With this change behaviour
+          is thus adjusted to match the documentation.
+
         * The "kernel.pid_max" sysctl is now bumped to 4194304 by default,
           i.e. the full 22bit range the kernel allows, up from the old 16bit
           range. This should improve security and robustness a bit, as PID
