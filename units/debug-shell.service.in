@@ -9,7 +9,6 @@
 
 [Unit]
 Description=Early root shell on @DEBUGTTY@ FOR DEBUGGING ONLY
-Documentation=man:sushell(8)
 Documentation=man:systemd-debug-generator(8)
 DefaultDependencies=no
 IgnoreOnIsolate=yes
