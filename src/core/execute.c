@@ -1439,7 +1439,7 @@ static int apply_syscall_filter(const Unit* u, const ExecContext *c, bool needs_
         if (skip_seccomp_unavailable(u, "SystemCallFilter="))
                 return 0;
 
-        negative_action = c->syscall_errno == 0 ? SCMP_ACT_KILL : SCMP_ACT_ERRNO(c->syscall_errno);
+        negative_action = c->syscall_errno == 0 ? scmp_act_kill_process() : SCMP_ACT_ERRNO(c->syscall_errno);
 
         if (c->syscall_whitelist) {
                 default_action = negative_action;
