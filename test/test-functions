@@ -684,17 +684,20 @@ install_libnss() {
 install_dbus() {
     inst $ROOTLIBDIR/system/dbus.socket
 
-    # Fedora rawhide replaced dbus.service with dbus-daemon.service
-    if [ -f $ROOTLIBDIR/system/dbus-daemon.service ]; then
+    # Newer Fedora versions use dbus-broker by default. Let's install it is available.
+    if [ -f $ROOTLIBDIR/system/dbus-broker.service ]; then
+        inst $ROOTLIBDIR/system/dbus-broker.service
+        inst_symlink /etc/systemd/system/dbus.service
+        inst /usr/bin/dbus-broker
+        inst /usr/bin/dbus-broker-launch
+    elif [ -f $ROOTLIBDIR/system/dbus-daemon.service ]; then
+        # Fedora rawhide replaced dbus.service with dbus-daemon.service
         inst $ROOTLIBDIR/system/dbus-daemon.service
         # Alias symlink
         inst_symlink /etc/systemd/system/dbus.service
     else
         inst $ROOTLIBDIR/system/dbus.service
     fi
-    # Newer Fedora versions use dbus-broker by default. Let's install it is available.
-    [ -f /usr/bin/dbus-broker ] && inst /usr/bin/dbus-broker
-    [ -f /usr/bin/dbus-broker-launch ] && inst /usr/bin/dbus-broker-launch
 
     find \
         /etc/dbus-1 /usr/share/dbus-1 -xtype f \
