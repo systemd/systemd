@@ -1089,6 +1089,7 @@
         <literal>lxc-libvirt</literal>,
         <literal>systemd-nspawn</literal>,
         <literal>docker</literal>,
+        <literal>podman</literal>,
         <literal>rkt</literal>,
         <literal>wsl</literal>,
         <literal>acrn</literal> to test
