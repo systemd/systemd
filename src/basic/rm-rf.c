@@ -85,7 +85,7 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                         is_dir = de->d_type == DT_DIR;
 
                 if (is_dir) {
-                        int subdir_fd;
+                        _cleanup_close_ int subdir_fd = -1;
 
                         /* if root_dev is set, remove subdirectories only if device is same */
                         if (root_dev && st.st_dev != root_dev->st_dev)
@@ -104,13 +104,10 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                                 if (ret == 0 && r != -ENOENT)
                                         ret = r;
 
-                                safe_close(subdir_fd);
                                 continue;
                         }
-                        if (r) {
-                                safe_close(subdir_fd);
+                        if (r > 0)
                                 continue;
-                        }
 
                         if ((flags & REMOVE_SUBVOLUME) && st.st_ino == 256) {
 
@@ -122,24 +119,18 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                                                 if (ret == 0)
                                                         ret = r;
 
-                                                safe_close(subdir_fd);
                                                 continue;
                                         }
 
-                                        /* ENOTTY, then it wasn't a
-                                         * btrfs subvolume, continue
-                                         * below. */
-                                } else {
+                                        /* ENOTTY, then it wasn't a btrfs subvolume, continue below. */
+                                } else
                                         /* It was a subvolume, continue. */
-                                        safe_close(subdir_fd);
                                         continue;
-                                }
                         }
 
-                        /* We pass REMOVE_PHYSICAL here, to avoid
-                         * doing the fstatfs() to check the file
+                        /* We pass REMOVE_PHYSICAL here, to avoid doing the fstatfs() to check the file
                          * system type again for each directory */
-                        r = rm_rf_children(subdir_fd, flags | REMOVE_PHYSICAL, root_dev);
+                        r = rm_rf_children(TAKE_FD(subdir_fd), flags | REMOVE_PHYSICAL, root_dev);
                         if (r < 0 && ret == 0)
                                 ret = r;
 
