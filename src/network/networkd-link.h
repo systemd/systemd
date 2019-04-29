@@ -180,6 +180,7 @@ int link_send_changed(Link *link, const char *property, ...) _sentinel_;
 uint32_t link_get_vrf_table(Link *link);
 uint32_t link_get_dhcp_route_table(Link *link);
 uint32_t link_get_ipv6_accept_ra_route_table(Link *link);
+int link_request_set_routes(Link *link);
 
 #define ADDRESS_FMT_VAL(address)                   \
         be32toh((address).s_addr) >> 24,           \
