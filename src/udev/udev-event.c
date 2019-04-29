@@ -937,16 +937,13 @@ int udev_event_execute_rules(UdevEvent *event,
 }
 
 void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec) {
-        const char *cmd;
+        const char *command;
         void *val;
         Iterator i;
         int r;
 
-        ORDERED_HASHMAP_FOREACH_KEY(val, cmd, event->run_list, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(val, command, event->run_list, i) {
                 UdevBuiltinCommand builtin_cmd = PTR_TO_UDEV_BUILTIN_CMD(val);
-                char command[UTIL_PATH_SIZE];
-
-                (void) udev_event_apply_format(event, cmd, command, sizeof(command), false);
 
                 if (builtin_cmd != _UDEV_BUILTIN_INVALID) {
                         log_device_debug(event->dev, "Running built-in command \"%s\"", command);
