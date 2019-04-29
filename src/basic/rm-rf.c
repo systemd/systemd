@@ -33,8 +33,8 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
 
         assert(fd >= 0);
 
-        /* This returns the first error we run into, but nevertheless
-         * tries to go on. This closes the passed fd. */
+        /* This returns the first error we run into, but nevertheless tries to go on. This closes the passed
+         * fd, in all cases, including on failure.. */
 
         if (!(flags & REMOVE_PHYSICAL)) {
 
