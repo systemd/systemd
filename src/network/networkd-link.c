@@ -913,7 +913,7 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return 1;
 }
 
-static int link_request_set_routes(Link *link) {
+int link_request_set_routes(Link *link) {
         enum {
                 PHASE_NON_GATEWAY, /* First phase: Routes without a gateway */
                 PHASE_GATEWAY,     /* Second phase: Routes with a gateway */
