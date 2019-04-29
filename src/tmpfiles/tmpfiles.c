@@ -776,6 +776,20 @@ static bool hardlink_vulnerable(const struct stat *st) {
         return !S_ISDIR(st->st_mode) && st->st_nlink > 1 && dangerous_hardlinks();
 }
 
+static mode_t process_mask_perms(mode_t mode, mode_t current) {
+
+        if ((current & 0111) == 0)
+                mode &= ~0111;
+        if ((current & 0222) == 0)
+                mode &= ~0222;
+        if ((current & 0444) == 0)
+                mode &= ~0444;
+        if (!S_ISDIR(current))
+                mode &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
+
+        return mode;
+}
+
 static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st) {
         struct stat stbuf;
 
@@ -797,22 +811,16 @@ static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st
                                        "Refusing to set permissions on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.",
                                        path);
 
+
+
         if (i->mode_set) {
                 if (S_ISLNK(st->st_mode))
                         log_debug("Skipping mode fix for symlink %s.", path);
                 else {
                         mode_t m = i->mode;
 
-                        if (i->mask_perms) {
-                                if (!(st->st_mode & 0111))
-                                        m &= ~0111;
-                                if (!(st->st_mode & 0222))
-                                        m &= ~0222;
-                                if (!(st->st_mode & 0444))
-                                        m &= ~0444;
-                                if (!S_ISDIR(st->st_mode))
-                                        m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
-                        }
+                        if (i->mask_perms)
+                                m = process_mask_perms(m, st->st_mode);
 
                         if (m == (st->st_mode & 07777))
                                 log_debug("\"%s\" has correct mode %o already.", path, st->st_mode);
