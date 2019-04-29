@@ -62,16 +62,18 @@ static void check(const char *func, Manager *m, Unit *unit, int status_expected,
                 }
         }
         exec_status_dump(&service->main_exec_status, stdout, "\t");
-        if (service->main_exec_status.status != status_expected) {
-                log_error("%s: %s: exit status %d, expected %d",
-                          func, unit->id,
-                          service->main_exec_status.status, status_expected);
-                abort();
-        }
+
         if (service->main_exec_status.code != code_expected) {
                 log_error("%s: %s: exit code %d, expected %d",
                           func, unit->id,
                           service->main_exec_status.code, code_expected);
+                abort();
+        }
+
+        if (service->main_exec_status.status != status_expected) {
+                log_error("%s: %s: exit status %d, expected %d",
+                          func, unit->id,
+                          service->main_exec_status.status, status_expected);
                 abort();
         }
 }
