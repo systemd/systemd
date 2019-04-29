@@ -1833,7 +1833,8 @@ static int udev_rule_apply_token_to_event(
                 if (r < 0)
                         return log_oom();
 
-                cmd = strdup(token->value);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
+                cmd = strdup(buf);
                 if (!cmd)
                         return log_oom();
 
