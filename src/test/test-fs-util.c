@@ -15,6 +15,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "umask-util.h"
 #include "user-util.h"
 #include "util.h"
 #include "virt.h"
@@ -746,6 +747,50 @@ static void test_rename_noreplace(void) {
         }
 }
 
+static void test_chmod_and_chown(void) {
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        _unused_ _cleanup_umask_ mode_t u = umask(0000);
+        struct stat st;
+        const char *p;
+
+        if (geteuid() != 0)
+                return;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(mkdtemp_malloc(NULL, &d) >= 0);
+
+        p = strjoina(d, "/reg");
+        assert_se(mknod(p, S_IFREG | 0123, 0) >= 0);
+
+        assert_se(chmod_and_chown(p, S_IFREG | 0321, 1, 2) >= 0);
+        assert_se(chmod_and_chown(p, S_IFDIR | 0555, 3, 4) == -EINVAL);
+
+        assert_se(lstat(p, &st) >= 0);
+        assert_se(S_ISREG(st.st_mode));
+        assert_se((st.st_mode & 07777) == 0321);
+
+        p = strjoina(d, "/dir");
+        assert_se(mkdir(p, 0123) >= 0);
+
+        assert_se(chmod_and_chown(p, S_IFDIR | 0321, 1, 2) >= 0);
+        assert_se(chmod_and_chown(p, S_IFREG | 0555, 3, 4) == -EINVAL);
+
+        assert_se(lstat(p, &st) >= 0);
+        assert_se(S_ISDIR(st.st_mode));
+        assert_se((st.st_mode & 07777) == 0321);
+
+        p = strjoina(d, "/lnk");
+        assert_se(symlink("idontexist", p) >= 0);
+
+        assert_se(chmod_and_chown(p, S_IFLNK | 0321, 1, 2) >= 0);
+        assert_se(chmod_and_chown(p, S_IFREG | 0555, 3, 4) == -EINVAL);
+        assert_se(chmod_and_chown(p, S_IFDIR | 0555, 3, 4) == -EINVAL);
+
+        assert_se(lstat(p, &st) >= 0);
+        assert_se(S_ISLNK(st.st_mode));
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -762,6 +807,7 @@ int main(int argc, char *argv[]) {
         test_unlinkat_deallocate();
         test_fsync_directory_of_file();
         test_rename_noreplace();
+        test_chmod_and_chown();
 
         return 0;
 }
