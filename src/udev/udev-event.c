@@ -234,7 +234,6 @@ static ssize_t udev_event_subst_format(
         sd_device *parent, *dev = event->dev;
         const char *val = NULL;
         char *s = dest;
-        dev_t devnum;
         int r;
 
         switch (type) {
@@ -278,13 +277,12 @@ static ssize_t udev_event_subst_format(
                 break;
         case FORMAT_SUBST_MAJOR:
         case FORMAT_SUBST_MINOR: {
-                char buf[DECIMAL_STR_MAX(unsigned)];
+                dev_t devnum;
 
                 r = sd_device_get_devnum(dev, &devnum);
                 if (r < 0 && r != -ENOENT)
                         return r;
-                xsprintf(buf, "%u", r < 0 ? 0 : type == FORMAT_SUBST_MAJOR ? major(devnum) : minor(devnum));
-                l = strpcpy(&s, l, buf);
+                l = strpcpyf(&s, l, "%u", r < 0 ? 0 : type == FORMAT_SUBST_MAJOR ? major(devnum) : minor(devnum));
                 break;
         }
         case FORMAT_SUBST_RESULT: {
