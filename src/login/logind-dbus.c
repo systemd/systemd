@@ -1404,6 +1404,8 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
+        if (!path_is_normalized(sysfs))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", sysfs);
         if (!path_startswith(sysfs, "/sys"))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not in /sys", sysfs);
 
