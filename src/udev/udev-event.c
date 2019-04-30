@@ -149,7 +149,7 @@ static char format_type_to_char(FormatSubstitutionType t) {
         return '\0';
 }
 
-static int get_subst_type(const char **str, FormatSubstitutionType *ret_type, char ret_attr[static UTIL_PATH_SIZE]) {
+static int get_subst_type(const char **str, bool strict, FormatSubstitutionType *ret_type, char ret_attr[static UTIL_PATH_SIZE]) {
         const char *p = *str, *q = NULL;
         size_t i;
 
@@ -178,9 +178,11 @@ static int get_subst_type(const char **str, FormatSubstitutionType *ret_type, ch
                                 q = p + 1;
                                 break;
                         }
-        }
-        if (!q)
+        } else
                 return 0;
+        if (!q)
+                /* When 'strict' flag is set, then '$' and '%' must be escaped. */
+                return strict ? -EINVAL : 0;
 
         if (q[0] == '{') {
                 const char *start, *end;
@@ -450,7 +452,7 @@ ssize_t udev_event_apply_format(UdevEvent *event,
                 char attr[UTIL_PATH_SIZE];
                 ssize_t subst_len;
 
-                r = get_subst_type(&s, &type, attr);
+                r = get_subst_type(&s, false, &type, attr);
                 if (r < 0)
                         return log_device_warning_errno(event->dev, r, "Invalid format of string, ignoring: %s", src);
                 if (r == 0) {
@@ -480,6 +482,35 @@ ssize_t udev_event_apply_format(UdevEvent *event,
         assert(size >= 1);
         dest[0] = '\0';
         return size;
+}
+
+int udev_check_format(const char *s) {
+        FormatSubstitutionType type;
+        char attr[UTIL_PATH_SIZE];
+        int r;
+
+        while (s[0] != '\0') {
+                r = get_subst_type(&s, true, &type, attr);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        s++;
+                        continue;
+                }
+
+                if (IN_SET(type, FORMAT_SUBST_ATTR, FORMAT_SUBST_ENV) && isempty(attr))
+                        return -EINVAL;
+
+                if (type == FORMAT_SUBST_RESULT && !isempty(attr)) {
+                        unsigned i;
+
+                        r = safe_atou_optional_plus(attr, &i);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
 }
 
 static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
