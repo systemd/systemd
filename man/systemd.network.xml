@@ -1566,6 +1566,13 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><varname>BlackList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected.</para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
   </refsect1>
 

@@ -532,7 +532,7 @@ int sd_dhcp_client_set_max_attempts(sd_dhcp_client *client, uint64_t max_attempt
 int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
         assert_return(client, -EINVAL);
 
-        if (!IN_SET(client->state, DHCP_STATE_BOUND, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING))
+        if (!IN_SET(client->state, DHCP_STATE_SELECTING, DHCP_STATE_BOUND, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING))
                 return -EADDRNOTAVAIL;
 
         if (ret)
@@ -541,11 +541,13 @@ int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
         return 0;
 }
 
-static void client_notify(sd_dhcp_client *client, int event) {
+static int client_notify(sd_dhcp_client *client, int event) {
         assert(client);
 
         if (client->callback)
-                client->callback(client, event, client->userdata);
+                return client->callback(client, event, client->userdata);
+
+        return 0;
 }
 
 static int client_initialize(sd_dhcp_client *client) {
@@ -1327,6 +1329,9 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer, size_
 
         sd_dhcp_lease_unref(client->lease);
         client->lease = TAKE_PTR(lease);
+
+        if (client_notify(client, SD_DHCP_CLIENT_EVENT_SELECTING) < 0)
+                return -ENOMSG;
 
         log_dhcp_client(client, "OFFER");
 

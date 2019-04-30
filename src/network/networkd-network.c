@@ -512,7 +512,7 @@ static Network *network_free(Network *network) {
         free(network->dhcp_vendor_class_identifier);
         strv_free(network->dhcp_user_class);
         free(network->dhcp_hostname);
-
+        set_free(network->dhcp_black_listed_ip);
         free(network->mac);
 
         strv_free(network->ntp);
@@ -1616,6 +1616,71 @@ int config_parse_dhcp_max_attempts(
         }
 
         network->dhcp_max_attempts = a;
+
+        return 0;
+}
+
+int config_parse_dhcp_black_listed_ip_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                network->dhcp_black_listed_ip = set_free(network->dhcp_black_listed_ip);
+                return 0;
+        }
+
+        for (p = rvalue;;) {
+                _cleanup_free_ char *n = NULL;
+                union in_addr_union ip;
+
+                r = extract_first_word(&p, &n, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse DHCP black listed ip address, ignoring assignment: %s",
+                                   rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = in_addr_from_string(AF_INET, n, &ip);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "DHCP black listed ip address is invalid, ignoring assignment: %s", n);
+                        continue;
+                }
+
+                r = set_ensure_allocated(&network->dhcp_black_listed_ip, NULL);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_put(network->dhcp_black_listed_ip, UINT32_TO_PTR(ip.in.s_addr));
+                if (r == -EEXIST) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "DHCP black listed ip address is duplicated, ignoring assignment: %s", n);
+                        continue;
+                }
+                if (r < 0)
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to store DHCP black listed ip address '%s', ignoring assignment: %m", n);
+        }
 
         return 0;
 }
