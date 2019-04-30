@@ -310,10 +310,10 @@ static int node_permissions_apply(sd_device *dev, bool apply,
 
                 if ((stats.st_mode & 0777) != (mode & 0777) || stats.st_uid != uid || stats.st_gid != gid) {
                         log_device_debug(dev, "Setting permissions %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
-                        if (chmod(devnode, mode) < 0)
-                                r = log_device_warning_errno(dev, errno, "Failed to set mode of %s to %#o: %m", devnode, mode);
-                        if (chown(devnode, uid, gid) < 0)
-                                r = log_device_warning_errno(dev, errno, "Failed to set owner of %s to uid=%u, gid=%u: %m", devnode, uid, gid);
+
+                        r = chmod_and_chown(devnode, mode, uid, gid);
+                        if (r < 0)
+                                log_device_warning_errno(dev, r, "Failed to set owner/mode of %s to uid=" UID_FMT ", gid=" GID_FMT ", mode=%#o: %m", devnode, uid, gid, mode);
                 } else
                         log_device_debug(dev, "Preserve permissions of %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
 

@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -156,8 +157,7 @@ static int run(int argc, char *argv[]) {
                 /* This is just a safety measure. Given that we are root and
                  * most likely created the file ourselves the mode and owner
                  * should be correct anyway. */
-                (void) fchmod(seed_fd, 0600);
-                (void) fchown(seed_fd, 0, 0);
+                (void) fchmod_and_chown(seed_fd, 0600, 0, 0);
 
                 k = loop_read(random_fd, buf, buf_size, false);
                 if (k < 0)
