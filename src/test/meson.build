@@ -269,6 +269,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-umask-util.c'],
+         [],
+         []],
+
         [['src/test/test-proc-cmdline.c'],
          [],
          []],
