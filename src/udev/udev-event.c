@@ -20,6 +20,7 @@
 #include "format-util.h"
 #include "libudev-util.h"
 #include "netlink-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
@@ -204,6 +205,26 @@ static int get_subst_type(const char **str, FormatSubstitutionType *ret_type, ch
         return 1;
 }
 
+static int safe_atou_optional_plus(const char *s, unsigned *ret) {
+        const char *p;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        /* Returns 1 if plus, 0 if no plus, negative on error */
+
+        p = endswith(s, "+");
+        if (p)
+                s = strndupa(s, p - s);
+
+        r = safe_atou(s, ret);
+        if (r < 0)
+                return r;
+
+        return !!p;
+}
+
 static ssize_t udev_event_subst_format(
                 UdevEvent *event,
                 FormatSubstitutionType type,
@@ -267,43 +288,50 @@ static ssize_t udev_event_subst_format(
                 break;
         }
         case FORMAT_SUBST_RESULT: {
-                char *rest;
-                int i;
+                unsigned index = 0; /* 0 means whole string */
+                bool has_plus;
 
                 if (!event->program_result)
                         goto null_terminate;
 
-                /* get part of the result string */
-                i = 0;
-                if (!isempty(attr))
-                        i = strtoul(attr, &rest, 10);
-                if (i > 0) {
-                        char result[UTIL_PATH_SIZE], tmp[UTIL_PATH_SIZE], *cpos;
+                if (!isempty(attr)) {
+                        r = safe_atou_optional_plus(attr, &index);
+                        if (r < 0)
+                                return r;
 
-                        strscpy(result, sizeof(result), event->program_result);
-                        cpos = result;
-                        while (--i) {
-                                while (cpos[0] != '\0' && !isspace(cpos[0]))
-                                        cpos++;
-                                while (isspace(cpos[0]))
-                                        cpos++;
-                                if (cpos[0] == '\0')
+                        has_plus = r;
+                }
+
+                if (index == 0)
+                        l = strpcpy(&s, l, event->program_result);
+                else {
+                        const char *start, *p;
+                        unsigned i;
+
+                        p = skip_leading_chars(event->program_result, NULL);
+
+                        for (i = 1; i < index; i++) {
+                                while (p[0] != '\0' && !strchr(WHITESPACE, p[0]))
+                                        p++;
+                                p = skip_leading_chars(p, NULL);
+                                if (*p == '\0')
                                         break;
                         }
-                        if (i > 0) {
-                                log_error("requested part of result string not found");
-                                break;
+                        if (i != index) {
+                                log_device_debug(dev, "requested part of result string not found");
+                                goto null_terminate;
                         }
-                        strscpy(tmp, sizeof(tmp), cpos);
-                        /* %{2+}c copies the whole string from the second part on */
-                        if (rest[0] != '+') {
-                                cpos = strchr(tmp, ' ');
-                                if (cpos)
-                                        cpos[0] = '\0';
+
+                        start = p;
+                        /* %c{2+} copies the whole string from the second part on */
+                        if (has_plus)
+                                l = strpcpy(&s, l, start);
+                        else {
+                                while (p[0] != '\0' && !strchr(WHITESPACE, p[0]))
+                                        p++;
+                                l = strnpcpy(&s, l, start, p - start);
                         }
-                        l = strpcpy(&s, l, tmp);
-                } else
-                        l = strpcpy(&s, l, event->program_result);
+                }
                 break;
         }
         case FORMAT_SUBST_ATTR: {
