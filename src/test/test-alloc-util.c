@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <malloc.h>
 #include <stdint.h>
 
 #include "alloc-util.h"
@@ -21,21 +22,35 @@ static void test_alloca(void) {
 
 static void test_GREEDY_REALLOC(void) {
         _cleanup_free_ int *a = NULL, *b = NULL;
-        size_t n_allocated = 0, i;
+        size_t n_allocated = 0, i, j;
 
-        /* Give valgrind a chance to verify our realloc operations */
+        /* Give valgrind a chance to verify our realloc() operations */
 
-        for (i = 0; i < 2048; i++) {
+        for (i = 0; i < 20480; i++) {
                 assert_se(GREEDY_REALLOC(a, n_allocated, i + 1));
-                a[i] = i;
+                assert_se(n_allocated >= i + 1);
+                assert_se(malloc_usable_size(a) >= (i + 1) * sizeof(int));
+                a[i] = (int) i;
                 assert_se(GREEDY_REALLOC(a, n_allocated, i / 2));
+                assert_se(n_allocated >= i / 2);
+                assert_se(malloc_usable_size(a) >= (i / 2) * sizeof(int));
         }
 
-        for (i = 30, n_allocated = 0; i < 2048; i+=7) {
+        for (j = 0; j < i / 2; j++)
+                assert_se(a[j] == (int) j);
+
+        for (i = 30, n_allocated = 0; i < 20480; i += 7) {
                 assert_se(GREEDY_REALLOC(b, n_allocated, i + 1));
-                b[i] = i;
+                assert_se(n_allocated >= i + 1);
+                assert_se(malloc_usable_size(b) >= (i + 1) * sizeof(int));
+                b[i] = (int) i;
                 assert_se(GREEDY_REALLOC(b, n_allocated, i / 2));
+                assert_se(n_allocated >= i / 2);
+                assert_se(malloc_usable_size(b) >= (i / 2) * sizeof(int));
         }
+
+        for (j = 30; j < i / 2; j += 7)
+                assert_se(b[j] == (int) j);
 }
 
 static void test_memdup_multiply_and_greedy_realloc(void) {
