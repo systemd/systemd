@@ -128,12 +128,12 @@ fuzzers += [
         [['src/fuzz/fuzz-nspawn-settings.c'],
          [libshared,
           libnspawn_core],
-         []],
+         [libseccomp]],
 
         [['src/fuzz/fuzz-nspawn-oci.c'],
          [libshared,
           libnspawn_core],
-         []],
+         [libseccomp]],
 
         [['src/fuzz/fuzz-calendarspec.c'],
          [libshared],

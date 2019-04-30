@@ -48,7 +48,7 @@ tests += [
         [['src/nspawn/test-nspawn-tables.c'],
          [libnspawn_core,
           libshared],
-         []],
+         [libseccomp]],
 
         [['src/nspawn/test-patch-uid.c'],
          [libnspawn_core,
