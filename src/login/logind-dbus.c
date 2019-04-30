@@ -845,11 +845,9 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                 if (asprintf(&id, "%"PRIu32, audit_id) < 0)
                         return -ENOMEM;
 
-                /* Wut? There's already a session by this name and we
-                 * didn't find it above? Weird, then let's not trust
-                 * the audit data and let's better register a new
-                 * ID */
-                if (hashmap_get(m->sessions, id)) {
+                /* Wut? There's already a session by this name and we didn't find it above? Weird, then let's
+                 * not trust the audit data and let's better register a new ID */
+                if (hashmap_contains(m->sessions, id)) {
                         log_warning("Existing logind session ID %s used by new audit session, ignoring.", id);
                         audit_id = AUDIT_SESSION_INVALID;
                         id = mfree(id);
@@ -863,7 +861,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         if (asprintf(&id, "c%lu", ++m->session_counter) < 0)
                                 return -ENOMEM;
 
-                } while (hashmap_get(m->sessions, id));
+                } while (hashmap_contains(m->sessions, id));
         }
 
         /* The generated names should not clash with 'auto' or 'self' */
