@@ -134,18 +134,19 @@ static const struct subst_map_entry map[] = {
            { .name = "sys",      .fmt = 'S', .type = FORMAT_SUBST_SYS },
 };
 
-static ssize_t subst_format_var(UdevEvent *event,
-                                const struct subst_map_entry *entry, char *attr,
-                                char *dest, size_t l) {
+static ssize_t udev_event_subst_format(
+                UdevEvent *event,
+                FormatSubstitutionType type,
+                const char *attr,
+                char *dest,
+                size_t l) {
         sd_device *parent, *dev = event->dev;
         const char *val = NULL;
         char *s = dest;
         dev_t devnum;
         int r;
 
-        assert(entry);
-
-        switch (entry->type) {
+        switch (type) {
         case FORMAT_SUBST_DEVPATH:
                 r = sd_device_get_devpath(dev, &val);
                 if (r < 0)
@@ -191,7 +192,7 @@ static ssize_t subst_format_var(UdevEvent *event,
                 r = sd_device_get_devnum(dev, &devnum);
                 if (r < 0 && r != -ENOENT)
                         return r;
-                xsprintf(buf, "%u", r < 0 ? 0 : entry->type == FORMAT_SUBST_MAJOR ? major(devnum) : minor(devnum));
+                xsprintf(buf, "%u", r < 0 ? 0 : type == FORMAT_SUBST_MAJOR ? major(devnum) : minor(devnum));
                 l = strpcpy(&s, l, buf);
                 break;
         }
@@ -429,7 +430,7 @@ subst:
                 } else
                         attr = NULL;
 
-                subst_len = subst_format_var(event, entry, attr, s, l);
+                subst_len = udev_event_subst_format(event, entry->type, attr, s, l);
                 if (subst_len < 0) {
                         if (format_dollar)
                                 log_device_warning_errno(event->dev, subst_len, "Failed to substitute variable '$%s', ignoring: %m", entry->name);
