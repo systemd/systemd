@@ -636,7 +636,6 @@ static void test_touch_file(void) {
         assert_se(st.st_uid == test_uid);
         assert_se(st.st_gid == test_gid);
         assert_se(S_ISLNK(st.st_mode));
-        assert_se((st.st_mode & 0777) == 0640);
         assert_se(timespec_load(&st.st_mtim) == test_mtime);
 }
 
