@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "logind-dbus.h"
 #include "logind-inhibit.h"
 #include "mkdir.h"
 #include "parse-util.h"

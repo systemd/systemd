@@ -7,14 +7,15 @@
 #include <sys/types.h>
 
 #include "sd-device.h"
+#include "sd-daemon.h"
 
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "fd-util.h"
+#include "logind-session-dbus.h"
 #include "logind-session-device.h"
 #include "missing.h"
 #include "parse-util.h"
-#include "sd-daemon.h"
 #include "util.h"
 
 enum SessionDeviceNotifications {

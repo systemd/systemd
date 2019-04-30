@@ -8,6 +8,8 @@
 #include "conf-parser.h"
 #include "format-util.h"
 #include "logind-action.h"
+#include "logind-dbus.h"
+#include "logind-session-dbus.h"
 #include "process-util.h"
 #include "sleep-config.h"
 #include "special.h"
