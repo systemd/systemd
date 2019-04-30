@@ -202,9 +202,8 @@ static int cd_capability_compat(int fd) {
         int capability;
 
         capability = ioctl(fd, CDROM_GET_CAPABILITY, NULL);
-        if (capability < 0) {
+        if (capability < 0)
                 return log_debug_errno(errno, "CDROM_GET_CAPABILITY failed");
-        }
 
         if (capability & CDC_CD_R)
                 cd_cd_r = 1;
@@ -224,9 +223,9 @@ static int cd_capability_compat(int fd) {
 }
 
 static int cd_media_compat(int fd) {
-        if (ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK) {
+        if (ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK)
                 return log_debug_errno(errno, "CDROM_DRIVE_STATUS != CDS_DISC_OK");
-        }
+
         cd_media = 1;
         return 0;
 }
@@ -246,9 +245,8 @@ static int cd_inquiry(int fd) {
                 return -1;
         }
 
-        if ((inq[0] & 0x1F) != 5) {
+        if ((inq[0] & 0x1F) != 5)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "not an MMC unit");
-        }
 
         log_debug("INQUIRY: [%.8s][%.16s][%.4s]", inq + 8, inq + 16, inq + 32);
         return 0;
@@ -470,10 +468,9 @@ static int cd_profiles_old_mmc(int fd) {
                         cd_media_track_count = 1;
                         cd_media_track_count_data = 1;
                         return 0;
-                } else {
+                } else
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
                                                "no current profile, assuming no media");
-                }
         };
 
         cd_media = 1;
@@ -656,10 +653,9 @@ static int cd_media_info(int fd) {
                         }
 
                         len = format[3];
-                        if (len & 7 || len < 16) {
+                        if (len & 7 || len < 16)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "invalid format capacities length");
-                        }
 
                         switch(format[8] & 3) {
                             case 1:
