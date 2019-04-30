@@ -339,7 +339,6 @@ static ssize_t udev_event_subst_format(
         }
         case FORMAT_SUBST_ATTR: {
                 char vbuf[UTIL_NAME_SIZE];
-                size_t len;
                 int count;
 
                 if (isempty(attr))
@@ -363,9 +362,7 @@ static ssize_t udev_event_subst_format(
                 /* strip trailing whitespace, and replace unwanted characters */
                 if (val != vbuf)
                         strscpy(vbuf, sizeof(vbuf), val);
-                len = strlen(vbuf);
-                while (len > 0 && isspace(vbuf[--len]))
-                        vbuf[len] = '\0';
+                delete_trailing_chars(vbuf, NULL);
                 count = util_replace_chars(vbuf, UDEV_ALLOWED_CHARS_INPUT);
                 if (count > 0)
                         log_device_debug(dev, "%i character(s) replaced", count);
