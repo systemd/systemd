@@ -168,11 +168,10 @@ static int scsi_dump_sense(struct scsi_id_device *dev_scsi,
          * we'll retry the command.
          */
 
-        if (sb_len < 1) {
+        if (sb_len < 1)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: sense buffer empty",
                                        dev_scsi->kernel);
-        }
 
         sense_class = (sense_buffer[0] >> 4) & 0x07;
         code = sense_buffer[0] & 0xf;
@@ -182,42 +181,41 @@ static int scsi_dump_sense(struct scsi_id_device *dev_scsi,
                  * extended sense data.
                  */
                 s = sense_buffer[7] + 8;
-                if (sb_len < s) {
+                if (sb_len < s)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "%s: sense buffer too small %d bytes, %d bytes too short",
                                                dev_scsi->kernel, sb_len,
                                                s - sb_len);
-                }
+
                 if (IN_SET(code, 0x0, 0x1)) {
                         sense_key = sense_buffer[2] & 0xf;
-                        if (s < 14) {
+                        if (s < 14)
                                 /*
                                  * Possible?
                                  */
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "%s: sense result too small %d bytes",
                                                        dev_scsi->kernel, s);
-                        }
+
                         asc = sense_buffer[12];
                         ascq = sense_buffer[13];
                 } else if (IN_SET(code, 0x2, 0x3)) {
                         sense_key = sense_buffer[1] & 0xf;
                         asc = sense_buffer[2];
                         ascq = sense_buffer[3];
-                } else {
+                } else
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "%s: invalid sense code 0x%x",
                                                dev_scsi->kernel, code);
-                }
+
                 log_debug("%s: sense key 0x%x ASC 0x%x ASCQ 0x%x",
                           dev_scsi->kernel, sense_key, asc, ascq);
         } else {
-                if (sb_len < 4) {
+                if (sb_len < 4)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "%s: sense buffer too small %d bytes, %d bytes too short",
                                                dev_scsi->kernel, sb_len,
                                                4 - sb_len);
-                }
 
                 if (sense_buffer[0] < 15)
                         log_debug("%s: old sense key: 0x%x", dev_scsi->kernel, sense_buffer[0] & 0x0f);
@@ -234,14 +232,13 @@ static int scsi_dump_sense(struct scsi_id_device *dev_scsi,
 
 static int scsi_dump(struct scsi_id_device *dev_scsi, struct sg_io_hdr *io) {
         if (!io->status && !io->host_status && !io->msg_status &&
-            !io->driver_status) {
+            !io->driver_status)
                 /*
                  * Impossible, should not be called.
                  */
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: called with no error",
                                        __FUNCTION__);
-        }
 
         log_debug("%s: sg_io failed status 0x%x 0x%x 0x%x 0x%x",
                   dev_scsi->kernel, io->driver_status, io->host_status, io->msg_status, io->status);
@@ -253,14 +250,13 @@ static int scsi_dump(struct scsi_id_device *dev_scsi, struct sg_io_hdr *io) {
 
 static int scsi_dump_v4(struct scsi_id_device *dev_scsi, struct sg_io_v4 *io) {
         if (!io->device_status && !io->transport_status &&
-            !io->driver_status) {
+            !io->driver_status)
                 /*
                  * Impossible, should not be called.
                  */
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: called with no error",
                                        __FUNCTION__);
-        }
 
         log_debug("%s: sg_io failed status 0x%x 0x%x 0x%x",
                   dev_scsi->kernel, io->driver_status, io->transport_status, io->device_status);
@@ -283,10 +279,9 @@ static int scsi_inquiry(struct scsi_id_device *dev_scsi, int fd,
         int retry = 3; /* rather random */
         int retval;
 
-        if (buflen > SCSI_INQ_BUFF_LEN) {
+        if (buflen > SCSI_INQ_BUFF_LEN)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "buflen %d too long", buflen);
-        }
 
 resend:
         if (dev_scsi->use_sg == 4) {
@@ -416,12 +411,11 @@ static int prepend_vendor_model(struct scsi_id_device *dev_scsi, char *serial) {
          * This is not a complete check, since we are using strncat/cpy
          * above, ind will never be too large.
          */
-        if (ind != (VENDOR_LENGTH + MODEL_LENGTH)) {
+        if (ind != (VENDOR_LENGTH + MODEL_LENGTH))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: expected length %d, got length %d",
                                        dev_scsi->kernel,
                                        (VENDOR_LENGTH + MODEL_LENGTH), ind);
-        }
         return ind;
 }
 
