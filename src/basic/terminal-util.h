@@ -163,3 +163,6 @@ int vt_restore(int fd);
 int vt_release(int fd, bool restore_vt);
 
 void get_log_colors(int priority, const char **on, const char **off, const char **highlight);
+
+/* This assumes there is a 'tty' group */
+#define TTY_MODE 0620

@@ -97,9 +97,6 @@
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
 
-/* This assumes there is a 'tty' group */
-#define TTY_MODE 0620
-
 #define SNDBUF_SIZE (8*1024*1024)
 
 static int shift_fds(int fds[], size_t n_fds) {
