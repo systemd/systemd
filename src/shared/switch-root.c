@@ -120,10 +120,8 @@ int switch_root(const char *new_root,
 
                 if (fstat(old_root_fd, &rb) < 0)
                         log_warning_errno(errno, "Failed to stat old root directory, leaving: %m");
-                else {
-                        (void) rm_rf_children(old_root_fd, 0, &rb);
-                        old_root_fd = -1;
-                }
+                else
+                        (void) rm_rf_children(TAKE_FD(old_root_fd), 0, &rb); /* takes possession of the dir fd, even on failure */
         }
 
         return 0;
