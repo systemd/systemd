@@ -222,6 +222,7 @@ All cgroup/resource control settings are available for transient units
 ✓ AllowedCPUs=
 ✓ AllowedMemoryNodes=
 ✓ MemoryAccounting=
+✓ DefaultMemoryMin=
 ✓ MemoryMin=
 ✓ DefaultMemoryLow=
 ✓ MemoryLow=
