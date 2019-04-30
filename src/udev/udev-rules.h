@@ -215,3 +215,12 @@ int udev_rules_apply_static_dev_perms(UdevRules *rules);
 
 #define log_token_invalid_op(rules, key)   _log_token_invalid(rules, key, "operator")
 #define log_token_invalid_attr(rules, key) _log_token_invalid(rules, key, "attribute")
+
+#define log_token_invalid_attr_format(rules, key, attr)                 \
+        log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),           \
+                              "Invalid attribute \"%s\" for %s, ignoring, but please fix it.", \
+                              attr, key)
+#define log_token_invalid_value(rules, key, value)                      \
+        log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),           \
+                              "Invalid value \"%s\" for %s, ignoring, but please fix it.", \
+                              value, key)
