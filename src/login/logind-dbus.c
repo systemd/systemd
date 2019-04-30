@@ -1409,8 +1409,17 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         if (!path_startswith(sysfs, "/sys"))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not in /sys", sysfs);
 
-        if (!seat_name_is_valid(seat))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Seat %s is not valid", seat);
+        if (SEAT_IS_SELF(seat) || SEAT_IS_AUTO(seat)) {
+                Seat *found;
+
+                r = manager_get_seat_from_creds(m, message, seat, error, &found);
+                if (r < 0)
+                        return r;
+
+                seat = found->id;
+
+        } else if (!seat_name_is_valid(seat)) /* Note that a seat does not have to exist yet for this operation to succeed */
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Seat name %s is not valid", seat);
 
         r = bus_verify_polkit_async(
                         message,
