@@ -86,50 +86,52 @@ UdevEvent *udev_event_free(UdevEvent *event) {
         return mfree(event);
 }
 
-enum subst_type {
-        SUBST_DEVNODE,
-        SUBST_ATTR,
-        SUBST_ENV,
-        SUBST_KERNEL,
-        SUBST_KERNEL_NUMBER,
-        SUBST_DRIVER,
-        SUBST_DEVPATH,
-        SUBST_ID,
-        SUBST_MAJOR,
-        SUBST_MINOR,
-        SUBST_RESULT,
-        SUBST_PARENT,
-        SUBST_NAME,
-        SUBST_LINKS,
-        SUBST_ROOT,
-        SUBST_SYS,
-};
+typedef enum {
+        FORMAT_SUBST_DEVNODE,
+        FORMAT_SUBST_ATTR,
+        FORMAT_SUBST_ENV,
+        FORMAT_SUBST_KERNEL,
+        FORMAT_SUBST_KERNEL_NUMBER,
+        FORMAT_SUBST_DRIVER,
+        FORMAT_SUBST_DEVPATH,
+        FORMAT_SUBST_ID,
+        FORMAT_SUBST_MAJOR,
+        FORMAT_SUBST_MINOR,
+        FORMAT_SUBST_RESULT,
+        FORMAT_SUBST_PARENT,
+        FORMAT_SUBST_NAME,
+        FORMAT_SUBST_LINKS,
+        FORMAT_SUBST_ROOT,
+        FORMAT_SUBST_SYS,
+        _FORMAT_SUBST_TYPE_MAX,
+        _FORMAT_SUBST_TYPE_INVALID = -1
+} FormatSubstitutionType;
 
 struct subst_map_entry {
         const char *name;
         const char fmt;
-        enum subst_type type;
+        FormatSubstitutionType type;
 };
 
 static const struct subst_map_entry map[] = {
-           { .name = "devnode",  .fmt = 'N', .type = SUBST_DEVNODE },
-           { .name = "tempnode", .fmt = 'N', .type = SUBST_DEVNODE },
-           { .name = "attr",     .fmt = 's', .type = SUBST_ATTR },
-           { .name = "sysfs",    .fmt = 's', .type = SUBST_ATTR },
-           { .name = "env",      .fmt = 'E', .type = SUBST_ENV },
-           { .name = "kernel",   .fmt = 'k', .type = SUBST_KERNEL },
-           { .name = "number",   .fmt = 'n', .type = SUBST_KERNEL_NUMBER },
-           { .name = "driver",   .fmt = 'd', .type = SUBST_DRIVER },
-           { .name = "devpath",  .fmt = 'p', .type = SUBST_DEVPATH },
-           { .name = "id",       .fmt = 'b', .type = SUBST_ID },
-           { .name = "major",    .fmt = 'M', .type = SUBST_MAJOR },
-           { .name = "minor",    .fmt = 'm', .type = SUBST_MINOR },
-           { .name = "result",   .fmt = 'c', .type = SUBST_RESULT },
-           { .name = "parent",   .fmt = 'P', .type = SUBST_PARENT },
-           { .name = "name",     .fmt = 'D', .type = SUBST_NAME },
-           { .name = "links",    .fmt = 'L', .type = SUBST_LINKS },
-           { .name = "root",     .fmt = 'r', .type = SUBST_ROOT },
-           { .name = "sys",      .fmt = 'S', .type = SUBST_SYS },
+           { .name = "devnode",  .fmt = 'N', .type = FORMAT_SUBST_DEVNODE },
+           { .name = "tempnode", .fmt = 'N', .type = FORMAT_SUBST_DEVNODE },
+           { .name = "attr",     .fmt = 's', .type = FORMAT_SUBST_ATTR },
+           { .name = "sysfs",    .fmt = 's', .type = FORMAT_SUBST_ATTR },
+           { .name = "env",      .fmt = 'E', .type = FORMAT_SUBST_ENV },
+           { .name = "kernel",   .fmt = 'k', .type = FORMAT_SUBST_KERNEL },
+           { .name = "number",   .fmt = 'n', .type = FORMAT_SUBST_KERNEL_NUMBER },
+           { .name = "driver",   .fmt = 'd', .type = FORMAT_SUBST_DRIVER },
+           { .name = "devpath",  .fmt = 'p', .type = FORMAT_SUBST_DEVPATH },
+           { .name = "id",       .fmt = 'b', .type = FORMAT_SUBST_ID },
+           { .name = "major",    .fmt = 'M', .type = FORMAT_SUBST_MAJOR },
+           { .name = "minor",    .fmt = 'm', .type = FORMAT_SUBST_MINOR },
+           { .name = "result",   .fmt = 'c', .type = FORMAT_SUBST_RESULT },
+           { .name = "parent",   .fmt = 'P', .type = FORMAT_SUBST_PARENT },
+           { .name = "name",     .fmt = 'D', .type = FORMAT_SUBST_NAME },
+           { .name = "links",    .fmt = 'L', .type = FORMAT_SUBST_LINKS },
+           { .name = "root",     .fmt = 'r', .type = FORMAT_SUBST_ROOT },
+           { .name = "sys",      .fmt = 'S', .type = FORMAT_SUBST_SYS },
 };
 
 static ssize_t subst_format_var(UdevEvent *event,
@@ -144,19 +146,19 @@ static ssize_t subst_format_var(UdevEvent *event,
         assert(entry);
 
         switch (entry->type) {
-        case SUBST_DEVPATH:
+        case FORMAT_SUBST_DEVPATH:
                 r = sd_device_get_devpath(dev, &val);
                 if (r < 0)
                         return r;
                 l = strpcpy(&s, l, val);
                 break;
-        case SUBST_KERNEL:
+        case FORMAT_SUBST_KERNEL:
                 r = sd_device_get_sysname(dev, &val);
                 if (r < 0)
                         return r;
                 l = strpcpy(&s, l, val);
                 break;
-        case SUBST_KERNEL_NUMBER:
+        case FORMAT_SUBST_KERNEL_NUMBER:
                 r = sd_device_get_sysnum(dev, &val);
                 if (r == -ENOENT)
                         goto null_terminate;
@@ -164,7 +166,7 @@ static ssize_t subst_format_var(UdevEvent *event,
                         return r;
                 l = strpcpy(&s, l, val);
                 break;
-        case SUBST_ID:
+        case FORMAT_SUBST_ID:
                 if (!event->dev_parent)
                         goto null_terminate;
                 r = sd_device_get_sysname(event->dev_parent, &val);
@@ -172,7 +174,7 @@ static ssize_t subst_format_var(UdevEvent *event,
                         return r;
                 l = strpcpy(&s, l, val);
                 break;
-        case SUBST_DRIVER:
+        case FORMAT_SUBST_DRIVER:
                 if (!event->dev_parent)
                         goto null_terminate;
                 r = sd_device_get_driver(event->dev_parent, &val);
@@ -182,18 +184,18 @@ static ssize_t subst_format_var(UdevEvent *event,
                         return r;
                 l = strpcpy(&s, l, val);
                 break;
-        case SUBST_MAJOR:
-        case SUBST_MINOR: {
+        case FORMAT_SUBST_MAJOR:
+        case FORMAT_SUBST_MINOR: {
                 char buf[DECIMAL_STR_MAX(unsigned)];
 
                 r = sd_device_get_devnum(dev, &devnum);
                 if (r < 0 && r != -ENOENT)
                         return r;
-                xsprintf(buf, "%u", r < 0 ? 0 : entry->type == SUBST_MAJOR ? major(devnum) : minor(devnum));
+                xsprintf(buf, "%u", r < 0 ? 0 : entry->type == FORMAT_SUBST_MAJOR ? major(devnum) : minor(devnum));
                 l = strpcpy(&s, l, buf);
                 break;
         }
-        case SUBST_RESULT: {
+        case FORMAT_SUBST_RESULT: {
                 char *rest;
                 int i;
 
@@ -233,7 +235,7 @@ static ssize_t subst_format_var(UdevEvent *event,
                         l = strpcpy(&s, l, event->program_result);
                 break;
         }
-        case SUBST_ATTR: {
+        case FORMAT_SUBST_ATTR: {
                 char vbuf[UTIL_NAME_SIZE];
                 size_t len;
                 int count;
@@ -268,7 +270,7 @@ static ssize_t subst_format_var(UdevEvent *event,
                 l = strpcpy(&s, l, vbuf);
                 break;
         }
-        case SUBST_PARENT:
+        case FORMAT_SUBST_PARENT:
                 r = sd_device_get_parent(dev, &parent);
                 if (r == -ENODEV)
                         goto null_terminate;
@@ -281,7 +283,7 @@ static ssize_t subst_format_var(UdevEvent *event,
                         return r;
                 l = strpcpy(&s, l, val + STRLEN("/dev/"));
                 break;
-        case SUBST_DEVNODE:
+        case FORMAT_SUBST_DEVNODE:
                 r = sd_device_get_devname(dev, &val);
                 if (r == -ENOENT)
                         goto null_terminate;
@@ -289,7 +291,7 @@ static ssize_t subst_format_var(UdevEvent *event,
                         return r;
                 l = strpcpy(&s, l, val);
                 break;
-        case SUBST_NAME:
+        case FORMAT_SUBST_NAME:
                 if (event->name)
                         l = strpcpy(&s, l, event->name);
                 else if (sd_device_get_devname(dev, &val) >= 0)
@@ -301,7 +303,7 @@ static ssize_t subst_format_var(UdevEvent *event,
                         l = strpcpy(&s, l, val);
                 }
                 break;
-        case SUBST_LINKS:
+        case FORMAT_SUBST_LINKS:
                 FOREACH_DEVICE_DEVLINK(dev, val)
                         if (s == dest)
                                 l = strpcpy(&s, l, val + STRLEN("/dev/"));
@@ -310,13 +312,13 @@ static ssize_t subst_format_var(UdevEvent *event,
                 if (s == dest)
                         goto null_terminate;
                 break;
-        case SUBST_ROOT:
+        case FORMAT_SUBST_ROOT:
                 l = strpcpy(&s, l, "/dev");
                 break;
-        case SUBST_SYS:
+        case FORMAT_SUBST_SYS:
                 l = strpcpy(&s, l, "/sys");
                 break;
-        case SUBST_ENV:
+        case FORMAT_SUBST_ENV:
                 if (!attr)
                         goto null_terminate;
                 r = sd_device_get_property_value(dev, attr, &val);
@@ -437,8 +439,8 @@ subst:
                         continue;
                 }
 
-                /* SUBST_RESULT handles spaces itself */
-                if (replace_whitespace && entry->type != SUBST_RESULT)
+                /* FORMAT_SUBST_RESULT handles spaces itself */
+                if (replace_whitespace && entry->type != FORMAT_SUBST_RESULT)
                         /* util_replace_whitespace can replace in-place,
                          * and does nothing if subst_len == 0
                          */
