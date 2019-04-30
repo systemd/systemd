@@ -134,6 +134,76 @@ static const struct subst_map_entry map[] = {
            { .name = "sys",      .fmt = 'S', .type = FORMAT_SUBST_SYS },
 };
 
+static const char *format_type_to_string(FormatSubstitutionType t) {
+        for (size_t i = 0; i < ELEMENTSOF(map); i++)
+                if (map[i].type == t)
+                        return map[i].name;
+        return NULL;
+}
+
+static char format_type_to_char(FormatSubstitutionType t) {
+        for (size_t i = 0; i < ELEMENTSOF(map); i++)
+                if (map[i].type == t)
+                        return map[i].fmt;
+        return '\0';
+}
+
+static int get_subst_type(const char **str, FormatSubstitutionType *ret_type, char ret_attr[static UTIL_PATH_SIZE]) {
+        const char *p = *str, *q = NULL;
+        size_t i;
+
+        assert(str);
+        assert(*str);
+        assert(ret_type);
+
+        if (p[0] == '$') {
+                p++;
+                if (p[0] == '$') {
+                        *str = p;
+                        return 0;
+                }
+                for (i = 0; i < ELEMENTSOF(map); i++)
+                        if ((q = startswith(p, map[i].name)))
+                                break;
+        } else if (p[0] == '%') {
+                p++;
+                if (p[0] == '%') {
+                        *str = p;
+                        return 0;
+                }
+
+                for (i = 0; i < ELEMENTSOF(map); i++)
+                        if (p[0] == map[i].fmt) {
+                                q = p + 1;
+                                break;
+                        }
+        }
+        if (!q)
+                return 0;
+
+        if (q[0] == '{') {
+                const char *start, *end;
+                size_t len;
+
+                start = q + 1;
+                end = strchr(start, '}');
+                if (!end)
+                        return -EINVAL;
+
+                len = end - start;
+                if (len == 0 || len >= UTIL_PATH_SIZE)
+                        return -EINVAL;
+
+                strnscpy(ret_attr, UTIL_PATH_SIZE, start, len);
+                q = end + 1;
+        } else
+                ret_attr[0] = '\0';
+
+        *str = q;
+        *ret_type = map[i].type;
+        return 1;
+}
+
 static ssize_t udev_event_subst_format(
                 UdevEvent *event,
                 FormatSubstitutionType type,
@@ -205,7 +275,7 @@ static ssize_t udev_event_subst_format(
 
                 /* get part of the result string */
                 i = 0;
-                if (attr)
+                if (!isempty(attr))
                         i = strtoul(attr, &rest, 10);
                 if (i > 0) {
                         char result[UTIL_PATH_SIZE], tmp[UTIL_PATH_SIZE], *cpos;
@@ -241,7 +311,7 @@ static ssize_t udev_event_subst_format(
                 size_t len;
                 int count;
 
-                if (!attr)
+                if (isempty(attr))
                         return -EINVAL;
 
                 /* try to read the value specified by "[dmi/id]product_name" */
@@ -320,8 +390,8 @@ static ssize_t udev_event_subst_format(
                 l = strpcpy(&s, l, "/sys");
                 break;
         case FORMAT_SUBST_ENV:
-                if (!attr)
-                        goto null_terminate;
+                if (isempty(attr))
+                        return -EINVAL;
                 r = sd_device_get_property_value(dev, attr, &val);
                 if (r == -ENOENT)
                         goto null_terminate;
@@ -343,9 +413,8 @@ null_terminate:
 ssize_t udev_event_apply_format(UdevEvent *event,
                                 const char *src, char *dest, size_t size,
                                 bool replace_whitespace) {
-        const char *from;
-        char *s;
-        size_t l;
+        const char *s = src;
+        int r;
 
         assert(event);
         assert(event->dev);
@@ -353,108 +422,41 @@ ssize_t udev_event_apply_format(UdevEvent *event,
         assert(dest);
         assert(size > 0);
 
-        from = src;
-        s = dest;
-        l = size;
-
-        for (;;) {
-                const struct subst_map_entry *entry = NULL;
-                char attrbuf[UTIL_PATH_SIZE], *attr;
-                bool format_dollar = false;
+        while (s[0] != '\0') {
+                FormatSubstitutionType type;
+                char attr[UTIL_PATH_SIZE];
                 ssize_t subst_len;
 
-                while (from[0] != '\0') {
-                        if (from[0] == '$') {
-                                /* substitute named variable */
-                                unsigned i;
-
-                                if (from[1] == '$') {
-                                        from++;
-                                        goto copy;
-                                }
-
-                                for (i = 0; i < ELEMENTSOF(map); i++) {
-                                        if (startswith(&from[1], map[i].name)) {
-                                                entry = &map[i];
-                                                from += strlen(map[i].name)+1;
-                                                format_dollar = true;
-                                                goto subst;
-                                        }
-                                }
-                        } else if (from[0] == '%') {
-                                /* substitute format char */
-                                unsigned i;
-
-                                if (from[1] == '%') {
-                                        from++;
-                                        goto copy;
-                                }
-
-                                for (i = 0; i < ELEMENTSOF(map); i++) {
-                                        if (from[1] == map[i].fmt) {
-                                                entry = &map[i];
-                                                from += 2;
-                                                goto subst;
-                                        }
-                                }
-                        }
-copy:
-                        /* copy char */
-                        if (l < 2) /* need space for this char and the terminating NUL */
-                                goto out;
-                        s[0] = from[0];
-                        from++;
-                        s++;
-                        l--;
-                }
-
-                goto out;
-subst:
-                /* extract possible $format{attr} */
-                if (from[0] == '{') {
-                        unsigned i;
-
-                        from++;
-                        for (i = 0; from[i] != '}'; i++)
-                                if (from[i] == '\0') {
-                                        log_error("missing closing brace for format '%s'", src);
-                                        goto out;
-                                }
-
-                        if (i >= sizeof(attrbuf))
-                                goto out;
-                        memcpy(attrbuf, from, i);
-                        attrbuf[i] = '\0';
-                        from += i+1;
-                        attr = attrbuf;
-                } else
-                        attr = NULL;
-
-                subst_len = udev_event_subst_format(event, entry->type, attr, s, l);
-                if (subst_len < 0) {
-                        if (format_dollar)
-                                log_device_warning_errno(event->dev, subst_len, "Failed to substitute variable '$%s', ignoring: %m", entry->name);
-                        else
-                                log_device_warning_errno(event->dev, subst_len, "Failed to apply format '%%%c', ignoring: %m", entry->fmt);
-
+                r = get_subst_type(&s, &type, attr);
+                if (r < 0)
+                        return log_device_warning_errno(event->dev, r, "Invalid format string, ignoring: %s", src);
+                if (r == 0) {
+                        if (size < 2) /* need space for this char and the terminating NUL */
+                                break;
+                        *dest++ = *s++;
+                        size--;
                         continue;
                 }
 
-                /* FORMAT_SUBST_RESULT handles spaces itself */
-                if (replace_whitespace && entry->type != FORMAT_SUBST_RESULT)
-                        /* util_replace_whitespace can replace in-place,
-                         * and does nothing if subst_len == 0
-                         */
-                        subst_len = util_replace_whitespace(s, s, subst_len);
+                subst_len = udev_event_subst_format(event, type, attr, dest, size);
+                if (subst_len < 0)
+                        return log_device_warning_errno(event->dev, subst_len,
+                                                        "Failed to substitute variable '$%s' or apply format '%%%c', ignoring: %m",
+                                                        format_type_to_string(type), format_type_to_char(type));
 
-                s += subst_len;
-                l -= subst_len;
+                /* FORMAT_SUBST_RESULT handles spaces itself */
+                if (replace_whitespace && type != FORMAT_SUBST_RESULT)
+                        /* util_replace_whitespace can replace in-place,
+                         * and does nothing if subst_len == 0 */
+                        subst_len = util_replace_whitespace(dest, dest, subst_len);
+
+                dest += subst_len;
+                size -= subst_len;
         }
 
-out:
-        assert(l >= 1);
-        s[0] = '\0';
-        return l;
+        assert(size >= 1);
+        dest[0] = '\0';
+        return size;
 }
 
 static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
