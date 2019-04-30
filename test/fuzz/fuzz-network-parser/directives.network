@@ -59,6 +59,7 @@ ClientIdentifier=
 ListenPort=
 UseTimezone=
 RouteTable=
+BlackList=
 [Route]
 Destination=
 Protocol=

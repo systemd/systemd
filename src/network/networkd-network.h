@@ -135,6 +135,7 @@ struct Network {
         bool dhcp_use_hostname;
         bool dhcp_route_table_set;
         DHCPUseDomains dhcp_use_domains;
+        Set *dhcp_black_listed_ip;
 
         /* DHCP Server Support */
         bool dhcp_server;
@@ -305,6 +306,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_privacy_extensions);
 CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_dns);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_black_listed_ip_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_search_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_ntp);
