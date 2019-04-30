@@ -115,9 +115,9 @@ struct subst_map_entry {
 
 static const struct subst_map_entry map[] = {
            { .name = "devnode",  .fmt = 'N', .type = FORMAT_SUBST_DEVNODE },
-           { .name = "tempnode", .fmt = 'N', .type = FORMAT_SUBST_DEVNODE },
+           { .name = "tempnode", .fmt = 'N', .type = FORMAT_SUBST_DEVNODE }, /* deprecated */
            { .name = "attr",     .fmt = 's', .type = FORMAT_SUBST_ATTR },
-           { .name = "sysfs",    .fmt = 's', .type = FORMAT_SUBST_ATTR },
+           { .name = "sysfs",    .fmt = 's', .type = FORMAT_SUBST_ATTR }, /* deprecated */
            { .name = "env",      .fmt = 'E', .type = FORMAT_SUBST_ENV },
            { .name = "kernel",   .fmt = 'k', .type = FORMAT_SUBST_KERNEL },
            { .name = "number",   .fmt = 'n', .type = FORMAT_SUBST_KERNEL_NUMBER },
