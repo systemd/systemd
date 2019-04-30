@@ -145,6 +145,12 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
                         return rtnl_log_create_error(r);
         }
 
+        if (!in_addr_is_null(fdb_entry->family, &fdb_entry->destination_addr)) {
+                r = netlink_message_append_in_addr_union(req, NDA_DST, fdb_entry->family, &fdb_entry->destination_addr);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
+        }
+
         /* send message to the kernel to update its internal static MAC table. */
         r = netlink_call_async(rtnl, NULL, req, set_fdb_handler,
                                link_netlink_destroy_callback, link);
@@ -253,6 +259,43 @@ int config_parse_fdb_vlan_id(
                                 rvalue, &fdb_entry->vlan_id, userdata);
         if (r < 0)
                 return r;
+
+        fdb_entry = NULL;
+
+        return 0;
+}
+
+int config_parse_fdb_destination(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(fdb_entry_free_or_set_invalidp) FdbEntry *fdb_entry = NULL;
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = fdb_entry_new_static(network, filename, section_line, &fdb_entry);
+        if (r < 0)
+                return log_oom();
+
+        r = in_addr_from_string_auto(rvalue, &fdb_entry->family, &fdb_entry->destination_addr);
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                  "FDB destination IP address is invalid, ignoring assignment: %s",
+                                  rvalue);
 
         fdb_entry = NULL;
 

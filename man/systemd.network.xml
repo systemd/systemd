@@ -1914,6 +1914,12 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>Destination=</varname></term>
+          <listitem>
+            <para>Takes an IP address of the destination VXLAN tunnel endpoint.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>VLANId=</varname></term>
           <listitem>
             <para>The VLAN ID for the new static MAC table entry. If
