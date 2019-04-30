@@ -2,9 +2,15 @@
 expression e;
 expression list args;
 @@
+(
+/* Ignore one specific case in src/shared/bootspec.c where we want to stick
+ * with the log_debug() + return pattern */
+log_debug("Found no default boot entry :(");
+|
 - log_debug(args);
 - return -e;
 + return log_debug_errno(SYNTHETIC_ERRNO(e), args);
+)
 @@
 expression e;
 expression list args;

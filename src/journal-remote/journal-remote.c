@@ -181,7 +181,7 @@ static int get_source_for_fd(RemoteServer *s,
                 return log_warning_errno(r, "Failed to get writer for source %s: %m",
                                          name);
 
-        if (s->sources[fd] == NULL) {
+        if (!s->sources[fd]) {
                 s->sources[fd] = source_new(fd, false, name, writer);
                 if (!s->sources[fd]) {
                         writer_unref(writer);

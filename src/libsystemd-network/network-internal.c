@@ -612,7 +612,7 @@ int serialize_dhcp_option(FILE *f, const char *key, const void *data, size_t siz
         assert(data);
 
         hex_buf = hexmem(data, size);
-        if (hex_buf == NULL)
+        if (!hex_buf)
                 return -ENOMEM;
 
         fprintf(f, "%s=%s\n", key, hex_buf);

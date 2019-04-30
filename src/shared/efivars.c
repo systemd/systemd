@@ -514,7 +514,7 @@ int efi_get_boot_option(
         if (path)
                 *path = TAKE_PTR(p);
         if (active)
-                *active = !!(header->attr & LOAD_OPTION_ACTIVE);
+                *active = header->attr & LOAD_OPTION_ACTIVE;
 
         return 0;
 }

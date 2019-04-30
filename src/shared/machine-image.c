@@ -395,7 +395,7 @@ static int image_make(
                 if (r < 0)
                         return r;
 
-                if (size != 0 && size != UINT64_MAX)
+                if (!IN_SET(size, 0, UINT64_MAX))
                         (*ret)->usage = (*ret)->usage_exclusive = (*ret)->limit = (*ret)->limit_exclusive = size;
 
                 return 0;

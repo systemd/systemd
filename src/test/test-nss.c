@@ -88,7 +88,7 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
                 if (it->scopeid == 0)
                         goto numerical_index;
 
-                if (if_indextoname(it->scopeid, ifname) == NULL) {
+                if (!if_indextoname(it->scopeid, ifname)) {
                         log_warning_errno(errno, "if_indextoname(%d) failed: %m", it->scopeid);
                 numerical_index:
                         xsprintf(ifname, "%i", it->scopeid);

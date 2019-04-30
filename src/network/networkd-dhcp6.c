@@ -229,7 +229,7 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link, Iterator *i,
                                              strnull(assigned_buf),
                                              strnull(buf), pd_prefix_len);
 
-                        if (assigned_link == NULL)
+                        if (!assigned_link)
                                 continue;
 
                 } else

@@ -26,7 +26,7 @@ static int message_append_basic(sd_bus_message *m, char type, const void *p, con
 
 static void *adjust_pointer(const void *p, void *old_base, size_t sz, void *new_base) {
 
-        if (p == NULL)
+        if (!p)
                 return NULL;
 
         if (old_base == new_base)

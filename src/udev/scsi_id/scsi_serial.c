@@ -169,8 +169,9 @@ static int scsi_dump_sense(struct scsi_id_device *dev_scsi,
          */
 
         if (sb_len < 1) {
-                log_debug("%s: sense buffer empty", dev_scsi->kernel);
-                return -1;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s: sense buffer empty",
+                                       dev_scsi->kernel);
         }
 
         sense_class = (sense_buffer[0] >> 4) & 0x07;
@@ -182,9 +183,10 @@ static int scsi_dump_sense(struct scsi_id_device *dev_scsi,
                  */
                 s = sense_buffer[7] + 8;
                 if (sb_len < s) {
-                        log_debug("%s: sense buffer too small %d bytes, %d bytes too short",
-                                  dev_scsi->kernel, sb_len, s - sb_len);
-                        return -1;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s: sense buffer too small %d bytes, %d bytes too short",
+                                               dev_scsi->kernel, sb_len,
+                                               s - sb_len);
                 }
                 if (IN_SET(code, 0x0, 0x1)) {
                         sense_key = sense_buffer[2] & 0xf;
@@ -192,9 +194,9 @@ static int scsi_dump_sense(struct scsi_id_device *dev_scsi,
                                 /*
                                  * Possible?
                                  */
-                                log_debug("%s: sense result too" " small %d bytes",
-                                          dev_scsi->kernel, s);
-                                return -1;
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "%s: sense result too small %d bytes",
+                                                       dev_scsi->kernel, s);
                         }
                         asc = sense_buffer[12];
                         ascq = sense_buffer[13];
@@ -203,17 +205,18 @@ static int scsi_dump_sense(struct scsi_id_device *dev_scsi,
                         asc = sense_buffer[2];
                         ascq = sense_buffer[3];
                 } else {
-                        log_debug("%s: invalid sense code 0x%x",
-                                  dev_scsi->kernel, code);
-                        return -1;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s: invalid sense code 0x%x",
+                                               dev_scsi->kernel, code);
                 }
                 log_debug("%s: sense key 0x%x ASC 0x%x ASCQ 0x%x",
                           dev_scsi->kernel, sense_key, asc, ascq);
         } else {
                 if (sb_len < 4) {
-                        log_debug("%s: sense buffer too small %d bytes, %d bytes too short",
-                                  dev_scsi->kernel, sb_len, 4 - sb_len);
-                        return -1;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s: sense buffer too small %d bytes, %d bytes too short",
+                                               dev_scsi->kernel, sb_len,
+                                               4 - sb_len);
                 }
 
                 if (sense_buffer[0] < 15)
@@ -235,8 +238,9 @@ static int scsi_dump(struct scsi_id_device *dev_scsi, struct sg_io_hdr *io) {
                 /*
                  * Impossible, should not be called.
                  */
-                log_debug("%s: called with no error", __FUNCTION__);
-                return -1;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s: called with no error",
+                                       __FUNCTION__);
         }
 
         log_debug("%s: sg_io failed status 0x%x 0x%x 0x%x 0x%x",
@@ -253,8 +257,9 @@ static int scsi_dump_v4(struct scsi_id_device *dev_scsi, struct sg_io_v4 *io) {
                 /*
                  * Impossible, should not be called.
                  */
-                log_debug("%s: called with no error", __FUNCTION__);
-                return -1;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s: called with no error",
+                                       __FUNCTION__);
         }
 
         log_debug("%s: sg_io failed status 0x%x 0x%x 0x%x",
@@ -279,8 +284,8 @@ static int scsi_inquiry(struct scsi_id_device *dev_scsi, int fd,
         int retval;
 
         if (buflen > SCSI_INQ_BUFF_LEN) {
-                log_debug("buflen %d too long", buflen);
-                return -1;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "buflen %d too long", buflen);
         }
 
 resend:
@@ -412,9 +417,10 @@ static int prepend_vendor_model(struct scsi_id_device *dev_scsi, char *serial) {
          * above, ind will never be too large.
          */
         if (ind != (VENDOR_LENGTH + MODEL_LENGTH)) {
-                log_debug("%s: expected length %d, got length %d",
-                          dev_scsi->kernel, (VENDOR_LENGTH + MODEL_LENGTH), ind);
-                return -1;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s: expected length %d, got length %d",
+                                       dev_scsi->kernel,
+                                       (VENDOR_LENGTH + MODEL_LENGTH), ind);
         }
         return ind;
 }
@@ -524,7 +530,7 @@ static int check_fill_0x83_id(struct scsi_id_device *dev_scsi,
 
         if (id_search->id_type == SCSI_ID_NAA && wwn != NULL) {
                 strncpy(wwn, &serial[s], 16);
-                if (wwn_vendor_extension != NULL)
+                if (wwn_vendor_extension)
                         strncpy(wwn_vendor_extension, &serial[s + 16], 16);
         }
 
@@ -729,7 +735,7 @@ static int do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
          * specific type where we prepend '0' + vendor + model.
          */
         len = buf[3];
-        if (serial != NULL) {
+        if (serial) {
                 serial[0] = 'S';
                 ser_ind = prepend_vendor_model(dev_scsi, &serial[1]);
                 if (ser_ind < 0)
@@ -738,7 +744,7 @@ static int do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
                 for (i = 4; i < len + 4; i++, ser_ind++)
                         serial[ser_ind] = buf[i];
         }
-        if (serial_short != NULL) {
+        if (serial_short) {
                 memcpy(serial_short, &buf[4], len);
                 serial_short[len] = '\0';
         }

@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
                 }
 
         device = argv[optind];
-        if (device == NULL)
+        if (!device)
                 return 2;
 
         fd = open(device, O_RDONLY);
