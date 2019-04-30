@@ -139,7 +139,7 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
                 return rtnl_log_create_error(r);
 
         /* VLAN Id is optional. We'll add VLAN Id only if it's specified. */
-        if (0 != fdb_entry->vlan_id) {
+        if (fdb_entry->vlan_id > 0) {
                 r = sd_netlink_message_append_u16(req, NDA_VLAN, fdb_entry->vlan_id);
                 if (r < 0)
                         return rtnl_log_create_error(r);
