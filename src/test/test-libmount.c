@@ -21,13 +21,10 @@ static void test_libmount_unescaping_one(
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         _cleanup_fclose_ FILE *f = NULL;
 
-        assert_se(table = mnt_new_table());
-        assert_se(iter = mnt_new_iter(MNT_ITER_FORWARD));
-
         f = fmemopen((char*) string, strlen(string), "re");
         assert_se(f);
 
-        assert_se(mnt_table_parse_stream(table, f, title) >= 0);
+        assert_se(libmount_parse(title, f, &table, &iter) >= 0);
 
         struct libmnt_fs *fs;
         const char *source, *target;
