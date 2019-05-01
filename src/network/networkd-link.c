@@ -1825,7 +1825,11 @@ static int link_acquire_ipv6_conf(Link *link) {
         assert(link);
 
         if (link_ipv6_accept_ra_enabled(link)) {
-                assert(link->ndisc);
+                if (!link->ndisc) {
+                        r = ndisc_configure(link);
+                        if (r < 0)
+                                return r;
+                }
 
                 log_link_debug(link, "Discovering IPv6 routers");
 
@@ -1835,8 +1839,13 @@ static int link_acquire_ipv6_conf(Link *link) {
         }
 
         if (link_radv_enabled(link)) {
-                assert(link->radv);
                 assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
+
+                if (!link->radv) {
+                        r = radv_configure(link);
+                        if (r < 0)
+                                return r;
+                }
 
                 log_link_debug(link, "Starting IPv6 Router Advertisements");
 
