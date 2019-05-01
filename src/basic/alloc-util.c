@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <malloc.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -39,32 +40,35 @@ void* memdup_suffix0(const void *p, size_t l) {
 }
 
 void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
-        size_t a, newalloc;
+        size_t a, new_need;
         void *q;
 
         assert(p);
         assert(allocated);
 
-        if (*allocated >= need)
+        /* In these 3 following cases return the current pointer and do not update allocated size:
+         *  - There is already enough allocated space
+         *  - The number of element (need) is 0
+         *  - The size of "object" is equal to 0 */
+        if (*allocated >= need || size == 0)
                 return *p;
 
-        if (_unlikely_(need > SIZE_MAX/2)) /* Overflow check */
+        /* Overflow check of: need * size * 2 */
+        if (size_multiply_overflow(need, 2))
                 return NULL;
 
-        newalloc = need * 2;
-        if (size_multiply_overflow(newalloc, size))
+        new_need = need * 2;
+        if (size_multiply_overflow(size, new_need))
                 return NULL;
 
-        a = newalloc * size;
-        if (a < 64) /* Allocate at least 64 bytes */
-                a = 64;
-
+        /* Allocate at least: 64 bytes or the current usable size of previously allocated buffer */
+        a = MAX3(new_need * size, malloc_usable_size(*p), 64u);
         q = realloc(*p, a);
         if (!q)
                 return NULL;
 
         *p = q;
-        *allocated = newalloc;
+        *allocated = a / size;
         return q;
 }
 
