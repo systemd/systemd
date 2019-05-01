@@ -359,6 +359,7 @@ bool fstype_can_uid_gid(const char *fstype) {
 
         return STR_IN_SET(fstype,
                           "adfs",
+                          "exfat",
                           "fat",
                           "hfs",
                           "hpfs",
