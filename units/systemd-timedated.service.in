@@ -15,6 +15,7 @@ Documentation=https://www.freedesktop.org/wiki/Software/systemd/timedated
 [Service]
 BusName=org.freedesktop.timedate1
 CapabilityBoundingSet=CAP_SYS_TIME
+DeviceAllow=char-rtc r
 ExecStart=@rootlibexecdir@/systemd-timedated
 IPAddressDeny=any
 LockPersonality=yes
