@@ -578,3 +578,12 @@ evdev:input:b0003v172Fp0031*
 evdev:input:b0003v172Fp0047*
  EVDEV_ABS_00=0:20000:80
  EVDEV_ABS_01=0:12500:80
+
+#########################################
+# Trust (AIPTEK)
+#########################################
+
+#TRUST 1200 Wireless Tablet
+evdev:input:b0003v08CAp0010*
+ EVDEV_ABS_00=::20
+ EVDEV_ABS_01=::20
