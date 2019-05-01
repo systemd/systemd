@@ -110,7 +110,7 @@ static bool link_dhcp4_server_enabled(Link *link) {
         return link->network->dhcp_server;
 }
 
-static bool link_ipv4ll_enabled(Link *link) {
+bool link_ipv4ll_enabled(Link *link) {
         assert(link);
 
         if (link->flags & IFF_LOOPBACK)
@@ -126,6 +126,24 @@ static bool link_ipv4ll_enabled(Link *link) {
                 return false;
 
         return link->network->link_local & ADDRESS_FAMILY_IPV4;
+}
+
+bool link_ipv4ll_fallback_enabled(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard"))
+                return false;
+
+        if (link->network->bond)
+                return false;
+
+        return link->network->link_local & ADDRESS_FAMILY_FALLBACK_IPV4;
 }
 
 static bool link_ipv6ll_enabled(Link *link) {
@@ -3114,7 +3132,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        if (link_ipv4ll_enabled(link)) {
+        if (link_ipv4ll_enabled(link) || link_ipv4ll_fallback_enabled(link)) {
                 r = ipv4ll_configure(link);
                 if (r < 0)
                         return r;

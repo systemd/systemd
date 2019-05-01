@@ -16,6 +16,10 @@ const char *address_family_boolean_to_string(AddressFamilyBoolean b) {
                 return "ipv4";
         if (b == ADDRESS_FAMILY_IPV6)
                 return "ipv6";
+        if (b == ADDRESS_FAMILY_FALLBACK)
+                return "fallback";
+        if (b == ADDRESS_FAMILY_FALLBACK)
+                return "ipv4-fallback";
 
         return NULL;
 }
@@ -35,6 +39,10 @@ AddressFamilyBoolean address_family_boolean_from_string(const char *s) {
                 return ADDRESS_FAMILY_IPV4;
         if (streq(s, "ipv6"))
                 return ADDRESS_FAMILY_IPV6;
+        if (streq(s, "fallback"))
+                return ADDRESS_FAMILY_FALLBACK;
+        if (streq(s, "ipv4-fallback"))
+                return ADDRESS_FAMILY_FALLBACK_IPV4;
 
         return _ADDRESS_FAMILY_BOOLEAN_INVALID;
 }

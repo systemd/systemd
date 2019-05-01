@@ -511,6 +511,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
 
         return 0;
 }
+
 static void dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
         Link *link = userdata;
         int r = 0;
@@ -523,9 +524,24 @@ static void dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                 return;
 
         switch (event) {
-                case SD_DHCP_CLIENT_EVENT_EXPIRED:
                 case SD_DHCP_CLIENT_EVENT_STOP:
+
+                        if (link_ipv4ll_fallback_enabled(link)) {
+                                assert(link->ipv4ll);
+
+                                log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address");
+
+                                r = sd_ipv4ll_start(link->ipv4ll);
+                                if (r < 0) {
+                                        log_link_warning(link, "Could not acquire IPv4 link-local address: %m");
+                                        return;
+                                }
+                        }
+
+                        _fallthrough_;
+                case SD_DHCP_CLIENT_EVENT_EXPIRED:
                 case SD_DHCP_CLIENT_EVENT_IP_CHANGE:
+
                         if (link->network->dhcp_critical) {
                                 log_link_error(link, "DHCPv4 connection considered system critical, ignoring request to reconfigure it.");
                                 return;

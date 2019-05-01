@@ -14,7 +14,6 @@
 #include "test-tables.h"
 
 int main(int argc, char **argv) {
-        test_table(address_family_boolean, ADDRESS_FAMILY_BOOLEAN);
         test_table(bond_ad_select, NETDEV_BOND_AD_SELECT);
         test_table(bond_arp_all_targets, NETDEV_BOND_ARP_ALL_TARGETS);
         test_table(bond_arp_validate, NETDEV_BOND_ARP_VALIDATE);
@@ -42,6 +41,7 @@ int main(int argc, char **argv) {
 
         test_table_sparse(ipvlan_mode, NETDEV_IPVLAN_MODE);
         test_table_sparse(macvlan_mode, NETDEV_MACVLAN_MODE);
+        test_table_sparse(address_family_boolean, ADDRESS_FAMILY_BOOLEAN);
 
         return EXIT_SUCCESS;
 }
