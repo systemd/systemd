@@ -168,6 +168,8 @@ int dhcp6_configure(Link *link);
 int dhcp6_request_address(Link *link, int ir);
 int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link);
 
+int link_stop_clients(Link *link);
+
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
 

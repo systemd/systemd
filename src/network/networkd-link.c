@@ -718,7 +718,7 @@ static void link_enter_unmanaged(Link *link) {
         link_dirty(link);
 }
 
-static int link_stop_clients(Link *link) {
+int link_stop_clients(Link *link) {
         int r = 0, k;
 
         assert(link);
