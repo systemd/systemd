@@ -182,8 +182,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*1640:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAOA*:pvr*
  KEYBOARD_KEY_a9=!switchvideomode                       # Fn+F5
 
-# Easynote models
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPackard*Bell*:pnEasynote*:pvr*
+# Packard Bell and Gateway models
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGateway*:pn*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPackard*Bell*:pn*
  KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for comunication key
 
 ###########################################################
