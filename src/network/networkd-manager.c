@@ -1427,17 +1427,12 @@ int manager_new(Manager **ret) {
 
 void manager_free(Manager *m) {
         AddressPool *pool;
-        Network *network;
         Link *link;
 
         if (!m)
                 return;
 
         free(m->state_file);
-
-        sd_netlink_unref(m->rtnl);
-        sd_netlink_unref(m->genl);
-        sd_resolve_unref(m->resolve);
 
         while ((link = hashmap_first(m->dhcp6_prefixes)))
                 manager_dhcp6_prefix_remove_all(m, link);
@@ -1457,9 +1452,7 @@ void manager_free(Manager *m) {
         m->links = hashmap_free_with_destructor(m->links, link_unref);
 
         m->duids_requesting_uuid = set_free(m->duids_requesting_uuid);
-        while ((network = m->networks))
-                network_unref(network);
-        hashmap_free(m->networks_by_name);
+        m->networks_by_name = hashmap_free_with_destructor(m->networks_by_name, network_unref);
 
         m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);
 
@@ -1471,6 +1464,10 @@ void manager_free(Manager *m) {
         m->rules = set_free_with_destructor(m->rules, routing_policy_rule_free);
         m->rules_foreign = set_free_with_destructor(m->rules_foreign, routing_policy_rule_free);
         set_free_with_destructor(m->rules_saved, routing_policy_rule_free);
+
+        sd_netlink_unref(m->rtnl);
+        sd_netlink_unref(m->genl);
+        sd_resolve_unref(m->resolve);
 
         sd_event_unref(m->event);
 
