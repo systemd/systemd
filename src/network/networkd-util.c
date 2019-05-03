@@ -8,46 +8,26 @@
 #include "string-util.h"
 #include "util.h"
 
-const char *address_family_boolean_to_string(AddressFamilyBoolean b) {
-        if (IN_SET(b, ADDRESS_FAMILY_YES, ADDRESS_FAMILY_NO))
-                return yes_no(b == ADDRESS_FAMILY_YES);
+static const char * const address_family_boolean_table[_ADDRESS_FAMILY_BOOLEAN_MAX] = {
+        [ADDRESS_FAMILY_NO]            = "no",
+        [ADDRESS_FAMILY_YES]           = "yes",
+        [ADDRESS_FAMILY_IPV4]          = "ipv4",
+        [ADDRESS_FAMILY_IPV6]          = "ipv6",
+};
 
-        if (b == ADDRESS_FAMILY_IPV4)
-                return "ipv4";
-        if (b == ADDRESS_FAMILY_IPV6)
-                return "ipv6";
-        if (b == ADDRESS_FAMILY_FALLBACK)
-                return "fallback";
-        if (b == ADDRESS_FAMILY_FALLBACK)
-                return "ipv4-fallback";
+static const char * const link_local_address_family_boolean_table[_ADDRESS_FAMILY_BOOLEAN_MAX] = {
+        [ADDRESS_FAMILY_NO]            = "no",
+        [ADDRESS_FAMILY_YES]           = "yes",
+        [ADDRESS_FAMILY_IPV4]          = "ipv4",
+        [ADDRESS_FAMILY_IPV6]          = "ipv6",
+        [ADDRESS_FAMILY_FALLBACK]      = "fallback",
+        [ADDRESS_FAMILY_FALLBACK_IPV4] = "ipv4-fallback",
+};
 
-        return NULL;
-}
-
-AddressFamilyBoolean address_family_boolean_from_string(const char *s) {
-        int r;
-
-        /* Make this a true superset of a boolean */
-
-        r = parse_boolean(s);
-        if (r > 0)
-                return ADDRESS_FAMILY_YES;
-        if (r == 0)
-                return ADDRESS_FAMILY_NO;
-
-        if (streq(s, "ipv4"))
-                return ADDRESS_FAMILY_IPV4;
-        if (streq(s, "ipv6"))
-                return ADDRESS_FAMILY_IPV6;
-        if (streq(s, "fallback"))
-                return ADDRESS_FAMILY_FALLBACK;
-        if (streq(s, "ipv4-fallback"))
-                return ADDRESS_FAMILY_FALLBACK_IPV4;
-
-        return _ADDRESS_FAMILY_BOOLEAN_INVALID;
-}
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_address_family_boolean, address_family_boolean, AddressFamilyBoolean, "Failed to parse option");
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(address_family_boolean, AddressFamilyBoolean, ADDRESS_FAMILY_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(link_local_address_family_boolean, AddressFamilyBoolean, ADDRESS_FAMILY_YES);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family_boolean, link_local_address_family_boolean,
+                         AddressFamilyBoolean, "Failed to parse option");
 
 int config_parse_address_family_boolean_with_kernel(
                 const char* unit,

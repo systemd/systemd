@@ -23,11 +23,14 @@ typedef struct NetworkConfigSection {
         char filename[];
 } NetworkConfigSection;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_address_family_boolean);
+CONFIG_PARSER_PROTOTYPE(config_parse_link_local_address_family_boolean);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_family_boolean_with_kernel);
 
 const char *address_family_boolean_to_string(AddressFamilyBoolean b) _const_;
-AddressFamilyBoolean address_family_boolean_from_string(const char *s) _const_;
+AddressFamilyBoolean address_family_boolean_from_string(const char *s) _pure_;
+
+const char *link_local_address_family_boolean_to_string(AddressFamilyBoolean b) _const_;
+AddressFamilyBoolean link_local_address_family_boolean_from_string(const char *s) _pure_;
 
 int kernel_route_expiration_supported(void);
 
