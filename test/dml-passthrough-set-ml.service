@@ -5,4 +5,4 @@ Description=DML passthrough set ML service
 Slice=dml-passthrough.slice
 Type=oneshot
 ExecStart=/bin/true
-MemoryLow=25
+MemoryLow=0
