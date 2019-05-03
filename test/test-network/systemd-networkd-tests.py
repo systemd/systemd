@@ -139,8 +139,8 @@ class Utilities():
                 if (os.path.exists(os.path.join(network_unit_file_path, unit + '.d'))):
                     shutil.rmtree(os.path.join(network_unit_file_path, unit + '.d'))
 
-    def start_dnsmasq(self, additional_options=''):
-        dnsmasq_command = 'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range=2600::10,2600::20 --dhcp-range=192.168.5.10,192.168.5.200 -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5 --port=0 ' + additional_options
+    def start_dnsmasq(self, additional_options='', lease_time='1h'):
+        dnsmasq_command = f'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range=2600::10,2600::20,{lease_time} --dhcp-range=192.168.5.10,192.168.5.200,{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5 --port=0 ' + additional_options
         subprocess.check_call(dnsmasq_command, shell=True)
 
         time.sleep(10)
@@ -1880,6 +1880,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-route-metric.network',
         'dhcp-client-route-table.network',
         'dhcp-client-vrf.network',
+        'dhcp-client-with-ipv4ll-fallback.network',
         'dhcp-client.network',
         'dhcp-server-veth-peer.network',
         'dhcp-v4-server-veth-peer.network',
@@ -2175,6 +2176,42 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'veth99', '192.168.100.0/24']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, 'onlink')
+
+    def test_dhcp_client_with_ipv4ll_fallback(self):
+        self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
+                                             'dhcp-client-with-ipv4ll-fallback.network')
+        self.start_networkd(0)
+        self.start_dnsmasq(lease_time='2m')
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic']).rstrip().decode('utf-8')
+        self.assertNotRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global dynamic')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'link']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'inet6 .* scope link')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'link']).rstrip().decode('utf-8')
+        self.assertNotRegex(output, 'inet .* scope link')
+
+        print('Wait for the dynamic address to be expired')
+        time.sleep(130)
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic']).rstrip().decode('utf-8')
+        self.assertNotRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global dynamic')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'link']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'inet6 .* scope link')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'link']).rstrip().decode('utf-8')
+        self.assertNotRegex(output, 'inet .* scope link')
+
+        self.search_words_in_dnsmasq_log('DHCPOFFER', show_all=True)
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
