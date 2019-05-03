@@ -172,6 +172,7 @@ $1.CPUQuota,                     config_parse_cpu_quota,             0,         
 $1.CPUQuotaPeriodSec,            config_parse_sec_def_infinity,      0,                             offsetof($1, cgroup_context.cpu_quota_period_usec)
 $1.MemoryAccounting,             config_parse_bool,                  0,                             offsetof($1, cgroup_context.memory_accounting)
 $1.MemoryMin,                    config_parse_memory_limit,          0,                             offsetof($1, cgroup_context)
+$1.DefaultMemoryMin,             config_parse_memory_limit,          0,                             offsetof($1, cgroup_context)
 $1.DefaultMemoryLow,             config_parse_memory_limit,          0,                             offsetof($1, cgroup_context)
 $1.MemoryLow,                    config_parse_memory_limit,          0,                             offsetof($1, cgroup_context)
 $1.MemoryHigh,                   config_parse_memory_limit,          0,                             offsetof($1, cgroup_context)
