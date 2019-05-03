@@ -4176,7 +4176,9 @@ int link_save(Link *link) {
                                 (void) sd_dhcp6_lease_get_domains(dhcp6_lease, &dhcp6_domains);
                 }
 
-                ordered_set_print(f, "DOMAINS=", link->network->search_domains);
+                fputs("DOMAINS=", f);
+                ordered_set_print(f, "", link->network->search_domains);
+                space = !ordered_set_isempty(link->network->search_domains);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) {
                         NDiscDNSSL *dd;
@@ -4194,7 +4196,9 @@ int link_save(Link *link) {
 
                 fputc('\n', f);
 
-                ordered_set_print(f, "ROUTE_DOMAINS=", link->network->route_domains);
+                fputs("ROUTE_DOMAINS=", f);
+                ordered_set_print(f, "", link->network->route_domains);
+                space = !ordered_set_isempty(link->network->route_domains);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE) {
                         NDiscDNSSL *dd;
