@@ -18,7 +18,12 @@ ninja -v -C build
 export ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
 export UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1
 source "$(dirname $0)/travis_wait.bash"
+(
+unshare -m
+mkdir /sys/fs/cgroup/unified
+mount -t cgroup2 cgroup2 /sys/fs/cgroup/unified
 SYSTEMD_LOG_LEVEL=debug ./build/test-bpf
+)
 travis_wait meson test --timeout-multiplier=3 -C build --print-errorlogs
 
 make -C test/TEST-01-BASIC clean setup run TEST_NO_QEMU=yes NSPAWN_ARGUMENTS=--keep-unit RUN_IN_UNPRIVILEGED_CONTAINER=no
