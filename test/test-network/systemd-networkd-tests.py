@@ -331,6 +331,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'sit.network',
         'vti6.network',
         'vti.network',
+        'vxlan-test1.network',
         'vxlan.network']
 
     def setUp(self):
@@ -861,14 +862,15 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         subprocess.call(['ip', 'fou', 'del', 'port', '55556'])
 
     def test_vxlan(self):
-        self.copy_unit_to_networkd_unit_path('25-vxlan.netdev', 'vxlan.network', '11-dummy.netdev')
-        self.start_networkd()
+        self.copy_unit_to_networkd_unit_path('25-vxlan.netdev', 'vxlan.network',
+                                             '11-dummy.netdev', 'vxlan-test1.network')
+        self.start_networkd(0)
 
-        self.assertTrue(self.link_exits('vxlan99'))
+        self.wait_online(['test1:degraded', 'vxlan99:degraded'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vxlan99']).rstrip().decode('utf-8')
         print(output)
-        self.assertRegex(output, "999")
+        self.assertRegex(output, '999')
         self.assertRegex(output, '5555')
         self.assertRegex(output, 'l2miss')
         self.assertRegex(output, 'l3miss')
@@ -878,6 +880,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'remcsumtx')
         self.assertRegex(output, 'remcsumrx')
         self.assertRegex(output, 'gbp')
+
+        output = subprocess.check_output(['bridge', 'fdb', 'show', 'dev', 'vxlan99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, '00:11:22:33:44:55 dst 10.0.0.5 self permanent')
+        self.assertRegex(output, '00:11:22:33:44:66 dst 10.0.0.6 self permanent')
+        self.assertRegex(output, '00:11:22:33:44:77 dst 10.0.0.7 self permanent')
 
     def test_macsec(self):
         self.copy_unit_to_networkd_unit_path('25-macsec.netdev', '25-macsec.network', '25-macsec.key',

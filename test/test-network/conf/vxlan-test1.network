@@ -1,0 +1,6 @@
+[Match]
+Name=test1
+
+[Network]
+IPv6AcceptRA=false
+VXLAN=vxlan99

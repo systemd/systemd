@@ -19,8 +19,11 @@ struct FdbEntry {
         Network *network;
         NetworkConfigSection *section;
 
-        struct ether_addr *mac_addr;
+        int family;
         uint16_t vlan_id;
+
+        struct ether_addr *mac_addr;
+        union in_addr_union destination_addr;
 
         LIST_FIELDS(FdbEntry, static_fdb_entries);
 };
@@ -32,3 +35,4 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(FdbEntry, fdb_entry_free);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_vlan_id);
+CONFIG_PARSER_PROTOTYPE(config_parse_fdb_destination);
