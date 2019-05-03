@@ -1021,12 +1021,9 @@ void link_check_ready(Link *link) {
             in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address))
                 return;
 
-        if ((link_dhcp4_enabled(link) && !link_dhcp6_enabled(link) &&
-             !link->dhcp4_configured) ||
-            (link_dhcp6_enabled(link) && !link_dhcp4_enabled(link) &&
-             !link->dhcp6_configured) ||
-            (link_dhcp4_enabled(link) && link_dhcp6_enabled(link) &&
-             !link->dhcp4_configured && !link->dhcp6_configured))
+        if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link)) &&
+            !(link->dhcp4_configured || link->dhcp6_configured))
+                /* When DHCP is enabled, at least one protocol must provide an address. */
                 return;
 
         if (link_ipv6_accept_ra_enabled(link) && !link->ndisc_configured)
