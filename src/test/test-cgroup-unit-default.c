@@ -39,7 +39,7 @@ static int test_default_memory_low(void) {
          * 1. dml-passthrough.slice sets MemoryLow=100. This should not affect its children, as only
          *    DefaultMemoryLow is propagated, not MemoryLow. As such, all leaf services should end up with
          *    memory.low as 50, inherited from dml.slice, *except* for dml-passthrough-set-ml.service, which
-         *    should have the value of 25, as it has MemoryLow explicitly set.
+         *    should have the value of 0, as it has MemoryLow explicitly set.
          *
          *                                                  ┌───────────┐
          *                                                  │ dml.slice │
@@ -49,7 +49,7 @@ static int test_default_memory_low(void) {
          *                                            │ dml-passthrough.slice │
          *                                            └───────────┬───────────┘
          *                    ┌───────────────────────────────────┼───────────────────────────────────┐
-         *             no new settings                   DefaultMemoryLow=15                     MemoryLow=25
+         *             no new settings                   DefaultMemoryLow=15                     MemoryLow=0
          *    ┌───────────────┴───────────────┐  ┌────────────────┴────────────────┐  ┌───────────────┴────────────────┐
          *    │ dml-passthrough-empty.service │  │ dml-passthrough-set-dml.service │  │ dml-passthrough-set-ml.service │
          *    └───────────────────────────────┘  └─────────────────────────────────┘  └────────────────────────────────┘
@@ -122,7 +122,7 @@ static int test_default_memory_low(void) {
         assert_se(unit_get_ancestor_memory_low(dml_passthrough) == 100);
         assert_se(unit_get_ancestor_memory_low(dml_passthrough_empty) == dml_tree_default);
         assert_se(unit_get_ancestor_memory_low(dml_passthrough_set_dml) == 50);
-        assert_se(unit_get_ancestor_memory_low(dml_passthrough_set_ml) == 25);
+        assert_se(unit_get_ancestor_memory_low(dml_passthrough_set_ml) == 0);
 
         assert_se(unit_get_ancestor_memory_low(dml_override) == dml_tree_default);
         assert_se(unit_get_ancestor_memory_low(dml_override_empty) == 10);
