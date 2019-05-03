@@ -24,6 +24,9 @@ CHANGES WITH 243 in spe:
           hierarchically set default memory protection values for a particular
           subtree of the unit hierarchy.
 
+        * Memory protection directives can now take a value of zero, allowing
+          explicit opting out of a default value propagated by an ancestor.
+
           …
 
 CHANGES WITH 242:
