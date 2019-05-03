@@ -166,7 +166,7 @@ sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnP02BD6_HI-122LP:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Chuwi Hi13
-sensor:modalias:acpi:KIOX000A*:dmi:svnChuwi*:pnHi13
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnChuwi*:pnHi13:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Chuwi HiBook
