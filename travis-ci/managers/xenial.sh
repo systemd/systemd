@@ -14,6 +14,12 @@ sed -i 's/2\.30/2.27/' meson.build
 
 meson --werror -Db_sanitize=address,undefined -Dsplit-usr=true build
 ninja -v -C build
+
+export ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
+export UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1
+source "$(dirname $0)/travis_wait.bash"
+travis_wait meson test --timeout-multiplier=3 -C build --print-errorlogs
+
 make -C test/TEST-01-BASIC clean setup run TEST_NO_QEMU=yes NSPAWN_ARGUMENTS=--keep-unit RUN_IN_UNPRIVILEGED_CONTAINER=no
 
 # Now that we're more or less sure that ASan isn't going to crash systemd and cause a kernel panic
