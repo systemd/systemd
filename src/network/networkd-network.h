@@ -92,6 +92,8 @@ struct Network {
         char *filename;
         char *name;
 
+        unsigned n_ref;
+
         Set *match_mac;
         char **match_path;
         char **match_driver;
@@ -278,9 +280,9 @@ struct Network {
         LIST_FIELDS(Network, networks);
 };
 
-void network_free(Network *network);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_free);
+Network *network_ref(Network *network);
+Network *network_unref(Network *network);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_unref);
 
 int network_load(Manager *manager);
 int network_load_one(Manager *manager, const char *filename);

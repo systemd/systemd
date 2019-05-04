@@ -298,7 +298,7 @@ int network_verify(Network *network) {
 
 int network_load_one(Manager *manager, const char *filename) {
         _cleanup_free_ char *fname = NULL, *name = NULL;
-        _cleanup_(network_freep) Network *network = NULL;
+        _cleanup_(network_unrefp) Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;
         char *d;
@@ -343,6 +343,8 @@ int network_load_one(Manager *manager, const char *filename) {
         *network = (Network) {
                 .filename = TAKE_PTR(fname),
                 .name = TAKE_PTR(name),
+
+                .n_ref = 1,
 
                 .required_for_online = true,
                 .required_operstate_for_online = LINK_OPERSTATE_DEGRADED,
@@ -473,7 +475,7 @@ int network_load(Manager *manager) {
         assert(manager);
 
         while ((network = manager->networks))
-                network_free(network);
+                network_unref(network);
 
         r = conf_files_list_strv(&files, ".network", NULL, 0, NETWORK_DIRS);
         if (r < 0)
@@ -488,7 +490,7 @@ int network_load(Manager *manager) {
         return 0;
 }
 
-void network_free(Network *network) {
+static Network *network_free(Network *network) {
         IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
         RoutingPolicyRule *rule;
         FdbEntry *fdb_entry;
@@ -499,7 +501,7 @@ void network_free(Network *network) {
         Route *route;
 
         if (!network)
-                return;
+                return NULL;
 
         free(network->filename);
 
@@ -586,8 +588,10 @@ void network_free(Network *network) {
 
         set_free_free(network->dnssec_negative_trust_anchors);
 
-        free(network);
+        return mfree(network);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Network, network, network_free);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret) {
         Network *network;

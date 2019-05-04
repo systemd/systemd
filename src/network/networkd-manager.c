@@ -1458,7 +1458,7 @@ void manager_free(Manager *m) {
 
         m->duids_requesting_uuid = set_free(m->duids_requesting_uuid);
         while ((network = m->networks))
-                network_free(network);
+                network_unref(network);
         hashmap_free(m->networks_by_name);
 
         m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);
