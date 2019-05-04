@@ -690,6 +690,8 @@ static Link *link_free(Link *link) {
 
         set_free_with_destructor(link->slaves, link_unref);
 
+        network_unref(link->network);
+
         return mfree(link);
 }
 

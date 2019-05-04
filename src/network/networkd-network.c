@@ -358,7 +358,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 /* To enable/disable RFC7844 Anonymity Profiles */
                 .dhcp_anonymize = false,
                 .dhcp_route_metric = DHCP_ROUTE_METRIC,
-                /* NOTE: this var might be overwrite by network_apply_anonymize_if_set */
+                /* NOTE: this var might be overwritten by network_apply_anonymize_if_set */
                 .dhcp_client_identifier = DHCP_CLIENT_ID_DUID,
                 .dhcp_route_table = RT_TABLE_MAIN,
                 .dhcp_route_table_set = false,
@@ -660,7 +660,7 @@ int network_apply(Network *network, Link *link) {
         assert(network);
         assert(link);
 
-        link->network = network;
+        link->network = network_ref(network);
 
         if (network->n_dns > 0 ||
             !strv_isempty(network->ntp) ||
