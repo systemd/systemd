@@ -126,47 +126,33 @@ int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link) {
                                      &lifetime_preferred,
                                      &lifetime_valid) >= 0) {
                 _cleanup_free_ char *buf = NULL;
-                _cleanup_free_ Route *route = NULL;
+                Route *route;
 
-                if (pd_prefix_len > 64)
+                if (pd_prefix_len >= 64)
                         continue;
 
                 (void) in_addr_to_string(AF_INET6, &pd_prefix, &buf);
 
-                if (pd_prefix_len < 64) {
-                        r = route_new(&route);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Cannot create unreachable route to delete for DHCPv6 delegated subnet %s/%u: %m",
-                                                       strnull(buf),
-                                                       pd_prefix_len);
-                                continue;
-                        }
-
-                        r = route_add(link, AF_INET6, &pd_prefix, pd_prefix_len, 0, 0, 0, &route);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to add unreachable route to delete for DHCPv6 delegated subnet %s/%u: %m",
-                                                       strnull(buf),
-                                                       pd_prefix_len);
-                                continue;
-                        }
-
-                        route_update(route, NULL, 0, NULL, NULL, 0, 0, RTN_UNREACHABLE);
-
-                        r = route_remove(route, link, dhcp6_route_remove_handler);
-                        if (r < 0) {
-                                (void) in_addr_to_string(AF_INET6,
-                                                         &pd_prefix, &buf);
-
-                                log_link_warning_errno(link, r, "Cannot delete unreachable route for DHCPv6 delegated subnet %s/%u: %m",
-                                                       strnull(buf),
-                                                       pd_prefix_len);
-
-                                continue;
-                        }
-
-                        log_link_debug(link, "Removing unreachable route %s/%u",
-                                       strnull(buf), pd_prefix_len);
+                r = route_add(link, AF_INET6, &pd_prefix, pd_prefix_len, 0, 0, 0, &route);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to add unreachable route to delete for DHCPv6 delegated subnet %s/%u: %m",
+                                               strnull(buf),
+                                               pd_prefix_len);
+                        continue;
                 }
+
+                route_update(route, NULL, 0, NULL, NULL, 0, 0, RTN_UNREACHABLE);
+
+                r = route_remove(route, link, dhcp6_route_remove_handler);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Cannot delete unreachable route for DHCPv6 delegated subnet %s/%u: %m",
+                                               strnull(buf),
+                                               pd_prefix_len);
+                        continue;
+                }
+
+                log_link_debug(link, "Removing unreachable route %s/%u",
+                               strnull(buf), pd_prefix_len);
         }
 
         return 0;
@@ -266,7 +252,6 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
         union in_addr_union pd_prefix;
         uint8_t pd_prefix_len;
         uint32_t lifetime_preferred, lifetime_valid;
-        _cleanup_free_ char *buf = NULL;
         Iterator i = ITERATOR_FIRST;
 
         r = sd_dhcp6_client_get_lease(client, &lease);
@@ -279,32 +264,23 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
                                      &lifetime_preferred,
                                      &lifetime_valid) >= 0) {
 
+                _cleanup_free_ char *buf = NULL;
+
+                (void) in_addr_to_string(AF_INET6, &pd_prefix, &buf);
+
                 if (pd_prefix_len > 64) {
-                        (void) in_addr_to_string(AF_INET6, &pd_prefix, &buf);
                         log_link_debug(link, "PD Prefix length > 64, ignoring prefix %s/%u",
                                        strnull(buf), pd_prefix_len);
                         continue;
                 }
 
-                if (pd_prefix_len < 48) {
-                        (void) in_addr_to_string(AF_INET6, &pd_prefix, &buf);
+                if (pd_prefix_len < 48)
                         log_link_warning(link, "PD Prefix length < 48, looks unusual %s/%u",
                                        strnull(buf), pd_prefix_len);
-                }
 
                 if (pd_prefix_len < 64) {
-                        _cleanup_(route_freep) Route *route = NULL;
                         uint32_t table;
-
-                        (void) in_addr_to_string(AF_INET6, &pd_prefix, &buf);
-
-                        r = route_new(&route);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Cannot create unreachable route for DHCPv6 delegated subnet %s/%u: %m",
-                                                       strnull(buf),
-                                                       pd_prefix_len);
-                                continue;
-                        }
+                        Route *route;
 
                         table = link_get_dhcp_route_table(link);
 
@@ -328,7 +304,6 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
 
                         log_link_debug(link, "Configuring unreachable route for %s/%u",
                                        strnull(buf), pd_prefix_len);
-
                 } else
                         log_link_debug(link, "Not adding a blocking route since distributed prefix is /64");
 
