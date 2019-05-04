@@ -32,6 +32,8 @@
 #define MAX_CLIENT_ID_LEN (sizeof(uint32_t) + MAX_DUID_LEN)  /* Arbitrary limit */
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
 
+#define MAX_CLIENT_ATTEMPT 64
+
 #define RESTART_AFTER_NAK_MIN_USEC (1 * USEC_PER_SEC)
 #define RESTART_AFTER_NAK_MAX_USEC (30 * USEC_PER_MINUTE)
 
@@ -1050,8 +1052,10 @@ static int client_timeout_resend(
         case DHCP_STATE_REQUESTING:
         case DHCP_STATE_BOUND:
 
-                if (client->attempt < 64)
+                if (client->attempt < MAX_CLIENT_ATTEMPT)
                         client->attempt *= 2;
+                else
+                        goto error;
 
                 next_timeout = time_now + (client->attempt - 1) * USEC_PER_SEC;
 
@@ -1079,7 +1083,7 @@ static int client_timeout_resend(
                         client->state = DHCP_STATE_SELECTING;
                         client->attempt = 1;
                 } else {
-                        if (client->attempt >= 64)
+                        if (client->attempt >= MAX_CLIENT_ATTEMPT)
                                 goto error;
                 }
 
@@ -1087,7 +1091,7 @@ static int client_timeout_resend(
 
         case DHCP_STATE_SELECTING:
                 r = client_send_discover(client);
-                if (r < 0 && client->attempt >= 64)
+                if (r < 0 && client->attempt >= MAX_CLIENT_ATTEMPT)
                         goto error;
 
                 break;
@@ -1097,7 +1101,7 @@ static int client_timeout_resend(
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
                 r = client_send_request(client);
-                if (r < 0 && client->attempt >= 64)
+                if (r < 0 && client->attempt >= MAX_CLIENT_ATTEMPT)
                          goto error;
 
                 if (client->state == DHCP_STATE_INIT_REBOOT)

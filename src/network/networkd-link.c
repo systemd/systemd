@@ -110,7 +110,7 @@ static bool link_dhcp4_server_enabled(Link *link) {
         return link->network->dhcp_server;
 }
 
-static bool link_ipv4ll_enabled(Link *link) {
+bool link_ipv4ll_enabled(Link *link) {
         assert(link);
 
         if (link->flags & IFF_LOOPBACK)
@@ -126,6 +126,24 @@ static bool link_ipv4ll_enabled(Link *link) {
                 return false;
 
         return link->network->link_local & ADDRESS_FAMILY_IPV4;
+}
+
+bool link_ipv4ll_fallback_enabled(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard"))
+                return false;
+
+        if (link->network->bond)
+                return false;
+
+        return link->network->link_local & ADDRESS_FAMILY_FALLBACK_IPV4;
 }
 
 static bool link_ipv6ll_enabled(Link *link) {
@@ -994,21 +1012,18 @@ void link_check_ready(Link *link) {
         if (!link->routing_policy_rules_configured)
                 return;
 
-        if (link_ipv4ll_enabled(link))
-                if (!link->ipv4ll_address ||
-                    !link->ipv4ll_route)
-                        return;
+        if (link_ipv4ll_enabled(link) && !(link->ipv4ll_address && link->ipv4ll_route))
+                return;
 
         if (link_ipv6ll_enabled(link) &&
             in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address))
                 return;
 
-        if ((link_dhcp4_enabled(link) && !link_dhcp6_enabled(link) &&
-             !link->dhcp4_configured) ||
-            (link_dhcp6_enabled(link) && !link_dhcp4_enabled(link) &&
-             !link->dhcp6_configured) ||
-            (link_dhcp4_enabled(link) && link_dhcp6_enabled(link) &&
-             !link->dhcp4_configured && !link->dhcp6_configured))
+        if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link)) &&
+            !(link->dhcp4_configured || link->dhcp6_configured) &&
+            !(link_ipv4ll_fallback_enabled(link) && link->ipv4ll_address && link->ipv4ll_route))
+                /* When DHCP is enabled, at least one protocol must provide an address, or
+                 * an IPv4ll fallback address must be configured. */
                 return;
 
         if (link_ipv6_accept_ra_enabled(link) && !link->ndisc_configured)
@@ -3114,7 +3129,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        if (link_ipv4ll_enabled(link)) {
+        if (link_ipv4ll_enabled(link) || link_ipv4ll_fallback_enabled(link)) {
                 r = ipv4ll_configure(link);
                 if (r < 0)
                         return r;

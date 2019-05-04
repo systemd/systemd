@@ -1,0 +1,7 @@
+[Match]
+Name=veth99
+
+[Network]
+DHCP=ipv4
+LinkLocalAddressing=fallback
+IPv6AcceptRA=no

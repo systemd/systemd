@@ -197,7 +197,7 @@ int ipv4ll_configure(Link *link) {
 
         assert(link);
         assert(link->network);
-        assert(link->network->link_local & ADDRESS_FAMILY_IPV4);
+        assert(link->network->link_local & (ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4));
 
         if (!link->ipv4ll) {
                 r = sd_ipv4ll_new(&link->ipv4ll);

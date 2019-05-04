@@ -236,6 +236,13 @@ int network_verify(Network *network) {
         if (network->link_local < 0)
                 network->link_local = network->bridge ? ADDRESS_FAMILY_NO : ADDRESS_FAMILY_IPV6;
 
+        if (FLAGS_SET(network->link_local, ADDRESS_FAMILY_FALLBACK_IPV4) &&
+            !FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV4)) {
+                log_warning("%s: fallback assignment of IPv4 link local address is enabled but DHCPv4 is disabled. "
+                            "Disabling the fallback assignment.", network->filename);
+                SET_FLAG(network->link_local, ADDRESS_FAMILY_FALLBACK_IPV4, false);
+        }
+
         if (network->ipv6_accept_ra < 0 && network->bridge)
                 network->ipv6_accept_ra = false;
 
@@ -818,6 +825,7 @@ int config_parse_ipv4ll(
                 void *userdata) {
 
         AddressFamilyBoolean *link_local = data;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -828,7 +836,20 @@ int config_parse_ipv4ll(
          * config_parse_address_family_boolean(), except that it
          * applies only to IPv4 */
 
-        SET_FLAG(*link_local, ADDRESS_FAMILY_IPV4, parse_boolean(rvalue));
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse %s=%s, ignoring assignment. "
+                           "Note that the setting %s= is deprecated, please use LinkLocalAddressing= instead.",
+                           lvalue, rvalue, lvalue);
+                return 0;
+        }
+
+        SET_FLAG(*link_local, ADDRESS_FAMILY_IPV4, r);
+
+        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                   "%s=%s is deprecated, please use LinkLocalAddressing=%s instead.",
+                   lvalue, rvalue, address_family_boolean_to_string(*link_local));
 
         return 0;
 }

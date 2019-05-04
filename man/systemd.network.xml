@@ -326,9 +326,16 @@
           <term><varname>LinkLocalAddressing=</varname></term>
           <listitem>
             <para>Enables link-local address autoconfiguration. Accepts <literal>yes</literal>,
-            <literal>no</literal>, <literal>ipv4</literal>, or <literal>ipv6</literal>. If
-            <varname>Bridge=</varname> is set, defaults to <literal>no</literal>, and if not,
-            defaults to <literal>ipv6</literal>.</para>
+            <literal>no</literal>, <literal>ipv4</literal>, <literal>ipv6</literal>,
+            <literal>fallback</literal>, or <literal>ipv4-fallback</literal>. If
+            <literal>fallback</literal> or <literal>ipv4-fallback</literal> is specified, then an IPv4
+            link-local address is configured only when DHCPv4 fails. If <literal>fallback</literal>,
+            an IPv6 link-local address is always configured, and if <literal>ipv4-fallback</literal>,
+            the address is not configured. Note that, the fallback mechanism works only when DHCPv4
+            client is enabled, that is, it requires <literal>DHCP=yes</literal> or
+            <literal>DHCP=ipv4</literal>. If <varname>Bridge=</varname> is set, defaults to
+            <literal>no</literal>, and if not, defaults to <literal>ipv6</literal>.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
