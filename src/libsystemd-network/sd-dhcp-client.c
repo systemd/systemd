@@ -32,8 +32,6 @@
 #define MAX_CLIENT_ID_LEN (sizeof(uint32_t) + MAX_DUID_LEN)  /* Arbitrary limit */
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
 
-#define MAX_CLIENT_ATTEMPT 6
-
 #define RESTART_AFTER_NAK_MIN_USEC (1 * USEC_PER_SEC)
 #define RESTART_AFTER_NAK_MAX_USEC (30 * USEC_PER_MINUTE)
 
@@ -90,7 +88,8 @@ struct sd_dhcp_client {
         uint32_t mtu;
         uint32_t xid;
         usec_t start_time;
-        unsigned attempt;
+        uint64_t attempt;
+        uint64_t max_attempts;
         usec_t request_sent;
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
@@ -518,6 +517,14 @@ int sd_dhcp_client_set_mtu(sd_dhcp_client *client, uint32_t mtu) {
         assert_return(mtu >= DHCP_DEFAULT_MIN_SIZE, -ERANGE);
 
         client->mtu = mtu;
+
+        return 0;
+}
+
+int sd_dhcp_client_set_max_attempts(sd_dhcp_client *client, uint64_t max_attempts) {
+        assert_return(client, -EINVAL);
+
+        client->max_attempts = max_attempts;
 
         return 0;
 }
@@ -1052,12 +1059,12 @@ static int client_timeout_resend(
         case DHCP_STATE_REQUESTING:
         case DHCP_STATE_BOUND:
 
-                if (client->attempt < MAX_CLIENT_ATTEMPT)
+                if (client->attempt < client->max_attempts)
                         client->attempt++;
                 else
                         goto error;
 
-                next_timeout = time_now + ((UINT64_C(1) << client->attempt) - 1) * USEC_PER_SEC;
+                next_timeout = time_now + ((UINT64_C(1) << MIN(client->attempt, (uint64_t) 6)) - 1) * USEC_PER_SEC;
 
                 break;
 
@@ -1082,16 +1089,14 @@ static int client_timeout_resend(
                 if (r >= 0) {
                         client->state = DHCP_STATE_SELECTING;
                         client->attempt = 0;
-                } else {
-                        if (client->attempt >= MAX_CLIENT_ATTEMPT)
-                                goto error;
-                }
+                } else if (client->attempt >= client->max_attempts)
+                        goto error;
 
                 break;
 
         case DHCP_STATE_SELECTING:
                 r = client_send_discover(client);
-                if (r < 0 && client->attempt >= MAX_CLIENT_ATTEMPT)
+                if (r < 0 && client->attempt >= client->max_attempts)
                         goto error;
 
                 break;
@@ -1101,7 +1106,7 @@ static int client_timeout_resend(
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
                 r = client_send_request(client);
-                if (r < 0 && client->attempt >= MAX_CLIENT_ATTEMPT)
+                if (r < 0 && client->attempt >= client->max_attempts)
                          goto error;
 
                 if (client->state == DHCP_STATE_INIT_REBOOT)
@@ -1934,6 +1939,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .mtu = DHCP_DEFAULT_MIN_SIZE,
                 .port = DHCP_PORT_CLIENT,
                 .anonymize = !!anonymize,
+                .max_attempts = (uint64_t) -1,
         };
         /* NOTE: this could be moved to a function. */
         if (anonymize) {

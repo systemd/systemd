@@ -116,6 +116,7 @@ struct Network {
         char *dhcp_vendor_class_identifier;
         char **dhcp_user_class;
         char *dhcp_hostname;
+        uint64_t dhcp_max_attempts;
         unsigned dhcp_route_metric;
         uint32_t dhcp_route_table;
         uint16_t dhcp_client_port;
@@ -315,6 +316,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_user_class);
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_for_online);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_max_attempts);
 /* Legacy IPv4LL support */
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv4ll);
 

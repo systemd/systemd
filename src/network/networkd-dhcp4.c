@@ -833,5 +833,11 @@ int dhcp4_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set listen port: %m");
         }
 
+        if (link->network->dhcp_max_attempts > 0) {
+                r = sd_dhcp_client_set_max_attempts(link->dhcp_client, link->network->dhcp_max_attempts);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set max attempts: %m");
+        }
+
         return dhcp4_set_client_identifier(link);
 }
