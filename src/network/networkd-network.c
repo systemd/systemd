@@ -386,6 +386,8 @@ int network_load_one(Manager *manager, const char *filename) {
                 .multicast_to_unicast = -1,
                 .neighbor_suppression = -1,
                 .learning = -1,
+                .bridge_proxy_arp = -1,
+                .bridge_proxy_arp_wifi = -1,
                 .priority = LINK_BRIDGE_PORT_PRIORITY_INVALID,
 
                 .lldp_mode = LLDP_MODE_ROUTERS_ONLY,

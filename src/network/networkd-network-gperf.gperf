@@ -177,6 +177,8 @@ Bridge.MulticastFlood,                  config_parse_tristate,                  
 Bridge.MulticastToUnicast,              config_parse_tristate,                           0,                             offsetof(Network, multicast_to_unicast)
 Bridge.NeighborSuppression,             config_parse_tristate,                           0,                             offsetof(Network, neighbor_suppression)
 Bridge.Learning,                        config_parse_tristate,                           0,                             offsetof(Network, learning)
+Bridge.ProxyARP,                        config_parse_tristate,                           0,                             offsetof(Network, bridge_proxy_arp)
+Bridge.ProxyARPWiFi,                    config_parse_tristate,                           0,                             offsetof(Network, bridge_proxy_arp_wifi)
 Bridge.Priority,                        config_parse_bridge_port_priority,               0,                             offsetof(Network, priority)
 BridgeFDB.MACAddress,                   config_parse_fdb_hwaddr,                         0,                             0
 BridgeFDB.VLANId,                       config_parse_fdb_vlan_id,                        0,                             0

@@ -1894,6 +1894,21 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>ProxyARP=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Configures whether proxy ARP to be enabled on this port.
+            When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>ProxyARPWiFi=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Configures whether proxy ARP to be enabled on this port
+            which meets extended requirements by IEEE 802.11 and Hotspot 2.0 specifications.
+            When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Cost=</varname></term>
           <listitem>
             <para>Sets the "cost" of sending packets of this interface.

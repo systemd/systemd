@@ -181,6 +181,8 @@ struct Network {
         int multicast_to_unicast;
         int neighbor_suppression;
         int learning;
+        int bridge_proxy_arp;
+        int bridge_proxy_arp_wifi;
         uint32_t cost;
         uint16_t priority;
 

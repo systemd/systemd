@@ -1592,7 +1592,6 @@ static int link_set_bridge(Link *link) {
                 r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROTECT, link->network->allow_port_to_be_root);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROTECT attribute: %m");
-
         }
 
         if (link->network->unicast_flood >= 0) {
@@ -1623,6 +1622,18 @@ static int link_set_bridge(Link *link) {
                 r = sd_netlink_message_append_u8(req, IFLA_BRPORT_LEARNING, link->network->learning);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_LEARNING attribute: %m");
+        }
+
+        if (link->network->bridge_proxy_arp >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROXYARP, link->network->bridge_proxy_arp);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROXYARP attribute: %m");
+        }
+
+        if (link->network->bridge_proxy_arp_wifi >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROXYARP_WIFI, link->network->bridge_proxy_arp_wifi);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROXYARP_WIFI attribute: %m");
         }
 
         if (link->network->cost != 0) {
