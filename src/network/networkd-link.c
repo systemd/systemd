@@ -1012,18 +1012,18 @@ void link_check_ready(Link *link) {
         if (!link->routing_policy_rules_configured)
                 return;
 
-        if (link_ipv4ll_enabled(link))
-                if (!link->ipv4ll_address ||
-                    !link->ipv4ll_route)
-                        return;
+        if (link_ipv4ll_enabled(link) && !(link->ipv4ll_address && link->ipv4ll_route))
+                return;
 
         if (link_ipv6ll_enabled(link) &&
             in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address))
                 return;
 
         if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link)) &&
-            !(link->dhcp4_configured || link->dhcp6_configured))
-                /* When DHCP is enabled, at least one protocol must provide an address. */
+            !(link->dhcp4_configured || link->dhcp6_configured) &&
+            !(link_ipv4ll_fallback_enabled(link) && link->ipv4ll_address && link->ipv4ll_route))
+                /* When DHCP is enabled, at least one protocol must provide an address, or
+                 * an IPv4ll fallback address must be configured. */
                 return;
 
         if (link_ipv6_accept_ra_enabled(link) && !link->ndisc_configured)
