@@ -825,6 +825,7 @@ int config_parse_ipv4ll(
                 void *userdata) {
 
         AddressFamilyBoolean *link_local = data;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -835,7 +836,20 @@ int config_parse_ipv4ll(
          * config_parse_address_family_boolean(), except that it
          * applies only to IPv4 */
 
-        SET_FLAG(*link_local, ADDRESS_FAMILY_IPV4, parse_boolean(rvalue));
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse %s=%s, ignoring assignment. "
+                           "Note that the setting %s= is deprecated, please use LinkLocalAddressing= instead.",
+                           lvalue, rvalue, lvalue);
+                return 0;
+        }
+
+        SET_FLAG(*link_local, ADDRESS_FAMILY_IPV4, r);
+
+        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                   "%s=%s is deprecated, please use LinkLocalAddressing=%s instead.",
+                   lvalue, rvalue, address_family_boolean_to_string(*link_local));
 
         return 0;
 }
