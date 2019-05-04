@@ -75,6 +75,7 @@ MTUBytes=
 QuickAck=
 Source=
 Metric=
+OnDevice=
 [Network]
 IPv6DuplicateAddressDetection=
 IPMasquerade=

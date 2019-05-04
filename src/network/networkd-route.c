@@ -1231,6 +1231,58 @@ int config_parse_route_mtu(
         return 0;
 }
 
+int config_parse_route_device(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse %s, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (r == 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "%s= only takes 'yes', ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (n->family == AF_INET6) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "%s=%s configured with IPv6 Gateway= Destination= Source=, "
+                           "or PreferredSource= setting(s), ignoring assignment.", lvalue, rvalue);
+                return 0;
+        }
+
+        n->family = AF_INET;
+
+        TAKE_PTR(n);
+        return 0;
+}
+
 int route_section_verify(Route *route, Network *network) {
         if (section_is_invalid(route->section))
                 return -EINVAL;

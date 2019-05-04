@@ -75,3 +75,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_route_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_tcp_window);
 CONFIG_PARSER_PROTOTYPE(config_parse_quickack);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_mtu);
+CONFIG_PARSER_PROTOTYPE(config_parse_route_device);

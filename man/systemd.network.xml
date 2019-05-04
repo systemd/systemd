@@ -1227,6 +1227,15 @@
           <para>Note that if IPv6 is enabled on the interface, and the MTU is chosen
           below 1280 (the minimum MTU for IPv6) it will automatically be increased to this value.</para>
         </listitem>
+        </varlistentry>
+        <varlistentry>
+        <term><varname>OnDevice=</varname></term>
+        <listitem>
+          <para>Takes a positive boolean. When specified, the route will be bound to this interface,
+          and nly IPv4 addresses are accepted in <varname>Gateway=</varname>,
+          <varname>Destination=</varname>, <varname>Source=</varname>, or
+          <varname>PreferredSource=</varname>.</para>
+        </listitem>
       </varlistentry>
       </variablelist>
   </refsect1>
