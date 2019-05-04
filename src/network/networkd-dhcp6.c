@@ -90,7 +90,7 @@ static int dhcp6_pd_prefix_assign(Link *link, struct in6_addr *prefix,
         if (r < 0 && r != -EEXIST)
                 return r;
 
-        r = manager_dhcp6_prefix_add(link->manager, &p->opt.in6_addr, link);
+        r = manager_dhcp6_prefix_add(link->manager, prefix, link);
         if (r < 0)
                 return r;
 
@@ -203,7 +203,7 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link, Iterator *i,
                         continue;
 
                 assigned_link = manager_dhcp6_prefix_get(manager, &prefix.in6);
-                if (assigned_link != NULL && assigned_link != link)
+                if (assigned_link && assigned_link != link)
                         continue;
 
                 (void) in_addr_to_string(AF_INET6, &prefix, &assigned_buf);

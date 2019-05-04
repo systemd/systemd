@@ -524,8 +524,6 @@ static int link_update_flags(Link *link, sd_netlink_message *m) {
         return 0;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
-
 static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         _cleanup_(link_unrefp) Link *link = NULL;
         uint16_t type;
