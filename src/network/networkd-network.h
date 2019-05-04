@@ -276,8 +276,6 @@ struct Network {
 
         char **ntp;
         char **bind_carrier;
-
-        LIST_FIELDS(Network, networks);
 };
 
 Network *network_ref(Network *network);

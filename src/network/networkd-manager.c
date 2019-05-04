@@ -1402,8 +1402,6 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        LIST_HEAD_INIT(m->networks);
-
         r = sd_resolve_default(&m->resolve);
         if (r < 0)
                 return r;
@@ -1452,7 +1450,7 @@ void manager_free(Manager *m) {
         m->links = hashmap_free_with_destructor(m->links, link_unref);
 
         m->duids_requesting_uuid = set_free(m->duids_requesting_uuid);
-        m->networks_by_name = hashmap_free_with_destructor(m->networks_by_name, network_unref);
+        m->networks = ordered_hashmap_free_with_destructor(m->networks, network_unref);
 
         m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);
 
