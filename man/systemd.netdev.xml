@@ -1416,9 +1416,9 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>FwMark=</varname></term>
+        <term><varname>FirewallMark=</varname></term>
         <listitem>
-          <para>Sets a firewall mark on outgoing WireGuard packets from this interface.</para>
+          <para>Sets a firewall mark on outgoing WireGuard packets from this interface. Takes a number between 1 and 4294967295.</para>
         </listitem>
       </varlistentry>
     </variablelist>
