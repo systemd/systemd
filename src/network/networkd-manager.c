@@ -266,7 +266,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
         unsigned char protocol, scope, tos, table, rt_type;
         int family;
         unsigned char dst_prefixlen, src_prefixlen;
-        union in_addr_union dst = {}, gw = {}, src = {}, prefsrc = {};
+        union in_addr_union dst = IN_ADDR_NULL, gw = IN_ADDR_NULL, src = IN_ADDR_NULL, prefsrc = IN_ADDR_NULL;
         Route *route = NULL;
         int r;
 
@@ -484,7 +484,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         int family;
         unsigned char prefixlen;
         unsigned char scope;
-        union in_addr_union in_addr;
+        union in_addr_union in_addr = IN_ADDR_NULL;
         struct ifa_cacheinfo cinfo;
         Address *address = NULL;
         char buf[INET6_ADDRSTRLEN], valid_buf[FORMAT_TIMESPAN_MAX];
@@ -728,7 +728,7 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
         uint8_t tos = 0, to_prefixlen = 0, from_prefixlen = 0, protocol = 0;
         struct fib_rule_port_range sport = {}, dport = {};
-        union in_addr_union to = {}, from = {};
+        union in_addr_union to = IN_ADDR_NULL, from = IN_ADDR_NULL;
         RoutingPolicyRule *rule = NULL;
         uint32_t fwmark = 0, table = 0;
         const char *iif = NULL, *oif = NULL;

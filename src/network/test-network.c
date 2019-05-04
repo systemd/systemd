@@ -121,7 +121,7 @@ static int test_load_config(Manager *manager) {
 
 static void test_network_get(Manager *manager, sd_device *loopback) {
         Network *network;
-        const struct ether_addr mac = {};
+        const struct ether_addr mac = ETHER_ADDR_NULL;
 
         /* let's assume that the test machine does not have a .network file
            that applies to the loopback device... */
