@@ -32,7 +32,7 @@
 #define MAX_CLIENT_ID_LEN (sizeof(uint32_t) + MAX_DUID_LEN)  /* Arbitrary limit */
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
 
-#define MAX_CLIENT_ATTEMPT 64
+#define MAX_CLIENT_ATTEMPT 6
 
 #define RESTART_AFTER_NAK_MIN_USEC (1 * USEC_PER_SEC)
 #define RESTART_AFTER_NAK_MAX_USEC (30 * USEC_PER_MINUTE)
@@ -553,7 +553,7 @@ static int client_initialize(sd_dhcp_client *client) {
         (void) event_source_disable(client->timeout_t2);
         (void) event_source_disable(client->timeout_expire);
 
-        client->attempt = 1;
+        client->attempt = 0;
 
         client->state = DHCP_STATE_INIT;
         client->xid = 0;
@@ -1053,11 +1053,11 @@ static int client_timeout_resend(
         case DHCP_STATE_BOUND:
 
                 if (client->attempt < MAX_CLIENT_ATTEMPT)
-                        client->attempt *= 2;
+                        client->attempt++;
                 else
                         goto error;
 
-                next_timeout = time_now + (client->attempt - 1) * USEC_PER_SEC;
+                next_timeout = time_now + ((UINT64_C(1) << client->attempt) - 1) * USEC_PER_SEC;
 
                 break;
 
@@ -1081,7 +1081,7 @@ static int client_timeout_resend(
                 r = client_send_discover(client);
                 if (r >= 0) {
                         client->state = DHCP_STATE_SELECTING;
-                        client->attempt = 1;
+                        client->attempt = 0;
                 } else {
                         if (client->attempt >= MAX_CLIENT_ATTEMPT)
                                 goto error;
@@ -1253,7 +1253,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         client->fd = asynchronous_close(client->fd);
 
         client->state = DHCP_STATE_REBINDING;
-        client->attempt = 1;
+        client->attempt = 0;
 
         r = dhcp_network_bind_raw_socket(client->ifindex, &client->link,
                                          client->xid, client->mac_addr,
@@ -1273,7 +1273,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
         DHCP_CLIENT_DONT_DESTROY(client);
 
         client->state = DHCP_STATE_RENEWING;
-        client->attempt = 1;
+        client->attempt = 0;
 
         return client_initialize_time_events(client);
 }
@@ -1557,7 +1557,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                 if (r >= 0) {
 
                         client->state = DHCP_STATE_REQUESTING;
-                        client->attempt = 1;
+                        client->attempt = 0;
 
                         r = event_reset_time(client->event, &client->timeout_resend,
                                              clock_boottime_or_monotonic(),
@@ -1592,7 +1592,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                                 notify_event = r;
 
                         client->state = DHCP_STATE_BOUND;
-                        client->attempt = 1;
+                        client->attempt = 0;
 
                         client->last_addr = client->lease->address;
 
@@ -1931,7 +1931,6 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .state = DHCP_STATE_INIT,
                 .ifindex = -1,
                 .fd = -1,
-                .attempt = 1,
                 .mtu = DHCP_DEFAULT_MIN_SIZE,
                 .port = DHCP_PORT_CLIENT,
                 .anonymize = !!anonymize,
