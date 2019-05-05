@@ -1880,7 +1880,8 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-route-metric.network',
         'dhcp-client-route-table.network',
         'dhcp-client-vrf.network',
-        'dhcp-client-with-ipv4ll-fallback.network',
+        'dhcp-client-with-ipv4ll-fallback-with-dhcp-server.network',
+        'dhcp-client-with-ipv4ll-fallback-without-dhcp-server.network',
         'dhcp-client.network',
         'dhcp-server-veth-peer.network',
         'dhcp-v4-server-veth-peer.network',
@@ -2177,10 +2178,11 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'onlink')
 
-    def test_dhcp_client_with_ipv4ll_fallback(self):
+    def test_dhcp_client_with_ipv4ll_fallback_with_dhcp_server(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                             'dhcp-client-with-ipv4ll-fallback.network')
+                                             'dhcp-client-with-ipv4ll-fallback-with-dhcp-server.network')
         self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq(lease_time='2m')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
@@ -2212,6 +2214,24 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, 'inet .* scope link')
 
         self.search_words_in_dnsmasq_log('DHCPOFFER', show_all=True)
+
+    def test_dhcp_client_with_ipv4ll_fallback_without_dhcp_server(self):
+        self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
+                                             'dhcp-client-with-ipv4ll-fallback-without-dhcp-server.network')
+        self.start_networkd(0)
+        self.wait_online(['veth99:degraded', 'veth-peer:routable'])
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic']).rstrip().decode('utf-8')
+        self.assertNotRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global dynamic')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'link']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'inet6 .* scope link')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic']).rstrip().decode('utf-8')
+        self.assertNotRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'link']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'inet .* scope link')
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
