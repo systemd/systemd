@@ -364,7 +364,7 @@ delle impostazioni configurate in Restart=.
 
 # Subject: Resources consumed by unit runtime
 -- ae8f7b866b0347b9af31fe1c80b127c0
-Subject: Resources consumed by unit runtime
+Subject: Risorse utilizzate dall'unità in esecuzione
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
