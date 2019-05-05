@@ -32,10 +32,13 @@ project_source_root = meson.current_source_dir()
 
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
-if want_ossfuzz and want_libfuzzer
-        error('only one of oss-fuzz and llvm-fuzz can be specified')
+want_fuzzbuzz = get_option('fuzzbuzz')
+if want_ossfuzz + want_libfuzzer + want_fuzzbuzz > 1
+        error('only one of oss-fuzz, llvm-fuzz or fuzzbuzz can be specified')
 endif
-fuzzer_build = want_ossfuzz or want_libfuzzer
+
+skip_deps = want_ossfuzz or want_libfuzzer
+fuzzer_build = want_ossfuzz or want_libfuzzer or want_fuzzbuzz
 
 #####################################################################
 
@@ -303,6 +306,8 @@ if want_libfuzzer
         fuzzing_engine = meson.get_compiler('cpp').find_library('Fuzzer')
 elif want_ossfuzz
         fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
+elif want_fuzzbuzz
+        fuzzing_engine = meson.get_compiler('cpp').find_library(get_option('fuzzbuzz-engine'), dirs: get_option('fuzzbuzz-engine-dir'))
 endif
 
 possible_cc_flags = [
@@ -815,7 +820,7 @@ libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30')
 
 want_seccomp = get_option('seccomp')
-if want_seccomp != 'false' and not fuzzer_build
+if want_seccomp != 'false' and not skip_deps
         libseccomp = dependency('libseccomp',
                                 version : '>= 2.3.1',
                                 required : want_seccomp == 'true')
@@ -827,7 +832,7 @@ endif
 conf.set10('HAVE_SECCOMP', have)
 
 want_selinux = get_option('selinux')
-if want_selinux != 'false' and not fuzzer_build
+if want_selinux != 'false' and not skip_deps
         libselinux = dependency('libselinux',
                                 version : '>= 2.1.9',
                                 required : want_selinux == 'true')
@@ -839,7 +844,7 @@ endif
 conf.set10('HAVE_SELINUX', have)
 
 want_apparmor = get_option('apparmor')
-if want_apparmor != 'false' and not fuzzer_build
+if want_apparmor != 'false' and not skip_deps
         libapparmor = dependency('libapparmor',
                                  required : want_apparmor == 'true')
         have = libapparmor.found()
@@ -857,7 +862,7 @@ endif
 want_polkit = get_option('polkit')
 install_polkit = false
 install_polkit_pkla = false
-if want_polkit != 'false' and not fuzzer_build
+if want_polkit != 'false' and not skip_deps
         install_polkit = true
 
         libpolkit = dependency('polkit-gobject-1',
@@ -870,7 +875,7 @@ endif
 conf.set10('ENABLE_POLKIT', install_polkit)
 
 want_acl = get_option('acl')
-if want_acl != 'false' and not fuzzer_build
+if want_acl != 'false' and not skip_deps
         libacl = cc.find_library('acl', required : want_acl == 'true')
         have = libacl.found()
 else
@@ -880,7 +885,7 @@ endif
 conf.set10('HAVE_ACL', have)
 
 want_audit = get_option('audit')
-if want_audit != 'false' and not fuzzer_build
+if want_audit != 'false' and not skip_deps
         libaudit = dependency('audit', required : want_audit == 'true')
         have = libaudit.found()
 else
@@ -890,7 +895,7 @@ endif
 conf.set10('HAVE_AUDIT', have)
 
 want_blkid = get_option('blkid')
-if want_blkid != 'false' and not fuzzer_build
+if want_blkid != 'false' and not skip_deps
         libblkid = dependency('blkid', required : want_blkid == 'true')
         have = libblkid.found()
 else
@@ -900,7 +905,7 @@ endif
 conf.set10('HAVE_BLKID', have)
 
 want_kmod = get_option('kmod')
-if want_kmod != 'false' and not fuzzer_build
+if want_kmod != 'false' and not skip_deps
         libkmod = dependency('libkmod',
                              version : '>= 15',
                              required : want_kmod == 'true')
@@ -912,7 +917,7 @@ endif
 conf.set10('HAVE_KMOD', have)
 
 want_pam = get_option('pam')
-if want_pam != 'false' and not fuzzer_build
+if want_pam != 'false' and not skip_deps
         libpam = cc.find_library('pam', required : want_pam == 'true')
         libpam_misc = cc.find_library('pam_misc', required : want_pam == 'true')
         have = libpam.found() and libpam_misc.found()
@@ -924,7 +929,7 @@ endif
 conf.set10('HAVE_PAM', have)
 
 want_microhttpd = get_option('microhttpd')
-if want_microhttpd != 'false' and not fuzzer_build
+if want_microhttpd != 'false' and not skip_deps
         libmicrohttpd = dependency('libmicrohttpd',
                                    version : '>= 0.9.33',
                                    required : want_microhttpd == 'true')
@@ -936,7 +941,7 @@ endif
 conf.set10('HAVE_MICROHTTPD', have)
 
 want_libcryptsetup = get_option('libcryptsetup')
-if want_libcryptsetup != 'false' and not fuzzer_build
+if want_libcryptsetup != 'false' and not skip_deps
         libcryptsetup = dependency('libcryptsetup',
                                    version : '>= 1.6.0',
                                    required : want_libcryptsetup == 'true')
@@ -954,7 +959,7 @@ conf.set10('HAVE_LIBCRYPTSETUP', have)
 conf.set10('HAVE_LIBCRYPTSETUP_SECTOR_SIZE', have_sector)
 
 want_libcurl = get_option('libcurl')
-if want_libcurl != 'false' and not fuzzer_build
+if want_libcurl != 'false' and not skip_deps
         libcurl = dependency('libcurl',
                              version : '>= 7.32.0',
                              required : want_libcurl == 'true')
@@ -971,7 +976,7 @@ if want_libidn == 'true' and want_libidn2 == 'true'
         error('libidn and libidn2 cannot be requested simultaneously')
 endif
 
-if want_libidn != 'false' and want_libidn2 != 'true' and not fuzzer_build
+if want_libidn != 'false' and want_libidn2 != 'true' and not skip_deps
         libidn = dependency('libidn',
                             required : want_libidn == 'true')
         have = libidn.found()
@@ -980,7 +985,7 @@ else
         libidn = []
 endif
 conf.set10('HAVE_LIBIDN', have)
-if not have and want_libidn2 != 'false' and not fuzzer_build
+if not have and want_libidn2 != 'false' and not skip_deps
         # libidn is used for both libidn and libidn2 objects
         libidn = dependency('libidn2',
                             required : want_libidn2 == 'true')
@@ -991,7 +996,7 @@ endif
 conf.set10('HAVE_LIBIDN2', have)
 
 want_libiptc = get_option('libiptc')
-if want_libiptc != 'false' and not fuzzer_build
+if want_libiptc != 'false' and not skip_deps
         libiptc = dependency('libiptc',
                              required : want_libiptc == 'true')
         have = libiptc.found()
@@ -1002,7 +1007,7 @@ endif
 conf.set10('HAVE_LIBIPTC', have)
 
 want_qrencode = get_option('qrencode')
-if want_qrencode != 'false' and not fuzzer_build
+if want_qrencode != 'false' and not skip_deps
         libqrencode = dependency('libqrencode',
                                  required : want_qrencode == 'true')
         have = libqrencode.found()
@@ -1013,7 +1018,7 @@ endif
 conf.set10('HAVE_QRENCODE', have)
 
 want_gcrypt = get_option('gcrypt')
-if want_gcrypt != 'false' and not fuzzer_build
+if want_gcrypt != 'false' and not skip_deps
         libgcrypt = cc.find_library('gcrypt', required : want_gcrypt == 'true')
         libgpg_error = cc.find_library('gpg-error', required : want_gcrypt == 'true')
         have = libgcrypt.found() and libgpg_error.found()
@@ -1028,7 +1033,7 @@ endif
 conf.set10('HAVE_GCRYPT', have)
 
 want_gnutls = get_option('gnutls')
-if want_gnutls != 'false' and not fuzzer_build
+if want_gnutls != 'false' and not skip_deps
         libgnutls = dependency('gnutls',
                                version : '>= 3.1.4',
                                required : want_gnutls == 'true')
@@ -1040,7 +1045,7 @@ endif
 conf.set10('HAVE_GNUTLS', have)
 
 want_openssl = get_option('openssl')
-if want_openssl != 'false' and not fuzzer_build
+if want_openssl != 'false' and not skip_deps
         libopenssl = dependency('openssl',
                                 version : '>= 1.1.0',
                                 required : want_openssl == 'true')
@@ -1052,7 +1057,7 @@ endif
 conf.set10('HAVE_OPENSSL', have)
 
 want_elfutils = get_option('elfutils')
-if want_elfutils != 'false' and not fuzzer_build
+if want_elfutils != 'false' and not skip_deps
         libdw = dependency('libdw',
                            required : want_elfutils == 'true')
         have = libdw.found()
@@ -1063,7 +1068,7 @@ endif
 conf.set10('HAVE_ELFUTILS', have)
 
 want_zlib = get_option('zlib')
-if want_zlib != 'false' and not fuzzer_build
+if want_zlib != 'false' and not skip_deps
         libz = dependency('zlib',
                           required : want_zlib == 'true')
         have = libz.found()
@@ -1074,7 +1079,7 @@ endif
 conf.set10('HAVE_ZLIB', have)
 
 want_bzip2 = get_option('bzip2')
-if want_bzip2 != 'false' and not fuzzer_build
+if want_bzip2 != 'false' and not skip_deps
         libbzip2 = cc.find_library('bz2',
                                    required : want_bzip2 == 'true')
         have = libbzip2.found()
@@ -1085,7 +1090,7 @@ endif
 conf.set10('HAVE_BZIP2', have)
 
 want_xz = get_option('xz')
-if want_xz != 'false' and not fuzzer_build
+if want_xz != 'false' and not skip_deps
         libxz = dependency('liblzma',
                            required : want_xz == 'true')
         have = libxz.found()
@@ -1096,7 +1101,7 @@ endif
 conf.set10('HAVE_XZ', have)
 
 want_lz4 = get_option('lz4')
-if want_lz4 != 'false' and not fuzzer_build
+if want_lz4 != 'false' and not skip_deps
         liblz4 = dependency('liblz4',
                             version : '>= 1.3.0',
                             required : want_lz4 == 'true')
@@ -1108,7 +1113,7 @@ endif
 conf.set10('HAVE_LZ4', have)
 
 want_xkbcommon = get_option('xkbcommon')
-if want_xkbcommon != 'false' and not fuzzer_build
+if want_xkbcommon != 'false' and not skip_deps
         libxkbcommon = dependency('xkbcommon',
                                   version : '>= 0.3.0',
                                   required : want_xkbcommon == 'true')
@@ -1131,7 +1136,7 @@ endif
 conf.set10('HAVE_PCRE2', have)
 
 want_glib = get_option('glib')
-if want_glib != 'false' and not fuzzer_build
+if want_glib != 'false' and not skip_deps
         libglib =    dependency('glib-2.0',
                                 version : '>= 2.22.0',
                                 required : want_glib == 'true')
@@ -1150,7 +1155,7 @@ endif
 conf.set10('HAVE_GLIB', have)
 
 want_dbus = get_option('dbus')
-if want_dbus != 'false' and not fuzzer_build
+if want_dbus != 'false' and not skip_deps
         libdbus = dependency('dbus-1',
                              version : '>= 1.3.2',
                              required : want_dbus == 'true')
@@ -1162,7 +1167,7 @@ endif
 conf.set10('HAVE_DBUS', have)
 
 default_dnssec = get_option('default-dnssec')
-if fuzzer_build
+if skip_deps
         default_dnssec = 'no'
 endif
 if default_dnssec != 'no' and conf.get('HAVE_GCRYPT') == 0
@@ -1203,7 +1208,7 @@ conf.set10('DNS_OVER_TLS_USE_GNUTLS', have_gnutls)
 conf.set10('DNS_OVER_TLS_USE_OPENSSL', have_openssl)
 
 default_dns_over_tls = get_option('default-dns-over-tls')
-if fuzzer_build
+if skip_deps
         default_dns_over_tls = 'no'
 endif
 if default_dns_over_tls != 'no' and conf.get('ENABLE_DNS_OVER_TLS') == 0
@@ -2822,6 +2827,10 @@ foreach tuple : fuzzers
                 dependencies += fuzzing_engine
         else
                 sources += 'src/fuzz/fuzz-main.c'
+        endif
+
+        if want_fuzzbuzz
+                sources += 'src/fuzz/fuzzer-entry-point.c'
         endif
 
         name = sources[0].split('/')[-1].split('.')[0]
