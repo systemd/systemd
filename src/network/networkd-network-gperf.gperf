@@ -181,6 +181,7 @@ Bridge.Priority,                        config_parse_bridge_port_priority,      
 BridgeFDB.MACAddress,                   config_parse_fdb_hwaddr,                         0,                             0
 BridgeFDB.VLANId,                       config_parse_fdb_vlan_id,                        0,                             0
 BridgeFDB.Destination,                  config_parse_fdb_destination,                    0,                             0
+BridgeFDB.VNI,                          config_parse_fdb_vxlan_vni,                      0,                             0
 BridgeVLAN.PVID,                        config_parse_brvlan_pvid,                        0,                             0
 BridgeVLAN.VLAN,                        config_parse_brvlan_vlan,                        0,                             0
 BridgeVLAN.EgressUntagged,              config_parse_brvlan_untagged,                    0,                             0

@@ -19,6 +19,8 @@ struct FdbEntry {
         Network *network;
         NetworkConfigSection *section;
 
+        uint32_t vni;
+
         int family;
         uint16_t vlan_id;
 
@@ -36,3 +38,4 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(FdbEntry, fdb_entry_free);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_vlan_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_destination);
+CONFIG_PARSER_PROTOTYPE(config_parse_fdb_vxlan_vni);
