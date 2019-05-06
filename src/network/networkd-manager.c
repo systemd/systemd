@@ -1446,6 +1446,9 @@ void manager_free(Manager *m) {
         while ((link = hashmap_steal_first(m->links))) {
                 if (link->dhcp6_client)
                         (void) dhcp6_lease_pd_prefix_lost(link->dhcp6_client, link);
+
+                link_stop_clients(link);
+
                 link_unref(link);
         }
 
