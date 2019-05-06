@@ -9,9 +9,12 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "netdev/bridge.h"
+#include "netdev/vxlan.h"
 #include "netlink-util.h"
 #include "networkd-fdb.h"
 #include "networkd-manager.h"
+#include "parse-util.h"
+#include "string-util.h"
 #include "util.h"
 #include "vlan-util.h"
 
@@ -64,6 +67,7 @@ static int fdb_entry_new_static(
         *fdb_entry = (FdbEntry) {
                 .network = network,
                 .mac_addr = TAKE_PTR(mac_addr),
+                .vni = VXLAN_VID_MAX + 1,
         };
 
         LIST_PREPEND(static_fdb_entries, network->static_fdb_entries, fdb_entry);
@@ -103,9 +107,9 @@ static int set_fdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
 int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         sd_netlink *rtnl;
-        int r;
-        uint8_t flags;
         Bridge *bridge;
+        uint8_t flags;
+        int r;
 
         assert(link);
         assert(link->network);
@@ -149,6 +153,12 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
                 r = netlink_message_append_in_addr_union(req, NDA_DST, fdb_entry->family, &fdb_entry->destination_addr);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
+        }
+
+        if (fdb_entry->vni <= VXLAN_VID_MAX) {
+                r = sd_netlink_message_append_u32(req, NDA_VNI, fdb_entry->vni);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append NDA_VNI attribute: %m");
         }
 
         /* send message to the kernel to update its internal static MAC table. */
@@ -297,6 +307,54 @@ int config_parse_fdb_destination(
                                   "FDB destination IP address is invalid, ignoring assignment: %s",
                                   rvalue);
 
+        fdb_entry = NULL;
+
+        return 0;
+}
+
+int config_parse_fdb_vxlan_vni(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(fdb_entry_free_or_set_invalidp) FdbEntry *fdb_entry = NULL;
+        Network *network = userdata;
+        uint32_t vni;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = fdb_entry_new_static(network, filename, section_line, &fdb_entry);
+        if (r < 0)
+                return log_oom();
+
+        r = safe_atou32(rvalue, &vni);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse VXLAN Network Identifier (VNI), ignoring assignment: %s",
+                           rvalue);
+                return 0;
+        }
+
+        if (vni > VXLAN_VID_MAX) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "FDB invalid VXLAN Network Identifier (VNI), ignoring assignment: %s",
+                           rvalue);
+                return 0;
+        }
+
+        fdb_entry->vni = vni;
         fdb_entry = NULL;
 
         return 0;
