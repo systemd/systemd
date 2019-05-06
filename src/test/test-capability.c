@@ -99,7 +99,7 @@ static int setup_tests(bool *run_ambient) {
 
         nobody = getpwnam(NOBODY_USER_NAME);
         if (!nobody)
-                return log_error_errno(errno, "Could not find nobody user: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Could not find nobody user: %m");
 
         test_uid = nobody->pw_uid;
         test_gid = nobody->pw_gid;
