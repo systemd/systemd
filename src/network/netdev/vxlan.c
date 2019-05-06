@@ -273,10 +273,15 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
         assert(v);
         assert(filename);
 
-        if (v->vni > VXLAN_VID_MAX) {
-                log_warning("VXLAN without valid VNI (or VXLAN Segment ID) configured in %s. Ignoring", filename);
-                return -EINVAL;
-        }
+        if (v->vni > VXLAN_VID_MAX)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "%s: VXLAN without valid VNI (or VXLAN Segment ID) configured. Ignoring.",
+                                                filename);
+
+        if (v->ttl > 255)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "%s: VXLAN TTL must be <= 255. Ignoring.",
+                                                filename);
 
         return 0;
 }
