@@ -119,6 +119,7 @@ VXLAN.RemoteChecksumTx,                   config_parse_bool,                    
 VXLAN.RemoteChecksumRx,                   config_parse_bool,                         0,                             offsetof(VxLan, remote_csum_rx)
 VXLAN.FDBAgeingSec,                       config_parse_sec,                          0,                             offsetof(VxLan, fdb_ageing)
 VXLAN.GroupPolicyExtension,               config_parse_bool,                         0,                             offsetof(VxLan, group_policy)
+VXLAN.GenericProtocolExtension,           config_parse_bool,                         0,                             offsetof(VxLan, generic_protocol_extension)
 VXLAN.MaximumFDBEntries,                  config_parse_unsigned,                     0,                             offsetof(VxLan, max_fdb)
 VXLAN.PortRange,                          config_parse_port_range,                   0,                             0
 VXLAN.DestinationPort,                    config_parse_ip_port,                      0,                             offsetof(VxLan, dest_port)

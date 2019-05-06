@@ -656,6 +656,15 @@
       </listitem>
     </varlistentry>
     <varlistentry>
+       <term><varname>GenericProtocolExtension=</varname></term>
+       <listitem>
+         <para>Takes a boolean. When true, Generic Protocol Extension extends the existing VXLAN protocol
+         to provide protocol typing, OAM, and versioning capabilities. For details about the VXLAN GPE
+         Header, see the <ulink url="https://tools.ietf.org/html/draft-ietf-nvo3-vxlan-gpe-07">
+         Generic Protocol Extension for VXLAN </ulink> document. Defaults to false.</para>
+       </listitem>
+    </varlistentry>
+    <varlistentry>
       <term><varname>DestinationPort=</varname></term>
       <listitem>
         <para>Configures the default destination UDP port on a per-device basis.

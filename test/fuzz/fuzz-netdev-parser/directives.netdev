@@ -101,6 +101,7 @@ UDP6ZeroChecksumTx=
 UDP6ZeroCheckSumRx=
 UDPCheckSum=
 GroupPolicyExtension=
+GenericProtocolExtension=
 MaximumFDBEntries=
 TTL=
 DestinationPort=

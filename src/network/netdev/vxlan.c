@@ -144,6 +144,12 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GBP attribute: %m");
         }
 
+        if (v->generic_protocol_extension) {
+                r = sd_netlink_message_append_flag(m, IFLA_VXLAN_GPE);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GPE attribute: %m");
+        }
+
         return r;
 }
 

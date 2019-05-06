@@ -42,6 +42,7 @@ struct VxLan {
         bool remote_csum_tx;
         bool remote_csum_rx;
         bool group_policy;
+        bool generic_protocol_extension;
 
         struct ifla_vxlan_port_range port_range;
 };
