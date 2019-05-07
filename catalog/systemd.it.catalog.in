@@ -245,7 +245,7 @@ Il risultato è @JOB_RESULT@.
 
 # Subject: Unit @UNIT@ has begun with reloading its configuration
 -- d34d037fff1847e6ae669a370e694725
-Subject: L'unità @UNIT@ è iniziata con il rucaricamento della propria configurazione
+Subject: L'unità @UNIT@ è iniziata con il ricaricamento della propria configurazione
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
