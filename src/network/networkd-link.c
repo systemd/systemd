@@ -2031,6 +2031,8 @@ static int link_up(Link *link) {
         }
 
         if (link_ipv6_enabled(link)) {
+                uint8_t ipv6ll_mode;
+
                 r = sd_netlink_message_open_container(req, IFLA_AF_SPEC);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not open IFLA_AF_SPEC container: %m");
@@ -2045,6 +2047,19 @@ static int link_up(Link *link) {
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Could not append IFLA_INET6_TOKEN: %m");
                 }
+
+                if (!link_ipv6ll_enabled(link))
+                        ipv6ll_mode = IN6_ADDR_GEN_MODE_NONE;
+                else if (sysctl_read_ip_property(AF_INET6, link->ifname, "stable_secret", NULL) < 0)
+                        /* The file may not exist. And event if it exists, when stable_secret is unset,
+                         * reading the file fails with EIO. */
+                        ipv6ll_mode = IN6_ADDR_GEN_MODE_EUI64;
+                else
+                        ipv6ll_mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
+
+                r = sd_netlink_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE: %m");
 
                 r = sd_netlink_message_close_container(req);
                 if (r < 0)
