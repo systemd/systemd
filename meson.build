@@ -2927,6 +2927,16 @@ endforeach
 
 ############################################################
 
+check_directives_sh = find_program('tools/check-directives.sh')
+
+if want_tests != 'false'
+        test('check-directives',
+             check_directives_sh,
+             args : project_source_root)
+endif
+
+############################################################
+
 # Enable tests for all supported sanitizers
 foreach tuple : sanitizers
         sanitizer = tuple[0]

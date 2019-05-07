@@ -47,7 +47,6 @@ for phase in "${PHASES[@]}"; do
             docker exec $ENV_VARS -it $CONT_NAME meson --werror -Dtests=unsafe -Dslow-tests=true -Dsplit-usr=true build
             $DOCKER_EXEC ninja -v -C build
             docker exec -e "TRAVIS=$TRAVIS" -it $CONT_NAME ninja -C build test
-            $DOCKER_EXEC tools/check-directives.sh
             ;;
         RUN_ASAN|RUN_CLANG_ASAN)
             if [[ "$phase" = "RUN_CLANG_ASAN" ]]; then
