@@ -209,7 +209,7 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
         copy_suffix(store.ut_id, sizeof(store.ut_id), id);
 
         if (line)
-                strncpy(store.ut_line, basename(line), sizeof(store.ut_line));
+                strncpy_exact(store.ut_line, line, sizeof(store.ut_line));
 
         r = write_entry_both(&store);
         if (r < 0)

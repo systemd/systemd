@@ -212,6 +212,12 @@ static inline size_t strlen_ptr(const char *s) {
         return strlen(s);
 }
 
+DISABLE_WARNING_STRINGOP_TRUNCATION;
+static inline void strncpy_exact(char *buf, const char *src, size_t buf_len) {
+        strncpy(buf, src, buf_len);
+}
+REENABLE_WARNING;
+
 /* Like startswith(), but operates on arbitrary memory blocks */
 static inline void *memory_startswith(const void *p, size_t sz, const char *token) {
         size_t n;

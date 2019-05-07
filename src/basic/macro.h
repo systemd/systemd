@@ -105,6 +105,15 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wincompatible-pointer-types\"")
 
+#if HAVE_WSTRINGOP_TRUNCATION
+#  define DISABLE_WARNING_STRINGOP_TRUNCATION                           \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wstringop-truncation\"")
+#else
+#  define DISABLE_WARNING_STRINGOP_TRUNCATION                           \
+        _Pragma("GCC diagnostic push")
+#endif
+
 #define REENABLE_WARNING                                                \
         _Pragma("GCC diagnostic pop")
 
