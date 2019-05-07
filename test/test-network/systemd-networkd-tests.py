@@ -1198,6 +1198,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         output = subprocess.check_output(['ip', '-6', 'route', 'show', 'dev', 'dummy98', 'default']).rstrip().decode('utf-8')
         self.assertRegex(output, 'default via 2001:1234:5:8fff:ff:ff:ff:ff proto static metric 1024 pref medium')
+        self.assertNotRegex(output, '2001:1234:6:8fff:ff:ff:ff:ff')
 
         output = subprocess.check_output(['ip', '-4', 'route', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
         print(output)
@@ -1205,10 +1206,12 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '149.10.124.64 proto static scope link')
         self.assertRegex(output, '192.168.1.1 proto static initcwnd 20')
         self.assertRegex(output, '192.168.1.2 proto static initrwnd 30')
+        self.assertRegex(output, '123.123.123.123 proto static')
 
         output = subprocess.check_output(['ip', '-4', 'route', 'show', 'dev', 'dummy98', 'default']).rstrip().decode('utf-8')
         self.assertRegex(output, 'default via 149.10.125.65 proto static onlink')
         self.assertRegex(output, 'default via 149.10.124.64 proto static')
+        self.assertRegex(output, 'default proto static')
 
         output = subprocess.check_output(['ip', 'route', 'show', 'type', 'blackhole']).rstrip().decode('utf-8')
         print(output)

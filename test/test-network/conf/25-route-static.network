@@ -44,3 +44,15 @@ Destination=202.54.1.3
 [Route]
 Type=prohibit
 Destination=202.54.1.4
+
+[Route]
+OnDevice=yes
+
+[Route]
+OnDevice=yes
+Destination=123.123.123.123
+
+[Route]
+# Invalid setting and should be ignored
+OnDevice=yes
+Destination=2001:1234:6:8fff:ff:ff:ff:ff/128
