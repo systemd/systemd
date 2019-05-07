@@ -177,7 +177,7 @@ Managed=
 OtherInformation=
 [Neighbor]
 Address=
-MacAddress=
+MACAddress=
 [IPv6AddressLabel]
 Label=
 Prefix=
