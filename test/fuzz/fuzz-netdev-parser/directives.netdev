@@ -11,6 +11,7 @@ ListenPort=
 PrivateKey=
 PrivateKeyFile=
 FwMark=
+FirewallMark=
 [MACVTAP]
 Mode=
 [Match]

@@ -197,7 +197,8 @@ Bridge.VLANFiltering,                     config_parse_tristate,                
 Bridge.STP,                               config_parse_tristate,                     0,                             offsetof(Bridge, stp)
 VRF.TableId,                              config_parse_uint32,                       0,                             offsetof(Vrf, table) /* deprecated */
 VRF.Table,                                config_parse_uint32,                       0,                             offsetof(Vrf, table)
-WireGuard.FwMark,                         config_parse_unsigned,                     0,                             offsetof(Wireguard, fwmark)
+WireGuard.FirewallMark,                   config_parse_unsigned,                     0,                             offsetof(Wireguard, fwmark)
+WireGuard.FwMark,                         config_parse_unsigned,                     0,                             offsetof(Wireguard, fwmark) /* deprecated */
 WireGuard.ListenPort,                     config_parse_wireguard_listen_port,        0,                             offsetof(Wireguard, port)
 WireGuard.PrivateKey,                     config_parse_wireguard_private_key,        0,                             0
 WireGuard.PrivateKeyFile,                 config_parse_wireguard_private_key_file,   0,                             0
