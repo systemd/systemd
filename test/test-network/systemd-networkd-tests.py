@@ -1209,6 +1209,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['ip', '-4', 'route', 'show', 'dev', 'dummy98', 'default']).rstrip().decode('utf-8')
         self.assertRegex(output, 'default via 149.10.125.65 proto static onlink')
         self.assertRegex(output, 'default via 149.10.124.64 proto static')
+        self.assertRegex(output, 'default proto static')
 
         output = subprocess.check_output(['ip', 'route', 'show', 'type', 'blackhole']).rstrip().decode('utf-8')
         print(output)
