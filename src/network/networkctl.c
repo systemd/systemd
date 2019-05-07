@@ -320,8 +320,8 @@ static int get_gateway_description(
                 return r;
 
         for (m = reply; m; m = sd_netlink_message_next(m)) {
-                union in_addr_union gw = {};
-                struct ether_addr mac = {};
+                union in_addr_union gw = IN_ADDR_NULL;
+                struct ether_addr mac = ETHER_ADDR_NULL;
                 uint16_t type;
                 int ifi, fam;
 
@@ -514,7 +514,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
 
         for (m = reply; m; m = sd_netlink_message_next(m)) {
                 _cleanup_free_ char *pretty = NULL;
-                union in_addr_union prefix = {};
+                union in_addr_union prefix = IN_ADDR_NULL;
                 uint8_t prefixlen;
                 uint32_t label;
 

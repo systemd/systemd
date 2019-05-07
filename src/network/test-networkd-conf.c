@@ -169,9 +169,10 @@ static void test_config_parse_hwaddr(void) {
 }
 
 static void test_config_parse_address_one(const char *rvalue, int family, unsigned n_addresses, const union in_addr_union *u, unsigned char prefixlen) {
-        _cleanup_(network_freep) Network *network = NULL;
+        _cleanup_(network_unrefp) Network *network = NULL;
 
         assert_se(network = new0(Network, 1));
+        network->n_ref = 1;
         assert_se(network->filename = strdup("hogehoge.network"));
         assert_se(config_parse_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*", &network->match_name, network) == 0);
         assert_se(config_parse_address("network", "filename", 1, "section", 1, "Address", 0, rvalue, network, network) == 0);

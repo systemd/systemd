@@ -598,6 +598,7 @@ _public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
 
                 LIST_REMOVE(prefix, ra->prefixes, cur);
                 ra->n_prefixes--;
+                sd_radv_prefix_unref(cur);
 
                 break;
         }

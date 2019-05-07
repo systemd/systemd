@@ -87,6 +87,7 @@ int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         Network *network;
+        Iterator i;
         int r;
 
         assert(bus);
@@ -94,7 +95,7 @@ int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
         assert(m);
         assert(nodes);
 
-        LIST_FOREACH(networks, network, m->networks) {
+        ORDERED_HASHMAP_FOREACH(network, m->networks, i) {
                 char *p;
 
                 p = network_bus_path(network);

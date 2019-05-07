@@ -490,7 +490,7 @@ int address_remove(
 }
 
 static int address_acquire(Link *link, Address *original, Address **ret) {
-        union in_addr_union in_addr = {};
+        union in_addr_union in_addr = IN_ADDR_NULL;
         struct in_addr broadcast = {};
         _cleanup_(address_freep) Address *na = NULL;
         int r;

@@ -39,7 +39,7 @@ static int ndisc_netlink_message_handler(sd_netlink *rtnl, sd_netlink_message *m
 
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
-        struct in6_addr gateway;
+        union in_addr_union gateway;
         uint16_t lifetime;
         unsigned preference;
         uint32_t mtu;
@@ -58,12 +58,14 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (lifetime == 0) /* not a default router */
                 return 0;
 
-        r = sd_ndisc_router_get_address(rt, &gateway);
+        r = sd_ndisc_router_get_address(rt, &gateway.in6);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
 
-        SET_FOREACH(address, link->addresses, i)
-                if (!memcmp(&gateway, &address->in_addr.in6, sizeof(address->in_addr.in6))) {
+        SET_FOREACH(address, link->addresses, i) {
+                if (address->family != AF_INET6)
+                        continue;
+                if (in_addr_equal(AF_INET6, &gateway, &address->in_addr)) {
                         char buffer[INET6_ADDRSTRLEN];
 
                         log_link_debug(link, "No NDisc route added, gateway %s matches local address",
@@ -72,9 +74,12 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                                                  buffer, sizeof(buffer)));
                         return 0;
                 }
+        }
 
-        SET_FOREACH(address, link->addresses_foreign, i)
-                if (!memcmp(&gateway, &address->in_addr.in6, sizeof(address->in_addr.in6))) {
+        SET_FOREACH(address, link->addresses_foreign, i) {
+                if (address->family != AF_INET6)
+                        continue;
+                if (in_addr_equal(AF_INET6, &gateway, &address->in_addr)) {
                         char buffer[INET6_ADDRSTRLEN];
 
                         log_link_debug(link, "No NDisc route added, gateway %s matches local address",
@@ -83,6 +88,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                                                  buffer, sizeof(buffer)));
                         return 0;
                 }
+        }
 
         r = sd_ndisc_router_get_preference(rt, &preference);
         if (r < 0)
@@ -107,7 +113,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         route->priority = link->network->dhcp_route_metric;
         route->protocol = RTPROT_RA;
         route->pref = preference;
-        route->gw.in6 = gateway;
+        route->gw = gateway;
         route->lifetime = time_now + lifetime * USEC_PER_SEC;
         route->mtu = mtu;
 

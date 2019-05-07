@@ -266,7 +266,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
         unsigned char protocol, scope, tos, table, rt_type;
         int family;
         unsigned char dst_prefixlen, src_prefixlen;
-        union in_addr_union dst = {}, gw = {}, src = {}, prefsrc = {};
+        union in_addr_union dst = IN_ADDR_NULL, gw = IN_ADDR_NULL, src = IN_ADDR_NULL, prefsrc = IN_ADDR_NULL;
         Route *route = NULL;
         int r;
 
@@ -484,7 +484,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         int family;
         unsigned char prefixlen;
         unsigned char scope;
-        union in_addr_union in_addr;
+        union in_addr_union in_addr = IN_ADDR_NULL;
         struct ifa_cacheinfo cinfo;
         Address *address = NULL;
         char buf[INET6_ADDRSTRLEN], valid_buf[FORMAT_TIMESPAN_MAX];
@@ -728,7 +728,7 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
         uint8_t tos = 0, to_prefixlen = 0, from_prefixlen = 0, protocol = 0;
         struct fib_rule_port_range sport = {}, dport = {};
-        union in_addr_union to = {}, from = {};
+        union in_addr_union to = IN_ADDR_NULL, from = IN_ADDR_NULL;
         RoutingPolicyRule *rule = NULL;
         uint32_t fwmark = 0, table = 0;
         const char *iif = NULL, *oif = NULL;
@@ -1279,7 +1279,9 @@ static int dhcp6_prefixes_compare_func(const struct in6_addr *a, const struct in
 DEFINE_PRIVATE_HASH_OPS(dhcp6_prefixes_hash_ops, struct in6_addr, dhcp6_prefixes_hash_func, dhcp6_prefixes_compare_func);
 
 int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link) {
+        _cleanup_free_ struct in6_addr *a = NULL;
         _cleanup_free_ char *buf = NULL;
+        Link *assigned_link;
         Route *route;
         int r;
 
@@ -1298,11 +1300,27 @@ int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link) {
         (void) in_addr_to_string(AF_INET6, (union in_addr_union *) addr, &buf);
         log_link_debug(link, "Adding prefix route %s/64", strnull(buf));
 
+        assigned_link = hashmap_get(m->dhcp6_prefixes, addr);
+        if (assigned_link) {
+                assert(assigned_link == link);
+                return 0;
+        }
+
+        a = newdup(struct in6_addr, addr, 1);
+        if (!a)
+                return -ENOMEM;
+
         r = hashmap_ensure_allocated(&m->dhcp6_prefixes, &dhcp6_prefixes_hash_ops);
         if (r < 0)
                 return r;
 
-        return hashmap_put(m->dhcp6_prefixes, addr, link);
+        r = hashmap_put(m->dhcp6_prefixes, a, link);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(a);
+        link_ref(link);
+        return 0;
 }
 
 static int dhcp6_route_remove_handler(sd_netlink *nl, sd_netlink_message *m, Link *link) {
@@ -1318,21 +1336,21 @@ static int dhcp6_route_remove_handler(sd_netlink *nl, sd_netlink_message *m, Lin
 }
 
 static int manager_dhcp6_prefix_remove(Manager *m, struct in6_addr *addr) {
+        _cleanup_free_ struct in6_addr *a = NULL;
+        _cleanup_(link_unrefp) Link *l = NULL;
         _cleanup_free_ char *buf = NULL;
         Route *route;
-        Link *l;
         int r;
 
         assert_return(m, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        l = hashmap_remove(m->dhcp6_prefixes, addr);
+        l = hashmap_remove2(m->dhcp6_prefixes, addr, (void **) &a);
         if (!l)
                 return -EINVAL;
 
         (void) sd_radv_remove_prefix(l->radv, addr, 64);
-        r = route_get(l, AF_INET6, (union in_addr_union *) addr, 64,
-                      0, 0, 0, &route);
+        r = route_get(l, AF_INET6, (union in_addr_union *) addr, 64, 0, 0, 0, &route);
         if (r < 0)
                 return r;
 
@@ -1354,12 +1372,9 @@ int manager_dhcp6_prefix_remove_all(Manager *m, Link *link) {
         assert_return(m, -EINVAL);
         assert_return(link, -EINVAL);
 
-        HASHMAP_FOREACH_KEY(l, addr, m->dhcp6_prefixes, i) {
-                if (l != link)
-                        continue;
-
-                (void) manager_dhcp6_prefix_remove(m, addr);
-        }
+        HASHMAP_FOREACH_KEY(l, addr, m->dhcp6_prefixes, i)
+                if (l == link)
+                        (void) manager_dhcp6_prefix_remove(m, addr);
 
         return 0;
 }
@@ -1402,8 +1417,6 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        LIST_HEAD_INIT(m->networks);
-
         r = sd_resolve_default(&m->resolve);
         if (r < 0)
                 return r;
@@ -1426,8 +1439,8 @@ int manager_new(Manager **ret) {
 }
 
 void manager_free(Manager *m) {
+        struct in6_addr *a;
         AddressPool *pool;
-        Network *network;
         Link *link;
 
         if (!m)
@@ -1435,12 +1448,8 @@ void manager_free(Manager *m) {
 
         free(m->state_file);
 
-        sd_netlink_unref(m->rtnl);
-        sd_netlink_unref(m->genl);
-        sd_resolve_unref(m->resolve);
-
-        while ((link = hashmap_first(m->dhcp6_prefixes)))
-                manager_dhcp6_prefix_remove_all(m, link);
+        while ((a = hashmap_first_key(m->dhcp6_prefixes)))
+                (void) manager_dhcp6_prefix_remove(m, a);
         hashmap_free(m->dhcp6_prefixes);
 
         while ((link = hashmap_steal_first(m->links))) {
@@ -1457,9 +1466,7 @@ void manager_free(Manager *m) {
         m->links = hashmap_free_with_destructor(m->links, link_unref);
 
         m->duids_requesting_uuid = set_free(m->duids_requesting_uuid);
-        while ((network = m->networks))
-                network_free(network);
-        hashmap_free(m->networks_by_name);
+        m->networks = ordered_hashmap_free_with_destructor(m->networks, network_unref);
 
         m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);
 
@@ -1471,6 +1478,10 @@ void manager_free(Manager *m) {
         m->rules = set_free_with_destructor(m->rules, routing_policy_rule_free);
         m->rules_foreign = set_free_with_destructor(m->rules_foreign, routing_policy_rule_free);
         set_free_with_destructor(m->rules_saved, routing_policy_rule_free);
+
+        sd_netlink_unref(m->rtnl);
+        sd_netlink_unref(m->genl);
+        sd_resolve_unref(m->resolve);
 
         sd_event_unref(m->event);
 

@@ -298,7 +298,7 @@ int network_verify(Network *network) {
 
 int network_load_one(Manager *manager, const char *filename) {
         _cleanup_free_ char *fname = NULL, *name = NULL;
-        _cleanup_(network_freep) Network *network = NULL;
+        _cleanup_(network_unrefp) Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;
         char *d;
@@ -344,6 +344,9 @@ int network_load_one(Manager *manager, const char *filename) {
                 .filename = TAKE_PTR(fname),
                 .name = TAKE_PTR(name),
 
+                .manager = manager,
+                .n_ref = 1,
+
                 .required_for_online = true,
                 .required_operstate_for_online = LINK_OPERSTATE_DEGRADED,
                 .dhcp = ADDRESS_FAMILY_NO,
@@ -356,7 +359,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 /* To enable/disable RFC7844 Anonymity Profiles */
                 .dhcp_anonymize = false,
                 .dhcp_route_metric = DHCP_ROUTE_METRIC,
-                /* NOTE: this var might be overwrite by network_apply_anonymize_if_set */
+                /* NOTE: this var might be overwritten by network_apply_anonymize_if_set */
                 .dhcp_client_identifier = DHCP_CLIENT_ID_DUID,
                 .dhcp_route_table = RT_TABLE_MAIN,
                 .dhcp_route_table_set = false,
@@ -446,14 +449,11 @@ int network_load_one(Manager *manager, const char *filename) {
         if (r < 0)
                 log_warning_errno(r, "%s: Failed to add IPv4LL route, ignoring: %m", network->filename);
 
-        LIST_PREPEND(networks, manager->networks, network);
-        network->manager = manager;
-
-        r = hashmap_ensure_allocated(&manager->networks_by_name, &string_hash_ops);
+        r = ordered_hashmap_ensure_allocated(&manager->networks, &string_hash_ops);
         if (r < 0)
                 return r;
 
-        r = hashmap_put(manager->networks_by_name, network->name, network);
+        r = ordered_hashmap_put(manager->networks, network->name, network);
         if (r < 0)
                 return r;
 
@@ -465,21 +465,19 @@ int network_load_one(Manager *manager, const char *filename) {
 }
 
 int network_load(Manager *manager) {
-        Network *network;
         _cleanup_strv_free_ char **files = NULL;
         char **f;
         int r;
 
         assert(manager);
 
-        while ((network = manager->networks))
-                network_free(network);
+        ordered_hashmap_clear_with_destructor(manager->networks, network_unref);
 
         r = conf_files_list_strv(&files, ".network", NULL, 0, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate network files: %m");
 
-        STRV_FOREACH_BACKWARDS(f, files) {
+        STRV_FOREACH(f, files) {
                 r = network_load_one(manager, *f);
                 if (r < 0)
                         return r;
@@ -488,7 +486,7 @@ int network_load(Manager *manager) {
         return 0;
 }
 
-void network_free(Network *network) {
+static Network *network_free(Network *network) {
         IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
         RoutingPolicyRule *rule;
         FdbEntry *fdb_entry;
@@ -499,7 +497,7 @@ void network_free(Network *network) {
         Route *route;
 
         if (!network)
-                return;
+                return NULL;
 
         free(network->filename);
 
@@ -568,11 +566,8 @@ void network_free(Network *network) {
         hashmap_free(network->rules_by_section);
 
         if (network->manager) {
-                if (network->manager->networks)
-                        LIST_REMOVE(networks, network->manager->networks, network);
-
-                if (network->manager->networks_by_name && network->name)
-                        hashmap_remove(network->manager->networks_by_name, network->name);
+                if (network->manager->networks && network->name)
+                        ordered_hashmap_remove(network->manager->networks, network->name);
 
                 if (network->manager->duids_requesting_uuid)
                         set_remove(network->manager->duids_requesting_uuid, &network->duid);
@@ -586,8 +581,10 @@ void network_free(Network *network) {
 
         set_free_free(network->dnssec_negative_trust_anchors);
 
-        free(network);
+        return mfree(network);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Network, network, network_free);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret) {
         Network *network;
@@ -596,7 +593,7 @@ int network_get_by_name(Manager *manager, const char *name, Network **ret) {
         assert(name);
         assert(ret);
 
-        network = hashmap_get(manager->networks_by_name, name);
+        network = ordered_hashmap_get(manager->networks, name);
         if (!network)
                 return -ENOENT;
 
@@ -610,6 +607,7 @@ int network_get(Manager *manager, sd_device *device,
                 Network **ret) {
         const char *path = NULL, *driver = NULL, *devtype = NULL;
         Network *network;
+        Iterator i;
 
         assert(manager);
         assert(ret);
@@ -622,7 +620,7 @@ int network_get(Manager *manager, sd_device *device,
                 (void) sd_device_get_devtype(device, &devtype);
         }
 
-        LIST_FOREACH(networks, network, manager->networks) {
+        ORDERED_HASHMAP_FOREACH(network, manager->networks, i)
                 if (net_match_config(network->match_mac, network->match_path,
                                      network->match_driver, network->match_type,
                                      network->match_name,
@@ -645,7 +643,6 @@ int network_get(Manager *manager, sd_device *device,
                         *ret = network;
                         return 0;
                 }
-        }
 
         *ret = NULL;
 
@@ -656,7 +653,7 @@ int network_apply(Network *network, Link *link) {
         assert(network);
         assert(link);
 
-        link->network = network;
+        link->network = network_ref(network);
 
         if (network->n_dns > 0 ||
             !strv_isempty(network->ntp) ||

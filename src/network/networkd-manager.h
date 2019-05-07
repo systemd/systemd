@@ -37,9 +37,8 @@ struct Manager {
 
         Hashmap *links;
         Hashmap *netdevs;
-        Hashmap *networks_by_name;
+        OrderedHashmap *networks;
         Hashmap *dhcp6_prefixes;
-        LIST_HEAD(Network, networks);
         LIST_HEAD(AddressPool, address_pools);
 
         usec_t network_dirs_ts_usec;

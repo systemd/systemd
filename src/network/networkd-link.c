@@ -524,8 +524,6 @@ static int link_update_flags(Link *link, sd_netlink_message *m) {
         return 0;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
-
 static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         _cleanup_(link_unrefp) Link *link = NULL;
         uint16_t type;
@@ -624,30 +622,15 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
 }
 
 static Link *link_free(Link *link) {
-        Link *carrier;
         Address *address;
-        Route *route;
-        Iterator i;
 
         assert(link);
 
-        while ((route = set_first(link->routes)))
-                route_free(route);
+        link->routes = set_free_with_destructor(link->routes, route_free);
+        link->routes_foreign = set_free_with_destructor(link->routes_foreign, route_free);
 
-        while ((route = set_first(link->routes_foreign)))
-                route_free(route);
-
-        link->routes = set_free(link->routes);
-        link->routes_foreign = set_free(link->routes_foreign);
-
-        while ((address = set_first(link->addresses)))
-                address_free(address);
-
-        while ((address = set_first(link->addresses_foreign)))
-                address_free(address);
-
-        link->addresses = set_free(link->addresses);
-        link->addresses_foreign = set_free(link->addresses_foreign);
+        link->addresses = set_free_with_destructor(link->addresses, address_free);
+        link->addresses_foreign = set_free_with_destructor(link->addresses_foreign, address_free);
 
         while ((address = link->pool_addresses)) {
                 LIST_REMOVE(addresses, link->pool_addresses, address);
@@ -680,15 +663,12 @@ static Link *link_free(Link *link) {
 
         sd_device_unref(link->sd_device);
 
-        HASHMAP_FOREACH (carrier, link->bound_to_links, i)
-                hashmap_remove(link->bound_to_links, INT_TO_PTR(carrier->ifindex));
         hashmap_free(link->bound_to_links);
-
-        HASHMAP_FOREACH (carrier, link->bound_by_links, i)
-                hashmap_remove(link->bound_by_links, INT_TO_PTR(carrier->ifindex));
         hashmap_free(link->bound_by_links);
 
         set_free_with_destructor(link->slaves, link_unref);
+
+        network_unref(link->network);
 
         return mfree(link);
 }
