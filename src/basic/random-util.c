@@ -45,7 +45,12 @@ int rdrand(unsigned long *ret) {
                         return -EOPNOTSUPP;
                 }
 
-                have_rdrand = !!(ecx & (1U << 30));
+/* Compat with old gcc where bit_RDRND didn't exist yet */
+#ifndef bit_RDRND
+#define bit_RDRND (1U << 30)
+#endif
+
+                have_rdrand = !!(ecx & bit_RDRND);
         }
 
         if (have_rdrand == 0)
