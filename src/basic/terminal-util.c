@@ -1323,6 +1323,14 @@ void get_log_colors(int priority, const char **on, const char **off, const char 
                 if (highlight)
                         *highlight = ANSI_HIGHLIGHT;
 
+        } else if (priority <= LOG_WARNING) {
+                if (on)
+                        *on = ANSI_HIGHLIGHT_YELLOW;
+                if (off)
+                        *off = ANSI_NORMAL;
+                if (highlight)
+                        *highlight = ANSI_HIGHLIGHT;
+
         } else if (priority <= LOG_NOTICE) {
                 if (on)
                         *on = ANSI_HIGHLIGHT;
