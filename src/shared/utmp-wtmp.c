@@ -183,16 +183,14 @@ int utmp_put_reboot(usec_t t) {
         return write_entry_both(&store);
 }
 
-_pure_ static const char *sanitize_id(const char *id) {
+static void copy_suffix(char *buf, size_t buf_size, const char *src) {
         size_t l;
 
-        assert(id);
-        l = strlen(id);
-
-        if (l <= sizeof(((struct utmpx*) NULL)->ut_id))
-                return id;
-
-        return id + l - sizeof(((struct utmpx*) NULL)->ut_id);
+        l = strlen(src);
+        if (l < buf_size)
+                strncpy(buf, src, buf_size);
+        else
+                memcpy(buf, src + l - buf_size, buf_size);
 }
 
 int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line, int ut_type, const char *user) {
@@ -207,11 +205,11 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
 
         init_timestamp(&store, 0);
 
-        /* ut_id needs only be nul-terminated if it is shorter than sizeof(ut_id) */
-        strncpy(store.ut_id, sanitize_id(id), sizeof(store.ut_id));
+        /* Copy the whole string if it fits, or just the suffix without the terminating NUL. */
+        copy_suffix(store.ut_id, sizeof(store.ut_id), id);
 
         if (line)
-                strncpy(store.ut_line, basename(line), sizeof(store.ut_line));
+                strncpy_exact(store.ut_line, line, sizeof(store.ut_line));
 
         r = write_entry_both(&store);
         if (r < 0)
@@ -244,8 +242,8 @@ int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
 
         setutxent();
 
-        /* ut_id needs only be nul-terminated if it is shorter than sizeof(ut_id) */
-        strncpy(lookup.ut_id, sanitize_id(id), sizeof(lookup.ut_id));
+        /* Copy the whole string if it fits, or just the suffix without the terminating NUL. */
+        copy_suffix(store.ut_id, sizeof(store.ut_id), id);
 
         found = getutxid(&lookup);
         if (!found)
