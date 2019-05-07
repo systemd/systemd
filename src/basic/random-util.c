@@ -28,6 +28,7 @@
 #include "io-util.h"
 #include "missing.h"
 #include "random-util.h"
+#include "siphash24.h"
 #include "time-util.h"
 
 int rdrand(unsigned long *ret) {
@@ -203,14 +204,19 @@ void initialize_srand(void) {
                 return;
 
 #if HAVE_SYS_AUXV_H
-        /* The kernel provides us with 16 bytes of entropy in auxv, so let's
-         * try to make use of that to seed the pseudo-random generator. It's
-         * better than nothing... */
+        /* The kernel provides us with 16 bytes of entropy in auxv, so let's try to make use of that to seed
+         * the pseudo-random generator. It's better than nothing... But let's first hash it to make it harder
+         * to recover the original value by watching any pseudo-random bits we generate. After all the
+         * AT_RANDOM data might be used by other stuff too (in particular: ASLR), and we probably shouldn't
+         * leak the seed for that. */
 
-        auxv = (const void*) getauxval(AT_RANDOM);
+        auxv = ULONG_TO_PTR(getauxval(AT_RANDOM));
         if (auxv) {
-                assert_cc(sizeof(x) <= 16);
-                memcpy(&x, auxv, sizeof(x));
+                static const uint8_t auxval_hash_key[16] = {
+                        0x92, 0x6e, 0xfe, 0x1b, 0xcf, 0x00, 0x52, 0x9c, 0xcc, 0x42, 0xcf, 0xdc, 0x94, 0x1f, 0x81, 0x0f
+                };
+
+                x = (unsigned) siphash24(auxv, 16, auxval_hash_key);
         } else
 #endif
                 x = 0;
