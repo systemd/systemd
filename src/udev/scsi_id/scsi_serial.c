@@ -388,7 +388,7 @@ static int do_scsi_page0_inquiry(struct scsi_id_device *dev_scsi, int fd,
                  * If the vendor id appears in the page assume the page is
                  * invalid.
                  */
-                if (strneq((char *)&buffer[VENDOR_LENGTH], dev_scsi->vendor, VENDOR_LENGTH)) {
+                if (strneq((char*) buffer + VENDOR_LENGTH, dev_scsi->vendor, VENDOR_LENGTH)) {
                         log_debug("%s: invalid page0 data", dev_scsi->kernel);
                         return 1;
                 }
@@ -497,7 +497,7 @@ static int check_fill_0x83_id(struct scsi_id_device *dev_scsi,
          * included in the identifier.
          */
         if (id_search->id_type == SCSI_ID_VENDOR_SPECIFIC)
-                if (prepend_vendor_model(dev_scsi, &serial[1]) < 0)
+                if (prepend_vendor_model(dev_scsi, serial + 1) < 0)
                         return 1;
 
         i = 4; /* offset to the start of the identifier */
@@ -520,12 +520,12 @@ static int check_fill_0x83_id(struct scsi_id_device *dev_scsi,
                 }
         }
 
-        strcpy(serial_short, &serial[s]);
+        strcpy(serial_short, serial + s);
 
         if (id_search->id_type == SCSI_ID_NAA && wwn != NULL) {
-                strncpy(wwn, &serial[s], 16);
+                strncpy(wwn, serial + s, 16);
                 if (wwn_vendor_extension)
-                        strncpy(wwn_vendor_extension, &serial[s + 16], 16);
+                        strncpy(wwn_vendor_extension, serial + s + 16, 16);
         }
 
         return 0;
@@ -619,8 +619,8 @@ static int do_scsi_page83_inquiry(struct scsi_id_device *dev_scsi, int fd,
                  * one or a small number of descriptors.
                  */
                 for (j = 4; j <= (unsigned)page_83[3] + 3; j += page_83[j + 3] + 4) {
-                        retval = check_fill_0x83_id(dev_scsi, &page_83[j],
-                                                    &id_search_list[id_ind],
+                        retval = check_fill_0x83_id(dev_scsi, page_83 + j,
+                                                    id_search_list + id_ind,
                                                     serial, serial_short, len,
                                                     wwn, wwn_vendor_extension,
                                                     tgpt_group);
@@ -731,7 +731,7 @@ static int do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
         len = buf[3];
         if (serial) {
                 serial[0] = 'S';
-                ser_ind = prepend_vendor_model(dev_scsi, &serial[1]);
+                ser_ind = prepend_vendor_model(dev_scsi, serial + 1);
                 if (ser_ind < 0)
                         return 1;
                 ser_ind++; /* for the leading 'S' */
@@ -739,7 +739,7 @@ static int do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
                         serial[ser_ind] = buf[i];
         }
         if (serial_short) {
-                memcpy(serial_short, &buf[4], len);
+                memcpy(serial_short, buf + 4, len);
                 serial_short[len] = '\0';
         }
         return 0;
