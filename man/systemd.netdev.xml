@@ -527,9 +527,9 @@
 
     <variablelist class='network-directives'>
       <varlistentry>
-        <term><varname>Id=</varname></term>
+        <term><varname>VNI=</varname></term>
         <listitem>
-          <para>The VXLAN ID to use. Takes a number in the range 1-16777215.</para>
+          <para>The VXLAN Network Identifier (or VXLAN Segment ID). Takes a number in the range 1-16777215.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

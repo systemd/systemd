@@ -27,8 +27,8 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
 
         assert(v);
 
-        if (v->id <= VXLAN_VID_MAX) {
-                r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->id);
+        if (v->vni <= VXLAN_VID_MAX) {
+                r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->vni);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_ID attribute: %m");
         }
@@ -273,8 +273,8 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
         assert(v);
         assert(filename);
 
-        if (v->id > VXLAN_VID_MAX) {
-                log_warning("VXLAN without valid Id configured in %s. Ignoring", filename);
+        if (v->vni > VXLAN_VID_MAX) {
+                log_warning("VXLAN without valid VNI (or VXLAN Segment ID) configured in %s. Ignoring", filename);
                 return -EINVAL;
         }
 
@@ -290,7 +290,7 @@ static void vxlan_init(NetDev *netdev) {
 
         assert(v);
 
-        v->id = VXLAN_VID_MAX + 1;
+        v->vni = VXLAN_VID_MAX + 1;
         v->learning = true;
         v->udpcsum = false;
         v->udp6zerocsumtx = false;

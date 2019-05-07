@@ -93,6 +93,7 @@ Group=
 FDBAgeingSec=
 MacLearning=
 Id=
+VNI=
 RemoteChecksumRx=
 TOS=
 L2MissNotification=
