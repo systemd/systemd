@@ -35,7 +35,7 @@ int rdrand(unsigned long *ret) {
 
 #if defined(__i386__) || defined(__x86_64__)
         static int have_rdrand = -1;
-        unsigned char err;
+        uint8_t success;
 
         if (have_rdrand < 0) {
                 uint32_t eax, ebx, ecx, edx;
@@ -60,9 +60,9 @@ int rdrand(unsigned long *ret) {
         asm volatile("rdrand %0;"
                      "setc %1"
                      : "=r" (*ret),
-                       "=qm" (err));
-        msan_unpoison(&err, sizeof(err));
-        if (!err)
+                       "=qm" (success));
+        msan_unpoison(&success, sizeof(sucess));
+        if (!success)
                 return -EAGAIN;
 
         return 0;
