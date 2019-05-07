@@ -34,8 +34,8 @@ Support: %SUPPORT_URL%
 
 @JOURNAL_NAME@ (@JOURNAL_PATH@) sta attualmente utilizzando @CURRENT_USE_PRETTY@.
 L'utilizzo massimo consentito è impostato a @MAX_USE_PRETTY@.
-Lasciando liberi almeno @DISK_KEEP_FREE_PRETTY@ (attuale spazio libero: @DISK_AVAILABLE_PRETTY@).
-Il limite di utilizzo forzato è quindi @LIMIT_PRETTY@, del quale @AVAILABLE_PRETTY@ sono ancora disponibili.
+Si lasciano liberi almeno @DISK_KEEP_FREE_PRETTY@ (attuale spazio libero: @DISK_AVAILABLE_PRETTY@).
+Il limite di utilizzo forzato è quindi @LIMIT_PRETTY@, con @AVAILABLE_PRETTY@ ancora disponibili.
 
 I limiti di controllo dello spazio disco utilizzati dal Journal possono
 essere configurati con le impostazioni SystemMaxUse=, SystemKeepFree=, SystemMaxFileSize=,
@@ -164,7 +164,7 @@ L'avvio dello userspace ha richiesto @USERSPACE_USEC@ microsecondi.
 
 # Subject: User manager start-up is now complete
 -- eed00a68ffd84e31882105fd973abdd1
-Subject: User manager start-up is now complete
+Subject: L'istanza di gestione per l'utente è completata
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
@@ -245,19 +245,19 @@ Il risultato è @JOB_RESULT@.
 
 # Subject: Unit @UNIT@ has begun with reloading its configuration
 -- d34d037fff1847e6ae669a370e694725
-Subject: L'unità @UNIT@ è iniziata con il caricamento della propria configurazione
+Subject: L'unità @UNIT@ è iniziata con il rucaricamento della propria configurazione
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-L'unità @UNIT@ è iniziata con il caricamento della propria configurazione
+L'unità @UNIT@ è iniziata con il ricaricamento della propria configurazione
 
 # Subject: Unit @UNIT@ has finished reloading its configuration
 -- 7b05ebc668384222baa8881179cfda54
-Subject: L'unità @UNIT@ è terminata dopo aver caricato la propria configurazione
+Subject: L'unità @UNIT@ è terminata con il ricaricamento della propria configurazione
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-L'unità @UNIT@ è terminata dopo aver caricato la propria configurazione
+L'unità @UNIT@ è terminata con il ricaricamento della propria configurazione
 
 Il risultato è @JOB_RESULT@.
 
@@ -309,7 +309,7 @@ Subject: Terminata macchina virtuale o container
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-La macchina virtuale @NAME@ con PID primario @LEADER@ è stata spenta.
+La macchina virtuale @NAME@ con PID primario @LEADER@ è stata terminata.
 
 # Subject: DNSSEC mode has been turned off, as server doesn't support it
 -- 36db2dfa5a9045e1bd4af5f93e1cf057
@@ -319,8 +319,8 @@ Support: %SUPPORT_URL%
 Documentation: man:systemd-resolved.service(8) resolved.conf(5)
 
 Il servizio di risoluzione (systemd-resolved.service) ha rilevato che il
-server DNS indicato non supporta DNSSEC e la validazione DNSSEC è stata
-conseguentemente disabilitata.
+server DNS indicato non supporta DNSSEC e la validazione di quest'ultimo tipo
+è stata conseguentemente disabilitata.
 
 Ciò avverrà se DNSSEC=allow-downgrade è configurato nel file
 resolved.conf e il server DNS indicato è incompatibile con DNSSEC. 
@@ -328,8 +328,8 @@ In questo modo ci si espone ad attacchi "DNSSEC downgrade", e un aggressore
 potrebbe disabilitare la validazione DNSSEC sul sistema inserendo risposte
 DNS nel canale di comunicazione.
 
-Questo evento potrebbe essere indice che il DNS server è forse incompatibile
-con DNSSEC o che un aggressore è riuscito nel suo intento malevolo.
+Questo evento potrebbe indicare un'incompatibilità del DNS Server con DNSSEC o
+che un aggressore è riuscito nel suo intento malevolo.
 
 # Subject: DNSSEC validation failed
 -- 1675d7f172174098b1108bf8c7dc8f5d
@@ -376,7 +376,7 @@ Subject: Unità terminata
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Unità @UNIT@ entrata con successo nello stato 'dead'.
+Unità @UNIT@ entrata con successo nello stato 'dead' (morto).
 
 # Subject: Unit failed
 -- d9b373ed55a64feb8242e02dbe79a49c
@@ -384,11 +384,11 @@ Subject: Unit fallita
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Unità @UNIT@ entrata nello stato 'fallito' con risultato '@UNIT_RESULT@'.
+Unità @UNIT@ entrata nello stato 'failed' (fallito) con risultato '@UNIT_RESULT@'.
 
 # Subject: Unit process exited
 -- 98e322203f7a4ed290d09fe03c09fe15
-Subject: Terminato processo unità
+Subject: Uscito processo unità
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
@@ -420,8 +420,8 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 Un processo dell'unità @UNIT@ è stato terminato dalla logica del kernel Linux per
-gestire gli eventi out-of-memory (OOM). Questo usualmente indica che il sistema ha
-poca memoria e questa dovrebbe essere liberata. Un processo associato con @UNIT@ è
+gestire gli eventi out-of-memory (OOM). In altri termini, il sistema ha
+poca memoria e dovrebbe essere liberata. Un processo associato con @UNIT@ è
 stato identificato come il processo ideale da terminare e così è stato.
 
 La pressione sulla memoira potrebbe o meno essere causata da @UNIT@.
