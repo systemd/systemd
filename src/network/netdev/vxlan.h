@@ -12,7 +12,7 @@ typedef struct VxLan VxLan;
 struct VxLan {
         NetDev meta;
 
-        uint64_t vni;
+        uint32_t vni;
 
         int remote_family;
         int local_family;
