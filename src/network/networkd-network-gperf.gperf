@@ -140,6 +140,7 @@ DHCP.Hostname,                          config_parse_hostname,                  
 DHCP.RequestBroadcast,                  config_parse_bool,                               0,                             offsetof(Network, dhcp_broadcast)
 DHCP.CriticalConnection,                config_parse_bool,                               0,                             offsetof(Network, dhcp_critical)
 DHCP.VendorClassIdentifier,             config_parse_string,                             0,                             offsetof(Network, dhcp_vendor_class_identifier)
+DHCP.MaxAttempts,                       config_parse_dhcp_max_attempts,                  0,                             0
 DHCP.UserClass,                         config_parse_dhcp_user_class,                    0,                             offsetof(Network, dhcp_user_class)
 DHCP.DUIDType,                          config_parse_duid_type,                          0,                             offsetof(Network, duid)
 DHCP.DUIDRawData,                       config_parse_duid_rawdata,                       0,                             offsetof(Network, duid)

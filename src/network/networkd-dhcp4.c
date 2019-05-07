@@ -533,7 +533,7 @@ static void dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
                                 r = sd_ipv4ll_start(link->ipv4ll);
                                 if (r < 0) {
-                                        log_link_warning(link, "Could not acquire IPv4 link-local address: %m");
+                                        log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
                                         return;
                                 }
                         }
@@ -831,6 +831,12 @@ int dhcp4_configure(Link *link) {
                 r = sd_dhcp_client_set_client_port(link->dhcp_client, link->network->dhcp_client_port);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set listen port: %m");
+        }
+
+        if (link->network->dhcp_max_attempts > 0) {
+                r = sd_dhcp_client_set_max_attempts(link->dhcp_client, link->network->dhcp_max_attempts);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set max attempts: %m");
         }
 
         return dhcp4_set_client_identifier(link);

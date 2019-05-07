@@ -1575,6 +1575,54 @@ int config_parse_section_route_table(
         return 0;
 }
 
+int config_parse_dhcp_max_attempts(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        uint64_t a;
+        int r;
+
+        assert(network);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->dhcp_max_attempts = 0;
+                return 0;
+        }
+
+        if (streq(rvalue, "infinity")) {
+                network->dhcp_max_attempts = (uint64_t) -1;
+                return 0;
+        }
+
+        r = safe_atou64(rvalue, &a);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse DHCP maximum attempts, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (a == 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "%s= must be positive integer or 'infinity', ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        network->dhcp_max_attempts = a;
+
+        return 0;
+}
+
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_use_domains, dhcp_use_domains, DHCPUseDomains,
                          "Failed to parse DHCP use domains setting");
 

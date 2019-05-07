@@ -199,6 +199,7 @@ MaxLeaseTimeSec=
 DefaultLeaseTimeSec=
 EmitTimezone=
 DNS=
+MaxAttempts=
 [DHCPv4]
 UseHostname=
 UseMTU=
