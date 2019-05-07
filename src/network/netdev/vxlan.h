@@ -16,9 +16,11 @@ struct VxLan {
 
         int remote_family;
         int local_family;
+        int group_family;
 
         union in_addr_union remote;
         union in_addr_union local;
+        union in_addr_union group;
 
         unsigned tos;
         unsigned ttl;

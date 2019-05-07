@@ -180,7 +180,7 @@ int config_parse_vxlan_address(const char *unit,
                         return 0;
                 }
 
-                v->remote_family = f;
+                v->group_family = f;
         } else {
                 if (r > 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan %s cannot be a multicast address, ignoring assignment: %s", lvalue, rvalue);

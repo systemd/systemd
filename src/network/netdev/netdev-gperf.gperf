@@ -98,7 +98,7 @@ Peer.MACAddress,                          config_parse_hwaddr,                  
 VXCAN.Peer,                               config_parse_ifname,                       0,                             offsetof(VxCan, ifname_peer)
 VXLAN.VNI,                                config_parse_uint64,                       0,                             offsetof(VxLan, vni)
 VXLAN.Id,                                 config_parse_uint64,                       0,                             offsetof(VxLan, vni) /* deprecated */
-VXLAN.Group,                              config_parse_vxlan_address,                0,                             offsetof(VxLan, remote)
+VXLAN.Group,                              config_parse_vxlan_address,                0,                             offsetof(VxLan, group)
 VXLAN.Local,                              config_parse_vxlan_address,                0,                             offsetof(VxLan, local)
 VXLAN.Remote,                             config_parse_vxlan_address,                0,                             offsetof(VxLan, remote)
 VXLAN.TOS,                                config_parse_unsigned,                     0,                             offsetof(VxLan, tos)
