@@ -175,7 +175,7 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
 
                         r = sd_ipv4ll_restart(ll);
                         if (r < 0)
-                                log_link_warning(link, "Could not acquire IPv4 link-local address");
+                                log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
                         break;
                 case SD_IPV4LL_EVENT_BIND:
                         r = ipv4ll_address_claimed(ll, link);
