@@ -477,19 +477,17 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
 }
 
 int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
+        _cleanup_free_ char *buf = NULL;
         Manager *m = userdata;
         Link *link = NULL;
         uint16_t type;
-        unsigned char flags;
-        int family;
-        unsigned char prefixlen;
-        unsigned char scope;
+        unsigned char flags, prefixlen, scope;
         union in_addr_union in_addr = IN_ADDR_NULL;
         struct ifa_cacheinfo cinfo;
         Address *address = NULL;
-        char buf[INET6_ADDRSTRLEN], valid_buf[FORMAT_TIMESPAN_MAX];
+        char valid_buf[FORMAT_TIMESPAN_MAX];
         const char *valid_str = NULL;
-        int r, ifindex;
+        int ifindex, family, r;
 
         assert(rtnl);
         assert(message);
@@ -577,8 +575,9 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 assert_not_reached("Received unsupported address family");
         }
 
-        if (!inet_ntop(family, &in_addr, buf, INET6_ADDRSTRLEN)) {
-                log_link_warning(link, "Could not print address, ignoring");
+        r = in_addr_to_string(family, &in_addr, &buf);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Could not print address, ignoring: %m");
                 return 0;
         }
 
@@ -586,12 +585,10 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         if (r < 0 && r != -ENODATA) {
                 log_link_warning_errno(link, r, "rtnl: cannot get IFA_CACHEINFO attribute, ignoring: %m");
                 return 0;
-        } else if (r >= 0) {
-                if (cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
-                        valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
-                                                    cinfo.ifa_valid * USEC_PER_SEC,
-                                                    USEC_PER_SEC);
-        }
+        } else if (r >= 0 && cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
+                valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
+                                            cinfo.ifa_valid * USEC_PER_SEC,
+                                            USEC_PER_SEC);
 
         (void) address_get(link, family, &in_addr, prefixlen, &address);
 
