@@ -113,6 +113,7 @@ int sd_event_get_iteration(sd_event *e, uint64_t *ret);
 
 sd_event_source* sd_event_source_ref(sd_event_source *s);
 sd_event_source* sd_event_source_unref(sd_event_source *s);
+sd_event_source* sd_event_source_disable_unref(sd_event_source *s);
 
 sd_event *sd_event_source_get_event(sd_event_source *s);
 void* sd_event_source_get_userdata(sd_event_source *s);
