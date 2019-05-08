@@ -329,3 +329,9 @@ option('oss-fuzz', type : 'boolean', value : 'false',
        description : 'build against oss-fuzz')
 option('llvm-fuzz', type : 'boolean', value : 'false',
        description : 'build against LLVM libFuzzer')
+option('fuzzbuzz', type : 'boolean', value : 'false',
+       description : 'build against FuzzBuzz')
+option('fuzzbuzz-engine', type : 'string',
+       description : 'the name of the FuzzBuzz fuzzing engine')
+option('fuzzbuzz-engine-dir', type : 'string',
+       description : 'the directory where the FuzzBuzz fuzzing engine is')

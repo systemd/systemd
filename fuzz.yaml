@@ -1,0 +1,32 @@
+base: ubuntu:16.04
+language: c
+setup:
+- sudo bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ xenial main restricted universe multiverse' >>/etc/apt/sources.list"
+- sudo apt-get update -y
+- sudo apt-get build-dep -y systemd
+- sudo apt-get install -y python3-pip
+- pip3 install meson ninja
+- export PATH="$HOME/.local/bin/:$PATH"
+- CC=$FUZZ_CC CXX=$FUZZ_CXX meson -Dfuzzbuzz=true -Dfuzzbuzz-engine-dir=$(dirname "$FUZZ_ENGINE") -Dfuzzbuzz-engine=$(cut -d. -f1 <(basename "$FUZZ_ENGINE")) -Db_lundef=false ./build
+- ninja -v -C ./build fuzzers
+environment:
+targets:
+- name: fuzz-compress
+  harness:
+    binary: ./build/fuzz-compress
+- name: fuzz-unit-file
+  harness:
+    binary: ./build/fuzz-unit-file
+  corpus: ./test/fuzz/fuzz-unit-file
+- name: fuzz-journald-syslog
+  harness:
+    binary: ./build/fuzz-journald-syslog
+  corpus: ./test/fuzz/fuzz-journald-syslog
+- name: fuzz-netdev-parser
+  harness:
+    binary: ./build/fuzz-netdev-parser
+  corpus: ./test/fuzz/fuzz-netdev-parser
+- name: fuzz-network-parser
+  harness:
+    binary: ./build/fuzz-network-parser
+  corpus: ./test/fuzz/fuzz-network-parser

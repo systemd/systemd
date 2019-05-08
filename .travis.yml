@@ -98,6 +98,13 @@ jobs:
               - sudo $CI_MANAGERS/xenial.sh
               - set +e
 
+        - name: FuzzBuzz
+          language: bash
+          script:
+              - set -e
+              - $CI_MANAGERS/fuzzbuzz.sh
+              - set +e
+
         - stage: Coverity
           language: bash
           env:
