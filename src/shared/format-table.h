@@ -75,4 +75,4 @@ const void *table_get(Table *t, TableCell *cell);
 const void *table_get_at(Table *t, size_t row, size_t column);
 
 int table_to_json(Table *t, JsonVariant **ret);
-int table_print_json(Table *t, FILE *f, unsigned json_flags);
+int table_print_json(Table *t, FILE *f, JsonFormatFlags json_flags);
