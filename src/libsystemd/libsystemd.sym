@@ -570,4 +570,5 @@ global:
         sd_event_source_set_destroy_callback;
         sd_event_source_get_destroy_callback;
         sd_bus_enqueue_for_read;
+        sd_event_source_disable_unref;
 } LIBSYSTEMD_238;
