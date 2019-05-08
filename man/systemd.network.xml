@@ -1985,6 +1985,19 @@
             Defaults to unset.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>AssociatedWith=</varname></term>
+          <listitem>
+            <para>Specifies where the address is associated with. Takes one of <literal>use</literal>,
+            <literal>self</literal>, <literal>master</literal> or <literal>router</literal>.
+            <literal>use</literal> means the address is in use. User space can use this option to
+            indicate to the kernel that the fdb entry is in use. <literal>self</literal> means
+            the address is associated with the port drivers fdb. Usually hardware. <literal>master</literal>
+            means the address is associated with master devices fdb. <literal>router</literal> means
+            the destination address is associated with a router. Note that it's valid if the referenced
+            device is a VXLAN type device and has route shortcircuit enabled. Defaults to <literal>self</literal>.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
