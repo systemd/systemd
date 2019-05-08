@@ -320,10 +320,7 @@ static void service_fd_store_unlink(ServiceFDStore *fs) {
                 fs->service->n_fd_store--;
         }
 
-        if (fs->event_source) {
-                sd_event_source_set_enabled(fs->event_source, SD_EVENT_OFF);
-                sd_event_source_unref(fs->event_source);
-        }
+        sd_event_source_disable_unref(fs->event_source);
 
         free(fs->fdname);
         safe_close(fs->fd);

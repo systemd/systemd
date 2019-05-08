@@ -335,25 +335,13 @@ int varlink_connect_fd(Varlink **ret, int fd) {
 static void varlink_detach_event_sources(Varlink *v) {
         assert(v);
 
-        if (v->io_event_source) {
-                (void) sd_event_source_set_enabled(v->io_event_source, SD_EVENT_OFF);
-                v->io_event_source = sd_event_source_unref(v->io_event_source);
-        }
+        v->io_event_source = sd_event_source_disable_unref(v->io_event_source);
 
-        if (v->time_event_source) {
-                (void) sd_event_source_set_enabled(v->time_event_source, SD_EVENT_OFF);
-                v->time_event_source = sd_event_source_unref(v->time_event_source);
-        }
+        v->time_event_source = sd_event_source_disable_unref(v->time_event_source);
 
-        if (v->quit_event_source) {
-                (void) sd_event_source_set_enabled(v->quit_event_source, SD_EVENT_OFF);
-                v->quit_event_source = sd_event_source_unref(v->quit_event_source);
-        }
+        v->quit_event_source = sd_event_source_disable_unref(v->quit_event_source);
 
-        if (v->defer_event_source) {
-                (void) sd_event_source_set_enabled(v->defer_event_source, SD_EVENT_OFF);
-                v->defer_event_source = sd_event_source_unref(v->defer_event_source);
-        }
+        v->defer_event_source = sd_event_source_disable_unref(v->defer_event_source);
 }
 
 static void varlink_clear(Varlink *v) {
@@ -2203,10 +2191,7 @@ static VarlinkServerSocket* varlink_server_socket_destroy(VarlinkServerSocket *s
         if (ss->server)
                 LIST_REMOVE(sockets, ss->server->sockets, ss);
 
-        if (ss->event_source) {
-                (void) sd_event_source_set_enabled(ss->event_source, SD_EVENT_OFF);
-                sd_event_source_unref(ss->event_source);
-        }
+        sd_event_source_disable_unref(ss->event_source);
 
         free(ss->address);
         safe_close(ss->fd);
