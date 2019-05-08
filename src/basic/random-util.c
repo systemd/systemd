@@ -61,7 +61,7 @@ int rdrand(unsigned long *ret) {
                      "setc %1"
                      : "=r" (*ret),
                        "=qm" (success));
-        msan_unpoison(&success, sizeof(sucess));
+        msan_unpoison(&success, sizeof(success));
         if (!success)
                 return -EAGAIN;
 
