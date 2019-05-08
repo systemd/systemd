@@ -47,6 +47,12 @@
       <arg choice="plain"><option>--umount</option></arg>
       <arg choice="plain" rep="repeat"><replaceable>WHAT|WHERE</replaceable></arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-mount</command>
+      <arg choice="opt" rep="repeat"><replaceable>OPTIONS</replaceable></arg>
+      <arg choice="plain"><option>--remount</option></arg>
+      <arg choice="plain"><replaceable>WHERE</replaceable></arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -283,6 +289,17 @@
         such as labels, etc.</para>
 
         <xi:include href="version-info.xml" xpointer="v232"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--remount</option></term>
+
+        <listitem><para>Restart a mount unit of an already mounted filesystem corresponding to the specified
+        mount point <replaceable>WHERE</replaceable>. This can be used to change mount options of
+        the mount unit temporarily.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>

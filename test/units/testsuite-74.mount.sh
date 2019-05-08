@@ -71,6 +71,10 @@ systemd-mount --options=ro,x-foo-bar "$LOOP" "$WORK_DIR/mnt"
 test -e "$WORK_DIR/mnt/foo.bar"
 systemctl show -P Options "$WORK_DIR/mnt" | grep -Eq "(^ro|,ro)"
 systemctl show -P Options "$WORK_DIR/mnt" | grep -q "x-foo-bar"
+# Change mount options with remount
+systemd-mount --remount --options=rw,x-foo-bar "$WORK_DIR/mnt"
+systemctl show -P Options "$WORK_DIR/mnt" | grep -Eq "(^rw|,rw)"
+systemctl show -P Options "$WORK_DIR/mnt" | grep -q "x-foo-bar"
 systemd-umount "$WORK_DIR/mnt"
 
 # Mount with only source set
