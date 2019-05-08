@@ -47,6 +47,7 @@ enum {
         ACTION_AUTOMOUNT,
         ACTION_UMOUNT,
         ACTION_LIST,
+        ACTION_REMOUNT,
 } arg_action = ACTION_DEFAULT;
 
 static bool arg_no_block = false;
@@ -145,6 +146,7 @@ static int help(void) {
                "     --bind-device                Bind automount unit to device\n"
                "     --list                       List mountable block devices\n"
                "  -u --umount                     Unmount mount points\n"
+               "  -r --remount                    Remount a mounted filesystem\n"
                "  -G --collect                    Unload unit after it stopped, even when failed\n"
                "  -T --tmpfs                      Create a new tmpfs on the mount point\n"
                "\nSee the %s for details.\n",
@@ -176,6 +178,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AUTOMOUNT_PROPERTY,
                 ARG_BIND_DEVICE,
                 ARG_LIST,
+                ARG_REMOUNT,
         };
 
         static const struct option options[] = {
@@ -207,6 +210,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "unmount",            no_argument,       NULL, 'u'                    }, /* Compat spelling */
                 { "collect",            no_argument,       NULL, 'G'                    },
                 { "tmpfs",              no_argument,       NULL, 'T'                    },
+                { "remount",            no_argument,       NULL, 'r'                    },
                 {},
         };
 
@@ -218,7 +222,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (invoked_as(argv, "systemd-umount"))
                 arg_action = ACTION_UMOUNT;
 
-        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:AuGlT", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:AuGlTr", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -361,6 +365,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_tmpfs = true;
                         break;
 
+                case 'r':
+                        arg_action = ACTION_REMOUNT;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -384,10 +392,14 @@ static int parse_argv(int argc, char *argv[]) {
                 if (arg_transport != BUS_TRANSPORT_LOCAL)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Listing devices only supported locally.");
-        } else if (arg_action == ACTION_UMOUNT) {
+        } else if (IN_SET(arg_action, ACTION_UMOUNT, ACTION_REMOUNT)) {
                 if (optind >= argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "At least one argument required.");
+
+                if (arg_action == ACTION_REMOUNT && argc > optind+1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Only one argument is allowed.");
 
                 if (arg_transport != BUS_TRANSPORT_LOCAL)
                         for (int i = optind; i < argc; i++)
@@ -674,6 +686,59 @@ static int start_transient_mount(
                 log_info("Started unit %s%s%s for mount point: %s%s%s",
                          ansi_highlight(), mount_unit, ansi_normal(),
                          ansi_highlight(), arg_mount_where, ansi_normal());
+
+        return 0;
+}
+
+static int action_remount(
+                sd_bus *bus,
+                int argc,
+                char **argv) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *mount_unit = NULL;
+        _cleanup_free_ char *object_path = NULL;
+        int r;
+
+        r = unit_name_from_path(argv[optind], ".mount", &mount_unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make mount unit name: %m");
+
+        object_path = unit_dbus_path_from_name(mount_unit);
+        if (!object_path)
+                return log_oom();
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.systemd1",
+                        object_path,
+                        "org.freedesktop.systemd1.Mount",
+                        "Remount");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Mount options */
+        r = sd_bus_message_append(m, "s", strempty(arg_mount_options));
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to remount: %s", bus_error_message(&error, r));
+
+        if (!arg_quiet)
+                log_info("Remounted %s%s%s mount point %s%s%s with options %s%s%s",
+                         ansi_highlight(), mount_unit, ansi_normal(),
+                         ansi_highlight(), argv[optind], ansi_normal(),
+                         ansi_highlight(), arg_mount_options, ansi_normal());
 
         return 0;
 }
@@ -1509,6 +1574,9 @@ static int run(int argc, char* argv[]) {
 
         if (arg_action == ACTION_UMOUNT)
                 return action_umount(bus, argc, argv);
+
+        if (arg_action == ACTION_REMOUNT)
+                return action_remount(bus, argc, argv);
 
         if ((!arg_mount_type || fstype_is_blockdev_backed(arg_mount_type))
             && !path_is_normalized(arg_mount_what))
