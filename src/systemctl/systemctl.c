@@ -1940,6 +1940,7 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                 statelen = STRLEN("STATE"),
                 failedlen = STRLEN("FAILED"),
                 jobslen = STRLEN("JOBS");
+        bool state_missing;
 
         assert(machine_infos || n == 0);
 
@@ -1989,9 +1990,12 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                 if (circle_len > 0)
                         printf("%s%s%s ", on_state, circle ? special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE) : " ", off_state);
 
+                if (!m->state)
+                        state_missing = true;
+
                 if (m->is_host)
                         printf("%-*s (host) %s%-*s%s %s%*" PRIu32 "%s %*" PRIu32 "\n",
-                               (int) (namelen - (STRLEN(" (host)"))),
+                               (int) (namelen - strlen(" (host)")),
                                strna(m->name),
                                on_state, statelen, strna(m->state), off_state,
                                on_failed, failedlen, m->n_failed_units, off_failed,
@@ -2004,8 +2008,12 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                                jobslen, m->n_jobs);
         }
 
-        if (!arg_no_legend)
-                printf("\n%u machines listed.\n", n);
+        if (!arg_no_legend) {
+                printf("\n");
+                if (state_missing && geteuid() != 0)
+                        printf("Notice: some information only available to privileged users was not shown.\n");
+                printf("%u machines listed.\n", n);
+        }
 }
 
 static int list_machines(int argc, char *argv[], void *userdata) {
