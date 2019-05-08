@@ -170,6 +170,8 @@ static const NLType rtnl_link_info_data_vxlan_types[] = {
         [IFLA_VXLAN_COLLECT_METADATA]  = { .type = NETLINK_TYPE_U8 },
         [IFLA_VXLAN_LABEL]             = { .type = NETLINK_TYPE_U32 },
         [IFLA_VXLAN_GPE]               = { .type = NETLINK_TYPE_FLAG },
+        [IFLA_VXLAN_TTL_INHERIT]       = { .type = NETLINK_TYPE_FLAG },
+        [IFLA_VXLAN_DF]                = { .type = NETLINK_TYPE_U8 },
 };
 
 static const NLType rtnl_bond_arp_target_types[] = {
