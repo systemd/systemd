@@ -1950,7 +1950,7 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                 failedlen = MAX(failedlen, DECIMAL_STR_WIDTH(m->n_failed_units));
                 jobslen = MAX(jobslen, DECIMAL_STR_WIDTH(m->n_jobs));
 
-                if (!arg_plain && !streq_ptr(m->state, "running"))
+                if (!arg_plain && m->state && !streq(m->state, "running"))
                         circle_len = 2;
         }
 
@@ -8808,7 +8808,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "list-sockets",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_sockets         },
                 { "list-timers",           VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_timers          },
                 { "list-jobs",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_jobs            },
-                { "list-machines",         VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY|VERB_MUST_BE_ROOT, list_machines },
+                { "list-machines",         VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_machines        },
                 { "clear-jobs",            VERB_ANY, 1,        VERB_ONLINE_ONLY, trivial_method       },
                 { "cancel",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, cancel_job           },
                 { "start",                 2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
