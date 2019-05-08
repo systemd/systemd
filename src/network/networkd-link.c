@@ -1136,20 +1136,20 @@ static int link_push_uplink_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         log_debug("Copying NTP server information from %s", link->ifname);
 
         STRV_FOREACH(a, link->network->ntp) {
-                struct in_addr ia;
+                union in_addr_union ia;
 
                 /* Only look for IPv4 addresses */
-                if (inet_pton(AF_INET, *a, &ia) <= 0)
+                if (in_addr_from_string(AF_INET, *a, &ia) <= 0)
                         continue;
 
                 /* Never propagate obviously borked data */
-                if (in4_addr_is_null(&ia) || in4_addr_is_localhost(&ia))
+                if (in4_addr_is_null(&ia.in) || in4_addr_is_localhost(&ia.in))
                         continue;
 
                 if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
                         return log_oom();
 
-                addresses[n_addresses++] = ia;
+                addresses[n_addresses++] = ia.in;
         }
 
         if (link->network->dhcp_use_ntp && link->dhcp_lease) {

@@ -1117,7 +1117,8 @@ int config_parse_dhcp_server_dns(
 
         for (;;) {
                 _cleanup_free_ char *w = NULL;
-                struct in_addr a, *m;
+                union in_addr_union a;
+                struct in_addr *m;
 
                 r = extract_first_word(&p, &w, NULL, 0);
                 if (r == -ENOMEM)
@@ -1130,9 +1131,10 @@ int config_parse_dhcp_server_dns(
                 if (r == 0)
                         break;
 
-                if (inet_pton(AF_INET, w, &a) <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Failed to parse DNS server address, ignoring: %s", w);
+                r = in_addr_from_string(AF_INET, w, &a);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse DNS server address '%s', ignoring assignment: %m", w);
                         continue;
                 }
 
@@ -1140,7 +1142,7 @@ int config_parse_dhcp_server_dns(
                 if (!m)
                         return log_oom();
 
-                m[n->n_dhcp_server_dns++] = a;
+                m[n->n_dhcp_server_dns++] = a.in;
                 n->dhcp_server_dns = m;
         }
 
@@ -1277,7 +1279,8 @@ int config_parse_dhcp_server_ntp(
 
         for (;;) {
                 _cleanup_free_ char *w = NULL;
-                struct in_addr a, *m;
+                union in_addr_union a;
+                struct in_addr *m;
 
                 r = extract_first_word(&p, &w, NULL, 0);
                 if (r == -ENOMEM)
@@ -1290,9 +1293,10 @@ int config_parse_dhcp_server_ntp(
                 if (r == 0)
                         return 0;
 
-                if (inet_pton(AF_INET, w, &a) <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Failed to parse NTP server address, ignoring: %s", w);
+                r = in_addr_from_string(AF_INET, w, &a);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse NTP server address '%s', ignoring: %m", w);
                         continue;
                 }
 
@@ -1300,7 +1304,7 @@ int config_parse_dhcp_server_ntp(
                 if (!m)
                         return log_oom();
 
-                m[n->n_dhcp_server_ntp++] = a;
+                m[n->n_dhcp_server_ntp++] = a.in;
                 n->dhcp_server_ntp = m;
         }
 }
