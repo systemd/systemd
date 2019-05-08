@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "tests.h"
 
 static void test_alloca(void) {
         static const uint8_t zero[997] = { };
@@ -106,11 +107,39 @@ static void test_bool_assign(void) {
         assert(!h);
 }
 
+static int cleanup_counter = 0;
+
+static void cleanup1(void *a) {
+        log_info("%s(%p)", __func__, a);
+        assert_se(++cleanup_counter == *(int*) a);
+}
+static void cleanup2(void *a) {
+        log_info("%s(%p)", __func__, a);
+        assert_se(++cleanup_counter == *(int*) a);
+}
+static void cleanup3(void *a) {
+        log_info("%s(%p)", __func__, a);
+        assert_se(++cleanup_counter == *(int*) a);
+}
+
+static void test_cleanup_order(void) {
+        _cleanup_(cleanup1) int x1 = 4, x2 = 3;
+        _cleanup_(cleanup3) int z = 2;
+        _cleanup_(cleanup2) int y = 1;
+        log_debug("x1: %p", &x1);
+        log_debug("x2: %p", &x2);
+        log_debug("y: %p", &y);
+        log_debug("z: %p", &z);
+}
+
 int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_DEBUG);
+
         test_alloca();
         test_GREEDY_REALLOC();
         test_memdup_multiply_and_greedy_realloc();
         test_bool_assign();
+        test_cleanup_order();
 
         return 0;
 }
