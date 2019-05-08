@@ -580,6 +580,12 @@ _public_ sd_event* sd_event_unref(sd_event *e) {
         return NULL;
 }
 
+_public_ sd_event_source* sd_event_source_disable_unref(sd_event_source *s) {
+        if (s)
+                (void) sd_event_source_set_enabled(s, SD_EVENT_OFF);
+        return sd_event_source_unref(s);
+}
+
 static bool event_pid_changed(sd_event *e) {
         assert(e);
 
