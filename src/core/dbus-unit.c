@@ -1982,7 +1982,7 @@ static int bus_unit_set_transient_property(
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
 
-        UnitDependency d = _UNIT_DEPENDENCY_INVALID;
+        UnitDependency d;
         int r;
 
         assert(u);
