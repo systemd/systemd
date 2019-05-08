@@ -28,13 +28,14 @@
 #include "io-util.h"
 #include "missing.h"
 #include "random-util.h"
+#include "siphash24.h"
 #include "time-util.h"
 
 int rdrand(unsigned long *ret) {
 
 #if defined(__i386__) || defined(__x86_64__)
         static int have_rdrand = -1;
-        unsigned char err;
+        uint8_t success;
 
         if (have_rdrand < 0) {
                 uint32_t eax, ebx, ecx, edx;
@@ -45,7 +46,12 @@ int rdrand(unsigned long *ret) {
                         return -EOPNOTSUPP;
                 }
 
-                have_rdrand = !!(ecx & (1U << 30));
+/* Compat with old gcc where bit_RDRND didn't exist yet */
+#ifndef bit_RDRND
+#define bit_RDRND (1U << 30)
+#endif
+
+                have_rdrand = !!(ecx & bit_RDRND);
         }
 
         if (have_rdrand == 0)
@@ -54,9 +60,9 @@ int rdrand(unsigned long *ret) {
         asm volatile("rdrand %0;"
                      "setc %1"
                      : "=r" (*ret),
-                       "=qm" (err));
-        msan_unpoison(&err, sizeof(err));
-        if (!err)
+                       "=qm" (success));
+        msan_unpoison(&success, sizeof(sucess));
+        if (!success)
                 return -EAGAIN;
 
         return 0;
@@ -71,21 +77,22 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
         bool got_some = false;
         int r;
 
-        /* Gathers some randomness from the kernel (or the CPU if the RANDOM_ALLOW_RDRAND flag is set). This call won't
-         * block, unless the RANDOM_BLOCK flag is set. If RANDOM_DONT_DRAIN is set, an error is returned if the random
-         * pool is not initialized. Otherwise it will always return some data from the kernel, regardless of whether
-         * the random pool is fully initialized or not. */
+        /* Gathers some randomness from the kernel (or the CPU if the RANDOM_ALLOW_RDRAND flag is set). This
+         * call won't block, unless the RANDOM_BLOCK flag is set. If RANDOM_MAY_FAIL is set, an error is
+         * returned if the random pool is not initialized. Otherwise it will always return some data from the
+         * kernel, regardless of whether the random pool is fully initialized or not. */
 
         if (n == 0)
                 return 0;
 
         if (FLAGS_SET(flags, RANDOM_ALLOW_RDRAND))
-                /* Try x86-64' RDRAND intrinsic if we have it. We only use it if high quality randomness is not
-                 * required, as we don't trust it (who does?). Note that we only do a single iteration of RDRAND here,
-                 * even though the Intel docs suggest calling this in a tight loop of 10 invocations or so. That's
-                 * because we don't really care about the quality here. We generally prefer using RDRAND if the caller
-                 * allows us too, since this way we won't drain the kernel randomness pool if we don't need it, as the
-                 * pool's entropy is scarce. */
+                /* Try x86-64' RDRAND intrinsic if we have it. We only use it if high quality randomness is
+                 * not required, as we don't trust it (who does?). Note that we only do a single iteration of
+                 * RDRAND here, even though the Intel docs suggest calling this in a tight loop of 10
+                 * invocations or so. That's because we don't really care about the quality here. We
+                 * generally prefer using RDRAND if the caller allows us to, since this way we won't upset
+                 * the kernel's random subsystem by accessing it before the pool is initialized (after all it
+                 * will kmsg log about every attempt to do so)..*/
                 for (;;) {
                         unsigned long u;
                         size_t m;
@@ -153,12 +160,13 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                                 break;
 
                         } else if (errno == EAGAIN) {
-                                /* The kernel has no entropy whatsoever. Let's remember to use the syscall the next
-                                 * time again though.
+                                /* The kernel has no entropy whatsoever. Let's remember to use the syscall
+                                 * the next time again though.
                                  *
-                                 * If RANDOM_DONT_DRAIN is set, return an error so that random_bytes() can produce some
-                                 * pseudo-random bytes instead. Otherwise, fall back to /dev/urandom, which we know is empty,
-                                 * but the kernel will produce some bytes for us on a best-effort basis. */
+                                 * If RANDOM_MAY_FAIL is set, return an error so that random_bytes() can
+                                 * produce some pseudo-random bytes instead. Otherwise, fall back to
+                                 * /dev/urandom, which we know is empty, but the kernel will produce some
+                                 * bytes for us on a best-effort basis. */
                                 have_syscall = true;
 
                                 if (got_some && FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
@@ -167,7 +175,7 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                                         return 0;
                                 }
 
-                                if (FLAGS_SET(flags, RANDOM_DONT_DRAIN))
+                                if (FLAGS_SET(flags, RANDOM_MAY_FAIL))
                                         return -ENODATA;
 
                                 /* Use /dev/urandom instead */
@@ -196,14 +204,19 @@ void initialize_srand(void) {
                 return;
 
 #if HAVE_SYS_AUXV_H
-        /* The kernel provides us with 16 bytes of entropy in auxv, so let's
-         * try to make use of that to seed the pseudo-random generator. It's
-         * better than nothing... */
+        /* The kernel provides us with 16 bytes of entropy in auxv, so let's try to make use of that to seed
+         * the pseudo-random generator. It's better than nothing... But let's first hash it to make it harder
+         * to recover the original value by watching any pseudo-random bits we generate. After all the
+         * AT_RANDOM data might be used by other stuff too (in particular: ASLR), and we probably shouldn't
+         * leak the seed for that. */
 
-        auxv = (const void*) getauxval(AT_RANDOM);
+        auxv = ULONG_TO_PTR(getauxval(AT_RANDOM));
         if (auxv) {
-                assert_cc(sizeof(x) <= 16);
-                memcpy(&x, auxv, sizeof(x));
+                static const uint8_t auxval_hash_key[16] = {
+                        0x92, 0x6e, 0xfe, 0x1b, 0xcf, 0x00, 0x52, 0x9c, 0xcc, 0x42, 0xcf, 0xdc, 0x94, 0x1f, 0x81, 0x0f
+                };
+
+                x = (unsigned) siphash24(auxv, 16, auxval_hash_key);
         } else
 #endif
                 x = 0;
@@ -250,7 +263,7 @@ void pseudo_random_bytes(void *p, size_t n) {
 
 void random_bytes(void *p, size_t n) {
 
-        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO|RANDOM_DONT_DRAIN|RANDOM_ALLOW_RDRAND) >= 0)
+        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO|RANDOM_MAY_FAIL|RANDOM_ALLOW_RDRAND) >= 0)
                 return;
 
         /* If for some reason some user made /dev/urandom unavailable to us, or the kernel has no entropy, use a PRNG instead. */
