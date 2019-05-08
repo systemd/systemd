@@ -270,6 +270,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

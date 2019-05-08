@@ -163,21 +163,8 @@ static bool print_multiline(
         bool ellipsized = false;
         int line = 0;
 
-        if (flags & OUTPUT_COLOR) {
-                if (priority <= LOG_ERR) {
-                        color_on = ANSI_HIGHLIGHT_RED;
-                        color_off = ANSI_NORMAL;
-                        highlight_on = ANSI_HIGHLIGHT;
-                } else if (priority <= LOG_NOTICE) {
-                        color_on = ANSI_HIGHLIGHT;
-                        color_off = ANSI_NORMAL;
-                        highlight_on = ANSI_HIGHLIGHT_RED;
-                } else if (priority >= LOG_DEBUG) {
-                        color_on = ANSI_GREY;
-                        color_off = ANSI_NORMAL;
-                        highlight_on = ANSI_HIGHLIGHT_RED;
-                }
-        }
+        if (flags & OUTPUT_COLOR)
+                get_log_colors(priority, &color_on, &color_off, &highlight_on);
 
         /* A special case: make sure that we print a newline when
            the message is empty. */

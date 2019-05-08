@@ -151,6 +151,7 @@ static int run(int argc, char* argv[]) {
         unsigned i = 0;
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

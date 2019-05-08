@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <syslog.h>
 #include <sys/types.h>
 
 #include "macro.h"
@@ -158,3 +159,5 @@ int vt_default_utf8(void);
 int vt_reset_keyboard(int fd);
 int vt_restore(int fd);
 int vt_release(int fd, bool restore_vt);
+
+void get_log_colors(int priority, const char **on, const char **off, const char **highlight);

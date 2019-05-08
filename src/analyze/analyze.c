@@ -2104,6 +2104,7 @@ static int run(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         setlocale(LC_NUMERIC, "C"); /* we want to format/parse floats in C style */
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 
