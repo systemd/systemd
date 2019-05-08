@@ -37,6 +37,7 @@ VLANId=
 MACAddress=
 Destination=
 VNI=
+AssociatedWith=
 [DHCP]
 UseDomains=
 UseRoutes=

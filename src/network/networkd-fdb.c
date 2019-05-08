@@ -15,10 +15,20 @@
 #include "networkd-manager.h"
 #include "parse-util.h"
 #include "string-util.h"
+#include "string-table.h"
 #include "util.h"
 #include "vlan-util.h"
 
 #define STATIC_FDB_ENTRIES_PER_NETWORK_MAX 1024U
+
+static const char* const fdb_ntf_flags_table[_NEIGHBOR_CACHE_ENTRY_FLAGS_MAX] = {
+        [NEIGHBOR_CACHE_ENTRY_FLAGS_USE] = "use",
+        [NEIGHBOR_CACHE_ENTRY_FLAGS_SELF] = "self",
+        [NEIGHBOR_CACHE_ENTRY_FLAGS_MASTER] = "master",
+        [NEIGHBOR_CACHE_ENTRY_FLAGS_ROUTER] = "router",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(fdb_ntf_flags, NeighborCacheEntryFlags);
 
 /* create a new FDB entry or get an existing one. */
 static int fdb_entry_new_static(
@@ -68,6 +78,7 @@ static int fdb_entry_new_static(
                 .network = network,
                 .mac_addr = TAKE_PTR(mac_addr),
                 .vni = VXLAN_VID_MAX + 1,
+                .fdb_ntf_flags = NEIGHBOR_CACHE_ENTRY_FLAGS_SELF,
         };
 
         LIST_PREPEND(static_fdb_entries, network->static_fdb_entries, fdb_entry);
@@ -106,9 +117,6 @@ static int set_fdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
 /* send a request to the kernel to add a FDB entry in its static MAC table. */
 int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        sd_netlink *rtnl;
-        Bridge *bridge;
-        uint8_t flags;
         int r;
 
         assert(link);
@@ -116,20 +124,12 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         assert(link->manager);
         assert(fdb_entry);
 
-        rtnl = link->manager->rtnl;
-        bridge = BRIDGE(link->network->bridge);
-
         /* create new RTM message */
-        r = sd_rtnl_message_new_neigh(rtnl, &req, RTM_NEWNEIGH, link->ifindex, PF_BRIDGE);
+        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH, link->ifindex, PF_BRIDGE);
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        if (bridge)
-                flags = NTF_MASTER;
-        else
-                flags = NTF_SELF;
-
-        r = sd_rtnl_message_neigh_set_flags(req, flags);
+        r = sd_rtnl_message_neigh_set_flags(req, fdb_entry->fdb_ntf_flags);
         if (r < 0)
                 return rtnl_log_create_error(r);
 
@@ -162,7 +162,7 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         }
 
         /* send message to the kernel to update its internal static MAC table. */
-        r = netlink_call_async(rtnl, NULL, req, set_fdb_handler,
+        r = netlink_call_async(link->manager->rtnl, NULL, req, set_fdb_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
@@ -355,6 +355,48 @@ int config_parse_fdb_vxlan_vni(
         }
 
         fdb_entry->vni = vni;
+        fdb_entry = NULL;
+
+        return 0;
+}
+
+
+int config_parse_fdb_ntf_flags(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(fdb_entry_free_or_set_invalidp) FdbEntry *fdb_entry = NULL;
+        Network *network = userdata;
+        NeighborCacheEntryFlags f;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = fdb_entry_new_static(network, filename, section_line, &fdb_entry);
+        if (r < 0)
+                return log_oom();
+
+        f = fdb_ntf_flags_from_string(rvalue);
+        if (f < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "FDB failed to parse AssociatedWith=, ignoring assignment: %s",
+                           rvalue);
+                return 0;
+        }
+
+        fdb_entry->fdb_ntf_flags = f;
         fdb_entry = NULL;
 
         return 0;
