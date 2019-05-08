@@ -337,25 +337,20 @@ static int link_update_llmnr_support(Link *l) {
 
         assert(l);
 
+        l->llmnr_support = RESOLVE_SUPPORT_YES; /* yes, yes, we set it twice which is ugly */
+
         r = sd_network_link_get_llmnr(l->ifindex, &b);
-        if (r == -ENODATA) {
-                r = 0;
-                goto clear;
-        }
+        if (r == -ENODATA)
+                return 0;
         if (r < 0)
-                goto clear;
+                return r;
 
-        l->llmnr_support = resolve_support_from_string(b);
-        if (l->llmnr_support < 0) {
-                r = -EINVAL;
-                goto clear;
-        }
+        r = resolve_support_from_string(b);
+        if (r < 0)
+                return r;
 
+        l->llmnr_support = r;
         return 0;
-
-clear:
-        l->llmnr_support = RESOLVE_SUPPORT_YES;
-        return r;
 }
 
 static int link_update_mdns_support(Link *l) {
@@ -364,25 +359,20 @@ static int link_update_mdns_support(Link *l) {
 
         assert(l);
 
-        r = sd_network_link_get_mdns(l->ifindex, &b);
-        if (r == -ENODATA) {
-                r = 0;
-                goto clear;
-        }
-        if (r < 0)
-                goto clear;
-
-        l->mdns_support = resolve_support_from_string(b);
-        if (l->mdns_support < 0) {
-                r = -EINVAL;
-                goto clear;
-        }
-
-        return 0;
-
-clear:
         l->mdns_support = RESOLVE_SUPPORT_NO;
-        return r;
+
+        r = sd_network_link_get_mdns(l->ifindex, &b);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        r = resolve_support_from_string(b);
+        if (r < 0)
+                return r;
+
+        l->mdns_support = r;
+        return 0;
 }
 
 void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode) {
@@ -404,25 +394,20 @@ static int link_update_dns_over_tls_mode(Link *l) {
 
         assert(l);
 
-        r = sd_network_link_get_dns_over_tls(l->ifindex, &b);
-        if (r == -ENODATA) {
-                r = 0;
-                goto clear;
-        }
-        if (r < 0)
-                goto clear;
-
-        l->dns_over_tls_mode = dns_over_tls_mode_from_string(b);
-        if (l->dns_over_tls_mode < 0) {
-                r = -EINVAL;
-                goto clear;
-        }
-
-        return 0;
-
-clear:
         l->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
-        return r;
+
+        r = sd_network_link_get_dns_over_tls(l->ifindex, &b);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        r = dns_over_tls_mode_from_string(b);
+        if (r < 0)
+                return r;
+
+        l->dns_over_tls_mode = r;
+        return 0;
 }
 
 void link_set_dnssec_mode(Link *l, DnssecMode mode) {
@@ -458,27 +443,20 @@ static int link_update_dnssec_mode(Link *l) {
 
         assert(l);
 
+        l->dnssec_mode = _DNSSEC_MODE_INVALID;
+
         r = sd_network_link_get_dnssec(l->ifindex, &m);
-        if (r == -ENODATA) {
-                r = 0;
-                goto clear;
-        }
+        if (r == -ENODATA)
+                return 0;
         if (r < 0)
-                goto clear;
+                return r;
 
         mode = dnssec_mode_from_string(m);
-        if (mode < 0) {
-                r = -EINVAL;
-                goto clear;
-        }
+        if (mode < 0)
+                return mode;
 
         link_set_dnssec_mode(l, mode);
-
         return 0;
-
-clear:
-        l->dnssec_mode = _DNSSEC_MODE_INVALID;
-        return r;
 }
 
 static int link_update_dnssec_negative_trust_anchors(Link *l) {
@@ -488,13 +466,13 @@ static int link_update_dnssec_negative_trust_anchors(Link *l) {
 
         assert(l);
 
+        l->dnssec_negative_trust_anchors = set_free_free(l->dnssec_negative_trust_anchors);
+
         r = sd_network_link_get_dnssec_negative_trust_anchors(l->ifindex, &ntas);
-        if (r == -ENODATA) {
-                r = 0;
-                goto clear;
-        }
+        if (r == -ENODATA)
+                return r;
         if (r < 0)
-                goto clear;
+                return r;
 
         ns = set_new(&dns_name_hash_ops);
         if (!ns)
@@ -504,14 +482,8 @@ static int link_update_dnssec_negative_trust_anchors(Link *l) {
         if (r < 0)
                 return r;
 
-        set_free_free(l->dnssec_negative_trust_anchors);
         l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
-
         return 0;
-
-clear:
-        l->dnssec_negative_trust_anchors = set_free_free(l->dnssec_negative_trust_anchors);
-        return r;
 }
 
 static int link_update_search_domain_one(Link *l, const char *name, bool route_only) {
