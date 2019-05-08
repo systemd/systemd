@@ -93,6 +93,7 @@ Group=
 FDBAgeingSec=
 MacLearning=
 Id=
+VNI=
 RemoteChecksumRx=
 TOS=
 L2MissNotification=
@@ -100,6 +101,7 @@ UDP6ZeroChecksumTx=
 UDP6ZeroCheckSumRx=
 UDPCheckSum=
 GroupPolicyExtension=
+GenericProtocolExtension=
 MaximumFDBEntries=
 TTL=
 DestinationPort=
@@ -175,7 +177,7 @@ SessionId=
 PeerSessionId=
 Layer2SpecificHeader=
 Name=
-[MACSEC]
+[MACsec]
 Port=
 Encrypt=
 [MACsecReceiveAssociation]

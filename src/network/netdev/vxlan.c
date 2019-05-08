@@ -27,8 +27,8 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
 
         assert(v);
 
-        if (v->id <= VXLAN_VID_MAX) {
-                r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->id);
+        if (v->vni <= VXLAN_VID_MAX) {
+                r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->vni);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_ID attribute: %m");
         }
@@ -144,6 +144,12 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GBP attribute: %m");
         }
 
+        if (v->generic_protocol_extension) {
+                r = sd_netlink_message_append_flag(m, IFLA_VXLAN_GPE);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GPE attribute: %m");
+        }
+
         return r;
 }
 
@@ -180,7 +186,7 @@ int config_parse_vxlan_address(const char *unit,
                         return 0;
                 }
 
-                v->remote_family = f;
+                v->group_family = f;
         } else {
                 if (r > 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan %s cannot be a multicast address, ignoring assignment: %s", lvalue, rvalue);
@@ -273,10 +279,15 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
         assert(v);
         assert(filename);
 
-        if (v->id > VXLAN_VID_MAX) {
-                log_warning("VXLAN without valid Id configured in %s. Ignoring", filename);
-                return -EINVAL;
-        }
+        if (v->vni > VXLAN_VID_MAX)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "%s: VXLAN without valid VNI (or VXLAN Segment ID) configured. Ignoring.",
+                                                filename);
+
+        if (v->ttl > 255)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "%s: VXLAN TTL must be <= 255. Ignoring.",
+                                                filename);
 
         return 0;
 }
@@ -290,7 +301,7 @@ static void vxlan_init(NetDev *netdev) {
 
         assert(v);
 
-        v->id = VXLAN_VID_MAX + 1;
+        v->vni = VXLAN_VID_MAX + 1;
         v->learning = true;
         v->udpcsum = false;
         v->udp6zerocsumtx = false;

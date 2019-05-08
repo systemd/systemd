@@ -3,7 +3,7 @@ Name=vxlan99
 Kind=vxlan
 
 [VXLAN]
-Id=999
+VNI=999
 L2MissNotification=true
 L3MissNotification=true
 RouteShortCircuit=true

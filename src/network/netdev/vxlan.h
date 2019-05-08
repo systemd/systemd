@@ -12,13 +12,15 @@ typedef struct VxLan VxLan;
 struct VxLan {
         NetDev meta;
 
-        uint64_t id;
+        uint32_t vni;
 
         int remote_family;
         int local_family;
+        int group_family;
 
         union in_addr_union remote;
         union in_addr_union local;
+        union in_addr_union group;
 
         unsigned tos;
         unsigned ttl;
@@ -40,6 +42,7 @@ struct VxLan {
         bool remote_csum_tx;
         bool remote_csum_rx;
         bool group_policy;
+        bool generic_protocol_extension;
 
         struct ifla_vxlan_port_range port_range;
 };

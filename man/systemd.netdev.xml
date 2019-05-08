@@ -527,9 +527,9 @@
 
     <variablelist class='network-directives'>
       <varlistentry>
-        <term><varname>Id=</varname></term>
+        <term><varname>VNI=</varname></term>
         <listitem>
-          <para>The VXLAN ID to use.</para>
+          <para>The VXLAN Network Identifier (or VXLAN Segment ID). Takes a number in the range 1-16777215.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -542,6 +542,12 @@
         <term><varname>Local=</varname></term>
         <listitem>
           <para>Configures local IP address.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Group=</varname></term>
+        <listitem>
+          <para>Configures VXLAN multicast group IP address. All members of a VXLAN must use the same multicast group address.</para>
         </listitem>
       </varlistentry>
         <varlistentry>
@@ -648,6 +654,15 @@
         <ulink url="https://tools.ietf.org/html/draft-smith-vxlan-group-policy">
         VXLAN Group Policy </ulink> document. Defaults to false.</para>
       </listitem>
+    </varlistentry>
+    <varlistentry>
+       <term><varname>GenericProtocolExtension=</varname></term>
+       <listitem>
+         <para>Takes a boolean. When true, Generic Protocol Extension extends the existing VXLAN protocol
+         to provide protocol typing, OAM, and versioning capabilities. For details about the VXLAN GPE
+         Header, see the <ulink url="https://tools.ietf.org/html/draft-ietf-nvo3-vxlan-gpe-07">
+         Generic Protocol Extension for VXLAN </ulink> document. Defaults to false.</para>
+       </listitem>
     </varlistentry>
     <varlistentry>
       <term><varname>DestinationPort=</varname></term>
