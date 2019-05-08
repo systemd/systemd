@@ -19,6 +19,14 @@ CHANGES WITH 243 in spe:
           are harder to type, but we believe the change from 5 digit PIDs to 7
           digit PIDs is not too hampering for usability.
 
+        * MemoryLow and MemoryMin gained hierarchy-aware counterparts,
+          DefaultMemoryLow and DefaultMemoryMin, which can be used to
+          hierarchically set default memory protection values for a particular
+          subtree of the unit hierarchy.
+
+        * Memory protection directives can now take a value of zero, allowing
+          explicit opting out of a default value propagated by an ancestor.
+
           …
 
 CHANGES WITH 242:
