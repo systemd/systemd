@@ -289,6 +289,9 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
                                                 "%s: VXLAN TTL must be <= 255. Ignoring.",
                                                 filename);
 
+        if (!v->dest_port && v->generic_protocol_extension)
+                v->dest_port = 4790;
+
         return 0;
 }
 

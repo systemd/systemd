@@ -661,7 +661,8 @@
          <para>Takes a boolean. When true, Generic Protocol Extension extends the existing VXLAN protocol
          to provide protocol typing, OAM, and versioning capabilities. For details about the VXLAN GPE
          Header, see the <ulink url="https://tools.ietf.org/html/draft-ietf-nvo3-vxlan-gpe-07">
-         Generic Protocol Extension for VXLAN </ulink> document. Defaults to false.</para>
+         Generic Protocol Extension for VXLAN </ulink> document. If destination port is not specified and
+         Generic Protocol Extension is set then default port of 4790 is used. Defaults to false.</para>
        </listitem>
     </varlistentry>
     <varlistentry>
