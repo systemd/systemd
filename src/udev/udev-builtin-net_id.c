@@ -78,6 +78,7 @@
  *  /sys/devices/css0/0.0.0007/0.0.f5f0/group_device/net/encf5f0
  *  ID_NET_NAME_MAC=enx026d3c00000a
  *  ID_NET_NAME_PATH=encf5f0
+ * When the code here is changed, man/systemd.net-naming-scheme.xml must be updated too.
  */
 
 #include <errno.h>
