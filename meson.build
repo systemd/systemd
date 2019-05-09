@@ -283,6 +283,7 @@ substs.set('RC_LOCAL_SCRIPT_PATH_START',                      get_option('rc-loc
 substs.set('RC_LOCAL_SCRIPT_PATH_STOP',                       get_option('halt-local'))
 substs.set('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default ? 'yes' : 'no')
 substs.set('HIGH_RLIMIT_NOFILE',                              conf.get('HIGH_RLIMIT_NOFILE'))
+substs.set('BUILD_ROOT',                                      meson.current_build_dir())
 
 #####################################################################
 
