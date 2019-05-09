@@ -378,7 +378,7 @@ find / -name '*.service' -type f | xargs sed -i 's/^\\(MemoryDeny\\|SystemCall\\
 # But, apparently, sometimes it doesn't work: https://github.com/google/sanitizers/issues/886.
 JOURNALD_CONF_DIR=/etc/systemd/system/systemd-journald.service.d
 mkdir -p "\$JOURNALD_CONF_DIR"
-printf "[Service]\nEnvironment=ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd-journald.asan.log\n" >"\$JOURNALD_CONF_DIR/env.conf"
+printf "[Service]\nEnvironment=ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd-journald.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS:log_path=/systemd-journald.ubsan.log\n" >"\$JOURNALD_CONF_DIR/env.conf"
 
 # 90s isn't enough for some services to finish when literally everything is run
 # under ASan+UBSan in containers, which, in turn, are run in VMs.
@@ -508,7 +508,7 @@ check_asan_reports() {
             ret=$(($ret+1))
         fi
 
-        journald_report=$(find "$root" -name "systemd-journald.asan.log*" -exec cat {} \;)
+        journald_report=$(find "$root" -name "systemd-journald.*san.log*" -exec cat {} \;)
         if [[ ! -z "$journald_report" ]]; then
             printf "%s" "$journald_report"
             ret=$(($ret+1))
