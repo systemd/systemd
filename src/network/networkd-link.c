@@ -216,21 +216,6 @@ static bool link_lldp_rx_enabled(Link *link) {
         return link->network->lldp_mode != LLDP_MODE_NO;
 }
 
-static bool link_lldp_emit_enabled(Link *link) {
-        assert(link);
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (link->iftype != ARPHRD_ETHER)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        return link->network->lldp_emit != LLDP_EMIT_NO;
-}
-
 static bool link_ipv4_forward_enabled(Link *link) {
         assert(link);
 
