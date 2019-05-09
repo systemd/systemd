@@ -126,6 +126,7 @@ option('hwdb', type : 'boolean',
 option('rfkill', type : 'boolean',
        description : 'support for the rfkill tools')
 option('man', type : 'combo', choices : ['auto', 'true', 'false'],
+       value : 'false',
        description : 'build and install man pages')
 option('html', type : 'combo', choices : ['auto', 'true', 'false'],
        value : 'false',
