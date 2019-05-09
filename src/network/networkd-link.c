@@ -2128,7 +2128,7 @@ static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link
         return 1;
 }
 
-int link_down(Link *link) {
+int link_down(Link *link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -2147,7 +2147,8 @@ int link_down(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_down_handler,
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               callback ?: link_down_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
@@ -2179,7 +2180,7 @@ static int link_handle_bound_to_list(Link *link) {
                 }
 
         if (!required_up && link_is_up) {
-                r = link_down(link);
+                r = link_down(link, NULL);
                 if (r < 0)
                         return r;
         } else if (required_up && !link_is_up) {
@@ -2912,7 +2913,7 @@ static int link_configure_can(Link *link) {
         if (streq_ptr(link->kind, "can")) {
                 /* The CAN interface must be down to configure bitrate, etc... */
                 if ((link->flags & IFF_UP)) {
-                        r = link_down(link);
+                        r = link_down(link, NULL);
                         if (r < 0) {
                                 link_enter_failed(link);
                                 return r;
