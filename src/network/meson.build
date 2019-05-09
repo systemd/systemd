@@ -49,6 +49,8 @@ sources = files('''
         networkd-address.h
         networkd-brvlan.c
         networkd-brvlan.h
+        networkd-can.c
+        networkd-can.h
         networkd-conf.c
         networkd-conf.h
         networkd-dhcp4.c
