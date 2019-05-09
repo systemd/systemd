@@ -28,12 +28,13 @@ typedef enum NamingSchemeFlags {
         NAMING_ZERO_ACPI_INDEX = 1 << 3, /* Use zero acpi_index field, see d81186ef4f6a888a70f20a1e73a812d6acb9e22f */
         NAMING_ALLOW_RERENAMES = 1 << 4, /* Allow re-renaming of devices, see #9006 */
         NAMING_NETDEVSIM       = 1 << 5, /* Generate names for netdevsim devices, see eaa9d507d85509c8bf727356e3884ec54b0fc646 */
+        NAMING_LABEL_NOPREFIX  = 1 << 6, /* Don't prepend ID_NET_LABEL_ONBOARD with interface type prefix */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
         NAMING_V239 = NAMING_V238 | NAMING_SR_IOV_V | NAMING_NPAR_ARI,
         NAMING_V240 = NAMING_V239 | NAMING_INFINIBAND | NAMING_ZERO_ACPI_INDEX | NAMING_ALLOW_RERENAMES,
-        NAMING_V243 = NAMING_V240 | NAMING_NETDEVSIM,
+        NAMING_V243 = NAMING_V240 | NAMING_NETDEVSIM | NAMING_LABEL_NOPREFIX,
 
         _NAMING_SCHEME_FLAGS_INVALID = -1,
 } NamingSchemeFlags;

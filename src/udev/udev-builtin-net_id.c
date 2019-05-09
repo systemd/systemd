@@ -881,7 +881,9 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
 
                 if (names.pci_onboard_label &&
-                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_onboard_label))
+                    snprintf_ok(str, sizeof str, "%s%s",
+                                naming_scheme_has(NAMING_LABEL_NOPREFIX) ? "" : prefix,
+                                names.pci_onboard_label))
                         udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", str);
 
                 if (names.pci_path[0] &&

@@ -309,6 +309,9 @@
 
           <para>Support for netdevsim (simulated networking devices) was added. Previously those devices were
           not renamed.</para>
+
+          <para>Previously two-letter interface type prefix was prepended to
+          <varname>ID_NET_LABEL_ONBOARD=</varname>. This is not done anymore.</para>
         </varlistentry>
 
         <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this
@@ -336,9 +339,8 @@ ID_NET_NAME_PATH=enp0s31f6
       <title>PCI Ethernet card with firmware index "1"</title>
 
       <programlisting>ID_NET_NAME_ONBOARD=eno1
-ID_NET_NAME_ONBOARD_LABEL=enEthernet Port 1
+ID_NET_NAME_ONBOARD_LABEL=Ethernet Port 1
       </programlisting>
-      <!-- FIXME: nuke the prefix! -->
     </example>
 
     <example>
