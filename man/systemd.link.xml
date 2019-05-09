@@ -278,6 +278,7 @@
                 <para>The name is set based on information given by
                 the firmware for on-board devices, as exported by the
                 udev property <varname>ID_NET_NAME_ONBOARD</varname>.
+                See <citerefentry><refentrytitle>systemd.net-naming-scheme</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
                 </para>
               </listitem>
             </varlistentry>
@@ -287,6 +288,7 @@
                 <para>The name is set based on information given by
                 the firmware for hot-plug devices, as exported by the
                 udev property <varname>ID_NET_NAME_SLOT</varname>.
+                See <citerefentry><refentrytitle>systemd.net-naming-scheme</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
                 </para>
               </listitem>
             </varlistentry>
@@ -295,7 +297,9 @@
               <listitem>
                 <para>The name is set based on the device's physical
                 location, as exported by the udev property
-                <varname>ID_NET_NAME_PATH</varname>.</para>
+                <varname>ID_NET_NAME_PATH</varname>.
+                See <citerefentry><refentrytitle>systemd.net-naming-scheme</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+                </para>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -303,7 +307,9 @@
               <listitem>
                 <para>The name is set based on the device's persistent
                 MAC address, as exported by the udev property
-                <varname>ID_NET_NAME_MAC</varname>.</para>
+                <varname>ID_NET_NAME_MAC</varname>.
+                See <citerefentry><refentrytitle>systemd.net-naming-scheme</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+                </para>
               </listitem>
             </varlistentry>
             <varlistentry>

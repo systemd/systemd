@@ -824,6 +824,7 @@ manpages = [
  ['systemd.kill', '5', [], ''],
  ['systemd.link', '5', [], ''],
  ['systemd.mount', '5', [], ''],
+ ['systemd.net-naming-scheme', '7', [], ''],
  ['systemd.netdev', '5', [], 'ENABLE_NETWORKD'],
  ['systemd.network', '5', [], 'ENABLE_NETWORKD'],
  ['systemd.nspawn', '5', [], ''],
