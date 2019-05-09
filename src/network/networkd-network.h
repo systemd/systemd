@@ -17,6 +17,7 @@
 #include "networkd-brvlan.h"
 #include "networkd-fdb.h"
 #include "networkd-ipv6-proxy-ndp.h"
+#include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-neighbor.h"
 #include "networkd-radv.h"
@@ -60,14 +61,6 @@ typedef enum DHCPUseDomains {
         _DHCP_USE_DOMAINS_MAX,
         _DHCP_USE_DOMAINS_INVALID = -1,
 } DHCPUseDomains;
-
-typedef enum LLDPMode {
-        LLDP_MODE_NO = 0,
-        LLDP_MODE_YES = 1,
-        LLDP_MODE_ROUTERS_ONLY = 2,
-        _LLDP_MODE_MAX,
-        _LLDP_MODE_INVALID = -1,
-} LLDPMode;
 
 typedef struct DUID {
         /* Value of Type in [DHCP] section */
@@ -327,7 +320,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_radv_search_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_negative_trust_anchors);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_domains);
-CONFIG_PARSER_PROTOTYPE(config_parse_lldp_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_section_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_user_class);
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
@@ -350,9 +342,6 @@ IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
 
 const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
 DHCPUseDomains dhcp_use_domains_from_string(const char *s) _pure_;
-
-const char* lldp_mode_to_string(LLDPMode m) _const_;
-LLDPMode lldp_mode_from_string(const char *s) _pure_;
 
 const char* radv_prefix_delegation_to_string(RADVPrefixDelegation i) _const_;
 RADVPrefixDelegation radv_prefix_delegation_from_string(const char *s) _pure_;

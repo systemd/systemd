@@ -61,6 +61,8 @@ sources = files('''
         networkd-link-bus.c
         networkd-link.c
         networkd-link.h
+        networkd-lldp-rx.c
+        networkd-lldp-rx.h
         networkd-lldp-tx.c
         networkd-lldp-tx.h
         networkd-manager-bus.c
