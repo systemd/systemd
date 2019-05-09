@@ -109,6 +109,7 @@ ReduceARPProxy=
 PortRange=
 UDPChecksum=
 UDP6ZeroCheckSumTx=
+IPDoNotFragment=
 [VXCAN]
 Peer=
 [Bond]

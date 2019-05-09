@@ -661,7 +661,8 @@
          <para>Takes a boolean. When true, Generic Protocol Extension extends the existing VXLAN protocol
          to provide protocol typing, OAM, and versioning capabilities. For details about the VXLAN GPE
          Header, see the <ulink url="https://tools.ietf.org/html/draft-ietf-nvo3-vxlan-gpe-07">
-         Generic Protocol Extension for VXLAN </ulink> document. Defaults to false.</para>
+         Generic Protocol Extension for VXLAN </ulink> document. If destination port is not specified and
+         Generic Protocol Extension is set then default port of 4790 is used. Defaults to false.</para>
        </listitem>
     </varlistentry>
     <varlistentry>
@@ -689,6 +690,15 @@
           <para>Specifies the flow label to use in outgoing packets.
           The valid range is 0-1048575.
           </para>
+        </listitem>
+    </varlistentry>
+      <varlistentry>
+        <term><varname>IPDoNotFragment=</varname></term>
+        <listitem>
+          <para>Allows to set the IPv4 Do not Fragment (DF) bit in outgoing packets, or to inherit its
+          value from the IPv4 inner header. Takes a boolean value, or <literal>inherit</literal>. Set
+          to <literal>inherit</literal> if the encapsulated protocol is IPv6. When unset, the kernel's
+          default will be used.</para>
         </listitem>
       </varlistentry>
     </variablelist>

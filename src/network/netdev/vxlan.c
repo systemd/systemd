@@ -7,6 +7,7 @@
 #include "conf-parser.h"
 #include "alloc-util.h"
 #include "extract-word.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "parse-util.h"
@@ -14,6 +15,15 @@
 
 #include "networkd-link.h"
 #include "netdev/vxlan.h"
+
+static const char* const df_table[_NETDEV_VXLAN_DF_MAX] = {
+        [NETDEV_VXLAN_DF_NO] = "no",
+        [NETDEV_VXLAN_DF_YES] = "yes",
+        [NETDEV_VXLAN_DF_INHERIT] = "inherit",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(df, VxLanDF, NETDEV_VXLAN_DF_YES);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_df, df, VxLanDF, "Failed to parse VXLAN IPDoNotFragment= setting");
 
 static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         VxLan *v;
@@ -148,6 +158,12 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                 r = sd_netlink_message_append_flag(m, IFLA_VXLAN_GPE);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GPE attribute: %m");
+        }
+
+        if (v->df != _NETDEV_VXLAN_DF_INVALID) {
+                r = sd_netlink_message_append_u8(m, IFLA_VXLAN_DF, v->df);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_DF attribute: %m");
         }
 
         return r;
@@ -289,6 +305,9 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
                                                 "%s: VXLAN TTL must be <= 255. Ignoring.",
                                                 filename);
 
+        if (!v->dest_port && v->generic_protocol_extension)
+                v->dest_port = 4790;
+
         return 0;
 }
 
@@ -302,6 +321,7 @@ static void vxlan_init(NetDev *netdev) {
         assert(v);
 
         v->vni = VXLAN_VID_MAX + 1;
+        v->df = _NETDEV_VXLAN_DF_INVALID;
         v->learning = true;
         v->udpcsum = false;
         v->udp6zerocsumtx = false;
