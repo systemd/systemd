@@ -391,6 +391,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 .bridge_proxy_arp = -1,
                 .bridge_proxy_arp_wifi = -1,
                 .priority = LINK_BRIDGE_PORT_PRIORITY_INVALID,
+                .multicast_router = _MULTICAST_ROUTER_INVALID,
 
                 .lldp_mode = LLDP_MODE_ROUTERS_ONLY,
 
@@ -1723,3 +1724,14 @@ int config_parse_required_for_online(
 
         return 0;
 }
+
+static const char* const multicast_router_table[_MULTICAST_ROUTER_MAX] = {
+        [MULTICAST_ROUTER_NONE] = "no",
+        [MULTICAST_ROUTER_TEMPORARY_QUERY] = "query",
+        [MULTICAST_ROUTER_PERMANENT] = "permanent",
+        [MULTICAST_ROUTER_TEMPORARY] = "temporary",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(multicast_router, MulticastRouter, _MULTICAST_ROUTER_INVALID);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_multicast_router, multicast_router, MulticastRouter,
+                         "Failed to parse bridge multicast router setting");

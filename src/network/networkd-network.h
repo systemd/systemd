@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <netinet/in.h>
+#include <linux/if_bridge.h>
+
 #include "sd-bus.h"
 #include "sd-device.h"
 
@@ -83,6 +86,15 @@ typedef enum RADVPrefixDelegation {
         _RADV_PREFIX_DELEGATION_MAX,
         _RADV_PREFIX_DELEGATION_INVALID = -1,
 } RADVPrefixDelegation;
+
+typedef enum MulticastRouter {
+        MULTICAST_ROUTER_NONE            = MDB_RTR_TYPE_DISABLED,
+        MULTICAST_ROUTER_TEMPORARY_QUERY = MDB_RTR_TYPE_TEMP_QUERY,
+        MULTICAST_ROUTER_PERMANENT       = MDB_RTR_TYPE_PERM,
+        MULTICAST_ROUTER_TEMPORARY       = MDB_RTR_TYPE_TEMP,
+        _MULTICAST_ROUTER_MAX,
+        _MULTICAST_ROUTER_INVALID = -1,
+} MulticastRouter;
 
 typedef struct Manager Manager;
 
@@ -185,6 +197,7 @@ struct Network {
         int bridge_proxy_arp_wifi;
         uint32_t cost;
         uint16_t priority;
+        MulticastRouter multicast_router;
 
         bool use_br_vlan;
         uint16_t pvid;
@@ -319,6 +332,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_max_attempts);
+CONFIG_PARSER_PROTOTYPE(config_parse_multicast_router);
 /* Legacy IPv4LL support */
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv4ll);
 
@@ -340,3 +354,6 @@ LLDPMode lldp_mode_from_string(const char *s) _pure_;
 
 const char* radv_prefix_delegation_to_string(RADVPrefixDelegation i) _const_;
 RADVPrefixDelegation radv_prefix_delegation_from_string(const char *s) _pure_;
+
+const char* multicast_router_to_string(MulticastRouter i) _const_;
+MulticastRouter multicast_router_from_string(const char *s) _pure_;

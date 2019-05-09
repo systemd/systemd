@@ -12,6 +12,7 @@ NeighborSuppression=
 Learning=
 ProxyARP=
 ProxyARPWiFi=
+MulticastRouter=
 [Match]
 KernelVersion=
 Type=

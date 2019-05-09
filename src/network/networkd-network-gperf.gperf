@@ -180,6 +180,7 @@ Bridge.Learning,                        config_parse_tristate,                  
 Bridge.ProxyARP,                        config_parse_tristate,                           0,                             offsetof(Network, bridge_proxy_arp)
 Bridge.ProxyARPWiFi,                    config_parse_tristate,                           0,                             offsetof(Network, bridge_proxy_arp_wifi)
 Bridge.Priority,                        config_parse_bridge_port_priority,               0,                             offsetof(Network, priority)
+Bridge.MulticastRouter,                 config_parse_multicast_router,                   0,                             offsetof(Network, multicast_router)
 BridgeFDB.MACAddress,                   config_parse_fdb_hwaddr,                         0,                             0
 BridgeFDB.VLANId,                       config_parse_fdb_vlan_id,                        0,                             0
 BridgeFDB.Destination,                  config_parse_fdb_destination,                    0,                             0

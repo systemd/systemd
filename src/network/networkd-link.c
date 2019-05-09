@@ -1648,6 +1648,12 @@ static int link_set_bridge(Link *link) {
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PRIORITY attribute: %m");
         }
 
+        if (link->network->multicast_router != _MULTICAST_ROUTER_INVALID) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MULTICAST_ROUTER, link->network->multicast_router);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MULTICAST_ROUTER attribute: %m");
+        }
+
         r = sd_netlink_message_close_container(req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
