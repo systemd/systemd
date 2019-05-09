@@ -2,6 +2,7 @@
 
 typedef struct Wireguard Wireguard;
 
+#include <netinet/in.h>
 #include <linux/wireguard.h>
 
 #include "in-addr-util.h"

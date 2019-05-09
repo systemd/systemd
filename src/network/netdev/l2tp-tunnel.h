@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <netinet/in.h>
 #include <linux/l2tp.h>
 
 #include "in-addr-util.h"

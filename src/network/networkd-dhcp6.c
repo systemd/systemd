@@ -3,7 +3,7 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <netinet/ether.h>
+#include <netinet/in.h>
 #include <linux/if.h>
 #include "sd-radv.h"
 

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <linux/if_vlan.h>
 #include <net/if.h>
+#include <linux/if_vlan.h>
 
 #include "netdev/vlan.h"
 #include "vlan-util.h"

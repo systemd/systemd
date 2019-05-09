@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <netinet/in.h>
 #include <sys/socket.h>
+#include <unistd.h>
 #include <linux/if.h>
 #include <linux/fib_rules.h>
-#include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-netlink.h"

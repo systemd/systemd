@@ -2,6 +2,7 @@
 #pragma once
 
 #include <inttypes.h>
+#include <netinet/in.h>
 #include <linux/fib_rules.h>
 #include <stdbool.h>
 
