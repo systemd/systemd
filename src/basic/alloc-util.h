@@ -46,6 +46,7 @@ typedef void (*free_func_t)(void *p);
 
 static inline void *mfree(void *memory) {
         free(memory);
+        memory = NULL;
         return NULL;
 }
 
