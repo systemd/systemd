@@ -170,7 +170,7 @@ static int dev_pci_onboard(sd_device *dev, struct netnames *names) {
         char *s;
         int r;
 
-        /* ACPI _DSM  — device specific method for naming a PCI or PCI Express device */
+        /* ACPI _DSM — device specific method for naming a PCI or PCI Express device */
         if (sd_device_get_sysattr_value(names->pcidev, "acpi_index", &attr) < 0) {
                 /* SMBIOS type 41 — Onboard Devices Extended Information */
                 r = sd_device_get_sysattr_value(names->pcidev, "index", &attr);
@@ -184,10 +184,11 @@ static int dev_pci_onboard(sd_device *dev, struct netnames *names) {
         if (idx == 0 && !naming_scheme_has(NAMING_ZERO_ACPI_INDEX))
                 return -EINVAL;
 
-        /* Some BIOSes report rubbish indexes that are excessively high (2^24-1 is an index VMware likes to report for
-         * example). Let's define a cut-off where we don't consider the index reliable anymore. We pick some arbitrary
-         * cut-off, which is somewhere beyond the realistic number of physical network interface a system might
-         * have. Ideally the kernel would already filter his crap for us, but it doesn't currently. */
+        /* Some BIOSes report rubbish indexes that are excessively high (2^24-1 is an index VMware likes to
+         * report for example). Let's define a cut-off where we don't consider the index reliable anymore. We
+         * pick some arbitrary cut-off, which is somewhere beyond the realistic number of physical network
+         * interface a system might have. Ideally the kernel would already filter his crap for us, but it
+         * doesn't currently. */
         if (idx > ONBOARD_INDEX_MAX)
                 return -ENOENT;
 
@@ -643,9 +644,8 @@ static int names_ccw(sd_device *dev, struct netnames *names) {
         if (r < 0)
                 return r;
 
-        /* Check the length of the bus-ID.  Rely on that the kernel provides
-         * a correct bus-ID; alternatively, improve this check and parse and
-         * verify each bus-ID part...
+        /* Check the length of the bus-ID. Rely on the fact that the kernel provides a correct bus-ID;
+         * alternatively, improve this check and parse and verify each bus-ID part...
          */
         bus_id_len = strlen(bus_id);
         if (!IN_SET(bus_id_len, 8, 9))

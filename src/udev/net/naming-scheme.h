@@ -25,9 +25,9 @@ typedef enum NamingSchemeFlags {
         NAMING_SR_IOV_V        = 1 << 0, /* Use "v" suffix for SR-IOV, see 609948c7043a40008b8299529c978ed8e11de8f6*/
         NAMING_NPAR_ARI        = 1 << 1, /* Use NPAR "ARI", see 6bc04997b6eab35d1cb9fa73889892702c27be09 */
         NAMING_INFINIBAND      = 1 << 2, /* Use "ib" prefix for infiniband, see 938d30aa98df887797c9e05074a562ddacdcdf5e */
-        NAMING_ZERO_ACPI_INDEX = 1 << 3, /* Allow zero acpi_index field, see d81186ef4f6a888a70f20a1e73a812d6acb9e22f */
+        NAMING_ZERO_ACPI_INDEX = 1 << 3, /* Use zero acpi_index field, see d81186ef4f6a888a70f20a1e73a812d6acb9e22f */
         NAMING_ALLOW_RERENAMES = 1 << 4, /* Allow re-renaming of devices, see #9006 */
-        NAMING_NETDEVSIM       = 1 << 5, /* Allow re-renaming of netdevsim devices */
+        NAMING_NETDEVSIM       = 1 << 5, /* Generate names for netdevsim devices, see eaa9d507d85509c8bf727356e3884ec54b0fc646 */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
