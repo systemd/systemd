@@ -10,6 +10,7 @@
 #include "geneve.h"
 #include "netlink-util.h"
 #include "parse-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "missing.h"
@@ -17,6 +18,15 @@
 
 #define GENEVE_FLOW_LABEL_MAX_MASK 0xFFFFFU
 #define DEFAULT_GENEVE_DESTINATION_PORT 6081
+
+static const char* const geneve_df_table[_NETDEV_GENEVE_DF_MAX] = {
+        [NETDEV_GENEVE_DF_NO] = "no",
+        [NETDEV_GENEVE_DF_YES] = "yes",
+        [NETDEV_GENEVE_DF_INHERIT] = "inherit",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(geneve_df, GeneveDF, NETDEV_GENEVE_DF_YES);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_geneve_df, geneve_df, GeneveDF, "Failed to parse Geneve IPDoNotFragment= setting");
 
 /* callback for geneve netdev's created without a backing Link */
 static int geneve_netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
@@ -124,6 +134,12 @@ static int netdev_geneve_create(NetDev *netdev) {
                 r = sd_netlink_message_append_u32(m, IFLA_GENEVE_LABEL, htobe32(v->flow_label));
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_LABEL attribute: %m");
+        }
+
+        if (v->geneve_df != _NETDEV_GENEVE_DF_INVALID) {
+                r = sd_netlink_message_append_u8(m, IFLA_GENEVE_DF, v->geneve_df);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_DF attribute: %m");
         }
 
         r = sd_netlink_message_close_container(m);
@@ -280,6 +296,7 @@ static void geneve_init(NetDev *netdev) {
         assert(v);
 
         v->id = GENEVE_VID_MAX + 1;
+        v->geneve_df = _NETDEV_GENEVE_DF_INVALID;
         v->dest_port = DEFAULT_GENEVE_DESTINATION_PORT;
         v->udpcsum = false;
         v->udp6zerocsumtx = false;

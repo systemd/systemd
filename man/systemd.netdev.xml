@@ -764,7 +764,13 @@
         <listitem>
           <para>Specifies the flow label to use in outgoing packets.</para>
         </listitem>
-      </varlistentry>
+    </varlistentry>
+    <varlistentry>
+      <term><varname>IPDoNotFragment=</varname></term>
+        <listitem>
+          <para>Accepts the same key in <literal>[VXLAN]</literal> section.</para>
+        </listitem>
+    </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>

@@ -32,6 +32,7 @@ FlowLabel=
 UDP6ZeroChecksumRx=
 Remote=
 UDP6ZeroCheckSumRx=
+IPDoNotFragment=
 [Bridge]
 ForwardDelaySec=
 HelloTimeSec=
