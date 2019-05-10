@@ -35,6 +35,7 @@ int rdrand(unsigned long *ret) {
 
 #if defined(__i386__) || defined(__x86_64__)
         static int have_rdrand = -1;
+        unsigned long v;
         uint8_t success;
 
         if (have_rdrand < 0) {
@@ -59,12 +60,24 @@ int rdrand(unsigned long *ret) {
 
         asm volatile("rdrand %0;"
                      "setc %1"
-                     : "=r" (*ret),
+                     : "=r" (v),
                        "=qm" (success));
         msan_unpoison(&success, sizeof(success));
         if (!success)
                 return -EAGAIN;
 
+        /* Apparently on some AMD CPUs RDRAND will sometimes (after a suspend/resume cycle?) report success
+         * via the carry flag but nonetheless return the same fixed value -1 in all cases. This appears to be
+         * a bad bug in the CPU or firmware. Let's deal with that and work-around this by explicitly checking
+         * for this special value (and also 0, just to be sure) and filtering it out. This is a work-around
+         * only however and something AMD really should fix properly. The Linux kernel should probably work
+         * around this issue by turning off RDRAND altogether on those CPUs. See:
+         * https://github.com/systemd/systemd/issues/11810 */
+        if (v == 0 || v == ULONG_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                       "RDRAND returned suspicious value %lx, assuming bad hardware RNG, not using value.", v);
+
+        *ret = v;
         return 0;
 #else
         return -EOPNOTSUPP;
