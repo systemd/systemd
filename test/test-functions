@@ -391,6 +391,10 @@ printf "[Service]\nStandardOutput=file:/systemd-journald.out\n" >"\$JOURNALD_CON
 mkdir -p /etc/systemd/system/systemd-hwdb-update.service.d
 printf "[Unit]\nConditionVirtualization=container\n\n[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-hwdb-update.service.d/env-override.conf
 
+# Let's override another hard-coded timeout that kicks in too early
+mkdir -p /etc/systemd/system/systemd-journal-flush.service.d
+printf "[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-journal-flush.service.d/timeout.conf
+
 # The 'mount' utility doesn't behave well under libasan, causing unexpected
 # fails during boot and subsequent test results check:
 # bash-5.0# mount -o remount,rw -v /
