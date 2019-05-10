@@ -22,3 +22,5 @@ typedef struct Bridge {
 
 DEFINE_NETDEV_CAST(BRIDGE, Bridge);
 extern const NetDevVTable bridge_vtable;
+
+int link_set_bridge(Link *link);
