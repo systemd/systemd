@@ -7,7 +7,19 @@
 #include "netdev/bridge.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
+#include "string-table.h"
 #include "vlan-util.h"
+
+static const char* const multicast_router_table[_MULTICAST_ROUTER_MAX] = {
+        [MULTICAST_ROUTER_NONE] = "no",
+        [MULTICAST_ROUTER_TEMPORARY_QUERY] = "query",
+        [MULTICAST_ROUTER_PERMANENT] = "permanent",
+        [MULTICAST_ROUTER_TEMPORARY] = "temporary",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(multicast_router, MulticastRouter, _MULTICAST_ROUTER_INVALID);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_multicast_router, multicast_router, MulticastRouter,
+                         "Failed to parse bridge multicast router setting");
 
 /* callback for bridge netdev's parameter set */
 static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
