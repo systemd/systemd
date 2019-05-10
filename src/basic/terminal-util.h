@@ -19,7 +19,7 @@
 #define ANSI_MAGENTA "\x1B[0;35m"
 #define ANSI_CYAN    "\x1B[0;36m"
 #define ANSI_WHITE   "\x1B[0;37m"
-#define ANSI_GREY    "\x1B[0;2;37m"
+#define ANSI_GREY    "\x1B[0;38;5;245m"
 
 /* Bold/highlighted */
 #define ANSI_HIGHLIGHT_BLACK   "\x1B[0;1;30m"
