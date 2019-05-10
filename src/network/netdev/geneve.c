@@ -278,10 +278,10 @@ static int netdev_geneve_verify(NetDev *netdev, const char *filename) {
         assert(v);
         assert(filename);
 
-        if (v->ttl == 0) {
-                log_warning("Invalid Geneve TTL value '0' configured in '%s'. Ignoring", filename);
-                return -EINVAL;
-        }
+        if (v->id > GENEVE_VID_MAX)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "%s: Geneve without valid VNI (or Virtual Network Identifier) configured. Ignoring.",
+                                                filename);
 
         return 0;
 }

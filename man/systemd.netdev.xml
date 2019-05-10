@@ -713,7 +713,7 @@
       <varlistentry>
         <term><varname>Id=</varname></term>
         <listitem>
-          <para>Specifies the Virtual Network Identifier (VNI) to use. Ranges [0-16777215].</para>
+          <para>Specifies the Virtual Network Identifier (VNI) to use. Ranges [0-16777215]. This field is mandatory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -731,7 +731,9 @@
       <varlistentry>
         <term><varname>TTL=</varname></term>
         <listitem>
-          <para>Specifies the TTL value to use in outgoing packets. Ranges [1-255].</para>
+          <para>Specifies the TTL value to use in outgoing packets. Takes a number in the range 0-255.
+          When unset or set to 0, the kernel's default will be used meaning that packets TTL will be set from
+          <filename>/proc/sys/net/ipv4/ip_default_ttl</filename>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
