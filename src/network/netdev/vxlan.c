@@ -65,7 +65,11 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LINK attribute: %m");
 
-        if (v->ttl != 0) {
+        if (v->inherit) {
+                r = sd_netlink_message_append_flag(m, IFLA_VXLAN_TTL_INHERIT);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TTL_INHERIT attribute: %m");
+        } else {
                 r = sd_netlink_message_append_u8(m, IFLA_VXLAN_TTL, v->ttl);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TTL attribute: %m");
@@ -284,6 +288,47 @@ int config_parse_flow_label(const char *unit,
         }
 
         v->flow_label = f;
+
+        return 0;
+}
+
+int config_parse_vxlan_ttl(const char *unit,
+                           const char *filename,
+                           unsigned line,
+                           const char *section,
+                           unsigned section_line,
+                           const char *lvalue,
+                           int ltype,
+                           const char *rvalue,
+                            void *data,
+                           void *userdata) {
+        VxLan *v = userdata;
+        unsigned f;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "inherit"))
+                v->inherit = true;
+        else {
+                r = safe_atou(rvalue, &f);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse VXLAN TTL '%s', ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+
+                if (f > 255) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid VXLAN TTL '%s'. TTL must be <= 255. Ignoring assignment.", rvalue);
+                        return 0;
+                }
+
+                v->ttl = f;
+        }
 
         return 0;
 }
