@@ -2122,9 +2122,6 @@ static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link
         if (r < 0)
                 log_link_warning_errno(link, r, "Could not bring down interface: %m");
 
-        if (streq_ptr(link->kind, "can"))
-                link_set_can(link);
-
         return 1;
 }
 
@@ -2907,13 +2904,35 @@ static int link_drop_config(Link *link) {
         return 0;
 }
 
+static int can_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Could not bring down interface: %m");
+                link_enter_failed(link);
+                return 1;
+        }
+
+        r = link_set_can(link);
+        if (r < 0)
+                link_enter_failed(link);
+
+        return 1;
+}
+
 static int link_configure_can(Link *link) {
         int r;
 
         if (streq_ptr(link->kind, "can")) {
                 /* The CAN interface must be down to configure bitrate, etc... */
                 if ((link->flags & IFF_UP)) {
-                        r = link_down(link, NULL);
+                        r = link_down(link, can_down_handler);
                         if (r < 0) {
                                 link_enter_failed(link);
                                 return r;
