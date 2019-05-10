@@ -301,6 +301,8 @@ static const NLType rtnl_link_info_data_geneve_types[] = {
         [IFLA_GENEVE_UDP_ZERO_CSUM6_TX] = { .type = NETLINK_TYPE_U8 },
         [IFLA_GENEVE_UDP_ZERO_CSUM6_RX] = { .type = NETLINK_TYPE_U8 },
         [IFLA_GENEVE_LABEL]             = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GENEVE_TTL_INHERIT]       = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GENEVE_DF]                = { .type = NETLINK_TYPE_U8 },
 };
 
 static const NLType rtnl_link_info_data_can_types[] = {
