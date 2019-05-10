@@ -2,12 +2,12 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/if_tun.h>
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <linux/if_tun.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"

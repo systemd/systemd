@@ -3,7 +3,7 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <netinet/ether.h>
+#include <netinet/in.h>
 #include <linux/if.h>
 #include "sd-radv.h"
 
@@ -418,7 +418,7 @@ static int dhcp6_address_change(
                 uint32_t lifetime_valid) {
 
         _cleanup_(address_freep) Address *addr = NULL;
-        char buffer[INET6_ADDRSTRLEN];
+        _cleanup_free_ char *buffer = NULL;
         int r;
 
         r = address_new(&addr);
@@ -426,7 +426,7 @@ static int dhcp6_address_change(
                 return r;
 
         addr->family = AF_INET6;
-        memcpy(&addr->in_addr.in6, ip6_addr, sizeof(*ip6_addr));
+        addr->in_addr.in6 = *ip6_addr;
 
         addr->flags = IFA_F_NOPREFIXROUTE;
         addr->prefixlen = 128;
@@ -434,10 +434,10 @@ static int dhcp6_address_change(
         addr->cinfo.ifa_prefered = lifetime_preferred;
         addr->cinfo.ifa_valid = lifetime_valid;
 
+        (void) in_addr_to_string(addr->family, &addr->in_addr, &buffer);
         log_link_info(link,
                       "DHCPv6 address %s/%d timeout preferred %d valid %d",
-                      inet_ntop(AF_INET6, &addr->in_addr.in6, buffer, sizeof(buffer)),
-                      addr->prefixlen, lifetime_preferred, lifetime_valid);
+                      strnull(buffer), addr->prefixlen, lifetime_preferred, lifetime_valid);
 
         r = address_configure(addr, link, dhcp6_address_handler, true);
         if (r < 0)

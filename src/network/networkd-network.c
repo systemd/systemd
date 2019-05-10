@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <net/if.h>
+#include <netinet/in.h>
 #include <linux/netdevice.h>
 
 #include "alloc-util.h"
@@ -386,7 +388,10 @@ int network_load_one(Manager *manager, const char *filename) {
                 .multicast_to_unicast = -1,
                 .neighbor_suppression = -1,
                 .learning = -1,
+                .bridge_proxy_arp = -1,
+                .bridge_proxy_arp_wifi = -1,
                 .priority = LINK_BRIDGE_PORT_PRIORITY_INVALID,
+                .multicast_router = _MULTICAST_ROUTER_INVALID,
 
                 .lldp_mode = LLDP_MODE_ROUTERS_ONLY,
 
@@ -1115,7 +1120,8 @@ int config_parse_dhcp_server_dns(
 
         for (;;) {
                 _cleanup_free_ char *w = NULL;
-                struct in_addr a, *m;
+                union in_addr_union a;
+                struct in_addr *m;
 
                 r = extract_first_word(&p, &w, NULL, 0);
                 if (r == -ENOMEM)
@@ -1128,9 +1134,10 @@ int config_parse_dhcp_server_dns(
                 if (r == 0)
                         break;
 
-                if (inet_pton(AF_INET, w, &a) <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Failed to parse DNS server address, ignoring: %s", w);
+                r = in_addr_from_string(AF_INET, w, &a);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse DNS server address '%s', ignoring assignment: %m", w);
                         continue;
                 }
 
@@ -1138,7 +1145,7 @@ int config_parse_dhcp_server_dns(
                 if (!m)
                         return log_oom();
 
-                m[n->n_dhcp_server_dns++] = a;
+                m[n->n_dhcp_server_dns++] = a.in;
                 n->dhcp_server_dns = m;
         }
 
@@ -1275,7 +1282,8 @@ int config_parse_dhcp_server_ntp(
 
         for (;;) {
                 _cleanup_free_ char *w = NULL;
-                struct in_addr a, *m;
+                union in_addr_union a;
+                struct in_addr *m;
 
                 r = extract_first_word(&p, &w, NULL, 0);
                 if (r == -ENOMEM)
@@ -1288,9 +1296,10 @@ int config_parse_dhcp_server_ntp(
                 if (r == 0)
                         return 0;
 
-                if (inet_pton(AF_INET, w, &a) <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Failed to parse NTP server address, ignoring: %s", w);
+                r = in_addr_from_string(AF_INET, w, &a);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse NTP server address '%s', ignoring: %m", w);
                         continue;
                 }
 
@@ -1298,7 +1307,7 @@ int config_parse_dhcp_server_ntp(
                 if (!m)
                         return log_oom();
 
-                m[n->n_dhcp_server_ntp++] = a;
+                m[n->n_dhcp_server_ntp++] = a.in;
                 n->dhcp_server_ntp = m;
         }
 }
@@ -1780,3 +1789,14 @@ int config_parse_required_for_online(
 
         return 0;
 }
+
+static const char* const multicast_router_table[_MULTICAST_ROUTER_MAX] = {
+        [MULTICAST_ROUTER_NONE] = "no",
+        [MULTICAST_ROUTER_TEMPORARY_QUERY] = "query",
+        [MULTICAST_ROUTER_PERMANENT] = "permanent",
+        [MULTICAST_ROUTER_TEMPORARY] = "temporary",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(multicast_router, MulticastRouter, _MULTICAST_ROUTER_INVALID);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_multicast_router, multicast_router, MulticastRouter,
+                         "Failed to parse bridge multicast router setting");

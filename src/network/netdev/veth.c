@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <linux/veth.h>
 #include <net/if.h>
+#include <linux/veth.h>
 
 #include "sd-netlink.h"
 

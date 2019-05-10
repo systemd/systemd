@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <netinet/ether.h>
+#include <netinet/in.h>
 #include <linux/if.h>
 #include <linux/can/netlink.h>
 #include <unistd.h>
@@ -1136,20 +1136,20 @@ static int link_push_uplink_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         log_debug("Copying NTP server information from %s", link->ifname);
 
         STRV_FOREACH(a, link->network->ntp) {
-                struct in_addr ia;
+                union in_addr_union ia;
 
                 /* Only look for IPv4 addresses */
-                if (inet_pton(AF_INET, *a, &ia) <= 0)
+                if (in_addr_from_string(AF_INET, *a, &ia) <= 0)
                         continue;
 
                 /* Never propagate obviously borked data */
-                if (in4_addr_is_null(&ia) || in4_addr_is_localhost(&ia))
+                if (in4_addr_is_null(&ia.in) || in4_addr_is_localhost(&ia.in))
                         continue;
 
                 if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
                         return log_oom();
 
-                addresses[n_addresses++] = ia;
+                addresses[n_addresses++] = ia.in;
         }
 
         if (link->network->dhcp_use_ntp && link->dhcp_lease) {
@@ -1592,7 +1592,6 @@ static int link_set_bridge(Link *link) {
                 r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROTECT, link->network->allow_port_to_be_root);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROTECT attribute: %m");
-
         }
 
         if (link->network->unicast_flood >= 0) {
@@ -1625,6 +1624,18 @@ static int link_set_bridge(Link *link) {
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_LEARNING attribute: %m");
         }
 
+        if (link->network->bridge_proxy_arp >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROXYARP, link->network->bridge_proxy_arp);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROXYARP attribute: %m");
+        }
+
+        if (link->network->bridge_proxy_arp_wifi >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROXYARP_WIFI, link->network->bridge_proxy_arp_wifi);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROXYARP_WIFI attribute: %m");
+        }
+
         if (link->network->cost != 0) {
                 r = sd_netlink_message_append_u32(req, IFLA_BRPORT_COST, link->network->cost);
                 if (r < 0)
@@ -1635,6 +1646,12 @@ static int link_set_bridge(Link *link) {
                 r = sd_netlink_message_append_u16(req, IFLA_BRPORT_PRIORITY, link->network->priority);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PRIORITY attribute: %m");
+        }
+
+        if (link->network->multicast_router != _MULTICAST_ROUTER_INVALID) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MULTICAST_ROUTER, link->network->multicast_router);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MULTICAST_ROUTER attribute: %m");
         }
 
         r = sd_netlink_message_close_container(req);

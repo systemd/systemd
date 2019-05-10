@@ -66,12 +66,11 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 if (address->family != AF_INET6)
                         continue;
                 if (in_addr_equal(AF_INET6, &gateway, &address->in_addr)) {
-                        char buffer[INET6_ADDRSTRLEN];
+                        _cleanup_free_ char *buffer = NULL;
 
+                        (void) in_addr_to_string(AF_INET6, &address->in_addr, &buffer);
                         log_link_debug(link, "No NDisc route added, gateway %s matches local address",
-                                       inet_ntop(AF_INET6,
-                                                 &address->in_addr.in6,
-                                                 buffer, sizeof(buffer)));
+                                       strnull(buffer));
                         return 0;
                 }
         }
@@ -80,12 +79,11 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 if (address->family != AF_INET6)
                         continue;
                 if (in_addr_equal(AF_INET6, &gateway, &address->in_addr)) {
-                        char buffer[INET6_ADDRSTRLEN];
+                        _cleanup_free_ char *buffer = NULL;
 
+                        (void) in_addr_to_string(AF_INET6, &address->in_addr, &buffer);
                         log_link_debug(link, "No NDisc route added, gateway %s matches local address",
-                                       inet_ntop(AF_INET6,
-                                                 &address->in_addr.in6,
-                                                 buffer, sizeof(buffer)));
+                                       strnull(buffer));
                         return 0;
                 }
         }
