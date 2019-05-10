@@ -1333,7 +1333,7 @@ static int link_request_set_addresses(Link *link) {
 }
 
 static int link_set_bridge_vlan(Link *link) {
-        int r = 0;
+        int r;
 
         r = br_vlan_configure(link, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
         if (r < 0)
