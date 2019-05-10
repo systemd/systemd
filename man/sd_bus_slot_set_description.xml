@@ -72,17 +72,13 @@
 
           <listitem><para>An required argument is <constant>NULL</constant>.</para></listitem>
         </varlistentry>
-      </variablelist>
 
-      <variablelist>
         <varlistentry>
           <term><constant>-ENXIO</constant></term>
 
           <listitem><para>The bus slot object has no description.</para></listitem>
         </varlistentry>
-      </variablelist>
 
-      <variablelist>
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 

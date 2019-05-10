@@ -130,33 +130,25 @@
 
           <listitem><para>An argument is invalid.</para></listitem>
         </varlistentry>
-      </variablelist>
 
-      <variablelist>
         <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
           <listitem><para>The bus cannot be resolved.</para></listitem>
         </varlistentry>
-      </variablelist>
 
-      <variablelist>
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
           <listitem><para>The bus has already been started.</para></listitem>
         </varlistentry>
-      </variablelist>
 
-      <variablelist>
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
           <listitem><para>The bus was created in a different process.</para></listitem>
         </varlistentry>
-      </variablelist>
 
-      <variablelist>
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
