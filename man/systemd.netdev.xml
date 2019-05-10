@@ -559,10 +559,10 @@
       <varlistentry>
         <term><varname>TTL=</varname></term>
         <listitem>
-          <para>A fixed Time To Live N on Virtual eXtensible Local
-          Area Network packets. N is a number in the range 1–255. 0
-          is a special value meaning that packets inherit the TTL
-          value.</para>
+          <para>A fixed Time To Live N on Virtual eXtensible Local Area Network packets.
+          Takes <literal>inherit</literal> or a number in the range 0–255. 0 is a special
+          value meaning inherit the inner protocol's TTL value. <literal>inherit</literal>
+          means that it will inherit the outer protocol's TTL value.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

@@ -55,6 +55,7 @@ struct VxLan {
         bool remote_csum_rx;
         bool group_policy;
         bool generic_protocol_extension;
+        bool inherit;
 
         struct ifla_vxlan_port_range port_range;
 };
@@ -69,3 +70,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_vxlan_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_port_range);
 CONFIG_PARSER_PROTOTYPE(config_parse_flow_label);
 CONFIG_PARSER_PROTOTYPE(config_parse_df);
+CONFIG_PARSER_PROTOTYPE(config_parse_vxlan_ttl);

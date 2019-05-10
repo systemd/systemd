@@ -102,7 +102,7 @@ VXLAN.Group,                              config_parse_vxlan_address,           
 VXLAN.Local,                              config_parse_vxlan_address,                0,                             offsetof(VxLan, local)
 VXLAN.Remote,                             config_parse_vxlan_address,                0,                             offsetof(VxLan, remote)
 VXLAN.TOS,                                config_parse_unsigned,                     0,                             offsetof(VxLan, tos)
-VXLAN.TTL,                                config_parse_unsigned,                     0,                             offsetof(VxLan, ttl)
+VXLAN.TTL,                                config_parse_vxlan_ttl,                    0,                             offsetof(VxLan, ttl)
 VXLAN.MacLearning,                        config_parse_bool,                         0,                             offsetof(VxLan, learning)
 VXLAN.ARPProxy,                           config_parse_bool,                         0,                             offsetof(VxLan, arp_proxy)
 VXLAN.ReduceARPProxy,                     config_parse_bool,                         0,                             offsetof(VxLan, arp_proxy)
