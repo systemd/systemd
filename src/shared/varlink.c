@@ -228,10 +228,15 @@ static inline const char *varlink_server_description(VarlinkServer *s) {
 
 static void varlink_set_state(Varlink *v, VarlinkState state) {
         assert(v);
+        assert(state >= 0 && state < _VARLINK_STATE_MAX);
 
-        varlink_log(v, "varlink: changing state %s → %s",
-                  varlink_state_to_string(v->state),
-                  varlink_state_to_string(state));
+        if (v->state < 0)
+                varlink_log(v, "varlink: setting state %s",
+                            varlink_state_to_string(state));
+        else
+                varlink_log(v, "varlink: changing state %s → %s",
+                            varlink_state_to_string(v->state),
+                            varlink_state_to_string(state));
 
         v->state = state;
 }
