@@ -11,35 +11,28 @@
 #include "time-util.h"
 
 /* Regular colors */
-#define ANSI_BLACK   "\x1B[0;30m"
 #define ANSI_RED     "\x1B[0;31m"
 #define ANSI_GREEN   "\x1B[0;32m"
 #define ANSI_YELLOW  "\x1B[0;33m"
 #define ANSI_BLUE    "\x1B[0;34m"
 #define ANSI_MAGENTA "\x1B[0;35m"
-#define ANSI_CYAN    "\x1B[0;36m"
-#define ANSI_WHITE   "\x1B[0;37m"
 #define ANSI_GREY    "\x1B[0;38;5;245m"
 
 /* Bold/highlighted */
-#define ANSI_HIGHLIGHT_BLACK   "\x1B[0;1;30m"
 #define ANSI_HIGHLIGHT_RED     "\x1B[0;1;31m"
 #define ANSI_HIGHLIGHT_GREEN   "\x1B[0;1;32m"
 #define ANSI_HIGHLIGHT_YELLOW  "\x1B[0;1;33m"
 #define ANSI_HIGHLIGHT_BLUE    "\x1B[0;1;34m"
 #define ANSI_HIGHLIGHT_MAGENTA "\x1B[0;1;35m"
-#define ANSI_HIGHLIGHT_CYAN    "\x1B[0;1;36m"
-#define ANSI_HIGHLIGHT_WHITE   "\x1B[0;1;37m"
+#define ANSI_HIGHLIGHT_GREY    "\x1B[0;1;38;5;245m"
 
 /* Underlined */
-#define ANSI_HIGHLIGHT_BLACK_UNDERLINE   "\x1B[0;1;4;30m"
 #define ANSI_HIGHLIGHT_RED_UNDERLINE     "\x1B[0;1;4;31m"
 #define ANSI_HIGHLIGHT_GREEN_UNDERLINE   "\x1B[0;1;4;32m"
 #define ANSI_HIGHLIGHT_YELLOW_UNDERLINE  "\x1B[0;1;4;33m"
 #define ANSI_HIGHLIGHT_BLUE_UNDERLINE    "\x1B[0;1;4;34m"
 #define ANSI_HIGHLIGHT_MAGENTA_UNDERLINE "\x1B[0;1;4;35m"
-#define ANSI_HIGHLIGHT_CYAN_UNDERLINE    "\x1B[0;1;4;36m"
-#define ANSI_HIGHLIGHT_WHITE_UNDERLINE   "\x1B[0;1;4;37m"
+#define ANSI_HIGHLIGHT_GREY_UNDERLINE    "\x1B[0;1;4;38;5;245m"
 
 /* Other ANSI codes */
 #define ANSI_UNDERLINE "\x1B[0;4m"
