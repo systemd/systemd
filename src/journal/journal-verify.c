@@ -46,7 +46,7 @@ static void draw_progress(uint64_t p, usec_t *last_usec) {
         for (i = 0; i < j; i++)
                 fputs("\xe2\x96\x88", stdout);
 
-        fputs(ANSI_NORMAL, stdout);
+        fputs(ansi_normal(), stdout);
 
         for (i = 0; i < k; i++)
                 fputs("\xe2\x96\x91", stdout);
