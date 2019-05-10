@@ -446,6 +446,7 @@ manpages = [
  ['sd_event_source_unref',
   '3',
   ['sd_event_source_disable_unref',
+   'sd_event_source_disable_unrefp',
    'sd_event_source_ref',
    'sd_event_source_unrefp'],
   ''],
