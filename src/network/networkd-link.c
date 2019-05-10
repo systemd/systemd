@@ -3027,16 +3027,16 @@ static int link_update_lldp(Link *link) {
 
         if (link->flags & IFF_UP) {
                 r = sd_lldp_start(link->lldp);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to start LLDP: %m");
                 if (r > 0)
                         log_link_debug(link, "Started LLDP.");
-                else
-                        log_link_warning_errno(link, r, "Failed to start LLDP: %m");
         } else {
                 r = sd_lldp_stop(link->lldp);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to stop LLDP: %m");
                 if (r > 0)
                         log_link_debug(link, "Stopped LLDP.");
-                else
-                        log_link_warning_errno(link, r, "Failed to stop LLDP: %m");
         }
 
         return r;
