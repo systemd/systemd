@@ -50,7 +50,7 @@ IS_BUILT_WITH_ASAN=$(is_built_with_asan && echo yes || echo no)
 
 if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
     STRIP_BINARIES=no
-    SKIP_INITRD=yes
+    SKIP_INITRD="${SKIP_INITRD:-yes}"
     PATH_TO_INIT=$ROOTLIBDIR/systemd-under-asan
     QEMU_MEM="1536M"
     QEMU_SMP=4
@@ -385,6 +385,18 @@ printf "[Service]\nEnvironment=ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/sys
 # Let's limit which environments such services should be executed in.
 mkdir -p /etc/systemd/system/systemd-hwdb-update.service.d
 printf "[Unit]\nConditionVirtualization=container\n\n[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-hwdb-update.service.d/env-override.conf
+
+# The 'mount' utility doesn't behave well under libasan, causing unexpected
+# fails during boot and subsequent test results check:
+# bash-5.0# mount -o remount,rw -v /
+# mount: /dev/sda1 mounted on /.
+# bash-5.0# echo \$?
+# 1
+# Let's workaround this by clearing the previously set LD_PRELOAD env variable,
+# so the libasan library is not loaded for this particular service
+REMOUNTFS_CONF_DIR=/etc/systemd/system/systemd-remount-fs.service.d
+mkdir -p "\$REMOUNTFS_CONF_DIR"
+printf "[Service]\nUnsetEnvironment=LD_PRELOAD\n" >"\$REMOUNTFS_CONF_DIR/env.conf"
 
 export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
 exec  $ROOTLIBDIR/systemd "\$@"
