@@ -120,21 +120,29 @@ bool dev_console_colors_enabled(void);
                         colors_enabled() ? ANSI_##REPLACEMENT : "";     \
         }
 
-DEFINE_ANSI_FUNC(highlight,                  HIGHLIGHT);
-DEFINE_ANSI_FUNC(highlight_red,              HIGHLIGHT_RED);
-DEFINE_ANSI_FUNC(highlight_green,            HIGHLIGHT_GREEN);
-DEFINE_ANSI_FUNC(highlight_yellow,           HIGHLIGHT_YELLOW);
-DEFINE_ANSI_FUNC(highlight_blue,             HIGHLIGHT_BLUE);
-DEFINE_ANSI_FUNC(highlight_magenta,          HIGHLIGHT_MAGENTA);
-DEFINE_ANSI_FUNC(normal,                     NORMAL);
-DEFINE_ANSI_FUNC(grey,                       GREY);
+DEFINE_ANSI_FUNC(normal,            NORMAL);
+DEFINE_ANSI_FUNC(highlight,         HIGHLIGHT);
+DEFINE_ANSI_FUNC(red,               RED);
+DEFINE_ANSI_FUNC(green,             GREEN);
+DEFINE_ANSI_FUNC(yellow,            YELLOW);
+DEFINE_ANSI_FUNC(blue,              BLUE);
+DEFINE_ANSI_FUNC(magenta,           MAGENTA);
+DEFINE_ANSI_FUNC(grey,              GREY);
+DEFINE_ANSI_FUNC(highlight_red,     HIGHLIGHT_RED);
+DEFINE_ANSI_FUNC(highlight_green,   HIGHLIGHT_GREEN);
+DEFINE_ANSI_FUNC(highlight_yellow,  HIGHLIGHT_YELLOW);
+DEFINE_ANSI_FUNC(highlight_blue,    HIGHLIGHT_BLUE);
+DEFINE_ANSI_FUNC(highlight_magenta, HIGHLIGHT_MAGENTA);
+DEFINE_ANSI_FUNC(highlight_grey,    HIGHLIGHT_GREY);
 
-DEFINE_ANSI_FUNC_UNDERLINE(underline,                  UNDERLINE, NORMAL);
-DEFINE_ANSI_FUNC_UNDERLINE(highlight_underline,        HIGHLIGHT_UNDERLINE, HIGHLIGHT);
-DEFINE_ANSI_FUNC_UNDERLINE(highlight_red_underline,    HIGHLIGHT_RED_UNDERLINE, HIGHLIGHT_RED);
-DEFINE_ANSI_FUNC_UNDERLINE(highlight_green_underline,  HIGHLIGHT_GREEN_UNDERLINE, HIGHLIGHT_GREEN);
-DEFINE_ANSI_FUNC_UNDERLINE(highlight_yellow_underline, HIGHLIGHT_YELLOW_UNDERLINE, HIGHLIGHT_YELLOW);
-DEFINE_ANSI_FUNC_UNDERLINE(highlight_blue_underline,   HIGHLIGHT_BLUE_UNDERLINE, HIGHLIGHT_BLUE);
+DEFINE_ANSI_FUNC_UNDERLINE(underline,                   UNDERLINE, NORMAL);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_underline,         HIGHLIGHT_UNDERLINE, HIGHLIGHT);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_red_underline,     HIGHLIGHT_RED_UNDERLINE, HIGHLIGHT_RED);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_green_underline,   HIGHLIGHT_GREEN_UNDERLINE, HIGHLIGHT_GREEN);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_yellow_underline,  HIGHLIGHT_YELLOW_UNDERLINE, HIGHLIGHT_YELLOW);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_blue_underline,    HIGHLIGHT_BLUE_UNDERLINE, HIGHLIGHT_BLUE);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_magenta_underline, HIGHLIGHT_MAGENTA_UNDERLINE, HIGHLIGHT_MAGENTA);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_grey_underline,    HIGHLIGHT_GREY_UNDERLINE, HIGHLIGHT_GREY);
 
 int get_ctty_devnr(pid_t pid, dev_t *d);
 int get_ctty(pid_t, dev_t *_devnr, char **r);
