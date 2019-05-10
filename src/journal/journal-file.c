@@ -357,8 +357,7 @@ JournalFile* journal_file_close(JournalFile *f) {
                 if (sd_event_source_get_enabled(f->post_change_timer, NULL) > 0)
                         journal_file_post_change(f);
 
-                (void) sd_event_source_set_enabled(f->post_change_timer, SD_EVENT_OFF);
-                sd_event_source_unref(f->post_change_timer);
+                sd_event_source_disable_unref(f->post_change_timer);
         }
 
         journal_file_set_offline(f, true);

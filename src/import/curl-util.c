@@ -70,8 +70,7 @@ static int curl_glue_socket_callback(CURLM *curl, curl_socket_t s, int action, v
                         fd = sd_event_source_get_io_fd(io);
                         assert(fd >= 0);
 
-                        sd_event_source_set_enabled(io, SD_EVENT_OFF);
-                        sd_event_source_unref(io);
+                        sd_event_source_disable_unref(io);
 
                         hashmap_remove(g->ios, FD_TO_PTR(s));
                         hashmap_remove(g->translate_fds, FD_TO_PTR(fd));

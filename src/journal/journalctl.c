@@ -1949,11 +1949,13 @@ static int simple_varlink_call(const char *option, const char *method) {
 
         r = varlink_connect_address(&link, "/run/systemd/journal/io.systemd.journal");
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to journal: %m");
+                return log_error_errno(r, "Failed to connect to /run/systemd/journal/io.systemd.journal: %m");
+
+        (void) varlink_set_description(link, "journal");
 
         r = varlink_call(link, method, NULL, NULL, &error, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to execute operation: %s", error);
+                return log_error_errno(r, "Failed to execute varlink call: %s", error);
 
         return 0;
 }

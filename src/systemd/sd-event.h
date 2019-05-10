@@ -113,6 +113,7 @@ int sd_event_get_iteration(sd_event *e, uint64_t *ret);
 
 sd_event_source* sd_event_source_ref(sd_event_source *s);
 sd_event_source* sd_event_source_unref(sd_event_source *s);
+sd_event_source* sd_event_source_disable_unref(sd_event_source *s);
 
 sd_event *sd_event_source_get_event(sd_event_source *s);
 void* sd_event_source_get_userdata(sd_event_source *s);
@@ -149,6 +150,7 @@ int sd_event_source_set_floating(sd_event_source *s, int b);
 /* Define helpers so that __attribute__((cleanup(sd_event_unrefp))) and similar may be used. */
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_event, sd_event_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_event_source, sd_event_source_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_event_source, sd_event_source_disable_unref);
 
 _SD_END_DECLARATIONS;
 
