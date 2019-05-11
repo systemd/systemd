@@ -128,7 +128,7 @@ VXLAN.IPDoNotFragment,                    config_parse_df,                      
 GENEVE.Id,                                config_parse_geneve_vni,                   0,                             offsetof(Geneve, id)
 GENEVE.Remote,                            config_parse_geneve_address,               0,                             offsetof(Geneve, remote)
 GENEVE.TOS,                               config_parse_uint8,                        0,                             offsetof(Geneve, tos)
-GENEVE.TTL,                               config_parse_uint8,                        0,                             offsetof(Geneve, ttl)
+GENEVE.TTL,                               config_parse_geneve_ttl,                   0,                             offsetof(Geneve, ttl)
 GENEVE.UDPChecksum,                       config_parse_bool,                         0,                             offsetof(Geneve, udpcsum)
 GENEVE.UDP6ZeroCheckSumRx,                config_parse_bool,                         0,                             offsetof(Geneve, udp6zerocsumrx)
 GENEVE.UDP6ZeroChecksumRx,                config_parse_bool,                         0,                             offsetof(Geneve, udp6zerocsumrx)

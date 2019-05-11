@@ -102,7 +102,11 @@ static int netdev_geneve_create(NetDev *netdev) {
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_REMOTE/IFLA_GENEVE_REMOTE6 attribute: %m");
         }
 
-        if (v->ttl > 0) {
+        if (v->inherit) {
+                r = sd_netlink_message_append_u8(m, IFLA_GENEVE_TTL_INHERIT, 1);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_TTL_INHERIT attribute: %m");
+        } else {
                 r = sd_netlink_message_append_u8(m, IFLA_GENEVE_TTL, v->ttl);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_TTL attribute: %m");
@@ -267,6 +271,47 @@ int config_parse_geneve_flow_label(const char *unit,
         }
 
         v->flow_label = f;
+
+        return 0;
+}
+
+int config_parse_geneve_ttl(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
+        Geneve *v = userdata;
+        unsigned f;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "inherit"))
+                v->inherit = true;
+        else {
+                r = safe_atou(rvalue, &f);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse Geneve TTL '%s', ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+
+                if (f > 255) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid Geneve TTL '%s'. TTL must be <= 255. Ignoring assignment.", rvalue);
+                        return 0;
+                }
+
+                v->ttl = f;
+        }
 
         return 0;
 }

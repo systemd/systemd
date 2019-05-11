@@ -34,6 +34,7 @@ struct Geneve {
         bool udpcsum;
         bool udp6zerocsumtx;
         bool udp6zerocsumrx;
+        bool inherit;
 
         GeneveDF geneve_df;
         union in_addr_union remote;
@@ -49,3 +50,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_geneve_vni);
 CONFIG_PARSER_PROTOTYPE(config_parse_geneve_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_geneve_flow_label);
 CONFIG_PARSER_PROTOTYPE(config_parse_geneve_df);
+CONFIG_PARSER_PROTOTYPE(config_parse_geneve_ttl);
