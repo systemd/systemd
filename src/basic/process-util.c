@@ -25,6 +25,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "escape.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -126,12 +127,9 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
         if (r < 0)
                 return r;
 
-        if (max_length == 0) {
+        if (max_length == 0)
                 /* This is supposed to be a safety guard against runaway command lines. */
-                long l = sysconf(_SC_ARG_MAX);
-                assert(l > 0);
-                max_length = l;
-        }
+                max_length = sc_arg_max();
 
         if (max_length == 1) {
 
