@@ -401,7 +401,7 @@ static void resolve_endpoints(NetDev *netdev) {
         WireguardPeer *peer;
         Wireguard *w;
         Iterator i;
-        int r = 0;
+        int r;
 
         assert(netdev);
         w = WIREGUARD(netdev);

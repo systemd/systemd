@@ -559,7 +559,7 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         uint64_t flags;
-        int r = 0;
+        int r;
 
         assert(link);
         assert(link->network);

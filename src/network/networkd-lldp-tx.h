@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <stdbool.h>
+
 #include "conf-parser.h"
-#include "networkd-link.h"
+
+typedef struct Link Link;
 
 typedef enum LLDPEmit {
         LLDP_EMIT_NO,
@@ -12,6 +15,7 @@ typedef enum LLDPEmit {
         _LLDP_EMIT_MAX,
 } LLDPEmit;
 
+bool link_lldp_emit_enabled(Link *link);
 int link_lldp_emit_start(Link *link);
 void link_lldp_emit_stop(Link *link);
 

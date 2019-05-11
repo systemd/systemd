@@ -542,7 +542,7 @@ static int dhcp_server_is_black_listed(Link *link, sd_dhcp_client *client) {
 
 static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
         Link *link = userdata;
-        int r = 0;
+        int r;
 
         assert(link);
         assert(link->network);

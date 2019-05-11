@@ -120,6 +120,8 @@ typedef struct Bond {
 DEFINE_NETDEV_CAST(BOND, Bond);
 extern const NetDevVTable bond_vtable;
 
+int link_set_bond(Link *link);
+
 const char *bond_mode_to_string(BondMode d) _const_;
 BondMode bond_mode_from_string(const char *d) _pure_;
 

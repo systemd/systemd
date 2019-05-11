@@ -2,7 +2,6 @@
 
 #include <netinet/in.h>
 #include <linux/if.h>
-#include <linux/can/netlink.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -13,9 +12,12 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing_network.h"
+#include "netdev/bond.h"
+#include "netdev/bridge.h"
 #include "netdev/vrf.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "networkd-can.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
@@ -193,42 +195,6 @@ static bool link_radv_enabled(Link *link) {
                 return false;
 
         return link->network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE;
-}
-
-static bool link_lldp_rx_enabled(Link *link) {
-        assert(link);
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (link->iftype != ARPHRD_ETHER)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        /* LLDP should be handled on bridge slaves as those have a direct
-         * connection to their peers not on the bridge master. Linux doesn't
-         * even (by default) forward lldp packets to the bridge master.*/
-        if (streq_ptr("bridge", link->kind))
-                return false;
-
-        return link->network->lldp_mode != LLDP_MODE_NO;
-}
-
-static bool link_lldp_emit_enabled(Link *link) {
-        assert(link);
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (link->iftype != ARPHRD_ETHER)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        return link->network->lldp_emit != LLDP_EMIT_NO;
 }
 
 static bool link_ipv4_forward_enabled(Link *link) {
@@ -1367,7 +1333,7 @@ static int link_request_set_addresses(Link *link) {
 }
 
 static int link_set_bridge_vlan(Link *link) {
-        int r = 0;
+        int r;
 
         r = br_vlan_configure(link, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
         if (r < 0)
@@ -1387,22 +1353,6 @@ static int link_set_proxy_arp(Link *link) {
                 log_link_warning_errno(link, r, "Cannot configure proxy ARP for interface: %m");
 
         return 0;
-}
-
-static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-
-        log_link_debug(link, "Set link");
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "Could not join netdev: %m");
-                link_enter_failed(link);
-        }
-
-        return 1;
 }
 
 static int link_configure_after_setting_mtu(Link *link);
@@ -1549,285 +1499,6 @@ static int link_set_flags(Link *link) {
         link_ref(link);
 
         return 0;
-}
-
-static int link_set_bridge(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->network);
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_rtnl_message_link_set_family(req, PF_BRIDGE);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set message family: %m");
-
-        r = sd_netlink_message_open_container(req, IFLA_PROTINFO);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_PROTINFO attribute: %m");
-
-        if (link->network->use_bpdu >= 0) {
-                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_GUARD, link->network->use_bpdu);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_GUARD attribute: %m");
-        }
-
-        if (link->network->hairpin >= 0) {
-                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MODE, link->network->hairpin);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MODE attribute: %m");
-        }
-
-        if (link->network->fast_leave >= 0) {
-                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_FAST_LEAVE, link->network->fast_leave);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_FAST_LEAVE attribute: %m");
-        }
-
-        if (link->network->allow_port_to_be_root >=  0) {
-                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROTECT, link->network->allow_port_to_be_root);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROTECT attribute: %m");
-        }
-
-        if (link->network->unicast_flood >= 0) {
-                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_UNICAST_FLOOD, link->network->unicast_flood);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_UNICAST_FLOOD attribute: %m");
-        }
-
-        if (link->network->multicast_flood >= 0) {
-                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MCAST_FLOOD, link->network->multicast_flood);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MCAST_FLOOD attribute: %m");
-        }
-
-        if (link->network->multicast_to_unicast >= 0) {
-                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MCAST_TO_UCAST, link->network->multicast_to_unicast);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MCAST_TO_UCAST attribute: %m");
-        }
-
-        if (link->network->neighbor_suppression >= 0) {
-                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_NEIGH_SUPPRESS, link->network->neighbor_suppression);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_NEIGH_SUPPRESS attribute: %m");
-        }
-
-        if (link->network->learning >= 0) {
-                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_LEARNING, link->network->learning);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_LEARNING attribute: %m");
-        }
-
-        if (link->network->bridge_proxy_arp >= 0) {
-                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROXYARP, link->network->bridge_proxy_arp);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROXYARP attribute: %m");
-        }
-
-        if (link->network->bridge_proxy_arp_wifi >= 0) {
-                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROXYARP_WIFI, link->network->bridge_proxy_arp_wifi);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROXYARP_WIFI attribute: %m");
-        }
-
-        if (link->network->cost != 0) {
-                r = sd_netlink_message_append_u32(req, IFLA_BRPORT_COST, link->network->cost);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_COST attribute: %m");
-        }
-
-        if (link->network->priority != LINK_BRIDGE_PORT_PRIORITY_INVALID) {
-                r = sd_netlink_message_append_u16(req, IFLA_BRPORT_PRIORITY, link->network->priority);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PRIORITY attribute: %m");
-        }
-
-        if (link->network->multicast_router != _MULTICAST_ROUTER_INVALID) {
-                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MULTICAST_ROUTER, link->network->multicast_router);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MULTICAST_ROUTER attribute: %m");
-        }
-
-        r = sd_netlink_message_close_container(req);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_set_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return r;
-}
-
-static int link_set_bond_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Could not set bonding interface: %m");
-                return 1;
-        }
-
-        return 1;
-}
-
-static int link_set_bond(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->network);
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_NEWLINK, link->network->bond->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_netlink_message_set_flags(req, NLM_F_REQUEST | NLM_F_ACK);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set netlink flags: %m");
-
-        r = sd_netlink_message_open_container(req, IFLA_LINKINFO);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_PROTINFO attribute: %m");
-
-        r = sd_netlink_message_open_container_union(req, IFLA_INFO_DATA, "bond");
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
-
-        if (link->network->active_slave) {
-                r = sd_netlink_message_append_u32(req, IFLA_BOND_ACTIVE_SLAVE, link->ifindex);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BOND_ACTIVE_SLAVE attribute: %m");
-        }
-
-        if (link->network->primary_slave) {
-                r = sd_netlink_message_append_u32(req, IFLA_BOND_PRIMARY, link->ifindex);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_BOND_PRIMARY attribute: %m");
-        }
-
-        r = sd_netlink_message_close_container(req);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
-
-        r = sd_netlink_message_close_container(req);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_set_bond_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r,  "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return r;
-}
-
-static int link_lldp_save(Link *link) {
-        _cleanup_free_ char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        sd_lldp_neighbor **l = NULL;
-        int n = 0, r, i;
-
-        assert(link);
-        assert(link->lldp_file);
-
-        if (!link->lldp) {
-                (void) unlink(link->lldp_file);
-                return 0;
-        }
-
-        r = sd_lldp_get_neighbors(link->lldp, &l);
-        if (r < 0)
-                goto finish;
-        if (r == 0) {
-                (void) unlink(link->lldp_file);
-                goto finish;
-        }
-
-        n = r;
-
-        r = fopen_temporary(link->lldp_file, &f, &temp_path);
-        if (r < 0)
-                goto finish;
-
-        fchmod(fileno(f), 0644);
-
-        for (i = 0; i < n; i++) {
-                const void *p;
-                le64_t u;
-                size_t sz;
-
-                r = sd_lldp_neighbor_get_raw(l[i], &p, &sz);
-                if (r < 0)
-                        goto finish;
-
-                u = htole64(sz);
-                (void) fwrite(&u, 1, sizeof(u), f);
-                (void) fwrite(p, 1, sz, f);
-        }
-
-        r = fflush_and_check(f);
-        if (r < 0)
-                goto finish;
-
-        if (rename(temp_path, link->lldp_file) < 0) {
-                r = -errno;
-                goto finish;
-        }
-
-finish:
-        if (r < 0) {
-                (void) unlink(link->lldp_file);
-                if (temp_path)
-                        (void) unlink(temp_path);
-
-                log_link_error_errno(link, r, "Failed to save LLDP data to %s: %m", link->lldp_file);
-        }
-
-        if (l) {
-                for (i = 0; i < n; i++)
-                        sd_lldp_neighbor_unref(l[i]);
-                free(l);
-        }
-
-        return r;
-}
-
-static void lldp_handler(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n, void *userdata) {
-        Link *link = userdata;
-        int r;
-
-        assert(link);
-
-        (void) link_lldp_save(link);
-
-        if (link_lldp_emit_enabled(link) && event == SD_LLDP_EVENT_ADDED) {
-                /* If we received information about a new neighbor, restart the LLDP "fast" logic */
-
-                log_link_debug(link, "Received LLDP datagram from previously unknown neighbor, restarting 'fast' LLDP transmission.");
-
-                r = link_lldp_emit_start(link);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to restart LLDP transmission: %m");
-        }
 }
 
 static int link_acquire_ipv6_conf(Link *link) {
@@ -2097,145 +1768,6 @@ static int link_up(Link *link) {
         return 0;
 }
 
-static int link_up_can(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-
-        log_link_debug(link, "Bringing CAN link up");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set link flags: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
-}
-
-static int link_set_can(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        log_link_debug(link, "link_set_can");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to allocate netlink message: %m");
-
-        r = sd_netlink_message_set_flags(m, NLM_F_REQUEST | NLM_F_ACK);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set netlink flags: %m");
-
-        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to open netlink container: %m");
-
-        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, link->kind);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
-
-        if (link->network->can_bitrate > 0 || link->network->can_sample_point > 0) {
-                struct can_bittiming bt = {
-                        .bitrate = link->network->can_bitrate,
-                        .sample_point = link->network->can_sample_point,
-                };
-
-                if (link->network->can_bitrate > UINT32_MAX) {
-                        log_link_error(link, "bitrate (%zu) too big.", link->network->can_bitrate);
-                        return -ERANGE;
-                }
-
-                log_link_debug(link, "Setting bitrate = %d bit/s", bt.bitrate);
-                if (link->network->can_sample_point > 0)
-                        log_link_debug(link, "Setting sample point = %d.%d%%", bt.sample_point / 10, bt.sample_point % 10);
-                else
-                        log_link_debug(link, "Using default sample point");
-
-                r = sd_netlink_message_append_data(m, IFLA_CAN_BITTIMING, &bt, sizeof(bt));
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_CAN_BITTIMING attribute: %m");
-        }
-
-        if (link->network->can_restart_us > 0) {
-                char time_string[FORMAT_TIMESPAN_MAX];
-                uint64_t restart_ms;
-
-                if (link->network->can_restart_us == USEC_INFINITY)
-                        restart_ms = 0;
-                else
-                        restart_ms = DIV_ROUND_UP(link->network->can_restart_us, USEC_PER_MSEC);
-
-                format_timespan(time_string, FORMAT_TIMESPAN_MAX, restart_ms * 1000, MSEC_PER_SEC);
-
-                if (restart_ms > UINT32_MAX) {
-                        log_link_error(link, "restart timeout (%s) too big.", time_string);
-                        return -ERANGE;
-                }
-
-                log_link_debug(link, "Setting restart = %s", time_string);
-
-                r = sd_netlink_message_append_u32(m, IFLA_CAN_RESTART_MS, restart_ms);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_CAN_RESTART_MS attribute: %m");
-        }
-
-        if (link->network->can_triple_sampling >= 0) {
-                struct can_ctrlmode cm = {
-                        .mask = CAN_CTRLMODE_3_SAMPLES,
-                        .flags = link->network->can_triple_sampling ? CAN_CTRLMODE_3_SAMPLES : 0,
-                };
-
-                log_link_debug(link, "%sabling triple-sampling", link->network->can_triple_sampling ? "En" : "Dis");
-
-                r = sd_netlink_message_append_data(m, IFLA_CAN_CTRLMODE, &cm, sizeof(cm));
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_CAN_CTRLMODE attribute: %m");
-        }
-
-        r = sd_netlink_message_close_container(m);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to close netlink container: %m");
-
-        r = sd_netlink_message_close_container(m);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to close netlink container: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, m, link_set_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        if (!(link->flags & IFF_UP)) {
-                r = link_up_can(link);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return r;
-                }
-        }
-
-        log_link_debug(link, "link_set_can done");
-
-        return r;
-}
-
 static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -2248,13 +1780,10 @@ static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link
         if (r < 0)
                 log_link_warning_errno(link, r, "Could not bring down interface: %m");
 
-        if (streq_ptr(link->kind, "can"))
-                link_set_can(link);
-
         return 1;
 }
 
-int link_down(Link *link) {
+int link_down(Link *link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -2273,7 +1802,8 @@ int link_down(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_down_handler,
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               callback ?: link_down_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
@@ -2305,7 +1835,7 @@ static int link_handle_bound_to_list(Link *link) {
                 }
 
         if (!required_up && link_is_up) {
-                r = link_down(link);
+                r = link_down(link, NULL);
                 if (r < 0)
                         return r;
         } else if (required_up && !link_is_up) {
@@ -3032,60 +2562,6 @@ static int link_drop_config(Link *link) {
         return 0;
 }
 
-static int link_update_lldp(Link *link) {
-        int r;
-
-        assert(link);
-
-        if (!link->lldp)
-                return 0;
-
-        if (link->flags & IFF_UP) {
-                r = sd_lldp_start(link->lldp);
-                if (r > 0)
-                        log_link_debug(link, "Started LLDP.");
-                else
-                        log_link_warning_errno(link, r, "Failed to start LLDP: %m");
-        } else {
-                r = sd_lldp_stop(link->lldp);
-                if (r > 0)
-                        log_link_debug(link, "Stopped LLDP.");
-                else
-                        log_link_warning_errno(link, r, "Failed to stop LLDP: %m");
-        }
-
-        return r;
-}
-
-static int link_configure_can(Link *link) {
-        int r;
-
-        if (streq_ptr(link->kind, "can")) {
-                /* The CAN interface must be down to configure bitrate, etc... */
-                if ((link->flags & IFF_UP)) {
-                        r = link_down(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
-                        }
-
-                        return 0;
-                }
-
-                return link_set_can(link);
-        }
-
-        if (!(link->flags & IFF_UP)) {
-                r = link_up_can(link);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return r;
-                }
-        }
-
-        return 0;
-}
-
 static int link_configure(Link *link) {
         int r;
 
@@ -3190,34 +2666,7 @@ static int link_configure(Link *link) {
         }
 
         if (link_lldp_rx_enabled(link)) {
-                r = sd_lldp_new(&link->lldp);
-                if (r < 0)
-                        return r;
-
-                r = sd_lldp_set_ifindex(link->lldp, link->ifindex);
-                if (r < 0)
-                        return r;
-
-                r = sd_lldp_match_capabilities(link->lldp,
-                                               link->network->lldp_mode == LLDP_MODE_ROUTERS_ONLY ?
-                                               SD_LLDP_SYSTEM_CAPABILITIES_ALL_ROUTERS :
-                                               SD_LLDP_SYSTEM_CAPABILITIES_ALL);
-                if (r < 0)
-                        return r;
-
-                r = sd_lldp_set_filter_address(link->lldp, &link->mac);
-                if (r < 0)
-                        return r;
-
-                r = sd_lldp_attach_event(link->lldp, NULL, 0);
-                if (r < 0)
-                        return r;
-
-                r = sd_lldp_set_callback(link->lldp, lldp_handler, link);
-                if (r < 0)
-                        return r;
-
-                r = link_update_lldp(link);
+                r = link_lldp_rx_configure(link);
                 if (r < 0)
                         return r;
         }
