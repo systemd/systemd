@@ -930,7 +930,7 @@ static int run(int argc, char *argv[]) {
         r = show_cgroup_get_path_and_warn(arg_machine, arg_root, &root);
         if (r < 0)
                 return log_error_errno(r, "Failed to get root control group path: %m");
-        log_debug("Cgroup path: %s", root);
+        log_debug("CGroup path: %s", root);
 
         a = hashmap_new(&group_hash_ops);
         b = hashmap_new(&group_hash_ops);
