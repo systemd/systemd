@@ -52,7 +52,7 @@ if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
     STRIP_BINARIES=no
     SKIP_INITRD="${SKIP_INITRD:-yes}"
     PATH_TO_INIT=$ROOTLIBDIR/systemd-under-asan
-    QEMU_MEM="1536M"
+    QEMU_MEM="2048M"
     QEMU_SMP=4
 fi
 
