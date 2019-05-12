@@ -3495,12 +3495,11 @@ int link_save(Link *link) {
                 admin_state, oper_state);
 
         if (link->network) {
-                bool space;
+                char **dhcp6_domains = NULL, **dhcp_domains = NULL;
+                const char *dhcp_domainname = NULL, *p;
                 sd_dhcp6_lease *dhcp6_lease = NULL;
-                const char *dhcp_domainname = NULL;
-                char **dhcp6_domains = NULL;
-                char **dhcp_domains = NULL;
                 unsigned j;
+                bool space;
 
                 fprintf(f, "REQUIRED_FOR_ONLINE=%s\n",
                         yes_no(link->network->required_for_online));
@@ -3617,7 +3616,10 @@ int link_save(Link *link) {
                                 (void) sd_dhcp6_lease_get_domains(dhcp6_lease, &dhcp6_domains);
                 }
 
-                ordered_set_print(f, "DOMAINS=", link->network->search_domains);
+                fputs("DOMAINS=", f);
+                space = false;
+                ORDERED_SET_FOREACH(p, link->network->search_domains, i)
+                        fputs_with_space(f, p, NULL, &space);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) {
                         NDiscDNSSL *dd;
@@ -3635,7 +3637,10 @@ int link_save(Link *link) {
 
                 fputc('\n', f);
 
-                ordered_set_print(f, "ROUTE_DOMAINS=", link->network->route_domains);
+                fputs("ROUTE_DOMAINS=", f);
+                space = false;
+                ORDERED_SET_FOREACH(p, link->network->route_domains, i)
+                        fputs_with_space(f, p, NULL, &space);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE) {
                         NDiscDNSSL *dd;
