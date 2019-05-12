@@ -1,0 +1,11 @@
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- script: |
+    set -e
+    sudo ./travis-ci/managers/xenial.sh
+  displayName: 'This is where it gets darker'

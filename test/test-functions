@@ -378,13 +378,22 @@ find / -name '*.service' -type f | xargs sed -i 's/^\\(MemoryDeny\\|SystemCall\\
 # But, apparently, sometimes it doesn't work: https://github.com/google/sanitizers/issues/886.
 JOURNALD_CONF_DIR=/etc/systemd/system/systemd-journald.service.d
 mkdir -p "\$JOURNALD_CONF_DIR"
-printf "[Service]\nEnvironment=ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd-journald.asan.log\n" >"\$JOURNALD_CONF_DIR/env.conf"
+printf "[Service]\nEnvironment=ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd-journald.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS:log_path=/systemd-journald.ubsan.log\n" >"\$JOURNALD_CONF_DIR/env.conf"
+
+# Sometimes UBSan sends its reports to stderr regardless of what is specified in log_path
+# Let's try to catch them by redirecting stderr (and stdout just in case) to a file
+# See https://github.com/systemd/systemd/pull/12524#issuecomment-491108821
+printf "[Service]\nStandardOutput=file:/systemd-journald.out\n" >"\$JOURNALD_CONF_DIR/out.conf"
 
 # 90s isn't enough for some services to finish when literally everything is run
 # under ASan+UBSan in containers, which, in turn, are run in VMs.
 # Let's limit which environments such services should be executed in.
 mkdir -p /etc/systemd/system/systemd-hwdb-update.service.d
 printf "[Unit]\nConditionVirtualization=container\n\n[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-hwdb-update.service.d/env-override.conf
+
+# Let's override another hard-coded timeout that kicks in too early
+mkdir -p /etc/systemd/system/systemd-journal-flush.service.d
+printf "[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-journal-flush.service.d/timeout.conf
 
 # The 'mount' utility doesn't behave well under libasan, causing unexpected
 # fails during boot and subsequent test results check:
@@ -508,9 +517,10 @@ check_asan_reports() {
             ret=$(($ret+1))
         fi
 
-        journald_report=$(find "$root" -name "systemd-journald.asan.log*" -exec cat {} \;)
+        journald_report=$(find "$root" -name "systemd-journald.*san.log*" -exec cat {} \;)
         if [[ ! -z "$journald_report" ]]; then
-            printf "%s" "$journald_report"
+            printf "%s\n" "$journald_report"
+            cat "$root/systemd-journald.out" || true
             ret=$(($ret+1))
         fi
 
