@@ -919,6 +919,10 @@ evdev:input:b0003v046Dp0045*
  KEYBOARD_KEY_c104b=images
  KEYBOARD_KEY_c104c=audio
 
+# S510 keyboard (27 MHz, modelnumber Y-RAK73)
+evdev:input:b0003v046Dp0056*
+ KEYBOARD_KEY_c1041=battery      # Battery icon (Fn + F1)
+
 # MX3000 keyboard (27 MHz, modelnumber Y-RAM74)
 # We ignore the scroll up / down keypress events since these buttons also
 # generate scroll-wheel events and we do not want to generate duplicate events
@@ -967,6 +971,10 @@ evdev:input:b0003v046Dp0066*
  KEYBOARD_KEY_c1047=search          # Magnifying glass icon (Fn + F7)
  KEYBOARD_KEY_c1048=config          # Window with gear icon (Fn + F8)
  KEYBOARD_KEY_c106f=battery         # Battery icon
+
+# S510 remote control (27 MHz)
+evdev:input:b0003v046Dp00FE*
+ KEYBOARD_KEY_c1018=media           # Media button
 
 # MX5000 keyboard (HID proxy mode and bluetooth matches)
 # The 4 buttons below the LCD send codes 0xc100c - 0xc100f. They only send
