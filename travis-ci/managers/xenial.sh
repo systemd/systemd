@@ -20,4 +20,4 @@ make -C test/TEST-01-BASIC clean setup run TEST_NO_QEMU=yes NSPAWN_ARGUMENTS=--k
 # Now that we're more or less sure that ASan isn't going to crash systemd and cause a kernel panic
 # let's also run the test with QEMU to cover udevd, sysctl and everything else that isn't run
 # in containers.
-make -C test/TEST-01-BASIC clean setup run TEST_NO_NSPAWN=yes
+make -C test/TEST-01-BASIC clean setup run KERNEL_APPEND=systemd.log_target=console TEST_NO_NSPAWN=yes
