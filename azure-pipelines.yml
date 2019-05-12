@@ -7,5 +7,6 @@ pool:
 steps:
 - script: |
     set -e
+    ./travis-ci/managers/fuzzbuzz.sh
     sudo ./travis-ci/managers/xenial.sh
   displayName: 'This is where it gets darker'
