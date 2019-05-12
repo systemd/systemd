@@ -121,7 +121,7 @@ bool link_ipv4ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6"))
                 return false;
 
         if (link->network->bond)
@@ -139,7 +139,7 @@ bool link_ipv4ll_fallback_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6"))
                 return false;
 
         if (link->network->bond)
@@ -160,7 +160,7 @@ static bool link_ipv6ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "sit", "vti"))
                 return false;
 
         if (link->network->bond)
