@@ -949,6 +949,7 @@ void link_check_ready(Link *link) {
         if (!link->addresses_ready) {
                 link->addresses_ready = true;
                 link_request_set_routes(link);
+                return;
         }
 
         if (!link->static_routes_configured)
