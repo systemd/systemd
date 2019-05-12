@@ -407,7 +407,7 @@ REMOUNTFS_CONF_DIR=/etc/systemd/system/systemd-remount-fs.service.d
 mkdir -p "\$REMOUNTFS_CONF_DIR"
 printf "[Service]\nUnsetEnvironment=LD_PRELOAD\n" >"\$REMOUNTFS_CONF_DIR/env.conf"
 
-export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
+export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
 exec  $ROOTLIBDIR/systemd "\$@"
 EOF
 
