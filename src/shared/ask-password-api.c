@@ -79,7 +79,7 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
                 if (n < m)
                         break;
 
-                explicit_bzero(p, n);
+                explicit_bzero(p, m);
                 free(p);
                 m *= 2;
         }
