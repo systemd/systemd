@@ -1020,7 +1020,9 @@
         or runtime environment doesn't require their functionality. Use the various
         <varname>AssertArchitecture=</varname>, <varname>AssertVirtualization=</varname>, … options for a similar
         mechanism that causes the job to fail (instead of being skipped) and results in logging about the failed check
-        (instead of being silently processed). For details about assertion conditions see below.</para>
+        (instead of being silently processed). For details about assertion conditions see below. Units with failed
+        conditions are considered to be in a clean state and will be garbage collected if they are not referenced.
+        This means, that when queried, the condition failure may or may not show up in the state of the unit.</para>
 
         <para><varname>ConditionArchitecture=</varname> may be used to
         check whether the system is running on a specific
