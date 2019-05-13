@@ -237,7 +237,8 @@ the artifacts the container manager persistently leaves in the system.
 |                 65535 | 16bit `(uid_t) -1`    | Linux         |                               |
 |          65536…524287 | Unused                |               |                               |
 |     524288…1879048191 | Container UID ranges  | `systemd`     | `nss-mymachines`              |
-| 1879048192…4294967294 | Unused                |               |                               |
+| 1879048191…2147483647 | Unused                |               |                               |
+| 2147483648…4294967294 | HIC SVNT LEONES       |               |                               |
 |            4294967295 | 32bit `(uid_t) -1`    | Linux         |                               |
 
 Note that "Unused" in the table above doesn't meant that these ranges are
@@ -245,6 +246,13 @@ really unused. It just means that these ranges have no well-established
 pre-defined purposes between Linux, generic low-level distributions and
 `systemd`. There might very well be other packages that allocate from these
 ranges.
+
+Note that the range 2147483648…4294967294 (i.e. 2^31…2^32-2) should be handled
+with care. Various programs (including kernel file systems, see `devpts`) have
+trouble with UIDs outside of the signed 32bit range, i.e any UIDs equal to or
+above 2147483648. It is thus strongly recommended to stay away from this range
+in order to avoid complications. This range should be considered reserved for
+future, special purposes.
 
 ## Notes on resolvability of user and group names
 
