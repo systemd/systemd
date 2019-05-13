@@ -661,7 +661,7 @@ static int do_scsi_page83_inquiry(struct udev *udev,
                  * Examine each descriptor returned. There is normally only
                  * one or a small number of descriptors.
                  */
-                for (j = 4; j <= (unsigned int)page_83[3] + 3; j += page_83[j + 3] + 4) {
+                for (j = 4; j <= ((unsigned)page_83[2] << 8) + (unsigned)page_83[3] + 3; j += page_83[j + 3] + 4) {
                         retval = check_fill_0x83_id(udev,
                                                     dev_scsi, &page_83[j],
                                                     &id_search_list[id_ind],
