@@ -127,6 +127,7 @@ Route.Type,                             config_parse_route_type,                
 Route.InitialCongestionWindow,          config_parse_tcp_window,                         0,                             0
 Route.InitialAdvertisedReceiveWindow,   config_parse_tcp_window,                         0,                             0
 Route.QuickAck,                         config_parse_quickack,                           0,                             0
+Route.FastOpenNoCookie,                 config_parse_fast_open_no_cookie,                0,                             0
 DHCP.ClientIdentifier,                  config_parse_dhcp_client_identifier,             0,                             offsetof(Network, dhcp_client_identifier)
 DHCP.UseDNS,                            config_parse_bool,                               0,                             offsetof(Network, dhcp_use_dns)
 DHCP.UseNTP,                            config_parse_bool,                               0,                             offsetof(Network, dhcp_use_ntp)

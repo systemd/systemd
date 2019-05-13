@@ -1219,6 +1219,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>FastOpenNoCookie=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When true enables TCP fastopen without a cookie on a per-route basis.
+            When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
         <term><varname>MTUBytes=</varname></term>
         <listitem>
           <para>The maximum transmission unit in bytes to set for the
