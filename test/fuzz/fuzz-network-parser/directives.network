@@ -64,6 +64,7 @@ ListenPort=
 UseTimezone=
 RouteTable=
 BlackList=
+SendRelease=
 [Route]
 Destination=
 Protocol=

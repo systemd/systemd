@@ -606,7 +606,7 @@ static int client_message_init(
         assert(ret);
         assert(_optlen);
         assert(_optoffset);
-        assert(IN_SET(type, DHCP_DISCOVER, DHCP_REQUEST));
+        assert(IN_SET(type, DHCP_DISCOVER, DHCP_REQUEST, DHCP_RELEASE));
 
         optlen = DHCP_MIN_OPTIONS_SIZE;
         size = sizeof(DHCPPacket) + optlen;
@@ -697,7 +697,7 @@ static int client_message_init(
            MAY contain the Parameter Request List option. */
         /* NOTE: in case that there would be an option to do not send
          * any PRL at all, the size should be checked before sending */
-        if (client->req_opts_size > 0) {
+        if (client->req_opts_size > 0 && type != DHCP_RELEASE) {
                 r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
                                        SD_DHCP_OPTION_PARAMETER_REQUEST_LIST,
                                        client->req_opts_size, client->req_opts);
@@ -729,7 +729,7 @@ static int client_message_init(
          */
         /* RFC7844 section 3:
            SHOULD NOT contain any other option. */
-        if (!client->anonymize) {
+        if (!client->anonymize && type != DHCP_RELEASE) {
                 max_size = htobe16(size);
                 r = dhcp_option_append(&packet->dhcp, client->mtu, &optoffset, 0,
                                        SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
@@ -857,6 +857,41 @@ static int client_send_discover(sd_dhcp_client *client) {
                 return r;
 
         log_dhcp_client(client, "DISCOVER");
+
+        return 0;
+}
+
+static int client_send_release(sd_dhcp_client *client) {
+        _cleanup_free_ DHCPPacket *release = NULL;
+        size_t optoffset, optlen;
+        int r;
+
+        assert(client);
+        assert(!IN_SET(client->state, DHCP_STATE_STOPPED));
+
+        r = client_message_init(client, &release, DHCP_RELEASE,
+                                &optlen, &optoffset);
+        if (r < 0)
+                return r;
+
+        /* Fill up release IP and MAC */
+        release->dhcp.ciaddr = client->lease->address;
+        memcpy(&release->dhcp.chaddr, &client->mac_addr, client->mac_addr_len);
+
+        r = dhcp_option_append(&release->dhcp, optlen, &optoffset, 0,
+                               SD_DHCP_OPTION_END, 0, NULL);
+        if (r < 0)
+                return r;
+
+        r = dhcp_network_send_udp_socket(client->fd,
+                                         client->lease->server_address,
+                                         DHCP_PORT_SERVER,
+                                         &release->dhcp,
+                                         sizeof(DHCPMessage) + optoffset);
+        if (r < 0)
+                return r;
+
+        log_dhcp_client(client, "RELEASE");
 
         return 0;
 }
@@ -1856,6 +1891,14 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
                 log_dhcp_client(client, "STARTED on ifindex %i", client->ifindex);
 
         return r;
+}
+
+int sd_dhcp_client_send_release(sd_dhcp_client *client) {
+        assert_return(client, -EINVAL);
+
+        client_send_release(client);
+
+        return 0;
 }
 
 int sd_dhcp_client_stop(sd_dhcp_client *client) {
