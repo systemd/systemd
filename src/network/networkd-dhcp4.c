@@ -564,6 +564,9 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
                         }
 
+                        if (link->network->dhcp_send_release)
+                                (void) sd_dhcp_client_send_release(client);
+
                         _fallthrough_;
                 case SD_DHCP_CLIENT_EVENT_EXPIRED:
                 case SD_DHCP_CLIENT_EVENT_IP_CHANGE:

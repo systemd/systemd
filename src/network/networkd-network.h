@@ -128,6 +128,7 @@ struct Network {
         bool rapid_commit;
         bool dhcp_use_hostname;
         bool dhcp_route_table_set;
+        bool dhcp_send_release;
         DHCPUseDomains dhcp_use_domains;
         Set *dhcp_black_listed_ip;
 
