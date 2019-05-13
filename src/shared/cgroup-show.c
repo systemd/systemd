@@ -53,8 +53,8 @@ static void show_pid_array(
         if (flags & OUTPUT_FULL_WIDTH)
                 n_columns = 0;
         else {
-                if (n_columns > pid_width+2)
-                        n_columns -= pid_width+2;
+                if (n_columns > pid_width + 3) /* something like "├─1114784 " */
+                        n_columns -= pid_width + 3;
                 else
                         n_columns = 20;
         }
