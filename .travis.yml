@@ -91,13 +91,6 @@ jobs:
           after_script:
               - $CI_MANAGERS/debian.sh CLEANUP
 
-        - name: FuzzBuzz
-          language: bash
-          script:
-              - set -e
-              - $CI_MANAGERS/fuzzbuzz.sh
-              - set +e
-
         - stage: Coverity
           language: bash
           env:
