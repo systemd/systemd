@@ -587,20 +587,22 @@ static const NLTypeSystem rtnl_address_type_system = {
 /* RTM_METRICS --- array of struct rtattr with types of RTAX_* */
 
 static const NLType rtnl_route_metrics_types[] = {
-        [RTAX_MTU]               = { .type = NETLINK_TYPE_U32 },
-        [RTAX_WINDOW]            = { .type = NETLINK_TYPE_U32 },
-        [RTAX_RTT]               = { .type = NETLINK_TYPE_U32 },
-        [RTAX_RTTVAR]            = { .type = NETLINK_TYPE_U32 },
-        [RTAX_SSTHRESH]          = { .type = NETLINK_TYPE_U32 },
-        [RTAX_CWND]              = { .type = NETLINK_TYPE_U32 },
-        [RTAX_ADVMSS]            = { .type = NETLINK_TYPE_U32 },
-        [RTAX_REORDERING]        = { .type = NETLINK_TYPE_U32 },
-        [RTAX_HOPLIMIT]          = { .type = NETLINK_TYPE_U32 },
-        [RTAX_INITCWND]          = { .type = NETLINK_TYPE_U32 },
-        [RTAX_FEATURES]          = { .type = NETLINK_TYPE_U32 },
-        [RTAX_RTO_MIN]           = { .type = NETLINK_TYPE_U32 },
-        [RTAX_INITRWND]          = { .type = NETLINK_TYPE_U32 },
-        [RTAX_QUICKACK]          = { .type = NETLINK_TYPE_U32 },
+        [RTAX_MTU]                = { .type = NETLINK_TYPE_U32 },
+        [RTAX_WINDOW]             = { .type = NETLINK_TYPE_U32 },
+        [RTAX_RTT]                = { .type = NETLINK_TYPE_U32 },
+        [RTAX_RTTVAR]             = { .type = NETLINK_TYPE_U32 },
+        [RTAX_SSTHRESH]           = { .type = NETLINK_TYPE_U32 },
+        [RTAX_CWND]               = { .type = NETLINK_TYPE_U32 },
+        [RTAX_ADVMSS]             = { .type = NETLINK_TYPE_U32 },
+        [RTAX_REORDERING]         = { .type = NETLINK_TYPE_U32 },
+        [RTAX_HOPLIMIT]           = { .type = NETLINK_TYPE_U32 },
+        [RTAX_INITCWND]           = { .type = NETLINK_TYPE_U32 },
+        [RTAX_FEATURES]           = { .type = NETLINK_TYPE_U32 },
+        [RTAX_RTO_MIN]            = { .type = NETLINK_TYPE_U32 },
+        [RTAX_INITRWND]           = { .type = NETLINK_TYPE_U32 },
+        [RTAX_QUICKACK]           = { .type = NETLINK_TYPE_U32 },
+        [RTAX_CC_ALGO]            = { .type = NETLINK_TYPE_U32 },
+        [RTAX_FASTOPEN_NO_COOKIE] = { .type = NETLINK_TYPE_U32 },
 };
 
 static const NLTypeSystem rtnl_route_metrics_type_system = {
