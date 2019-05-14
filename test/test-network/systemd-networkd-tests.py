@@ -1900,16 +1900,21 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp_client_ipv6_only(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network')
-        self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, '2600::')
         self.assertNotRegex(output, '192.168.5')
+
+        # Confirm that ipv6 token is not set in the kernel
+        output = subprocess.check_output(['ip', 'token', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'token :: dev veth99')
 
     def test_dhcp_client_ipv4_only(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv4-only-ipv6-disabled.network')
