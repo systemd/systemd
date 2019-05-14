@@ -382,11 +382,22 @@ static int can_sleep_internal(const char *verb, bool check_allowed);
 static bool can_s2h(void) {
         const char *p;
         int r;
+        _cleanup_free_ char *t = NULL;
 
         r = access("/sys/class/rtc/rtc0/wakealarm", W_OK);
         if (r < 0) {
                 log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
                          "/sys/class/rct/rct0/wakealarm is not writable %m");
+                return false;
+        }
+
+        r = read_one_line_file("/sys/class/rtc/rtc0/wakealarm", &t);
+        if (r < 0) {
+                log_warning_errno(r, "Unable to read /sys/class/rtc/rtc0/wakealarm");
+                return false;
+        }
+        else if (strlen(t) > 0) {
+                log_notice("Unable to write to /sys/class/rtc/rtc0/wakealarm due to existing alarm: %s", t);
                 return false;
         }
 
