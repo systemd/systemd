@@ -111,6 +111,11 @@
           <varname>program_invocation_short_name</varname> variable,
           see
           <citerefentry project='die-net'><refentrytitle>program_invocation_short_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)</para>
+          <para>Note that the journal service does not validate the values of any structured
+          journal fields whose name is not prefixed with an underscore, and this includes any
+          syslog related fields such as these. Hence, applications that supply a facility, PID,
+          or log level are expected to do so properly formatted, i.e. as numeric integers formatted
+          as decimal strings.</para>
         </listitem>
 
       </varlistentry>
