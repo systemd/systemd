@@ -31,8 +31,6 @@ option('telinit-path', type : 'string', value : '/lib/sysvinit/telinit',
        description : 'path to telinit')
 option('rc-local', type : 'string',
        value : '/etc/rc.local')
-option('halt-local', type : 'string',
-       value : '/usr/sbin/halt.local')
 
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')
