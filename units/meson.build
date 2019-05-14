@@ -118,7 +118,6 @@ units = [
 in_units = [
         ['debug-shell.service',                  ''],
         ['emergency.service',                    ''],
-        ['halt-local.service',                   'HAVE_SYSV_COMPAT'],
         ['initrd-cleanup.service',               ''],
         ['initrd-parse-etc.service',             ''],
         ['initrd-switch-root.service',           ''],

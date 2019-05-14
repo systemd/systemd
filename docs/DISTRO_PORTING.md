@@ -15,7 +15,6 @@ distribution:
    * `-Dsysvinit-path=`
    * `-Dsysvrcnd-path=`
    * `-Drc-local=`
-   * `-Dhalt-local=`
    * `-Dloadkeys-path=`
    * `-Dsetfont-path=`
    * `-Dtty-gid=`
