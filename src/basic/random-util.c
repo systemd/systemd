@@ -33,6 +33,66 @@
 
 int rdrand(unsigned long *ret) {
 
+        /* So, you are a "security researcher", and you wonder why we bother with using raw RDRAND here,
+         * instead of sticking to /dev/urandom or getrandom()?
+         *
+         * Here's why: early boot. On Linux, during early boot the random pool that backs /dev/urandom and
+         * getrandom() is generally not initialized yet. It is very common that initialization of the random
+         * pool takes a longer time (up to many minutes), in particular on embedded devices that have no
+         * explicit hardware random generator, as well as in virtualized environments such as major cloud
+         * installations that do not provide virtio-rng or a similar mechanism.
+         *
+         * In such an environment using getrandom() synchronously means we'd block the entire system boot-up
+         * until the pool is initialized, i.e. *very* long. Using getrandom() asynchronously (GRND_NONBLOCK)
+         * would mean acquiring randomness during early boot would simply fail. Using /dev/urandom would mean
+         * generating many kmsg log messages about our use of it before the random pool is properly
+         * initialized. Neither of these outcomes is desirable.
+         *
+         * Thus, for very specific purposes we use RDRAND instead of either of these three options. RDRAND
+         * provides us quickly and relatively reliably with random values, without having to delay boot,
+         * without triggering warning messages in kmsg.
+         *
+         * Note that we use RDRAND only under very specific circumstances, when the requirements on the
+         * quality of the returned entropy permit it. Specifically, here are some cases where we *do* use
+         * RDRAND:
+         *
+         *         • UUID generation: UUIDs are supposed to be universally unique but are not cryptographic
+         *           key material. The quality and trust level of RDRAND should hence be OK: UUIDs should be
+         *           generated in a way that is reliably unique, but they do not require ultimate trust into
+         *           the entropy generator. systemd generates a number of UUIDs during early boot, including
+         *           'invocation IDs' for every unit spawned that identify the specific invocation of the
+         *           service globally, and a number of others. Other alternatives for generating these UUIDs
+         *           have been considered, but don't really work: for example, hashing uuids from a local
+         *           system identifier combined with a counter falls flat because during early boot disk
+         *           storage is not yet available (think: initrd) and thus a system-specific ID cannot be
+         *           stored or retrieved yet.
+         *
+         *         • Hash table seed generation: systemd uses many hash tables internally. Hash tables are
+         *           generally assumed to have O(1) access complexity, but can deteriorate to prohibitive
+         *           O(n) access complexity if an attacker manages to trigger a large number of hash
+         *           collisions. Thus, systemd (as any software employing hash tables should) uses seeded
+         *           hash functions for its hash tables, with a seed generated randomly. The hash tables
+         *           systemd employs watch the fill level closely and reseed if necessary. This allows use of
+         *           a low quality RNG initially, as long as it improves should a hash table be under attack:
+         *           the attacker after all needs to to trigger many collisions to exploit it for the purpose
+         *           of DoS, but if doing so improves the seed the attack surface is reduced as the attack
+         *           takes place.
+         *
+         * Some cases where we do NOT use RDRAND are:
+         *
+         *         • Generation of cryptographic key material 🔑
+         *
+         *         • Generation of cryptographic salt values 🧂
+         *
+         * This function returns:
+         *
+         *         -EOPNOTSUPP → RDRAND is not available on this system 😔
+         *         -EAGAIN     → The operation failed this time, but is likely to work if you try again a few
+         *                       times ♻
+         *         -EUCLEAN    → We got some random value, but it looked strange, so we refused using it.
+         *                       This failure might or might not be temporary. 😕
+         */
+
 #if defined(__i386__) || defined(__x86_64__)
         static int have_rdrand = -1;
         unsigned long v;
@@ -90,10 +150,20 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
         bool got_some = false;
         int r;
 
-        /* Gathers some randomness from the kernel (or the CPU if the RANDOM_ALLOW_RDRAND flag is set). This
-         * call won't block, unless the RANDOM_BLOCK flag is set. If RANDOM_MAY_FAIL is set, an error is
-         * returned if the random pool is not initialized. Otherwise it will always return some data from the
-         * kernel, regardless of whether the random pool is fully initialized or not. */
+        /* Gathers some high-quality randomness from the kernel (or potentially mid-quality randomness from
+         * the CPU if the RANDOM_ALLOW_RDRAND flag is set). This call won't block, unless the RANDOM_BLOCK
+         * flag is set. If RANDOM_MAY_FAIL is set, an error is returned if the random pool is not
+         * initialized. Otherwise it will always return some data from the kernel, regardless of whether the
+         * random pool is fully initialized or not. If RANDOM_EXTEND_WITH_PSEUDO is set, and some but not
+         * enough better quality randomness could be acquired, the rest is filled up with low quality
+         * randomness.
+         *
+         * Of course, when creating cryptographic key material you really shouldn't use RANDOM_ALLOW_DRDRAND
+         * or even RANDOM_EXTEND_WITH_PSEUDO.
+         *
+         * When generating UUIDs it's fine to use RANDOM_ALLOW_RDRAND but not OK to use
+         * RANDOM_EXTEND_WITH_PSEUDO. In fact RANDOM_EXTEND_WITH_PSEUDO is only really fine when invoked via
+         * an "all bets are off" wrapper, such as random_bytes(), see below. */
 
         if (n == 0)
                 return 0;
@@ -255,6 +325,11 @@ void initialize_srand(void) {
 void pseudo_random_bytes(void *p, size_t n) {
         uint8_t *q;
 
+        /* This returns pseudo-random data using libc's rand() function. You probably never want to call this
+         * directly, because why would you use this if you can get better stuff cheaply? Use random_bytes()
+         * instead, see below: it will fall back to this function if there's nothing better to get, but only
+         * then. */
+
         initialize_srand();
 
         for (q = p; q < (uint8_t*) p + n; q += RAND_STEP) {
@@ -275,6 +350,38 @@ void pseudo_random_bytes(void *p, size_t n) {
 }
 
 void random_bytes(void *p, size_t n) {
+
+        /* This returns high quality randomness if we can get it cheaply. If we can't because for some reason
+         * it is not available we'll try some crappy fallbacks.
+         *
+         * What this function will do:
+         *
+         *         • This function will preferably use the CPU's RDRAND operation, if it is available, in
+         *           order to return "mid-quality" random values cheaply.
+         *
+         *         • Use getrandom() with GRND_NONBLOCK, to return high-quality random values if they are
+         *           cheaply available.
+         *
+         *         • This function will return pseudo-random data, generated via libc rand() if nothing
+         *           better is available.
+         *
+         *         • This function will work fine in early boot
+         *
+         *         • This function will always succeed
+         *
+         * What this function won't do:
+         *
+         *         • This function will never fail: it will give you randomness no matter what. It might not
+         *           be high quality, but it will return some, possibly generated via libc's rand() call.
+         *
+         *         • This function will never block: if the only way to get good randomness is a blocking,
+         *           synchronous getrandom() we'll instead provide you with pseudo-random data.
+         *
+         * This function is hence great for things like seeding hash tables, generating random numeric UNIX
+         * user IDs (that are checked for collisions before use) and such.
+         *
+         * This function is hence not useful for generating UUIDs or cryptographic key material.
+         */
 
         if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO|RANDOM_MAY_FAIL|RANDOM_ALLOW_RDRAND) >= 0)
                 return;
