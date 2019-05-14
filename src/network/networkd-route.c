@@ -59,6 +59,7 @@ int route_new(Route **ret) {
                 .table = RT_TABLE_MAIN,
                 .lifetime = USEC_INFINITY,
                 .quickack = -1,
+                .fast_open_no_cookie = -1,
                 .gateway_onlink = -1,
         };
 
@@ -638,10 +639,16 @@ int route_configure(
                         return log_link_error_errno(link, r, "Could not append RTAX_INITRWND attribute: %m");
         }
 
-        if (route->quickack != -1) {
+        if (route->quickack >= 0) {
                 r = sd_netlink_message_append_u32(req, RTAX_QUICKACK, route->quickack);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTAX_QUICKACK attribute: %m");
+        }
+
+        if (route->fast_open_no_cookie >= 0) {
+                r = sd_netlink_message_append_u32(req, RTAX_FASTOPEN_NO_COOKIE, route->fast_open_no_cookie);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append RTAX_FASTOPEN_NO_COOKIE attribute: %m");
         }
 
         r = sd_netlink_message_close_container(req);
@@ -1193,6 +1200,44 @@ int config_parse_quickack(
         }
 
         n->quickack = !!k;
+        TAKE_PTR(n);
+        return 0;
+}
+
+int config_parse_fast_open_no_cookie(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
+        Network *network = userdata;
+        int k, r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        k = parse_boolean(rvalue);
+        if (k < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, k,
+                           "Failed to parse TCP fastopen no cookie, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        n->fast_open_no_cookie = k;
         TAKE_PTR(n);
         return 0;
 }
