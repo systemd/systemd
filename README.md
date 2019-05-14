@@ -6,7 +6,8 @@
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1369/badge)](https://bestpractices.coreinfrastructure.org/projects/1369)<br/>
 [![Travis CI Build Status](https://travis-ci.org/systemd/systemd.svg?branch=master)](https://travis-ci.org/systemd/systemd)<br/>
 [![Language Grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/systemd/systemd.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/systemd/systemd/context:cpp)<br/>
-[![CentOS CI Build Status](https://ci.centos.org/buildStatus/icon?job=systemd-pr-build)](https://ci.centos.org/job/systemd-pr-build/)
+[![CentOS CI Build Status](https://ci.centos.org/buildStatus/icon?job=systemd-pr-build)](https://ci.centos.org/job/systemd-pr-build/)<br/>
+[![Build Status](https://dev.azure.com/evvers/systemd-systemd/_apis/build/status/systemd.systemd?branchName=master)](https://dev.azure.com/evvers/systemd-systemd/_build/latest?definitionId=1&branchName=master)
 
 ## Details
 
