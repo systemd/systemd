@@ -50,7 +50,7 @@ static int write_hibernate_location_info(void) {
         if (streq(type, "partition")) {
                 r = write_string_file("/sys/power/resume", device, WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (r < 0)
-                        return log_debug_errno(r, "Faileed to write partitoin device to /sys/power/resume: %m");
+                        return log_debug_errno(r, "Failed to write partition device to /sys/power/resume: %m");
 
                 return r;
         }
