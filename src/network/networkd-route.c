@@ -639,7 +639,7 @@ int route_configure(
                         return log_link_error_errno(link, r, "Could not append RTAX_INITRWND attribute: %m");
         }
 
-        if (route->quickack != -1) {
+        if (route->quickack >= 0) {
                 r = sd_netlink_message_append_u32(req, RTAX_QUICKACK, route->quickack);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTAX_QUICKACK attribute: %m");
