@@ -89,6 +89,7 @@ IPMasquerade=
 ProxyARP=
 PrimarySlave=
 IPv4LLRoute=
+DefaultRouteOnDevice=
 Address=
 IPv6ProxyNDPAddress=
 IPv6AcceptRA=

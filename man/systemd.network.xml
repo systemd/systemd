@@ -348,6 +348,15 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>DefaultRouteOnDevice=</varname></term>
+          <listitem>
+            <para>Takes a boolean. If set to true, sets up the default route bound to the interface.
+            Defaults to false. This is useful when creating routes on point-to-point interfaces.
+            This is equivalent to e.g. the following.
+            <programlisting>ip route add default dev veth99</programlisting></para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>IPv6Token=</varname></term>
           <listitem>
             <para>An IPv6 address with the top 64 bits unset. When set, indicates the

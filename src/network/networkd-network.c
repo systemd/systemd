@@ -454,6 +454,11 @@ int network_load_one(Manager *manager, const char *filename) {
         if (r < 0)
                 log_warning_errno(r, "%s: Failed to add IPv4LL route, ignoring: %m", network->filename);
 
+        r = network_add_default_route_on_device(network);
+        if (r < 0)
+                log_warning_errno(r, "%s: Failed to add default route on device, ignoring: %m",
+                                  network->filename);
+
         r = ordered_hashmap_ensure_allocated(&manager->networks, &string_hash_ops);
         if (r < 0)
                 return r;

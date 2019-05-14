@@ -151,6 +151,8 @@ struct Network {
         AddressFamilyBoolean link_local;
         bool ipv4ll_route;
 
+        bool default_route_on_device;
+
         /* IPv6 prefix delegation support */
         RADVPrefixDelegation router_prefix_delegation;
         usec_t router_lifetime_usec;
