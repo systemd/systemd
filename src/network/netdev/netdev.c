@@ -732,7 +732,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->filename)
                 return log_oom();
 
-        if (!netdev->mac && netdev->kind != NETDEV_KIND_VLAN) {
+        if (!netdev->mac && !IN_SET(netdev->kind, NETDEV_KIND_VLAN, NETDEV_KIND_BRIDGE)) {
                 r = netdev_get_mac(netdev->ifname, &netdev->mac);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r,
