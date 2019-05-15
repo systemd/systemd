@@ -182,11 +182,7 @@ static int link_set_dhcp_routes(Link *link) {
 }
 
 static int dhcp_lease_lost(Link *link) {
-        _cleanup_(address_freep) Address *address = NULL;
-        const struct in_addr *router;
-        struct in_addr addr;
-        struct in_addr netmask;
-        unsigned prefixlen = 0;
+        struct in_addr address = {};
         int r;
 
         assert(link);
@@ -194,9 +190,15 @@ static int dhcp_lease_lost(Link *link) {
 
         log_link_warning(link, "DHCP lease lost");
 
+        (void) sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+
         if (link->network->dhcp_use_routes) {
                 _cleanup_free_ sd_dhcp_route **routes = NULL;
+                const struct in_addr *router;
+                uint32_t table;
                 int n, i;
+
+                table = link_get_dhcp_route_table(link);
 
                 n = sd_dhcp_lease_get_routes(link->dhcp_lease, &routes);
                 if (n >= 0) {
@@ -209,6 +211,9 @@ static int dhcp_lease_lost(Link *link) {
                                         assert_se(sd_dhcp_route_get_gateway(routes[i], &route->gw.in) >= 0);
                                         assert_se(sd_dhcp_route_get_destination(routes[i], &route->dst.in) >= 0);
                                         assert_se(sd_dhcp_route_get_destination_prefix_length(routes[i], &route->dst_prefixlen) >= 0);
+                                        route->priority = link->network->dhcp_route_metric;
+                                        route->table = table;
+                                        route->scope = route_scope_from_address(route, &address);
 
                                         route_remove(route, link, NULL);
                                 }
@@ -216,7 +221,7 @@ static int dhcp_lease_lost(Link *link) {
                 }
 
                 r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
-                if (r > 0 && !in4_addr_is_null(&router[0])) {
+                if (r > 0 && !in4_addr_is_null(&router[0]) && !in4_addr_is_null(&address)) {
                         _cleanup_(route_freep) Route *route_gw = NULL;
                         _cleanup_(route_freep) Route *route = NULL;
 
@@ -225,7 +230,11 @@ static int dhcp_lease_lost(Link *link) {
                                 route_gw->family = AF_INET;
                                 route_gw->dst.in = router[0];
                                 route_gw->dst_prefixlen = 32;
+                                route_gw->prefsrc.in = address;
                                 route_gw->scope = RT_SCOPE_LINK;
+                                route_gw->protocol = RTPROT_DHCP;
+                                route_gw->priority = link->network->dhcp_route_metric;
+                                route_gw->table = table;
 
                                 route_remove(route_gw, link, NULL);
                         }
@@ -234,25 +243,33 @@ static int dhcp_lease_lost(Link *link) {
                         if (r >= 0) {
                                 route->family = AF_INET;
                                 route->gw.in = router[0];
+                                route->prefsrc.in = address;
+                                route->protocol = RTPROT_DHCP;
+                                route->priority = link->network->dhcp_route_metric;
+                                route->table = table;
 
                                 route_remove(route, link, NULL);
                         }
                 }
         }
 
-        r = address_new(&address);
-        if (r >= 0) {
-                r = sd_dhcp_lease_get_address(link->dhcp_lease, &addr);
+        if (!in4_addr_is_null(&address)) {
+                _cleanup_(address_freep) Address *a = NULL;
+
+                r = address_new(&a);
                 if (r >= 0) {
+                        struct in_addr netmask;
+                        unsigned prefixlen = 0;
+
                         r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
                         if (r >= 0)
                                 prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
 
-                        address->family = AF_INET;
-                        address->in_addr.in = addr;
-                        address->prefixlen = prefixlen;
+                        a->family = AF_INET;
+                        a->in_addr.in = address;
+                        a->prefixlen = prefixlen;
 
-                        address_remove(address, link, NULL);
+                        address_remove(a, link, NULL);
                 }
         }
 
