@@ -1203,6 +1203,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '149.10.124.48/28 proto kernel scope link src 149.10.124.58')
         self.assertRegex(output, '149.10.124.64 proto static scope link')
+        self.assertRegex(output, '169.254.0.0/16 proto static scope link metric 2048')
         self.assertRegex(output, '192.168.1.1 proto static initcwnd 20')
         self.assertRegex(output, '192.168.1.2 proto static initrwnd 30')
 
