@@ -220,6 +220,19 @@ class Utilities():
             args += ['--any']
         subprocess.check_call(args)
 
+    def get_operstate(self, link, show_status=True, setup_state='configured'):
+        output = subprocess.check_output(['networkctl', 'status', link], universal_newlines=True).rstrip()
+        if show_status:
+            print(output)
+        for line in output.splitlines():
+            if 'State:' in line and (not setup_state or setup_state in line):
+                return line.split()[1]
+        return None
+
+    def check_operstate(self, link, expected, show_status=True, setup_state='configured'):
+        self.assertRegex(self.get_operstate(link, show_status, setup_state), expected)
+
+
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     links =[
