@@ -661,7 +661,7 @@ static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
         if (r < 0)
                 return r;
 
-        r = get_process_cmdline(container_pid, 0, false, cmdline);
+        r = get_process_cmdline(container_pid, SIZE_MAX, false, cmdline);
         if (r < 0)
                 return r;
 
@@ -1154,7 +1154,7 @@ static int gather_pid_metadata(
         if (sd_pid_get_slice(pid, &t) >= 0)
                 set_iovec_field_free(iovec, n_iovec, "COREDUMP_SLICE=", t);
 
-        if (get_process_cmdline(pid, 0, false, &t) >= 0)
+        if (get_process_cmdline(pid, SIZE_MAX, false, &t) >= 0)
                 set_iovec_field_free(iovec, n_iovec, "COREDUMP_CMDLINE=", t);
 
         if (cg_pid_get_path_shifted(pid, NULL, &t) >= 0)

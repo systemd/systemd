@@ -901,7 +901,7 @@ static int append_process(sd_bus_message *reply, const char *p, pid_t pid, Set *
                 p = buf;
         }
 
-        (void) get_process_cmdline(pid, 0, true, &cmdline);
+        (void) get_process_cmdline(pid, SIZE_MAX, true, &cmdline);
 
         return sd_bus_message_append(reply,
                                      "(sus)",

@@ -44,6 +44,7 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "user-util.h"
+#include "utf8.h"
 
 static int get_process_state(pid_t pid) {
         const char *p;
@@ -100,22 +101,24 @@ int get_process_comm(pid_t pid, char **ret) {
         return 0;
 }
 
-int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line) {
+int get_process_cmdline(pid_t pid, size_t max_columns, bool comm_fallback, char **line) {
         _cleanup_fclose_ FILE *f = NULL;
-        bool space = false;
-        char *k;
-        _cleanup_free_ char *ans = NULL;
+        _cleanup_free_ char *t = NULL, *ans = NULL;
         const char *p;
-        int c, r;
+        int r;
+        size_t k;
+
+        /* This is supposed to be a safety guard against runaway command lines. */
+        size_t max_length = sc_arg_max();
 
         assert(line);
         assert(pid >= 0);
 
-        /* Retrieves a process' command line. Replaces unprintable characters while doing so by whitespace (coalescing
-         * multiple sequential ones into one). If max_length is != 0 will return a string of the specified size at most
-         * (the trailing NUL byte does count towards the length here!), abbreviated with a "..." ellipsis. If
-         * comm_fallback is true and the process has no command line set (the case for kernel threads), or has a
-         * command line that resolves to the empty string will return the "comm" name of the process instead.
+        /* Retrieves a process' command line. Replaces non-utf8 bytes by replacement character (�). If
+         * max_columns is != -1 will return a string of the specified console width at most, abbreviated with
+         * an ellipsis. If comm_fallback is true and the process has no command line set (the case for kernel
+         * threads), or has a command line that resolves to the empty string will return the "comm" name of
+         * the process instead. This will use at most _SC_ARG_MAX bytes of input data.
          *
          * Returns -ESRCH if the process doesn't exist, and -ENOENT if the process has no command line (and
          * comm_fallback is false). Returns 0 and sets *line otherwise. */
@@ -127,127 +130,54 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
         if (r < 0)
                 return r;
 
-        if (max_length == 0)
-                /* This is supposed to be a safety guard against runaway command lines. */
-                max_length = sc_arg_max();
+        /* We assume that each four-byte character uses one or two columns. If we ever check for combining
+         * characters, this assumption will need to be adjusted. */
+        if ((size_t) 4 * max_columns + 1 < max_columns)
+                max_length = MIN(max_length, (size_t) 4 * max_columns + 1);
 
-        if (max_length == 1) {
+        t = new(char, max_length);
+        if (!t)
+                return -ENOMEM;
 
-                /* If there's only room for one byte, return the empty string */
-                ans = new0(char, 1);
-                if (!ans)
-                        return -ENOMEM;
+        k = fread(t, 1, max_length, f);
+        if (k > 0) {
+                /* Arguments are separated by NULs. Let's replace those with spaces. */
+                for (size_t i = 0; i < k - 1; i++)
+                        if (t[i] == '\0')
+                                t[i] = ' ';
 
-                *line = TAKE_PTR(ans);
-                return 0;
-
+                t[k] = '\0'; /* Normally, t[k] is already NUL, so this is just a guard in case of short read */
         } else {
-                bool dotdotdot = false;
-                size_t left;
-
-                ans = new(char, max_length);
-                if (!ans)
-                        return -ENOMEM;
-
-                k = ans;
-                left = max_length;
-                while ((c = getc(f)) != EOF) {
-
-                        if (isprint(c)) {
-
-                                if (space) {
-                                        if (left <= 2) {
-                                                dotdotdot = true;
-                                                break;
-                                        }
-
-                                        *(k++) = ' ';
-                                        left--;
-                                        space = false;
-                                }
-
-                                if (left <= 1) {
-                                        dotdotdot = true;
-                                        break;
-                                }
-
-                                *(k++) = (char) c;
-                                left--;
-                        } else if (k > ans)
-                                space = true;
-                }
-
-                if (dotdotdot) {
-                        if (max_length <= 4) {
-                                k = ans;
-                                left = max_length;
-                        } else {
-                                k = ans + max_length - 4;
-                                left = 4;
-
-                                /* Eat up final spaces */
-                                while (k > ans && isspace(k[-1])) {
-                                        k--;
-                                        left++;
-                                }
-                        }
-
-                        strncpy(k, "...", left-1);
-                        k[left-1] = 0;
-                } else
-                        *k = 0;
-        }
-
-        /* Kernel threads have no argv[] */
-        if (isempty(ans)) {
-                _cleanup_free_ char *t = NULL;
-                int h;
-
-                ans = mfree(ans);
+                /* We only treat getting nothing as an error. We *could* also get an error after reading some
+                 * data, but we ignore that case, as such an error is rather unlikely and we prefer to get
+                 * some data rather than none. */
+                if (ferror(f))
+                        return -errno;
 
                 if (!comm_fallback)
                         return -ENOENT;
 
-                h = get_process_comm(pid, &t);
-                if (h < 0)
-                        return h;
+                /* Kernel threads have no argv[] */
+                _cleanup_free_ char *t2 = NULL;
 
-                size_t l = strlen(t);
+                r = get_process_comm(pid, &t2);
+                if (r < 0)
+                        return r;
 
-                if (l + 3 <= max_length) {
-                        ans = strjoin("[", t, "]");
-                        if (!ans)
-                                return -ENOMEM;
-
-                } else if (max_length <= 6) {
-                        ans = new(char, max_length);
-                        if (!ans)
-                                return -ENOMEM;
-
-                        memcpy(ans, "[...]", max_length-1);
-                        ans[max_length-1] = 0;
-                } else {
-                        t[max_length - 6] = 0;
-
-                        /* Chop off final spaces */
-                        delete_trailing_chars(t, WHITESPACE);
-
-                        ans = strjoin("[", t, "...]");
-                        if (!ans)
-                                return -ENOMEM;
-                }
-
-                *line = TAKE_PTR(ans);
-                return 0;
+                mfree(t);
+                t = strjoin("[", t2, "]");
+                if (!t)
+                        return -ENOMEM;
         }
 
-        k = realloc(ans, strlen(ans) + 1);
-        if (!k)
+        delete_trailing_chars(t, WHITESPACE);
+
+        ans = utf8_escape_non_printable_full(t, max_columns);
+        if (!ans)
                 return -ENOMEM;
 
-        ans = NULL;
-        *line = k;
-
+        (void) str_realloc(&ans);
+        *line = TAKE_PTR(ans);
         return 0;
 }
 
