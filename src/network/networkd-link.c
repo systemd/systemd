@@ -1383,7 +1383,7 @@ static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         return 1;
 }
 
-int link_set_mtu(Link *link, uint32_t mtu, bool force) {
+int link_set_mtu(Link *link, uint32_t mtu) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -1394,7 +1394,7 @@ int link_set_mtu(Link *link, uint32_t mtu, bool force) {
         if (mtu == 0 || link->setting_mtu)
                 return 0;
 
-        if (force ? link->mtu == mtu : link->mtu >= mtu)
+        if (link->mtu == mtu)
                 return 0;
 
         log_link_debug(link, "Setting MTU: %" PRIu32, mtu);
@@ -2634,7 +2634,7 @@ static int link_configure(Link *link) {
                         return r;
         }
 
-        r = link_set_mtu(link, link->network->mtu, link->network->mtu_is_set);
+        r = link_set_mtu(link, link->network->mtu);
         if (r < 0)
                 return r;
 

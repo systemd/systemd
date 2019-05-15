@@ -218,7 +218,6 @@ struct Network {
 
         struct ether_addr *mac;
         uint32_t mtu;
-        bool mtu_is_set; /* Indicate MTUBytes= is specified. */
         int arp;
         int multicast;
         int allmulticast;

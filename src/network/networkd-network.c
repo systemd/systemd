@@ -143,24 +143,6 @@ static int network_resolve_stacked_netdevs(Network *network) {
         return 0;
 }
 
-static uint32_t network_get_stacked_netdevs_mtu(Network *network) {
-        uint32_t mtu = 0;
-        NetDev *dev;
-        Iterator i;
-
-        HASHMAP_FOREACH(dev, network->stacked_netdevs, i)
-                if (dev->kind == NETDEV_KIND_VLAN && dev->mtu > 0)
-                        /* See vlan_dev_change_mtu() in kernel.
-                         * Note that the additional 4bytes may not be necessary for all devices. */
-                        mtu = MAX(mtu, dev->mtu + 4);
-
-                else if (dev->kind == NETDEV_KIND_MACVLAN && dev->mtu > mtu)
-                        /* See macvlan_change_mtu() in kernel. */
-                        mtu = dev->mtu;
-
-        return mtu;
-}
-
 int network_verify(Network *network) {
         Address *address, *address_next;
         Route *route, *route_next;
@@ -169,7 +151,6 @@ int network_verify(Network *network) {
         AddressLabel *label, *label_next;
         Prefix *prefix, *prefix_next;
         RoutingPolicyRule *rule, *rule_next;
-        uint32_t mtu;
 
         assert(network);
         assert(network->filename);
@@ -252,16 +233,7 @@ int network_verify(Network *network) {
         if (network->ip_masquerade)
                 network->ip_forward |= ADDRESS_FAMILY_IPV4;
 
-        network->mtu_is_set = network->mtu > 0;
-        mtu = network_get_stacked_netdevs_mtu(network);
-        if (network->mtu < mtu) {
-                if (network->mtu_is_set)
-                        log_notice("%s: Bumping MTUBytes= from %"PRIu32" to %"PRIu32" because of stacked device",
-                                   network->filename, network->mtu, mtu);
-                network->mtu = mtu;
-        }
-
-        if (network->mtu_is_set && network->dhcp_use_mtu) {
+        if (network->mtu > 0 && network->dhcp_use_mtu) {
                 log_warning("%s: MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set. "
                             "Disabling UseMTU=.", network->filename);
                 network->dhcp_use_mtu = false;
