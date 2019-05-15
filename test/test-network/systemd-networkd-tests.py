@@ -1566,11 +1566,23 @@ class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
 
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'down']), 0)
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'test1', 'down']), 0)
-        time.sleep(5)
+        time.sleep(2)
 
         self.check_operstate('dummy98', 'off')
         self.check_operstate('test1', 'off')
-        self.check_operstate('bond99', 'no-carrier')
+
+        bond_has_no_carrier=False
+        for trial in range(30):
+            if trial > 0:
+                time.sleep(1)
+            output = subprocess.check_output(['ip', 'address', 'show', 'bond99'], universal_newlines=True).rstrip()
+            print(output)
+            if self.get_operstate('bond99') == 'no-carrier':
+                break
+        else:
+            # Huh? Kernel does not recognize that all slave interfaces are down?
+            # Let's confirm that networkd's operstate is consistent with ip's result.
+            self.assertNotRegex(output, 'NO-CARRIER')
 
 class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
     links = [
