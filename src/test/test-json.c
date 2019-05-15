@@ -415,6 +415,93 @@ static void test_depth(void) {
         fputs("\n", stdout);
 }
 
+static void test_normalize(void) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+        _cleanup_free_ char *t = NULL;
+
+        assert_se(json_build(&v, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("b", JSON_BUILD_STRING("x")),
+                                             JSON_BUILD_PAIR("c", JSON_BUILD_STRING("y")),
+                                             JSON_BUILD_PAIR("a", JSON_BUILD_STRING("z")))) >= 0);
+
+        assert_se(!json_variant_is_sorted(v));
+        assert_se(!json_variant_is_normalized(v));
+
+        assert_se(json_variant_format(v, 0, &t) >= 0);
+        assert_se(streq(t, "{\"b\":\"x\",\"c\":\"y\",\"a\":\"z\"}"));
+        t = mfree(t);
+
+        assert_se(json_build(&w, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("bar", JSON_BUILD_STRING("zzz")),
+                                             JSON_BUILD_PAIR("foo", JSON_BUILD_VARIANT(v)))) >= 0);
+
+        assert_se(json_variant_is_sorted(w));
+        assert_se(!json_variant_is_normalized(w));
+
+        assert_se(json_variant_format(w, 0, &t) >= 0);
+        assert_se(streq(t, "{\"bar\":\"zzz\",\"foo\":{\"b\":\"x\",\"c\":\"y\",\"a\":\"z\"}}"));
+        t = mfree(t);
+
+        assert_se(json_variant_sort(&v) >= 0);
+        assert_se(json_variant_is_sorted(v));
+        assert_se(json_variant_is_normalized(v));
+
+        assert_se(json_variant_format(v, 0, &t) >= 0);
+        assert_se(streq(t, "{\"a\":\"z\",\"b\":\"x\",\"c\":\"y\"}"));
+        t = mfree(t);
+
+        assert_se(json_variant_normalize(&w) >= 0);
+        assert_se(json_variant_is_sorted(w));
+        assert_se(json_variant_is_normalized(w));
+
+        assert_se(json_variant_format(w, 0, &t) >= 0);
+        assert_se(streq(t, "{\"bar\":\"zzz\",\"foo\":{\"a\":\"z\",\"b\":\"x\",\"c\":\"y\"}}"));
+        t = mfree(t);
+}
+
+static void test_bisect(void) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        char c;
+
+        /* Tests the bisection logic in json_variant_by_key() */
+
+        for (c = 'z'; c >= 'a'; c--) {
+
+                if ((c % 3) == 0)
+                        continue;
+
+                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+                assert_se(json_variant_new_stringn(&w, (char[4]) { '<', c, c, '>' }, 4) >= 0);
+                assert_se(json_variant_set_field(&v, (char[2]) { c, 0 }, w) >= 0);
+        }
+
+        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+
+        assert_se(!json_variant_is_sorted(v));
+        assert_se(!json_variant_is_normalized(v));
+        assert_se(json_variant_normalize(&v) >= 0);
+        assert_se(json_variant_is_sorted(v));
+        assert_se(json_variant_is_normalized(v));
+
+        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+
+        for (c = 'a'; c <= 'z'; c++) {
+                JsonVariant *k;
+                const char *z;
+
+                k = json_variant_by_key(v, (char[2]) { c, 0 });
+                assert_se(!k == ((c % 3) == 0));
+
+                if (!k)
+                        continue;
+
+                assert_se(json_variant_is_string(k));
+
+                z = (char[5]){ '<', c, c, '>', 0};
+                assert_se(streq(json_variant_string(k), z));
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -462,10 +549,11 @@ int main(int argc, char *argv[]) {
         test_variant("[ 0, -0, 0.0, -0.0, 0.000, -0.000, 0e0, -0e0, 0e+0, -0e-0, 0e-0, -0e000, 0e+000 ]", test_zeroes);
 
         test_build();
-
         test_source();
-
         test_depth();
+
+        test_normalize();
+        test_bisect();
 
         return 0;
 }

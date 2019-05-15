@@ -71,8 +71,14 @@ struct JsonVariant {
         /* While comparing two arrays, we use this for marking what we already have seen */
         bool is_marked:1;
 
-        /* Ersase from memory when freeing */
+        /* Erase from memory when freeing */
         bool sensitive:1;
+
+        /* If this is an object the fields are strictly ordered by name */
+        bool sorted:1;
+
+        /* If in addition to this object all objects referenced by it are also ordered strictly by name */
+        bool normalized:1;
 
         /* The current 'depth' of the JsonVariant, i.e. how many levels of member variants this has */
         uint16_t depth;
@@ -215,10 +221,10 @@ static uint16_t json_variant_depth(JsonVariant *v) {
         return v->depth;
 }
 
-static JsonVariant *json_variant_normalize(JsonVariant *v) {
+static JsonVariant *json_variant_formalize(JsonVariant *v) {
 
-        /* Converts json variants to their normalized form, i.e. fully dereferenced and wherever possible converted to
-         * the "magic" version if there is one */
+        /* Converts json variant pointers to their normalized form, i.e. fully dereferenced and wherever
+         * possible converted to the "magic" version if there is one */
 
         if (!v)
                 return NULL;
@@ -259,9 +265,9 @@ static JsonVariant *json_variant_normalize(JsonVariant *v) {
         }
 }
 
-static JsonVariant *json_variant_conservative_normalize(JsonVariant *v) {
+static JsonVariant *json_variant_conservative_formalize(JsonVariant *v) {
 
-        /* Much like json_variant_normalize(), but won't simplify if the variant has a source/line location attached to
+        /* Much like json_variant_formalize(), but won't simplify if the variant has a source/line location attached to
          * it, in order not to lose context */
 
         if (!v)
@@ -273,7 +279,7 @@ static JsonVariant *json_variant_conservative_normalize(JsonVariant *v) {
         if (v->source || v->line > 0 || v->column > 0)
                 return v;
 
-        return json_variant_normalize(v);
+        return json_variant_formalize(v);
 }
 
 static int json_variant_new(JsonVariant **ret, JsonVariantType type, size_t space) {
@@ -451,7 +457,7 @@ static void json_variant_set(JsonVariant *a, JsonVariant *b) {
         case JSON_VARIANT_ARRAY:
         case JSON_VARIANT_OBJECT:
                 a->is_reference = true;
-                a->reference = json_variant_ref(json_variant_conservative_normalize(b));
+                a->reference = json_variant_ref(json_variant_conservative_formalize(b));
                 break;
 
         case JSON_VARIANT_NULL:
@@ -476,6 +482,7 @@ static void json_variant_copy_source(JsonVariant *v, JsonVariant *from) {
 
 int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        bool normalized = true;
 
         assert_return(ret, -EINVAL);
         if (n == 0) {
@@ -511,7 +518,12 @@ int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n) {
 
                 json_variant_set(w, c);
                 json_variant_copy_source(w, c);
+
+                if (!json_variant_is_normalized(c))
+                        normalized = false;
         }
+
+        v->normalized = normalized;
 
         *ret = TAKE_PTR(v);
         return 0;
@@ -549,6 +561,8 @@ int json_variant_new_array_bytes(JsonVariant **ret, const void *p, size_t n) {
                         .value.unsig = ((const uint8_t*) p)[i],
                 };
         }
+
+        v->normalized = true;
 
         *ret = v;
         return 0;
@@ -601,12 +615,16 @@ int json_variant_new_array_strv(JsonVariant **ret, char **l) {
                         memcpy(w->string, l[v->n_elements], k+1);
         }
 
+        v->normalized = true;
+
         *ret = TAKE_PTR(v);
         return 0;
 }
 
 int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        const char *prev = NULL;
+        bool sorted = true, normalized = true;
 
         assert_return(ret, -EINVAL);
         if (n == 0) {
@@ -630,9 +648,20 @@ int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n) {
                         *c = array[v->n_elements];
                 uint16_t d;
 
-                if ((v->n_elements & 1) == 0 &&
-                    !json_variant_is_string(c))
-                        return -EINVAL; /* Every second one needs to be a string, as it is the key name */
+                if ((v->n_elements & 1) == 0) {
+                        const char *k;
+
+                        if (!json_variant_is_string(c))
+                                return -EINVAL; /* Every second one needs to be a string, as it is the key name */
+
+                        assert_se(k = json_variant_string(c));
+
+                        if (prev && strcmp(k, prev) <= 0)
+                                sorted = normalized = false;
+
+                        prev = k;
+                } else if (!json_variant_is_normalized(c))
+                        normalized = false;
 
                 d = json_variant_depth(c);
                 if (d >= DEPTH_MAX) /* Refuse too deep nesting */
@@ -648,6 +677,9 @@ int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n) {
                 json_variant_set(w, c);
                 json_variant_copy_source(w, c);
         }
+
+        v->normalized = normalized;
+        v->sorted = sorted;
 
         *ret = TAKE_PTR(v);
         return 0;
@@ -1131,7 +1163,7 @@ JsonVariant *json_variant_by_index(JsonVariant *v, size_t idx) {
         if (idx >= v->n_elements)
                 return NULL;
 
-        return json_variant_conservative_normalize(v + 1 + idx);
+        return json_variant_conservative_formalize(v + 1 + idx);
 
 mismatch:
         log_debug("Element in non-array/non-object JSON variant requested by index, returning NULL.");
@@ -1154,6 +1186,37 @@ JsonVariant *json_variant_by_key_full(JsonVariant *v, const char *key, JsonVaria
         if (v->is_reference)
                 return json_variant_by_key(v->reference, key);
 
+        if (v->sorted) {
+                size_t a = 0, b = v->n_elements/2;
+
+                /* If the variant is sorted we can use bisection to find the entry we need in O(log(n)) time */
+
+                while (b > a) {
+                        JsonVariant *p;
+                        const char *f;
+                        int c;
+
+                        i = (a + b) / 2;
+                        p = json_variant_dereference(v + 1 + i*2);
+
+                        assert_se(f = json_variant_string(p));
+
+                        c = strcmp(key, f);
+                        if (c == 0) {
+                                if (ret_key)
+                                        *ret_key = json_variant_conservative_formalize(v + 1 + i*2);
+
+                                return json_variant_conservative_formalize(v + 1 + i*2 + 1);
+                        } else if (c < 0)
+                                b = i;
+                        else
+                                a = i + 1;
+                }
+
+                goto not_found;
+        }
+
+        /* The variant is not sorted, hence search for the field linearly */
         for (i = 0; i < v->n_elements; i += 2) {
                 JsonVariant *p;
 
@@ -1165,9 +1228,9 @@ JsonVariant *json_variant_by_key_full(JsonVariant *v, const char *key, JsonVaria
                 if (streq(json_variant_string(p), key)) {
 
                         if (ret_key)
-                                *ret_key = json_variant_conservative_normalize(v + 1 + i);
+                                *ret_key = json_variant_conservative_formalize(v + 1 + i);
 
-                        return json_variant_conservative_normalize(v + 1 + i + 1);
+                        return json_variant_conservative_formalize(v + 1 + i + 1);
                 }
         }
 
@@ -1192,8 +1255,8 @@ JsonVariant *json_variant_by_key(JsonVariant *v, const char *key) {
 bool json_variant_equal(JsonVariant *a, JsonVariant *b) {
         JsonVariantType t;
 
-        a = json_variant_normalize(a);
-        b = json_variant_normalize(b);
+        a = json_variant_formalize(a);
+        b = json_variant_formalize(b);
 
         if (a == b)
                 return true;
@@ -1305,7 +1368,7 @@ void json_variant_sensitive(JsonVariant *v) {
          * flag to all contained variants. And if those are then destroyed this is propagated further down,
          * and so on. */
 
-        v = json_variant_normalize(v);
+        v = json_variant_formalize(v);
         if (!json_variant_is_regular(v))
                 return;
 
@@ -2022,7 +2085,7 @@ static int json_variant_copy(JsonVariant **nv, JsonVariant *v) {
                 c->n_ref = 1;
                 c->type = t;
                 c->is_reference = true;
-                c->reference = json_variant_ref(json_variant_normalize(v));
+                c->reference = json_variant_ref(json_variant_formalize(v));
 
                 *nv = c;
                 return 0;
@@ -3822,6 +3885,144 @@ int json_dispatch_variant(const char *name, JsonVariant *variant, JsonDispatchFl
         *p = json_variant_ref(variant);
 
         return 0;
+}
+
+static int json_cmp_strings(const void *x, const void *y) {
+        JsonVariant *const *a = x, *const *b = y;
+
+        if (!json_variant_is_string(*a) || !json_variant_is_string(*b))
+                return CMP(*a, *b);
+
+        return strcmp(json_variant_string(*a), json_variant_string(*b));
+}
+
+int json_variant_sort(JsonVariant **v) {
+        _cleanup_free_ JsonVariant **a = NULL;
+        JsonVariant *n = NULL;
+        size_t i, m;
+        int r;
+
+        assert(v);
+
+        if (json_variant_is_sorted(*v))
+                return 0;
+
+        if (!json_variant_is_object(*v))
+                return -EMEDIUMTYPE;
+
+        /* Sorts they key/value pairs in an object variant */
+
+        m = json_variant_elements(*v);
+        a = new(JsonVariant*, m);
+        if (!a)
+                return -ENOMEM;
+
+        for (i = 0; i < m; i++)
+                a[i] = json_variant_by_index(*v, i);
+
+        qsort(a, m/2, sizeof(JsonVariant*)*2, json_cmp_strings);
+
+        r = json_variant_new_object(&n, a, m);
+        if (r < 0)
+                return r;
+        if (!n->sorted) /* Check if this worked. This will fail if there are multiple identical keys used. */
+                return -ENOTUNIQ;
+
+        json_variant_unref(*v);
+        *v = n;
+
+        return 1;
+}
+
+int json_variant_normalize(JsonVariant **v) {
+        _cleanup_free_ JsonVariant **a = NULL;
+        JsonVariant *n = NULL;
+        size_t i, j, m;
+        int r;
+
+        assert(v);
+
+        if (json_variant_is_normalized(*v))
+                return 0;
+
+        if (!json_variant_is_object(*v) && !json_variant_is_array(*v))
+                return -EMEDIUMTYPE;
+
+        /* Sorts the key/value pairs in an object variant anywhere down the tree in the specified variant */
+
+        m = json_variant_elements(*v);
+        a = new(JsonVariant*, m);
+        if (!a)
+                return -ENOMEM;
+
+        for (i = 0; i < m; i++) {
+                a[i] = json_variant_ref(json_variant_by_index(*v, i));
+
+                r = json_variant_normalize(a + i);
+                if (r < 0)
+                        goto finish;
+        }
+
+        qsort(a, m/2, sizeof(JsonVariant*)*2, json_cmp_strings);
+
+        if (json_variant_is_object(*v))
+                r = json_variant_new_object(&n, a, m);
+        else {
+                assert(json_variant_is_array(*v));
+                r = json_variant_new_array(&n, a, m);
+        }
+        if (r < 0)
+                goto finish;
+        if (!n->normalized) { /* Let's see if normalization worked. It will fail if there are multiple
+                               * identical keys used in the same object anywhere, or if there are floating
+                               * point numbers used (see below) */
+                r = -ENOTUNIQ;
+                goto finish;
+        }
+
+        json_variant_unref(*v);
+        *v = n;
+
+        r = 1;
+
+finish:
+        for (j = 0; j < i; j++)
+                json_variant_unref(a[j]);
+
+        return r;
+}
+
+bool json_variant_is_normalized(JsonVariant *v) {
+
+        /* For now, let's consider anything containing numbers not expressible as integers as
+         * non-normalized. That's because we cannot sensibly compare them due to accuracy issues, nor even
+         * store them if they are too large. */
+        if (json_variant_is_real(v) && !json_variant_is_integer(v) && !json_variant_is_unsigned(v))
+                return false;
+
+        /* The concept only applies to variants that include other variants, i.e. objects and arrays. All
+         * others are normalized anyway. */
+        if (!json_variant_is_object(v) && !json_variant_is_array(v))
+                return true;
+
+        /* Empty objects/arrays don't include any other variant, hence are always normalized too */
+        if (json_variant_elements(v) == 0)
+                return true;
+
+        return v->normalized; /* For everything else there's an explicit boolean we maintain */
+}
+
+bool json_variant_is_sorted(JsonVariant *v) {
+
+        /* Returns true if all key/value pairs of an object are properly sorted. Note that this only applies
+         * to objects, not arrays. */
+
+        if (!json_variant_is_object(v))
+                return true;
+        if (json_variant_elements(v) <= 1)
+                return true;
+
+        return v->sorted;
 }
 
 static const char* const json_variant_type_table[_JSON_VARIANT_TYPE_MAX] = {

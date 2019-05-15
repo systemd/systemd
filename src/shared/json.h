@@ -123,6 +123,8 @@ static inline bool json_variant_is_null(JsonVariant *v) {
 bool json_variant_is_negative(JsonVariant *v);
 bool json_variant_is_blank_object(JsonVariant *v);
 bool json_variant_is_blank_array(JsonVariant *v);
+bool json_variant_is_normalized(JsonVariant *v);
+bool json_variant_is_sorted(JsonVariant *v);
 
 size_t json_variant_elements(JsonVariant *v);
 JsonVariant *json_variant_by_index(JsonVariant *v, size_t index);
@@ -179,6 +181,9 @@ int json_variant_set_field_unsigned(JsonVariant **v, const char *field, uintmax_
 int json_variant_merge(JsonVariant **v, JsonVariant *m);
 
 int json_variant_strv(JsonVariant *v, char ***ret);
+
+int json_variant_sort(JsonVariant **v);
+int json_variant_normalize(JsonVariant **v);
 
 typedef enum JsonParseFlags {
         JSON_PARSE_SENSITIVE = 1 << 0, /* mark variant as "sensitive", i.e. something containing secret key material or such */
