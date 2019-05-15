@@ -386,7 +386,7 @@ static bool can_s2h(void) {
         r = access("/sys/class/rtc/rtc0/wakealarm", W_OK);
         if (r < 0) {
                 log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
-                         "/sys/class/rct/rct0/wakealarm is not writable %m");
+                         "/sys/class/rtc/rtc0/wakealarm is not writable %m");
                 return false;
         }
 
