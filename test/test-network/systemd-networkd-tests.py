@@ -1203,12 +1203,14 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '149.10.124.48/28 proto kernel scope link src 149.10.124.58')
         self.assertRegex(output, '149.10.124.64 proto static scope link')
+        self.assertRegex(output, '169.254.0.0/16 proto static scope link metric 2048')
         self.assertRegex(output, '192.168.1.1 proto static initcwnd 20')
         self.assertRegex(output, '192.168.1.2 proto static initrwnd 30')
 
         output = subprocess.check_output(['ip', '-4', 'route', 'show', 'dev', 'dummy98', 'default']).rstrip().decode('utf-8')
         self.assertRegex(output, 'default via 149.10.125.65 proto static onlink')
         self.assertRegex(output, 'default via 149.10.124.64 proto static')
+        self.assertRegex(output, 'default proto static')
 
         output = subprocess.check_output(['ip', 'route', 'show', 'type', 'blackhole']).rstrip().decode('utf-8')
         print(output)

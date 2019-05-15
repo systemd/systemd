@@ -62,6 +62,7 @@ int route_section_verify(Route *route, Network *network);
 DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
 
 int network_add_ipv4ll_route(Network *network);
+int network_add_default_route_on_device(Network *network);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);

@@ -712,6 +712,30 @@ int network_add_ipv4ll_route(Network *network) {
         return 0;
 }
 
+int network_add_default_route_on_device(Network *network) {
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
+        int r;
+
+        assert(network);
+
+        if (!network->default_route_on_device)
+                return 0;
+
+        /* DefaultRouteOnDevice= is in [Network] section. */
+        r = route_new_static(network, NULL, 0, &n);
+        if (r < 0)
+                return r;
+
+        r = in_addr_from_string(AF_INET, "169.254.0.0", &n->dst);
+        if (r < 0)
+                return r;
+
+        n->family = AF_INET;
+
+        TAKE_PTR(n);
+        return 0;
+}
+
 int config_parse_gateway(
                 const char *unit,
                 const char *filename,
