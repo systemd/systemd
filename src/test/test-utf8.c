@@ -111,6 +111,37 @@ static void test_utf8_escape_non_printable(void) {
         assert_se(utf8_is_valid(p6));
 }
 
+static void test_utf8_escape_non_printable_full(void) {
+        log_info("/* %s */", __func__);
+
+        for (size_t i = 0; i < 20; i++) {
+                _cleanup_free_ char *p;
+
+                p = utf8_escape_non_printable_full("goo goo goo", i);
+                puts(p);
+                assert_se(utf8_is_valid(p));
+                assert_se(utf8_console_width(p) <= i);
+        }
+
+        for (size_t i = 0; i < 20; i++) {
+                _cleanup_free_ char *p;
+
+                p = utf8_escape_non_printable_full("\001 \019\20\a", i);
+                puts(p);
+                assert_se(utf8_is_valid(p));
+                assert_se(utf8_console_width(p) <= i);
+        }
+
+        for (size_t i = 0; i < 20; i++) {
+                _cleanup_free_ char *p;
+
+                p = utf8_escape_non_printable_full("\xef\xbf\x30\x13", i);
+                puts(p);
+                assert_se(utf8_is_valid(p));
+                assert_se(utf8_console_width(p) <= i);
+        }
+}
+
 static void test_utf16_to_utf8(void) {
         const char16_t utf16[] = { htole16('a'), htole16(0xd800), htole16('b'), htole16(0xdc00), htole16('c'), htole16(0xd801), htole16(0xdc37) };
         static const char utf8[] = { 'a', 'b', 'c', 0xf0, 0x90, 0x90, 0xb7 };
@@ -189,6 +220,7 @@ int main(int argc, char *argv[]) {
         test_utf8_encoded_valid_unichar();
         test_utf8_escape_invalid();
         test_utf8_escape_non_printable();
+        test_utf8_escape_non_printable_full();
         test_utf16_to_utf8();
         test_utf8_n_codepoints();
         test_utf8_console_width();
