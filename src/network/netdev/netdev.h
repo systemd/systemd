@@ -24,6 +24,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_MACVLAN,
         NETDEV_KIND_MACVTAP,
         NETDEV_KIND_IPVLAN,
+        NETDEV_KIND_IPVTAP,
         NETDEV_KIND_VXLAN,
         NETDEV_KIND_IPIP,
         NETDEV_KIND_GRE,

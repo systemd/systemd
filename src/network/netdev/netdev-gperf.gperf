@@ -54,6 +54,8 @@ MACVLAN.Mode,                             config_parse_macvlan_mode,            
 MACVTAP.Mode,                             config_parse_macvlan_mode,                 0,                             offsetof(MacVlan, mode)
 IPVLAN.Mode,                              config_parse_ipvlan_mode,                  0,                             offsetof(IPVlan, mode)
 IPVLAN.Flags,                             config_parse_ipvlan_flags,                 0,                             offsetof(IPVlan, flags)
+IPVTAP.Mode,                              config_parse_ipvlan_mode,                  0,                             offsetof(IPVlan, mode)
+IPVTAP.Flags,                             config_parse_ipvlan_flags,                 0,                             offsetof(IPVlan, flags)
 Tunnel.Local,                             config_parse_tunnel_address,               0,                             offsetof(Tunnel, local)
 Tunnel.Remote,                            config_parse_tunnel_address,               0,                             offsetof(Tunnel, remote)
 Tunnel.TOS,                               config_parse_unsigned,                     0,                             offsetof(Tunnel, tos)

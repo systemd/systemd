@@ -151,6 +151,9 @@ VNetHeader=
 [IPVLAN]
 Mode=
 Flags=
+[IPVTAP]
+Mode=
+Flags=
 [Tun]
 OneQueue=
 MultiQueue=
