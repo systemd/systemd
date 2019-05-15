@@ -2678,8 +2678,16 @@ finish:
         free(arg_verify_key);
 
 #if HAVE_PCRE2
-        if (arg_compiled_pattern)
+        if (arg_compiled_pattern) {
                 pcre2_code_free(arg_compiled_pattern);
+
+                /* --grep was used, no error was thrown, but the pattern didn't
+                 * match anything. Let's mimic grep's behavior here and return
+                 * a non-zero exit code, so journalctl --grep can be used
+                 * in scripts and such */
+                if (r == 0 && n_shown == 0)
+                        r = -ENOENT;
+        }
 #endif
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
