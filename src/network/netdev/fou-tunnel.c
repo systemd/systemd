@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <linux/fou.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <linux/ip.h>
@@ -68,6 +69,26 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
         r = sd_netlink_message_append_u8(m, FOU_ATTR_IPPROTO, t->fou_protocol);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_IPPROTO attribute: %m");
+
+        if (t->local_family == AF_INET) {
+                r = sd_netlink_message_append_in_addr(m, FOU_ATTR_LOCAL_V4, &t->local.in);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_LOCAL_V4 attribute: %m");
+        } else {
+                r = sd_netlink_message_append_in6_addr(m, FOU_ATTR_LOCAL_V6, &t->local.in6);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_LOCAL_V6 attribute: %m");
+        }
+
+        if (t->peer_family == AF_INET) {
+                r = sd_netlink_message_append_in_addr(m, FOU_ATTR_PEER_V4, &t->peer.in);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_PEER_V4 attribute: %m");
+        } else {
+                r = sd_netlink_message_append_in6_addr(m, FOU_ATTR_PEER_V6, &t->peer.in6);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_PEER_V6 attribute: %m");
+        }
 
         *ret = TAKE_PTR(m);
         return 0;
@@ -147,6 +168,41 @@ int config_parse_ip_protocol(
         }
 
         *protocol = r;
+        return 0;
+}
+
+int config_parse_fou_tunnel_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        union in_addr_union *addr = data;
+        FouTunnel *t = userdata;
+        int r, *f;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(lvalue, "Local"))
+                f = &t->local_family;
+        else
+                f = &t->peer_family;
+
+        r = in_addr_from_string_auto(rvalue, f, addr);
+        if (r < 0)
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Foo over UDP tunnel '%s' address is invalid, ignoring assignment: %s",
+                           lvalue, rvalue);
+
         return 0;
 }
 
