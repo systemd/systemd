@@ -4,6 +4,11 @@ Bugfixes:
   manager or system manager can be always set. It would be better to reject
   them when parsing config.
 
+* busctl --user call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager GetUnitProcesses "s" run-rbff1b85427b34ba3adf864281aeda8e7.service
+Failed to set address: No such file or directory
+
+  → improve error message
+
 External:
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
