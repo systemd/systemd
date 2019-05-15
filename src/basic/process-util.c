@@ -46,6 +46,11 @@
 #include "user-util.h"
 #include "utf8.h"
 
+/* The kernel limits userspace processes to TASK_COMM_LEN (16 bytes), but allows higher values for its own
+ * workers, e.g. "kworker/u9:3-kcryptd/253:0". Let's pick a fixed smallish limit that will work for the kernel.
+ */
+#define COMM_MAX_LEN 128
+
 static int get_process_state(pid_t pid) {
         const char *p;
         char state;
@@ -82,7 +87,7 @@ int get_process_comm(pid_t pid, char **ret) {
         assert(ret);
         assert(pid >= 0);
 
-        escaped = new(char, TASK_COMM_LEN);
+        escaped = new(char, COMM_MAX_LEN);
         if (!escaped)
                 return -ENOMEM;
 
@@ -95,7 +100,7 @@ int get_process_comm(pid_t pid, char **ret) {
                 return r;
 
         /* Escape unprintable characters, just in case, but don't grow the string beyond the underlying size */
-        cellescape(escaped, TASK_COMM_LEN, comm);
+        cellescape(escaped, COMM_MAX_LEN, comm);
 
         *ret = TAKE_PTR(escaped);
         return 0;
@@ -209,7 +214,7 @@ int rename_process(const char name[]) {
          * can use PR_SET_NAME, which sets the thread name for the calling thread. */
         if (prctl(PR_SET_NAME, name) < 0)
                 log_debug_errno(errno, "PR_SET_NAME failed: %m");
-        if (l >= TASK_COMM_LEN) /* Linux process names can be 15 chars at max */
+        if (l >= TASK_COMM_LEN) /* Linux userspace process names can be 15 chars at max */
                 truncated = true;
 
         /* Second step, change glibc's ID of the process name. */

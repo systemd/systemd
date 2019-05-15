@@ -107,12 +107,12 @@ static void test_get_process_comm_escape(void) {
         test_get_process_comm_escape_one("foo", "foo");
         test_get_process_comm_escape_one("012345678901234", "012345678901234");
         test_get_process_comm_escape_one("0123456789012345", "012345678901234");
-        test_get_process_comm_escape_one("äöüß", "\\303\\244\\303…");
-        test_get_process_comm_escape_one("xäöüß", "x\\303\\244…");
-        test_get_process_comm_escape_one("xxäöüß", "xx\\303\\244…");
-        test_get_process_comm_escape_one("xxxäöüß", "xxx\\303\\244…");
-        test_get_process_comm_escape_one("xxxxäöüß", "xxxx\\303\\244…");
-        test_get_process_comm_escape_one("xxxxxäöüß", "xxxxx\\303…");
+        test_get_process_comm_escape_one("äöüß", "\\303\\244\\303\\266\\303\\274\\303\\237");
+        test_get_process_comm_escape_one("xäöüß", "x\\303\\244\\303\\266\\303\\274\\303\\237");
+        test_get_process_comm_escape_one("xxäöüß", "xx\\303\\244\\303\\266\\303\\274\\303\\237");
+        test_get_process_comm_escape_one("xxxäöüß", "xxx\\303\\244\\303\\266\\303\\274\\303\\237");
+        test_get_process_comm_escape_one("xxxxäöüß", "xxxx\\303\\244\\303\\266\\303\\274\\303\\237");
+        test_get_process_comm_escape_one("xxxxxäöüß", "xxxxx\\303\\244\\303\\266\\303\\274\\303\\237");
 
         assert_se(prctl(PR_SET_NAME, saved) >= 0);
 }
@@ -407,6 +407,8 @@ static void test_rename_process_now(const char *p, int ret) {
         assert_se(get_process_comm(0, &comm) >= 0);
         log_info("comm = <%s>", comm);
         assert_se(strneq(comm, p, TASK_COMM_LEN-1));
+        /* We expect comm to be at most 16 bytes (TASK_COMM_LEN). The kernel may raise this limit in the
+         * future. We'd only check the initial part, at least until we recompile, but this will still pass. */
 
         r = get_process_cmdline(0, SIZE_MAX, false, &cmdline);
         assert_se(r >= 0);
