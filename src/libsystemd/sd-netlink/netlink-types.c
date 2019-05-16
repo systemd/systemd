@@ -803,6 +803,12 @@ static const NLType genl_fou_types[] = {
         [FOU_ATTR_IPPROTO]           = { .type = NETLINK_TYPE_U8 },
         [FOU_ATTR_TYPE]              = { .type = NETLINK_TYPE_U8 },
         [FOU_ATTR_REMCSUM_NOPARTIAL] = { .type = NETLINK_TYPE_FLAG },
+        [FOU_ATTR_LOCAL_V4]          = { .type = NETLINK_TYPE_IN_ADDR },
+        [FOU_ATTR_PEER_V4]           = { .type = NETLINK_TYPE_IN_ADDR },
+        [FOU_ATTR_LOCAL_V6]          = { .type = NETLINK_TYPE_IN_ADDR },
+        [FOU_ATTR_PEER_V6]           = { .type = NETLINK_TYPE_IN_ADDR},
+        [FOU_ATTR_PEER_PORT]         = { .type = NETLINK_TYPE_U16},
+        [FOU_ATTR_IFINDEX]           = { .type = NETLINK_TYPE_U32},
 };
 
 static const NLTypeSystem genl_fou_type_system = {

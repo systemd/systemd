@@ -1310,6 +1310,18 @@
           <varname>Encapsulation=GenericUDPEncapsulation</varname>, this must not be specified.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Peer=</varname></term>
+        <listitem>
+          <para>Configures peer IP address.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Local=</varname></term>
+        <listitem>
+          <para>Configures local IP address.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>

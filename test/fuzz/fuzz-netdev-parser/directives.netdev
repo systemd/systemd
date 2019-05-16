@@ -141,6 +141,8 @@ DynamicTransmitLoadBalancing=
 Protocol=
 Port=
 Encapsulation=
+Local=
+Peer=
 [Tap]
 MultiQueue=
 OneQueue=
