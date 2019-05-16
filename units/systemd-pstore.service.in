@@ -1,0 +1,31 @@
+#  SPDX-License-Identifier: LGPL-2.1+
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Pstore archive service
+#Documentation=man:systemd-pstore(8)
+#DefaultDependencies=no
+#Conflicts=shutdown.target
+#After=systemd-remount-fs.service systemd-journald.socket
+#Requires=systemd-journald.socket
+#Before=shutdown.target
+Wants=network-online.target local-fs.target remote-fs.target
+After=network-online.target local-fs.target
+
+[Service]
+Type=oneshot
+StandardOutput=syslog+console
+#EnvironmentFile=/etc/default/kdump-tools
+ExecStart=/usr/lib/systemd/systemd-pstore start
+ExecStop=/usr/lib/systemd/systemd-pstore stop
+RemainAfterExit=no
+
+[Install]
+#WantedBy=multi-user.target
+WantedBy=local-fs.target
