@@ -30,6 +30,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "ioprio.h"
+#include "locale-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
@@ -178,7 +179,9 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
 
         delete_trailing_chars(t, WHITESPACE);
 
-        ans = utf8_escape_non_printable_full(t, max_columns);
+        bool eight_bit = (flags & PROCESS_CMDLINE_USE_LOCALE) && !is_locale_utf8();
+
+        ans = escape_non_printable_full(t, max_columns, eight_bit);
         if (!ans)
                 return -ENOMEM;
 

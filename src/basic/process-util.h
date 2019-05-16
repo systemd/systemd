@@ -33,6 +33,7 @@
 
 typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_COMM_FALLBACK = 1 << 0,
+        PROCESS_CMDLINE_USE_LOCALE    = 1 << 1,
 } ProcessCmdlineFlags;
 
 int get_process_comm(pid_t pid, char **name);

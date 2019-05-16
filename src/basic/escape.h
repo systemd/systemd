@@ -51,6 +51,7 @@ static inline char *xescape(const char *s, const char *bad) {
         return xescape_full(s, bad, SIZE_MAX, false);
 }
 char *octescape(const char *s, size_t len);
+char *escape_non_printable_full(const char *str, size_t console_width, bool eight_bit);
 
 char *shell_escape(const char *s, const char *bad);
 char* shell_maybe_quote(const char *s, EscapeStyle style);

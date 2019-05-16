@@ -435,6 +435,13 @@ char *xescape_full(const char *s, const char *bad, size_t console_width, bool ei
         return ans;
 }
 
+char *escape_non_printable_full(const char *str, size_t console_width, bool eight_bit) {
+        if (eight_bit)
+                return xescape_full(str, "", console_width, true);
+        else
+                return utf8_escape_non_printable_full(str, console_width);
+}
+
 char *octescape(const char *s, size_t len) {
         char *r, *t;
         const char *f;
