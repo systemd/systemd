@@ -81,6 +81,7 @@ Tunnel.ISATAP,                            config_parse_tristate,                
 FooOverUDP.Protocol,                      config_parse_ip_protocol,                  0,                             offsetof(FouTunnel, fou_protocol)
 FooOverUDP.Encapsulation,                 config_parse_fou_encap_type,               0,                             offsetof(FouTunnel, fou_encap_type)
 FooOverUDP.Port,                          config_parse_ip_port,                      0,                             offsetof(FouTunnel, port)
+FooOverUDP.PeerPort,                      config_parse_ip_port,                      0,                             offsetof(FouTunnel, peer_port)
 FooOverUDP.Local,                         config_parse_fou_tunnel_address,           0,                             offsetof(FouTunnel, local)
 FooOverUDP.Peer,                          config_parse_fou_tunnel_address,           0,                             offsetof(FouTunnel, peer)
 L2TP.TunnelId,                            config_parse_l2tp_tunnel_id,               0,                             offsetof(L2tpTunnel, tunnel_id)

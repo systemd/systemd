@@ -21,6 +21,7 @@ typedef struct FouTunnel {
         uint8_t fou_protocol;
 
         uint16_t port;
+        uint16_t peer_port;
 
         int local_family;
         int peer_family;

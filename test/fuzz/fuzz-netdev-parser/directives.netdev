@@ -140,6 +140,7 @@ DynamicTransmitLoadBalancing=
 [FooOverUDP]
 Protocol=
 Port=
+PeerPort=
 Encapsulation=
 Local=
 Peer=

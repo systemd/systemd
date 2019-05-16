@@ -47,6 +47,12 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_PORT attribute: %m");
 
+        if (IN_SET(t->peer_family, AF_INET, AF_INET6)) {
+                r = sd_netlink_message_append_u16(m, FOU_ATTR_PEER_PORT, htobe16(t->peer_port));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_PEER_PORT attribute: %m");
+        }
+
         switch (t->fou_encap_type) {
         case NETDEV_FOO_OVER_UDP_ENCAP_DIRECT:
                 encap_type = FOU_ENCAP_DIRECT;
@@ -74,7 +80,7 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
                 r = sd_netlink_message_append_in_addr(m, FOU_ATTR_LOCAL_V4, &t->local.in);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_LOCAL_V4 attribute: %m");
-        } else {
+        } else if (t->local_family == AF_INET6) {
                 r = sd_netlink_message_append_in6_addr(m, FOU_ATTR_LOCAL_V6, &t->local.in6);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_LOCAL_V6 attribute: %m");
@@ -84,7 +90,7 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
                 r = sd_netlink_message_append_in_addr(m, FOU_ATTR_PEER_V4, &t->peer.in);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_PEER_V4 attribute: %m");
-        } else {
+        } else if (t->peer_family == AF_INET6){
                 r = sd_netlink_message_append_in6_addr(m, FOU_ATTR_PEER_V6, &t->peer.in6);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_PEER_V6 attribute: %m");
@@ -233,6 +239,14 @@ static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
                 assert_not_reached("Invalid fou encap type");
         }
 
+        if (t->peer_family == AF_UNSPEC && t->peer_port > 0)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "FooOverUDP peer port is set but peer address not configured in %s. Rejecting configuration.",
+                                              filename);
+        else if (t->peer_family != AF_UNSPEC && t->peer_port == 0)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "FooOverUDP peer port not set but peer address is configured in %s. Rejecting configuration.",
+                                              filename);
         return 0;
 }
 
