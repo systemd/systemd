@@ -1384,7 +1384,7 @@ static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         return 1;
 }
 
-int link_set_mtu(Link *link, uint32_t mtu, bool force) {
+int link_set_mtu(Link *link, uint32_t mtu) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -1395,7 +1395,7 @@ int link_set_mtu(Link *link, uint32_t mtu, bool force) {
         if (mtu == 0 || link->setting_mtu)
                 return 0;
 
-        if (force ? link->mtu == mtu : link->mtu >= mtu)
+        if (link->mtu == mtu)
                 return 0;
 
         log_link_debug(link, "Setting MTU: %" PRIu32, mtu);
@@ -1431,6 +1431,48 @@ int link_set_mtu(Link *link, uint32_t mtu, bool force) {
         link->setting_mtu = true;
 
         return 0;
+}
+
+static bool link_reduces_vlan_mtu(Link *link) {
+        /* See netif_reduces_vlan_mtu() in kernel. */
+        return streq_ptr(link->kind, "macsec");
+}
+
+static uint32_t link_get_requested_mtu_by_stacked_netdevs(Link *link) {
+        uint32_t mtu = 0;
+        NetDev *dev;
+        Iterator i;
+
+        HASHMAP_FOREACH(dev, link->network->stacked_netdevs, i)
+                if (dev->kind == NETDEV_KIND_VLAN && dev->mtu > 0)
+                        /* See vlan_dev_change_mtu() in kernel. */
+                        mtu = MAX(mtu, link_reduces_vlan_mtu(link) ? dev->mtu + 4 : dev->mtu);
+
+                else if (dev->kind == NETDEV_KIND_MACVLAN && dev->mtu > mtu)
+                        /* See macvlan_change_mtu() in kernel. */
+                        mtu = dev->mtu;
+
+        return mtu;
+}
+
+static int link_configure_mtu(Link *link) {
+        uint32_t mtu;
+
+        assert(link);
+        assert(link->network);
+
+        if (link->network->mtu > 0)
+                return link_set_mtu(link, link->network->mtu);
+
+        mtu = link_get_requested_mtu_by_stacked_netdevs(link);
+        if (link->mtu >= mtu)
+                return 0;
+
+        log_link_notice(link, "Bumping MTU bytes from %"PRIu32" to %"PRIu32" because of stacked device. "
+                        "If it is not desired, then please explicitly specify MTUBytes= setting.",
+                        link->mtu, mtu);
+
+        return link_set_mtu(link, mtu);
 }
 
 static int set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -2635,7 +2677,7 @@ static int link_configure(Link *link) {
                         return r;
         }
 
-        r = link_set_mtu(link, link->network->mtu, link->network->mtu_is_set);
+        r = link_configure_mtu(link);
         if (r < 0)
                 return r;
 

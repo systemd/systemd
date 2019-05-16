@@ -158,7 +158,7 @@ bool link_has_carrier(Link *link);
 
 int link_ipv6ll_gained(Link *link, const struct in6_addr *address);
 
-int link_set_mtu(Link *link, uint32_t mtu, bool force);
+int link_set_mtu(Link *link, uint32_t mtu);
 
 int ipv4ll_configure(Link *link);
 bool link_ipv4ll_enabled(Link *link);
