@@ -444,7 +444,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1']).rstrip().decode('utf-8')
         print(output)
-        self.assertRegex(output, ' mtu 2004 ')
+        self.assertRegex(output, ' mtu 2000 ')
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vlan99']).rstrip().decode('utf-8')
         print(output)
