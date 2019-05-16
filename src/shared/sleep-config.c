@@ -30,6 +30,7 @@
 #include "sleep-config.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 
 int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, char ***ret_states, usec_t *ret_delay) {
         int allow_suspend = -1, allow_hibernate = -1,
@@ -383,10 +384,9 @@ static bool can_s2h(void) {
         const char *p;
         int r;
 
-        r = access("/sys/class/rtc/rtc0/wakealarm", W_OK);
-        if (r < 0) {
+        if (!clock_supported(CLOCK_BOOTTIME_ALARM)) {
                 log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
-                         "/sys/class/rtc/rtc0/wakealarm is not writable %m");
+                         "CLOCK_BOOTTIME_ALARM is not supported");
                 return false;
         }
 
