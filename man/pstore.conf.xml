@@ -1,0 +1,100 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="pstore.conf" conditional="ENABLE_PSTORE"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>pstore.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>pstore.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>pstore.conf</refname>
+    <refpurpose>Pstore configuration file</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/systemd/pstore.conf</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>This file configures the behavior of
+    <citerefentry><refentrytitle>systemd-pstore</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    a handler for archiving the contents of the persistent storage filesystem, pstore.
+    </para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>All options are configured in the
+    <literal>[Pstore]</literal> section:</para>
+
+    <variablelist class='config-directives'>
+
+      <varlistentry>
+        <term><varname>Storage=</varname></term>
+
+        <listitem><para>Controls where to archive files in the pstore filesystem. One of <literal>none</literal>,
+        <literal>archive</literal>, and <literal>journal</literal>. When
+        <literal>none</literal>, the files in pstore are untouched. When <literal>archive</literal> (the
+        default), files are archived in <filename>/var/lib/systemd/pstore/</filename>.
+        When <literal>journal</literal>, pstore file contents are recorded in the journal.</para>
+        </listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SourceDir=</varname></term>
+
+        <listitem><para>Specifies the path to the persistent storage filesystem.
+        The default location is <literal>/sys/fs/pstore</literal>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ArchiveDir=</varname></term>
+
+        <listitem><para>Specifies the path where pstore files are to be archived, when
+        <option>Storage</option> is <literal>archive</literal>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AllowUnlink=</varname></term>
+
+        <listitem><para>Controls whether or not pstore files are removed. One of
+        <literal>yes</literal> or <literal>no</literal>. When <literal>yes</literal>,
+        a pstore file is removed from the pstore once it has been archived (either to
+        disk or into the journal). When <literal>no</literal>, processing of pstore files
+        occurs normally, but the files remain in the pstore.
+        The default is <literal>yes</literal> in order to maintain the pstore in a
+        nearly empty state, so that it has storage available for the next kernel error event.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The defaults for all values are listed as comments in the
+    template <filename>/etc/systemd/pstore.conf</filename> file that
+    is installed by default.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>
