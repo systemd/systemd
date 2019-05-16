@@ -1,0 +1,8 @@
+[Match]
+Name=*tun97 ip6tnl97
+
+[Network]
+IPv6AcceptRA=no
+Address=2001:db8:0:f102::18/64
+Address=10.3.2.5/16
+LinkLocalAddressing=yes

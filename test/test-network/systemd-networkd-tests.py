@@ -70,6 +70,35 @@ def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
 
     return f
 
+def expectedFailureIf_ip6gre_do_not_support_ipv6ll():
+    def f(func):
+        rc = subprocess.call(['ip', 'link', 'add', 'name', 'test1', 'type', 'dummy'])
+        if rc != 0:
+            return unittest.expectedFailure(func)
+
+        time.sleep(1)
+        rc = subprocess.call(['ip', 'tunnel', 'add', 'tun99', 'local', '2a00:ffde:4567:edde::4986', 'remote', '2001:473:fece:cafe::5178', 'mode', 'ip6gre', 'dev', 'dummy99'])
+        if rc != 0:
+            return unittest.expectedFailure(func)
+
+        time.sleep(1)
+        # Not sure why, but '0' or '2' do not work.
+        rc = subprocess.call(['sysctl', '-w', 'net.ipv6.conf.tun99.addr_gen_mode=3'])
+        if rc != 0:
+            return unittest.expectedFailure(func)
+
+        time.sleep(1)
+        rc = subprocess.run(['ip', '-6', 'address', 'show', 'dev', 'tun99', 'scope', 'link'], stdout=subprocess.PIPE)
+        if rc.returncode != 0:
+            return unittest.expectedFailure(func)
+
+        if 'inet6' not in rc.stdout.rstrip().decode('utf-8'):
+            return unittest.expectedFailure(func)
+
+        return func
+
+    return f
+
 def setUpModule():
     os.makedirs(network_unit_file_path, exist_ok=True)
     os.makedirs(networkd_ci_path, exist_ok=True)
@@ -300,6 +329,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-sit-tunnel.netdev',
         '25-tap.netdev',
         '25-tun.netdev',
+        '25-tunnel-local-any.network',
+        '25-tunnel-remote-any.network',
+        '25-tunnel.network',
         '25-vcan.netdev',
         '25-veth.netdev',
         '25-vrf.netdev',
@@ -588,14 +620,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'udp6zerocsumrx')
 
     def test_ipip_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ipip-tunnel.netdev', 'ipip.network',
-                                             '25-ipip-tunnel-local-any.netdev', '25-ipip-tunnel-remote-any.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('ipiptun99'))
-        self.assertTrue(self.link_exits('ipiptun98'))
-        self.assertTrue(self.link_exits('ipiptun97'))
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ipip.network',
+                                             '25-ipip-tunnel.netdev', '25-tunnel.network',
+                                             '25-ipip-tunnel-local-any.netdev', '25-tunnel-local-any.network',
+                                             '25-ipip-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
+        self.start_networkd(0)
+        self.wait_online(['ipiptun99:routable', 'ipiptun98:routable', 'ipiptun97:routable', 'dummy98:degraded'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipiptun99']).rstrip().decode('utf-8')
         print(output)
@@ -608,14 +638,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ipip (?:ipip |)remote any local 192.168.223.238 dev dummy98')
 
     def test_gre_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-gre-tunnel.netdev', 'gretun.network',
-                                             '25-gre-tunnel-local-any.netdev', '25-gre-tunnel-remote-any.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('gretun99'))
-        self.assertTrue(self.link_exits('gretun98'))
-        self.assertTrue(self.link_exits('gretun97'))
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'gretun.network',
+                                             '25-gre-tunnel.netdev', '25-tunnel.network',
+                                             '25-gre-tunnel-local-any.netdev', '25-tunnel-local-any.network',
+                                             '25-gre-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
+        self.start_networkd(0)
+        self.wait_online(['gretun99:routable', 'gretun98:routable', 'gretun97:routable', 'dummy98:degraded'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretun99']).rstrip().decode('utf-8')
         print(output)
@@ -639,9 +667,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, 'iseq')
         self.assertNotRegex(output, 'oseq')
 
+    @expectedFailureIf_ip6gre_do_not_support_ipv6ll()
     def test_ip6gre_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ip6gre-tunnel.netdev', 'ip6gretun.network',
-                                             '25-ip6gre-tunnel-local-any.netdev', '25-ip6gre-tunnel-remote-any.netdev')
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ip6gretun.network',
+                                             '25-ip6gre-tunnel.netdev', '25-tunnel.network',
+                                             '25-ip6gre-tunnel-local-any.netdev', '25-tunnel-local-any.network',
+                                             '25-ip6gre-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dummy98'))
@@ -659,14 +690,15 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'ip6gre remote any local 2a00:ffde:4567:edde::4987 dev dummy98')
 
-    def test_gretap_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-gretap-tunnel.netdev', 'gretap.network',
-                                             '25-gretap-tunnel-local-any.netdev')
-        self.start_networkd()
+        # Old kernels may not support IPv6LL address on ip6gre tunnel, and the following test may fails.
+        self.wait_online(['ip6gretun99:routable', 'ip6gretun98:routable', 'ip6gretun97:routable', 'dummy98:degraded'])
 
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('gretap99'))
-        self.assertTrue(self.link_exits('gretap98'))
+    def test_gretap_tunnel(self):
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'gretap.network',
+                                             '25-gretap-tunnel.netdev', '25-tunnel.network',
+                                             '25-gretap-tunnel-local-any.netdev', '25-tunnel-local-any.network')
+        self.start_networkd(0)
+        self.wait_online(['gretap99:routable', 'gretap98:routable', 'dummy98:degraded'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretap99']).rstrip().decode('utf-8')
         print(output)
@@ -684,13 +716,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'oseq')
 
     def test_ip6gretap_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ip6gretap-tunnel.netdev', 'ip6gretap.network',
-                                             '25-ip6gretap-tunnel-local-any.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('ip6gretap99'))
-        self.assertTrue(self.link_exits('ip6gretap98'))
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ip6gretap.network',
+                                             '25-ip6gretap-tunnel.netdev', '25-tunnel.network',
+                                             '25-ip6gretap-tunnel-local-any.netdev', '25-tunnel-local-any.network')
+        self.start_networkd(0)
+        self.wait_online(['ip6gretap99:routable', 'ip6gretap98:routable', 'dummy98:degraded'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretap99']).rstrip().decode('utf-8')
         print(output)
@@ -700,14 +730,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ip6gretap remote 2001:473:fece:cafe::5179 local any dev dummy98')
 
     def test_vti_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-vti-tunnel.netdev', 'vti.network',
-                                             '25-vti-tunnel-local-any.netdev', '25-vti-tunnel-remote-any.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('vtitun99'))
-        self.assertTrue(self.link_exits('vtitun98'))
-        self.assertTrue(self.link_exits('vtitun97'))
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'vti.network',
+                                             '25-vti-tunnel.netdev', '25-tunnel.network',
+                                             '25-vti-tunnel-local-any.netdev', '25-tunnel-local-any.network',
+                                             '25-vti-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
+        self.start_networkd(0)
+        self.wait_online(['vtitun99:routable', 'vtitun98:routable', 'vtitun97:routable', 'dummy98:degraded'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vtitun99']).rstrip().decode('utf-8')
         print(output)
@@ -720,14 +748,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'vti remote any local 10.65.223.238 dev dummy98')
 
     def test_vti6_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-vti6-tunnel.netdev', 'vti6.network',
-                                             '25-vti6-tunnel-local-any.netdev', '25-vti6-tunnel-remote-any.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('vti6tun99'))
-        self.assertTrue(self.link_exits('vti6tun98'))
-        self.assertTrue(self.link_exits('vti6tun97'))
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'vti6.network',
+                                             '25-vti6-tunnel.netdev', '25-tunnel.network',
+                                             '25-vti6-tunnel-local-any.netdev', '25-tunnel-local-any.network',
+                                             '25-vti6-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
+        self.start_networkd(0)
+        self.wait_online(['vti6tun99:routable', 'vti6tun98:routable', 'vti6tun97:routable', 'dummy98:degraded'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vti6tun99']).rstrip().decode('utf-8')
         print(output)
@@ -740,14 +766,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'vti6 remote (?:any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
 
     def test_ip6tnl_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ip6tnl-tunnel.netdev', 'ip6tnl.network',
-                                             '25-ip6tnl-tunnel-local-any.netdev', '25-ip6tnl-tunnel-remote-any.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('ip6tnl99'))
-        self.assertTrue(self.link_exits('ip6tnl98'))
-        self.assertTrue(self.link_exits('ip6tnl97'))
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ip6tnl.network',
+                                             '25-ip6tnl-tunnel.netdev', '25-tunnel.network',
+                                             '25-ip6tnl-tunnel-local-any.netdev', '25-tunnel-local-any.network',
+                                             '25-ip6tnl-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
+        self.start_networkd(0)
+        self.wait_online(['ip6tnl99:routable', 'ip6tnl98:routable', 'ip6tnl97:routable', 'dummy98:degraded'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6tnl99']).rstrip().decode('utf-8')
         print(output)
@@ -760,15 +784,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ip6tnl ip6ip6 remote (?:any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
 
     def test_sit_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-sit-tunnel.netdev', 'sit.network',
-                                             '25-sit-tunnel-local-any.netdev',
-                                             '25-sit-tunnel-remote-any.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('sittun99'))
-        self.assertTrue(self.link_exits('sittun98'))
-        self.assertTrue(self.link_exits('sittun97'))
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'sit.network',
+                                             '25-sit-tunnel.netdev', '25-tunnel.network',
+                                             '25-sit-tunnel-local-any.netdev', '25-tunnel-local-any.network',
+                                             '25-sit-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
+        self.start_networkd(0)
+        self.wait_online(['sittun99:routable', 'sittun98:routable', 'sittun97:routable', 'dummy98:degraded'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun99']).rstrip().decode('utf-8')
         print(output)
@@ -781,8 +802,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, "sit (?:ip6ip |)remote any local 10.65.223.238 dev dummy98")
 
     def test_isatap_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-isatap-tunnel.netdev', 'isatap.network')
-        self.start_networkd()
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'isatap.network',
+                                             '25-isatap-tunnel.netdev', '25-tunnel.network')
+        self.start_networkd(0)
+        self.wait_online(['isataptun99:routable', 'dummy98:degraded'])
 
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('isataptun99'))
@@ -792,11 +815,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, "isatap ")
 
     def test_6rd_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-6rd-tunnel.netdev', '6rd.network')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('sittun99'))
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '6rd.network',
+                                             '25-6rd-tunnel.netdev', '25-tunnel.network')
+        self.start_networkd(0)
+        self.wait_online(['sittun99:routable', 'dummy98:degraded'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun99']).rstrip().decode('utf-8')
         print(output)
@@ -805,12 +827,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     @expectedFailureIfERSPANModuleIsNotAvailable()
     def test_erspan_tunnel(self):
         self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'erspan.network',
-                                             '25-erspan-tunnel.netdev', '25-erspan-tunnel-local-any.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('erspan99'))
-        self.assertTrue(self.link_exits('erspan98'))
+                                             '25-erspan-tunnel.netdev', '25-tunnel.network',
+                                             '25-erspan-tunnel-local-any.netdev', '25-tunnel-local-any.network')
+        self.start_networkd(0)
+        self.wait_online(['erspan99:routable', 'erspan98:routable', 'dummy98:degraded'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'erspan99']).rstrip().decode('utf-8')
         print(output)
