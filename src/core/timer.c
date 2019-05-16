@@ -430,28 +430,16 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
 
                         case TIMER_UNIT_ACTIVE:
                                 leave_around = true;
-                                base = trigger->inactive_exit_timestamp.monotonic;
-
-                                if (base <= 0)
-                                        base = t->last_trigger.monotonic;
-
+                                base = MAX(trigger->inactive_exit_timestamp.monotonic, t->last_trigger.monotonic);
                                 if (base <= 0)
                                         continue;
-                                base = MAX(base, t->last_trigger.monotonic);
-
                                 break;
 
                         case TIMER_UNIT_INACTIVE:
                                 leave_around = true;
-                                base = trigger->inactive_enter_timestamp.monotonic;
-
-                                if (base <= 0)
-                                        base = t->last_trigger.monotonic;
-
+                                base = MAX(trigger->inactive_enter_timestamp.monotonic, t->last_trigger.monotonic);
                                 if (base <= 0)
                                         continue;
-                                base = MAX(base, t->last_trigger.monotonic);
-
                                 break;
 
                         default:
