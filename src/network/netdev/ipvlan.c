@@ -32,7 +32,10 @@ static int netdev_ipvlan_fill_message_create(NetDev *netdev, Link *link, sd_netl
         assert(link);
         assert(netdev->ifname);
 
-        m = IPVLAN(netdev);
+        if (netdev->kind == NETDEV_KIND_IPVLAN)
+                m = IPVLAN(netdev);
+        else
+                m = IPVTAP(netdev);
 
         assert(m);
 
@@ -56,7 +59,10 @@ static void ipvlan_init(NetDev *n) {
 
         assert(n);
 
-        m = IPVLAN(n);
+        if (n->kind == NETDEV_KIND_IPVLAN)
+                m = IPVLAN(n);
+        else
+                m = IPVTAP(n);
 
         assert(m);
 
@@ -68,6 +74,14 @@ const NetDevVTable ipvlan_vtable = {
         .object_size = sizeof(IPVlan),
         .init = ipvlan_init,
         .sections = "Match\0NetDev\0IPVLAN\0",
+        .fill_message_create = netdev_ipvlan_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
+};
+
+const NetDevVTable ipvtap_vtable = {
+        .object_size = sizeof(IPVlan),
+        .init = ipvlan_init,
+        .sections = "Match\0NetDev\0IPVTAP\0",
         .fill_message_create = netdev_ipvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
 };

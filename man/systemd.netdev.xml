@@ -115,6 +115,9 @@
           <row><entry><varname>ipvlan</varname></entry>
           <entry>An ipvlan device is a stacked device which receives packets from its underlying device based on IP address filtering.</entry></row>
 
+          <row><entry><varname>ipvtap</varname></entry>
+          <entry>An ipvtap device is a stacked device which receives packets from its underlying device based on IP address filtering and can be accessed using the tap user space interface.</entry></row>
+
           <row><entry><varname>macvlan</varname></entry>
           <entry>A macvlan device is a stacked device which receives packets from its underlying device based on MAC address filtering.</entry></row>
 
@@ -516,6 +519,15 @@
           </listitem>
       </varlistentry>
     </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>[IPVTAP] Section Options</title>
+
+    <para>The <literal>[IPVTAP]</literal> section only applies for
+    netdevs of kind <literal>ipvtap</literal> and accepts the
+    same key as <literal>[IPVLAN]</literal>.</para>
 
   </refsect1>
 

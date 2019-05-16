@@ -222,6 +222,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'ipiptun98',
         'ipiptun99',
         'ipvlan99',
+        'ipvtap99',
         'isataptun99',
         'macvlan99',
         'macvtap99',
@@ -289,6 +290,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-ipip-tunnel-remote-any.netdev',
         '25-ipip-tunnel.netdev',
         '25-ipvlan.netdev',
+        '25-ipvtap.netdev',
         '25-isatap-tunnel.netdev',
         '25-macsec.key',
         '25-macsec.netdev',
@@ -324,6 +326,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'ip6tnl.network',
         'ipip.network',
         'ipvlan.network',
+        'ipvtap.network',
         'isatap.network',
         'macsec.network',
         'macvlan.network',
@@ -491,6 +494,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd()
 
         self.assertTrue(self.link_exits('ipvlan99'))
+
+    @expectedFailureIfModuleIsNotAvailable('ipvtap')
+    def test_ipvtap(self):
+        self.copy_unit_to_networkd_unit_path('25-ipvtap.netdev', '11-dummy.netdev', 'ipvtap.network')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('ipvtap99'))
 
     def test_veth(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev')

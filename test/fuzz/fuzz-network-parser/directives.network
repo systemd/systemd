@@ -104,6 +104,7 @@ Tunnel=
 Gateway=
 IPv4LL=
 IPVLAN=
+IPVTAP=
 EmitLLDP=
 IPv6MTUBytes=
 IPv4ProxyARP=

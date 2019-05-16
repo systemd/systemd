@@ -708,8 +708,8 @@ int config_parse_stacked_netdev(const char *unit,
         assert(data);
         assert(IN_SET(kind,
                       NETDEV_KIND_VLAN, NETDEV_KIND_MACVLAN, NETDEV_KIND_MACVTAP,
-                      NETDEV_KIND_IPVLAN, NETDEV_KIND_VXLAN, NETDEV_KIND_L2TP,
-                      NETDEV_KIND_MACSEC, _NETDEV_KIND_TUNNEL));
+                      NETDEV_KIND_IPVLAN, NETDEV_KIND_IPVTAP, NETDEV_KIND_VXLAN,
+                      NETDEV_KIND_L2TP, NETDEV_KIND_MACSEC, _NETDEV_KIND_TUNNEL));
 
         if (!ifname_valid(rvalue)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0,
