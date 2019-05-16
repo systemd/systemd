@@ -1301,6 +1301,12 @@
         </listitem>
         </varlistentry>
       <varlistentry>
+        <term><varname>PeerPort=</varname></term>
+        <listitem>
+          <para>Specifies the peer port number. Defaults to unset. Note that when peer port is set <literal>Peer=</literal> address is mandotory.</para>
+        </listitem>
+        </varlistentry>
+      <varlistentry>
         <term><varname>Protocol=</varname></term>
         <listitem>
           <para>The <varname>Protocol=</varname> specifies the protocol number of the packets arriving
@@ -1313,7 +1319,7 @@
       <varlistentry>
         <term><varname>Peer=</varname></term>
         <listitem>
-          <para>Configures peer IP address.</para>
+          <para>Configures peer IP address. Note that when peer address is set <literal>PeerPort=</literal> is mandotory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
