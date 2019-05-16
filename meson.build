@@ -1264,6 +1264,7 @@ foreach term : ['utmp',
                 'environment-d',
                 'binfmt',
                 'coredump',
+                'pstore',
                 'resolve',
                 'logind',
                 'hostnamed',
@@ -1475,6 +1476,7 @@ subdir('src/network')
 subdir('src/analyze')
 subdir('src/journal-remote')
 subdir('src/coredump')
+subdir('src/pstore')
 subdir('src/hostname')
 subdir('src/import')
 subdir('src/kernel-install')
@@ -2243,6 +2245,32 @@ if conf.get('ENABLE_COREDUMP') == 1
                                          liblz4],
                          install_rpath : rootlibexecdir,
                          install : true)
+        public_programs += exe
+endif
+
+if conf.get('ENABLE_PSTORE') == 1
+        executable('systemd-pstore',
+                   systemd_pstore_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads,
+                                   libacl,
+                                   libdw,
+                                   libxz,
+                                   liblz4],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+
+#       exe = executable('pstorectl',
+#                        pstorectl_sources,
+#                        include_directories : includes,
+#                        link_with : [libshared],
+#                        dependencies : [threads,
+#                                        libxz,
+#                                        liblz4],
+#                        install_rpath : rootlibexecdir,
+#                        install : true)
         public_programs += exe
 endif
 
@@ -3166,6 +3194,7 @@ foreach tuple : [
         ['DNS-over-TLS(gnutls)',  conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1],
         ['DNS-over-TLS(openssl)', conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1],
         ['coredump'],
+        ['pstore'],
         ['polkit'],
         ['legacy pkla',      install_polkit_pkla],
         ['efi'],
