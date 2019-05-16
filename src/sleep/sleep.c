@@ -8,9 +8,11 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/fiemap.h>
+#include <poll.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/timerfd.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
@@ -28,6 +30,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "util.h"
 
 static char* arg_verb = NULL;
@@ -196,39 +199,13 @@ static int execute(char **modes, char **states) {
         return r;
 }
 
-static int rtc_read_time(uint64_t *ret_sec) {
-        _cleanup_free_ char *t = NULL;
-        int r;
-
-        r = read_one_line_file("/sys/class/rtc/rtc0/since_epoch", &t);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read RTC time: %m");
-
-        r = safe_atou64(t, ret_sec);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse RTC time '%s': %m", t);
-
-        return 0;
-}
-
-static int rtc_write_wake_alarm(uint64_t sec) {
-        char buf[DECIMAL_STR_MAX(uint64_t)];
-        int r;
-
-        xsprintf(buf, "%" PRIu64, sec);
-
-        r = write_string_file("/sys/class/rtc/rtc0/wakealarm", buf, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write '%s' to /sys/class/rtc/rtc0/wakealarm: %m", buf);
-
-        return 0;
-}
-
 static int execute_s2h(usec_t hibernate_delay_sec) {
-
         _cleanup_strv_free_ char **hibernate_modes = NULL, **hibernate_states = NULL,
                                  **suspend_modes = NULL, **suspend_states = NULL;
-        usec_t original_time, wake_time, cmp_time;
+        _cleanup_close_ int tfd = -1;
+        char buf[FORMAT_TIMESPAN_MAX];
+        struct itimerspec ts = {};
+        struct pollfd fds;
         int r;
 
         r = parse_sleep_config("suspend", NULL, &suspend_modes, &suspend_states, NULL);
@@ -239,36 +216,39 @@ static int execute_s2h(usec_t hibernate_delay_sec) {
         if (r < 0)
                 return r;
 
-        r = rtc_read_time(&original_time);
-        if (r < 0)
-                return r;
+        tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
+        if (tfd < 0)
+                return log_error_errno(errno, "Error creating timerfd: %m");
 
-        wake_time = original_time + DIV_ROUND_UP(hibernate_delay_sec, USEC_PER_SEC);
-        r = rtc_write_wake_alarm(wake_time);
-        if (r < 0)
-                return r;
+        log_debug("Set timerfd wake alarm for %s",
+                  format_timespan(buf, sizeof(buf), hibernate_delay_sec, USEC_PER_SEC));
 
-        log_debug("Set RTC wake alarm for %" PRIu64, wake_time);
+        timespec_store(&ts.it_value, hibernate_delay_sec);
+
+        r = timerfd_settime(tfd, 0, &ts, NULL);
+        if (r < 0)
+                return log_error_errno(errno, "Error setting hibernate timer: %m");
 
         r = execute(suspend_modes, suspend_states);
         if (r < 0)
                 return r;
 
-        /* Reset RTC right-away */
-        r = rtc_write_wake_alarm(0);
+        fds = (struct pollfd) {
+                .fd = tfd,
+                .events = POLLIN,
+        };
+        r = poll(&fds, 1, 0);
         if (r < 0)
-                return r;
+                return log_error_errno(errno, "Error polling timerfd: %m");
 
-        r = rtc_read_time(&cmp_time);
-        if (r < 0)
-                return r;
+        tfd = safe_close(tfd);
 
-        log_debug("Woke up at %"PRIu64, cmp_time);
-
-        if (cmp_time < wake_time) /* We woke up before the alarm time, we are done. */
+        if (!FLAGS_SET(fds.revents, POLLIN)) /* We woke up before the alarm time, we are done. */
                 return 0;
 
         /* If woken up after alarm time, hibernate */
+        log_debug("Attempting to hibernate after waking from %s timer",
+                  format_timespan(buf, sizeof(buf), hibernate_delay_sec, USEC_PER_SEC));
         r = execute(hibernate_modes, hibernate_states);
         if (r < 0) {
                 log_notice("Couldn't hibernate, will try to suspend again.");

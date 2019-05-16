@@ -29,7 +29,6 @@ Features:
   cgroup.
 
 * clean up sleep.c:
-  - Use CLOCK_BOOTTIME_ALARM for waking up s2h instead of RTC ioctls
   - Parse sleep.conf only once, and parse its whole contents so that we don't
     have to parse it again and again in s2h
   - Make sure resume= and resume_offset= on the kernel cmdline always take
