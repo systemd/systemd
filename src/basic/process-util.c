@@ -106,7 +106,7 @@ int get_process_comm(pid_t pid, char **ret) {
         return 0;
 }
 
-int get_process_cmdline(pid_t pid, size_t max_columns, bool comm_fallback, char **line) {
+int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **line) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *t = NULL, *ans = NULL;
         const char *p;
@@ -121,9 +121,10 @@ int get_process_cmdline(pid_t pid, size_t max_columns, bool comm_fallback, char 
 
         /* Retrieves a process' command line. Replaces non-utf8 bytes by replacement character (�). If
          * max_columns is != -1 will return a string of the specified console width at most, abbreviated with
-         * an ellipsis. If comm_fallback is true and the process has no command line set (the case for kernel
-         * threads), or has a command line that resolves to the empty string will return the "comm" name of
-         * the process instead. This will use at most _SC_ARG_MAX bytes of input data.
+         * an ellipsis. If PROCESS_CMDLINE_COMM_FALLBACK is specified in flags and the process has no command
+         * line set (the case for kernel threads), or has a command line that resolves to the empty string
+         * will return the "comm" name of the process instead. This will use at most _SC_ARG_MAX bytes of
+         * input data.
          *
          * Returns -ESRCH if the process doesn't exist, and -ENOENT if the process has no command line (and
          * comm_fallback is false). Returns 0 and sets *line otherwise. */
@@ -159,7 +160,7 @@ int get_process_cmdline(pid_t pid, size_t max_columns, bool comm_fallback, char 
                 if (ferror(f))
                         return -errno;
 
-                if (!comm_fallback)
+                if (!(flags & PROCESS_CMDLINE_COMM_FALLBACK))
                         return -ENOENT;
 
                 /* Kernel threads have no argv[] */

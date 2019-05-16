@@ -34,7 +34,7 @@ int proc_cmdline(char **ret) {
         }
 
         if (detect_container() > 0)
-                return get_process_cmdline(1, SIZE_MAX, false, ret);
+                return get_process_cmdline(1, SIZE_MAX, 0, ret);
         else
                 return read_one_line_file("/proc/cmdline", ret);
 }
