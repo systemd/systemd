@@ -622,23 +622,23 @@ static const NLType rtnl_route_types[] = {
         [RTA_PRIORITY]          = { .type = NETLINK_TYPE_U32 },
         [RTA_PREFSRC]           = { .type = NETLINK_TYPE_IN_ADDR }, /* 6? */
         [RTA_METRICS]           = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_metrics_type_system},
-/*      [RTA_MULTIPATH]         = { .len = sizeof(struct rtnexthop) },
-*/
+        [RTA_MULTIPATH]         = { .size = sizeof(struct rtnexthop) },
         [RTA_FLOW]              = { .type = NETLINK_TYPE_U32 }, /* 6? */
-/*
-        RTA_CACHEINFO,
-        RTA_TABLE,
-        RTA_MARK,
-        RTA_MFC_STATS,
-        RTA_VIA,
-        RTA_NEWDST,
-*/
+        [RTA_CACHEINFO]         = { .size = sizeof(struct rta_cacheinfo) },
+        [RTA_TABLE]             = { .type = NETLINK_TYPE_U32 },
+        [RTA_MARK]              = { .type = NETLINK_TYPE_U32 },
+        [RTA_MFC_STATS]         = { .type = NETLINK_TYPE_U64 },
+        [RTA_VIA]               = { .type = NETLINK_TYPE_U32 },
+        [RTA_NEWDST]            = { .type = NETLINK_TYPE_U32 },
         [RTA_PREF]              = { .type = NETLINK_TYPE_U8 },
-/*
-        RTA_ENCAP_TYPE,
-        RTA_ENCAP,
- */
         [RTA_EXPIRES]           = { .type = NETLINK_TYPE_U32 },
+        [RTA_ENCAP_TYPE]        = { .type = NETLINK_TYPE_U16 },
+        [RTA_ENCAP]             = { .type = NETLINK_TYPE_NESTED }, /* Multiple type systems i.e. LWTUNNEL_ENCAP_MPLS/LWTUNNEL_ENCAP_IP/LWTUNNEL_ENCAP_ILA etc... */
+        [RTA_UID]               = { .type = NETLINK_TYPE_U32 },
+        [RTA_TTL_PROPAGATE]     = { .type = NETLINK_TYPE_U8 },
+        [RTA_IP_PROTO]          = { .type = NETLINK_TYPE_U8 },
+        [RTA_SPORT]             = { .type = NETLINK_TYPE_U16 },
+        [RTA_DPORT]             = { .type = NETLINK_TYPE_U16 },
 };
 
 static const NLTypeSystem rtnl_route_type_system = {
