@@ -1705,10 +1705,6 @@ static int test_calendar_one(usec_t n, const char *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse calendar specification '%s': %m", p);
 
-        r = calendar_spec_normalize(spec);
-        if (r < 0)
-                return log_error_errno(r, "Failed to normalize calendar specification '%s': %m", p);
-
         r = calendar_spec_to_string(spec, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to format calendar specification '%s': %m", p);
