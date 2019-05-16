@@ -6,7 +6,18 @@ set -u
 
 REPO_ROOT=${REPO_ROOT:-$(pwd)}
 
+sudo bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ xenial main restricted universe multiverse' >>/etc/apt/sources.list"
+sudo apt-get update -y
+sudo apt-get build-dep systemd -y
+sudo apt-get install -y ninja-build python3-pip python3-setuptools
+pip3 install meson
+
 cd $REPO_ROOT
+export PATH="$HOME/.local/bin/:$PATH"
+tools/oss-fuzz.sh
+timeout --preserve-status 5 ./out/fuzz-unit-file
+git clean -dxff
+
 wget https://app.fuzzbuzz.io/releases/cli/latest/linux/fuzzbuzz
 chmod +x fuzzbuzz
 ./fuzzbuzz validate
