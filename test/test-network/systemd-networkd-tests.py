@@ -77,7 +77,7 @@ def expectedFailureIf_ip6gre_do_not_support_ipv6ll():
             return unittest.expectedFailure(func)
 
         time.sleep(1)
-        rc = subprocess.call(['ip', 'tunnel', 'add', 'tun99', 'local', '2a00:ffde:4567:edde::4986', 'remote', '2001:473:fece:cafe::5178', 'mode', 'ip6gre', 'dev', 'dummy99'])
+        rc = subprocess.call(['ip', 'tunnel', 'add', 'tun99', 'local', '2a00:ffde:4567:edde::4986', 'remote', '2001:473:fece:cafe::5178', 'mode', 'ip6gre', 'dev', 'test1'])
         if rc != 0:
             return unittest.expectedFailure(func)
 
