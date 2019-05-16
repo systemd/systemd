@@ -5,6 +5,7 @@ set -eux
 # default to Debian testing
 DISTRO=${DISTRO:-debian}
 RELEASE=${RELEASE:-buster}
+BRANCH=${BRANCH:-experimental}
 ARCH=${ARCH:-amd64}
 CONTAINER=${RELEASE}-${ARCH}
 MAX_CACHE_AGE=604800  # one week
@@ -66,7 +67,7 @@ for phase in "${PHASES[@]}"; do
         ;;
         RUN)
             # add current debian/ packaging
-            git fetch --depth=1 https://salsa.debian.org/systemd-team/systemd.git master
+            git fetch --depth=1 https://salsa.debian.org/systemd-team/systemd.git $BRANCH
             git checkout FETCH_HEAD debian
 
             # craft changelog
