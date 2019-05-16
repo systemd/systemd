@@ -1412,6 +1412,84 @@ int journal_file_find_data_object(
                                                        ret, offset);
 }
 
+int journal_file_find_entry_not_matching_data(
+                JournalFile *f,
+                const void *data, uint64_t size, uint64_t hash,
+                Object **ret, uint64_t *offset) {
+
+        Object *entry, *o;
+        bool valid = false;
+        uint64_t data_offset, entry_offset;
+        int r;
+
+        assert(f);
+        assert(f->header);
+        assert(data || size == 0);
+
+        entry_offset = f->current_offset;
+
+        while (!valid) {
+                r = journal_file_next_entry(f, entry_offset, f->last_direction, &entry, &entry_offset);
+
+                if (r <= 0)
+                        return r;
+
+                valid = true;
+                for (size_t i = 0; i < journal_file_entry_n_items(entry); i++) {
+                        data_offset = entry->entry.items[i].object_offset;
+                        r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &o);
+                        if (r < 0)
+                                return r;
+
+                        if (le64toh(o->data.hash) == hash) {
+                                /* The data hash matches, which means we most likely
+                                 * got an entry we want to skip. However, due to
+                                 * hash collisions, let's check the raw data as well
+                                 * so we can be really sure
+                                 */
+                                if (o->object.flags & OBJECT_COMPRESSION_MASK) {
+#if HAVE_XZ || HAVE_LZ4
+                                        uint64_t l;
+                                        size_t rsize = 0;
+
+                                        l = le64toh(o->object.size);
+                                        if (l <= offsetof(Object, data.payload))
+                                                return -EBADMSG;
+
+                                        l -= offsetof(Object, data.payload);
+
+                                        r = decompress_blob(o->object.flags & OBJECT_COMPRESSION_MASK,
+                                                            o->data.payload, l, &f->compress_buffer, &f->compress_buffer_size, &rsize, 0);
+                                        if (r < 0)
+                                                return r;
+
+                                        if (memcmp(f->compress_buffer, data, size) != 0)
+                                                continue;
+
+#else
+                                        return -EPROTONOSUPPORT;
+#endif
+                                } else if (memcmp(o->data.payload, data, size) != 0)
+                                        continue;
+
+                                valid = false;
+                                break;
+                        }
+                }
+        }
+
+        if (valid) {
+                if (ret)
+                        *ret = o;
+                if (offset)
+                        *offset = data_offset;
+
+                return 1;
+        }
+
+        return 0;
+}
+
 static int journal_file_append_field(
                 JournalFile *f,
                 const void *field, uint64_t size,

@@ -212,6 +212,7 @@ int journal_file_append_entry(
 
 int journal_file_find_data_object(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *offset);
 int journal_file_find_data_object_with_hash(JournalFile *f, const void *data, uint64_t size, uint64_t hash, Object **ret, uint64_t *offset);
+int journal_file_find_entry_not_matching_data(JournalFile *f, const void *data, uint64_t size, uint64_t hash, Object **ret, uint64_t *offset);
 
 int journal_file_find_field_object(JournalFile *f, const void *field, uint64_t size, Object **ret, uint64_t *offset);
 int journal_file_find_field_object_with_hash(JournalFile *f, const void *field, uint64_t size, uint64_t hash, Object **ret, uint64_t *offset);
