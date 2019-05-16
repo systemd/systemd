@@ -1,0 +1,6 @@
+[NetDev]
+Name=ipvtap99
+Kind=ipvtap
+
+[IPVLAN]
+Mode=L2
