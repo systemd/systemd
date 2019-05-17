@@ -72,30 +72,28 @@ def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
 
 def expectedFailureIf_ip6gre_do_not_support_ipv6ll():
     def f(func):
+        success = False
         rc = subprocess.call(['ip', 'link', 'add', 'name', 'test1', 'type', 'dummy'])
-        if rc != 0:
-            return unittest.expectedFailure(func)
+        if rc == 0:
+            time.sleep(1)
+            rc = subprocess.call(['ip', 'tunnel', 'add', 'tun99', 'local', '2a00:ffde:4567:edde::4986', 'remote', '2001:473:fece:cafe::5178', 'mode', 'ip6gre', 'dev', 'test1'])
+            if rc == 0:
+                time.sleep(1)
+                # Not sure why, but '0' or '2' do not work.
+                subprocess.call(['sysctl', '-w', 'net.ipv6.conf.tun99.addr_gen_mode=3'])
 
-        time.sleep(1)
-        rc = subprocess.call(['ip', 'tunnel', 'add', 'tun99', 'local', '2a00:ffde:4567:edde::4986', 'remote', '2001:473:fece:cafe::5178', 'mode', 'ip6gre', 'dev', 'test1'])
-        if rc != 0:
-            return unittest.expectedFailure(func)
+                output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'tun99', 'scope', 'link'], universal_newlines=True).rstrip()
+                print(output)
+                success = 'inet6' in output
 
-        time.sleep(1)
-        # Not sure why, but '0' or '2' do not work.
-        rc = subprocess.call(['sysctl', '-w', 'net.ipv6.conf.tun99.addr_gen_mode=3'])
-        if rc != 0:
-            return unittest.expectedFailure(func)
+                subprocess.run(['ip', 'tunnel', 'del', 'tun99'])
 
-        time.sleep(1)
-        rc = subprocess.run(['ip', '-6', 'address', 'show', 'dev', 'tun99', 'scope', 'link'], stdout=subprocess.PIPE)
-        if rc.returncode != 0:
-            return unittest.expectedFailure(func)
+            subprocess.run(['ip', 'link', 'del', 'test1'])
 
-        if 'inet6' not in rc.stdout.rstrip().decode('utf-8'):
+        if success:
+            return func
+        else:
             return unittest.expectedFailure(func)
-
-        return func
 
     return f
 
