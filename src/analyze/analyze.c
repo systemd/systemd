@@ -1673,6 +1673,18 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
 }
 #endif
 
+static void parsing_hint(const char *p, bool calendar, bool timestamp, bool timespan) {
+        if (calendar && calendar_spec_from_string(p, NULL) >= 0)
+                log_notice("Hint: this expression is a valid calendar specification. "
+                           "Use 'systemd-analyze calendar \"%s\"' instead?", p);
+        if (timestamp && parse_timestamp(p, NULL) >= 0)
+                log_notice("Hint: this expression is a valid timestamp. "
+                           "Use 'systemd-analyze timestamp \"%s\"' instead?", p);
+        if (timespan && parse_time(p, NULL, USEC_PER_SEC) >= 0)
+                log_notice("Hint: this expression is a valid timespan. "
+                           "Use 'systemd-analyze timespan \"%s\"' instead?", p);
+}
+
 static int dump_timespan(int argc, char *argv[], void *userdata) {
         char **input_timespan;
 
@@ -1682,8 +1694,11 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
                 char ft_buf[FORMAT_TIMESPAN_MAX];
 
                 r = parse_time(*input_timespan, &output_usecs, USEC_PER_SEC);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse time span '%s': %m", *input_timespan);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse time span '%s': %m", *input_timespan);
+                        parsing_hint(*input_timespan, true, true, false);
+                        return r;
+                }
 
                 printf("Original: %s\n", *input_timespan);
                 printf("      %ss: %" PRIu64 "\n", special_glyph(SPECIAL_GLYPH_MU), output_usecs);
@@ -1705,8 +1720,11 @@ static int test_timestamp_one(const char *p) {
         int r;
 
         r = parse_timestamp(p, &usec);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse \"%s\": %m", p);
+        if (r < 0) {
+                log_error_errno(r, "Failed to parse \"%s\": %m", p);
+                parsing_hint(p, true, false, true);
+                return r;
+        }
 
         printf("  Original form: %s\n", p);
         printf("Normalized form: %s%s%s\n",
@@ -1744,8 +1762,11 @@ static int test_calendar_one(usec_t n, const char *p) {
         int r;
 
         r = calendar_spec_from_string(p, &spec);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse calendar specification '%s': %m", p);
+        if (r < 0) {
+                log_error_errno(r, "Failed to parse calendar specification '%s': %m", p);
+                parsing_hint(p, false, true, true);
+                return r;
+        }
 
         r = calendar_spec_to_string(spec, &t);
         if (r < 0)
