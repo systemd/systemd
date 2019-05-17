@@ -64,6 +64,9 @@ static void test_mount_option_mangle(void) {
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
+        if(!HAVE_MOUNT)
+                return log_tests_skipped("libmount is not available, skipping");
+
         test_mount_option_mangle();
 
         return 0;

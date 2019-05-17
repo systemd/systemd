@@ -714,6 +714,7 @@ static int start_transient_automount(
 }
 
 static int find_mount_points(const char *what, char ***list) {
+#if HAVE_MOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         _cleanup_strv_free_ char **l = NULL;
@@ -763,6 +764,8 @@ static int find_mount_points(const char *what, char ***list) {
 
         *list = TAKE_PTR(l);
         return n;
+#endif
+        return -EOPNOTSUPP;
 }
 
 static int find_loop_device(const char *backing_file, char **loop_dev) {

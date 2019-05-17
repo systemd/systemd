@@ -12,6 +12,7 @@ static void test_libmount_unescaping_one(
                 bool may_fail,
                 const char *expected_source,
                 const char *expected_target) {
+#if HAVE_MOUNT
         /* A test for libmount really */
         int r;
 
@@ -64,6 +65,7 @@ static void test_libmount_unescaping_one(
         assert_se(may_fail || streq(target, expected_target));
 
         assert_se(mnt_table_next_fs(table, iter, &fs) == 1);
+#endif
 }
 
 static void test_libmount_unescaping(void) {

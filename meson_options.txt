@@ -223,6 +223,8 @@ option('www-target', type : 'string',
        description : 'the address and dir to upload docs too',
        value : 'www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd')
 
+option('mount', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'libmount support')
 option('seccomp', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'SECCOMP support')
 option('selinux', type : 'combo', choices : ['auto', 'true', 'false'],

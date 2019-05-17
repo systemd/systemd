@@ -55,6 +55,7 @@ void mount_points_list_free(MountPoint **head) {
 }
 
 int mount_points_list_get(const char *mountinfo, MountPoint **head) {
+#if HAVE_MOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r;
@@ -170,9 +171,12 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
         }
 
         return 0;
+#endif
+        return -EOPNOTSUPP;
 }
 
 int swap_list_get(const char *swaps, MountPoint **head) {
+#if HAVE_MOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *t = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *i = NULL;
         int r;
@@ -215,6 +219,8 @@ int swap_list_get(const char *swaps, MountPoint **head) {
         }
 
         return 0;
+#endif
+        return -EOPNOTSUPP;
 }
 
 static int loopback_list_get(MountPoint **head) {
