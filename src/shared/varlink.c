@@ -1235,15 +1235,16 @@ static int varlink_enqueue_json(Varlink *v, JsonVariant *m) {
 
         } else {
                 char *n;
+                const size_t new_size = v->output_buffer_size + r + 1;
 
-                n = new(char, v->output_buffer_size + r + 1);
+                n = new(char, new_size);
                 if (!n)
                         return -ENOMEM;
 
                 memcpy(mempcpy(n, v->output_buffer + v->output_buffer_index, v->output_buffer_size), text, r + 1);
 
                 free_and_replace(v->output_buffer, n);
-                v->output_buffer_size += r + 1;
+                v->output_buffer_allocated = v->output_buffer_size = new_size;
                 v->output_buffer_index = 0;
         }
 
