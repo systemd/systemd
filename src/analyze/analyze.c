@@ -1687,13 +1687,55 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
 
                 printf("Original: %s\n", *input_timespan);
                 printf("      %ss: %" PRIu64 "\n", special_glyph(SPECIAL_GLYPH_MU), output_usecs);
-                printf("   Human: %s\n", format_timespan(ft_buf, sizeof(ft_buf), output_usecs, usec_magnitude));
+                printf("   Human: %s%s%s\n",
+                       ansi_highlight(),
+                       format_timespan(ft_buf, sizeof(ft_buf), output_usecs, usec_magnitude),
+                       ansi_normal());
 
                 if (input_timespan[1])
                         putchar('\n');
         }
 
         return EXIT_SUCCESS;
+}
+
+static int test_timestamp_one(const char *p) {
+        usec_t usec;
+        char buf[FORMAT_TIMESTAMP_MAX];
+        int r;
+
+        r = parse_timestamp(p, &usec);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse \"%s\": %m", p);
+
+        printf("  Original form: %s\n", p);
+        printf("Normalized form: %s%s%s\n",
+               ansi_highlight_blue(),
+               format_timestamp(buf, sizeof buf, usec),
+               ansi_normal());
+
+        if (!in_utc_timezone())
+                printf("       (in UTC): %s\n", format_timestamp_utc(buf, sizeof buf, usec));
+
+        printf("       From now: %s\n", format_timestamp_relative(buf, sizeof buf, usec));
+
+        return 0;
+}
+
+static int test_timestamp(int argc, char *argv[], void *userdata) {
+        int ret = 0, r;
+        char **p;
+
+        STRV_FOREACH(p, strv_skip(argv, 1)) {
+                r = test_timestamp_one(*p);
+                if (ret == 0 && r < 0)
+                        ret = r;
+
+                if (*(p + 1))
+                        putchar('\n');
+        }
+
+        return ret;
 }
 
 static int test_calendar_one(usec_t n, const char *p) {
@@ -1887,8 +1929,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  unit-paths               List load directories for units\n"
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
                "  verify FILE...           Check unit files for correctness\n"
-               "  calendar SPEC...         Validate repetitive calendar time events\n"
                "  service-watchdogs [BOOL] Get/set service watchdog state\n"
+               "  calendar SPEC...         Validate repetitive calendar time events\n"
+               "  timestamp TIMESTAMP...   Validate a timestamp\n"
                "  timespan SPAN...         Validate a time span\n"
                "  security [UNIT...]       Analyze security of unit\n"
                "\nSee the %s for details.\n"
@@ -2089,8 +2132,9 @@ static int run(int argc, char *argv[]) {
                 { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },
                 { "verify",            2,        VERB_ANY, 0,            do_verify              },
                 { "calendar",          2,        VERB_ANY, 0,            test_calendar          },
-                { "service-watchdogs", VERB_ANY, 2,        0,            service_watchdogs      },
+                { "timestamp",         2,        VERB_ANY, 0,            test_timestamp         },
                 { "timespan",          2,        VERB_ANY, 0,            dump_timespan          },
+                { "service-watchdogs", VERB_ANY, 2,        0,            service_watchdogs      },
                 { "security",          VERB_ANY, VERB_ANY, 0,            do_security            },
                 {}
         };
