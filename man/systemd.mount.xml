@@ -182,7 +182,7 @@
     mount options are understood by systemd which influence how
     dependencies are created for mount points. systemd will create a
     dependency of type <varname>Wants=</varname> or
-    <option>Requires</option> (see option <option>nofail</option>
+    <option>Requires=</option> (see option <option>nofail</option>
     below), from either <filename>local-fs.target</filename> or
     <filename>remote-fs.target</filename>, depending whether the file
     system is local or remote.</para>
