@@ -198,6 +198,7 @@ RouteTable=
 UseDNS=
 UseAutonomousPrefix=
 UseOnLinkPrefix=
+BlackList=
 [DHCPServer]
 EmitNTP=
 PoolSize=

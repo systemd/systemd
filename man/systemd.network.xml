@@ -1606,6 +1606,13 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><varname>BlackList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv6 prefixes. IPv6 prefixes supplied via router advertisements in the list are ignored.</para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
   </refsect1>
 

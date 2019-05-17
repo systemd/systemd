@@ -557,6 +557,46 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
+static int ndisc_prefix_is_black_listed(Link *link, sd_ndisc_router *rt) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        for (r = sd_ndisc_router_option_rewind(rt); ; r = sd_ndisc_router_option_next(rt)) {
+                union in_addr_union a;
+                uint8_t type;
+
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to iterate through options: %m");
+                if (r == 0) /* EOF */
+                        return false;
+
+                r = sd_ndisc_router_option_get_type(rt, &type);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to get RA option type: %m");
+
+                if (type != SD_NDISC_OPTION_PREFIX_INFORMATION)
+                        continue;
+
+                r = sd_ndisc_router_prefix_get_address(rt, &a.in6);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to get prefix address: %m");
+
+                if (set_contains(link->network->ndisc_black_listed_prefix, &a.in6)) {
+                        if (DEBUG_LOGGING) {
+                                _cleanup_free_ char *b = NULL;
+
+                                (void) in_addr_to_string(AF_INET6, &a, &b);
+                                log_link_debug(link, "Prefix '%s' is black listed, ignoring", strna(b));
+                        }
+
+                        return true;
+                }
+        }
+}
+
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         uint64_t flags;
         int r;
@@ -581,8 +621,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 }
         }
 
-        (void) ndisc_router_process_default(link, rt);
-        (void) ndisc_router_process_options(link, rt);
+        if (ndisc_prefix_is_black_listed(link, rt) == 0) {
+                (void) ndisc_router_process_default(link, rt);
+                (void) ndisc_router_process_options(link, rt);
+        }
 
         return r;
 }
@@ -671,4 +713,77 @@ void ndisc_flush(Link *link) {
 
         link->ndisc_rdnss = set_free_free(link->ndisc_rdnss);
         link->ndisc_dnssl = set_free_free(link->ndisc_dnssl);
+}
+
+int config_parse_ndisc_black_listed_prefix(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                network->ndisc_black_listed_prefix = set_free_free(network->ndisc_black_listed_prefix);
+                return 0;
+        }
+
+        for (p = rvalue;;) {
+                _cleanup_free_ char *n = NULL;
+                _cleanup_free_ struct in6_addr *a = NULL;
+                union in_addr_union ip;
+
+                r = extract_first_word(&p, &n, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse NDISC black listed prefix, ignoring assignment: %s",
+                                   rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = in_addr_from_string(AF_INET6, n, &ip);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "NDISC black listed prefix is invalid, ignoring assignment: %s", n);
+                        continue;
+                }
+
+                r = set_ensure_allocated(&network->ndisc_black_listed_prefix, &in6_addr_hash_ops);
+                if (r < 0)
+                        return log_oom();
+
+                a = newdup(struct in6_addr, &ip.in6, 1);
+                if (!a)
+                        return log_oom();
+
+                r = set_put(network->ndisc_black_listed_prefix, a);
+                if (r < 0) {
+                        if (r == -EEXIST)
+                                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                           "NDISC black listed prefixs is duplicated, ignoring assignment: %s", n);
+                        else
+                                log_syntax(unit, LOG_ERR, filename, line, r,
+                                           "Failed to store NDISC black listed prefix '%s', ignoring assignment: %m", n);
+                        continue;
+                }
+
+                TAKE_PTR(a);
+        }
+
+        return 0;
 }

@@ -505,6 +505,7 @@ static Network *network_free(Network *network) {
 
         ordered_set_free_free(network->router_search_domains);
         free(network->router_dns);
+        set_free_free(network->ndisc_black_listed_prefix);
 
         free(network->bridge_name);
         free(network->bond_name);
