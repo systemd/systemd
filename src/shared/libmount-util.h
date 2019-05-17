@@ -3,13 +3,17 @@
 
 #include <stdio.h>
 
+#if HAVE_MOUNT
 /* This needs to be after sys/mount.h */
 #include <libmount.h>
+#endif
 
 #include "macro.h"
 
+#if HAVE_MOUNT
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_table*, mnt_free_table);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_iter*, mnt_free_iter);
+#endif
 
 static inline int libmount_parse(
                 const char *path,
@@ -17,6 +21,7 @@ static inline int libmount_parse(
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter) {
 
+#if HAVE_MOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r;
@@ -44,4 +49,6 @@ static inline int libmount_parse(
         *ret_table = TAKE_PTR(table);
         *ret_iter = TAKE_PTR(iter);
         return 0;
+#endif
+        return -EOPNOTSUPP;
 }

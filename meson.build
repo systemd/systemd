@@ -826,8 +826,17 @@ if not libcap.found()
         libcap = cc.find_library('cap')
 endif
 
-libmount = dependency('mount',
-                      version : fuzzer_build ? '>= 0' : '>= 2.30')
+want_libmount = get_option('mount')
+if want_libmount != 'false'
+        libmount = dependency('mount',
+				 version : fuzzer_build ? '>= 0' : '>= 2.30',
+                                 required : want_libmount == 'true')
+        have = libmount.found()
+else
+        have = false
+        libmount = []
+endif
+conf.set10('HAVE_MOUNT', have)
 
 want_seccomp = get_option('seccomp')
 if want_seccomp != 'false' and not skip_deps

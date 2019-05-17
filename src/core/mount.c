@@ -1597,6 +1597,7 @@ static int mount_setup_unit(
 }
 
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
+#if HAVE_MOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r;
@@ -1631,6 +1632,8 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         }
 
         return 0;
+#endif
+        return -EOPNOTSUPP;
 }
 
 static void mount_shutdown(Manager *m) {
@@ -1638,7 +1641,9 @@ static void mount_shutdown(Manager *m) {
 
         m->mount_event_source = sd_event_source_unref(m->mount_event_source);
 
+#if HAVE_MOUNT
         mnt_unref_monitor(m->mount_monitor);
+#endif
         m->mount_monitor = NULL;
 }
 
@@ -1692,6 +1697,7 @@ static bool mount_is_mounted(Mount *m) {
 }
 
 static void mount_enumerate(Manager *m) {
+#if HAVE_MOUNT
         int r;
 
         assert(m);
@@ -1749,9 +1755,11 @@ static void mount_enumerate(Manager *m) {
 
 fail:
         mount_shutdown(m);
+#endif
 }
 
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+#if HAVE_MOUNT
         _cleanup_set_free_free_ Set *around = NULL, *gone = NULL;
         Manager *m = userdata;
         const char *what;
@@ -1882,6 +1890,8 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
         }
 
         return 0;
+#endif
+        return -EOPNOTSUPP;
 }
 
 static void mount_reset_failed(Unit *u) {

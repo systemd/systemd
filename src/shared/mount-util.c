@@ -25,6 +25,7 @@
 #include "strv.h"
 
 int umount_recursive(const char *prefix, int flags) {
+#if HAVE_MOUNT
         int n = 0, r;
         bool again;
 
@@ -75,6 +76,8 @@ int umount_recursive(const char *prefix, int flags) {
         } while (again);
 
         return n;
+#endif
+        return -EOPNOTSUPP;
 }
 
 static int get_mount_flags(const char *path, unsigned long *flags) {
@@ -95,6 +98,7 @@ int bind_remount_recursive_with_mountinfo(
                 char **blacklist,
                 FILE *proc_self_mountinfo) {
 
+#if HAVE_MOUNT
         _cleanup_set_free_free_ Set *done = NULL;
         _cleanup_free_ char *cleaned = NULL;
         int r;
@@ -265,6 +269,8 @@ int bind_remount_recursive_with_mountinfo(
                         log_debug("Remounted %s read-only.", x);
                 }
         }
+#endif
+        return -EOPNOTSUPP;
 }
 
 int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **blacklist) {
@@ -472,7 +478,7 @@ int mount_option_mangle(
                 unsigned long mount_flags,
                 unsigned long *ret_mount_flags,
                 char **ret_remaining_options) {
-
+#if HAVE_MOUNT
         const struct libmnt_optmap *map;
         _cleanup_free_ char *ret = NULL;
         const char *p;
@@ -534,4 +540,6 @@ int mount_option_mangle(
         *ret_remaining_options = TAKE_PTR(ret);
 
         return 0;
+#endif
+        return -EOPNOTSUPP;
 }
