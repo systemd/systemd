@@ -154,6 +154,7 @@ static bool print_multiline(
                 unsigned n_columns,
                 OutputFlags flags,
                 int priority,
+                bool audit,
                 const char* message,
                 size_t message_len,
                 size_t highlight[2]) {
@@ -163,8 +164,14 @@ static bool print_multiline(
         bool ellipsized = false;
         int line = 0;
 
-        if (flags & OUTPUT_COLOR)
+        if (flags & OUTPUT_COLOR) {
                 get_log_colors(priority, &color_on, &color_off, &highlight_on);
+
+                if (audit && strempty(color_on)) {
+                        color_on = ANSI_BLUE;
+                        color_off = ANSI_NORMAL;
+                }
+        }
 
         /* A special case: make sure that we print a newline when
            the message is empty. */
@@ -368,15 +375,16 @@ static int output_short(
         const void *data;
         size_t length;
         size_t n = 0;
-        _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL, *unit = NULL, *user_unit = NULL;
-        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0, unit_len = 0, user_unit_len = 0;
+        _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL, *transport = NULL, *unit = NULL, *user_unit = NULL;
+        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0, transport_len = 0, unit_len = 0, user_unit_len = 0;
         int p = LOG_INFO;
-        bool ellipsized = false;
+        bool ellipsized = false, audit;
         const ParseFieldVec fields[] = {
                 PARSE_FIELD_VEC_ENTRY("_PID=", &pid, &pid_len),
                 PARSE_FIELD_VEC_ENTRY("_COMM=", &comm, &comm_len),
                 PARSE_FIELD_VEC_ENTRY("MESSAGE=", &message, &message_len),
                 PARSE_FIELD_VEC_ENTRY("PRIORITY=", &priority, &priority_len),
+                PARSE_FIELD_VEC_ENTRY("_TRANSPORT=", &transport, &transport_len),
                 PARSE_FIELD_VEC_ENTRY("_HOSTNAME=", &hostname, &hostname_len),
                 PARSE_FIELD_VEC_ENTRY("SYSLOG_PID=", &fake_pid, &fake_pid_len),
                 PARSE_FIELD_VEC_ENTRY("SYSLOG_IDENTIFIER=", &identifier, &identifier_len),
@@ -420,6 +428,9 @@ static int output_short(
 
         if (priority_len == 1 && *priority >= '0' && *priority <= '7')
                 p = *priority - '0';
+
+
+        audit = streq_ptr(transport, "audit");
 
         if (mode == OUTPUT_SHORT_MONOTONIC)
                 r = output_timestamp_monotonic(f, j, monotonic);
@@ -475,7 +486,7 @@ static int output_short(
         } else {
                 fputs(": ", f);
                 ellipsized |=
-                        print_multiline(f, n + 2, n_columns, flags, p,
+                        print_multiline(f, n + 2, n_columns, flags, p, audit,
                                         message, message_len,
                                         highlight_shifted);
         }
@@ -570,7 +581,9 @@ static int output_verbose(
                     (((length < PRINT_CHAR_THRESHOLD) || flags & OUTPUT_FULL_WIDTH)
                      && utf8_is_printable(data, length))) {
                         fprintf(f, "    %s%.*s=", on, fieldlen, (const char*)data);
-                        print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, c + 1, length - fieldlen - 1, NULL);
+                        print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, false,
+                                        c + 1, length - fieldlen - 1,
+                                        NULL);
                         fputs(off, f);
                 } else {
                         char bytes[FORMAT_BYTES_MAX];
