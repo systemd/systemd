@@ -909,7 +909,7 @@ bool efi_loader_entry_name_valid(const char *s) {
         if (strlen(s) > FILENAME_MAX) /* Make sure entry names fit in filenames */
                 return false;
 
-        return in_charset(s, ALPHANUMERICAL "-_.");
+        return in_charset(s, ALPHANUMERICAL "+-_.");
 }
 
 char *efi_tilt_backslashes(char *s) {
