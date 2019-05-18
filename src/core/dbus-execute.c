@@ -1573,7 +1573,7 @@ int bus_exec_context_set_transient_property(
                                 _cleanup_free_ char *str = NULL;
                                 size_t allocated = 0, len = 0, i, ncpus;
 
-                                ncpus = CPU_SIZE_TO_NUM(n);
+                                ncpus = n * 8;
 
                                 for (i = 0; i < ncpus; i++) {
                                         _cleanup_free_ char *p = NULL;
