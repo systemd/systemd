@@ -39,4 +39,4 @@ sudo script -e -c "./infra/helper.py build_fuzzers --clean --sanitizer=memory sy
 sudo script -e -c "./infra/helper.py check_build --sanitizer=memory systemd"
 
 sudo script -e -c "./infra/helper.py build_fuzzers --architecture=i386 --clean systemd $t"
-sudo script -e -c "./infra/helper.py check_build systemd"
+sudo script -e -c "./infra/helper.py check_build --architecture=i386 systemd"
