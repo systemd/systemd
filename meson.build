@@ -824,28 +824,31 @@ libdl = cc.find_library('dl')
 libcrypt = cc.find_library('crypt')
 
 want_libcap = get_option('cap')
-if want_libcap != 'false'
+if want_libcap
         libcap = dependency('libcap', required : false)
         if not libcap.found()
                # Compat with Ubuntu 14.04 which ships libcap w/o .pc file
                 libcap = cc.find_library('cap')
         endif
         have = true
-else
+elif want_ossfuzz
         have = false
         libcap = []
+else
+	error('No can do')
 endif
 conf.set10('HAVE_CAP', have)
 
 want_libmount = get_option('mount')
-if want_libmount != 'false'
+if want_libmount
         libmount = dependency('mount',
-                                 version : fuzzer_build ? '>= 0' : '>= 2.30',
-                                 required : want_libmount == 'true')
-        have = libmount.found()
-else
+                                 version : fuzzer_build ? '>= 0' : '>= 2.30')
+        have = true
+elif want_ossfuzz
         have = false
         libmount = []
+else
+	error('No can do')
 endif
 conf.set10('HAVE_MOUNT', have)
 

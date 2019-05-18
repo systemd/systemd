@@ -224,9 +224,9 @@ option('www-target', type : 'string',
        description : 'the address and dir to upload docs too',
        value : 'www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd')
 
-option('mount', type : 'combo', choices : ['auto', 'true', 'false'],
+option('mount', type : 'boolean', value : true,
        description : 'libmount support')
-option('cap', type : 'combo', choices : ['auto', 'true', 'false'],
+option('cap', type : 'boolean', value : true,
        description : 'libcap support')
 option('seccomp', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'SECCOMP support')
