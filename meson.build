@@ -820,11 +820,19 @@ libm = cc.find_library('m')
 libdl = cc.find_library('dl')
 libcrypt = cc.find_library('crypt')
 
-libcap = dependency('libcap', required : false)
-if not libcap.found()
-        # Compat with Ubuntu 14.04 which ships libcap w/o .pc file
-        libcap = cc.find_library('cap')
+want_libcap = get_option('cap')
+if want_libcap != 'false'
+	libcap = dependency('libcap', required : false)
+        if not libcap.found()
+               # Compat with Ubuntu 14.04 which ships libcap w/o .pc file
+		libcap = cc.find_library('cap')
+	endif
+	have = true
+else
+        have = false
+        libcap = []
 endif
+conf.set10('HAVE_CAP', have)
 
 want_libmount = get_option('mount')
 if want_libmount != 'false'

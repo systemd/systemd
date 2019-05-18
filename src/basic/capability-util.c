@@ -19,6 +19,7 @@
 #include "util.h"
 
 int have_effective_cap(int value) {
+#if HAVE_CAP
         _cleanup_cap_free_ cap_t cap;
         cap_flag_value_t fv;
 
@@ -30,6 +31,8 @@ int have_effective_cap(int value) {
                 return -errno;
 
         return fv == CAP_SET;
+#endif
+        return -EOPNOTSUPP;
 }
 
 unsigned long cap_last_cap(void) {
@@ -85,6 +88,7 @@ unsigned long cap_last_cap(void) {
 }
 
 int capability_update_inherited_set(cap_t caps, uint64_t set) {
+#if HAVE_CAP
         unsigned long i;
 
         /* Add capabilities in the set to the inherited caps. Do not apply
@@ -104,9 +108,12 @@ int capability_update_inherited_set(cap_t caps, uint64_t set) {
         }
 
         return 0;
+#endif
+        return -EOPNOTSUPP;
 }
 
 int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
+#if HAVE_CAP
         _cleanup_cap_free_ cap_t caps = NULL;
         unsigned long i;
         int r;
@@ -137,9 +144,12 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
         }
 
         return 0;
+#endif
+        return -EOPNOTSUPP;
 }
 
 int capability_bounding_set_drop(uint64_t keep, bool right_now) {
+#if HAVE_CAP
         _cleanup_cap_free_ cap_t before_cap = NULL, after_cap = NULL;
         cap_flag_value_t fv;
         unsigned long i;
@@ -226,6 +236,8 @@ finish:
         }
 
         return r;
+#endif
+        return -EOPNOTSUPP;
 }
 
 static int drop_from_file(const char *fn, uint64_t keep) {
@@ -272,6 +284,7 @@ int capability_bounding_set_drop_usermode(uint64_t keep) {
 }
 
 int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
+#if HAVE_CAP
         int r;
 
         /* Unfortunately we cannot leave privilege dropping to PID 1 here, since we want to run as user but
@@ -332,9 +345,12 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         }
 
         return 0;
+#endif
+        return -EOPNOTSUPP;
 }
 
 int drop_capability(cap_value_t cv) {
+#if HAVE_CAP
         _cleanup_cap_free_ cap_t tmp_cap = NULL;
 
         tmp_cap = cap_get_proc();
@@ -350,6 +366,8 @@ int drop_capability(cap_value_t cv) {
                 return -errno;
 
         return 0;
+#endif
+        return -EOPNOTSUPP;
 }
 
 bool ambient_capabilities_supported(void) {
@@ -368,6 +386,7 @@ bool ambient_capabilities_supported(void) {
 }
 
 int capability_quintet_enforce(const CapabilityQuintet *q) {
+#if HAVE_CAP
         _cleanup_cap_free_ cap_t c = NULL, modified = NULL;
         int r;
 
@@ -538,4 +557,6 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                         return -errno;
 
         return 0;
+#endif
+        return -EOPNOTSUPP;
 }

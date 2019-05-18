@@ -226,6 +226,8 @@ option('www-target', type : 'string',
 
 option('mount', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libmount support')
+option('cap', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'libcap support')
 option('seccomp', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'SECCOMP support')
 option('selinux', type : 'combo', choices : ['auto', 'true', 'false'],
