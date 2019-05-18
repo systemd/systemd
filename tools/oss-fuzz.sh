@@ -32,7 +32,11 @@ if [ -z "$FUZZING_ENGINE" ]; then
     fuzzflag="llvm-fuzz=true"
 fi
 
-meson $build -D$fuzzflag -Db_lundef=false
+# link_language: 'cpp' (introduced in https://github.com/mesonbuild/meson/pull/4978) hasn't been released yet
+pip3 uninstall --yes meson && git clone https://github.com/mesonbuild/meson && cd meson && python3 setup.py install && cd .. && rm -rf ./meson
+
+# we should probably pass cap=false and mount=false only on "i386"
+meson $build -Dcap=false -Dmount=false -D$fuzzflag -Db_lundef=false
 ninja -v -C $build fuzzers
 
 # The seed corpus is a separate flat archive for each fuzzer,

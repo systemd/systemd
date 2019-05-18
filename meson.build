@@ -312,7 +312,10 @@ if want_libfuzzer
                 error('Looks like neither libFuzzer nor -fsanitize=fuzzer-no-link is supported')
         endif
 elif want_ossfuzz
-        fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
+        # linking the fuzzers against FuzzingEngine isn't compatible with --architeture=i386
+        # let's switch to -fsanitize=fuzzer
+        # https://github.com/google/oss-fuzz/issues/2295#issuecomment-493655729
+        # fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
 elif want_fuzzbuzz
         fuzzing_engine = meson.get_compiler('cpp').find_library(get_option('fuzzbuzz-engine'), dirs: get_option('fuzzbuzz-engine-dir'))
 endif
@@ -822,12 +825,12 @@ libcrypt = cc.find_library('crypt')
 
 want_libcap = get_option('cap')
 if want_libcap != 'false'
-	libcap = dependency('libcap', required : false)
+        libcap = dependency('libcap', required : false)
         if not libcap.found()
                # Compat with Ubuntu 14.04 which ships libcap w/o .pc file
-		libcap = cc.find_library('cap')
-	endif
-	have = true
+                libcap = cc.find_library('cap')
+        endif
+        have = true
 else
         have = false
         libcap = []
@@ -837,7 +840,7 @@ conf.set10('HAVE_CAP', have)
 want_libmount = get_option('mount')
 if want_libmount != 'false'
         libmount = dependency('mount',
-				 version : fuzzer_build ? '>= 0' : '>= 2.30',
+                                 version : fuzzer_build ? '>= 0' : '>= 2.30',
                                  required : want_libmount == 'true')
         have = libmount.found()
 else
@@ -2851,7 +2854,9 @@ foreach tuple : fuzzers
         incs = tuple.length() >= 5 ? tuple[4] : includes
         link_args = []
 
-        if want_ossfuzz or want_fuzzbuzz
+        if want_ossfuzz
+                link_args += ['-fsanitize=fuzzer']
+        elif want_fuzzbuzz
                 dependencies += fuzzing_engine
         elif want_libfuzzer
                 if fuzzing_engine.found()
@@ -2877,6 +2882,9 @@ foreach tuple : fuzzers
                 dependencies : dependencies,
                 c_args : defs,
                 link_args: link_args,
+                # once we get rid of FuzzEngine meson switch to clang and it fails
+                # let's use clang++ explicitly
+                link_language: 'cpp',
                 install : false)
 endforeach
 endif

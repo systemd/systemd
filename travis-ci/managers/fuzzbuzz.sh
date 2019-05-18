@@ -37,3 +37,6 @@ sudo mount --bind "$REPO_ROOT" "$t"
 # See https://github.com/systemd/systemd/pull/12542#issuecomment-491563572
 sudo script -e -c "./infra/helper.py build_fuzzers --clean --sanitizer=memory systemd $t"
 sudo script -e -c "./infra/helper.py check_build --sanitizer=memory systemd"
+
+sudo script -e -c "./infra/helper.py build_fuzzers --architecture=i386 --clean systemd $t"
+sudo script -e -c "./infra/helper.py check_build systemd"
