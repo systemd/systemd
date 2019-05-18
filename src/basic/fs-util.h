@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/inotify.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 

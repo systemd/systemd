@@ -212,7 +212,7 @@ static int sync_making_progress(unsigned long long *prev_dirty) {
 }
 
 static void sync_with_progress(void) {
-        unsigned long long dirty = ULONG_LONG_MAX;
+        unsigned long long dirty = ULLONG_MAX;
         unsigned checks;
         pid_t pid;
         int r;
