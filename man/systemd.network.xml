@@ -1532,6 +1532,13 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><varname>BlackList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected.</para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
     </refsect1>
 
@@ -1596,13 +1603,6 @@
           <listitem>
             <para>When true (the default), the onlink prefix received in the Router Advertisement will be used and take
             precedence over any statically configured ones.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>BlackList=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected.</para>
           </listitem>
         </varlistentry>
 
