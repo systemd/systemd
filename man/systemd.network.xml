@@ -1236,6 +1236,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>TTLPropagate=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When true enables TTL propagation at Label Switched Path (LSP) egress.
+            When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
         <term><varname>MTUBytes=</varname></term>
         <listitem>
           <para>The maximum transmission unit in bytes to set for the

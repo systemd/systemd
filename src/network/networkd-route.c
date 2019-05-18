@@ -61,6 +61,7 @@ int route_new(Route **ret) {
                 .quickack = -1,
                 .fast_open_no_cookie = -1,
                 .gateway_onlink = -1,
+                .ttl_propagate = -1,
         };
 
         *ret = TAKE_PTR(route);
@@ -615,6 +616,12 @@ int route_configure(
                 r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_OIF attribute: %m");
+        }
+
+        if (route->ttl_propagate >= 0) {
+                r = sd_netlink_message_append_u8(req, RTA_TTL_PROPAGATE, route->ttl_propagate);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append RTA_TTL_PROPAGATE attribute: %m");
         }
 
         r = sd_netlink_message_open_container(req, RTA_METRICS);
@@ -1295,6 +1302,45 @@ int config_parse_route_mtu(
         r = config_parse_mtu(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &n->mtu, userdata);
         if (r < 0)
                 return r;
+
+        TAKE_PTR(n);
+        return 0;
+}
+
+int config_parse_route_ttl_propagate(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
+        int r, k;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        k = parse_boolean(rvalue);
+        if (k < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, k,
+                           "Failed to parse TTLPropagate= value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        n->ttl_propagate = k;
 
         TAKE_PTR(n);
         return 0;

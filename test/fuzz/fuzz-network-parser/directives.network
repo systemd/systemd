@@ -83,6 +83,7 @@ QuickAck=
 FastOpenNoCookie=
 Source=
 Metric=
+TTLPropagate=
 [Network]
 IPv6DuplicateAddressDetection=
 IPMasquerade=

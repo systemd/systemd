@@ -18,6 +18,7 @@ struct Route {
         int family;
         int quickack;
         int fast_open_no_cookie;
+        int ttl_propagate;
 
         unsigned char dst_prefixlen;
         unsigned char src_prefixlen;
@@ -77,4 +78,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_route_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_tcp_window);
 CONFIG_PARSER_PROTOTYPE(config_parse_quickack);
 CONFIG_PARSER_PROTOTYPE(config_parse_fast_open_no_cookie);
+CONFIG_PARSER_PROTOTYPE(config_parse_route_ttl_propagate);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_mtu);
