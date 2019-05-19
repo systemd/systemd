@@ -2607,7 +2607,7 @@ void unit_add_to_cgroup_empty_queue(Unit *u) {
                 log_debug_errno(r, "Failed to enable cgroup empty event source: %m");
 }
 
-static int unit_check_oom(Unit *u) {
+int unit_check_oom(Unit *u) {
         _cleanup_free_ char *oom_kill = NULL;
         bool increased;
         uint64_t c;

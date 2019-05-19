@@ -197,6 +197,7 @@ int unit_watch_cgroup(Unit *u);
 int unit_watch_cgroup_memory(Unit *u);
 
 void unit_add_to_cgroup_empty_queue(Unit *u);
+int unit_check_oom(Unit *u);
 
 int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path);
 
