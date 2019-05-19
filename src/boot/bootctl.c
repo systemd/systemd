@@ -1067,10 +1067,16 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'p':
+                        if (arg_print_dollar_boot_path)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--print-boot-path/-x cannot be combined with --print-esp-path/-p");
                         arg_print_esp_path = true;
                         break;
 
                 case 'x':
+                        if (arg_print_esp_path)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--print-boot-path/-x cannot be combined with --print-esp-path/-p");
                         arg_print_dollar_boot_path = true;
                         break;
 
