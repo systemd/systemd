@@ -1203,6 +1203,7 @@ Varlink* varlink_flush_close_unref(Varlink *v) {
 
 static int varlink_enqueue_json(Varlink *v, JsonVariant *m) {
         _cleanup_free_ char *text = NULL;
+        size_t s;
         int r;
 
         assert(v);
@@ -1212,7 +1213,9 @@ static int varlink_enqueue_json(Varlink *v, JsonVariant *m) {
         if (r < 0)
                 return r;
 
-        if (v->output_buffer_size + r + 1 > VARLINK_BUFFER_MAX)
+        s = strlen(text) + 1;
+
+        if (v->output_buffer_size + s > VARLINK_BUFFER_MAX)
                 return -ENOBUFS;
 
         varlink_log(v, "Sending message: %s", text);
@@ -1221,26 +1224,26 @@ static int varlink_enqueue_json(Varlink *v, JsonVariant *m) {
 
                 free_and_replace(v->output_buffer, text);
 
-                v->output_buffer_size = v->output_buffer_allocated = r + 1;
+                v->output_buffer_size = v->output_buffer_allocated = s;
                 v->output_buffer_index = 0;
 
         } else if (v->output_buffer_index == 0) {
 
-                if (!GREEDY_REALLOC(v->output_buffer, v->output_buffer_allocated, v->output_buffer_size + r + 1))
+                if (!GREEDY_REALLOC(v->output_buffer, v->output_buffer_allocated, v->output_buffer_size + s))
                         return -ENOMEM;
 
-                memcpy(v->output_buffer + v->output_buffer_size, text, r + 1);
-                v->output_buffer_size += r + 1;
+                memcpy(v->output_buffer + v->output_buffer_size, text, s);
+                v->output_buffer_size += s;
 
         } else {
                 char *n;
-                const size_t new_size = v->output_buffer_size + r + 1;
+                const size_t new_size = v->output_buffer_size + s;
 
                 n = new(char, new_size);
                 if (!n)
                         return -ENOMEM;
 
-                memcpy(mempcpy(n, v->output_buffer + v->output_buffer_index, v->output_buffer_size), text, r + 1);
+                memcpy(mempcpy(n, v->output_buffer + v->output_buffer_index, v->output_buffer_size), text, s);
 
                 free_and_replace(v->output_buffer, n);
                 v->output_buffer_allocated = v->output_buffer_size = new_size;
