@@ -72,30 +72,28 @@ def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
 
 def expectedFailureIf_ip6gre_do_not_support_ipv6ll():
     def f(func):
+        success = False
         rc = subprocess.call(['ip', 'link', 'add', 'name', 'test1', 'type', 'dummy'])
-        if rc != 0:
-            return unittest.expectedFailure(func)
+        if rc == 0:
+            time.sleep(1)
+            rc = subprocess.call(['ip', 'tunnel', 'add', 'tun99', 'local', '2a00:ffde:4567:edde::4986', 'remote', '2001:473:fece:cafe::5178', 'mode', 'ip6gre', 'dev', 'test1'])
+            if rc == 0:
+                time.sleep(1)
+                # Not sure why, but '0' or '2' do not work.
+                subprocess.call(['sysctl', '-w', 'net.ipv6.conf.tun99.addr_gen_mode=3'])
 
-        time.sleep(1)
-        rc = subprocess.call(['ip', 'tunnel', 'add', 'tun99', 'local', '2a00:ffde:4567:edde::4986', 'remote', '2001:473:fece:cafe::5178', 'mode', 'ip6gre', 'dev', 'dummy99'])
-        if rc != 0:
-            return unittest.expectedFailure(func)
+                output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'tun99', 'scope', 'link'], universal_newlines=True).rstrip()
+                print(output)
+                success = 'inet6' in output
 
-        time.sleep(1)
-        # Not sure why, but '0' or '2' do not work.
-        rc = subprocess.call(['sysctl', '-w', 'net.ipv6.conf.tun99.addr_gen_mode=3'])
-        if rc != 0:
-            return unittest.expectedFailure(func)
+                subprocess.run(['ip', 'tunnel', 'del', 'tun99'])
 
-        time.sleep(1)
-        rc = subprocess.run(['ip', '-6', 'address', 'show', 'dev', 'tun99', 'scope', 'link'], stdout=subprocess.PIPE)
-        if rc.returncode != 0:
-            return unittest.expectedFailure(func)
+            subprocess.run(['ip', 'link', 'del', 'test1'])
 
-        if 'inet6' not in rc.stdout.rstrip().decode('utf-8'):
+        if success:
+            return func
+        else:
             return unittest.expectedFailure(func)
-
-        return func
 
     return f
 
@@ -139,7 +137,7 @@ class Utilities():
         time.sleep(1)
 
     def l2tp_tunnel_remove(self, tunnel_ids):
-        output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel'], universal_newlines=True).rstrip()
         for tid in tunnel_ids:
             words='Tunnel ' + tid + ', encap'
             if words in output:
@@ -219,6 +217,19 @@ class Utilities():
         if bool_any:
             args += ['--any']
         subprocess.check_call(args)
+
+    def get_operstate(self, link, show_status=True, setup_state='configured'):
+        output = subprocess.check_output(['networkctl', 'status', link], universal_newlines=True).rstrip()
+        if show_status:
+            print(output)
+        for line in output.splitlines():
+            if 'State:' in line and (not setup_state or setup_state in line):
+                return line.split()[1]
+        return None
+
+    def check_operstate(self, link, expected, show_status=True, setup_state='configured'):
+        self.assertRegex(self.get_operstate(link, show_status, setup_state), expected)
+
 
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
@@ -384,29 +395,29 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         # This also tests NetDev.Name= conflict and basic networkctl functionalities
 
-        output = subprocess.check_output(['ip', 'link', 'show', 'dropin-test']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'link', 'show', 'dropin-test'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '00:50:56:c0:00:28')
 
-        output = subprocess.check_output(['networkctl', 'list']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'list'], universal_newlines=True).rstrip()
         self.assertRegex(output, '1 lo ')
         self.assertRegex(output, 'dropin-test')
 
-        output = subprocess.check_output(['networkctl', 'list', 'dropin-test']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'list', 'dropin-test'], universal_newlines=True).rstrip()
         self.assertNotRegex(output, '1 lo ')
         self.assertRegex(output, 'dropin-test')
 
-        output = subprocess.check_output(['networkctl', 'list', 'dropin-*']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'list', 'dropin-*'], universal_newlines=True).rstrip()
         self.assertNotRegex(output, '1 lo ')
         self.assertRegex(output, 'dropin-test')
 
-        output = subprocess.check_output(['networkctl', 'status', 'dropin-*']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'status', 'dropin-*'], universal_newlines=True).rstrip()
         self.assertNotRegex(output, '1: lo ')
         self.assertRegex(output, 'dropin-test')
 
-        ret = subprocess.run(['ethtool', '--driver', 'dropin-test'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        print(ret.stdout.rstrip().decode('utf-8'))
-        if ret.returncode == 0 and re.search('driver: dummy', ret.stdout.rstrip().decode('utf-8')) != None:
+        ret = subprocess.run(['ethtool', '--driver', 'dropin-test'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+        print(ret.stdout.rstrip())
+        if ret.returncode == 0 and re.search('driver: dummy', ret.stdout.rstrip()) != None:
             self.assertRegex(output, 'Driver: dummy')
         else:
             print('ethtool does not support driver field at least for dummy interfaces, skipping test for Driver field of networkctl.')
@@ -419,13 +430,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('bridge99'))
         self.assertTrue(self.link_exits('test1'))
 
-        output = subprocess.check_output(['networkctl', 'status', 'bridge99']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: (?:off|no-carrier) \(configuring\)')
-
-        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: degraded \(configured\)')
+        self.check_operstate('bridge99', '(?:off|no-carrier)', setup_state='configuring')
+        self.check_operstate('test1', 'degraded')
 
     def test_bridge(self):
         self.copy_unit_to_networkd_unit_path('25-bridge.netdev')
@@ -477,11 +483,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('test1'))
         self.assertTrue(self.link_exits('vlan99'))
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, ' mtu 2000 ')
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vlan99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vlan99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, ' mtu 2000 ')
         self.assertRegex(output, 'REORDER_HDR')
@@ -490,12 +496,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'MVRP')
         self.assertRegex(output, ' id 99 ')
 
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'test1']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'test1'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'inet 192.168.24.5/24 brd 192.168.24.255 scope global test1')
         self.assertRegex(output, 'inet 192.168.25.5/24 brd 192.168.25.255 scope global test1')
 
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'vlan99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'vlan99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'inet 192.168.23.5/24 brd 192.168.23.255 scope global vlan99')
 
@@ -512,11 +518,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('test1'))
         self.assertTrue(self.link_exits('macvlan99'))
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, ' mtu 2000 ')
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'macvlan99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'macvlan99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, ' mtu 2000 ')
 
@@ -586,24 +592,24 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         if shutil.which('wg'):
             subprocess.call('wg')
 
-            output = subprocess.check_output(['wg', 'show', 'wg99', 'listen-port']).rstrip().decode('utf-8')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'listen-port'], universal_newlines=True).rstrip()
             self.assertRegex(output, '51820')
-            output = subprocess.check_output(['wg', 'show', 'wg99', 'fwmark']).rstrip().decode('utf-8')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'fwmark'], universal_newlines=True).rstrip()
             self.assertRegex(output, '0x4d2')
-            output = subprocess.check_output(['wg', 'show', 'wg99', 'allowed-ips']).rstrip().decode('utf-8')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'allowed-ips'], universal_newlines=True).rstrip()
             self.assertRegex(output, 'RDf\+LSpeEre7YEIKaxg\+wbpsNV7du\+ktR99uBEtIiCA=\t192.168.26.0/24 fd31:bf08:57cb::/48')
             self.assertRegex(output, 'lsDtM3AbjxNlauRKzHEPfgS1Zp7cp/VX5Use/P4PQSc=\tfdbc:bae2:7871:e1fe:793:8636::/96 fdbc:bae2:7871:500:e1fe:793:8636:dad1/128')
-            output = subprocess.check_output(['wg', 'show', 'wg99', 'persistent-keepalive']).rstrip().decode('utf-8')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'persistent-keepalive'], universal_newlines=True).rstrip()
             self.assertRegex(output, 'RDf\+LSpeEre7YEIKaxg\+wbpsNV7du\+ktR99uBEtIiCA=\t20')
-            output = subprocess.check_output(['wg', 'show', 'wg99', 'endpoints']).rstrip().decode('utf-8')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'endpoints'], universal_newlines=True).rstrip()
             self.assertRegex(output, 'RDf\+LSpeEre7YEIKaxg\+wbpsNV7du\+ktR99uBEtIiCA=\t192.168.27.3:51820')
-            output = subprocess.check_output(['wg', 'show', 'wg99', 'private-key']).rstrip().decode('utf-8')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'private-key'], universal_newlines=True).rstrip()
             self.assertRegex(output, 'EEGlnEPYJV//kbvvIqxKkQwOiS\+UENyPncC4bF46ong=')
-            output = subprocess.check_output(['wg', 'show', 'wg99', 'preshared-keys']).rstrip().decode('utf-8')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'preshared-keys'], universal_newlines=True).rstrip()
             self.assertRegex(output, 'RDf\+LSpeEre7YEIKaxg\+wbpsNV7du\+ktR99uBEtIiCA=	IIWIV17wutHv7t4cR6pOT91z6NSz/T8Arh0yaywhw3M=')
             self.assertRegex(output, 'lsDtM3AbjxNlauRKzHEPfgS1Zp7cp/VX5Use/P4PQSc=	cPLOy1YUrEI0EMMIycPJmOo0aTu3RZnw8bL5meVD6m0=')
 
-            output = subprocess.check_output(['wg', 'show', 'wg98', 'private-key']).rstrip().decode('utf-8')
+            output = subprocess.check_output(['wg', 'show', 'wg98', 'private-key'], universal_newlines=True).rstrip()
             self.assertRegex(output, 'CJQUtcS9emY2fLYqDlpSZiE/QJyHkPWr\+WHtZLZ90FU=')
 
     def test_geneve(self):
@@ -612,7 +618,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('geneve99'))
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'geneve99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'geneve99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '192.168.22.1')
         self.assertRegex(output, '6082')
@@ -627,13 +633,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['ipiptun99:routable', 'ipiptun98:routable', 'ipiptun97:routable', 'dummy98:degraded'])
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipiptun99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipiptun99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'ipip (?:ipip |)remote 192.169.224.239 local 192.168.223.238 dev dummy98')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipiptun98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipiptun98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'ipip (?:ipip |)remote 192.169.224.239 local any dev dummy98')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipiptun97']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipiptun97'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'ipip (?:ipip |)remote any local 192.168.223.238 dev dummy98')
 
@@ -645,21 +651,21 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['gretun99:routable', 'gretun98:routable', 'gretun97:routable', 'dummy98:degraded'])
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretun99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretun99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'gre remote 10.65.223.239 local 10.65.223.238 dev dummy98')
         self.assertRegex(output, 'ikey 1.2.3.103')
         self.assertRegex(output, 'okey 1.2.4.103')
         self.assertRegex(output, 'iseq')
         self.assertRegex(output, 'oseq')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretun98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretun98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'gre remote 10.65.223.239 local any dev dummy98')
         self.assertRegex(output, 'ikey 0.0.0.104')
         self.assertRegex(output, 'okey 0.0.0.104')
         self.assertNotRegex(output, 'iseq')
         self.assertNotRegex(output, 'oseq')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretun97']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretun97'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'gre remote any local 10.65.223.238 dev dummy98')
         self.assertRegex(output, 'ikey 0.0.0.105')
@@ -680,13 +686,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('ip6gretun98'))
         self.assertTrue(self.link_exits('ip6gretun97'))
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretun99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretun99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'ip6gre remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretun98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretun98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'ip6gre remote 2001:473:fece:cafe::5179 local any dev dummy98')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretun97']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretun97'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'ip6gre remote any local 2a00:ffde:4567:edde::4987 dev dummy98')
 
@@ -700,14 +706,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['gretap99:routable', 'gretap98:routable', 'dummy98:degraded'])
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretap99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretap99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'gretap remote 10.65.223.239 local 10.65.223.238 dev dummy98')
         self.assertRegex(output, 'ikey 0.0.0.106')
         self.assertRegex(output, 'okey 0.0.0.106')
         self.assertRegex(output, 'iseq')
         self.assertRegex(output, 'oseq')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretap98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretap98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'gretap remote 10.65.223.239 local any dev dummy98')
         self.assertRegex(output, 'ikey 0.0.0.107')
@@ -722,10 +728,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['ip6gretap99:routable', 'ip6gretap98:routable', 'dummy98:degraded'])
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretap99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretap99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'ip6gretap remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretap98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretap98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'ip6gretap remote 2001:473:fece:cafe::5179 local any dev dummy98')
 
@@ -737,13 +743,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['vtitun99:routable', 'vtitun98:routable', 'vtitun97:routable', 'dummy98:degraded'])
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vtitun99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vtitun99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'vti remote 10.65.223.239 local 10.65.223.238 dev dummy98')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vtitun98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vtitun98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'vti remote 10.65.223.239 local any dev dummy98')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vtitun97']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vtitun97'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'vti remote any local 10.65.223.238 dev dummy98')
 
@@ -755,13 +761,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['vti6tun99:routable', 'vti6tun98:routable', 'vti6tun97:routable', 'dummy98:degraded'])
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vti6tun99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vti6tun99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'vti6 remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vti6tun98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vti6tun98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'vti6 remote 2001:473:fece:cafe::5179 local (?:any|::) dev dummy98')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vti6tun97']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vti6tun97'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'vti6 remote (?:any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
 
@@ -773,13 +779,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['ip6tnl99:routable', 'ip6tnl98:routable', 'ip6tnl97:routable', 'dummy98:degraded'])
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6tnl99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6tnl99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6tnl98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6tnl98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local (?:any|::) dev dummy98')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6tnl97']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6tnl97'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'ip6tnl ip6ip6 remote (?:any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
 
@@ -791,13 +797,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['sittun99:routable', 'sittun98:routable', 'sittun97:routable', 'dummy98:degraded'])
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, "sit (?:ip6ip |)remote 10.65.223.239 local 10.65.223.238 dev dummy98")
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, "sit (?:ip6ip |)remote 10.65.223.239 local any dev dummy98")
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun97']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun97'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, "sit (?:ip6ip |)remote any local 10.65.223.238 dev dummy98")
 
@@ -810,7 +816,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('isataptun99'))
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'isataptun99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'isataptun99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, "isatap ")
 
@@ -820,7 +826,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['sittun99:routable', 'dummy98:degraded'])
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '6rd-prefix 2602::/24')
 
@@ -832,14 +838,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['erspan99:routable', 'erspan98:routable', 'dummy98:degraded'])
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'erspan99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'erspan99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'erspan remote 172.16.1.100 local 172.16.1.200')
         self.assertRegex(output, 'ikey 0.0.0.101')
         self.assertRegex(output, 'okey 0.0.0.101')
         self.assertRegex(output, 'iseq')
         self.assertRegex(output, 'oseq')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'erspan98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'erspan98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'erspan remote 172.16.1.100 local any')
         self.assertRegex(output, '102')
@@ -870,21 +876,21 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('gretun96'))
         self.assertTrue(self.link_exits('gretap96'))
 
-        output = subprocess.check_output(['ip', 'fou', 'show']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'fou', 'show'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'port 55555 ipproto 4')
         self.assertRegex(output, 'port 55556 ipproto 47')
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipiptun96']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipiptun96'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'encap fou encap-sport auto encap-dport 55555')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun96']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun96'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'encap fou encap-sport auto encap-dport 55555')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretun96']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretun96'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'encap fou encap-sport 1001 encap-dport 55556')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretap96']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretap96'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'encap fou encap-sport auto encap-dport 55556')
 
@@ -898,7 +904,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.wait_online(['test1:degraded', 'vxlan99:degraded'])
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vxlan99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vxlan99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '999')
         self.assertRegex(output, '5555')
@@ -911,7 +917,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'remcsumrx')
         self.assertRegex(output, 'gbp')
 
-        output = subprocess.check_output(['bridge', 'fdb', 'show', 'dev', 'vxlan99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['bridge', 'fdb', 'show', 'dev', 'vxlan99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '00:11:22:33:44:55 dst 10.0.0.5 self permanent')
         self.assertRegex(output, '00:11:22:33:44:66 dst 10.0.0.6 self permanent')
@@ -924,13 +930,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.wait_online(['dummy98:degraded', 'macsec99:routable'])
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'macsec99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'macsec99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'macsec99@dummy98')
         self.assertRegex(output, 'macsec sci [0-9a-f]*000b')
         self.assertRegex(output, 'encrypt on')
 
-        output = subprocess.check_output(['ip', 'macsec', 'show', 'macsec99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'macsec', 'show', 'macsec99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'encrypt on')
         self.assertRegex(output, 'TXSC: [0-9a-f]*000b on SA 1')
@@ -981,7 +987,7 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('l2tp-ses1'))
         self.assertTrue(self.link_exits('l2tp-ses2'))
 
-        output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel', 'tunnel_id', '10']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel', 'tunnel_id', '10'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, "Tunnel 10, encap UDP")
         self.assertRegex(output, "From 192.168.30.100 to 192.168.30.101")
@@ -989,13 +995,13 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
         self.assertRegex(output, "UDP source / dest ports: 3000/4000")
         self.assertRegex(output, "UDP checksum: enabled")
 
-        output = subprocess.check_output(['ip', 'l2tp', 'show', 'session', 'tid', '10', 'session_id', '15']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'session', 'tid', '10', 'session_id', '15'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, "Session 15 in tunnel 10")
         self.assertRegex(output, "Peer session 16, tunnel 11")
         self.assertRegex(output, "interface name: l2tp-ses1")
 
-        output = subprocess.check_output(['ip', 'l2tp', 'show', 'session', 'tid', '10', 'session_id', '17']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'session', 'tid', '10', 'session_id', '17'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, "Session 17 in tunnel 10")
         self.assertRegex(output, "Peer session 18, tunnel 11")
@@ -1010,19 +1016,19 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('l2tp-ses3'))
         self.assertTrue(self.link_exits('l2tp-ses4'))
 
-        output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel', 'tunnel_id', '10']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel', 'tunnel_id', '10'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, "Tunnel 10, encap IP")
         self.assertRegex(output, "From 192.168.30.100 to 192.168.30.101")
         self.assertRegex(output, "Peer tunnel 12")
 
-        output = subprocess.check_output(['ip', 'l2tp', 'show', 'session', 'tid', '10', 'session_id', '25']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'session', 'tid', '10', 'session_id', '25'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, "Session 25 in tunnel 10")
         self.assertRegex(output, "Peer session 26, tunnel 12")
         self.assertRegex(output, "interface name: l2tp-ses3")
 
-        output = subprocess.check_output(['ip', 'l2tp', 'show', 'session', 'tid', '10', 'session_id', '27']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'session', 'tid', '10', 'session_id', '27'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, "Session 27 in tunnel 10")
         self.assertRegex(output, "Peer session 28, tunnel 12")
@@ -1072,7 +1078,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.wait_online(['dummy98:routable'])
 
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98')
         self.assertRegex(output, 'inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98')
@@ -1082,19 +1088,19 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, '10.10.0.1/16')
         self.assertNotRegex(output, '10.10.0.2/16')
 
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98', 'label', '32']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98', 'label', '32'], universal_newlines=True).rstrip()
         self.assertRegex(output, 'inet 10.3.2.3/16 brd 10.3.255.255 scope global 32')
 
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98', 'label', '33']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98', 'label', '33'], universal_newlines=True).rstrip()
         self.assertRegex(output, 'inet 10.4.2.3 peer 10.4.2.4/16 scope global 33')
 
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98', 'label', '34']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98', 'label', '34'], universal_newlines=True).rstrip()
         self.assertRegex(output, 'inet 192.168.[0-9]*.1/24 brd 192.168.[0-9]*.255 scope global 34')
 
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98', 'label', '35']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98', 'label', '35'], universal_newlines=True).rstrip()
         self.assertRegex(output, 'inet 172.[0-9]*.0.1/16 brd 172.[0-9]*.255.255 scope global 35')
 
-        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'inet6 2001:db8:0:f101::15/64 scope global')
         self.assertRegex(output, 'inet6 2001:db8:0:f101::16/64 scope global')
@@ -1109,11 +1115,9 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('dummy98'))
 
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: routable \(configuring\)')
+        self.check_operstate('dummy98', 'routable', setup_state='configuring')
 
-        output = subprocess.check_output(['ip', 'address', 'show', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope link deprecated dummy98')
         self.assertRegex(output, 'inet6 2001:db8:0:f101::1/64 scope global')
@@ -1124,7 +1128,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('test1'))
 
-        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'status', 'test1'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '192.168.0.15')
         self.assertRegex(output, '192.168.0.1')
@@ -1139,7 +1143,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('test1'))
 
-        output = subprocess.check_output(['ip', 'rule']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'rule'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '111')
         self.assertRegex(output, 'from 192.168.100.18')
@@ -1164,11 +1168,11 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
             self.assertTrue(self.link_exits('test1'))
             self.assertTrue(self.link_exits('dummy98'))
 
-            output = subprocess.check_output(['ip', 'rule', 'list', 'table', '7']).rstrip().decode('utf-8')
+            output = subprocess.check_output(['ip', 'rule', 'list', 'table', '7'], universal_newlines=True).rstrip()
             print(output)
             self.assertRegex(output, '111:	from 192.168.100.18 tos (?:0x08|throughput) iif test1 oif test1 lookup 7')
 
-            output = subprocess.check_output(['ip', 'rule', 'list', 'table', '8']).rstrip().decode('utf-8')
+            output = subprocess.check_output(['ip', 'rule', 'list', 'table', '8'], universal_newlines=True).rstrip()
             print(output)
             self.assertRegex(output, '112:	from 192.168.101.18 tos (?:0x08|throughput) iif dummy98 oif dummy98 lookup 8')
 
@@ -1185,7 +1189,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('test1'))
 
-        output = subprocess.check_output(['ip', 'rule']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'rule'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '111')
         self.assertRegex(output, 'from 192.168.100.18')
@@ -1206,7 +1210,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('test1'))
 
-        output = subprocess.check_output(['ip', 'rule']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'rule'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '111')
         self.assertRegex(output, 'not.*?from.*?192.168.100.18')
@@ -1221,15 +1225,15 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.wait_online(['dummy98:routable'])
 
-        output = subprocess.check_output(['ip', '-6', 'route', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-6', 'route', 'show', 'dev', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '2001:1234:5:8fff:ff:ff:ff:ff proto static')
         self.assertRegex(output, '2001:1234:5:8f63::1 proto kernel')
 
-        output = subprocess.check_output(['ip', '-6', 'route', 'show', 'dev', 'dummy98', 'default']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-6', 'route', 'show', 'dev', 'dummy98', 'default'], universal_newlines=True).rstrip()
         self.assertRegex(output, 'default via 2001:1234:5:8fff:ff:ff:ff:ff proto static metric 1024 pref medium')
 
-        output = subprocess.check_output(['ip', '-4', 'route', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'route', 'show', 'dev', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '149.10.124.48/28 proto kernel scope link src 149.10.124.58')
         self.assertRegex(output, '149.10.124.64 proto static scope link')
@@ -1237,20 +1241,20 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.1.1 proto static initcwnd 20')
         self.assertRegex(output, '192.168.1.2 proto static initrwnd 30')
 
-        output = subprocess.check_output(['ip', '-4', 'route', 'show', 'dev', 'dummy98', 'default']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'route', 'show', 'dev', 'dummy98', 'default'], universal_newlines=True).rstrip()
         self.assertRegex(output, 'default via 149.10.125.65 proto static onlink')
         self.assertRegex(output, 'default via 149.10.124.64 proto static')
         self.assertRegex(output, 'default proto static')
 
-        output = subprocess.check_output(['ip', 'route', 'show', 'type', 'blackhole']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'route', 'show', 'type', 'blackhole'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'blackhole 202.54.1.2 proto static')
 
-        output = subprocess.check_output(['ip', 'route', 'show', 'type', 'unreachable']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'route', 'show', 'type', 'unreachable'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'unreachable 202.54.1.3 proto static')
 
-        output = subprocess.check_output(['ip', 'route', 'show', 'type', 'prohibit']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'route', 'show', 'type', 'prohibit'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'prohibit 202.54.1.4 proto static')
 
@@ -1268,7 +1272,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('bond199'))
 
-        output = subprocess.check_output(['ip', '-6', 'route', 'list', 'dev', 'bond199']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-6', 'route', 'list', 'dev', 'bond199'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'abcd::/16')
         self.assertRegex(output, 'src')
@@ -1280,7 +1284,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('dummy98'))
 
-        output = subprocess.check_output(['ip', 'link', 'show', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'link', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '00:01:02:aa:bb:cc')
 
@@ -1290,7 +1294,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('dummy98'))
 
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'status', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'unmanaged')
 
@@ -1300,7 +1304,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('dummy98'))
 
-        output = subprocess.check_output(['ip', 'addrlabel', 'list']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'addrlabel', 'list'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '2004:da8:1::/64')
 
@@ -1310,7 +1314,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('dummy98'))
 
-        output = subprocess.check_output(['ip', 'neigh', 'list']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'neigh', 'list'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
         self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
@@ -1324,22 +1328,17 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('test1'))
         self.assertTrue(self.link_exits('dummy98'))
 
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'test1']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'test1'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'inet .* scope link')
         self.assertRegex(output, 'inet6 .* scope link')
 
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertNotRegex(output, 'inet6* .* scope link')
 
-        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: degraded \(configured\)')
-
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: carrier \(configured\)')
+        self.check_operstate('test1', 'degraded')
+        self.check_operstate('dummy98', 'carrier')
 
         '''
         Documentation/networking/ip-sysctl.txt
@@ -1401,14 +1400,13 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('dummy98'))
 
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope global dummy98')
-        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertEqual(output, '')
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: routable \(configured\)')
+        self.check_operstate('dummy98', 'routable')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
 
@@ -1421,14 +1419,13 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('dummy98'))
 
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope global dummy98')
-        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'inet6 .* scope link')
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: routable \(configured\)')
+        self.check_operstate('dummy98', 'routable')
 
     def test_bind_carrier(self):
         self.copy_unit_to_networkd_unit_path('25-bind-carrier.network', '11-dummy.netdev')
@@ -1439,51 +1436,46 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
         time.sleep(2)
-        output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'test1'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'UP,LOWER_UP')
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
-        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: routable \(configured\)')
+        self.check_operstate('test1', 'routable')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy99', 'type', 'dummy']), 0)
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy99', 'up']), 0)
         time.sleep(2)
-        output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'test1'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'UP,LOWER_UP')
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
-        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: routable \(configured\)')
+        self.check_operstate('test1', 'routable')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
         time.sleep(2)
-        output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'test1'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'UP,LOWER_UP')
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
-        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: routable \(configured\)')
+        self.check_operstate('test1', 'routable')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy99']), 0)
         time.sleep(2)
-        output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'test1'], universal_newlines=True).rstrip()
         print(output)
         self.assertNotRegex(output, 'UP,LOWER_UP')
         self.assertRegex(output, 'DOWN')
         self.assertNotRegex(output, '192.168.10')
-        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: off \(configured\)')
+        self.check_operstate('test1', 'off')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
         time.sleep(2)
-        output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'test1'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'UP,LOWER_UP')
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
-        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: routable \(configured\)')
+        self.check_operstate('test1', 'routable')
 
 class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
     links = [
@@ -1518,7 +1510,7 @@ class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('bond199'))
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond199']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond199'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'active_slave dummy98')
 
@@ -1529,7 +1521,7 @@ class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('test1'))
         self.assertTrue(self.link_exits('bond199'))
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond199']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond199'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'primary test1')
 
@@ -1542,75 +1534,55 @@ class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('test1'))
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'SLAVE,UP,LOWER_UP')
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'SLAVE,UP,LOWER_UP')
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'MASTER,UP,LOWER_UP')
 
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: enslaved \(configured\)')
-
-        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: enslaved \(configured\)')
-
-        output = subprocess.check_output(['networkctl', 'status', 'bond99']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: routable \(configured\)')
+        self.check_operstate('dummy98', 'enslaved')
+        self.check_operstate('test1', 'enslaved')
+        self.check_operstate('bond99', 'routable')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'down']), 0)
         time.sleep(2)
 
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: off \(configured\)')
-
-        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: enslaved \(configured\)')
-
-        output = subprocess.check_output(['networkctl', 'status', 'bond99']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: degraded-carrier \(configured\)')
+        self.check_operstate('dummy98', 'off')
+        self.check_operstate('test1', 'enslaved')
+        self.check_operstate('bond99', 'degraded-carrier')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
         time.sleep(2)
 
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: enslaved \(configured\)')
-
-        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: enslaved \(configured\)')
-
-        output = subprocess.check_output(['networkctl', 'status', 'bond99']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: routable \(configured\)')
+        self.check_operstate('dummy98', 'enslaved')
+        self.check_operstate('test1', 'enslaved')
+        self.check_operstate('bond99', 'routable')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'down']), 0)
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'test1', 'down']), 0)
-        time.sleep(5)
+        time.sleep(2)
 
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: off \(configured\)')
+        self.check_operstate('dummy98', 'off')
+        self.check_operstate('test1', 'off')
 
-        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: off \(configured\)')
-
-        output = subprocess.check_output(['networkctl', 'status', 'bond99']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: no-carrier \(configured\)')
+        bond_has_no_carrier=False
+        for trial in range(30):
+            if trial > 0:
+                time.sleep(1)
+            output = subprocess.check_output(['ip', 'address', 'show', 'bond99'], universal_newlines=True).rstrip()
+            print(output)
+            if self.get_operstate('bond99') == 'no-carrier':
+                break
+        else:
+            # Huh? Kernel does not recognize that all slave interfaces are down?
+            # Let's confirm that networkd's operstate is consistent with ip's result.
+            self.assertNotRegex(output, 'NO-CARRIER')
 
 class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
     links = [
@@ -1644,21 +1616,21 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('test1'))
         self.assertTrue(self.link_exits('bridge99'))
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'master')
         self.assertRegex(output, 'bridge')
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'master')
         self.assertRegex(output, 'bridge')
 
-        output = subprocess.check_output(['ip', 'addr', 'show', 'bridge99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'addr', 'show', 'bridge99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '192.168.0.15/24')
 
-        output = subprocess.check_output(['bridge', '-d', 'link', 'show', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['bridge', '-d', 'link', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'hairpin_mode'), '1')
         self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'path_cost'), '400')
@@ -1673,38 +1645,30 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
         if (os.path.exists('/sys/devices/virtual/net/bridge00/lower_dummy98/brport/multicast_to_unicast')):
             self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'multicast_to_unicast'), '1')
 
-        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: enslaved \(configured\)')
-
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: enslaved \(configured\)')
-
-        output = subprocess.check_output(['networkctl', 'status', 'bridge99']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: routable \(configured\)')
+        self.check_operstate('test1', 'enslaved')
+        self.check_operstate('dummy98', 'enslaved')
+        self.check_operstate('bridge99', 'routable')
 
         self.assertEqual(subprocess.call(['ip', 'address', 'add', '192.168.0.16/24', 'dev', 'bridge99']), 0)
         time.sleep(1)
 
-        output = subprocess.check_output(['ip', 'addr', 'show', 'bridge99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'addr', 'show', 'bridge99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '192.168.0.16/24')
 
-        output = subprocess.check_output(['networkctl', 'status', 'bridge99']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: routable \(configured\)')
+        self.check_operstate('bridge99', 'routable')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'del', 'test1']), 0)
         time.sleep(3)
 
-        output = subprocess.check_output(['networkctl', 'status', 'bridge99']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: degraded-carrier \(configured\)')
+        self.check_operstate('bridge99', 'degraded-carrier')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
         time.sleep(3)
 
-        output = subprocess.check_output(['networkctl', 'status', 'bridge99']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: no-carrier \(configured\)')
+        self.check_operstate('bridge99', 'no-carrier')
 
-        output = subprocess.check_output(['ip', 'address', 'show', 'bridge99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'bridge99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'NO-CARRIER')
         self.assertNotRegex(output, '192.168.0.15/24')
@@ -1730,7 +1694,7 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
         self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
         time.sleep(3)
 
-        output = subprocess.check_output(['ip', 'address', 'show', 'bridge99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'bridge99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'NO-CARRIER')
         self.assertRegex(output, 'inet 192.168.0.15/24 brd 192.168.0.255 scope global bridge99')
@@ -1765,17 +1729,14 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
 
         time.sleep(3)
 
-        output = subprocess.check_output(['ip', 'address', 'show', 'bridge99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'bridge99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'inet 192.168.0.15/24 brd 192.168.0.255 scope global bridge99')
 
-        output = subprocess.check_output(['networkctl', 'status', 'bridge99']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: routable \(configured\)')
+        self.check_operstate('bridge99', 'routable')
+        self.check_operstate('dummy98', 'enslaved')
 
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: enslaved \(configured\)')
-
-        output = subprocess.check_output(['ip', 'rule', 'list', 'table', '100']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'rule', 'list', 'table', '100'], universal_newlines=True).rstrip()
         print(output)
         self.assertEqual(output, '0:	from all to 8.8.8.8 lookup 100')
 
@@ -1802,7 +1763,7 @@ class NetworkdNetWorkLLDPTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('veth99'))
 
-        output = subprocess.check_output(['networkctl', 'lldp']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'lldp'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'veth-peer')
         self.assertRegex(output, 'veth99')
@@ -1828,7 +1789,7 @@ class NetworkdNetworkRATests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('veth99'))
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '2002:da8:1:0')
 
@@ -1859,7 +1820,7 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('veth99'))
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '192.168.5.*')
         self.assertRegex(output, 'Gateway: 192.168.5.1')
@@ -1872,7 +1833,7 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('dummy98'))
 
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'status', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'Address: 192.168.42.100')
         self.assertRegex(output, 'DNS: 192.168.42.1')
@@ -1884,7 +1845,7 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('veth99'))
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'Gateway: 192.168.5.*')
         self.assertRegex(output, '192.168.5.*')
@@ -1938,13 +1899,13 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.start_dnsmasq()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '2600::')
         self.assertNotRegex(output, '192.168.5')
 
         # Confirm that ipv6 token is not set in the kernel
-        output = subprocess.check_output(['ip', 'token', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'token', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'token :: dev veth99')
 
@@ -1956,7 +1917,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_dnsmasq()
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertNotRegex(output, '2600::')
         self.assertRegex(output, '192.168.5')
@@ -1970,7 +1931,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_dnsmasq()
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '2600::')
         self.assertRegex(output, '192.168.5')
@@ -1984,7 +1945,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.start_dnsmasq()
 
         print('## ip address show dev veth99')
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '12:34:56:78:9a:bc')
         self.assertRegex(output, '192.168.5')
@@ -1992,12 +1953,12 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         # issue #8726
         print('## ip route show table main dev veth99')
-        output = subprocess.check_output(['ip', 'route', 'show', 'table', 'main', 'dev', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'route', 'show', 'table', 'main', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertNotRegex(output, 'proto dhcp')
 
         print('## ip route show table 211 dev veth99')
-        output = subprocess.check_output(['ip', 'route', 'show', 'table', '211', 'dev', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'route', 'show', 'table', '211', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'default via 192.168.5.1 proto dhcp')
         self.assertRegex(output, '192.168.5.0/24 via 192.168.5.5 proto dhcp')
@@ -2017,7 +1978,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_dnsmasq()
 
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '12:34:56:78:9a:bc')
         self.assertTrue(self.search_words_in_dnsmasq_log('14:rapid-commit', True))
@@ -2030,7 +1991,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_dnsmasq()
 
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '12:34:56:78:9a:bc')
         self.assertFalse(self.search_words_in_dnsmasq_log('14:rapid-commit', True))
@@ -2055,7 +2016,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_dnsmasq('--dhcp-alternate-port=67,5555')
 
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '192.168.5.* dynamic')
 
@@ -2067,7 +2028,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_dnsmasq()
 
-        output = subprocess.check_output(['ip', 'route', 'show', 'table', '12']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'route', 'show', 'table', '12'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'veth99 proto dhcp')
         self.assertRegex(output, '192.168.5.1')
@@ -2080,7 +2041,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_dnsmasq()
 
-        output = subprocess.check_output(['ip', 'route', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'route', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'metric 24')
 
@@ -2092,7 +2053,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_dnsmasq()
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '192.168.5.*')
 
@@ -2102,7 +2063,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
         time.sleep(125)
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '192.168.5.*')
 
@@ -2114,7 +2075,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_dnsmasq()
 
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99', 'scope', 'global']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99', 'scope', 'global'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '192.168.5')
         self.assertRegex(output, '2600::')
@@ -2133,12 +2094,12 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('veth99'))
 
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '192.168.5')
         self.assertRegex(output, 'valid_lft forever preferred_lft forever')
 
-        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'global']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'global'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '2600::')
         self.assertRegex(output, 'valid_lft forever preferred_lft forever')
@@ -2155,16 +2116,16 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.start_dnsmasq()
 
         print('## ip -d link show dev vrf99')
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'dev', 'vrf99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'dev', 'vrf99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'vrf table 42')
 
         print('## ip address show vrf vrf99')
-        output_ip_vrf = subprocess.check_output(['ip', 'address', 'show', 'vrf', 'vrf99']).rstrip().decode('utf-8')
+        output_ip_vrf = subprocess.check_output(['ip', 'address', 'show', 'vrf', 'vrf99'], universal_newlines=True).rstrip()
         print(output_ip_vrf)
 
         print('## ip address show dev veth99')
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertEqual(output, output_ip_vrf)
         self.assertRegex(output, 'inet 169.254.[0-9]*.[0-9]*/16 brd 169.254.255.255 scope link veth99')
@@ -2173,7 +2134,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet6 .* scope link')
 
         print('## ip route show vrf vrf99')
-        output = subprocess.check_output(['ip', 'route', 'show', 'vrf', 'vrf99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'route', 'show', 'vrf', 'vrf99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'default via 192.168.5.1 dev veth99 proto dhcp src 192.168.5.')
         self.assertRegex(output, 'default dev veth99 proto static scope link')
@@ -2183,17 +2144,12 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5.1 dev veth99 proto dhcp scope link src 192.168.5')
 
         print('## ip route show table main dev veth99')
-        output = subprocess.check_output(['ip', 'route', 'show', 'table', 'main', 'dev', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'route', 'show', 'table', 'main', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertEqual(output, '')
 
-        output = subprocess.check_output(['networkctl', 'status', 'vrf99']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: carrier \(configured\)')
-
-        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: routable \(configured\)')
+        self.check_operstate('vrf99', 'carrier')
+        self.check_operstate('veth99', 'routable')
 
     def test_dhcp_client_gateway_onlink_implicit(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
@@ -2204,14 +2160,14 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_dnsmasq()
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '192.168.5')
 
-        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'veth99', '10.0.0.0/8']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'veth99', '10.0.0.0/8'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'onlink')
-        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'veth99', '192.168.100.0/24']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'veth99', '192.168.100.0/24'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'onlink')
 
@@ -2223,31 +2179,31 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.start_dnsmasq(lease_time='2m')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
 
-        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic'], universal_newlines=True).rstrip()
         self.assertNotRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global dynamic')
-        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'link']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'link'], universal_newlines=True).rstrip()
         self.assertRegex(output, 'inet6 .* scope link')
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic'], universal_newlines=True).rstrip()
         self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'link']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'link'], universal_newlines=True).rstrip()
         self.assertNotRegex(output, 'inet .* scope link')
 
         print('Wait for the dynamic address to be expired')
         time.sleep(130)
 
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
 
-        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic'], universal_newlines=True).rstrip()
         self.assertNotRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global dynamic')
-        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'link']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'link'], universal_newlines=True).rstrip()
         self.assertRegex(output, 'inet6 .* scope link')
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic'], universal_newlines=True).rstrip()
         self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'link']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'link'], universal_newlines=True).rstrip()
         self.assertNotRegex(output, 'inet .* scope link')
 
         self.search_words_in_dnsmasq_log('DHCPOFFER', show_all=True)
@@ -2258,16 +2214,16 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['veth99:degraded', 'veth-peer:routable'])
 
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
 
-        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic'], universal_newlines=True).rstrip()
         self.assertNotRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global dynamic')
-        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'link']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'link'], universal_newlines=True).rstrip()
         self.assertRegex(output, 'inet6 .* scope link')
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic'], universal_newlines=True).rstrip()
         self.assertNotRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
-        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'link']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'link'], universal_newlines=True).rstrip()
         self.assertRegex(output, 'inet .* scope link')
 
 if __name__ == '__main__':

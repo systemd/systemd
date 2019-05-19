@@ -1637,7 +1637,8 @@ bool link_has_carrier(Link *link) {
 
         if (link->kernel_operstate == IF_OPER_UNKNOWN)
                 /* operstate may not be implemented, so fall back to flags */
-                if ((link->flags & IFF_LOWER_UP) && !(link->flags & IFF_DORMANT))
+                if (FLAGS_SET(link->flags, IFF_LOWER_UP | IFF_RUNNING) &&
+                    !FLAGS_SET(link->flags, IFF_DORMANT))
                         return true;
 
         return false;
