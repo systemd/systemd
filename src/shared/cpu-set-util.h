@@ -5,12 +5,6 @@
 
 #include "macro.h"
 
-#ifdef __NCPUBITS
-#define CPU_SIZE_TO_NUM(n) ((n) * __NCPUBITS)
-#else
-#define CPU_SIZE_TO_NUM(n) ((n) * sizeof(cpu_set_t) * 8)
-#endif
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(cpu_set_t*, CPU_FREE);
 #define _cleanup_cpu_free_ _cleanup_(CPU_FREEp)
 
