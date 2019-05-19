@@ -1558,7 +1558,7 @@ int bus_exec_context_set_transient_property(
 #endif
         if (streq(name, "CPUAffinity")) {
                 const void *a;
-                size_t n = 0;
+                size_t n;
 
                 r = sd_bus_message_read_array(message, 'y', &a, &n);
                 if (r < 0)
