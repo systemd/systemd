@@ -14,7 +14,7 @@ NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-infinity}"
 TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
 [[ "$LOOKS_LIKE_SUSE" ]] && FSTYPE="${FSTYPE:-btrfs}" || FSTYPE="${FSTYPE:-ext4}"
 UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
-EFI_MOUNT="$(bootctl -p 2>/dev/null || echo /boot)"
+EFI_MOUNT="$(bootctl -x 2>/dev/null || echo /boot)"
 QEMU_MEM="${QEMU_MEM:-512M}"
 
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
