@@ -1571,32 +1571,13 @@ int bus_exec_context_set_transient_property(
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
                                 _cleanup_free_ char *str = NULL;
-                                size_t allocated = 0, len = 0, i, ncpus;
+                                size_t ncpus;
+
+                                str = cpu_set_to_string(a, n);
+                                if (!str)
+                                        return -ENOMEM;
 
                                 ncpus = CPU_SIZE_TO_NUM(n);
-
-                                for (i = 0; i < ncpus; i++) {
-                                        _cleanup_free_ char *p = NULL;
-                                        size_t add;
-
-                                        if (!CPU_ISSET_S(i, n, (cpu_set_t*) a))
-                                                continue;
-
-                                        r = asprintf(&p, "%zu", i);
-                                        if (r < 0)
-                                                return -ENOMEM;
-
-                                        add = strlen(p);
-
-                                        if (!GREEDY_REALLOC(str, allocated, len + add + 2))
-                                                return -ENOMEM;
-
-                                        strcpy(mempcpy(str + len, p, add), " ");
-                                        len += add + 1;
-                                }
-
-                                if (len != 0)
-                                        str[len - 1] = '\0';
 
                                 if (!c->cpuset || c->cpuset_ncpus < ncpus) {
                                         cpu_set_t *cpuset;

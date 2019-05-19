@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <syslog.h>
 
 #include "alloc-util.h"
@@ -11,6 +12,26 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "string-util.h"
+
+char* cpu_set_to_string(const cpu_set_t *set, size_t setsize) {
+        _cleanup_free_ char *str = NULL;
+        size_t allocated = 0, len = 0;
+        int i, r;
+
+        for (i = 0; (size_t) i < setsize * 8; i++) {
+                if (!CPU_ISSET_S(i, setsize, set))
+                        continue;
+
+                if (!GREEDY_REALLOC(str, allocated, len + 1 + DECIMAL_STR_MAX(int)))
+                        return NULL;
+
+                r = sprintf(str + len, len > 0 ? " %d" : "%d", i);
+                assert_se(r > 0);
+                len += r;
+        }
+
+        return TAKE_PTR(str) ?: strdup("");
+}
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         cpu_set_t *c;

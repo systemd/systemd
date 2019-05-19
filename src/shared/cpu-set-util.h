@@ -22,6 +22,7 @@ static inline cpu_set_t* cpu_set_mfree(cpu_set_t *p) {
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
+char* cpu_set_to_string(const cpu_set_t *set, size_t setsize);
 int parse_cpu_set_internal(const char *rvalue, cpu_set_t **cpu_set, bool warn, const char *unit, const char *filename, unsigned line, const char *lvalue);
 
 static inline int parse_cpu_set_and_warn(const char *rvalue, cpu_set_t **cpu_set, const char *unit, const char *filename, unsigned line, const char *lvalue) {
