@@ -65,6 +65,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-x</option></term>
         <term><option>--print-boot-path</option></term>
         <listitem><para>This option modifies the behaviour of <command>status</command>.  Prints only the
         path to the Extended Boot Loader partition if it exists, and the path to the ESP otherwise to

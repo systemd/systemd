@@ -997,7 +997,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --esp-path=PATH   Path to the EFI System Partition (ESP)\n"
                "     --boot-path=PATH  Path to the $BOOT partition\n"
                "  -p --print-esp-path  Print path to the EFI System Partition\n"
-               "     --print-boot-path Print path to the $BOOT partition\n"
+               "  -x --print-boot-path Print path to the $BOOT partition\n"
                "     --no-variables    Don't touch EFI variables\n"
                "     --no-pager        Do not pipe output into a pager\n"
                "\nBoot Loader Commands:\n"
@@ -1020,7 +1020,6 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_ESP_PATH = 0x100,
                 ARG_BOOT_PATH,
-                ARG_PRINT_BOOT_PATH,
                 ARG_VERSION,
                 ARG_NO_VARIABLES,
                 ARG_NO_PAGER,
@@ -1034,7 +1033,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "boot-path",       required_argument, NULL, ARG_BOOT_PATH       },
                 { "print-esp-path",  no_argument,       NULL, 'p'                 },
                 { "print-path",      no_argument,       NULL, 'p'                 }, /* Compatibility alias */
-                { "print-boot-path", no_argument,       NULL, ARG_PRINT_BOOT_PATH },
+                { "print-boot-path", no_argument,       NULL, 'x'                 },
                 { "no-variables",    no_argument,       NULL, ARG_NO_VARIABLES    },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
                 {}
@@ -1045,7 +1044,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hpx", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -1071,7 +1070,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_print_esp_path = true;
                         break;
 
-                case ARG_PRINT_BOOT_PATH:
+                case 'x':
                         arg_print_dollar_boot_path = true;
                         break;
 
