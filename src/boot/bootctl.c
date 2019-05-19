@@ -326,7 +326,7 @@ static int boot_entry_file_check(const char *root, const char *p) {
 static void boot_entry_file_list(const char *field, const char *root, const char *p, int *ret_status) {
         int status = boot_entry_file_check(root, p);
 
-        printf("%13s%s", strempty(field), field ? ":" : " ");
+        printf("%13s%s ", strempty(field), field ? ":" : " ");
         if (status < 0) {
                 errno = -status;
                 printf("%s%s%s (%m)\n", ansi_highlight_red(), p, ansi_normal());
