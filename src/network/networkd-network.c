@@ -505,6 +505,7 @@ static Network *network_free(Network *network) {
 
         ordered_set_free_free(network->router_search_domains);
         free(network->router_dns);
+        set_free_free(network->ndisc_black_listed_prefix);
 
         free(network->bridge_name);
         free(network->bond_name);
@@ -1658,11 +1659,6 @@ int config_parse_dhcp_black_listed_ip_address(
                         return log_oom();
 
                 r = set_put(network->dhcp_black_listed_ip, UINT32_TO_PTR(ip.in.s_addr));
-                if (r == -EEXIST) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "DHCP black listed ip address is duplicated, ignoring assignment: %s", n);
-                        continue;
-                }
                 if (r < 0)
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "Failed to store DHCP black listed ip address '%s', ignoring assignment: %m", n);

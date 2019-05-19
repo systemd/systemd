@@ -214,6 +214,7 @@ struct Network {
         DHCPUseDomains ipv6_accept_ra_use_domains;
         uint32_t ipv6_accept_ra_route_table;
         bool ipv6_accept_ra_route_table_set;
+        Set *ndisc_black_listed_prefix;
 
         union in_addr_union ipv6_token;
         IPv6PrivacyExtensions ipv6_privacy_extensions;

@@ -738,3 +738,15 @@ static int in_addr_data_compare_func(const struct in_addr_data *x, const struct 
 }
 
 DEFINE_HASH_OPS(in_addr_data_hash_ops, struct in_addr_data, in_addr_data_hash_func, in_addr_data_compare_func);
+
+static void in6_addr_hash_func(const struct in6_addr *addr, struct siphash *state) {
+        assert(addr);
+
+        siphash24_compress(addr, sizeof(*addr), state);
+}
+
+static int in6_addr_compare_func(const struct in6_addr *a, const struct in6_addr *b) {
+        return memcmp(a, b, sizeof(*a));
+}
+
+DEFINE_HASH_OPS(in6_addr_hash_ops, struct in6_addr, in6_addr_hash_func, in6_addr_compare_func);

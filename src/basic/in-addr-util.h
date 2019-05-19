@@ -72,3 +72,4 @@ static inline size_t FAMILY_ADDRESS_SIZE(int family) {
 #define IN_ADDR_NULL ((union in_addr_union) { .in6 = {} })
 
 extern const struct hash_ops in_addr_data_hash_ops;
+extern const struct hash_ops in6_addr_hash_ops;
