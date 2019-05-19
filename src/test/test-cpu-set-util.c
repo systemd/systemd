@@ -6,6 +6,7 @@
 
 static void test_parse_cpu_set(void) {
         cpu_set_t *c = NULL;
+        _cleanup_free_ char *str = NULL;
         int ncpus;
         int cpu;
 
@@ -15,6 +16,10 @@ static void test_parse_cpu_set(void) {
         assert_se(CPU_ISSET_S(1, CPU_ALLOC_SIZE(ncpus), c));
         assert_se(CPU_ISSET_S(2, CPU_ALLOC_SIZE(ncpus), c));
         assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 2);
+
+        assert_se(str = cpu_set_to_string(c, CPU_ALLOC_SIZE(ncpus)));
+        log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
         c = cpu_set_mfree(c);
 
         /* A more interesting range */
@@ -25,6 +30,9 @@ static void test_parse_cpu_set(void) {
                 assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
         for (cpu = 8; cpu < 12; cpu++)
                 assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        assert_se(str = cpu_set_to_string(c, CPU_ALLOC_SIZE(ncpus)));
+        log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
         c = cpu_set_mfree(c);
 
         /* Quoted strings */
@@ -33,6 +41,9 @@ static void test_parse_cpu_set(void) {
         assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 4);
         for (cpu = 8; cpu < 12; cpu++)
                 assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        assert_se(str = cpu_set_to_string(c, CPU_ALLOC_SIZE(ncpus)));
+        log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
         c = cpu_set_mfree(c);
 
         /* Use commas as separators */
@@ -43,6 +54,9 @@ static void test_parse_cpu_set(void) {
                 assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
         for (cpu = 8; cpu < 12; cpu++)
                 assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        assert_se(str = cpu_set_to_string(c, CPU_ALLOC_SIZE(ncpus)));
+        log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
         c = cpu_set_mfree(c);
 
         /* Commas with spaces (and trailing comma, space) */
@@ -51,6 +65,9 @@ static void test_parse_cpu_set(void) {
         assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 8);
         for (cpu = 0; cpu < 8; cpu++)
                 assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        assert_se(str = cpu_set_to_string(c, CPU_ALLOC_SIZE(ncpus)));
+        log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
         c = cpu_set_mfree(c);
 
         /* Ranges */
@@ -61,6 +78,9 @@ static void test_parse_cpu_set(void) {
                 assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
         for (cpu = 8; cpu < 12; cpu++)
                 assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        assert_se(str = cpu_set_to_string(c, CPU_ALLOC_SIZE(ncpus)));
+        log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
         c = cpu_set_mfree(c);
 
         /* Ranges with trailing comma, space */
@@ -71,6 +91,9 @@ static void test_parse_cpu_set(void) {
                 assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
         for (cpu = 8; cpu < 12; cpu++)
                 assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        assert_se(str = cpu_set_to_string(c, CPU_ALLOC_SIZE(ncpus)));
+        log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
         c = cpu_set_mfree(c);
 
         /* Negative range (returns empty cpu_set) */
@@ -85,6 +108,9 @@ static void test_parse_cpu_set(void) {
         assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 12);
         for (cpu = 0; cpu < 12; cpu++)
                 assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        assert_se(str = cpu_set_to_string(c, CPU_ALLOC_SIZE(ncpus)));
+        log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
         c = cpu_set_mfree(c);
 
         /* Mix ranges and individual CPUs */
@@ -95,6 +121,9 @@ static void test_parse_cpu_set(void) {
         assert_se(CPU_ISSET_S(1, CPU_ALLOC_SIZE(ncpus), c));
         for (cpu = 4; cpu < 12; cpu++)
                 assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        assert_se(str = cpu_set_to_string(c, CPU_ALLOC_SIZE(ncpus)));
+        log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
         c = cpu_set_mfree(c);
 
         /* Garbage */
