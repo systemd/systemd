@@ -4,6 +4,7 @@
 
 #include "conf-parser.h"
 #include "netdev/ipvlan.h"
+#include "networkd-link.h"
 #include "string-table.h"
 
 static const char* const ipvlan_mode_table[_NETDEV_IPVLAN_MODE_MAX] = {
@@ -85,3 +86,18 @@ const NetDevVTable ipvtap_vtable = {
         .fill_message_create = netdev_ipvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
 };
+
+IPVlanMode link_get_ipvlan_mode(Link *link) {
+        NetDev *netdev;
+
+        if (!streq_ptr(link->kind, "ipvlan"))
+                return _NETDEV_IPVLAN_MODE_INVALID;
+
+        if (netdev_get(link->manager, link->ifname, &netdev) < 0)
+                return _NETDEV_IPVLAN_MODE_INVALID;
+
+        if (netdev->kind != NETDEV_KIND_IPVLAN)
+                return _NETDEV_IPVLAN_MODE_INVALID;
+
+        return IPVLAN(netdev)->mode;
+}

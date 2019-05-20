@@ -14,6 +14,7 @@
 #include "missing_network.h"
 #include "netdev/bond.h"
 #include "netdev/bridge.h"
+#include "netdev/ipvlan.h"
 #include "netdev/vrf.h"
 #include "netlink-util.h"
 #include "network-internal.h"
@@ -124,6 +125,10 @@ bool link_ipv4ll_enabled(Link *link) {
         if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6"))
                 return false;
 
+        /* L3 or L3S mode do not support ARP. */
+        if (IN_SET(link_get_ipvlan_mode(link), NETDEV_IPVLAN_MODE_L3, NETDEV_IPVLAN_MODE_L3S))
+                return false;
+
         if (link->network->bond)
                 return false;
 
@@ -140,6 +145,10 @@ bool link_ipv4ll_fallback_enabled(Link *link) {
                 return false;
 
         if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6"))
+                return false;
+
+        /* L3 or L3S mode do not support ARP. */
+        if (IN_SET(link_get_ipvlan_mode(link), NETDEV_IPVLAN_MODE_L3, NETDEV_IPVLAN_MODE_L3S))
                 return false;
 
         if (link->network->bond)
