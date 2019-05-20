@@ -43,14 +43,14 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
+static int cg_enumerate_items(const char *controller, const char *path, FILE **_f, const char *item) {
         _cleanup_free_ char *fs = NULL;
         FILE *f;
         int r;
 
         assert(_f);
 
-        r = cg_get_path(controller, path, "cgroup.procs", &fs);
+        r = cg_get_path(controller, path, item, &fs);
         if (r < 0)
                 return r;
 
@@ -60,6 +60,10 @@ int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) 
 
         *_f = f;
         return 0;
+}
+
+int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
+        return cg_enumerate_items(controller, path, _f, "cgroup.procs");
 }
 
 int cg_read_pid(FILE *f, pid_t *_pid) {
@@ -221,14 +225,15 @@ int cg_rmdir(const char *controller, const char *path) {
         return 0;
 }
 
-int cg_kill(
+static int cg_kill_items(
                 const char *controller,
                 const char *path,
                 int sig,
                 CGroupFlags flags,
                 Set *s,
                 cg_kill_log_func_t log_kill,
-                void *userdata) {
+                void *userdata,
+                const char *item) {
 
         _cleanup_set_free_ Set *allocated_set = NULL;
         bool done = false;
@@ -259,7 +264,7 @@ int cg_kill(
                 pid_t pid = 0;
                 done = true;
 
-                r = cg_enumerate_processes(controller, path, &f);
+                r = cg_enumerate_items(controller, path, &f, item);
                 if (r < 0) {
                         if (ret >= 0 && r != -ENOENT)
                                 return r;
@@ -320,6 +325,31 @@ int cg_kill(
         } while (!done);
 
         return ret;
+}
+
+int cg_kill(
+                const char *controller,
+                const char *path,
+                int sig,
+                CGroupFlags flags,
+                Set *s,
+                cg_kill_log_func_t log_kill,
+                void *userdata) {
+        int r;
+
+        r = cg_kill_items(controller, path, sig, flags, s, log_kill, userdata, "cgroup.procs");
+        if (r < 0 || sig != SIGKILL)
+                return r;
+
+        /* Only in case of killing with SIGKILL and when using cgroupsv2, kill remaining threads manually as
+           a workaround for kernel bug. It was fixed in 5.2-rc5 (c03cd7738a83). */
+        r = cg_unified_controller(controller);
+        if (r < 0)
+                return r;
+        if (r == 0) /* doesn't apply to legacy hierarchy */
+                return 0;
+
+        return cg_kill_items(controller, path, sig, flags, s, log_kill, userdata, "cgroup.threads");
 }
 
 int cg_kill_recursive(
