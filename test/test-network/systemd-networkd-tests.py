@@ -515,18 +515,25 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.wait_online(['macvtap99:off', 'test1:degraded'])
 
     def test_macvlan(self):
-        self.copy_unit_to_networkd_unit_path('21-macvlan.netdev', '11-dummy.netdev', 'macvlan.network')
-        self.start_networkd(0)
+        for mode in ['private', 'vepa', 'bridge', 'passthru']:
+            with self.subTest(mode=mode):
+                if mode != 'private':
+                    self.tearDown()
+                self.copy_unit_to_networkd_unit_path('21-macvlan.netdev', '11-dummy.netdev', 'macvlan.network')
+                with open(os.path.join(network_unit_file_path, '21-macvlan.netdev'), mode='a') as f:
+                    f.write('[MACVLAN]\nMode=' + mode)
+                self.start_networkd(0)
 
-        self.wait_online(['macvlan99:off', 'test1:degraded'])
+                self.wait_online(['macvlan99:off', 'test1:degraded'])
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1'], universal_newlines=True).rstrip()
-        print(output)
-        self.assertRegex(output, ' mtu 2000 ')
+                output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1'], universal_newlines=True).rstrip()
+                print(output)
+                self.assertRegex(output, ' mtu 2000 ')
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'macvlan99'], universal_newlines=True).rstrip()
-        print(output)
-        self.assertRegex(output, ' mtu 2000 ')
+                output = subprocess.check_output(['ip', '-d', 'link', 'show', 'macvlan99'], universal_newlines=True).rstrip()
+                print(output)
+                self.assertRegex(output, ' mtu 2000 ')
+                self.assertRegex(output, 'macvlan mode ' + mode + ' ')
 
     @expectedFailureIfModuleIsNotAvailable('ipvlan')
     def test_ipvlan(self):
