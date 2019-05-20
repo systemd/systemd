@@ -383,6 +383,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'macsec.network',
         'macvlan.network',
         'macvtap.network',
+        'netdev-link-local-addressing-yes.network',
         'sit.network',
         'vti6.network',
         'vti.network',
@@ -513,12 +514,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             with self.subTest(mode=mode):
                 if mode != 'private':
                     self.tearDown()
-                self.copy_unit_to_networkd_unit_path('21-macvtap.netdev', '11-dummy.netdev', 'macvtap.network')
+                self.copy_unit_to_networkd_unit_path('21-macvtap.netdev', 'netdev-link-local-addressing-yes.network',
+                                                     '11-dummy.netdev', 'macvtap.network')
                 with open(os.path.join(network_unit_file_path, '21-macvtap.netdev'), mode='a') as f:
                     f.write('[MACVTAP]\nMode=' + mode)
                 self.start_networkd(0)
 
-                self.wait_online(['macvtap99:off', 'test1:degraded'])
+                self.wait_online(['macvtap99:degraded', 'test1:degraded'])
 
                 output = subprocess.check_output(['ip', '-d', 'link', 'show', 'macvtap99'], universal_newlines=True).rstrip()
                 print(output)
@@ -529,12 +531,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             with self.subTest(mode=mode):
                 if mode != 'private':
                     self.tearDown()
-                self.copy_unit_to_networkd_unit_path('21-macvlan.netdev', '11-dummy.netdev', 'macvlan.network')
+                self.copy_unit_to_networkd_unit_path('21-macvlan.netdev', 'netdev-link-local-addressing-yes.network',
+                                                     '11-dummy.netdev', 'macvlan.network')
                 with open(os.path.join(network_unit_file_path, '21-macvlan.netdev'), mode='a') as f:
                     f.write('[MACVLAN]\nMode=' + mode)
                 self.start_networkd(0)
 
-                self.wait_online(['macvlan99:off', 'test1:degraded'])
+                self.wait_online(['macvlan99:degraded', 'test1:degraded'])
 
                 output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1'], universal_newlines=True).rstrip()
                 print(output)
@@ -551,12 +554,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             with self.subTest(mode=mode, flag=flag):
                 if mode != 'L2':
                     self.tearDown()
-                self.copy_unit_to_networkd_unit_path('25-ipvlan.netdev', '11-dummy.netdev', 'ipvlan.network')
+                self.copy_unit_to_networkd_unit_path('25-ipvlan.netdev', 'netdev-link-local-addressing-yes.network',
+                                                     '11-dummy.netdev', 'ipvlan.network')
                 with open(os.path.join(network_unit_file_path, '25-ipvlan.netdev'), mode='a') as f:
                     f.write('[IPVLAN]\nMode=' + mode + '\nFlags=' + flag)
 
                 self.start_networkd(0)
-                self.wait_online(['ipvlan99:off', 'test1:degraded'])
+                self.wait_online(['ipvlan99:degraded', 'test1:degraded'])
 
                 output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipvlan99'], universal_newlines=True).rstrip()
                 print(output)
@@ -568,12 +572,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             with self.subTest(mode=mode, flag=flag):
                 if mode != 'L2':
                     self.tearDown()
-                self.copy_unit_to_networkd_unit_path('25-ipvtap.netdev', '11-dummy.netdev', 'ipvtap.network')
+                self.copy_unit_to_networkd_unit_path('25-ipvtap.netdev', 'netdev-link-local-addressing-yes.network',
+                                                     '11-dummy.netdev', 'ipvtap.network')
                 with open(os.path.join(network_unit_file_path, '25-ipvtap.netdev'), mode='a') as f:
                     f.write('[IPVTAP]\nMode=' + mode + '\nFlags=' + flag)
 
                 self.start_networkd(0)
-                self.wait_online(['ipvtap99:off', 'test1:degraded'])
+                self.wait_online(['ipvtap99:degraded', 'test1:degraded'])
 
                 output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipvtap99'], universal_newlines=True).rstrip()
                 print(output)
