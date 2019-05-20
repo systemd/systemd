@@ -1,8 +1,8 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
-<!ENTITY fedora_latest_version "28">
-<!ENTITY fedora_cloud_release "1.1">
+<!ENTITY fedora_latest_version "30">
+<!ENTITY fedora_cloud_release "1.2">
 ]>
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
@@ -1343,7 +1343,7 @@
 
       <programlisting># machinectl pull-raw --verify=no \
       https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz
-# systemd-nspawn -M Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw</programlisting>
+# systemd-nspawn -M Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64</programlisting>
 
       <para>This downloads an image using
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
