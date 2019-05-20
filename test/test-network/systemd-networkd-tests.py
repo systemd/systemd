@@ -186,7 +186,7 @@ class Utilities():
                 contents = in_file.read()
                 if show_all:
                     print(contents)
-                for line in contents.split('\n'):
+                for line in contents.splitlines():
                     if words in line:
                         in_file.close()
                         print("%s, %s" % (words, line))
