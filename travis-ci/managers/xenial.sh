@@ -2,14 +2,48 @@
 set -e
 set -x
 
+PACKAGES=(cryptsetup-bin
+          gettext
+          iptables-dev
+          iputils-ping
+          isc-dhcp-client
+          itstool
+          kbd
+          libblkid-dev
+          libcap-dev
+          libcurl4-gnutls-dev
+          libgpg-error-dev
+          liblz4-dev
+          liblzma-dev
+          libmicrohttpd-dev
+          libmount-dev
+          libmount-dev
+          libqrencode-dev
+          libxkbcommon-dev
+          linux-image-virtual
+          mount
+          net-tools
+          ninja-build
+          perl
+          python-lxml
+          python3-evdev
+          python3-lxml
+          python3-pip
+          python3-pyparsing
+          python3-setuptools
+          qemu-system-x86
+          strace
+          unifont
+          util-linux)
+
 bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ xenial main restricted universe multiverse' >>/etc/apt/sources.list"
+
 apt-get update
 apt-get build-dep systemd -y
-apt-get install -y util-linux libmount-dev libblkid-dev liblzma-dev libqrencode-dev libmicrohttpd-dev iptables-dev liblz4-dev libcurl4-gnutls-dev unifont itstool kbd cryptsetup-bin net-tools isc-dhcp-client iputils-ping strace qemu-system-x86 linux-image-virtual mount libgpg-error-dev libxkbcommon-dev python-lxml python3-lxml python3-pip libcap-dev
-apt-get install -y gettext python3-evdev python3-pyparsing libmount-dev python3-setuptools ninja-build
+apt-get install -y "${PACKAGES[@]}"
 pip3 install meson
 
-cd ${REPO_ROOT:-$(pwd)}
+cd ${REPO_ROOT:-$PWD}
 
 sed -i 's/2\.30/2.27/' meson.build
 
