@@ -970,11 +970,9 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
     @expectedFailureIfModuleIsNotAvailable('l2tp_eth')
     def test_l2tp_udp(self):
         self.copy_unit_to_networkd_unit_path('11-dummy.netdev', '25-l2tp-dummy.network', '25-l2tp-udp.netdev')
-        self.start_networkd()
+        self.start_networkd(0)
 
-        self.check_link_exists('test1')
-        self.check_link_exists('l2tp-ses1')
-        self.check_link_exists('l2tp-ses2')
+        self.wait_online(['test1:routable', 'l2tp-ses1:off', 'l2tp-ses2:off'])
 
         output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel', 'tunnel_id', '10'], universal_newlines=True).rstrip()
         print(output)
@@ -999,11 +997,9 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
     @expectedFailureIfModuleIsNotAvailable('l2tp_ip')
     def test_l2tp_ip(self):
         self.copy_unit_to_networkd_unit_path('11-dummy.netdev', '25-l2tp-dummy.network', '25-l2tp-ip.netdev')
-        self.start_networkd()
+        self.start_networkd(0)
 
-        self.check_link_exists('test1')
-        self.check_link_exists('l2tp-ses3')
-        self.check_link_exists('l2tp-ses4')
+        self.wait_online(['test1:routable', 'l2tp-ses3:off', 'l2tp-ses4:off'])
 
         output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel', 'tunnel_id', '10'], universal_newlines=True).rstrip()
         print(output)
