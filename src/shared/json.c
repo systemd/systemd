@@ -2296,9 +2296,9 @@ static int json_parse_internal(
                 column = &column_buffer;
 
         for (;;) {
+                _cleanup_(json_variant_unrefp) JsonVariant *add = NULL;
                 _cleanup_free_ char *string = NULL;
                 unsigned line_token, column_token;
-                JsonVariant *add = NULL;
                 JsonStack *current;
                 JsonValue value;
                 int token;
@@ -2591,7 +2591,7 @@ static int json_parse_internal(
                                 goto finish;
                         }
 
-                        current->elements[current->n_elements++] = add;
+                        current->elements[current->n_elements++] = TAKE_PTR(add);
                 }
         }
 
