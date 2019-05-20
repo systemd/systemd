@@ -1573,7 +1573,12 @@ int bus_exec_context_set_transient_property(
                                 _cleanup_free_ char *str = NULL;
                                 size_t allocated = 0, len = 0, i, ncpus;
 
-                                ncpus = CPU_SIZE_TO_NUM(n);
+                                /* We assume that array received over D-Bus is cpu_set_t and hence its size must
+                                   be multiple of glibc's internal type. */
+                                if (n % sizeof(__cpu_mask) != 0)
+                                        return -EINVAL;
+
+                                ncpus = CPU_SIZE_TO_NUM(n / sizeof(__cpu_mask));
 
                                 for (i = 0; i < ncpus; i++) {
                                         _cleanup_free_ char *p = NULL;

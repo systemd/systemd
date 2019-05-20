@@ -14,9 +14,7 @@
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         cpu_set_t *c;
-        unsigned n = 1024;
-
-        /* Allocates the cpuset in the right size */
+        unsigned n = sizeof(__cpu_mask) * 8;
 
         for (;;) {
                 c = CPU_ALLOC(n);
@@ -37,7 +35,7 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
                 if (errno != EINVAL)
                         return NULL;
 
-                n *= 2;
+                n += sizeof(__cpu_mask) * 8;
         }
 }
 
