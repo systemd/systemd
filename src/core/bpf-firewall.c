@@ -125,10 +125,30 @@ static int add_lookup_instructions(
         return 0;
 }
 
+static int add_instructions_for_ip_any(
+                BPFProgram *p,
+                int verdict) {
+        int r;
+
+        assert(p);
+
+        struct bpf_insn insn[] = {
+                BPF_ALU32_IMM(BPF_OR, BPF_REG_8, verdict),
+        };
+
+        r = bpf_program_add_instructions(p, insn, 1);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int bpf_firewall_compile_bpf(
                 Unit *u,
                 bool is_ingress,
-                BPFProgram **ret) {
+                BPFProgram **ret,
+                bool ip_allow_any,
+                bool ip_deny_any) {
 
         struct bpf_insn pre_insn[] = {
                 /*
@@ -187,7 +207,9 @@ static int bpf_firewall_compile_bpf(
                 u->ipv4_allow_map_fd >= 0 ||
                 u->ipv6_allow_map_fd >= 0 ||
                 u->ipv4_deny_map_fd >= 0 ||
-                u->ipv6_deny_map_fd >= 0;
+                u->ipv6_deny_map_fd >= 0 ||
+                ip_allow_any ||
+                ip_deny_any;
 
         if (accounting_map_fd < 0 && !access_enabled) {
                 *ret = NULL;
@@ -231,6 +253,18 @@ static int bpf_firewall_compile_bpf(
 
                 if (u->ipv6_allow_map_fd >= 0) {
                         r = add_lookup_instructions(p, u->ipv6_allow_map_fd, ETH_P_IPV6, is_ingress, ACCESS_ALLOWED);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (ip_allow_any) {
+                        r = add_instructions_for_ip_any(p, ACCESS_ALLOWED);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (ip_deny_any) {
+                        r = add_instructions_for_ip_any(p, ACCESS_DENIED);
                         if (r < 0)
                                 return r;
                 }
@@ -375,15 +409,18 @@ static int bpf_firewall_prepare_access_maps(
                 Unit *u,
                 int verdict,
                 int *ret_ipv4_map_fd,
-                int *ret_ipv6_map_fd) {
+                int *ret_ipv6_map_fd,
+                bool *ret_has_any) {
 
         _cleanup_close_ int ipv4_map_fd = -1, ipv6_map_fd = -1;
         size_t n_ipv4 = 0, n_ipv6 = 0;
+        IPAddressAccessItem *list;
         Unit *p;
         int r;
 
         assert(ret_ipv4_map_fd);
         assert(ret_ipv6_map_fd);
+        assert(ret_has_any);
 
         for (p = u; p; p = UNIT_DEREF(p->slice)) {
                 CGroupContext *cc;
@@ -392,7 +429,16 @@ static int bpf_firewall_prepare_access_maps(
                 if (!cc)
                         continue;
 
-                bpf_firewall_count_access_items(verdict == ACCESS_ALLOWED ? cc->ip_address_allow : cc->ip_address_deny, &n_ipv4, &n_ipv6);
+                list = verdict == ACCESS_ALLOWED ? cc->ip_address_allow : cc->ip_address_deny;
+
+                bpf_firewall_count_access_items(list, &n_ipv4, &n_ipv6);
+
+                /* Skip making the LPM trie map in cases where we are using "any" in order to hack around
+                 * needing CAP_SYS_ADMIN for allocating LPM trie map. */
+                if (ip_address_access_item_is_any(list)) {
+                        *ret_has_any = true;
+                        return 0;
+                }
         }
 
         if (n_ipv4 > 0) {
@@ -432,6 +478,7 @@ static int bpf_firewall_prepare_access_maps(
 
         *ret_ipv4_map_fd = TAKE_FD(ipv4_map_fd);
         *ret_ipv6_map_fd = TAKE_FD(ipv6_map_fd);
+        *ret_has_any = false;
         return 0;
 }
 
@@ -473,6 +520,7 @@ static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, int *fd_i
 int bpf_firewall_compile(Unit *u) {
         CGroupContext *cc;
         int r, supported;
+        bool ip_allow_any = false, ip_deny_any = false;
 
         assert(u);
 
@@ -515,11 +563,11 @@ int bpf_firewall_compile(Unit *u) {
                  * means that all configure IP access rules *will* take effect on processes, even though we never
                  * compile them for inner nodes. */
 
-                r = bpf_firewall_prepare_access_maps(u, ACCESS_ALLOWED, &u->ipv4_allow_map_fd, &u->ipv6_allow_map_fd);
+                r = bpf_firewall_prepare_access_maps(u, ACCESS_ALLOWED, &u->ipv4_allow_map_fd, &u->ipv6_allow_map_fd, &ip_allow_any);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Preparation of eBPF allow maps failed: %m");
 
-                r = bpf_firewall_prepare_access_maps(u, ACCESS_DENIED, &u->ipv4_deny_map_fd, &u->ipv6_deny_map_fd);
+                r = bpf_firewall_prepare_access_maps(u, ACCESS_DENIED, &u->ipv4_deny_map_fd, &u->ipv6_deny_map_fd, &ip_deny_any);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Preparation of eBPF deny maps failed: %m");
         }
@@ -528,11 +576,11 @@ int bpf_firewall_compile(Unit *u) {
         if (r < 0)
                 return log_unit_error_errno(u, r, "Preparation of eBPF accounting maps failed: %m");
 
-        r = bpf_firewall_compile_bpf(u, true, &u->ip_bpf_ingress);
+        r = bpf_firewall_compile_bpf(u, true, &u->ip_bpf_ingress, ip_allow_any, ip_deny_any);
         if (r < 0)
                 return log_unit_error_errno(u, r, "Compilation for ingress BPF program failed: %m");
 
-        r = bpf_firewall_compile_bpf(u, false, &u->ip_bpf_egress);
+        r = bpf_firewall_compile_bpf(u, false, &u->ip_bpf_egress, ip_allow_any, ip_deny_any);
         if (r < 0)
                 return log_unit_error_errno(u, r, "Compilation for egress BPF program failed: %m");
 
@@ -653,26 +701,16 @@ int bpf_firewall_supported(void) {
         _cleanup_(bpf_program_unrefp) BPFProgram *program = NULL;
         static int supported = -1;
         union bpf_attr attr;
-        int fd, r;
+        int r;
 
-        /* Checks whether BPF firewalling is supported. For this, we check five things:
+        /* Checks whether BPF firewalling is supported. For this, we check the following things:
          *
-         * a) whether we are privileged
-         * b) whether the unified hierarchy is being used
-         * c) the BPF implementation in the kernel supports BPF LPM TRIE maps, which we require
-         * d) the BPF implementation in the kernel supports BPF_PROG_TYPE_CGROUP_SKB programs, which we require
-         * e) the BPF implementation in the kernel supports the BPF_PROG_DETACH call, which we require
+         * - whether the unified hierarchy is being used
+         * - the BPF implementation in the kernel supports BPF_PROG_TYPE_CGROUP_SKB programs, which we require
+         * - the BPF implementation in the kernel supports the BPF_PROG_DETACH call, which we require
          */
-
         if (supported >= 0)
                 return supported;
-
-        if (geteuid() != 0) {
-                bpf_firewall_unsupported_reason =
-                        log_debug_errno(SYNTHETIC_ERRNO(EACCES),
-                                        "Not enough privileges, BPF firewalling is not supported.");
-                return supported = BPF_FIREWALL_UNSUPPORTED;
-        }
 
         r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
         if (r < 0)
@@ -683,19 +721,6 @@ int bpf_firewall_supported(void) {
                                         "Not running with unified cgroups, BPF firewalling is not supported.");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
-
-        fd = bpf_map_new(BPF_MAP_TYPE_LPM_TRIE,
-                         offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint64_t),
-                         sizeof(uint64_t),
-                         1,
-                         BPF_F_NO_PREALLOC);
-        if (fd < 0) {
-                bpf_firewall_unsupported_reason =
-                        log_debug_errno(fd, "Can't allocate BPF LPM TRIE map, BPF firewalling is not supported: %m");
-                return supported = BPF_FIREWALL_UNSUPPORTED;
-        }
-
-        safe_close(fd);
 
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &program);
         if (r < 0) {

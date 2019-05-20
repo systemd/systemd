@@ -188,3 +188,21 @@ IPAddressAccessItem* ip_address_access_reduce(IPAddressAccessItem *first) {
 
         return first;
 }
+
+bool ip_address_access_item_is_any(IPAddressAccessItem *first) {
+        /* Check for exactly two entries */
+        if (!first || !first->items_next || first->items_next->items_next)
+                return false;
+
+        /* Check both entries cover the full range */
+        if (first->prefixlen != 0 || first->items_next->prefixlen != 0)
+                return false;
+
+        /* Check that one of them is the IPv4 and the other IPv6 */
+        if (!((first->family == AF_INET && first->items_next->family == AF_INET6) ||
+                                (first->family == AF_INET6 && first->items_next->family == AF_INET)))
+                return false;
+
+        /* No need to check the actual addresses, they don't matter if the prefix is zero */
+        return true;
+}
