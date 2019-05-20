@@ -1777,14 +1777,17 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
         self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
 
-        time.sleep(3)
+        for trial in range(30):
+            if trial > 0:
+                time.sleep(1)
+            if self.get_operstate('bridge99') == 'routable' and self.get_operstate('dummy98') == 'enslaved':
+                break
+        else:
+            self.assertTrue(False)
 
         output = subprocess.check_output(['ip', 'address', 'show', 'bridge99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'inet 192.168.0.15/24 brd 192.168.0.255 scope global bridge99')
-
-        self.check_operstate('bridge99', 'routable')
-        self.check_operstate('dummy98', 'enslaved')
 
         output = subprocess.check_output(['ip', 'rule', 'list', 'table', '100'], universal_newlines=True).rstrip()
         print(output)
