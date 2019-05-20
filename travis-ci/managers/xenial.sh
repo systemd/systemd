@@ -43,7 +43,7 @@ apt-get build-dep systemd -y
 apt-get install -y "${PACKAGES[@]}"
 pip3 install meson
 
-cd ${REPO_ROOT:-$(pwd)}
+cd ${REPO_ROOT:-$PWD}
 
 sed -i 's/2\.30/2.27/' meson.build
 
