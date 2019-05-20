@@ -509,10 +509,20 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 192.168.23.5/24 brd 192.168.23.255 scope global vlan99')
 
     def test_macvtap(self):
-        self.copy_unit_to_networkd_unit_path('21-macvtap.netdev', '11-dummy.netdev', 'macvtap.network')
-        self.start_networkd(0)
+        for mode in ['private', 'vepa', 'bridge', 'passthru']:
+            with self.subTest(mode=mode):
+                if mode != 'private':
+                    self.tearDown()
+                self.copy_unit_to_networkd_unit_path('21-macvtap.netdev', '11-dummy.netdev', 'macvtap.network')
+                with open(os.path.join(network_unit_file_path, '21-macvtap.netdev'), mode='a') as f:
+                    f.write('[MACVTAP]\nMode=' + mode)
+                self.start_networkd(0)
 
-        self.wait_online(['macvtap99:off', 'test1:degraded'])
+                self.wait_online(['macvtap99:off', 'test1:degraded'])
+
+                output = subprocess.check_output(['ip', '-d', 'link', 'show', 'macvtap99'], universal_newlines=True).rstrip()
+                print(output)
+                self.assertRegex(output, 'macvtap mode ' + mode + ' ')
 
     def test_macvlan(self):
         for mode in ['private', 'vepa', 'bridge', 'passthru']:
