@@ -134,10 +134,16 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
         assert(netdev);
 
         if (netdev->mtu != 0)
-                log_netdev_warning(netdev, "MTU configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
+                log_netdev_warning(netdev,
+                                   "MTUBytes= configured for %s device in %s will be ignored.\n"
+                                   "Please set it in the corresponding .network file.",
+                                   netdev_kind_to_string(netdev->kind), filename);
 
         if (netdev->mac)
-                log_netdev_warning(netdev, "MAC configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
+                log_netdev_warning(netdev,
+                                   "MACAddress= configured for %s device in %s will be ignored.\n"
+                                   "Please set it in the corresponding .network file.",
+                                   netdev_kind_to_string(netdev->kind), filename);
 
         return 0;
 }
