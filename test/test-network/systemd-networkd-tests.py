@@ -219,7 +219,13 @@ class Utilities():
         args = [wait_online_bin, f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
         if bool_any:
             args += ['--any']
-        subprocess.check_call(args)
+        try:
+            subprocess.check_call(args)
+        except subprocess.CalledProcessError:
+            for link in links_with_operstate:
+                output = subprocess.check_output(['networkctl', 'status', link.split(':')[0]], universal_newlines=True).rstrip()
+                print(output)
+            raise
 
     def get_operstate(self, link, show_status=True, setup_state='configured'):
         output = subprocess.check_output(['networkctl', 'status', link], universal_newlines=True).rstrip()
