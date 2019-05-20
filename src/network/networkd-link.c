@@ -77,6 +77,9 @@ static bool link_dhcp6_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
+        if (STRPTR_IN_SET(link->kind, "can", "vcan"))
+                return false;
+
         if (manager_sysctl_ipv6_enabled(link->manager) == 0)
                 return false;
 
@@ -95,6 +98,9 @@ static bool link_dhcp4_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
+        if (STRPTR_IN_SET(link->kind, "can", "vcan"))
+                return false;
+
         return link->network->dhcp & ADDRESS_FAMILY_IPV4;
 }
 
@@ -110,6 +116,9 @@ static bool link_dhcp4_server_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
+        if (STRPTR_IN_SET(link->kind, "can", "vcan"))
+                return false;
+
         return link->network->dhcp_server;
 }
 
@@ -122,7 +131,7 @@ bool link_ipv4ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6", "can", "vcan"))
                 return false;
 
         /* L3 or L3S mode do not support ARP. */
@@ -144,7 +153,7 @@ bool link_ipv4ll_fallback_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6", "can", "vcan"))
                 return false;
 
         /* L3 or L3S mode do not support ARP. */
@@ -169,7 +178,7 @@ static bool link_ipv6ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "sit", "vti"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "sit", "vti", "can", "vcan"))
                 return false;
 
         if (link->network->bond)
@@ -191,6 +200,9 @@ static bool link_ipv6_enabled(Link *link) {
                 return false;
 
         if (manager_sysctl_ipv6_enabled(link->manager) == 0)
+                return false;
+
+        if (STRPTR_IN_SET(link->kind, "can", "vcan"))
                 return false;
 
         /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
@@ -665,7 +677,7 @@ int link_get(Manager *m, int ifindex, Link **ret) {
         return 0;
 }
 
-static void link_set_state(Link *link, LinkState state) {
+void link_set_state(Link *link, LinkState state) {
         assert(link);
 
         if (link->state == state)

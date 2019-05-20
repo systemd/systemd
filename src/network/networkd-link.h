@@ -144,6 +144,7 @@ int link_down(Link *link, link_netlink_message_handler_t callback);
 void link_enter_failed(Link *link);
 int link_initialized(Link *link, sd_device *device);
 
+void link_set_state(Link *link, LinkState state);
 void link_check_ready(Link *link);
 
 void link_update_operstate(Link *link, bool also_update_bond_master);
