@@ -448,14 +448,15 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.wait_online(['bridge99:off'])
 
-        self.assertEqual('900', self.read_link_attr('bridge99', 'bridge', 'hello_time'))
-        self.assertEqual('900', self.read_link_attr('bridge99', 'bridge', 'max_age'))
-        self.assertEqual('900', self.read_link_attr('bridge99', 'bridge','forward_delay'))
-        self.assertEqual('900', self.read_link_attr('bridge99', 'bridge','ageing_time'))
-        self.assertEqual('9',   self.read_link_attr('bridge99', 'bridge','priority'))
-        self.assertEqual('1',   self.read_link_attr('bridge99', 'bridge','multicast_querier'))
-        self.assertEqual('1',   self.read_link_attr('bridge99', 'bridge','multicast_snooping'))
-        self.assertEqual('1',   self.read_link_attr('bridge99', 'bridge','stp_state'))
+        tick = os.sysconf('SC_CLK_TCK')
+        self.assertEqual(9, round(float(self.read_link_attr('bridge99', 'bridge', 'hello_time')) / tick))
+        self.assertEqual(9, round(float(self.read_link_attr('bridge99', 'bridge', 'max_age')) / tick))
+        self.assertEqual(9, round(float(self.read_link_attr('bridge99', 'bridge','forward_delay')) / tick))
+        self.assertEqual(9, round(float(self.read_link_attr('bridge99', 'bridge','ageing_time')) / tick))
+        self.assertEqual(9,         int(self.read_link_attr('bridge99', 'bridge','priority')))
+        self.assertEqual(1,         int(self.read_link_attr('bridge99', 'bridge','multicast_querier')))
+        self.assertEqual(1,         int(self.read_link_attr('bridge99', 'bridge','multicast_snooping')))
+        self.assertEqual(1,         int(self.read_link_attr('bridge99', 'bridge','stp_state')))
 
     def test_bond(self):
         self.copy_unit_to_networkd_unit_path('25-bond.netdev', '25-bond-balanced-tlb.netdev')
