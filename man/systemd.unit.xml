@@ -1365,22 +1365,23 @@
         "Forward" and "reverse" unit properties
       </title>
 
-      <tgroup cols='2'>
+      <tgroup cols='4'>
         <colspec colname='forward' />
         <colspec colname='reverse' />
-        <colspec colname='notes' />
+        <colspec colname='fuse' />
+        <colspec colname='ruse' />
         <thead>
           <row>
             <entry>"Forward" property</entry>
             <entry>"Reverse" property</entry>
-            <entry>Where used</entry>
+            <entry namest='fuse' nameend='ruse' valign='middle'>Where used</entry>
           </row>
         </thead>
         <tbody>
           <row>
             <entry><varname>Before=</varname></entry>
             <entry><varname>After=</varname></entry>
-            <entry morerows='1' valign='middle'>Both are unit file options</entry>
+            <entry morerows='1' namest='fuse' nameend='ruse' valign='middle'>[Unit] section</entry>
           </row>
           <row>
             <entry><varname>After=</varname></entry>
@@ -1389,42 +1390,48 @@
           <row>
             <entry><varname>Requires=</varname></entry>
             <entry><varname>RequiredBy=</varname></entry>
-            <entry>A unit file option; an option in the [Install] section</entry>
+            <entry>[Unit] section</entry>
+            <entry>[Install] section</entry>
           </row>
           <row>
             <entry><varname>Wants=</varname></entry>
             <entry><varname>WantedBy=</varname></entry>
-            <entry>A unit file option; an option in the [Install] section</entry>
+            <entry>[Unit] section</entry>
+            <entry>[Install] section</entry>
           </row>
           <row>
             <entry><varname>PartOf=</varname></entry>
             <entry><varname>ConsistsOf=</varname></entry>
-            <entry>A unit file option; an automatic property</entry>
+            <entry>[Unit] section</entry>
+            <entry>an automatic property</entry>
           </row>
           <row>
             <entry><varname>BindsTo=</varname></entry>
             <entry><varname>BoundBy=</varname></entry>
-            <entry>A unit file option; an automatic property</entry>
+            <entry>[Unit] section</entry>
+            <entry>an automatic property</entry>
           </row>
           <row>
             <entry><varname>Requisite=</varname></entry>
             <entry><varname>RequisiteOf=</varname></entry>
-            <entry>A unit file option; an automatic property</entry>
+            <entry>[Unit] section</entry>
+            <entry>an automatic property</entry>
           </row>
           <row>
             <entry><varname>Triggers=</varname></entry>
             <entry><varname>TriggeredBy=</varname></entry>
-            <entry>Automatic properties, see notes below</entry>
+            <entry namest='fuse' nameend='ruse' valign='middle'>Automatic properties, see notes below</entry>
           </row>
           <row>
             <entry><varname>Conflicts=</varname></entry>
             <entry><varname>ConflictedBy=</varname></entry>
-            <entry>A unit file option; an automatic property</entry>
+            <entry>[Unit] section</entry>
+            <entry>an automatic property</entry>
           </row>
           <row>
             <entry><varname>PropagatesReloadTo=</varname></entry>
             <entry><varname>ReloadPropagatedFrom=</varname></entry>
-            <entry morerows='1' valign='middle'>Both are unit file options</entry>
+            <entry morerows='1' namest='fuse' nameend='ruse' valign='middle'>[Unit] section</entry>
           </row>
           <row>
             <entry><varname>ReloadPropagatedFrom=</varname></entry>
