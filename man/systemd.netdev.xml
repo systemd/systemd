@@ -1380,15 +1380,6 @@
 
     <variablelist class='network-directives'>
       <varlistentry>
-        <term><varname>OneQueue=</varname></term>
-        <listitem><para>Takes a boolean. Configures whether
-        all packets are queued at the device (enabled), or a fixed
-        number of packets are queued at the device and the rest at the
-        <literal>qdisc</literal>. Defaults to
-        <literal>no</literal>.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><varname>MultiQueue=</varname></term>
         <listitem><para>Takes a boolean. Configures whether
         to use multiple file descriptors (queues) to parallelize

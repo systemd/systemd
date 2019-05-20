@@ -34,9 +34,6 @@ static int netdev_fill_tuntap_message(NetDev *netdev, struct ifreq *ifr) {
         if (!t->packet_info)
                 ifr->ifr_flags |= IFF_NO_PI;
 
-        if (t->one_queue)
-                ifr->ifr_flags |= IFF_ONE_QUEUE;
-
         if (t->multi_queue)
                 ifr->ifr_flags |= IFF_MULTI_QUEUE;
 

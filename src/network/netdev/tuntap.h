@@ -10,7 +10,6 @@ struct TunTap {
 
         char *user_name;
         char *group_name;
-        bool one_queue;
         bool multi_queue;
         bool packet_info;
         bool vnet_hdr;
