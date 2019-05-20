@@ -602,11 +602,21 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.wait_online(['tun99:off'])
 
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'tun99'], universal_newlines=True).rstrip()
+        print(output)
+        # Old ip command does not support IFF_ flags
+        self.assertRegex(output, 'tun (?:type tun pi on vnet_hdr on multi_queue|addrgenmode) ')
+
     def test_tap(self):
         self.copy_unit_to_networkd_unit_path('25-tap.netdev')
         self.start_networkd(0)
 
         self.wait_online(['tap99:off'])
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'tap99'], universal_newlines=True).rstrip()
+        print(output)
+        # Old ip command does not support IFF_ flags
+        self.assertRegex(output, 'tun (?:type tap pi on vnet_hdr on multi_queue|addrgenmode) ')
 
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_vrf(self):
