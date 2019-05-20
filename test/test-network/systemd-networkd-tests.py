@@ -634,10 +634,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfModuleIsNotAvailable('vcan')
     def test_vcan(self):
-        self.copy_unit_to_networkd_unit_path('25-vcan.netdev')
+        self.copy_unit_to_networkd_unit_path('25-vcan.netdev', 'netdev-link-local-addressing-yes.network')
         self.start_networkd(0)
 
-        self.wait_online(['vcan99:off'])
+        self.wait_online(['vcan99:carrier'])
 
     @expectedFailureIfModuleIsNotAvailable('wireguard')
     def test_wireguard(self):
