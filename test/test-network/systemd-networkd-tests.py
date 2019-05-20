@@ -127,12 +127,15 @@ class Utilities():
         with open(os.path.join(path, attribute)) as f:
             return f.readline().strip()
 
-    def link_exits(self, link):
+    def link_exists(self, link):
         return os.path.exists(os.path.join('/sys/class/net', link))
+
+    def check_link_exists(self, link):
+        self.assertTrue(self.link_exists(link))
 
     def link_remove(self, links):
         for link in links:
-            if os.path.exists(os.path.join('/sys/class/net', link)):
+            if self.link_exists(link):
                 subprocess.call(['ip', 'link', 'del', 'dev', link])
         time.sleep(1)
 
@@ -427,8 +430,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
 
         self.wait_online(['bridge99', 'test1:degraded'], bool_any=True)
-        self.assertTrue(self.link_exits('bridge99'))
-        self.assertTrue(self.link_exits('test1'))
+        self.check_link_exists('bridge99')
+        self.check_link_exists('test1')
 
         self.check_operstate('bridge99', '(?:off|no-carrier)', setup_state='configuring')
         self.check_operstate('test1', 'degraded')
@@ -670,10 +673,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                                              '25-ip6gre-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('ip6gretun99'))
-        self.assertTrue(self.link_exits('ip6gretun98'))
-        self.assertTrue(self.link_exits('ip6gretun97'))
+        self.check_link_exists('dummy98')
+        self.check_link_exists('ip6gretun99')
+        self.check_link_exists('ip6gretun98')
+        self.check_link_exists('ip6gretun97')
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretun99'], universal_newlines=True).rstrip()
         print(output)
@@ -802,8 +805,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['isataptun99:routable', 'dummy98:degraded'])
 
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('isataptun99'))
+        self.check_link_exists('dummy98')
+        self.check_link_exists('isataptun99')
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'isataptun99'], universal_newlines=True).rstrip()
         print(output)
@@ -969,9 +972,9 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('11-dummy.netdev', '25-l2tp-dummy.network', '25-l2tp-udp.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('test1'))
-        self.assertTrue(self.link_exits('l2tp-ses1'))
-        self.assertTrue(self.link_exits('l2tp-ses2'))
+        self.check_link_exists('test1')
+        self.check_link_exists('l2tp-ses1')
+        self.check_link_exists('l2tp-ses2')
 
         output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel', 'tunnel_id', '10'], universal_newlines=True).rstrip()
         print(output)
@@ -998,9 +1001,9 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('11-dummy.netdev', '25-l2tp-dummy.network', '25-l2tp-ip.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('test1'))
-        self.assertTrue(self.link_exits('l2tp-ses3'))
-        self.assertTrue(self.link_exits('l2tp-ses4'))
+        self.check_link_exists('test1')
+        self.check_link_exists('l2tp-ses3')
+        self.check_link_exists('l2tp-ses4')
 
         output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel', 'tunnel_id', '10'], universal_newlines=True).rstrip()
         print(output)
@@ -1099,7 +1102,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-address-preferred-lifetime-zero-ipv6.network', '12-dummy.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('dummy98'))
+        self.check_link_exists('dummy98')
 
         self.check_operstate('dummy98', 'routable', setup_state='configuring')
 
@@ -1112,7 +1115,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('configure-without-carrier.network', '11-dummy.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('test1'))
+        self.check_link_exists('test1')
 
         output = subprocess.check_output(['networkctl', 'status', 'test1'], universal_newlines=True).rstrip()
         print(output)
@@ -1127,7 +1130,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('test1'))
+        self.check_link_exists('test1')
 
         output = subprocess.check_output(['ip', 'rule'], universal_newlines=True).rstrip()
         print(output)
@@ -1151,8 +1154,8 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
             # Remove state files only first time
             self.start_networkd(remove_state_files=(trial == 0))
 
-            self.assertTrue(self.link_exits('test1'))
-            self.assertTrue(self.link_exits('dummy98'))
+            self.check_link_exists('test1')
+            self.check_link_exists('dummy98')
 
             output = subprocess.check_output(['ip', 'rule', 'list', 'table', '7'], universal_newlines=True).rstrip()
             print(output)
@@ -1173,7 +1176,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('test1'))
+        self.check_link_exists('test1')
 
         output = subprocess.check_output(['ip', 'rule'], universal_newlines=True).rstrip()
         print(output)
@@ -1194,7 +1197,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('test1'))
+        self.check_link_exists('test1')
 
         output = subprocess.check_output(['ip', 'rule'], universal_newlines=True).rstrip()
         print(output)
@@ -1255,8 +1258,8 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('23-active-slave.network', '25-route-ipv6-src.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('bond199'))
+        self.check_link_exists('dummy98')
+        self.check_link_exists('bond199')
 
         output = subprocess.check_output(['ip', '-6', 'route', 'list', 'dev', 'bond199'], universal_newlines=True).rstrip()
         print(output)
@@ -1268,7 +1271,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-address-link-section.network', '12-dummy.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('dummy98'))
+        self.check_link_exists('dummy98')
 
         output = subprocess.check_output(['ip', 'link', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
@@ -1278,7 +1281,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-link-section-unmanaged.network', '12-dummy.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('dummy98'))
+        self.check_link_exists('dummy98')
 
         output = subprocess.check_output(['networkctl', 'status', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
@@ -1288,7 +1291,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-ipv6-address-label-section.network', '12-dummy.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('dummy98'))
+        self.check_link_exists('dummy98')
 
         output = subprocess.check_output(['ip', 'addrlabel', 'list'], universal_newlines=True).rstrip()
         print(output)
@@ -1298,7 +1301,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-neighbor-section.network', '12-dummy.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('dummy98'))
+        self.check_link_exists('dummy98')
 
         output = subprocess.check_output(['ip', 'neigh', 'list'], universal_newlines=True).rstrip()
         print(output)
@@ -1311,8 +1314,8 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['test1:degraded', 'dummy98:carrier'])
 
-        self.assertTrue(self.link_exits('test1'))
-        self.assertTrue(self.link_exits('dummy98'))
+        self.check_link_exists('test1')
+        self.check_link_exists('dummy98')
 
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'test1'], universal_newlines=True).rstrip()
         print(output)
@@ -1364,7 +1367,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['dummy98:degraded'])
 
-        self.assertTrue(self.link_exits('dummy98'))
+        self.check_link_exists('dummy98')
 
         self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'forwarding'), '1')
         self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'use_tempaddr'), '2')
@@ -1384,7 +1387,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['dummy98:routable'])
 
-        self.assertTrue(self.link_exits('dummy98'))
+        self.check_link_exists('dummy98')
 
         output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
@@ -1403,7 +1406,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['dummy98:routable'])
 
-        self.assertTrue(self.link_exits('dummy98'))
+        self.check_link_exists('dummy98')
 
         output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
@@ -1417,7 +1420,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-bind-carrier.network', '11-dummy.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('test1'))
+        self.check_link_exists('test1')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
@@ -1493,8 +1496,8 @@ class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('23-active-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('bond199'))
+        self.check_link_exists('dummy98')
+        self.check_link_exists('bond199')
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond199'], universal_newlines=True).rstrip()
         print(output)
@@ -1504,8 +1507,8 @@ class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('23-primary-slave.network', '23-test1-bond199.network', '25-bond-active-backup-slave.netdev', '11-dummy.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('test1'))
-        self.assertTrue(self.link_exits('bond199'))
+        self.check_link_exists('test1')
+        self.check_link_exists('bond199')
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond199'], universal_newlines=True).rstrip()
         print(output)
@@ -1516,9 +1519,9 @@ class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
                                              'bond99.network','bond-slave.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('bond99'))
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('test1'))
+        self.check_link_exists('bond99')
+        self.check_link_exists('dummy98')
+        self.check_link_exists('test1')
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
@@ -1598,9 +1601,9 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
                                              'bridge99.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('test1'))
-        self.assertTrue(self.link_exits('bridge99'))
+        self.check_link_exists('dummy98')
+        self.check_link_exists('test1')
+        self.check_link_exists('bridge99')
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1'], universal_newlines=True).rstrip()
         print(output)
@@ -1669,9 +1672,9 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
 
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('test1'))
-        self.assertTrue(self.link_exits('bridge99'))
+        self.check_link_exists('dummy98')
+        self.check_link_exists('test1')
+        self.check_link_exists('bridge99')
 
         self.assertEqual(subprocess.call(['ip', 'address', 'add', '192.168.0.16/24', 'dev', 'bridge99']), 0)
         time.sleep(1)
@@ -1696,7 +1699,7 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
 
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('bridge99'))
+        self.check_link_exists('bridge99')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
@@ -1747,7 +1750,7 @@ class NetworkdNetWorkLLDPTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('23-emit-lldp.network', '24-lldp.network', '25-veth.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         output = subprocess.check_output(['networkctl', 'lldp'], universal_newlines=True).rstrip()
         print(output)
@@ -1773,7 +1776,7 @@ class NetworkdNetworkRATests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
@@ -1804,7 +1807,7 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
@@ -1817,7 +1820,7 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '24-search-domain.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('dummy98'))
+        self.check_link_exists('dummy98')
 
         output = subprocess.check_output(['networkctl', 'status', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
@@ -1829,7 +1832,7 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client-timezone-router.network', 'dhcp-server-timezone-router.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
@@ -1899,7 +1902,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv4-only-ipv6-disabled.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         self.start_dnsmasq()
 
@@ -1913,7 +1916,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
                                              'dhcp-client-ipv4-only.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         self.start_dnsmasq()
 
@@ -1926,7 +1929,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv4-dhcp-settings.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         self.start_dnsmasq()
 
@@ -1960,7 +1963,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         self.start_dnsmasq()
 
@@ -1973,7 +1976,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-rapid-commit.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         self.start_dnsmasq()
 
@@ -1986,7 +1989,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-anonymize.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         self.start_dnsmasq()
 
@@ -1998,7 +2001,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-listen-port.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         self.start_dnsmasq('--dhcp-alternate-port=67,5555')
 
@@ -2010,7 +2013,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-route-table.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         self.start_dnsmasq()
 
@@ -2023,7 +2026,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-route-metric.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         self.start_dnsmasq()
 
@@ -2035,7 +2038,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-critical-connection.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         self.start_dnsmasq()
 
@@ -2057,7 +2060,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         self.start_dnsmasq()
 
@@ -2078,7 +2081,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global'], universal_newlines=True).rstrip()
         print(output)
@@ -2096,8 +2099,8 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
                                              '25-vrf.netdev', '25-vrf.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
-        self.assertTrue(self.link_exits('vrf99'))
+        self.check_link_exists('veth99')
+        self.check_link_exists('vrf99')
 
         self.start_dnsmasq()
 
@@ -2142,7 +2145,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
                                              'dhcp-client-gateway-onlink-implicit.network')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('veth99'))
+        self.check_link_exists('veth99')
 
         self.start_dnsmasq()
 
