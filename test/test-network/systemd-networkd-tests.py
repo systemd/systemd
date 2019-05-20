@@ -564,10 +564,20 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfModuleIsNotAvailable('ipvtap')
     def test_ipvtap(self):
-        self.copy_unit_to_networkd_unit_path('25-ipvtap.netdev', '11-dummy.netdev', 'ipvtap.network')
-        self.start_networkd(0)
+        for mode, flag in [['L2', 'private'], ['L3', 'vepa'], ['L3S', 'bridge']]:
+            with self.subTest(mode=mode, flag=flag):
+                if mode != 'L2':
+                    self.tearDown()
+                self.copy_unit_to_networkd_unit_path('25-ipvtap.netdev', '11-dummy.netdev', 'ipvtap.network')
+                with open(os.path.join(network_unit_file_path, '25-ipvtap.netdev'), mode='a') as f:
+                    f.write('[IPVTAP]\nMode=' + mode + '\nFlags=' + flag)
 
-        self.wait_online(['ipvtap99:off', 'test1:degraded'])
+                self.start_networkd(0)
+                self.wait_online(['ipvtap99:off', 'test1:degraded'])
+
+                output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipvtap99'], universal_newlines=True).rstrip()
+                print(output)
+                self.assertRegex(output, 'ipvtap  *mode ' + mode.lower() + ' ' + flag)
 
     def test_veth(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev')
