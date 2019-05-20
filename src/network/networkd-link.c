@@ -695,8 +695,6 @@ void link_set_state(Link *link, LinkState state) {
 static void link_enter_unmanaged(Link *link) {
         assert(link);
 
-        log_link_debug(link, "Unmanaged");
-
         link_set_state(link, LINK_STATE_UNMANAGED);
 
         link_dirty(link);
