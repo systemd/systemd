@@ -161,6 +161,7 @@ Flags=
 OneQueue=
 MultiQueue=
 PacketInfo=
+VNetHeader=
 Group=
 User=
 [NetDev]

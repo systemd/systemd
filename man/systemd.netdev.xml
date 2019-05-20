@@ -1408,7 +1408,7 @@
       <varlistentry>
         <term><varname>VNetHeader=</varname></term>
         <listitem><para>Takes a boolean. Configures
-        IFF_VNET_HDR flag for a tap device. It allows sending
+        IFF_VNET_HDR flag for a tun or tap device. It allows sending
         and receiving larger Generic Segmentation Offload (GSO)
         packets. This may increase throughput significantly.
         Defaults to
