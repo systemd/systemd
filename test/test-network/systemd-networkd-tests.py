@@ -585,10 +585,17 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                 self.assertRegex(output, 'ipvtap  *mode ' + mode.lower() + ' ' + flag)
 
     def test_veth(self):
-        self.copy_unit_to_networkd_unit_path('25-veth.netdev')
+        self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'netdev-link-local-addressing-yes.network')
         self.start_networkd(0)
 
-        self.wait_online(['veth99:off', 'veth-peer:off'])
+        self.wait_online(['veth99:degraded', 'veth-peer:degraded'])
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'veth99'], universal_newlines=True).rstrip()
+        print(output)
+        self.assertRegex(output, 'link/ether 12:34:56:78:9a:bc')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'veth-peer'], universal_newlines=True).rstrip()
+        print(output)
+        self.assertRegex(output, 'link/ether 12:34:56:78:9a:bd')
 
     def test_dummy(self):
         self.copy_unit_to_networkd_unit_path('11-dummy.netdev')
