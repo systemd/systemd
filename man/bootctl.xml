@@ -60,17 +60,18 @@
       <varlistentry>
         <term><option>-p</option></term>
         <term><option>--print-esp-path</option></term>
-        <listitem><para>This option modifies the behaviour of <command>status</command>.  Prints only the
-        path to the EFI System Partition (ESP) to standard output and exits.</para></listitem>
+        <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
+        to the EFI System Partition (ESP) to standard output and exits.</para></listitem>
       </varlistentry>
 
       <varlistentry>
+        <term><option>-x</option></term>
         <term><option>--print-boot-path</option></term>
-        <listitem><para>This option modifies the behaviour of <command>status</command>.  Prints only the
-        path to the Extended Boot Loader partition if it exists, and the path to the ESP otherwise to
-        standard output and exit. This command is useful to determine where to place boot loader entries, as
-        they are preferably placed in the Extended Boot Loader partition if it exists and in the ESP
-        otherwise.</para></listitem>
+        <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
+        to the Extended Boot Loader partition if it exists, and the path to the ESP otherwise to standard
+        output and exit. This command is useful to determine where to place boot loader entries, as they are
+        preferably placed in the Extended Boot Loader partition if it exists and in the ESP otherwise.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
