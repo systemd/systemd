@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+
+if [ -z "$1" ]; then
+    echo "Use: $0 page-name (with no section suffix)"
+    exit 1
+fi
+
+target=$(ninja -C "@BUILD_ROOT@" -t query man/man | grep -E -m1 "man/$1\.[0-9]$" | awk '{print $2}')
+if [ -z "$target" ]; then
+    echo "Cannot find page $1"
+    exit 1
+fi
+ninja -C "@BUILD_ROOT@" "$target"
+exec man build/"$target"

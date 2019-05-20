@@ -53,7 +53,7 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC tools/check-directives.sh
             ;;
         RUN_CLANG)
-            docker exec -e CC=clang -e CXX=clang++ -it $CONT_NAME meson --werror -Dtests=unsafe -Dslow-tests=true build
+            docker exec -e CC=clang -e CXX=clang++ -it $CONT_NAME meson --werror -Dtests=unsafe -Dslow-tests=true -Dman=true build
             $DOCKER_EXEC ninja -v -C build
             $DOCKER_EXEC ninja -C build test
             ;;

@@ -13,7 +13,7 @@ cd ${REPO_ROOT:-$(pwd)}
 
 sed -i 's/2\.30/2.27/' meson.build
 
-meson --werror -Db_sanitize=address,undefined -Dsplit-usr=true build
+meson --werror -Db_sanitize=address,undefined -Dsplit-usr=true -Dman=true build
 ninja -v -C build
 
 make -C test/TEST-01-BASIC clean setup run NSPAWN_TIMEOUT=600 TEST_NO_QEMU=yes NSPAWN_ARGUMENTS=--keep-unit RUN_IN_UNPRIVILEGED_CONTAINER=no

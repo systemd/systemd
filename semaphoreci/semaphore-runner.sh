@@ -88,7 +88,7 @@ EOF
             # disable autopkgtests which are not for upstream
             sed -i '/# NOUPSTREAM/ q' debian/tests/control
             # enable more unit tests
-            sed -i '/^CONFFLAGS =/ s/=/= -Dtests=unsafe -Dsplit-usr=true -Dslow-tests=true /' debian/rules
+            sed -i '/^CONFFLAGS =/ s/=/= -Dtests=unsafe -Dsplit-usr=true -Dslow-tests=true -Dman=true /' debian/rules
             # no orig tarball
             echo '1.0' > debian/source/format
 
