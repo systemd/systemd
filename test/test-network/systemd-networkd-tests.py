@@ -1622,7 +1622,6 @@ class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
         self.check_operstate('dummy98', 'off')
         self.check_operstate('test1', 'off')
 
-        bond_has_no_carrier=False
         for trial in range(30):
             if trial > 0:
                 time.sleep(1)
