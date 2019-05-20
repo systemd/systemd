@@ -2472,7 +2472,7 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
         assert(source);
         assert(m);
 
-        /* First we call waitd() for a PID and do not reap the zombie. That way we can still access /proc/$PID for it
+        /* First we call waitid() for a PID and do not reap the zombie. That way we can still access /proc/$PID for it
          * while it is a zombie. */
 
         if (waitid(P_ALL, 0, &si, WEXITED|WNOHANG|WNOWAIT) < 0) {

@@ -44,7 +44,7 @@
 #include "terminal-util.h"
 #include "user-util.h"
 
-int get_process_state(pid_t pid) {
+static int get_process_state(pid_t pid) {
         const char *p;
         char state;
         int r;
