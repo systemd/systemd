@@ -208,13 +208,27 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
         return d->fd;
 }
 
-int loop_device_refresh_size(LoopDevice *d) {
+int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
+        struct loop_info64 info;
         assert(d);
 
         if (d->fd < 0)
                 return -EBADF;
 
-        if (ioctl(d->fd, LOOP_SET_CAPACITY) < 0)
+        if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
+                return -errno;
+
+        if (size == UINT64_MAX && offset == UINT64_MAX)
+                return 0;
+        if (info.lo_sizelimit == size && info.lo_offset == offset)
+                return 0;
+
+        if (size != UINT64_MAX)
+                info.lo_sizelimit = size;
+        if (offset != UINT64_MAX)
+                info.lo_offset = offset;
+
+        if (ioctl(d->fd, LOOP_SET_STATUS64, &info) < 0)
                 return -errno;
 
         return 0;
