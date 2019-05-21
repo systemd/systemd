@@ -52,7 +52,7 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
                 return -errno;
 
         *ret = devt;
-        return 0;
+        return 1;
 }
 
 int get_block_device(const char *path, dev_t *dev) {
