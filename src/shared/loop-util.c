@@ -2,14 +2,19 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/blkpg.h>
+#include <linux/fs.h>
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "loop-util.h"
+#include "parse-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 
 int loop_device_make_full(
                 int fd,
@@ -209,12 +214,108 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
         return d->fd;
 }
 
+static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
+        char sysfs[STRLEN("/sys/dev/block/:/partition") + 2*DECIMAL_STR_MAX(dev_t) + 1];
+        _cleanup_free_ char *whole = NULL, *buffer = NULL;
+        uint64_t current_offset, current_size, partno;
+        _cleanup_close_ int whole_fd = -1;
+        struct stat st;
+        dev_t devno;
+        int r;
+
+        assert(partition_fd >= 0);
+
+        /* Resizes the partition the loopback device refer to (assuming it refers to one instead of an actual
+         * loopback device), and changes the offset, if needed. This is a fancy wrapper around
+         * BLKPG_RESIZE_PARTITION. */
+
+        if (fstat(partition_fd, &st) < 0)
+                return -errno;
+
+        assert(S_ISBLK(st.st_mode));
+
+        xsprintf(sysfs, "/sys/dev/block/%u:%u/partition", major(st.st_rdev), minor(st.st_rdev));
+        r = read_one_line_file(sysfs, &buffer);
+        if (r == -ENOENT) /* not a partition, cannot resize */
+                return -ENOTTY;
+        if (r < 0)
+                return r;
+        r = safe_atou64(buffer, &partno);
+        if (r < 0)
+                return r;
+
+        xsprintf(sysfs, "/sys/dev/block/%u:%u/start", major(st.st_rdev), minor(st.st_rdev));
+
+        buffer = mfree(buffer);
+        r = read_one_line_file(sysfs, &buffer);
+        if (r < 0)
+                return r;
+        r = safe_atou64(buffer, &current_offset);
+        if (r < 0)
+                return r;
+        if (current_offset > UINT64_MAX/512U)
+                return -EINVAL;
+        current_offset *= 512U;
+
+        if (ioctl(partition_fd, BLKGETSIZE64, &current_size) < 0)
+                return -EINVAL;
+
+        if (size == UINT64_MAX && offset == UINT64_MAX)
+                return 0;
+        if (current_size == size && current_offset == offset)
+                return 0;
+
+        xsprintf(sysfs, "/sys/dev/block/%u:%u/../dev", major(st.st_rdev), minor(st.st_rdev));
+
+        buffer = mfree(buffer);
+        r = read_one_line_file(sysfs, &buffer);
+        if (r < 0)
+                return r;
+        r = parse_dev(buffer, &devno);
+        if (r < 0)
+                return r;
+
+        r = device_path_make_major_minor(S_IFBLK, devno, &whole);
+        if (r < 0)
+                return r;
+
+        whole_fd = open(whole, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (whole_fd < 0)
+                return -errno;
+
+        struct blkpg_partition bp = {
+                .pno = partno,
+                .start = offset == UINT64_MAX ? current_offset : offset,
+                .length = size == UINT64_MAX ? current_size : size,
+        };
+
+        struct blkpg_ioctl_arg ba = {
+                .op = BLKPG_RESIZE_PARTITION,
+                .data = &bp,
+                .datalen = sizeof(bp),
+        };
+
+        if (ioctl(whole_fd, BLKPG, &ba) < 0)
+                return -errno;
+
+        return 0;
+}
+
 int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
         struct loop_info64 info;
         assert(d);
 
+        /* Changes the offset/start of the loop device relative to the beginning of the underlying file or
+         * block device. If this loop device actually refers to a partition and not a loopback device, we'll
+         * try to adjust the partition offsets instead.
+         *
+         * If either offset or size is UINT64_MAX we won't change that parameter. */
+
         if (d->fd < 0)
                 return -EBADF;
+
+        if (d->nr < 0) /* not a loopback device */
+                return resize_partition(d->fd, offset, size);
 
         if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
                 return -errno;
