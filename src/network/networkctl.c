@@ -154,7 +154,7 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
                 memcmp(&info->mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0;
 
         info->has_mtu =
-                sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu) &&
+                sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu) >= 0 &&
                 info->mtu > 0;
 
         return 1;
