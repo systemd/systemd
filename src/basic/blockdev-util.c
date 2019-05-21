@@ -31,7 +31,7 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         /* If it is a partition find the originating device */
         xsprintf_sys_block_path(p, "/partition", d);
         if (access(p, F_OK) < 0)
-                return -ENOENT;
+                return -errno;
 
         /* Get parent dev_t */
         xsprintf_sys_block_path(p, "/../dev", d);
@@ -46,7 +46,7 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         /* Only return this if it is really good enough for us. */
         xsprintf_sys_block_path(p, "/queue", devt);
         if (access(p, F_OK) < 0)
-                return -ENOENT;
+                return -errno;
 
         *ret = devt;
         return 0;
