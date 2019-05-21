@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/loop.h>
+#include <sys/file.h>
 #include <sys/ioctl.h>
 
 #include "alloc-util.h"
@@ -229,6 +230,18 @@ int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
                 info.lo_offset = offset;
 
         if (ioctl(d->fd, LOOP_SET_STATUS64, &info) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int loop_device_flock(LoopDevice *d, int operation) {
+        assert(d);
+
+        if (d->fd < 0)
+                return -EBADF;
+
+        if (flock(d->fd, operation) < 0)
                 return -errno;
 
         return 0;
