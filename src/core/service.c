@@ -2047,9 +2047,10 @@ static int service_adverse_to_leftover_processes(Service *s) {
          * aren't as rigoriously written to protect aganst against multiple use. */
         if (unit_warn_leftover_processes(UNIT(s)) &&
             IN_SET(s->kill_context.kill_mode, KILL_MIXED, KILL_CONTROL_GROUP) &&
-            !s->kill_context.send_sigkill) {
-               return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EBUSY), "Will not start SendSIGKILL=no service of type KillMode=control-group or mixed while processes exist");
-        }
+            !s->kill_context.send_sigkill)
+               return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EBUSY),
+                                           "Will not start SendSIGKILL=no service of type KillMode=control-group or mixed while processes exist");
+
         return 0;
 }
 

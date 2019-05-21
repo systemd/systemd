@@ -2524,8 +2524,13 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
                 /* Finally, execute them all. Note that u1, u2 and the array might contain duplicates, but
                  * that's fine, manager_invoke_sigchld_event() will ensure we only invoke the handlers once for
                  * each iteration. */
-                if (u1)
+                if (u1) {
+                        /* We check for oom condition, in case we got SIGCHLD before the oom notification.
+                         * We only do this for the cgroup the PID belonged to. */
+                        (void) unit_check_oom(u1);
+
                         manager_invoke_sigchld_event(m, u1, &si);
+                }
                 if (u2)
                         manager_invoke_sigchld_event(m, u2, &si);
                 if (array_copy)
