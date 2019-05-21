@@ -157,6 +157,14 @@ static void test_parse_cpu_set(void) {
         cpu_set_reset(&c);
 }
 
+static void test_cpus_in_affinity_mask(void) {
+        int r;
+
+        r = cpus_in_affinity_mask();
+        assert(r > 0);
+        log_info("cpus_in_affinity_mask: %d", r);
+}
+
 int main(int argc, char *argv[]) {
         log_info("CPU_ALLOC_SIZE(1) = %zu", CPU_ALLOC_SIZE(1));
         log_info("CPU_ALLOC_SIZE(9) = %zu", CPU_ALLOC_SIZE(9));
@@ -167,6 +175,7 @@ int main(int argc, char *argv[]) {
         log_info("CPU_ALLOC_SIZE(8191) = %zu", CPU_ALLOC_SIZE(8191));
 
         test_parse_cpu_set();
+        test_cpus_in_affinity_mask();
 
         return 0;
 }
