@@ -75,7 +75,8 @@ int main(int argc, char *argv[]) {
                             PROTECT_HOME_NO,
                             PROTECT_SYSTEM_NO,
                             0,
-                            0);
+                            0,
+                            NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to setup namespace: %m");
 
