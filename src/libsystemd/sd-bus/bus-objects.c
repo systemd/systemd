@@ -638,8 +638,14 @@ static int property_get_set_callbacks_run(
                 if (r < 0)
                         return r;
 
-                if (type != 'v' || !streq(strempty(signature), strempty(c->vtable->x.property.signature)))
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Incorrect parameters for property '%s', expected '%s', got '%s'.", c->member, strempty(c->vtable->x.property.signature), strempty(signature));
+                if (type != 'v')
+                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_SIGNATURE,
+                                                          "Incorrect signature when setting property '%s', expected 'v', got '%c'.",
+                                                          c->member, type);
+                if (!streq(strempty(signature), strempty(c->vtable->x.property.signature)))
+                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS,
+                                                          "Incorrect parameters for property '%s', expected '%s', got '%s'.",
+                                                          c->member, strempty(c->vtable->x.property.signature), strempty(signature));
 
                 r = sd_bus_message_enter_container(m, 'v', c->vtable->x.property.signature);
                 if (r < 0)
