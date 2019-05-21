@@ -1546,6 +1546,11 @@ static int fixup_environment(void) {
         if (setenv("TERM", t, 1) < 0)
                 return -errno;
 
+        /* The kernels sets HOME=/ for init. Let's undo this. */
+        if (path_equal_ptr(getenv("HOME"), "/") &&
+            unsetenv("HOME") < 0)
+                log_warning_errno(errno, "Failed to unset $HOME: %m");
+
         return 0;
 }
 
