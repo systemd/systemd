@@ -560,6 +560,8 @@ static const NLType rtnl_link_types[] = {
 /*
         [IFLA_PHYS_PORT_ID]     = { .type = NETLINK_TYPE_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
 */
+        [IFLA_MIN_MTU]              = { .type = NETLINK_TYPE_U32 },
+        [IFLA_MAX_MTU]              = { .type = NETLINK_TYPE_U32 },
 };
 
 static const NLTypeSystem rtnl_link_type_system = {
