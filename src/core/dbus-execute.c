@@ -219,7 +219,7 @@ static int property_get_cpu_affinity(
         assert(reply);
         assert(c);
 
-        return sd_bus_message_append_array(reply, 'y', c->cpuset, CPU_ALLOC_SIZE(c->cpuset_ncpus));
+        return sd_bus_message_append_array(reply, 'y', c->cpu_set.set, c->cpu_set.allocated);
 }
 
 static int property_get_timer_slack_nsec(
@@ -1566,37 +1566,22 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (n == 0) {
-                                c->cpuset = cpu_set_mfree(c->cpuset);
-                                c->cpuset_ncpus = 0;
+                                cpu_set_reset(&c->cpu_set);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
                                 _cleanup_free_ char *str = NULL;
-                                size_t ncpus;
+                                const CPUSet set = {(cpu_set_t*) a, n};
 
-                                str = cpu_set_to_string(a, n);
+                                str = cpu_set_to_string(&set);
                                 if (!str)
                                         return -ENOMEM;
 
-                                ncpus = CPU_SIZE_TO_NUM(n);
-
-                                if (!c->cpuset || c->cpuset_ncpus < ncpus) {
-                                        cpu_set_t *cpuset;
-
-                                        cpuset = CPU_ALLOC(ncpus);
-                                        if (!cpuset)
-                                                return -ENOMEM;
-
-                                        CPU_ZERO_S(n, cpuset);
-                                        if (c->cpuset) {
-                                                CPU_OR_S(CPU_ALLOC_SIZE(c->cpuset_ncpus), cpuset, c->cpuset, (cpu_set_t*) a);
-                                                CPU_FREE(c->cpuset);
-                                        } else
-                                                CPU_OR_S(n, cpuset, cpuset, (cpu_set_t*) a);
-
-                                        c->cpuset = cpuset;
-                                        c->cpuset_ncpus = ncpus;
-                                } else
-                                        CPU_OR_S(n, c->cpuset, c->cpuset, (cpu_set_t*) a);
+                                /* We forego any optimizations here, and always create the structure using
+                                 * cpu_set_add_all(), because we don't want to care if the existing size we
+                                 * got over dbus is appropriate. */
+                                r = cpu_set_add_all(&c->cpu_set, &set);
+                                if (r < 0)
+                                        return r;
 
                                 unit_write_settingf(u, flags, name, "%s=%s", name, str);
                         }

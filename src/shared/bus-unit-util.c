@@ -992,13 +992,13 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         }
 
         if (streq(field, "CPUAffinity")) {
-                _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
+                _cleanup_(cpu_set_reset) CPUSet cpuset = {};
 
                 r = parse_cpu_set(eq, &cpuset);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
 
-                return bus_append_byte_array(m, field, cpuset, CPU_ALLOC_SIZE(r));
+                return bus_append_byte_array(m, field, cpuset.set, cpuset.allocated);
         }
 
         if (STR_IN_SET(field, "RestrictAddressFamilies", "SystemCallFilter")) {

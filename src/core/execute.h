@@ -14,6 +14,7 @@ typedef struct Manager Manager;
 #include <sys/capability.h>
 
 #include "cgroup-util.h"
+#include "cpu-set-util.h"
 #include "fdset.h"
 #include "list.h"
 #include "missing_resource.h"
@@ -172,8 +173,7 @@ struct ExecContext {
         int cpu_sched_policy;
         int cpu_sched_priority;
 
-        unsigned cpuset_ncpus;
-        cpu_set_t *cpuset;
+        CPUSet cpu_set;
 
         ExecInput std_input;
         ExecOutput std_output;

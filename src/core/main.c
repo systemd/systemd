@@ -567,15 +567,17 @@ static int config_parse_cpu_affinity2(
                 void *data,
                 void *userdata) {
 
-        _cleanup_cpu_free_ cpu_set_t *c = NULL;
-        int ncpus;
+        _cleanup_(cpu_set_reset) CPUSet c = {};
+        int r;
 
-        ncpus = parse_cpu_set_and_warn(rvalue, &c, unit, filename, line, lvalue);
-        if (ncpus < 0)
-                return ncpus;
+        r = parse_cpu_set_full(rvalue, &c, true, unit, filename, line, lvalue);
+        if (r < 0)
+                return r;
 
-        if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
+        if (sched_setaffinity(0, c.allocated, c.set) < 0)
                 log_warning_errno(errno, "Failed to set CPU affinity: %m");
+
+        // FIXME: parsing and execution should be seperated.
 
         return 0;
 }

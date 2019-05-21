@@ -8,23 +8,40 @@
 DEFINE_TRIVIAL_CLEANUP_FUNC(cpu_set_t*, CPU_FREE);
 #define _cleanup_cpu_free_ _cleanup_(CPU_FREEp)
 
-static inline cpu_set_t* cpu_set_mfree(cpu_set_t *p) {
-        if (p)
-                CPU_FREE(p);
-        return NULL;
-}
-
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
-char* cpu_set_to_string(const cpu_set_t *set, size_t setsize);
-int parse_cpu_set_internal(const char *rvalue, cpu_set_t **cpu_set, bool warn, const char *unit, const char *filename, unsigned line, const char *lvalue);
+/* This wraps the libc interface with a variable to keep the allocated size. */
+typedef struct CPUSet {
+        cpu_set_t *set;
+        size_t allocated; /* in bytes */
+} CPUSet;
 
-static inline int parse_cpu_set_and_warn(const char *rvalue, cpu_set_t **cpu_set, const char *unit, const char *filename, unsigned line, const char *lvalue) {
-        assert(lvalue);
-
-        return parse_cpu_set_internal(rvalue, cpu_set, true, unit, filename, line, lvalue);
+static inline void cpu_set_reset(CPUSet *a) {
+        assert((a->allocated > 0) == !!a->set);
+        if (a->set)
+                CPU_FREE(a->set);
+        *a = (CPUSet) {};
 }
 
-static inline int parse_cpu_set(const char *rvalue, cpu_set_t **cpu_set){
-        return parse_cpu_set_internal(rvalue, cpu_set, false, NULL, NULL, 0, NULL);
+int cpu_set_add_all(CPUSet *a, const CPUSet *b);
+
+char* cpu_set_to_string(const CPUSet *a);
+int parse_cpu_set_full(
+                const char *rvalue,
+                CPUSet *cpu_set,
+                bool warn,
+                const char *unit,
+                const char *filename, unsigned line,
+                const char *lvalue);
+int parse_cpu_set_extend(
+                const char *rvalue,
+                CPUSet *old,
+                bool warn,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *lvalue);
+
+static inline int parse_cpu_set(const char *rvalue, CPUSet *cpu_set){
+        return parse_cpu_set_full(rvalue, cpu_set, false, NULL, NULL, 0, NULL);
 }

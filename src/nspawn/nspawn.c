@@ -220,8 +220,7 @@ static struct rlimit *arg_rlimit[_RLIMIT_MAX] = {};
 static bool arg_no_new_privileges = false;
 static int arg_oom_score_adjust = 0;
 static bool arg_oom_score_adjust_set = false;
-static cpu_set_t *arg_cpuset = NULL;
-static unsigned arg_cpuset_ncpus = 0;
+static CPUSet arg_cpu_set = {};
 static ResolvConfMode arg_resolv_conf = RESOLV_CONF_AUTO;
 static TimezoneMode arg_timezone = TIMEZONE_AUTO;
 static unsigned arg_console_width = (unsigned) -1, arg_console_height = (unsigned) -1;
@@ -259,7 +258,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_syscall_blacklist, strv_freep);
 #if HAVE_SECCOMP
 STATIC_DESTRUCTOR_REGISTER(arg_seccomp, seccomp_releasep);
 #endif
-STATIC_DESTRUCTOR_REGISTER(arg_cpuset, CPU_FREEp);
+STATIC_DESTRUCTOR_REGISTER(arg_cpu_set, cpu_set_reset);
 STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 
 static int help(void) {
@@ -1329,17 +1328,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CPU_AFFINITY: {
-                        _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
+                        CPUSet cpuset;
 
                         r = parse_cpu_set(optarg, &cpuset);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse CPU affinity mask: %s", optarg);
+                                return log_error_errno(r, "Failed to parse CPU affinity mask %s: %m", optarg);
 
-                        if (arg_cpuset)
-                                CPU_FREE(arg_cpuset);
-
-                        arg_cpuset = TAKE_PTR(cpuset);
-                        arg_cpuset_ncpus = r;
+                        cpu_set_reset(&arg_cpu_set);
+                        arg_cpu_set = cpuset;
                         arg_settings_mask |= SETTING_CPU_AFFINITY;
                         break;
                 }
@@ -2922,8 +2918,8 @@ static int inner_child(
                         return log_error_errno(r, "Failed to adjust OOM score: %m");
         }
 
-        if (arg_cpuset)
-                if (sched_setaffinity(0, CPU_ALLOC_SIZE(arg_cpuset_ncpus), arg_cpuset) < 0)
+        if (arg_cpu_set.set)
+                if (sched_setaffinity(0, arg_cpu_set.allocated, arg_cpu_set.set) < 0)
                         return log_error_errno(errno, "Failed to set CPU affinity: %m");
 
         (void) setup_hostname();
@@ -3869,15 +3865,14 @@ static int merge_settings(Settings *settings, const char *path) {
         }
 
         if ((arg_settings_mask & SETTING_CPU_AFFINITY) == 0 &&
-            settings->cpuset) {
+            settings->cpu_set.set) {
 
                 if (!arg_settings_trusted)
                         log_warning("Ignoring CPUAffinity= setting, file '%s' is not trusted.", path);
                 else {
-                        if (arg_cpuset)
-                                CPU_FREE(arg_cpuset);
-                        arg_cpuset = TAKE_PTR(settings->cpuset);
-                        arg_cpuset_ncpus = settings->cpuset_ncpus;
+                        cpu_set_reset(&arg_cpu_set);
+                        arg_cpu_set = settings->cpu_set;
+                        settings->cpu_set = (CPUSet) {};
                 }
         }
 
