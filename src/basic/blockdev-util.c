@@ -21,6 +21,9 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
 
         assert(ret);
 
+        if (major(d) == 0)
+                return -ENODEV;
+
         /* If it has a queue this is good enough for us */
         xsprintf_sys_block_path(p, "/queue", d);
         if (access(p, F_OK) >= 0) {
