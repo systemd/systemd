@@ -1735,6 +1735,12 @@ static int test_timestamp_one(const char *p) {
         if (!in_utc_timezone())
                 printf("       (in UTC): %s\n", format_timestamp_utc(buf, sizeof buf, usec));
 
+        printf("   UNIX seconds: @%"PRI_USEC"%s%0*"PRI_USEC"\n",
+               usec / USEC_PER_SEC,
+               usec % USEC_PER_SEC ? "." : "",
+               usec % USEC_PER_SEC ? 6 : 0,
+               usec % USEC_PER_SEC);
+
         printf("       From now: %s\n", format_timestamp_relative(buf, sizeof buf, usec));
 
         return 0;

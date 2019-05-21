@@ -402,18 +402,21 @@ Normalized form: *-02-29 00:00:00
 
         <programlisting>$ systemd-analyze timestamp yesterday now tomorrow
   Original form: yesterday
-Normalized form: Thu 2019-05-16 00:00:00 CEST
-       (in UTC): Wed 2019-05-15 22:00:00 UTC
+Normalized form: Mon 2019-05-20 00:00:00 CEST
+       (in UTC): Sun 2019-05-19 22:00:00 UTC
+   UNIX seconds: @15583032000
        From now: 1 day 9h ago
 
   Original form: now
-Normalized form: Fri 2019-05-17 09:34:14 CEST
-       (in UTC): Fri 2019-05-17 07:34:14 UTC
-       From now: 32us ago
+Normalized form: Tue 2019-05-21 09:48:39 CEST
+       (in UTC): Tue 2019-05-21 07:48:39 UTC
+   UNIX seconds: @1558424919.659757
+       From now: 43us ago
 
   Original form: tomorrow
-Normalized form: Sat 2019-05-18 00:00:00 CEST
-       (in UTC): Fri 2019-05-17 22:00:00 UTC
+Normalized form: Wed 2019-05-22 00:00:00 CEST
+       (in UTC): Tue 2019-05-21 22:00:00 UTC
+   UNIX seconds: @15584760000
        From now: 14h left
 </programlisting>
       </example>
