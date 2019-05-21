@@ -600,6 +600,14 @@ static void test_ioprio_class_from_to_string(void) {
         test_ioprio_class_from_to_string_one("-1", -1);
 }
 
+static void test_cpus_in_affinity_mask(void) {
+        int r;
+
+        r = cpus_in_affinity_mask();
+        assert(r > 0);
+        log_info("cpus_in_affinity_mask: %d", r);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -626,6 +634,7 @@ int main(int argc, char *argv[]) {
         test_safe_fork();
         test_pid_to_ptr();
         test_ioprio_class_from_to_string();
+        test_cpus_in_affinity_mask();
 
         return 0;
 }
