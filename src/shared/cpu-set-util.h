@@ -15,16 +15,27 @@ static inline cpu_set_t* cpu_set_mfree(cpu_set_t *p) {
 }
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
+int cpu_set_add_all(cpu_set_t **cpu_set, size_t *allocated, const cpu_set_t *b, size_t b_allocated);
 
 char* cpu_set_to_string(const cpu_set_t *set, size_t setsize);
-int parse_cpu_set_internal(const char *rvalue, cpu_set_t **cpu_set, bool warn, const char *unit, const char *filename, unsigned line, const char *lvalue);
+int parse_cpu_set_full(
+                const char *rvalue,
+                cpu_set_t **cpu_set,
+                size_t *allocated,
+                bool warn,
+                const char *unit,
+                const char *filename, unsigned line,
+                const char *lvalue);
+int parse_cpu_set_extend(
+                const char *rvalue,
+                cpu_set_t **old,
+                size_t *old_allocated,
+                bool warn,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *lvalue);
 
-static inline int parse_cpu_set_and_warn(const char *rvalue, cpu_set_t **cpu_set, const char *unit, const char *filename, unsigned line, const char *lvalue) {
-        assert(lvalue);
-
-        return parse_cpu_set_internal(rvalue, cpu_set, true, unit, filename, line, lvalue);
-}
-
-static inline int parse_cpu_set(const char *rvalue, cpu_set_t **cpu_set){
-        return parse_cpu_set_internal(rvalue, cpu_set, false, NULL, NULL, 0, NULL);
+static inline int parse_cpu_set(const char *rvalue, cpu_set_t **cpu_set, size_t *allocated){
+        return parse_cpu_set_full(rvalue, cpu_set, allocated, false, NULL, NULL, 0, NULL);
 }

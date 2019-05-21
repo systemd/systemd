@@ -10,6 +10,7 @@
 #include "extract-word.h"
 #include "log.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "parse-util.h"
 #include "string-util.h"
 
@@ -62,9 +63,55 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         }
 }
 
-int parse_cpu_set_internal(
+static cpu_set_t* cpu_set_realloc(cpu_set_t **cpu_set, size_t *allocated, unsigned ncpus) {
+        size_t need;
+
+        need = CPU_ALLOC_SIZE(ncpus);
+        if (need > *allocated) {
+                cpu_set_t *t;
+
+                t = realloc(*cpu_set, need);
+                if (!t)
+                        return NULL;
+
+                memzero(t + *allocated, need - *allocated);
+                *cpu_set = t;
+                *allocated = need;
+        }
+
+        return *cpu_set;
+}
+
+static int cpu_set_add(cpu_set_t **cpu_set, size_t *allocated, unsigned cpu) {
+        if (cpu >= 8192)
+                /* As of kernel 5.1, CONFIG_NR_CPUS can be set to 8192 on PowerPC */
+                return -ERANGE;
+
+        if (!cpu_set_realloc(cpu_set, allocated, cpu + 1))
+                return -ENOMEM;
+
+        CPU_SET_S(cpu, *allocated, *cpu_set);
+        return 0;
+}
+
+int cpu_set_add_all(cpu_set_t **cpu_set, size_t *allocated, const cpu_set_t *b, size_t b_allocated) {
+        int r;
+
+        /* Do this backwards, so if we fail, we fail before changing anything. */
+        for (unsigned cpu_p1 = b_allocated * 8; cpu_p1 > 0; cpu_p1--)
+                if (CPU_ISSET_S(cpu_p1 - 1, b_allocated, b)) {
+                        r = cpu_set_add(cpu_set, allocated, cpu_p1 - 1);
+                        if (r < 0)
+                                return r;
+                }
+
+        return 0;
+}
+
+int parse_cpu_set_full(
                 const char *rvalue,
                 cpu_set_t **cpu_set,
+                size_t *allocated,
                 bool warn,
                 const char *unit,
                 const char *filename,
@@ -72,14 +119,14 @@ int parse_cpu_set_internal(
                 const char *lvalue) {
 
         _cleanup_cpu_free_ cpu_set_t *c = NULL;
+        size_t alloc = 0;
         const char *p = rvalue;
-        unsigned ncpus = 0;
 
         assert(rvalue);
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                unsigned cpu, cpu_lower, cpu_upper;
+                unsigned cpu_lower, cpu_upper;
                 int r;
 
                 r = extract_first_word(&p, &word, WHITESPACE ",", EXTRACT_QUOTES);
@@ -90,31 +137,65 @@ int parse_cpu_set_internal(
                 if (r == 0)
                         break;
 
-                if (!c) {
-                        c = cpu_set_malloc(&ncpus);
-                        if (!c)
-                                return warn ? log_oom() : -ENOMEM;
-                }
-
                 r = parse_range(word, &cpu_lower, &cpu_upper);
                 if (r < 0)
                         return warn ? log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CPU affinity '%s'", word) : r;
-                if (cpu_lower >= ncpus || cpu_upper >= ncpus)
-                        return warn ? log_syntax(unit, LOG_ERR, filename, line, EINVAL, "CPU out of range '%s' ncpus is %u", word, ncpus) : -EINVAL;
 
                 if (cpu_lower > cpu_upper) {
                         if (warn)
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Range '%s' is invalid, %u > %u, ignoring", word, cpu_lower, cpu_upper);
-                        continue;
+                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Range '%s' is invalid, %u > %u, ignoring.",
+                                           word, cpu_lower, cpu_upper);
+
+                        /* Make sure something is allocated, to distinguish this from the empty case */
+                        if (!cpu_set_realloc(&c, &alloc, 1))
+                                return -ENOMEM;
                 }
 
-                for (cpu = cpu_lower; cpu <= cpu_upper; cpu++)
-                        CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
+                for (unsigned cpu_p1 = MIN(cpu_upper, UINT_MAX-1) + 1; cpu_p1 > cpu_lower; cpu_p1--) {
+                        r = cpu_set_add(&c, &alloc, cpu_p1 - 1);
+                        if (r < 0)
+                                return warn ? log_syntax(unit, LOG_ERR, filename, line, r,
+                                                         "Cannot add CPU %u to set: %m", cpu_p1 - 1) : r;
+                }
         }
 
-        /* On success, sets *cpu_set and returns ncpus for the system. */
-        if (c)
-                *cpu_set = TAKE_PTR(c);
+        /* On success, sets *cpu_set and *allocated */
+        *cpu_set = TAKE_PTR(c);
+        *allocated = alloc;
 
-        return (int) ncpus;
+        return 0;
+}
+
+int parse_cpu_set_extend(
+                const char *rvalue,
+                cpu_set_t **old,
+                size_t *old_allocated,
+                bool warn,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *lvalue) {
+
+        _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
+        size_t allocated;
+        int r;
+
+        r = parse_cpu_set_full(rvalue, &cpuset, &allocated, true, unit, filename, line, lvalue);
+        if (r < 0)
+                return r;
+
+        if (allocated == 0) {
+                /* An empty assignment resets the CPU list */
+                *old = cpu_set_mfree(*old);
+                *old_allocated = 0;
+                return 0;
+        }
+
+        if (!*old) {
+                *old = TAKE_PTR(cpuset);
+                *old_allocated = allocated;
+                return 0;
+        }
+
+        return cpu_set_add_all(old, old_allocated, cpuset, allocated);
 }

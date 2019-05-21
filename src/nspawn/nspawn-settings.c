@@ -803,41 +803,13 @@ int config_parse_cpu_affinity(
                 void *data,
                 void *userdata) {
 
-        _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
         Settings *settings = data;
-        int ncpus;
 
         assert(rvalue);
         assert(settings);
 
-        ncpus = parse_cpu_set_and_warn(rvalue, &cpuset, unit, filename, line, lvalue);
-        if (ncpus < 0)
-                return ncpus;
-
-        if (ncpus == 0) {
-                /* An empty assignment resets the CPU list */
-                settings->cpuset = cpu_set_mfree(settings->cpuset);
-                settings->cpuset_ncpus = 0;
-                return 0;
-        }
-
-        if (!settings->cpuset) {
-                settings->cpuset = TAKE_PTR(cpuset);
-                settings->cpuset_ncpus = (unsigned) ncpus;
-                return 0;
-        }
-
-        if (settings->cpuset_ncpus < (unsigned) ncpus) {
-                CPU_OR_S(CPU_ALLOC_SIZE(settings->cpuset_ncpus), cpuset, settings->cpuset, cpuset);
-                CPU_FREE(settings->cpuset);
-                settings->cpuset = TAKE_PTR(cpuset);
-                settings->cpuset_ncpus = (unsigned) ncpus;
-                return 0;
-        }
-
-        CPU_OR_S(CPU_ALLOC_SIZE((unsigned) ncpus), settings->cpuset, settings->cpuset, cpuset);
-
-        return 0;
+        return parse_cpu_set_extend(rvalue, &settings->cpuset, &settings->cpuset_allocated,
+                                    true, unit, filename, line, lvalue);
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_resolv_conf, resolv_conf_mode, ResolvConfMode, "Failed to parse resolv.conf mode");

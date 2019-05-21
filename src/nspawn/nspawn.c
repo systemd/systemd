@@ -221,7 +221,7 @@ static bool arg_no_new_privileges = false;
 static int arg_oom_score_adjust = 0;
 static bool arg_oom_score_adjust_set = false;
 static cpu_set_t *arg_cpuset = NULL;
-static unsigned arg_cpuset_ncpus = 0;
+static size_t arg_cpuset_allocated = 0;
 static ResolvConfMode arg_resolv_conf = RESOLV_CONF_AUTO;
 static TimezoneMode arg_timezone = TIMEZONE_AUTO;
 static unsigned arg_console_width = (unsigned) -1, arg_console_height = (unsigned) -1;
@@ -1329,17 +1329,18 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CPU_AFFINITY: {
-                        _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
+                        cpu_set_t *cpuset;
+                        size_t allocated;
 
-                        r = parse_cpu_set(optarg, &cpuset);
+                        r = parse_cpu_set(optarg, &cpuset, &allocated);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse CPU affinity mask: %s", optarg);
+                                return log_error_errno(r, "Failed to parse CPU affinity mask %s: %m", optarg);
 
                         if (arg_cpuset)
                                 CPU_FREE(arg_cpuset);
 
-                        arg_cpuset = TAKE_PTR(cpuset);
-                        arg_cpuset_ncpus = r;
+                        arg_cpuset = cpuset;
+                        arg_cpuset_allocated = allocated;
                         arg_settings_mask |= SETTING_CPU_AFFINITY;
                         break;
                 }
@@ -2923,7 +2924,7 @@ static int inner_child(
         }
 
         if (arg_cpuset)
-                if (sched_setaffinity(0, CPU_ALLOC_SIZE(arg_cpuset_ncpus), arg_cpuset) < 0)
+                if (sched_setaffinity(0, arg_cpuset_allocated, arg_cpuset) < 0)
                         return log_error_errno(errno, "Failed to set CPU affinity: %m");
 
         (void) setup_hostname();
@@ -3877,7 +3878,8 @@ static int merge_settings(Settings *settings, const char *path) {
                         if (arg_cpuset)
                                 CPU_FREE(arg_cpuset);
                         arg_cpuset = TAKE_PTR(settings->cpuset);
-                        arg_cpuset_ncpus = settings->cpuset_ncpus;
+                        arg_cpuset_allocated = settings->cpuset_allocated;
+                        settings->cpuset_allocated = 0;
                 }
         }
 

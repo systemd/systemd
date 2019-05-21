@@ -1263,42 +1263,14 @@ int config_parse_exec_cpu_affinity(const char *unit,
                                    void *userdata) {
 
         ExecContext *c = data;
-        _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
-        int ncpus;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        ncpus = parse_cpu_set_and_warn(rvalue, &cpuset, unit, filename, line, lvalue);
-        if (ncpus < 0)
-                return ncpus;
-
-        if (ncpus == 0) {
-                /* An empty assignment resets the CPU list */
-                c->cpuset = cpu_set_mfree(c->cpuset);
-                c->cpuset_ncpus = 0;
-                return 0;
-        }
-
-        if (!c->cpuset) {
-                c->cpuset = TAKE_PTR(cpuset);
-                c->cpuset_ncpus = (unsigned) ncpus;
-                return 0;
-        }
-
-        if (c->cpuset_ncpus < (unsigned) ncpus) {
-                CPU_OR_S(CPU_ALLOC_SIZE(c->cpuset_ncpus), cpuset, c->cpuset, cpuset);
-                CPU_FREE(c->cpuset);
-                c->cpuset = TAKE_PTR(cpuset);
-                c->cpuset_ncpus = (unsigned) ncpus;
-                return 0;
-        }
-
-        CPU_OR_S(CPU_ALLOC_SIZE((unsigned) ncpus), c->cpuset, c->cpuset, cpuset);
-
-        return 0;
+        return parse_cpu_set_extend(rvalue, &c->cpuset, &c->cpuset_allocated,
+                                    true, unit, filename, line, lvalue);
 }
 
 int config_parse_capability_set(

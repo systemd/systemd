@@ -172,7 +172,7 @@ struct ExecContext {
         int cpu_sched_policy;
         int cpu_sched_priority;
 
-        unsigned cpuset_ncpus;
+        size_t cpuset_allocated;
         cpu_set_t *cpuset;
 
         ExecInput std_input;

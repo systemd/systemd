@@ -164,7 +164,7 @@ typedef struct Settings {
         int oom_score_adjust;
         bool oom_score_adjust_set;
         cpu_set_t *cpuset;
-        unsigned cpuset_ncpus;
+        size_t cpuset_allocated; /* bytes */
         ResolvConfMode resolv_conf;
         LinkJournal link_journal;
         bool link_journal_try;

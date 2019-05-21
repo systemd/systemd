@@ -3145,7 +3145,7 @@ static int exec_child(
         }
 
         if (context->cpuset)
-                if (sched_setaffinity(0, CPU_ALLOC_SIZE(context->cpuset_ncpus), context->cpuset) < 0) {
+                if (sched_setaffinity(0, context->cpuset_allocated, context->cpuset) < 0) {
                         *exit_status = EXIT_CPUAFFINITY;
                         return log_unit_error_errno(unit, errno, "Failed to set up CPU affinity: %m");
                 }
@@ -3897,6 +3897,7 @@ void exec_context_done(ExecContext *c) {
         c->n_temporary_filesystems = 0;
 
         c->cpuset = cpu_set_mfree(c->cpuset);
+        c->cpuset_allocated = 0;
 
         c->utmp_id = mfree(c->utmp_id);
         c->selinux_context = mfree(c->selinux_context);
@@ -4330,8 +4331,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->cpuset) {
                 fprintf(f, "%sCPUAffinity:", prefix);
-                for (i = 0; i < c->cpuset_ncpus; i++)
-                        if (CPU_ISSET_S(i, CPU_ALLOC_SIZE(c->cpuset_ncpus), c->cpuset))
+                for (i = 0; i < c->cpuset_allocated * 8; i++)
+                        if (CPU_ISSET_S(i, c->cpuset_allocated, c->cpuset))
                                 fprintf(f, " %u", i);
                 fputs("\n", f);
         }
