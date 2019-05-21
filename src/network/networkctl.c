@@ -101,9 +101,13 @@ typedef struct LinkInfo {
         unsigned short iftype;
         struct ether_addr mac_address;
         uint32_t mtu;
+        uint32_t min_mtu;
+        uint32_t max_mtu;
 
         bool has_mac_address:1;
         bool has_mtu:1;
+        bool has_min_mtu:1;
+        bool has_max_mtu:1;
 } LinkInfo;
 
 static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
@@ -154,8 +158,16 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
                 memcmp(&info->mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0;
 
         info->has_mtu =
-                sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu) &&
+                sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu) >= 0 &&
                 info->mtu > 0;
+
+        info->has_min_mtu =
+                sd_netlink_message_read_u32(m, IFLA_MIN_MTU, &info->min_mtu) >= 0 &&
+                info->min_mtu > 0;
+
+        info->has_max_mtu =
+                sd_netlink_message_read_u32(m, IFLA_MAX_MTU, &info->max_mtu) >= 0 &&
+                info->min_mtu > 0;
 
         return 1;
 }
@@ -779,6 +791,10 @@ static int link_status_one(
 
         if (info->has_mtu)
                 printf("             MTU: %" PRIu32 "\n", info->mtu);
+        if (info->has_min_mtu)
+                printf("     Minimum MTU: %" PRIu32 "\n", info->min_mtu);
+        if (info->has_max_mtu)
+                printf("     Maximum MTU: %" PRIu32 "\n", info->max_mtu);
 
         (void) dump_addresses(rtnl, "         Address: ", info->ifindex);
         (void) dump_gateways(rtnl, hwdb, "         Gateway: ", info->ifindex);
