@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <sched.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -63,6 +64,8 @@ int main(void) {
         info(pid_t);
         info(uid_t);
         info(gid_t);
+
+        info(__cpu_mask);
 
         info(enum Enum);
         info(enum BigEnum);

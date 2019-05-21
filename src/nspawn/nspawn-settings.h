@@ -7,6 +7,7 @@
 #include "sd-id128.h"
 
 #include "conf-parser.h"
+#include "cpu-set-util.h"
 #include "macro.h"
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
@@ -123,8 +124,7 @@ typedef struct Settings {
         int no_new_privileges;
         int oom_score_adjust;
         bool oom_score_adjust_set;
-        cpu_set_t *cpuset;
-        unsigned cpuset_ncpus;
+        CPUSet cpu_set;
         ResolvConfMode resolv_conf;
         LinkJournal link_journal;
         bool link_journal_try;
