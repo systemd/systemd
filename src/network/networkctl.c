@@ -562,7 +562,9 @@ static int dump_addresses(
 
 static int dump_address_labels(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
         sd_netlink_message *m;
+        TableCell *cell;
         int r;
 
         assert(rtnl);
@@ -579,7 +581,19 @@ static int dump_address_labels(sd_netlink *rtnl) {
         if (r < 0)
                 return r;
 
-        printf("%10s/%s %30s\n", "Prefix", "Prefixlen", "Label");
+        table = table_new("Label", "Prefix/Prefixlen");
+        if (!table)
+                return -ENOMEM;
+
+        r = table_set_sort(table, 0, SIZE_MAX);
+        if (r < 0)
+                return r;
+
+        assert_se(cell = table_get_cell(table, 0, 0));
+        (void) table_set_align_percent(table, cell, 100);
+
+        assert_se(cell = table_get_cell(table, 0, 1));
+        (void) table_set_align_percent(table, cell, 100);
 
         for (m = reply; m; m = sd_netlink_message_next(m)) {
                 _cleanup_free_ char *pretty = NULL;
@@ -611,10 +625,18 @@ static int dump_address_labels(sd_netlink *rtnl) {
                 if (r < 0)
                         continue;
 
-                printf("%10s/%-5u %30u\n", pretty, prefixlen, label);
+                r = table_add_cell_full(table, NULL, TABLE_UINT32, &label, SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell_stringf(table, &cell, "%s/%u", pretty, prefixlen);
+                if (r < 0)
+                        return r;
+
+                (void) table_set_align_percent(table, cell, 100);
         }
 
-        return 0;
+        return table_print(table, NULL);
 }
 
 static int list_address_labels(int argc, char *argv[], void *userdata) {
