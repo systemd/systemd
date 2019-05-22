@@ -271,6 +271,13 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         </listitem>
       </varlistentry>
 
+       <varlistentry>
+        <term>
+          <command>delete</command>
+        </term>
+        <listitem><para>Deletes virtual netdevs. Takes interface name or index number.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

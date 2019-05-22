@@ -28,6 +28,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "set.h"
 #include "socket-util.h"
 #include "sort-util.h"
 #include "sparse-endian.h"
@@ -1055,6 +1056,64 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int link_delete_send_message(sd_netlink *rtnl, int index) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(rtnl);
+
+        r = sd_rtnl_message_new_link(rtnl, &req, RTM_DELLINK, index);
+        if (r < 0)
+                return rtnl_log_create_error(r);
+
+        r = sd_netlink_call(rtnl, req, 0, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int link_delete(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_set_free_ Set *indexes = NULL;
+        char ifname[IFNAMSIZ] = "";
+        int index, r, i;
+        Iterator j;
+
+        r = sd_netlink_open(&rtnl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
+
+        indexes = set_new(NULL);
+        if (!indexes)
+                return log_oom();
+
+        for (i = 1; i < argc; i++) {
+                r = parse_ifindex(argv[i], &index);
+                if (r < 0) {
+                        index = (int) if_nametoindex(argv[i]);
+                        if (index <= 0)
+                                return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
+                }
+
+                r = set_put(indexes, INT_TO_PTR(index));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        SET_FOREACH(index, indexes, j) {
+                r = link_delete_send_message(rtnl, index);
+                if (r < 0) {
+                        if (if_indextoname(index, ifname))
+                                return log_error_errno(r, "Failed to delete interface %s: %m", ifname);
+                        else
+                                return log_error_errno(r, "Failed to delete interface %d: %m", index);
+                }
+        }
+
+        return r;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1075,6 +1134,7 @@ static int help(void) {
                "  status [PATTERN...]   Show link status\n"
                "  lldp [PATTERN...]     Show LLDP neighbors\n"
                "  label                 Show current address label entries in the kernel\n"
+               "  delete DEVICES        Delete virtual netdevs\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link
@@ -1144,6 +1204,7 @@ static int networkctl_main(int argc, char *argv[]) {
                 { "status", VERB_ANY, VERB_ANY, 0,            link_status         },
                 { "lldp",   VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
                 { "label",  VERB_ANY, VERB_ANY, 0,            list_address_labels },
+                { "delete", 2,        VERB_ANY, 0,            link_delete         },
                 {}
         };
 
