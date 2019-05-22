@@ -19,6 +19,7 @@
 #include "device-util.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "hwdb-util.h"
 #include "local-addresses.h"
 #include "locale-util.h"
@@ -228,6 +229,8 @@ static int acquire_link_info(sd_netlink *rtnl, char **patterns, LinkInfo **ret) 
 static int list_links(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        TableCell *cell;
         int c, i, r;
 
         r = sd_netlink_open(&rtnl);
@@ -240,13 +243,29 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        if (arg_legend)
-                printf("%3s %-16s %-18s %-16s %-10s\n",
-                       "IDX",
-                       "LINK",
-                       "TYPE",
-                       "OPERATIONAL",
-                       "SETUP");
+        table = table_new("IDX", "LINK", "TYPE", "OPERATIONAL", "SETUP");
+        if (!table)
+                return log_oom();
+
+        table_set_header(table, arg_legend);
+
+        assert_se(cell = table_get_cell(table, 0, 0));
+        (void) table_set_minimum_width(table, cell, 3);
+        (void) table_set_weight(table, cell, 0);
+        (void) table_set_ellipsize_percent(table, cell, 0);
+        (void) table_set_align_percent(table, cell, 100);
+
+        assert_se(cell = table_get_cell(table, 0, 1));
+        (void) table_set_minimum_width(table, cell, 16);
+
+        assert_se(cell = table_get_cell(table, 0, 2));
+        (void) table_set_minimum_width(table, cell, 18);
+
+        assert_se(cell = table_get_cell(table, 0, 3));
+        (void) table_set_minimum_width(table, cell, 16);
+
+        assert_se(cell = table_get_cell(table, 0, 4));
+        (void) table_set_minimum_width(table, cell, 10);
 
         for (i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
@@ -269,11 +288,32 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
                 t = link_get_type_string(links[i].iftype, d);
 
-                printf("%3i %-16s %-18s %s%-16s%s %s%-10s%s\n",
-                       links[i].ifindex, links[i].name, strna(t),
-                       on_color_operational, strna(operational_state), off_color_operational,
-                       on_color_setup, strna(setup_state), off_color_setup);
+                r = table_add_cell_full(table, NULL, TABLE_INT, &links[i].ifindex, SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
+
+                r = table_add_many(table,
+                                   TABLE_STRING, links[i].name,
+                                   TABLE_STRING, strna(t));
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, &cell, TABLE_STRING, strna(operational_state));
+                if (r < 0)
+                        return r;
+
+                (void) table_set_color(table, cell, on_color_operational);
+
+                r = table_add_cell(table, &cell, TABLE_STRING, strna(setup_state));
+                if (r < 0)
+                        return r;
+
+                (void) table_set_color(table, cell, on_color_setup);
         }
+
+        r = table_print(table, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print table: %m");
 
         if (arg_legend)
                 printf("\n%i links listed.\n", c);
