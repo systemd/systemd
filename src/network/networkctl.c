@@ -1209,8 +1209,10 @@ static void lldp_capabilities_legend(uint16_t x) {
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
         int i, r, c, m = 0;
         uint16_t all = 0;
+        TableCell *cell;
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -1222,14 +1224,34 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        if (arg_legend)
-                printf("%-16s %-17s %-16s %-11s %-17s %-16s\n",
-                       "LINK",
-                       "CHASSIS ID",
-                       "SYSTEM NAME",
-                       "CAPS",
-                       "PORT ID",
-                       "PORT DESCRIPTION");
+        table = table_new("LINK",
+                          "CHASSIS ID",
+                          "SYSTEM NAME",
+                          "CAPS",
+                          "PORT ID",
+                          "PORT DESCRIPTION");
+        if (!table)
+                return -ENOMEM;
+
+        table_set_header(table, arg_legend);
+
+        assert_se(cell = table_get_cell(table, 0, 0));
+        table_set_minimum_width(table, cell, 16);
+
+        assert_se(cell = table_get_cell(table, 0, 1));
+        table_set_minimum_width(table, cell, 17);
+
+        assert_se(cell = table_get_cell(table, 0, 2));
+        table_set_minimum_width(table, cell, 16);
+
+        assert_se(cell = table_get_cell(table, 0, 3));
+        table_set_minimum_width(table, cell, 11);
+
+        assert_se(cell = table_get_cell(table, 0, 4));
+        table_set_minimum_width(table, cell, 17);
+
+        assert_se(cell = table_get_cell(table, 0, 5));
+        table_set_minimum_width(table, cell, 16);
 
         for (i = 0; i < c; i++) {
                 _cleanup_fclose_ FILE *f = NULL;
@@ -1290,17 +1312,23 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                                 all |= cc;
                         }
 
-                        printf("%-16s %-17s %-16s %-11s %-17s %-16s\n",
-                               links[i].name,
-                               strna(chassis_id),
-                               strna(system_name),
-                               strna(capabilities),
-                               strna(port_id),
-                               strna(port_description));
+                        r = table_add_many(table,
+                                           TABLE_STRING, links[i].name,
+                                           TABLE_STRING, strna(chassis_id),
+                                           TABLE_STRING, strna(system_name),
+                                           TABLE_STRING, strna(capabilities),
+                                           TABLE_STRING, strna(port_id),
+                                           TABLE_STRING, strna(port_description));
+                        if (r < 0)
+                                return r;
 
                         m++;
                 }
         }
+
+        r = table_print(table, NULL);
+        if (r < 0)
+                return r;
 
         if (arg_legend) {
                 lldp_capabilities_legend(all);
