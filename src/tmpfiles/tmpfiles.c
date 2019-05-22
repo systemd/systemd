@@ -776,8 +776,24 @@ static bool hardlink_vulnerable(const struct stat *st) {
         return !S_ISDIR(st->st_mode) && st->st_nlink > 1 && dangerous_hardlinks();
 }
 
+static mode_t process_mask_perms(mode_t mode, mode_t current) {
+
+        if ((current & 0111) == 0)
+                mode &= ~0111;
+        if ((current & 0222) == 0)
+                mode &= ~0222;
+        if ((current & 0444) == 0)
+                mode &= ~0444;
+        if (!S_ISDIR(current))
+                mode &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
+
+        return mode;
+}
+
 static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st) {
         struct stat stbuf;
+        mode_t new_mode;
+        bool do_chown;
 
         assert(i);
         assert(fd);
@@ -797,35 +813,39 @@ static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st
                                        "Refusing to set permissions on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.",
                                        path);
 
-        if (i->mode_set) {
+        /* Do we need a chown()? */
+        do_chown =
+                (i->uid_set && i->uid != st->st_uid) ||
+                (i->gid_set && i->gid != st->st_gid);
+
+        /* Calculate the mode to apply */
+        new_mode = i->mode_set ? (i->mask_perms ?
+                                  process_mask_perms(i->mode, st->st_mode) :
+                                  i->mode) :
+                                 (st->st_mode & 07777);
+
+        if (i->mode_set && do_chown) {
+                /* Before we issue the chmod() let's reduce the access mode to the common bits of the old and
+                 * the new mode. That way there's no time window where the file exists under the old owner
+                 * with more than the old access modes — and not under the new owner with more than the new
+                 * access modes either. */
+
                 if (S_ISLNK(st->st_mode))
-                        log_debug("Skipping mode fix for symlink %s.", path);
+                        log_debug("Skipping temporary mode fix for symlink %s.", path);
                 else {
-                        mode_t m = i->mode;
+                        mode_t m = new_mode & st->st_mode; /* Mask new mode by old mode */
 
-                        if (i->mask_perms) {
-                                if (!(st->st_mode & 0111))
-                                        m &= ~0111;
-                                if (!(st->st_mode & 0222))
-                                        m &= ~0222;
-                                if (!(st->st_mode & 0444))
-                                        m &= ~0444;
-                                if (!S_ISDIR(st->st_mode))
-                                        m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
-                        }
-
-                        if (m == (st->st_mode & 07777))
-                                log_debug("\"%s\" has correct mode %o already.", path, st->st_mode);
+                        if (((m ^ st->st_mode) & 07777) == 0)
+                                log_debug("\"%s\" matches temporary mode %o already.", path, m);
                         else {
-                                log_debug("Changing \"%s\" to mode %o.", path, m);
+                                log_debug("Temporarily changing \"%s\" to mode %o.", path, m);
                                 if (fchmod_opath(fd, m) < 0)
                                         return log_error_errno(errno, "fchmod() of %s failed: %m", path);
                         }
                 }
         }
 
-        if ((i->uid_set && i->uid != st->st_uid) ||
-            (i->gid_set && i->gid != st->st_gid)) {
+        if (do_chown) {
                 log_debug("Changing \"%s\" to owner "UID_FMT":"GID_FMT,
                           path,
                           i->uid_set ? i->uid : UID_INVALID,
@@ -837,6 +857,24 @@ static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st
                              i->gid_set ? i->gid : GID_INVALID,
                              AT_EMPTY_PATH) < 0)
                         return log_error_errno(errno, "fchownat() of %s failed: %m", path);
+        }
+
+        /* Now, apply the final mode. We do this in two cases: when the user set a mode explicitly, or after a
+         * chown(), since chown()'s mangle the access mode in regards to sgid/suid in some conditions. */
+        if (i->mode_set || do_chown) {
+                if (S_ISLNK(st->st_mode))
+                        log_debug("Skipping mode fix for symlink %s.", path);
+                else {
+                       /* Check if the chmod() is unnecessary. Note that if we did a chown() before we always
+                        * chmod() here again, since it might have mangled the bits. */
+                        if (!do_chown && ((new_mode ^ st->st_mode) & 07777) == 0)
+                                log_debug("\"%s\" matches mode %o already.", path, new_mode);
+                        else {
+                                log_debug("Changing \"%s\" to mode %o.", path, new_mode);
+                                if (fchmod_opath(fd, new_mode) < 0)
+                                        return log_error_errno(errno, "fchmod() of %s failed: %m", path);
+                        }
+                }
         }
 
 shortcut:
