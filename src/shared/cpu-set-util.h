@@ -39,3 +39,6 @@ int parse_cpu_set_extend(
 static inline int parse_cpu_set(const char *rvalue, cpu_set_t **cpu_set, size_t *allocated){
         return parse_cpu_set_full(rvalue, cpu_set, allocated, false, NULL, NULL, 0, NULL);
 }
+
+int cpu_set_to_dbus(const cpu_set_t *set, size_t allocated, char **ret);
+int cpu_set_from_dbus(const char *bits, size_t size, cpu_set_t **set, size_t *allocated);

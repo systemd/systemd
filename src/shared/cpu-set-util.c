@@ -199,3 +199,48 @@ int parse_cpu_set_extend(
 
         return cpu_set_add_all(old, old_allocated, cpuset, allocated);
 }
+
+int cpu_set_to_dbus(const cpu_set_t *set, size_t allocated, char **ret) {
+        char *out;
+        unsigned cpu;
+
+        assert(set);
+        assert(ret);
+
+        out = new0(char, allocated);
+        if (!out)
+                return -ENOMEM;
+
+        for (cpu = 0; cpu < allocated * 8; cpu++)
+                if (CPU_ISSET_S(cpu, allocated, set))
+                        out[cpu / 8] |= 1u << (cpu % 8);
+
+        *ret = TAKE_PTR(out);
+
+        return 0;
+}
+
+int cpu_set_from_dbus(const char *bits, size_t size, cpu_set_t **set, size_t *allocated) {
+        _cleanup_cpu_free_ cpu_set_t *s = NULL;
+        size_t alloc = 0;
+        unsigned cpu;
+
+        assert(bits);
+        assert(set);
+        assert(allocated);
+
+        for (cpu = size * 8; cpu > 0; cpu--)
+                if (bits[(cpu - 1) / 8] & (1u << ((cpu - 1) % 8))) {
+                        int r;
+
+                        r = cpu_set_add(&s, &alloc, cpu - 1);
+                        if (r < 0)
+                                return r;
+                }
+
+        *set = TAKE_PTR(s);
+        *allocated = alloc;
+
+        return 0;
+
+}

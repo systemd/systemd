@@ -993,11 +993,16 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
         if (streq(field, "CPUAffinity")) {
                 _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
+                _cleanup_free_ char *ret = NULL;
                 size_t allocated;
 
                 r = parse_cpu_set(eq, &cpuset, &allocated);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
+
+                r = cpu_set_to_dbus(cpuset, allocated, &ret);
+                if (r < 0)
+                        return log_oom();
 
                 return bus_append_byte_array(m, field, cpuset, allocated);
         }

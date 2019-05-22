@@ -1558,9 +1558,14 @@ int bus_exec_context_set_transient_property(
 #endif
         if (streq(name, "CPUAffinity")) {
                 const void *a;
-                size_t n;
+                size_t n, allocated;
+                _cleanup_cpu_free_ cpu_set_t *set = NULL;
 
                 r = sd_bus_message_read_array(message, 'y', &a, &n);
+                if (r < 0)
+                        return r;
+
+                r = cpu_set_from_dbus(a, n, &set, &allocated);
                 if (r < 0)
                         return r;
 
@@ -1572,14 +1577,14 @@ int bus_exec_context_set_transient_property(
                         } else {
                                 _cleanup_free_ char *str = NULL;
 
-                                str = cpu_set_to_string(a, n);
+                                str = cpu_set_to_string(set, n);
                                 if (!str)
                                         return -ENOMEM;
 
                                 /* We forego any optimizations here, and always create the structure using
                                  * cpu_set_add_all(), because we don't want to care if the existing size we
                                  * got over dbus is appropriate. */
-                                r = cpu_set_add_all(&c->cpuset, &c->cpuset_allocated, a, n);
+                                r = cpu_set_add_all(&c->cpuset, &c->cpuset_allocated, set, allocated);
                                 if (r < 0)
                                         return r;
 
