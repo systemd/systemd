@@ -103,11 +103,15 @@ typedef struct LinkInfo {
         uint32_t mtu;
         uint32_t min_mtu;
         uint32_t max_mtu;
+        uint32_t tx_queues;
+        uint32_t rx_queues;
 
         bool has_mac_address:1;
         bool has_mtu:1;
         bool has_min_mtu:1;
         bool has_max_mtu:1;
+        bool has_tx_queues:1;
+        bool has_rx_queues:1;
 } LinkInfo;
 
 static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
@@ -168,6 +172,14 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
         info->has_max_mtu =
                 sd_netlink_message_read_u32(m, IFLA_MAX_MTU, &info->max_mtu) >= 0 &&
                 info->min_mtu > 0;
+
+        info->has_rx_queues =
+                sd_netlink_message_read_u32(m, IFLA_NUM_RX_QUEUES, &info->rx_queues) >= 0 &&
+                info->rx_queues > 0;
+
+        info->has_tx_queues =
+                sd_netlink_message_read_u32(m, IFLA_NUM_TX_QUEUES, &info->tx_queues) >= 0 &&
+                info->tx_queues > 0;
 
         return 1;
 }
@@ -758,10 +770,10 @@ static int link_status_one(
 
         printf("%s%s%s %i: %s\n", on_color_operational, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off_color_operational, info->ifindex, info->name);
 
-        printf("       Link File: %s\n"
-               "    Network File: %s\n"
-               "            Type: %s\n"
-               "           State: %s%s%s (%s%s%s)\n",
+        printf("            Link File: %s\n"
+               "         Network File: %s\n"
+               "                 Type: %s\n"
+               "                State: %s%s%s (%s%s%s)\n",
                strna(link),
                strna(network),
                strna(t),
@@ -769,13 +781,13 @@ static int link_status_one(
                on_color_setup, strna(setup_state), off_color_setup);
 
         if (path)
-                printf("            Path: %s\n", path);
+                printf("                 Path: %s\n", path);
         if (driver)
-                printf("          Driver: %s\n", driver);
+                printf("               Driver: %s\n", driver);
         if (vendor)
-                printf("          Vendor: %s\n", vendor);
+                printf("               Vendor: %s\n", vendor);
         if (model)
-                printf("           Model: %s\n", model);
+                printf("                Model: %s\n", model);
 
         if (info->has_mac_address) {
                 _cleanup_free_ char *description = NULL;
@@ -784,35 +796,40 @@ static int link_status_one(
                 (void) ieee_oui(hwdb, &info->mac_address, &description);
 
                 if (description)
-                        printf("      HW Address: %s (%s)\n", ether_addr_to_string(&info->mac_address, ea), description);
+                        printf("           HW Address: %s (%s)\n", ether_addr_to_string(&info->mac_address, ea), description);
                 else
-                        printf("      HW Address: %s\n", ether_addr_to_string(&info->mac_address, ea));
+                        printf("           HW Address: %s\n", ether_addr_to_string(&info->mac_address, ea));
         }
 
         if (info->has_mtu)
-                printf("             MTU: %" PRIu32 "\n", info->mtu);
+                printf("                  MTU: %" PRIu32 "\n", info->mtu);
         if (info->has_min_mtu)
-                printf("     Minimum MTU: %" PRIu32 "\n", info->min_mtu);
+                printf("          Minimum MTU: %" PRIu32 "\n", info->min_mtu);
         if (info->has_max_mtu)
-                printf("     Maximum MTU: %" PRIu32 "\n", info->max_mtu);
+                printf("          Maximum MTU: %" PRIu32 "\n", info->max_mtu);
 
-        (void) dump_addresses(rtnl, "         Address: ", info->ifindex);
-        (void) dump_gateways(rtnl, hwdb, "         Gateway: ", info->ifindex);
+        if (info->has_tx_queues)
+                printf("Transmit Queue Length: %" PRIu32 "\n", info->tx_queues);
+        if (info->has_rx_queues)
+                printf(" Receive Queue Length: %" PRIu32 "\n", info->rx_queues);
 
-        dump_list("             DNS: ", dns);
-        dump_list("  Search Domains: ", search_domains);
-        dump_list("   Route Domains: ", route_domains);
+        (void) dump_addresses(rtnl, "              Address: ", info->ifindex);
+        (void) dump_gateways(rtnl, hwdb, "              Gateway: ", info->ifindex);
 
-        dump_list("             NTP: ", ntp);
+        dump_list("                  DNS: ", dns);
+        dump_list("       Search Domains: ", search_domains);
+        dump_list("        Route Domains: ", route_domains);
+
+        dump_list("                  NTP: ", ntp);
 
         dump_ifindexes("Carrier Bound To: ", carrier_bound_to);
         dump_ifindexes("Carrier Bound By: ", carrier_bound_by);
 
         (void) sd_network_link_get_timezone(info->ifindex, &tz);
         if (tz)
-                printf("       Time Zone: %s\n", tz);
+                printf("            Time Zone: %s\n", tz);
 
-        (void) dump_lldp_neighbors("    Connected To: ", info->ifindex);
+        (void) dump_lldp_neighbors("         Connected To: ", info->ifindex);
 
         return 0;
 }
