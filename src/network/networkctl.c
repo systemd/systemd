@@ -110,8 +110,6 @@ typedef struct LinkInfo {
 
         bool has_mac_address:1;
         bool has_mtu:1;
-        bool has_min_mtu:1;
-        bool has_max_mtu:1;
         bool has_tx_queues:1;
         bool has_rx_queues:1;
 } LinkInfo;
@@ -167,13 +165,10 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
                 sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu) >= 0 &&
                 info->mtu > 0;
 
-        info->has_min_mtu =
-                sd_netlink_message_read_u32(m, IFLA_MIN_MTU, &info->min_mtu) >= 0 &&
-                info->min_mtu > 0;
-
-        info->has_max_mtu =
-                sd_netlink_message_read_u32(m, IFLA_MAX_MTU, &info->max_mtu) >= 0 &&
-                info->min_mtu > 0;
+        if (info->has_mtu) {
+                (void) sd_netlink_message_read_u32(m, IFLA_MIN_MTU, &info->min_mtu);
+                (void) sd_netlink_message_read_u32(m, IFLA_MAX_MTU, &info->max_mtu);
+        }
 
         info->has_rx_queues =
                 sd_netlink_message_read_u32(m, IFLA_NUM_RX_QUEUES, &info->rx_queues) >= 0 &&
@@ -464,20 +459,28 @@ static int get_gateway_description(
 static int dump_gateways(
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
-                const char *prefix,
+                Table *table,
                 int ifindex) {
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
 
         assert(rtnl);
-        assert(prefix);
+        assert(table);
 
         n = local_gateways(rtnl, ifindex, AF_UNSPEC, &local);
         if (n < 0)
                 return n;
 
         for (i = 0; i < n; i++) {
-                _cleanup_free_ char *gateway = NULL, *description = NULL;
+                _cleanup_free_ char *gateway = NULL, *description = NULL, *with_description = NULL;
+
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell_full(table, NULL, TABLE_STRING, i == 0 ? "Gateway:" : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
 
                 r = in_addr_to_string(local[i].family, &local[i].address, &gateway);
                 if (r < 0)
@@ -487,27 +490,25 @@ static int dump_gateways(
                 if (r < 0)
                         log_debug_errno(r, "Could not get description of gateway: %m");
 
-                printf("%*s%s",
-                       (int) strlen(prefix),
-                       i == 0 ? prefix : "",
-                       gateway);
-
-                if (description)
-                        printf(" (%s)", description);
+                if (description) {
+                        with_description = strjoin(gateway, " (", description, ")");
+                        if (!with_description)
+                                return -ENOMEM;
+                }
 
                 /* Show interface name for the entry if we show
                  * entries for all interfaces */
                 if (ifindex <= 0) {
-                        char name[IF_NAMESIZE+1];
+                        char name[IF_NAMESIZE+1] = {};
 
-                        if (if_indextoname(local[i].ifindex, name)) {
-                                fputs(" on ", stdout);
-                                fputs(name, stdout);
-                        } else
-                                printf(" on %%%i", local[i].ifindex);
-                }
-
-                fputc('\n', stdout);
+                        if (if_indextoname(local[i].ifindex, name))
+                                r = table_add_cell_stringf(table, NULL, "%s on %s", with_description ?: gateway, name);
+                        else
+                                r = table_add_cell_stringf(table, NULL, "%s on %%%i", with_description ?: gateway, local[i].ifindex);
+                } else
+                        r = table_add_cell(table, NULL, TABLE_STRING, with_description ?: gateway);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -515,14 +516,14 @@ static int dump_gateways(
 
 static int dump_addresses(
                 sd_netlink *rtnl,
-                const char *prefix,
+                Table *table,
                 int ifindex) {
 
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
 
         assert(rtnl);
-        assert(prefix);
+        assert(table);
 
         n = local_addresses(rtnl, ifindex, AF_UNSPEC, &local);
         if (n < 0)
@@ -531,26 +532,29 @@ static int dump_addresses(
         for (i = 0; i < n; i++) {
                 _cleanup_free_ char *pretty = NULL;
 
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell_full(table, NULL, TABLE_STRING, i == 0 ? "Address:" : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
+
                 r = in_addr_to_string(local[i].family, &local[i].address, &pretty);
                 if (r < 0)
                         return r;
 
-                printf("%*s%s",
-                       (int) strlen(prefix),
-                       i == 0 ? prefix : "",
-                       pretty);
-
                 if (ifindex <= 0) {
-                        char name[IF_NAMESIZE+1];
+                        char name[IF_NAMESIZE+1] = {};
 
-                        if (if_indextoname(local[i].ifindex, name)) {
-                                fputs(" on ", stdout);
-                                fputs(name, stdout);
-                        } else
-                                printf(" on %%%i", local[i].ifindex);
-                }
-
-                fputc('\n', stdout);
+                        if (if_indextoname(local[i].ifindex, name))
+                                r = table_add_cell_stringf(table, NULL, "%s on %s", pretty, name);
+                        else
+                                r = table_add_cell_stringf(table, NULL, "%s on %%%i", pretty, local[i].ifindex);
+                } else
+                        r = table_add_cell(table, NULL, TABLE_STRING, pretty);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -674,20 +678,24 @@ static int next_lldp_neighbor(FILE *f, sd_lldp_neighbor **ret) {
         return 1;
 }
 
-static int dump_lldp_neighbors(const char *prefix, int ifindex) {
+static int dump_lldp_neighbors(Table *table, const char *prefix, int ifindex) {
         _cleanup_fclose_ FILE *f = NULL;
         int r, c = 0;
 
+        assert(table);
         assert(prefix);
         assert(ifindex > 0);
 
         r = open_lldp_neighbors(ifindex, &f);
+        if (r == -ENOENT)
+                return 0;
         if (r < 0)
                 return r;
 
         for (;;) {
                 const char *system_name = NULL, *port_id = NULL, *port_description = NULL;
                 _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
+                _cleanup_free_ char *str = NULL;
 
                 r = next_lldp_neighbor(f, &n);
                 if (r < 0)
@@ -695,20 +703,28 @@ static int dump_lldp_neighbors(const char *prefix, int ifindex) {
                 if (r == 0)
                         break;
 
-                printf("%*s",
-                       (int) strlen(prefix),
-                       c == 0 ? prefix : "");
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell_full(table, NULL, TABLE_STRING, c == 0 ? prefix : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
 
                 (void) sd_lldp_neighbor_get_system_name(n, &system_name);
                 (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
                 (void) sd_lldp_neighbor_get_port_description(n, &port_description);
 
-                printf("%s on port %s", strna(system_name), strna(port_id));
+                if (asprintf(&str, "%s on port %s%s%s%s",
+                             strna(system_name), strna(port_id),
+                             isempty(port_description) ? "" : " (",
+                             port_description,
+                             isempty(port_description) ? "" : ")") < 0)
+                        return -ENOMEM;
 
-                if (!isempty(port_description))
-                        printf(" (%s)", port_description);
-
-                putchar('\n');
+                r = table_add_cell(table, NULL, TABLE_STRING, str);
+                if (r < 0)
+                        return r;
 
                 c++;
         }
@@ -716,42 +732,54 @@ static int dump_lldp_neighbors(const char *prefix, int ifindex) {
         return c;
 }
 
-static void dump_ifindexes(const char *prefix, const int *ifindexes) {
+static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes) {
         unsigned c;
+        int r;
 
         assert(prefix);
 
         if (!ifindexes || ifindexes[0] <= 0)
-                return;
+                return 0;
 
         for (c = 0; ifindexes[c] > 0; c++) {
-                char name[IF_NAMESIZE+1];
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
 
-                printf("%*s",
-                       (int) strlen(prefix),
-                       c == 0 ? prefix : "");
+                r = table_add_cell_full(table, NULL, TABLE_STRING, c == 0 ? prefix : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
 
-                if (if_indextoname(ifindexes[c], name))
-                        fputs(name, stdout);
-                else
-                        printf("%i", ifindexes[c]);
-
-                fputc('\n', stdout);
+                r = table_add_cell(table, NULL, TABLE_IFINDEX, ifindexes + c);
+                if (r < 0)
+                        return r;
         }
+
+        return 0;
 }
 
-static void dump_list(const char *prefix, char **l) {
+static int dump_list(Table *table, const char *prefix, char **l) {
         char **i;
+        int r;
 
         if (strv_isempty(l))
-                return;
+                return 0;
 
         STRV_FOREACH(i, l) {
-                printf("%*s%s\n",
-                       (int) strlen(prefix),
-                       i == l ? prefix : "",
-                       *i);
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell_full(table, NULL, TABLE_STRING, i == l ? prefix : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_STRING, *i);
+                if (r < 0)
+                        return r;
         }
+
+        return 0;
 }
 
 static int link_status_one(
@@ -766,8 +794,10 @@ static int link_status_one(
         _cleanup_free_ char *t = NULL, *network = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
         const char *on_color_operational, *off_color_operational,
-                   *on_color_setup, *off_color_setup;
+                *on_color_setup, *off_color_setup;
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        TableCell *cell;
         int r;
 
         assert(rtnl);
@@ -809,26 +839,110 @@ static int link_status_one(
         (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
         (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
 
-        printf("%s%s%s %i: %s\n", on_color_operational, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off_color_operational, info->ifindex, info->name);
+        table = table_new("DOT", "KEY", "VALUE");
+        if (!table)
+                return -ENOMEM;
 
-        printf("            Link File: %s\n"
-               "         Network File: %s\n"
-               "                 Type: %s\n"
-               "                State: %s%s%s (%s%s%s)\n",
-               strna(link),
-               strna(network),
-               strna(t),
-               on_color_operational, strna(operational_state), off_color_operational,
-               on_color_setup, strna(setup_state), off_color_setup);
+        table_set_header(table, false);
 
-        if (path)
-                printf("                 Path: %s\n", path);
-        if (driver)
-                printf("               Driver: %s\n", driver);
-        if (vendor)
-                printf("               Vendor: %s\n", vendor);
-        if (model)
-                printf("                Model: %s\n", model);
+        r = table_add_cell(table, &cell, TABLE_STRING, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE));
+        if (r < 0)
+                return r;
+        (void) table_set_ellipsize_percent(table, cell, 0);
+        (void) table_set_color(table, cell, on_color_operational);
+        r = table_add_cell_stringf(table, NULL, "%i: %s", info->ifindex, info->name);
+        if (r < 0)
+                return r;
+        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+        if (r < 0)
+                return r;
+        r = table_add_cell_full(table, NULL, TABLE_STRING, "Link File:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        if (r < 0)
+                return r;
+        r = table_add_cell(table, NULL, TABLE_STRING, strna(link));
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+        if (r < 0)
+                return r;
+        r = table_add_cell_full(table, NULL, TABLE_STRING, "Network File:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        if (r < 0)
+                return r;
+        r = table_add_cell(table, NULL, TABLE_STRING, strna(network));
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+        if (r < 0)
+                return r;
+        r = table_add_cell_full(table, NULL, TABLE_STRING, "Type:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        if (r < 0)
+                return r;
+        r = table_add_cell(table, NULL, TABLE_STRING, strna(t));
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+        if (r < 0)
+                return r;
+        r = table_add_cell_full(table, NULL, TABLE_STRING, "State:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        if (r < 0)
+                return r;
+        r = table_add_cell_stringf(table, NULL, "%s%s%s (%s%s%s)",
+                                  on_color_operational, strna(operational_state), off_color_operational,
+                                  on_color_setup, strna(setup_state), off_color_setup);
+        if (r < 0)
+                return r;
+
+        if (path) {
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+                r = table_add_cell_full(table, NULL, TABLE_STRING, "Path:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
+                r = table_add_cell(table, NULL, TABLE_STRING, path);
+                if (r < 0)
+                        return r;
+        }
+        if (driver) {
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+                r = table_add_cell_full(table, NULL, TABLE_STRING, "Driver:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
+                r = table_add_cell(table, NULL, TABLE_STRING, driver);
+                if (r < 0)
+                        return r;
+        }
+        if (vendor) {
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+                r = table_add_cell_full(table, NULL, TABLE_STRING, "Vendor:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
+                r = table_add_cell(table, NULL, TABLE_STRING, vendor);
+                if (r < 0)
+                        return r;
+        }
+        if (model) {
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+                r = table_add_cell_full(table, NULL, TABLE_STRING, "Model:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
+                r = table_add_cell(table, NULL, TABLE_STRING, model);
+                if (r < 0)
+                        return r;
+        }
 
         if (info->has_mac_address) {
                 _cleanup_free_ char *description = NULL;
@@ -836,75 +950,153 @@ static int link_status_one(
 
                 (void) ieee_oui(hwdb, &info->mac_address, &description);
 
-                if (description)
-                        printf("           HW Address: %s (%s)\n", ether_addr_to_string(&info->mac_address, ea), description);
-                else
-                        printf("           HW Address: %s\n", ether_addr_to_string(&info->mac_address, ea));
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+                r = table_add_cell_full(table, NULL, TABLE_STRING, "HW Address:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
+                r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
+                                          ether_addr_to_string(&info->mac_address, ea),
+                                          description ? " (" : "",
+                                          description,
+                                          description ? ")" : "");
+                if (r < 0)
+                        return r;
         }
 
-        if (info->has_mtu)
-                printf("                  MTU: %" PRIu32 "\n", info->mtu);
-        if (info->has_min_mtu)
-                printf("          Minimum MTU: %" PRIu32 "\n", info->min_mtu);
-        if (info->has_max_mtu)
-                printf("          Maximum MTU: %" PRIu32 "\n", info->max_mtu);
+        if (info->has_mtu) {
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+                r = table_add_cell_full(table, NULL, TABLE_STRING, "MTU:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
+                r = table_add_cell_stringf(table, NULL, "%" PRIu32 " (Minimum: %" PRIu32 ", Maximum: %" PRIu32 ")",
+                                          info->mtu, info->min_mtu, info->max_mtu);
+                if (r < 0)
+                        return r;
+        }
 
-        if (info->has_tx_queues)
-                printf("Transmit Queue Length: %" PRIu32 "\n", info->tx_queues);
-        if (info->has_rx_queues)
-                printf(" Receive Queue Length: %" PRIu32 "\n", info->rx_queues);
+        if (info->has_tx_queues || info->has_rx_queues) {
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+                r = table_add_cell_full(table, NULL, TABLE_STRING, "Queue Length (Tx/Rx):", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
+                r = table_add_cell_stringf(table, NULL, "%" PRIu32 "/%" PRIu32, info->tx_queues, info->rx_queues);
+                if (r < 0)
+                        return r;
+        }
 
-        (void) dump_addresses(rtnl, "              Address: ", info->ifindex);
-        (void) dump_gateways(rtnl, hwdb, "              Gateway: ", info->ifindex);
-
-        dump_list("                  DNS: ", dns);
-        dump_list("       Search Domains: ", search_domains);
-        dump_list("        Route Domains: ", route_domains);
-
-        dump_list("                  NTP: ", ntp);
-
-        dump_ifindexes("Carrier Bound To: ", carrier_bound_to);
-        dump_ifindexes("Carrier Bound By: ", carrier_bound_by);
+        r = dump_addresses(rtnl, table, info->ifindex);
+        if (r < 0)
+                return r;
+        r = dump_gateways(rtnl, hwdb, table, info->ifindex);
+        if (r < 0)
+                return r;
+        r = dump_list(table, "DNS:", dns);
+        if (r < 0)
+                return r;
+        r = dump_list(table, "Search Domains:", search_domains);
+        if (r < 0)
+                return r;
+        r = dump_list(table, "Route Domains:", route_domains);
+        if (r < 0)
+                return r;
+        r = dump_list(table, "NTP:", ntp);
+        if (r < 0)
+                return r;
+        r = dump_ifindexes(table, "Carrier Bound To:", carrier_bound_to);
+        if (r < 0)
+                return r;
+        r = dump_ifindexes(table, "Carrier Bound By:", carrier_bound_by);
+        if (r < 0)
+                return r;
 
         (void) sd_network_link_get_timezone(info->ifindex, &tz);
-        if (tz)
-                printf("            Time Zone: %s\n", tz);
+        if (tz) {
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+                r = table_add_cell_full(table, NULL, TABLE_STRING, "Time Zone:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
+                r = table_add_cell(table, NULL, TABLE_STRING, tz);
+                if (r < 0)
+                        return r;
+        }
 
-        (void) dump_lldp_neighbors("         Connected To: ", info->ifindex);
+        r = dump_lldp_neighbors(table, "Connected To:", info->ifindex);
+        if (r < 0)
+                return r;
 
-        return 0;
+        return table_print(table, NULL);
 }
 
 static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         _cleanup_free_ char *operational_state = NULL;
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains = NULL;
         const char *on_color_operational, *off_color_operational;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        TableCell *cell;
+        int r;
 
         assert(rtnl);
 
         (void) sd_network_get_operational_state(&operational_state);
         operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
-        printf("%s%s%s        State: %s%s%s\n",
-               on_color_operational, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off_color_operational,
-               on_color_operational, strna(operational_state), off_color_operational);
+        table = table_new("DOT", "KEY", "VALUE");
+        if (!table)
+                return -ENOMEM;
 
-        (void) dump_addresses(rtnl, "       Address: ", 0);
-        (void) dump_gateways(rtnl, hwdb, "       Gateway: ", 0);
+        table_set_header(table, false);
+
+        r = table_add_cell(table, &cell, TABLE_STRING, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE));
+        if (r < 0)
+                return r;
+        (void) table_set_color(table, cell, on_color_operational);
+        (void) table_set_ellipsize_percent(table, cell, 0);
+
+        r = table_add_cell_full(table, NULL, TABLE_STRING, "State:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, &cell, TABLE_STRING, strna(operational_state));
+        if (r < 0)
+                return r;
+        (void) table_set_color(table, cell, on_color_operational);
+
+        r = dump_addresses(rtnl, table, 0);
+        if (r < 0)
+                return r;
+        r = dump_gateways(rtnl, hwdb, table, 0);
+        if (r < 0)
+                return r;
 
         (void) sd_network_get_dns(&dns);
-        dump_list("           DNS: ", dns);
+        r = dump_list(table, "DNS:", dns);
+        if (r < 0)
+                return r;
 
         (void) sd_network_get_search_domains(&search_domains);
-        dump_list("Search Domains: ", search_domains);
+        r = dump_list(table, "Search Domains:", search_domains);
+        if (r < 0)
+                return r;
 
         (void) sd_network_get_route_domains(&route_domains);
-        dump_list(" Route Domains: ", route_domains);
+        r = dump_list(table, "Route Domains:", route_domains);
+        if (r < 0)
+                return r;
 
         (void) sd_network_get_ntp(&ntp);
-        dump_list("           NTP: ", ntp);
+        r = dump_list(table, "NTP:", ntp);
+        if (r < 0)
+                return r;
 
-        return 0;
+        return table_print(table, NULL);
 }
 
 static int link_status(int argc, char *argv[], void *userdata) {
