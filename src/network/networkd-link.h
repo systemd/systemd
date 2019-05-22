@@ -17,6 +17,7 @@
 #include "list.h"
 #include "log-link.h"
 #include "network-util.h"
+#include "networkd-util.h"
 #include "set.h"
 
 typedef enum LinkState {
@@ -160,8 +161,7 @@ int link_ipv6ll_gained(Link *link, const struct in6_addr *address);
 int link_set_mtu(Link *link, uint32_t mtu);
 
 int ipv4ll_configure(Link *link);
-bool link_ipv4ll_enabled(Link *link);
-bool link_ipv4ll_fallback_enabled(Link *link);
+bool link_ipv4ll_enabled(Link *link, AddressFamilyBoolean mask);
 
 int dhcp4_configure(Link *link);
 int dhcp4_set_client_identifier(Link *link);

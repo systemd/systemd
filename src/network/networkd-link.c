@@ -122,8 +122,9 @@ static bool link_dhcp4_server_enabled(Link *link) {
         return link->network->dhcp_server;
 }
 
-bool link_ipv4ll_enabled(Link *link) {
+bool link_ipv4ll_enabled(Link *link, AddressFamilyBoolean mask) {
         assert(link);
+        assert((mask & ~(ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4)) == 0);
 
         if (link->flags & IFF_LOOPBACK)
                 return false;
@@ -141,29 +142,7 @@ bool link_ipv4ll_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
-        return link->network->link_local & ADDRESS_FAMILY_IPV4;
-}
-
-bool link_ipv4ll_fallback_enabled(Link *link) {
-        assert(link);
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6", "can", "vcan"))
-                return false;
-
-        /* L3 or L3S mode do not support ARP. */
-        if (IN_SET(link_get_ipvlan_mode(link), NETDEV_IPVLAN_MODE_L3, NETDEV_IPVLAN_MODE_L3S))
-                return false;
-
-        if (link->network->bond)
-                return false;
-
-        return link->network->link_local & ADDRESS_FAMILY_FALLBACK_IPV4;
+        return link->network->link_local & mask;
 }
 
 static bool link_ipv6ll_enabled(Link *link) {
@@ -975,7 +954,7 @@ void link_check_ready(Link *link) {
         if (!link->routing_policy_rules_configured)
                 return;
 
-        if (link_ipv4ll_enabled(link) && !(link->ipv4ll_address && link->ipv4ll_route))
+        if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4) && !(link->ipv4ll_address && link->ipv4ll_route))
                 return;
 
         if (link_ipv6ll_enabled(link) &&
@@ -984,7 +963,7 @@ void link_check_ready(Link *link) {
 
         if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link)) &&
             !(link->dhcp4_configured || link->dhcp6_configured) &&
-            !(link_ipv4ll_fallback_enabled(link) && link->ipv4ll_address && link->ipv4ll_route))
+            !(link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4) && link->ipv4ll_address && link->ipv4ll_route))
                 /* When DHCP is enabled, at least one protocol must provide an address, or
                  * an IPv4ll fallback address must be configured. */
                 return;
@@ -1599,7 +1578,7 @@ static int link_acquire_ipv4_conf(Link *link) {
         assert(link->manager);
         assert(link->manager->event);
 
-        if (link_ipv4ll_enabled(link)) {
+        if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4)) {
                 assert(link->ipv4ll);
 
                 log_link_debug(link, "Acquiring IPv4 link-local address");
@@ -2641,7 +2620,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        if (link_ipv4ll_enabled(link) || link_ipv4ll_fallback_enabled(link)) {
+        if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4)) {
                 r = ipv4ll_configure(link);
                 if (r < 0)
                         return r;
