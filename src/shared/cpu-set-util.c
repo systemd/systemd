@@ -206,3 +206,41 @@ int cpus_in_affinity_mask(void) {
                 n *= 2;
         }
 }
+
+int cpu_set_to_dbus(const CPUSet *set, uint8_t **ret, size_t *allocated) {
+        uint8_t *out;
+
+        assert(set);
+        assert(ret);
+
+        out = new0(uint8_t, set->allocated);
+        if (!out)
+                return -ENOMEM;
+
+        for (unsigned cpu = 0; cpu < set->allocated * 8; cpu++)
+                if (CPU_ISSET_S(cpu, set->allocated, set->set))
+                        out[cpu / 8] |= 1u << (cpu % 8);
+
+        *ret = out;
+        *allocated = set->allocated;
+        return 0;
+}
+
+int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *set) {
+        _cleanup_(cpu_set_reset) CPUSet s = {};
+        int r;
+
+        assert(bits);
+        assert(set);
+
+        for (unsigned cpu = size * 8; cpu > 0; cpu--)
+                if (bits[(cpu - 1) / 8] & (1u << ((cpu - 1) % 8))) {
+                        r = cpu_set_add(&s, cpu - 1);
+                        if (r < 0)
+                                return r;
+                }
+
+        *set = s;
+        s = (CPUSet) {};
+        return 0;
+}

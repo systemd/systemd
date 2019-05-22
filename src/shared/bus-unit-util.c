@@ -993,12 +993,18 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
         if (streq(field, "CPUAffinity")) {
                 _cleanup_(cpu_set_reset) CPUSet cpuset = {};
+                _cleanup_free_ uint8_t *array = NULL;
+                size_t allocated;
 
                 r = parse_cpu_set(eq, &cpuset);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
 
-                return bus_append_byte_array(m, field, cpuset.set, cpuset.allocated);
+                r = cpu_set_to_dbus(&cpuset, &array, &allocated);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to serialize CPUAffinity: %m");
+
+                return bus_append_byte_array(m, field, array, allocated);
         }
 
         if (STR_IN_SET(field, "RestrictAddressFamilies", "SystemCallFilter")) {

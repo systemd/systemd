@@ -1559,8 +1559,13 @@ int bus_exec_context_set_transient_property(
         if (streq(name, "CPUAffinity")) {
                 const void *a;
                 size_t n;
+                _cleanup_(cpu_set_reset) CPUSet set = {};
 
                 r = sd_bus_message_read_array(message, 'y', &a, &n);
+                if (r < 0)
+                        return r;
+
+                r = cpu_set_from_dbus(a, n, &set);
                 if (r < 0)
                         return r;
 
@@ -1570,7 +1575,6 @@ int bus_exec_context_set_transient_property(
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
                                 _cleanup_free_ char *str = NULL;
-                                const CPUSet set = {(cpu_set_t*) a, n};
 
                                 str = cpu_set_to_string(&set);
                                 if (!str)
