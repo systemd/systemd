@@ -65,9 +65,9 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_request_name()</function> requests a well-known service name on a bus. It takes a bus
-    connection, a valid bus name and a flags parameter. The flags parameter is a combination of the following
-    flags:</para>
+    <para><function>sd_bus_request_name()</function> requests a well-known service name on a bus. It takes a
+    bus connection, a valid bus name, and a flags parameter. The flags parameter is a combination of zero or
+    more of the following flags:</para>
 
     <variablelist>
       <varlistentry>
@@ -82,8 +82,9 @@
       <varlistentry>
         <term><constant>SD_BUS_NAME_REPLACE_EXISTING</constant></term>
 
-        <listitem><para>Take over the name if it is already acquired by another peer, and that other peer has permitted
-        takeover by setting <constant>SD_BUS_NAME_ALLOW_REPLACEMENT</constant> while acquiring it.</para></listitem>
+        <listitem><para>Take over the name if it was already acquired by another peer, and that other peer
+        has permitted takeover by setting <constant>SD_BUS_NAME_ALLOW_REPLACEMENT</constant> while acquiring
+        it.</para></listitem>
       </varlistentry>
 
       <varlistentry>

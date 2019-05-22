@@ -86,7 +86,8 @@ int setup_namespace(
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
                 unsigned long mount_flags,
-                DissectImageFlags dissected_image_flags);
+                DissectImageFlags dissected_image_flags,
+                char **error_path);
 
 int setup_tmp_dirs(
                 const char *id,
