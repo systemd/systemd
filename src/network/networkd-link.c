@@ -337,15 +337,16 @@ static bool link_is_enslaved(Link *link) {
                 /* Even if the link is not managed by networkd, honor IFF_SLAVE flag. */
                 return true;
 
-        if (!link->enslaved_raw)
-                return false;
-
         if (!link->network)
                 return false;
 
-        if (link->network->bridge)
-                /* TODO: support the case when link is not managed by networkd. */
+        if (link->master_ifindex > 0 && link->network->bridge)
                 return true;
+
+        if (!link->enslaved_raw)
+                return false;
+
+        /* TODO: add conditions for other netdevs. */
 
         return false;
 }
@@ -438,7 +439,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 ? ((old & flag) ? (" -" string) : (" +" string)) \
                 : "")
 
-static int link_update_flags(Link *link, sd_netlink_message *m) {
+static int link_update_flags(Link *link, sd_netlink_message *m, bool force_update_operstate) {
         unsigned flags, unknown_flags_added, unknown_flags_removed, unknown_flags;
         uint8_t operstate;
         int r;
@@ -455,7 +456,7 @@ static int link_update_flags(Link *link, sd_netlink_message *m) {
                    the state was unchanged */
                 operstate = link->kernel_operstate;
 
-        if ((link->flags == flags) && (link->kernel_operstate == operstate))
+        if (!force_update_operstate && (link->flags == flags) && (link->kernel_operstate == operstate))
                 return 0;
 
         if (link->flags != flags) {
@@ -598,7 +599,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 return r;
 
-        r = link_update_flags(link, message);
+        r = link_update_flags(link, message, false);
         if (r < 0)
                 return r;
 
@@ -3338,7 +3339,7 @@ int link_update(Link *link, sd_netlink_message *m) {
         const char *ifname;
         uint32_t mtu;
         bool had_carrier, carrier_gained, carrier_lost;
-        int r;
+        int old_master, r;
 
         assert(link);
         assert(link->ifname);
@@ -3464,9 +3465,12 @@ int link_update(Link *link, sd_netlink_message *m) {
                 }
         }
 
+        old_master = link->master_ifindex;
+        (void) sd_netlink_message_read_u32(m, IFLA_MASTER, (uint32_t *) &link->master_ifindex);
+
         had_carrier = link_has_carrier(link);
 
-        r = link_update_flags(link, m);
+        r = link_update_flags(link, m, old_master != link->master_ifindex);
         if (r < 0)
                 return r;
 
