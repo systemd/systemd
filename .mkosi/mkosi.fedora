@@ -5,7 +5,7 @@
 
 [Distribution]
 Distribution=fedora
-Release=29
+Release=30
 
 [Output]
 Format=raw_btrfs
