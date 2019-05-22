@@ -70,33 +70,6 @@ def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
 
     return f
 
-def expectedFailureIf_ip6gre_do_not_support_ipv6ll():
-    def f(func):
-        success = False
-        rc = subprocess.call(['ip', 'link', 'add', 'name', 'test1', 'type', 'dummy'])
-        if rc == 0:
-            time.sleep(1)
-            rc = subprocess.call(['ip', 'tunnel', 'add', 'tun99', 'local', '2a00:ffde:4567:edde::4986', 'remote', '2001:473:fece:cafe::5178', 'mode', 'ip6gre', 'dev', 'test1'])
-            if rc == 0:
-                time.sleep(1)
-                # Not sure why, but '0' or '2' do not work.
-                subprocess.call(['sysctl', '-w', 'net.ipv6.conf.tun99.addr_gen_mode=3'])
-
-                output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'tun99', 'scope', 'link'], universal_newlines=True).rstrip()
-                print(output)
-                success = 'inet6' in output
-
-                subprocess.run(['ip', 'tunnel', 'del', 'tun99'])
-
-            subprocess.run(['ip', 'link', 'del', 'test1'])
-
-        if success:
-            return func
-        else:
-            return unittest.expectedFailure(func)
-
-    return f
-
 def setUpModule():
     os.makedirs(network_unit_file_path, exist_ok=True)
     os.makedirs(networkd_ci_path, exist_ok=True)
@@ -731,13 +704,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, 'iseq')
         self.assertNotRegex(output, 'oseq')
 
-    @expectedFailureIf_ip6gre_do_not_support_ipv6ll()
     def test_ip6gre_tunnel(self):
         self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ip6gretun.network',
                                              '25-ip6gre-tunnel.netdev', '25-tunnel.network',
                                              '25-ip6gre-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                                              '25-ip6gre-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
         self.start_networkd()
+
+        # Old kernels seem not to support IPv6LL address on ip6gre tunnel, So please do not use wait_online() here.
 
         self.check_link_exists('dummy98')
         self.check_link_exists('ip6gretun99')
@@ -753,9 +727,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretun97'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'ip6gre remote any local 2a00:ffde:4567:edde::4987 dev dummy98')
-
-        # Old kernels may not support IPv6LL address on ip6gre tunnel, and the following test may fails.
-        self.wait_online(['ip6gretun99:routable', 'ip6gretun98:routable', 'ip6gretun97:routable', 'dummy98:degraded'])
 
     def test_gretap_tunnel(self):
         self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'gretap.network',
