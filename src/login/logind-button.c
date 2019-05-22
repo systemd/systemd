@@ -341,7 +341,7 @@ int button_open(Button *b) {
         (void) button_set_mask(b->name, fd);
         
         b->io_event_source = sd_event_source_unref(b->io_event_source);
-        r = sd_event_add_io(b->manager->event, &b->io_event_source, b->fd, EPOLLIN, button_dispatch, b);
+        r = sd_event_add_io(b->manager->event, &b->io_event_source, fd, EPOLLIN, button_dispatch, b);
         if (r < 0)
                 return log_error_errno(r, "Failed to add button event for %s: %m", p);
 
