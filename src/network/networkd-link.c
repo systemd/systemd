@@ -343,9 +343,6 @@ static bool link_is_enslaved(Link *link) {
         if (link->master_ifindex > 0 && link->network->bridge)
                 return true;
 
-        if (!link->enslaved_raw)
-                return false;
-
         /* TODO: add conditions for other netdevs. */
 
         return false;
@@ -2201,7 +2198,6 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         assert(link);
         assert(link->network);
         assert(link->enslaving > 0);
-        assert(!link->enslaved_raw);
 
         link->enslaving--;
 
@@ -2217,7 +2213,6 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
                 log_link_debug(link, "Joined netdev");
 
         if (link->enslaving == 0) {
-                link->enslaved_raw = true;
                 link_joined(link);
         }
 
@@ -2237,7 +2232,6 @@ static int link_enter_join_netdev(Link *link) {
 
         link_dirty(link);
         link->enslaving = 0;
-        link->enslaved_raw = false;
 
         if (link->network->bond) {
                 if (link->network->bond->state == NETDEV_STATE_READY &&
