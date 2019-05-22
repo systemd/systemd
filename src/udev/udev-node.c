@@ -98,7 +98,7 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                 return log_device_error_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink_tmp, target);
 
         if (rename(slink_tmp, slink) < 0) {
-                r = log_device_error_errno(dev, errno, "Failed to rename '%s' to '%s' failed: %m", slink_tmp, slink);
+                r = log_device_error_errno(dev, errno, "Failed to rename '%s' to '%s': %m", slink_tmp, slink);
                 (void) unlink(slink_tmp);
         }
 
