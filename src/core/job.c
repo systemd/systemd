@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "async.h"
+#include "cgroup.h"
 #include "dbus-job.h"
 #include "dbus.h"
 #include "escape.h"
@@ -73,7 +74,7 @@ void job_unlink(Job *j) {
         assert(!j->object_list);
 
         if (j->in_run_queue) {
-                LIST_REMOVE(run_queue, j->manager->run_queue, j);
+                prioq_remove(j->manager->run_queue, j, &j->run_queue_idx);
                 j->in_run_queue = false;
         }
 
@@ -647,7 +648,7 @@ int job_run_and_invalidate(Job *j) {
         assert(j->type < _JOB_TYPE_MAX_IN_TRANSACTION);
         assert(j->in_run_queue);
 
-        LIST_REMOVE(run_queue, j->manager->run_queue, j);
+        prioq_remove(j->manager->run_queue, j, &j->run_queue_idx);
         j->in_run_queue = false;
 
         if (j->state != JOB_WAITING)
@@ -1146,13 +1147,13 @@ void job_add_to_run_queue(Job *j) {
         if (j->in_run_queue)
                 return;
 
-        if (!j->manager->run_queue) {
+        if (prioq_isempty(j->manager->run_queue)) {
                 r = sd_event_source_set_enabled(j->manager->run_queue_event_source, SD_EVENT_ONESHOT);
                 if (r < 0)
                         log_warning_errno(r, "Failed to enable job run queue event source, ignoring: %m");
         }
 
-        LIST_PREPEND(run_queue, j->manager->run_queue, j);
+        prioq_put(j->manager->run_queue, j, &j->run_queue_idx);
         j->in_run_queue = true;
 }
 

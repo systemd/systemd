@@ -3510,6 +3510,45 @@ void manager_invalidate_startup_units(Manager *m) {
                 unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_BLKIO);
 }
 
+static int unit_get_nice(Unit *u) {
+        ExecContext *ec;
+
+        ec = unit_get_exec_context(u);
+        return ec ? ec->nice : 0;
+}
+
+static uint64_t unit_get_cpu_weight(Unit *u) {
+        ManagerState state = manager_state(u->manager);
+        CGroupContext *cc;
+
+        cc = unit_get_cgroup_context(u);
+        return cc ? cgroup_context_cpu_weight(cc, state) : CGROUP_WEIGHT_DEFAULT;
+}
+
+int compare_job_priority(const void *a, const void *b) {
+        const Job *x = a, *y = b;
+        int nice_x, nice_y;
+        uint64_t weight_x, weight_y;
+        int ret;
+
+        weight_x = unit_get_cpu_weight(x->unit);
+        weight_y = unit_get_cpu_weight(y->unit);
+
+        if ((ret = CMP(weight_y, weight_x)) != 0)
+                return ret;
+
+        nice_x = unit_get_nice(x->unit);
+        nice_y = unit_get_nice(y->unit);
+
+        if ((ret = CMP(nice_x, nice_y)) != 0)
+                return ret;
+
+        if ((ret = CMP(x->unit->type, y->unit->type)) != 0)
+                return ret;
+
+        return strcmp(x->unit->id, y->unit->id);
+}
+
 static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] = {
         [CGROUP_AUTO] = "auto",
         [CGROUP_CLOSED] = "closed",
