@@ -3323,6 +3323,13 @@ int journal_file_open(
         }
 
         r = mmap_cache_get(f->mmap, f->cache_fd, f->prot, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h, NULL);
+        if (r == -EINVAL) {
+                /* Some file systems (jffs2 or p9fs) don't support mmap() properly (or only read-only
+                 * mmap()), and return EINVAL in that case. Let's propagate that as a more recognizable error
+                 * code. */
+                r = -EAFNOSUPPORT;
+                goto fail;
+        }
         if (r < 0)
                 goto fail;
 
