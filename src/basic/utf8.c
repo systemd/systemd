@@ -32,6 +32,7 @@
 #include "gunicode.h"
 #include "hexdecoct.h"
 #include "macro.h"
+#include "string-util.h"
 #include "utf8.h"
 
 bool unichar_is_valid(char32_t ch) {
@@ -192,7 +193,7 @@ char *utf8_escape_invalid(const char *str) {
         }
 
         *s = '\0';
-
+        (void) str_realloc(&p);
         return p;
 }
 
@@ -278,6 +279,7 @@ char *utf8_escape_non_printable_full(const char *str, size_t console_width) {
 
  finish:
         *s = '\0';
+        (void) str_realloc(&p);
         return p;
 }
 
