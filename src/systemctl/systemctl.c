@@ -31,6 +31,7 @@
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "copy.h"
+#include "cpu-set-util.h"
 #include "dropin.h"
 #include "efivars.h"
 #include "env-util.h"
@@ -5402,6 +5403,26 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         if (all || !isempty(fields))
                                 bus_print_property_value(name, expected_value, value, strempty(fields));
+
+                        return 1;
+                } else if (contents[0] == SD_BUS_TYPE_BYTE && streq(name, "CPUAffinity")) {
+                        _cleanup_free_ char *affinity = NULL;
+                        _cleanup_cpu_free_ cpu_set_t *set = NULL;
+                        const void *a;
+                        size_t n, allocated;
+
+
+                        r = sd_bus_message_read_array(m, 'y', &a, &n);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = cpu_set_from_dbus(a, n, &set, &allocated);
+                        if (r < 0)
+                                return log_oom();
+
+                        affinity = cpu_set_to_range(a, n);
+                        if (affinity)
+                                bus_print_property_value(name, expected_value, value, affinity);
 
                         return 1;
                 }
