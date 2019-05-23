@@ -49,6 +49,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_ERSPAN,
         NETDEV_KIND_L2TP,
         NETDEV_KIND_MACSEC,
+        NETDEV_KIND_NLMON,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_TUNNEL, /* Used by config_parse_stacked_netdev() */
         _NETDEV_KIND_INVALID = -1

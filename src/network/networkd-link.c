@@ -132,11 +132,14 @@ bool link_ipv4ll_enabled(Link *link, AddressFamilyBoolean mask) {
         if (!link->network)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6", "can", "vcan", "vxcan"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6", "can", "vcan", "vxcan", "nlmon"))
                 return false;
 
         /* L3 or L3S mode do not support ARP. */
         if (IN_SET(link_get_ipvlan_mode(link), NETDEV_IPVLAN_MODE_L3, NETDEV_IPVLAN_MODE_L3S))
+                return false;
+
+        if (link->network->bond)
                 return false;
 
         if (link->network->bond)
@@ -157,7 +160,7 @@ static bool link_ipv6ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "sit", "vti", "can", "vcan", "vxcan"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "sit", "vti", "can", "vcan", "vxcan", "nlmon"))
                 return false;
 
         if (link->network->bond)
