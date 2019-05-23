@@ -14,6 +14,7 @@
 #include "missing_network.h"
 #include "netdev/bond.h"
 #include "netdev/bridge.h"
+#include "netdev/ipvlan.h"
 #include "netdev/vrf.h"
 #include "netlink-util.h"
 #include "network-internal.h"
@@ -76,6 +77,9 @@ static bool link_dhcp6_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
+        if (STRPTR_IN_SET(link->kind, "can", "vcan"))
+                return false;
+
         if (manager_sysctl_ipv6_enabled(link->manager) == 0)
                 return false;
 
@@ -94,6 +98,9 @@ static bool link_dhcp4_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
+        if (STRPTR_IN_SET(link->kind, "can", "vcan"))
+                return false;
+
         return link->network->dhcp & ADDRESS_FAMILY_IPV4;
 }
 
@@ -109,11 +116,15 @@ static bool link_dhcp4_server_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
+        if (STRPTR_IN_SET(link->kind, "can", "vcan"))
+                return false;
+
         return link->network->dhcp_server;
 }
 
-bool link_ipv4ll_enabled(Link *link) {
+bool link_ipv4ll_enabled(Link *link, AddressFamilyBoolean mask) {
         assert(link);
+        assert((mask & ~(ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4)) == 0);
 
         if (link->flags & IFF_LOOPBACK)
                 return false;
@@ -121,31 +132,17 @@ bool link_ipv4ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6", "can", "vcan"))
+                return false;
+
+        /* L3 or L3S mode do not support ARP. */
+        if (IN_SET(link_get_ipvlan_mode(link), NETDEV_IPVLAN_MODE_L3, NETDEV_IPVLAN_MODE_L3S))
                 return false;
 
         if (link->network->bond)
                 return false;
 
-        return link->network->link_local & ADDRESS_FAMILY_IPV4;
-}
-
-bool link_ipv4ll_fallback_enabled(Link *link) {
-        assert(link);
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6"))
-                return false;
-
-        if (link->network->bond)
-                return false;
-
-        return link->network->link_local & ADDRESS_FAMILY_FALLBACK_IPV4;
+        return link->network->link_local & mask;
 }
 
 static bool link_ipv6ll_enabled(Link *link) {
@@ -160,7 +157,7 @@ static bool link_ipv6ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "sit", "vti"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "sit", "vti", "can", "vcan"))
                 return false;
 
         if (link->network->bond)
@@ -182,6 +179,9 @@ static bool link_ipv6_enabled(Link *link) {
                 return false;
 
         if (manager_sysctl_ipv6_enabled(link->manager) == 0)
+                return false;
+
+        if (STRPTR_IN_SET(link->kind, "can", "vcan"))
                 return false;
 
         /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
@@ -316,15 +316,13 @@ static bool link_is_enslaved(Link *link) {
                 /* Even if the link is not managed by networkd, honor IFF_SLAVE flag. */
                 return true;
 
-        if (!link->enslaved_raw)
-                return false;
-
         if (!link->network)
                 return false;
 
-        if (link->network->bridge)
-                /* TODO: support the case when link is not managed by networkd. */
+        if (link->master_ifindex > 0 && link->network->bridge)
                 return true;
+
+        /* TODO: add conditions for other netdevs. */
 
         return false;
 }
@@ -417,7 +415,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 ? ((old & flag) ? (" -" string) : (" +" string)) \
                 : "")
 
-static int link_update_flags(Link *link, sd_netlink_message *m) {
+static int link_update_flags(Link *link, sd_netlink_message *m, bool force_update_operstate) {
         unsigned flags, unknown_flags_added, unknown_flags_removed, unknown_flags;
         uint8_t operstate;
         int r;
@@ -434,7 +432,7 @@ static int link_update_flags(Link *link, sd_netlink_message *m) {
                    the state was unchanged */
                 operstate = link->kernel_operstate;
 
-        if ((link->flags == flags) && (link->kernel_operstate == operstate))
+        if (!force_update_operstate && (link->flags == flags) && (link->kernel_operstate == operstate))
                 return 0;
 
         if (link->flags != flags) {
@@ -577,7 +575,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 return r;
 
-        r = link_update_flags(link, message);
+        r = link_update_flags(link, message, false);
         if (r < 0)
                 return r;
 
@@ -656,7 +654,7 @@ int link_get(Manager *m, int ifindex, Link **ret) {
         return 0;
 }
 
-static void link_set_state(Link *link, LinkState state) {
+void link_set_state(Link *link, LinkState state) {
         assert(link);
 
         if (link->state == state)
@@ -673,8 +671,6 @@ static void link_set_state(Link *link, LinkState state) {
 
 static void link_enter_unmanaged(Link *link) {
         assert(link);
-
-        log_link_debug(link, "Unmanaged");
 
         link_set_state(link, LINK_STATE_UNMANAGED);
 
@@ -958,7 +954,7 @@ void link_check_ready(Link *link) {
         if (!link->routing_policy_rules_configured)
                 return;
 
-        if (link_ipv4ll_enabled(link) && !(link->ipv4ll_address && link->ipv4ll_route))
+        if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4) && !(link->ipv4ll_address && link->ipv4ll_route))
                 return;
 
         if (link_ipv6ll_enabled(link) &&
@@ -967,7 +963,7 @@ void link_check_ready(Link *link) {
 
         if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link)) &&
             !(link->dhcp4_configured || link->dhcp6_configured) &&
-            !(link_ipv4ll_fallback_enabled(link) && link->ipv4ll_address && link->ipv4ll_route))
+            !(link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4) && link->ipv4ll_address && link->ipv4ll_route))
                 /* When DHCP is enabled, at least one protocol must provide an address, or
                  * an IPv4ll fallback address must be configured. */
                 return;
@@ -1582,7 +1578,7 @@ static int link_acquire_ipv4_conf(Link *link) {
         assert(link->manager);
         assert(link->manager->event);
 
-        if (link_ipv4ll_enabled(link)) {
+        if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4)) {
                 assert(link->ipv4ll);
 
                 log_link_debug(link, "Acquiring IPv4 link-local address");
@@ -2181,7 +2177,6 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         assert(link);
         assert(link->network);
         assert(link->enslaving > 0);
-        assert(!link->enslaved_raw);
 
         link->enslaving--;
 
@@ -2197,7 +2192,6 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
                 log_link_debug(link, "Joined netdev");
 
         if (link->enslaving == 0) {
-                link->enslaved_raw = true;
                 link_joined(link);
         }
 
@@ -2217,7 +2211,6 @@ static int link_enter_join_netdev(Link *link) {
 
         link_dirty(link);
         link->enslaving = 0;
-        link->enslaved_raw = false;
 
         if (link->network->bond) {
                 if (link->network->bond->state == NETDEV_STATE_READY &&
@@ -2627,7 +2620,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        if (link_ipv4ll_enabled(link) || link_ipv4ll_fallback_enabled(link)) {
+        if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4)) {
                 r = ipv4ll_configure(link);
                 if (r < 0)
                         return r;
@@ -3319,7 +3312,7 @@ int link_update(Link *link, sd_netlink_message *m) {
         const char *ifname;
         uint32_t mtu;
         bool had_carrier, carrier_gained, carrier_lost;
-        int r;
+        int old_master, r;
 
         assert(link);
         assert(link->ifname);
@@ -3445,9 +3438,12 @@ int link_update(Link *link, sd_netlink_message *m) {
                 }
         }
 
+        old_master = link->master_ifindex;
+        (void) sd_netlink_message_read_u32(m, IFLA_MASTER, (uint32_t *) &link->master_ifindex);
+
         had_carrier = link_has_carrier(link);
 
-        r = link_update_flags(link, m);
+        r = link_update_flags(link, m, old_master != link->master_ifindex);
         if (r < 0)
                 return r;
 

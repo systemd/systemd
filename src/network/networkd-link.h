@@ -17,6 +17,7 @@
 #include "list.h"
 #include "log-link.h"
 #include "network-util.h"
+#include "networkd-util.h"
 #include "set.h"
 
 typedef enum LinkState {
@@ -67,8 +68,6 @@ typedef struct Link {
         unsigned routing_policy_rule_messages;
         unsigned routing_policy_rule_remove_messages;
         unsigned enslaving;
-        /* link_is_enslaved() has additional checks. So, it is named _raw. */
-        bool enslaved_raw;
 
         Set *addresses;
         Set *addresses_foreign;
@@ -144,6 +143,7 @@ int link_down(Link *link, link_netlink_message_handler_t callback);
 void link_enter_failed(Link *link);
 int link_initialized(Link *link, sd_device *device);
 
+void link_set_state(Link *link, LinkState state);
 void link_check_ready(Link *link);
 
 void link_update_operstate(Link *link, bool also_update_bond_master);
@@ -161,8 +161,7 @@ int link_ipv6ll_gained(Link *link, const struct in6_addr *address);
 int link_set_mtu(Link *link, uint32_t mtu);
 
 int ipv4ll_configure(Link *link);
-bool link_ipv4ll_enabled(Link *link);
-bool link_ipv4ll_fallback_enabled(Link *link);
+bool link_ipv4ll_enabled(Link *link, AddressFamilyBoolean mask);
 
 int dhcp4_configure(Link *link);
 int dhcp4_set_client_identifier(Link *link);

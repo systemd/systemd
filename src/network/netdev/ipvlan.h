@@ -42,3 +42,5 @@ IPVlanFlags ipvlan_flags_from_string(const char *d) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ipvlan_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipvlan_flags);
+
+IPVlanMode link_get_ipvlan_mode(Link *link);

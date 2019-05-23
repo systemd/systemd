@@ -198,6 +198,8 @@ static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link
 int link_configure_can(Link *link) {
         int r;
 
+        link_set_state(link, LINK_STATE_CONFIGURING);
+
         if (streq_ptr(link->kind, "can")) {
                 /* The CAN interface must be down to configure bitrate, etc... */
                 if ((link->flags & IFF_UP)) {
