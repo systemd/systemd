@@ -1831,7 +1831,23 @@
     <para>For more detail information see
     <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">
     Linux Ethernet Bonding Driver HOWTO</ulink></para>
+  </refsect1>
 
+  <refsect1>
+    <title>[VRF] Section Options</title>
+    <para>The <literal>[VRF]</literal> section only applies for
+    netdevs of kind <literal>vrf</literal> and accepts the
+    following key:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>TableId=</varname></term>
+        <listitem>
+          <para>The numeric routing table identifier.
+          This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
@@ -1992,7 +2008,7 @@ Name=vrf-test
 Kind=vrf
 
 [VRF]
-Table=42</programlisting>
+TableId=42</programlisting>
     </example>
 
     <example>
