@@ -265,6 +265,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'vtitun97',
         'vtitun98',
         'vtitun99',
+        'vxcan99',
         'vxlan99',
         'wg98',
         'wg99']
@@ -334,6 +335,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-vti-tunnel-local-any.netdev',
         '25-vti-tunnel-remote-any.netdev',
         '25-vti-tunnel.netdev',
+        '25-vxcan.netdev',
         '25-vxlan.netdev',
         '25-wireguard-23-peers.netdev',
         '25-wireguard-23-peers.network',
@@ -603,6 +605,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
 
         self.wait_online(['vcan99:carrier'])
+
+    @expectedFailureIfModuleIsNotAvailable('vxcan')
+    def test_vxcan(self):
+        self.copy_unit_to_networkd_unit_path('25-vxcan.netdev', 'netdev-link-local-addressing-yes.network')
+        self.start_networkd(0)
+
+        self.wait_online(['vxcan99:carrier', 'vxcan-peer:carrier'])
 
     @expectedFailureIfModuleIsNotAvailable('wireguard')
     def test_wireguard(self):
