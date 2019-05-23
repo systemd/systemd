@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "cpu-set-util.h"
+#include "string-util.h"
 #include "macro.h"
 
 static void test_parse_cpu_set(void) {
@@ -11,6 +12,22 @@ static void test_parse_cpu_set(void) {
         int cpu;
 
         log_info("/* %s */", __func__);
+
+        /* Single value */
+        assert_se(parse_cpu_set_full("0", &c, &allocated, true, NULL, "fake", 1, "CPUAffinity") >= 0);
+        assert_se(c);
+        assert_se(allocated >= sizeof(__cpu_mask) / 8);
+        assert_se(CPU_ISSET_S(0, allocated, c));
+        assert_se(CPU_COUNT_S(allocated, c) == 1);
+
+        assert_se(str = cpu_set_to_string(c, allocated));
+        log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
+        assert_se(str = cpu_set_to_range(c, allocated));
+        log_info("cpu_set_to_range: %s", str);
+        assert_se(streq(str, "0-0"));
+        str = mfree(str);
+        c = cpu_set_mfree(c);
 
         /* Simple range (from CPUAffinity example) */
         assert_se(parse_cpu_set_full("1 2", &c, &allocated, true, NULL, "fake", 1, "CPUAffinity") >= 0);
@@ -22,6 +39,10 @@ static void test_parse_cpu_set(void) {
 
         assert_se(str = cpu_set_to_string(c, allocated));
         log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
+        assert_se(str = cpu_set_to_range(c, allocated));
+        log_info("cpu_set_to_range: %s", str);
+        assert_se(streq(str, "1-2"));
         str = mfree(str);
         c = cpu_set_mfree(c);
 
@@ -36,6 +57,10 @@ static void test_parse_cpu_set(void) {
         assert_se(str = cpu_set_to_string(c, allocated));
         log_info("cpu_set_to_string: %s", str);
         str = mfree(str);
+        assert_se(str = cpu_set_to_range(c, allocated));
+        log_info("cpu_set_to_range: %s", str);
+        assert_se(streq(str, "0-3 8-11"));
+        str = mfree(str);
         c = cpu_set_mfree(c);
 
         /* Quoted strings */
@@ -46,6 +71,10 @@ static void test_parse_cpu_set(void) {
                 assert_se(CPU_ISSET_S(cpu, allocated, c));
         assert_se(str = cpu_set_to_string(c, allocated));
         log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
+        assert_se(str = cpu_set_to_range(c, allocated));
+        log_info("cpu_set_to_range: %s", str);
+        assert_se(streq(str, "8-11"));
         str = mfree(str);
         c = cpu_set_mfree(c);
 
@@ -70,6 +99,10 @@ static void test_parse_cpu_set(void) {
                 assert_se(CPU_ISSET_S(cpu, allocated, c));
         assert_se(str = cpu_set_to_string(c, allocated));
         log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
+        assert_se(str = cpu_set_to_range(c, allocated));
+        log_info("cpu_set_to_range: %s", str);
+        assert_se(streq(str, "0-7"));
         str = mfree(str);
         c = cpu_set_mfree(c);
 
@@ -97,6 +130,11 @@ static void test_parse_cpu_set(void) {
         assert_se(str = cpu_set_to_string(c, allocated));
         log_info("cpu_set_to_string: %s", str);
         str = mfree(str);
+        assert_se(str = cpu_set_to_range(c, allocated));
+        log_info("cpu_set_to_range: %s", str);
+        assert_se(streq(str, "0-3 8-11"));
+        str = mfree(str);
+
         c = cpu_set_mfree(c);
 
         /* Negative range (returns empty cpu_set) */
@@ -114,6 +152,10 @@ static void test_parse_cpu_set(void) {
         assert_se(str = cpu_set_to_string(c, allocated));
         log_info("cpu_set_to_string: %s", str);
         str = mfree(str);
+        assert_se(str = cpu_set_to_range(c, allocated));
+        log_info("cpu_set_to_range: %s", str);
+        assert_se(streq(str, "0-11"));
+        str = mfree(str);
         c = cpu_set_mfree(c);
 
         /* Mix ranges and individual CPUs */
@@ -127,6 +169,11 @@ static void test_parse_cpu_set(void) {
         assert_se(str = cpu_set_to_string(c, allocated));
         log_info("cpu_set_to_string: %s", str);
         str = mfree(str);
+        assert_se(str = cpu_set_to_range(c, allocated));
+        log_info("cpu_set_to_range: %s", str);
+        assert_se(streq(str, "0-1 4-11"));
+        str = mfree(str);
+
         c = cpu_set_mfree(c);
 
         /* Garbage */
@@ -155,6 +202,11 @@ static void test_parse_cpu_set(void) {
         assert_se(CPU_COUNT_S(allocated, c) == 192);
         assert_se(str = cpu_set_to_string(c, allocated));
         log_info("cpu_set_to_string: %s", str);
+        str = mfree(str);
+        assert_se(str = cpu_set_to_range(c, allocated));
+        log_info("cpu_set_to_range: %s", str);
+        assert_se(streq(str, "8000-8191"));
+
         str = mfree(str);
         c = cpu_set_mfree(c);
 }

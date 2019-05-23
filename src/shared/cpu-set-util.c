@@ -34,6 +34,45 @@ char* cpu_set_to_string(const cpu_set_t *set, size_t setsize) {
         return TAKE_PTR(str) ?: strdup("");
 }
 
+char *cpu_set_to_range(const cpu_set_t *set, size_t setsize) {
+        int i, r, range_start = 0, range_end;
+        _cleanup_free_ char *str = NULL;
+        size_t allocated = 0, len = 0;
+        bool in_range = false;
+
+        for (i = 0; (size_t) i < setsize * 8; i++) {
+                bool b = !!CPU_ISSET_S(i, setsize, set);
+
+                if (b) {
+                        if (in_range)
+                                range_end++;
+                        else {
+                                range_start = range_end = i;
+                                in_range = true;
+                        }
+                } else if (!b && in_range) {
+                        in_range = false;
+
+                        if (!GREEDY_REALLOC(str, allocated, len + 2 + 2 * DECIMAL_STR_MAX(int)))
+                                return NULL;
+
+                        r = sprintf(str + len, len > 0 ? " %d-%d" : "%d-%d", range_start, range_end);
+                        assert_se(r > 0);
+                        len += r;
+                }
+        }
+
+        if (in_range) {
+                if (!GREEDY_REALLOC(str, allocated, len + 2 + 2 * DECIMAL_STR_MAX(int)))
+                        return NULL;
+
+                r = sprintf(str + len, len > 0 ? " %d-%d" : "%d-%d", range_start, range_end);
+                assert_se(r > 0);
+        }
+
+        return TAKE_PTR(str) ?: strdup("");
+}
+
 cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         cpu_set_t *c;
         unsigned n = 1024;

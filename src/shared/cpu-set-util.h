@@ -18,6 +18,8 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 int cpu_set_add_all(cpu_set_t **cpu_set, size_t *allocated, const cpu_set_t *b, size_t b_allocated);
 
 char* cpu_set_to_string(const cpu_set_t *set, size_t setsize);
+char *cpu_set_to_range(const cpu_set_t *set, size_t setsize);
+
 int parse_cpu_set_full(
                 const char *rvalue,
                 cpu_set_t **cpu_set,
