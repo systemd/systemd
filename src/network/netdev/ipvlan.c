@@ -77,6 +77,7 @@ const NetDevVTable ipvlan_vtable = {
         .sections = "Match\0NetDev\0IPVLAN\0",
         .fill_message_create = netdev_ipvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .generate_mac = true,
 };
 
 const NetDevVTable ipvtap_vtable = {
@@ -85,6 +86,7 @@ const NetDevVTable ipvtap_vtable = {
         .sections = "Match\0NetDev\0IPVTAP\0",
         .fill_message_create = netdev_ipvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .generate_mac = true,
 };
 
 IPVlanMode link_get_ipvlan_mode(Link *link) {

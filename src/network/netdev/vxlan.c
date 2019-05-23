@@ -380,4 +380,5 @@ const NetDevVTable vxlan_vtable = {
         .fill_message_create = netdev_vxlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_vxlan_verify,
+        .generate_mac = true,
 };

@@ -30,4 +30,5 @@ const NetDevVTable vrf_vtable = {
         .sections = "Match\0NetDev\0VRF\0",
         .fill_message_create = netdev_vrf_fill_message_create,
         .create_type = NETDEV_CREATE_MASTER,
+        .generate_mac = true,
 };

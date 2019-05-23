@@ -592,4 +592,5 @@ const NetDevVTable bond_vtable = {
         .sections = "Match\0NetDev\0Bond\0",
         .fill_message_create = netdev_bond_fill_message_create,
         .create_type = NETDEV_CREATE_MASTER,
+        .generate_mac = true,
 };

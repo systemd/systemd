@@ -92,4 +92,5 @@ const NetDevVTable veth_vtable = {
         .fill_message_create = netdev_veth_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_veth_verify,
+        .generate_mac = true,
 };
