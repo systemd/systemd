@@ -456,7 +456,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                                              '21-vlan.network', '21-vlan-test1.network')
         self.start_networkd(0)
 
-        self.wait_online(['test1', 'vlan99'])
+        self.wait_online(['test1:degraded', 'vlan99:routable'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1'], universal_newlines=True).rstrip()
         print(output)
@@ -592,10 +592,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_vrf(self):
-        self.copy_unit_to_networkd_unit_path('25-vrf.netdev')
+        self.copy_unit_to_networkd_unit_path('25-vrf.netdev', 'netdev-link-local-addressing-yes.network')
         self.start_networkd(0)
 
-        self.wait_online(['vrf99:off'])
+        self.wait_online(['vrf99:carrier'])
 
     @expectedFailureIfModuleIsNotAvailable('vcan')
     def test_vcan(self):
@@ -636,10 +636,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             self.assertRegex(output, 'CJQUtcS9emY2fLYqDlpSZiE/QJyHkPWr\+WHtZLZ90FU=')
 
     def test_geneve(self):
-        self.copy_unit_to_networkd_unit_path('25-geneve.netdev')
+        self.copy_unit_to_networkd_unit_path('25-geneve.netdev', 'netdev-link-local-addressing-yes.network')
         self.start_networkd(0)
 
-        self.wait_online(['geneve99:off'])
+        self.wait_online(['geneve99:degraded'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'geneve99'], universal_newlines=True).rstrip()
         print(output)
@@ -873,10 +873,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'oseq')
 
     def test_tunnel_independent(self):
-        self.copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent.netdev')
+        self.copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent.netdev', 'netdev-link-local-addressing-yes.network')
         self.start_networkd(0)
 
-        self.wait_online(['ipiptun99:off'])
+        self.wait_online(['ipiptun99:carrier'])
 
     @expectedFailureIfModuleIsNotAvailable('fou')
     def test_fou(self):
