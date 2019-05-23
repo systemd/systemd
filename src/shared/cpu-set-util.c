@@ -34,6 +34,43 @@ char* cpu_set_to_string(const CPUSet *a) {
         return TAKE_PTR(str) ?: strdup("");
 }
 
+char *cpu_set_to_range_string(const CPUSet *set) {
+        unsigned range_start = 0, range_end;
+        _cleanup_free_ char *str = NULL;
+        size_t allocated = 0, len = 0;
+        bool in_range = false;
+        int r;
+
+        for (unsigned i = 0; i < set->allocated * 8; i++)
+                if (CPU_ISSET_S(i, set->allocated, set->set)) {
+                        if (in_range)
+                                range_end++;
+                        else {
+                                range_start = range_end = i;
+                                in_range = true;
+                        }
+                } else if (in_range) {
+                        in_range = false;
+
+                        if (!GREEDY_REALLOC(str, allocated, len + 2 + 2 * DECIMAL_STR_MAX(unsigned)))
+                                return NULL;
+
+                        r = sprintf(str + len, len > 0 ? " %d-%d" : "%d-%d", range_start, range_end);
+                        assert_se(r > 0);
+                        len += r;
+                }
+
+        if (in_range) {
+                if (!GREEDY_REALLOC(str, allocated, len + 2 + 2 * DECIMAL_STR_MAX(int)))
+                        return NULL;
+
+                r = sprintf(str + len, len > 0 ? " %d-%d" : "%d-%d", range_start, range_end);
+                assert_se(r > 0);
+        }
+
+        return TAKE_PTR(str) ?: strdup("");
+}
+
 int cpu_set_realloc(CPUSet *cpu_set, unsigned ncpus) {
         size_t need;
 
