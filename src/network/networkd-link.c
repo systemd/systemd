@@ -77,7 +77,7 @@ static bool link_dhcp6_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "can", "vcan"))
+        if (STRPTR_IN_SET(link->kind, "can", "vcan", "vxcan"))
                 return false;
 
         if (manager_sysctl_ipv6_enabled(link->manager) == 0)
@@ -98,7 +98,7 @@ static bool link_dhcp4_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "can", "vcan"))
+        if (STRPTR_IN_SET(link->kind, "can", "vcan", "vxcan"))
                 return false;
 
         return link->network->dhcp & ADDRESS_FAMILY_IPV4;
@@ -116,7 +116,7 @@ static bool link_dhcp4_server_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "can", "vcan"))
+        if (STRPTR_IN_SET(link->kind, "can", "vcan", "vxcan"))
                 return false;
 
         return link->network->dhcp_server;
@@ -132,7 +132,7 @@ bool link_ipv4ll_enabled(Link *link, AddressFamilyBoolean mask) {
         if (!link->network)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6", "can", "vcan"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6", "can", "vcan", "vxcan"))
                 return false;
 
         /* L3 or L3S mode do not support ARP. */
@@ -157,7 +157,7 @@ static bool link_ipv6ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "sit", "vti", "can", "vcan"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "sit", "vti", "can", "vcan", "vxcan"))
                 return false;
 
         if (link->network->bond)
@@ -181,7 +181,7 @@ static bool link_ipv6_enabled(Link *link) {
         if (manager_sysctl_ipv6_enabled(link->manager) == 0)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "can", "vcan"))
+        if (STRPTR_IN_SET(link->kind, "can", "vcan", "vxcan"))
                 return false;
 
         /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
@@ -2569,7 +2569,7 @@ static int link_configure(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_INITIALIZED);
 
-        if (STRPTR_IN_SET(link->kind, "can", "vcan"))
+        if (STRPTR_IN_SET(link->kind, "can", "vcan", "vxcan"))
                 return link_configure_can(link);
 
         /* Drop foreign config, but ignore loopback or critical devices.
