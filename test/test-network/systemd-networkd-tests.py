@@ -568,12 +568,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'link/ether 12:34:56:78:9a:bd')
 
-    def test_dummy(self):
-        self.copy_unit_to_networkd_unit_path('11-dummy.netdev')
-        self.start_networkd(0)
-
-        self.wait_online(['test1:off'])
-
     def test_tun(self):
         self.copy_unit_to_networkd_unit_path('25-tun.netdev')
         self.start_networkd(0)
