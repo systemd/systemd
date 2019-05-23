@@ -410,8 +410,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
 
         self.wait_online(['bridge99', 'test1:degraded'], bool_any=True)
-        self.check_link_exists('bridge99')
-        self.check_link_exists('test1')
 
         self.check_operstate('bridge99', '(?:off|no-carrier)', setup_state='configuring')
         self.check_operstate('test1', 'degraded')
@@ -841,9 +839,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                                              '25-isatap-tunnel.netdev', '25-tunnel.network')
         self.start_networkd(0)
         self.wait_online(['isataptun99:routable', 'dummy98:degraded'])
-
-        self.check_link_exists('dummy98')
-        self.check_link_exists('isataptun99')
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'isataptun99'], universal_newlines=True).rstrip()
         print(output)
@@ -1400,8 +1395,6 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['dummy98:degraded'])
 
-        self.check_link_exists('dummy98')
-
         self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'forwarding'), '1')
         self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'use_tempaddr'), '2')
         self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'dad_transmits'), '3')
@@ -1420,8 +1413,6 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['dummy98:routable'])
 
-        self.check_link_exists('dummy98')
-
         output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope global dummy98')
@@ -1438,8 +1429,6 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.start_networkd(0)
         self.wait_online(['dummy98:routable'])
-
-        self.check_link_exists('dummy98')
 
         output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
