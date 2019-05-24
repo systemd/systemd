@@ -1878,7 +1878,6 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
 
 class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
     links = [
-        'dummy98',
         'veth99',
         'vrf99']
 
