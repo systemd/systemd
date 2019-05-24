@@ -142,7 +142,13 @@ class Utilities():
                 if (os.path.exists(os.path.join(network_unit_file_path, unit + '.d'))):
                     shutil.rmtree(os.path.join(network_unit_file_path, unit + '.d'))
 
+    def warn_about_firewalld(self):
+        rc = subprocess.call(['systemctl', '-q', 'is-active', 'firewalld.service'])
+        if rc == 0:
+            print('\nWARNING: firewalld.service is active. The test may fail.')
+
     def start_dnsmasq(self, additional_options='', ipv4_range='192.168.5.10,192.168.5.200', ipv6_range='2600::10,2600::20', lease_time='1h'):
+        self.warn_about_firewalld()
         dnsmasq_command = f'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5 --port=0 ' + additional_options
         subprocess.check_call(dnsmasq_command, shell=True)
 
@@ -1800,6 +1806,7 @@ class NetworkdNetworkRATests(unittest.TestCase, Utilities):
         self.remove_unit_from_networkd_path(self.units)
 
     def test_ipv6_prefix_delegation(self):
+        self.warn_about_firewalld()
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth.network')
         self.start_networkd()
 
@@ -1831,6 +1838,7 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
         self.remove_unit_from_networkd_path(self.units)
 
     def test_dhcp_server(self):
+        self.warn_about_firewalld()
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network')
         self.start_networkd()
 
@@ -1856,6 +1864,7 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'Search Domains: one')
 
     def test_emit_router_timezone(self):
+        self.warn_about_firewalld()
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client-timezone-router.network', 'dhcp-server-timezone-router.network')
         self.start_networkd()
 
