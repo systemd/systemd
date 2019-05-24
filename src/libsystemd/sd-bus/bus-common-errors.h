@@ -78,4 +78,6 @@
 
 #define BUS_ERROR_NO_PRODUCT_UUID "org.freedesktop.hostname1.NoProductUUID"
 
+#define BUS_ERROR_SPEED_METER_INACTIVE "org.freedesktop.network1.SpeedMeterInactive"
+
 BUS_ERROR_MAP_ELF_USE(bus_common_errors);

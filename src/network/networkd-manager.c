@@ -22,6 +22,7 @@
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
+#include "networkd-speed-meter.h"
 #include "ordered-set.h"
 #include "path-util.h"
 #include "set.h"
@@ -1369,9 +1370,13 @@ int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
-        m = new0(Manager, 1);
+        m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
+
+        *m = (Manager) {
+                .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
+        };
 
         m->state_file = strdup("/run/systemd/netif/state");
         if (!m->state_file)
@@ -1469,6 +1474,7 @@ void manager_free(Manager *m) {
         sd_netlink_unref(m->genl);
         sd_resolve_unref(m->resolve);
 
+        sd_event_source_unref(m->speed_meter_event_source);
         sd_event_unref(m->event);
 
         sd_device_monitor_unref(m->device_monitor);
@@ -1484,8 +1490,13 @@ void manager_free(Manager *m) {
 int manager_start(Manager *m) {
         Link *link;
         Iterator i;
+        int r;
 
         assert(m);
+
+        r = manager_start_speed_meter(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize speed meter: %m");
 
         /* The dirty handler will deal with future serialization, but the first one
            must be done explicitly. */
