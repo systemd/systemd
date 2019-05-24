@@ -112,6 +112,10 @@ class Utilities():
                 subprocess.call(['ip', 'link', 'del', 'dev', link])
         time.sleep(1)
 
+    def remove_fou_ports(self, ports):
+        for port in ports:
+            subprocess.call(['ip', 'fou', 'del', 'port', port])
+
     def l2tp_tunnel_remove(self, tunnel_ids):
         output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel'], universal_newlines=True).rstrip()
         for tid in tunnel_ids:
@@ -371,10 +375,16 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'vxlan-test1.network',
         'vxlan.network']
 
+    fou_ports = [
+        '55555',
+        '55556']
+
     def setUp(self):
+        self.remove_fou_ports(self.fou_ports)
         self.link_remove(self.links)
 
     def tearDown(self):
+        self.remove_fou_ports(self.fou_ports)
         self.link_remove(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
@@ -923,9 +933,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretap96'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'encap fou encap-sport auto encap-dport 55556')
-
-        subprocess.call(['ip', 'fou', 'del', 'port', '55555'])
-        subprocess.call(['ip', 'fou', 'del', 'port', '55556'])
 
     def test_vxlan(self):
         self.copy_unit_to_networkd_unit_path('25-vxlan.netdev', 'vxlan.network',
