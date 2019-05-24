@@ -1955,7 +1955,10 @@ static int simple_varlink_call(const char *option, const char *method) {
 
         r = varlink_call(link, method, NULL, NULL, &error, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to execute varlink call: %s", error);
+                return log_error_errno(r, "Failed to execute varlink call: %m");
+        if (error)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOANO),
+                                       "Failed to execute varlink call: %s", error);
 
         return 0;
 }
