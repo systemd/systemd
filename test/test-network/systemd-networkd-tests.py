@@ -120,6 +120,10 @@ class Utilities():
         for table in tables:
             subprocess.call(['ip', 'rule', 'del', 'table', table])
 
+    def remove_routes(self, routes):
+        for route_type, addr in routes:
+            subprocess.call(['ip', 'route', 'del', route_type, addr])
+
     def l2tp_tunnel_remove(self, tunnel_ids):
         output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel'], universal_newlines=True).rstrip()
         for tid in tunnel_ids:
@@ -1103,13 +1107,16 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         'routing-policy-rule-test1.network']
 
     routing_policy_rule_tables = ['7', '8']
+    routes = [['blackhole', '202.54.1.2'], ['unreachable', '202.54.1.3'], ['prohibit', '202.54.1.4']]
 
     def setUp(self):
         self.remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
+        self.remove_routes(self.routes)
         self.link_remove(self.links)
 
     def tearDown(self):
         self.remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
+        self.remove_routes(self.routes)
         self.link_remove(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
@@ -1280,10 +1287,6 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['ip', 'route', 'show', 'type', 'prohibit'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'prohibit 202.54.1.4 proto static')
-
-        subprocess.call(['ip', 'route', 'del', 'blackhole', '202.54.1.2'])
-        subprocess.call(['ip', 'route', 'del', 'unreachable', '202.54.1.3'])
-        subprocess.call(['ip', 'route', 'del', 'prohibit', '202.54.1.4'])
 
     def test_ip_route_ipv6_src_route(self):
         # a dummy device does not make the addresses go through tentative state, so we
