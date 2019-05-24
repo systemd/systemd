@@ -1906,15 +1906,15 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         'static.network']
 
     def setUp(self):
-        self.link_remove(self.links)
         self.stop_dnsmasq(dnsmasq_pid_file)
+        self.link_remove(self.links)
 
     def tearDown(self):
-        self.link_remove(self.links)
-        self.remove_unit_from_networkd_path(self.units)
         self.stop_dnsmasq(dnsmasq_pid_file)
         self.remove_lease_file()
         self.remove_log_file()
+        self.link_remove(self.links)
+        self.remove_unit_from_networkd_path(self.units)
 
     def test_dhcp_client_ipv6_only(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network')
