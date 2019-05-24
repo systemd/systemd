@@ -200,8 +200,7 @@ static int image_make(
                 const struct stat *st,
                 Image **ret) {
 
-        _cleanup_free_ char *pretty_buffer = NULL;
-        _cleanup_free_ char *cwd = NULL;
+        _cleanup_free_ char *pretty_buffer = NULL, *parent = NULL;
         struct stat stbuf;
         bool read_only;
         int r;
@@ -223,8 +222,12 @@ static int image_make(
                 st = &stbuf;
         }
 
-        if (!path)
-                safe_getcwd(&cwd);
+        if (!path) {
+                if (dfd == AT_FDCWD)
+                        (void) safe_getcwd(&parent);
+                else
+                        (void) fd_get_path(dfd, &parent);
+        }
 
         read_only =
                 (path && path_startswith(path, "/usr")) ||
@@ -364,7 +367,7 @@ static int image_make(
 
                 block_fd = openat(dfd, filename, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
                 if (block_fd < 0)
-                        log_debug_errno(errno, "Failed to open block device %s/%s, ignoring: %m", path ?: strnull(cwd), filename);
+                        log_debug_errno(errno, "Failed to open block device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
                 else {
                         /* Refresh stat data after opening the node */
                         if (fstat(block_fd, &stbuf) < 0)
@@ -378,13 +381,13 @@ static int image_make(
                                 int state = 0;
 
                                 if (ioctl(block_fd, BLKROGET, &state) < 0)
-                                        log_debug_errno(errno, "Failed to issue BLKROGET on device %s/%s, ignoring: %m", path ?: strnull(cwd), filename);
+                                        log_debug_errno(errno, "Failed to issue BLKROGET on device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
                                 else if (state)
                                         read_only = true;
                         }
 
                         if (ioctl(block_fd, BLKGETSIZE64, &size) < 0)
-                                log_debug_errno(errno, "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m", path ?: strnull(cwd), filename);
+                                log_debug_errno(errno, "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
 
                         block_fd = safe_close(block_fd);
                 }
