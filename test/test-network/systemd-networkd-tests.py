@@ -1801,9 +1801,8 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
 
     def test_lldp(self):
         self.copy_unit_to_networkd_unit_path('23-emit-lldp.network', '24-lldp.network', '25-veth.netdev')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
+        self.start_networkd(0)
+        self.wait_online(['veth99:degraded', 'veth-peer:degraded'])
 
         output = subprocess.check_output(['networkctl', 'lldp'], universal_newlines=True).rstrip()
         print(output)
@@ -1828,9 +1827,8 @@ class NetworkdRATests(unittest.TestCase, Utilities):
     def test_ipv6_prefix_delegation(self):
         self.warn_about_firewalld()
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
+        self.start_networkd(0)
+        self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 
         output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
@@ -1856,9 +1854,8 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     def test_dhcp_server(self):
         self.warn_about_firewalld()
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
+        self.start_networkd(0)
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
@@ -1870,9 +1867,8 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     def test_emit_router_timezone(self):
         self.warn_about_firewalld()
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client-timezone-router.network', 'dhcp-server-timezone-router.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
+        self.start_networkd(0)
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
