@@ -657,7 +657,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                 case SD_DHCP_CLIENT_EVENT_IP_CHANGE:
 
                         if (link->network->dhcp_critical) {
-                                log_link_error(link, "DHCPv4 connection considered system critical, ignoring request to reconfigure it.");
+                                log_link_notice(link, "DHCPv4 connection considered system critical, ignoring request to reconfigure it.");
                                 return 0;
                         }
 
