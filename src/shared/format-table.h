@@ -22,6 +22,7 @@ typedef enum TableDataType {
         TABLE_UINT32,
         TABLE_UINT64,
         TABLE_PERCENT,
+        TABLE_IFINDEX,
         _TABLE_DATA_TYPE_MAX,
         _TABLE_DATA_TYPE_INVALID = -1,
 } TableDataType;

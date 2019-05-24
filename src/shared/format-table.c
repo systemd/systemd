@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <ctype.h>
+#include <net/if.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -80,6 +81,7 @@ typedef struct TableData {
                 uint32_t uint32;
                 uint64_t uint64;
                 int percent;        /* we use 'int' as datatype for percent values in order to match the result of parse_percent() */
+                int ifindex;
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;
@@ -241,6 +243,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_INT:
         case TABLE_UINT:
         case TABLE_PERCENT:
+        case TABLE_IFINDEX:
                 return sizeof(int);
 
         default:
@@ -693,6 +696,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         uint32_t uint32;
                         uint64_t uint64;
                         int percent;
+                        int ifindex;
                         bool b;
                 } buffer;
 
@@ -755,6 +759,11 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_PERCENT:
                         buffer.percent = va_arg(ap, int);
                         data = &buffer.percent;
+                        break;
+
+                case TABLE_IFINDEX:
+                        buffer.ifindex = va_arg(ap, int);
+                        data = &buffer.ifindex;
                         break;
 
                 case _TABLE_DATA_TYPE_MAX:
@@ -897,6 +906,9 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 
                 case TABLE_PERCENT:
                         return CMP(a->percent, b->percent);
+
+                case TABLE_IFINDEX:
+                        return CMP(a->ifindex, b->ifindex);
 
                 default:
                         ;
@@ -1090,6 +1102,23 @@ static const char *table_data_format(TableData *d) {
                         return NULL;
 
                 sprintf(p, "%i%%" , d->percent);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_IFINDEX: {
+                _cleanup_free_ char *p;
+                char name[IF_NAMESIZE + 1] = {};
+
+                if (if_indextoname(d->ifindex, name)) {
+                        p = strdup(name);
+                        if (!p)
+                                return NULL;
+                } else {
+                        if (asprintf(&p, "%i" , d->ifindex) < 0)
+                                return NULL;
+                }
+
                 d->formatted = TAKE_PTR(p);
                 break;
         }
@@ -1617,6 +1646,9 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
 
         case TABLE_PERCENT:
                 return json_variant_new_integer(ret, d->percent);
+
+        case TABLE_IFINDEX:
+                return json_variant_new_integer(ret, d->ifindex);
 
         default:
                 return -EINVAL;
