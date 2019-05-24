@@ -127,6 +127,7 @@ static bool arg_default_tasks_accounting = true;
 static uint64_t arg_default_tasks_max = UINT64_MAX;
 static sd_id128_t arg_machine_id = {};
 static EmergencyAction arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
+static CPUSet arg_cpu_affinity = {};
 
 _noreturn_ static void freeze_or_reboot(void) {
 
@@ -537,17 +538,11 @@ static int config_parse_cpu_affinity2(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(cpu_set_reset) CPUSet c = {};
-        int r;
+        CPUSet *affinity = data;
 
-        r = parse_cpu_set_full(rvalue, &c, true, unit, filename, line, lvalue);
-        if (r < 0)
-                return r;
+        assert(affinity);
 
-        if (sched_setaffinity(0, c.allocated, c.set) < 0)
-                log_warning_errno(errno, "Failed to set CPU affinity: %m");
-
-        // FIXME: parsing and execution should be seperated.
+        (void) parse_cpu_set_extend(rvalue, affinity, true, unit, filename, line, lvalue);
 
         return 0;
 }
@@ -655,7 +650,7 @@ static int parse_config_file(void) {
                 { "Manager", "CrashShell",                config_parse_bool,             0, &arg_crash_shell                       },
                 { "Manager", "CrashReboot",               config_parse_bool,             0, &arg_crash_reboot                      },
                 { "Manager", "ShowStatus",                config_parse_show_status,      0, &arg_show_status                       },
-                { "Manager", "CPUAffinity",               config_parse_cpu_affinity2,    0, NULL                                   },
+                { "Manager", "CPUAffinity",               config_parse_cpu_affinity2,    0, &arg_cpu_affinity                      },
                 { "Manager", "JoinControllers",           config_parse_join_controllers, 0, &arg_join_controllers                  },
                 { "Manager", "RuntimeWatchdogSec",        config_parse_sec,              0, &arg_runtime_watchdog                  },
                 { "Manager", "ShutdownWatchdogSec",       config_parse_sec,              0, &arg_shutdown_watchdog                 },
@@ -1483,6 +1478,21 @@ static void initialize_coredump(bool skip_setup) {
 #endif
 }
 
+static void update_cpu_affinity(bool skip_setup) {
+        _cleanup_free_ char *mask = NULL;
+
+        if (skip_setup || !arg_cpu_affinity.set)
+                return;
+
+        assert(arg_cpu_affinity.allocated > 0);
+
+        mask = cpu_set_to_string(&arg_cpu_affinity);
+        log_debug("Setting CPU affinity to %s.", strnull(mask));
+
+        if (sched_setaffinity(0, arg_cpu_affinity.allocated, arg_cpu_affinity.set) < 0)
+                log_warning_errno(errno, "Failed to set CPU affinity: %m");
+}
+
 static void do_reexecute(
                 int argc,
                 char *argv[],
@@ -1655,6 +1665,8 @@ static int invoke_main_loop(
 
                         set_manager_defaults(m);
 
+                        update_cpu_affinity(false);
+
                         if (saved_log_level >= 0)
                                 manager_override_log_level(m, saved_log_level);
                         if (saved_log_target >= 0)
@@ -1813,6 +1825,8 @@ static int initialize_runtime(
         if (arg_action != ACTION_RUN)
                 return 0;
 
+        update_cpu_affinity(skip_setup);
+
         if (arg_system) {
                 /* Make sure we leave a core dump without panicing the kernel. */
                 install_crash_handler();
@@ -1947,6 +1961,8 @@ static void free_arguments(void) {
         arg_join_controllers = strv_free_free(arg_join_controllers);
         arg_default_environment = strv_free(arg_default_environment);
         arg_syscall_archs = set_free(arg_syscall_archs);
+
+        cpu_set_reset(&arg_cpu_affinity);
 }
 
 static int load_configuration(int argc, char **argv, const char **ret_error_message) {
