@@ -6,10 +6,45 @@
 #include "tests.h"
 
 static void test_cescape(void) {
-        _cleanup_free_ char *escaped;
+        _cleanup_free_ char *t;
 
-        assert_se(escaped = cescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313"));
-        assert_se(streq(escaped, "abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\a\\003\\177\\234\\313"));
+        assert_se(t = cescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313"));
+        assert_se(streq(t, "abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\a\\003\\177\\234\\313"));
+}
+
+static void test_xescape(void) {
+        _cleanup_free_ char *t;
+
+        assert_se(t = xescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", ""));
+        assert_se(streq(t, "abc\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\\x7f\\x9c\\xcb"));
+}
+
+static void test_xescape_full(bool eight_bits) {
+        const char* escaped = !eight_bits ?
+                "a\\x62c\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\\x7f\\x9c\\xcb" :
+                "a\\x62c\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\177\234\313";
+        const unsigned full_fit = !eight_bits ? 55 : 46;
+
+        for (unsigned i = 0; i < 60; i++) {
+                _cleanup_free_ char *t;
+
+                assert_se(t = xescape_full("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", "b", i, eight_bits));
+
+                log_info("%02d: %s", i, t);
+
+                if (i >= full_fit)
+                        assert_se(streq(t, escaped));
+                else if (i >= 3) {
+                        /* We need up to four columns, so up to three three columns may be wasted */
+                        assert_se(strlen(t) == i || strlen(t) == i - 1 || strlen(t) == i - 2 || strlen(t) == i - 3);
+                        assert_se(strneq(t, escaped, i - 3) || strneq(t, escaped, i - 4) ||
+                                  strneq(t, escaped, i - 5) || strneq(t, escaped, i - 6));
+                        assert_se(endswith(t, "..."));
+                } else {
+                        assert_se(strlen(t) == i);
+                        assert_se(strneq(t, "...", i));
+                }
+        }
 }
 
 static void test_cunescape(void) {
@@ -123,6 +158,9 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         test_cescape();
+        test_xescape();
+        test_xescape_full(false);
+        test_xescape_full(true);
         test_cunescape();
         test_shell_escape();
         test_shell_maybe_quote();

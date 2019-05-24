@@ -32,6 +32,7 @@
 #include "gunicode.h"
 #include "hexdecoct.h"
 #include "macro.h"
+#include "string-util.h"
 #include "utf8.h"
 
 bool unichar_is_valid(char32_t ch) {
@@ -192,46 +193,93 @@ char *utf8_escape_invalid(const char *str) {
         }
 
         *s = '\0';
-
+        (void) str_realloc(&p);
         return p;
 }
 
-char *utf8_escape_non_printable(const char *str) {
-        char *p, *s;
+static int utf8_char_console_width(const char *str) {
+        char32_t c;
+        int r;
+
+        r = utf8_encoded_to_unichar(str, &c);
+        if (r < 0)
+                return r;
+
+        /* TODO: we should detect combining characters */
+
+        return unichar_iswide(c) ? 2 : 1;
+}
+
+char *utf8_escape_non_printable_full(const char *str, size_t console_width) {
+        char *p, *s, *prev_s;
+        size_t n = 0; /* estimated print width */
 
         assert(str);
 
-        p = s = malloc(strlen(str) * 4 + 1);
+        if (console_width == 0)
+                return strdup("");
+
+        p = s = prev_s = malloc(strlen(str) * 4 + 1);
         if (!p)
                 return NULL;
 
-        while (*str) {
+        for (;;) {
                 int len;
+                char *saved_s = s;
+
+                if (!*str) /* done! */
+                        goto finish;
 
                 len = utf8_encoded_valid_unichar(str, (size_t) -1);
                 if (len > 0) {
                         if (utf8_is_printable(str, len)) {
+                                int w;
+
+                                w = utf8_char_console_width(str);
+                                assert(w >= 0);
+                                if (n + w > console_width)
+                                        goto truncation;
+
                                 s = mempcpy(s, str, len);
                                 str += len;
+                                n += w;
+
                         } else {
-                                while (len > 0) {
+                                for (; len > 0; len--) {
+                                        if (n + 4 > console_width)
+                                                goto truncation;
+
                                         *(s++) = '\\';
                                         *(s++) = 'x';
                                         *(s++) = hexchar((int) *str >> 4);
                                         *(s++) = hexchar((int) *str);
 
                                         str += 1;
-                                        len--;
+                                        n += 4;
                                 }
                         }
                 } else {
-                        s = stpcpy(s, UTF8_REPLACEMENT_CHARACTER);
+                        if (n + 1 > console_width)
+                                goto truncation;
+
+                        s = mempcpy(s, UTF8_REPLACEMENT_CHARACTER, strlen(UTF8_REPLACEMENT_CHARACTER));
                         str += 1;
+                        n += 1;
                 }
+
+                prev_s = saved_s;
         }
 
-        *s = '\0';
+ truncation:
+        /* Try to go back one if we don't have enough space for the ellipsis */
+        if (n + 1 >= console_width)
+                s = prev_s;
 
+        s = mempcpy(s, "…", strlen("…"));
+
+ finish:
+        *s = '\0';
+        (void) str_realloc(&p);
         return p;
 }
 
@@ -519,15 +567,15 @@ size_t utf8_console_width(const char *str) {
         /* Returns the approximate width a string will take on screen when printed on a character cell
          * terminal/console. */
 
-        while (*str != 0) {
-                char32_t c;
+        while (*str) {
+                int w;
 
-                if (utf8_encoded_to_unichar(str, &c) < 0)
+                w = utf8_char_console_width(str);
+                if (w < 0)
                         return (size_t) -1;
 
+                n += w;
                 str = utf8_next_char(str);
-
-                n += unichar_iswide(c) ? 2 : 1;
         }
 
         return n;

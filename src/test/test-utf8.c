@@ -7,6 +7,8 @@
 #include "util.h"
 
 static void test_utf8_is_printable(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(utf8_is_printable("ascii is valid\tunicode", 22));
         assert_se(utf8_is_printable("\342\204\242", 3));
         assert_se(!utf8_is_printable("\341\204", 2));
@@ -14,18 +16,24 @@ static void test_utf8_is_printable(void) {
 }
 
 static void test_utf8_is_valid(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(utf8_is_valid("ascii is valid unicode"));
         assert_se(utf8_is_valid("\342\204\242"));
         assert_se(!utf8_is_valid("\341\204"));
 }
 
 static void test_ascii_is_valid(void) {
+        log_info("/* %s */", __func__);
+
         assert_se( ascii_is_valid("alsdjf\t\vbarr\nba z"));
         assert_se(!ascii_is_valid("\342\204\242"));
         assert_se(!ascii_is_valid("\341\204"));
 }
 
 static void test_ascii_is_valid_n(void) {
+        log_info("/* %s */", __func__);
+
         assert_se( ascii_is_valid_n("alsdjf\t\vbarr\nba z", 17));
         assert_se( ascii_is_valid_n("alsdjf\t\vbarr\nba z", 16));
         assert_se(!ascii_is_valid_n("alsdjf\t\vbarr\nba z", 18));
@@ -36,6 +44,8 @@ static void test_ascii_is_valid_n(void) {
 }
 
 static void test_utf8_encoded_valid_unichar(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(utf8_encoded_valid_unichar("\342\204\242", 1) == -EINVAL); /* truncated */
         assert_se(utf8_encoded_valid_unichar("\342\204\242", 2) == -EINVAL); /* truncated */
         assert_se(utf8_encoded_valid_unichar("\342\204\242", 3) == 3);
@@ -53,8 +63,10 @@ static void test_utf8_encoded_valid_unichar(void) {
         assert_se(utf8_encoded_valid_unichar("\341\204\341\204", 5) == -EINVAL);
 }
 
-static void test_utf8_escaping(void) {
+static void test_utf8_escape_invalid(void) {
         _cleanup_free_ char *p1, *p2, *p3;
+
+        log_info("/* %s */", __func__);
 
         p1 = utf8_escape_invalid("goo goo goo");
         puts(p1);
@@ -69,8 +81,10 @@ static void test_utf8_escaping(void) {
         assert_se(utf8_is_valid(p3));
 }
 
-static void test_utf8_escaping_printable(void) {
+static void test_utf8_escape_non_printable(void) {
         _cleanup_free_ char *p1, *p2, *p3, *p4, *p5, *p6;
+
+        log_info("/* %s */", __func__);
 
         p1 = utf8_escape_non_printable("goo goo goo");
         puts(p1);
@@ -97,11 +111,44 @@ static void test_utf8_escaping_printable(void) {
         assert_se(utf8_is_valid(p6));
 }
 
+static void test_utf8_escape_non_printable_full(void) {
+        log_info("/* %s */", __func__);
+
+        for (size_t i = 0; i < 20; i++) {
+                _cleanup_free_ char *p;
+
+                p = utf8_escape_non_printable_full("goo goo goo", i);
+                puts(p);
+                assert_se(utf8_is_valid(p));
+                assert_se(utf8_console_width(p) <= i);
+        }
+
+        for (size_t i = 0; i < 20; i++) {
+                _cleanup_free_ char *p;
+
+                p = utf8_escape_non_printable_full("\001 \019\20\a", i);
+                puts(p);
+                assert_se(utf8_is_valid(p));
+                assert_se(utf8_console_width(p) <= i);
+        }
+
+        for (size_t i = 0; i < 20; i++) {
+                _cleanup_free_ char *p;
+
+                p = utf8_escape_non_printable_full("\xef\xbf\x30\x13", i);
+                puts(p);
+                assert_se(utf8_is_valid(p));
+                assert_se(utf8_console_width(p) <= i);
+        }
+}
+
 static void test_utf16_to_utf8(void) {
         const char16_t utf16[] = { htole16('a'), htole16(0xd800), htole16('b'), htole16(0xdc00), htole16('c'), htole16(0xd801), htole16(0xdc37) };
         static const char utf8[] = { 'a', 'b', 'c', 0xf0, 0x90, 0x90, 0xb7 };
         _cleanup_free_ char16_t *b = NULL;
         _cleanup_free_ char *a = NULL;
+
+        log_info("/* %s */", __func__);
 
         /* Convert UTF-16 to UTF-8, filtering embedded bad chars */
         a = utf16_to_utf8(utf16, sizeof(utf16));
@@ -120,6 +167,8 @@ static void test_utf16_to_utf8(void) {
 }
 
 static void test_utf8_n_codepoints(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(utf8_n_codepoints("abc") == 3);
         assert_se(utf8_n_codepoints("zażółcić gęślą jaźń") == 19);
         assert_se(utf8_n_codepoints("串") == 1);
@@ -129,6 +178,8 @@ static void test_utf8_n_codepoints(void) {
 }
 
 static void test_utf8_console_width(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(utf8_console_width("abc") == 3);
         assert_se(utf8_console_width("zażółcić gęślą jaźń") == 19);
         assert_se(utf8_console_width("串") == 2);
@@ -139,6 +190,8 @@ static void test_utf8_console_width(void) {
 
 static void test_utf8_to_utf16(void) {
         const char *p;
+
+        log_info("/* %s */", __func__);
 
         FOREACH_STRING(p,
                        "abc",
@@ -165,8 +218,9 @@ int main(int argc, char *argv[]) {
         test_ascii_is_valid();
         test_ascii_is_valid_n();
         test_utf8_encoded_valid_unichar();
-        test_utf8_escaping();
-        test_utf8_escaping_printable();
+        test_utf8_escape_invalid();
+        test_utf8_escape_non_printable();
+        test_utf8_escape_non_printable_full();
         test_utf16_to_utf8();
         test_utf8_n_codepoints();
         test_utf8_console_width();

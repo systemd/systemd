@@ -98,7 +98,7 @@ function run {
         return 0
     fi
     if [[ "$2" = "yes" && "$is_cgns_supported" = "no" ]];  then
-        printf "Cgroup namespaces are not supported. Skipping.\n" >&2
+        printf "CGroup namespaces are not supported. Skipping.\n" >&2
         return 0
     fi
 
