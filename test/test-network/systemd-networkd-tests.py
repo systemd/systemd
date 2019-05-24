@@ -142,8 +142,8 @@ class Utilities():
                 if (os.path.exists(os.path.join(network_unit_file_path, unit + '.d'))):
                     shutil.rmtree(os.path.join(network_unit_file_path, unit + '.d'))
 
-    def start_dnsmasq(self, additional_options='', lease_time='1h'):
-        dnsmasq_command = f'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range=2600::10,2600::20,{lease_time} --dhcp-range=192.168.5.10,192.168.5.200,{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5 --port=0 ' + additional_options
+    def start_dnsmasq(self, additional_options='', ipv4_range='192.168.5.10,192.168.5.200', ipv6_range='2600::10,2600::20', lease_time='1h'):
+        dnsmasq_command = f'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5 --port=0 ' + additional_options
         subprocess.check_call(dnsmasq_command, shell=True)
 
         time.sleep(10)
@@ -2241,6 +2241,54 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
         output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'link'], universal_newlines=True).rstrip()
         self.assertRegex(output, 'inet .* scope link')
+
+    def test_dhcp_client_route_remove_on_renew(self):
+        self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
+                                             'dhcp-client-ipv4-only-ipv6-disabled.network')
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
+        self.start_dnsmasq(ipv4_range='192.168.5.100,192.168.5.199', lease_time='2m')
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # test for issue #12490
+
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic'], universal_newlines=True).rstrip()
+        print(output)
+        self.assertRegex(output, 'inet 192.168.5.1[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        address1=None
+        for line in output.splitlines():
+            if 'brd 192.168.5.255 scope global dynamic veth99' in line:
+                address1 = line.split()[1].split('/')[0]
+                break
+
+        output = subprocess.check_output(['ip', '-4', 'route', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
+        print(output)
+        self.assertRegex(output, f'default via 192.168.5.1 proto dhcp src {address1} metric 1024')
+        self.assertRegex(output, f'192.168.5.1 proto dhcp scope link src {address1} metric 1024')
+
+        self.stop_dnsmasq(dnsmasq_pid_file)
+        self.start_dnsmasq(ipv4_range='192.168.5.200,192.168.5.250', lease_time='2m')
+
+        print('Wait for the dynamic address to be expired')
+        time.sleep(130)
+
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global', 'dynamic'], universal_newlines=True).rstrip()
+        print(output)
+        self.assertRegex(output, 'inet 192.168.5.2[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        address2=None
+        for line in output.splitlines():
+            if 'brd 192.168.5.255 scope global dynamic veth99' in line:
+                address2 = line.split()[1].split('/')[0]
+                break
+
+        self.assertNotEqual(address1, address2)
+
+        output = subprocess.check_output(['ip', '-4', 'route', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
+        print(output)
+        self.assertNotRegex(output, f'default via 192.168.5.1 proto dhcp src {address1} metric 1024')
+        self.assertNotRegex(output, f'192.168.5.1 proto dhcp scope link src {address1} metric 1024')
+        self.assertRegex(output, f'default via 192.168.5.1 proto dhcp src {address2} metric 1024')
+        self.assertRegex(output, f'192.168.5.1 proto dhcp scope link src {address2} metric 1024')
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
