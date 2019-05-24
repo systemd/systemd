@@ -116,6 +116,10 @@ class Utilities():
         for port in ports:
             subprocess.call(['ip', 'fou', 'del', 'port', port])
 
+    def remove_routing_policy_rule_tables(self, tables):
+        for table in tables:
+            subprocess.call(['ip', 'rule', 'del', 'table', table])
+
     def l2tp_tunnel_remove(self, tunnel_ids):
         output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel'], universal_newlines=True).rstrip()
         for tid in tunnel_ids:
@@ -1098,10 +1102,14 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         'routing-policy-rule-dummy98.network',
         'routing-policy-rule-test1.network']
 
+    routing_policy_rule_tables = ['7', '8']
+
     def setUp(self):
+        self.remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
         self.link_remove(self.links)
 
     def tearDown(self):
+        self.remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
         self.link_remove(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
@@ -1170,8 +1178,6 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
     def test_routing_policy_rule(self):
         self.copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev')
 
-        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
-
         self.start_networkd()
 
         self.check_link_exists('test1')
@@ -1185,14 +1191,9 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'oif test1')
         self.assertRegex(output, 'lookup 7')
 
-        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
-
     def test_routing_policy_rule_issue_11280(self):
         self.copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev',
                                              'routing-policy-rule-dummy98.network', '12-dummy.netdev')
-
-        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
-        subprocess.call(['ip', 'rule', 'del', 'table', '8'])
 
         for trial in range(3):
             # Remove state files only first time
@@ -1209,14 +1210,9 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
             print(output)
             self.assertRegex(output, '112:	from 192.168.101.18 tos (?:0x08|throughput) iif dummy98 oif dummy98 lookup 8')
 
-        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
-        subprocess.call(['ip', 'rule', 'del', 'table', '8'])
-
     @expectedFailureIfRoutingPolicyPortRangeIsNotAvailable()
     def test_routing_policy_rule_port_range(self):
         self.copy_unit_to_networkd_unit_path('25-fibrule-port-range.network', '11-dummy.netdev')
-
-        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
 
         self.start_networkd()
 
@@ -1231,13 +1227,9 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'tcp')
         self.assertRegex(output, 'lookup 7')
 
-        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
-
     @expectedFailureIfRoutingPolicyIPProtoIsNotAvailable()
     def test_routing_policy_rule_invert(self):
         self.copy_unit_to_networkd_unit_path('25-fibrule-invert.network', '11-dummy.netdev')
-
-        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
 
         self.start_networkd()
 
@@ -1249,8 +1241,6 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'not.*?from.*?192.168.100.18')
         self.assertRegex(output, 'tcp')
         self.assertRegex(output, 'lookup 7')
-
-        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
 
     def test_route_static(self):
         self.copy_unit_to_networkd_unit_path('25-route-static.network', '12-dummy.netdev')
