@@ -1094,6 +1094,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '11-dummy.netdev',
         '12-dummy.netdev',
         '23-active-slave.network',
+        '24-search-domain.network',
         '25-address-link-section.network',
         '25-address-preferred-lifetime-zero-ipv6.network',
         '25-address-static.network',
@@ -1505,6 +1506,17 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
         self.check_operstate('test1', 'routable')
 
+    def test_domain(self):
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '24-search-domain.network')
+        self.start_networkd(0)
+        self.wait_online(['dummy98:routable'])
+
+        output = subprocess.check_output(['networkctl', 'status', 'dummy98'], universal_newlines=True).rstrip()
+        print(output)
+        self.assertRegex(output, 'Address: 192.168.42.100')
+        self.assertRegex(output, 'DNS: 192.168.42.1')
+        self.assertRegex(output, 'Search Domains: one')
+
 class NetworkdBondTests(unittest.TestCase, Utilities):
     links = [
         'bond199',
@@ -1825,13 +1837,9 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2002:da8:1:0')
 
 class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
-    links = [
-        'dummy98',
-        'veth99']
+    links = ['veth99']
 
     units = [
-        '12-dummy.netdev',
-        '24-search-domain.network',
         '25-veth.netdev',
         'dhcp-client.network',
         'dhcp-client-timezone-router.network',
@@ -1858,18 +1866,6 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'Gateway: 192.168.5.1')
         self.assertRegex(output, 'DNS: 192.168.5.1')
         self.assertRegex(output, 'NTP: 192.168.5.1')
-
-    def test_domain(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '24-search-domain.network')
-        self.start_networkd()
-
-        self.check_link_exists('dummy98')
-
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98'], universal_newlines=True).rstrip()
-        print(output)
-        self.assertRegex(output, 'Address: 192.168.42.100')
-        self.assertRegex(output, 'DNS: 192.168.42.1')
-        self.assertRegex(output, 'Search Domains: one')
 
     def test_emit_router_timezone(self):
         self.warn_about_firewalld()
