@@ -164,8 +164,6 @@ class Utilities():
         dnsmasq_command = f'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5 --port=0 ' + additional_options
         subprocess.check_call(dnsmasq_command, shell=True)
 
-        time.sleep(10)
-
     def stop_dnsmasq(self, pid_file):
         if os.path.exists(pid_file):
             with open(pid_file, 'r') as f:
@@ -229,6 +227,16 @@ class Utilities():
 
     def check_operstate(self, link, expected, show_status=True, setup_state='configured'):
         self.assertRegex(self.get_operstate(link, show_status, setup_state), expected)
+
+    def wait_address(self, link, address_regex, scope='global', ipv='', timeout_sec=10):
+        for i in range(timeout_sec):
+            if i > 0:
+                time.sleep(1)
+            output = subprocess.check_output(['ip', ipv, 'address', 'show', 'dev', link, 'scope', scope], universal_newlines=True).rstrip()
+            if re.search(address_regex, output):
+                break
+        else:
+            self.assertRegex(output, address_regex)
 
 
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
@@ -1935,11 +1943,11 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp_client_ipv4_only(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv4-only-ipv6-disabled.network')
-        self.start_networkd()
 
-        self.check_link_exists('veth99')
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
@@ -1949,11 +1957,14 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
     def test_dhcp_client_ipv4_ipv6(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network',
                                              'dhcp-client-ipv4-only.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # link become 'routable' when at least one protocol provide an valid address.
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128', ipv='-6')
 
         output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
@@ -1962,11 +1973,11 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp_client_settings(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv4-dhcp-settings.network')
-        self.start_networkd()
 
-        self.check_link_exists('veth99')
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         print('## ip address show dev veth99')
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
@@ -1996,11 +2007,10 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp6_client_settings_rapidcommit_true(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
@@ -2009,11 +2019,10 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp6_client_settings_rapidcommit_false(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-rapid-commit.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
@@ -2022,11 +2031,10 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp_client_settings_anonymize(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-anonymize.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         self.assertFalse(self.search_words_in_dnsmasq_log('VendorClassIdentifier=SusantVendorTest', True))
         self.assertFalse(self.search_words_in_dnsmasq_log('test-hostname'))
@@ -2034,11 +2042,14 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp_client_listen_port(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-listen-port.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq('--dhcp-alternate-port=67,5555')
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # link become 'routable' when at least one protocol provide an valid address.
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128', ipv='-6')
 
         output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
@@ -2046,11 +2057,10 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp_route_table_id(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-route-table.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = subprocess.check_output(['ip', 'route', 'show', 'table', '12'], universal_newlines=True).rstrip()
         print(output)
@@ -2059,11 +2069,10 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp_route_metric(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-route-metric.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = subprocess.check_output(['ip', 'route', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
@@ -2071,11 +2080,10 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp_route_criticalconnection_true(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-critical-connection.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
@@ -2093,19 +2101,22 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp_client_reuse_address_as_static(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # link become 'routable' when at least one protocol provide an valid address.
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128', ipv='-6')
 
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99', 'scope', 'global'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '192.168.5')
         self.assertRegex(output, '2600::')
 
-        ipv4_address = re.search('192\.168\.5\.[0-9]*/24', output)
-        ipv6_address = re.search('2600::[0-9a-f:]*/128', output)
+        ipv4_address = re.search(r'192.168.5.[0-9]*/24', output)
+        ipv6_address = re.search(r'2600::[0-9a-f:]*/128', output)
         static_network = '\n'.join(['[Match]', 'Name=veth99', '[Network]', 'IPv6AcceptRA=no', 'Address=' + ipv4_address.group(), 'Address=' + ipv6_address.group()])
         print(static_network)
 
@@ -2114,9 +2125,10 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_file_path, 'static.network'), mode='w') as f:
             f.write(static_network)
 
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
+        # When networkd started, the links are already configured, so let's wait for 5 seconds
+        # the links to be re-configured.
+        self.start_networkd(5)
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global'], universal_newlines=True).rstrip()
         print(output)
@@ -2132,12 +2144,14 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
     def test_dhcp_client_vrf(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-vrf.network',
                                              '25-vrf.netdev', '25-vrf.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
-        self.check_link_exists('vrf99')
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable', 'vrf99:carrier'])
+
+        # link become 'routable' when at least one protocol provide an valid address.
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128', ipv='-6')
 
         print('## ip -d link show dev vrf99')
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'dev', 'vrf99'], universal_newlines=True).rstrip()
@@ -2178,11 +2192,10 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
     def test_dhcp_client_gateway_onlink_implicit(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
                                              'dhcp-client-gateway-onlink-implicit.network')
-        self.start_networkd()
-
-        self.check_link_exists('veth99')
-
+        self.start_networkd(0)
+        self.wait_online(['veth-peer:carrier'])
         self.start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
         print(output)
