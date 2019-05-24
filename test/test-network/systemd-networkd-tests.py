@@ -106,7 +106,7 @@ class Utilities():
     def check_link_exists(self, link):
         self.assertTrue(self.link_exists(link))
 
-    def link_remove(self, links):
+    def remove_links(self, links):
         for link in links:
             if self.link_exists(link):
                 subprocess.call(['ip', 'link', 'del', 'dev', link])
@@ -389,11 +389,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     def setUp(self):
         self.remove_fou_ports(self.fou_ports)
-        self.link_remove(self.links)
+        self.remove_links(self.links)
 
     def tearDown(self):
         self.remove_fou_ports(self.fou_ports)
-        self.link_remove(self.links)
+        self.remove_links(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
     def test_dropin_and_networkctl_glob(self):
@@ -1016,11 +1016,11 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
 
     def setUp(self):
         self.l2tp_tunnel_remove(self.l2tp_tunnel_ids)
-        self.link_remove(self.links)
+        self.remove_links(self.links)
 
     def tearDown(self):
         self.l2tp_tunnel_remove(self.l2tp_tunnel_ids)
-        self.link_remove(self.links)
+        self.remove_links(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
     @expectedFailureIfModuleIsNotAvailable('l2tp_eth')
@@ -1112,12 +1112,12 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
     def setUp(self):
         self.remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
         self.remove_routes(self.routes)
-        self.link_remove(self.links)
+        self.remove_links(self.links)
 
     def tearDown(self):
         self.remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
         self.remove_routes(self.routes)
-        self.link_remove(self.links)
+        self.remove_links(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
     def test_address_static(self):
@@ -1517,10 +1517,10 @@ class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
         'bond-slave.network']
 
     def setUp(self):
-        self.link_remove(self.links)
+        self.remove_links(self.links)
 
     def tearDown(self):
-        self.link_remove(self.links)
+        self.remove_links(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
     def test_bond_active_slave(self):
@@ -1619,10 +1619,10 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
         'bridge99.network']
 
     def setUp(self):
-        self.link_remove(self.links)
+        self.remove_links(self.links)
 
     def tearDown(self):
-        self.link_remove(self.links)
+        self.remove_links(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
     def test_bridge_property(self):
@@ -1773,10 +1773,10 @@ class NetworkdNetWorkLLDPTests(unittest.TestCase, Utilities):
         '25-veth.netdev']
 
     def setUp(self):
-        self.link_remove(self.links)
+        self.remove_links(self.links)
 
     def tearDown(self):
-        self.link_remove(self.links)
+        self.remove_links(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
     def test_lldp(self):
@@ -1799,10 +1799,10 @@ class NetworkdNetworkRATests(unittest.TestCase, Utilities):
         'ipv6-prefix-veth.network']
 
     def setUp(self):
-        self.link_remove(self.links)
+        self.remove_links(self.links)
 
     def tearDown(self):
-        self.link_remove(self.links)
+        self.remove_links(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
     def test_ipv6_prefix_delegation(self):
@@ -1831,10 +1831,10 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
         'dhcp-server-timezone-router.network']
 
     def setUp(self):
-        self.link_remove(self.links)
+        self.remove_links(self.links)
 
     def tearDown(self):
-        self.link_remove(self.links)
+        self.remove_links(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
     def test_dhcp_server(self):
@@ -1907,13 +1907,13 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
     def setUp(self):
         self.stop_dnsmasq(dnsmasq_pid_file)
-        self.link_remove(self.links)
+        self.remove_links(self.links)
 
     def tearDown(self):
         self.stop_dnsmasq(dnsmasq_pid_file)
         self.remove_lease_file()
         self.remove_log_file()
-        self.link_remove(self.links)
+        self.remove_links(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
     def test_dhcp_client_ipv6_only(self):
