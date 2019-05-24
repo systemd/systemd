@@ -1083,7 +1083,7 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
         self.assertRegex(output, "Peer session 28, tunnel 12")
         self.assertRegex(output, "interface name: l2tp-ses4")
 
-class NetworkdNetWorkTests(unittest.TestCase, Utilities):
+class NetworkdNetworkTests(unittest.TestCase, Utilities):
     links = [
         'bond199',
         'dummy98',
@@ -1505,7 +1505,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
         self.check_operstate('test1', 'routable')
 
-class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
+class NetworkdBondTests(unittest.TestCase, Utilities):
     links = [
         'bond199',
         'bond99',
@@ -1611,7 +1611,7 @@ class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
             # Let's confirm that networkd's operstate is consistent with ip's result.
             self.assertNotRegex(output, 'NO-CARRIER')
 
-class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
+class NetworkdBridgeTests(unittest.TestCase, Utilities):
     links = [
         'bridge99',
         'dummy98',
@@ -1772,7 +1772,7 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
 
         subprocess.call(['ip', 'rule', 'del', 'table', '100'])
 
-class NetworkdNetWorkLLDPTests(unittest.TestCase, Utilities):
+class NetworkdLLDPTests(unittest.TestCase, Utilities):
     links = ['veth99']
 
     units = [
@@ -1798,7 +1798,7 @@ class NetworkdNetWorkLLDPTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'veth-peer')
         self.assertRegex(output, 'veth99')
 
-class NetworkdNetworkRATests(unittest.TestCase, Utilities):
+class NetworkdRATests(unittest.TestCase, Utilities):
     links = ['veth99']
 
     units = [
@@ -1824,7 +1824,7 @@ class NetworkdNetworkRATests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2002:da8:1:0')
 
-class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
+class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     links = [
         'dummy98',
         'veth99']
@@ -1884,7 +1884,7 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5.*')
         self.assertRegex(output, 'Europe/Berlin')
 
-class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
+class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     links = [
         'veth99',
         'vrf99']
