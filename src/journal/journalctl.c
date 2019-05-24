@@ -1952,6 +1952,7 @@ static int simple_varlink_call(const char *option, const char *method) {
                 return log_error_errno(r, "Failed to connect to /run/systemd/journal/io.systemd.journal: %m");
 
         (void) varlink_set_description(link, "journal");
+        (void) varlink_set_relative_timeout(link, USEC_INFINITY);
 
         r = varlink_call(link, method, NULL, NULL, &error, NULL);
         if (r < 0)
