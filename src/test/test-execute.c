@@ -33,6 +33,12 @@ static bool can_unshare;
 
 typedef void (*test_function_t)(Manager *m);
 
+static int cld_dumped_to_killed(int code) {
+        /* Depending on the system, seccomp version, … some signals might result in dumping, others in plain
+         * killing. Let's ignore the difference here, and map both cases to CLD_KILLED */
+        return code == CLD_DUMPED ? CLD_KILLED : code;
+}
+
 static void check(const char *func, Manager *m, Unit *unit, int status_expected, int code_expected) {
         Service *service = NULL;
         usec_t ts;
@@ -62,16 +68,18 @@ static void check(const char *func, Manager *m, Unit *unit, int status_expected,
                 }
         }
         exec_status_dump(&service->main_exec_status, stdout, "\t");
+
+        if (cld_dumped_to_killed(service->main_exec_status.code) != cld_dumped_to_killed(code_expected)) {
+                log_error("%s: %s: exit code %d, expected %d",
+                          func, unit->id,
+                          service->main_exec_status.code, code_expected);
+                abort();
+        }
+
         if (service->main_exec_status.status != status_expected) {
                 log_error("%s: %s: exit status %d, expected %d",
                           func, unit->id,
                           service->main_exec_status.status, status_expected);
-                abort();
-        }
-        if (service->main_exec_status.code != code_expected) {
-                log_error("%s: %s: exit code %d, expected %d",
-                          func, unit->id,
-                          service->main_exec_status.code, code_expected);
                 abort();
         }
 }

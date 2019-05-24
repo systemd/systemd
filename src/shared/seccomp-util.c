@@ -1964,3 +1964,18 @@ int seccomp_restrict_suid_sgid(void) {
 
         return 0;
 }
+
+uint32_t scmp_act_kill_process(void) {
+
+        /* Returns SCMP_ACT_KILL_PROCESS if it's supported, and SCMP_ACT_KILL_THREAD otherwise. We never
+         * actually want to use SCMP_ACT_KILL_THREAD as its semantics are nuts (killing arbitrary threads of
+         * a program is just a bad idea), but on old kernels/old libseccomp it is all we have, and at least
+         * for single-threaded apps does the right thing. */
+
+#ifdef SCMP_ACT_KILL_PROCESS
+        if (seccomp_api_get() >= 3)
+                return SCMP_ACT_KILL_PROCESS;
+#endif
+
+        return SCMP_ACT_KILL; /* same as SCMP_ACT_KILL_THREAD */
+}
