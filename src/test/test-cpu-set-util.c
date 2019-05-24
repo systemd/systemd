@@ -9,6 +9,8 @@ static void test_parse_cpu_set(void) {
         _cleanup_free_ char *str = NULL;
         int cpu;
 
+        log_info("/* %s */", __func__);
+
         /* Simple range (from CPUAffinity example) */
         assert_se(parse_cpu_set_full("1 2", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
         assert_se(c.set);
@@ -155,6 +157,28 @@ static void test_parse_cpu_set(void) {
         cpu_set_reset(&c);
 }
 
+static void test_parse_cpu_set_extend(void) {
+        CPUSet c = {};
+        _cleanup_free_ char *s1 = NULL, *s2 = NULL;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(parse_cpu_set_extend("1 3", &c, true, NULL, "fake", 1, "CPUAffinity") == 0);
+        assert_se(CPU_COUNT_S(c.allocated, c.set) == 2);
+        assert_se(s1 = cpu_set_to_string(&c));
+        log_info("cpu_set_to_string: %s", s1);
+
+        assert_se(parse_cpu_set_extend("4", &c, true, NULL, "fake", 1, "CPUAffinity") == 0);
+        assert_se(CPU_COUNT_S(c.allocated, c.set) == 3);
+        assert_se(s2 = cpu_set_to_string(&c));
+        log_info("cpu_set_to_string: %s", s2);
+
+        assert_se(parse_cpu_set_extend("", &c, true, NULL, "fake", 1, "CPUAffinity") == 0);
+        assert_se(!c.set);
+        assert_se(c.allocated == 0);
+        log_info("cpu_set_to_string: (null)");
+}
+
 static void test_cpus_in_affinity_mask(void) {
         int r;
 
@@ -173,6 +197,7 @@ int main(int argc, char *argv[]) {
         log_info("CPU_ALLOC_SIZE(8191) = %zu", CPU_ALLOC_SIZE(8191));
 
         test_parse_cpu_set();
+        test_parse_cpu_set_extend();
         test_cpus_in_affinity_mask();
 
         return 0;
