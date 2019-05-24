@@ -519,7 +519,9 @@ static const NLType rtnl_link_types[] = {
         [IFLA_LINK]             = { .type = NETLINK_TYPE_U32 },
 /*
         [IFLA_QDISC],
-        [IFLA_STATS],
+*/
+        [IFLA_STATS]            = { .size = sizeof(struct rtnl_link_stats) },
+/*
         [IFLA_COST],
         [IFLA_PRIORITY],
 */
@@ -541,7 +543,9 @@ static const NLType rtnl_link_types[] = {
 /*
         [IFLA_NUM_VF],
         [IFLA_VFINFO_LIST]      = {. type = NETLINK_TYPE_NESTED, },
-        [IFLA_STATS64],
+*/
+        [IFLA_STATS64]          = { .size = sizeof(struct rtnl_link_stats64) },
+/*
         [IFLA_VF_PORTS]         = { .type = NETLINK_TYPE_NESTED },
         [IFLA_PORT_SELF]        = { .type = NETLINK_TYPE_NESTED },
 */
