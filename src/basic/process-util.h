@@ -195,4 +195,9 @@ assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX)
                 _pid_;                          \
         })
 
+typedef struct CPUAffinity {
+        cpu_set_t *set;
+        size_t allocated;
+} CPUAffinity;
+
 int cpus_in_affinity_mask(void);
