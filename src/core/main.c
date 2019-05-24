@@ -129,6 +129,8 @@ static sd_id128_t arg_machine_id = {};
 static EmergencyAction arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
 static CPUSet arg_cpu_affinity = {};
 
+static int parse_configuration(void);
+
 _noreturn_ static void freeze_or_reboot(void) {
 
         if (arg_crash_reboot) {
@@ -1659,9 +1661,7 @@ static int invoke_main_loop(
                         saved_log_level = m->log_level_overridden ? log_get_max_level() : -1;
                         saved_log_target = m->log_target_overridden ? log_get_target() : _LOG_TARGET_INVALID;
 
-                        r = parse_config_file();
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to parse config file, ignoring: %m");
+                        (void) parse_configuration();
 
                         set_manager_defaults(m);
 
@@ -1965,18 +1965,14 @@ static void free_arguments(void) {
         cpu_set_reset(&arg_cpu_affinity);
 }
 
-static int load_configuration(int argc, char **argv, const char **ret_error_message) {
+static int parse_configuration(void) {
         int r;
-
-        assert(ret_error_message);
 
         arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
 
         r = parse_config_file();
-        if (r < 0) {
-                *ret_error_message = "Failed to parse config file";
-                return r;
-        }
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse config file, ignoring: %m");
 
         if (arg_system) {
                 r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
@@ -1986,6 +1982,16 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
 
         /* Note that this also parses bits from the kernel command line, including "debug". */
         log_parse_environment();
+
+        return 0;
+}
+
+static int load_configuration(int argc, char **argv, const char **ret_error_message) {
+        int r;
+
+        assert(ret_error_message);
+
+        (void) parse_configuration();
 
         r = parse_argv(argc, argv);
         if (r < 0) {
