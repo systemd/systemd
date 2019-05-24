@@ -3826,6 +3826,11 @@ int json_dispatch_tristate(const char *name, JsonVariant *variant, JsonDispatchF
         assert(variant);
         assert(b);
 
+        if (json_variant_is_null(variant)) {
+                *b = -1;
+                return 0;
+        }
+
         if (!json_variant_is_boolean(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a boolean.", strna(name));
 
