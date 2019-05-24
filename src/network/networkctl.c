@@ -45,6 +45,7 @@
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_all = false;
+static bool arg_stats = false;
 
 static char *link_get_type_string(unsigned short iftype, sd_device *d) {
         const char *t, *devtype;
@@ -109,9 +110,16 @@ typedef struct LinkInfo {
         uint32_t tx_queues;
         uint32_t rx_queues;
 
+        union {
+                struct rtnl_link_stats64 stats64;
+                struct rtnl_link_stats stats;
+        };
+
         bool has_mac_address:1;
         bool has_tx_queues:1;
         bool has_rx_queues:1;
+        bool has_stats64:1;
+        bool has_stats:1;
 } LinkInfo;
 
 static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
@@ -172,6 +180,11 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
         info->has_tx_queues =
                 sd_netlink_message_read_u32(m, IFLA_NUM_TX_QUEUES, &info->tx_queues) >= 0 &&
                 info->tx_queues > 0;
+
+        if (sd_netlink_message_read(m, IFLA_STATS64, sizeof info->stats64, &info->stats64) >= 0)
+                info->has_stats64 = true;
+        else if (sd_netlink_message_read(m, IFLA_STATS, sizeof info->stats, &info->stats) >= 0)
+                info->has_stats = true;
 
         return 1;
 }
@@ -799,6 +812,42 @@ static int dump_list(Table *table, const char *prefix, char **l) {
         return 0;
 }
 
+#define DUMP_STATS_ONE(name, val_name)                                  \
+        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);             \
+        if (r < 0)                                                      \
+                return r;                                               \
+        r = table_add_cell_full(table, NULL, TABLE_STRING, name ":",    \
+                                SIZE_MAX, SIZE_MAX, 0, 100, 0);         \
+        if (r < 0)                                                      \
+                return r;                                               \
+        r = table_add_cell(table, NULL, info->has_stats64 ? TABLE_UINT64 : TABLE_UINT32, \
+                           info->has_stats64 ? (void*) &info->stats64.val_name : (void*) &info->stats.val_name); \
+        if (r < 0)                                                      \
+                return r;
+
+static int dump_statistics(Table *table, const LinkInfo *info) {
+        int r;
+
+        if (!arg_stats)
+                return 0;
+
+        if (!info->has_stats64 && !info->has_stats)
+                return 0;
+
+        DUMP_STATS_ONE("Rx Packets", rx_packets);
+        DUMP_STATS_ONE("Tx Packets", tx_packets);
+        DUMP_STATS_ONE("Rx Bytes", rx_bytes);
+        DUMP_STATS_ONE("Tx Bytes", tx_bytes);
+        DUMP_STATS_ONE("Rx Errors", rx_errors);
+        DUMP_STATS_ONE("Tx Errors", tx_errors);
+        DUMP_STATS_ONE("Rx Dropped", rx_dropped);
+        DUMP_STATS_ONE("Tx Dropped", tx_dropped);
+        DUMP_STATS_ONE("Multicast Packets", multicast);
+        DUMP_STATS_ONE("Collisions", collisions);
+
+        return 0;
+}
+
 static int link_status_one(
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
@@ -1058,6 +1107,10 @@ static int link_status_one(
         }
 
         r = dump_lldp_neighbors(table, "Connected To:", info->ifindex);
+        if (r < 0)
+                return r;
+
+        r = dump_statistics(table, info);
         if (r < 0)
                 return r;
 
@@ -1415,8 +1468,9 @@ static int help(void) {
                "     --version          Show package version\n"
                "     --no-pager         Do not pipe output into a pager\n"
                "     --no-legend        Do not show the headers and footers\n"
-               "  -a --all              Show status for all links\n\n"
-               "Commands:\n"
+               "  -a --all              Show status for all links\n"
+               "  -s --stats            Show detailed link statics\n"
+               "\nCommands:\n"
                "  list [PATTERN...]     List links\n"
                "  status [PATTERN...]   Show link status\n"
                "  lldp [PATTERN...]     Show LLDP neighbors\n"
@@ -1444,6 +1498,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
                 { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
                 { "all",       no_argument,       NULL, 'a'           },
+                { "stats",     no_argument,       NULL, 's'           },
                 {}
         };
 
@@ -1452,7 +1507,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ha", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "has", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -1472,6 +1527,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'a':
                         arg_all = true;
+                        break;
+
+                case 's':
+                        arg_stats = true;
                         break;
 
                 case '?':
