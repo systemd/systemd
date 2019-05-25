@@ -76,7 +76,7 @@ msgstr "設定靜態主機名稱"
 msgid ""
 "Authentication is required to set the statically configured local host name, "
 "as well as the pretty host name."
-msgstr "需要身份驗證，才能設定靜態且漂亮的已設定本地主機名稱。"
+msgstr "需要身份驗證，才能設定靜態預先設定或 pretty 本地主機名稱。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
