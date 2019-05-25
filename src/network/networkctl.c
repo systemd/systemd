@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-hwdb.h"
 #include "sd-lldp.h"
@@ -16,6 +17,9 @@
 
 #include "alloc-util.h"
 #include "arphrd-list.h"
+#include "bus-common-errors.h"
+#include "bus-error.h"
+#include "bus-util.h"
 #include "device-util.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
@@ -115,11 +119,15 @@ typedef struct LinkInfo {
                 struct rtnl_link_stats stats;
         };
 
+        double tx_bitrate;
+        double rx_bitrate;
+
         bool has_mac_address:1;
         bool has_tx_queues:1;
         bool has_rx_queues:1;
         bool has_stats64:1;
         bool has_stats:1;
+        bool has_bitrates:1;
 } LinkInfo;
 
 static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
@@ -189,10 +197,57 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
         return 1;
 }
 
-static int acquire_link_info(sd_netlink *rtnl, char **patterns, LinkInfo **ret) {
+static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *path = NULL, *ifindex_str = NULL;
+        int r;
+
+        if (asprintf(&ifindex_str, "%i", link->ifindex) < 0)
+                return -ENOMEM;
+
+        r = sd_bus_path_encode("/org/freedesktop/network1/link", ifindex_str, &path);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.network1",
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &error,
+                        &reply,
+                        "ss",
+                        "org.freedesktop.network1.Link",
+                        "BitRates");
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, BUS_ERROR_SPEED_METER_INACTIVE))
+                        return 0;
+                return log_error_errno(r, "%s", bus_error_message(&error, r));
+        }
+
+        r = sd_bus_message_enter_container(reply, 'v', "(dd)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_read(reply, "(dd)", &link->tx_bitrate, &link->rx_bitrate);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        link->has_bitrates = link->tx_bitrate >= 0 && link->rx_bitrate >= 0;
+
+        return 0;
+}
+
+static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
-        size_t allocated = 0, c = 0;
+        size_t allocated = 0, c = 0, j;
         sd_netlink_message *i;
         int r;
 
@@ -224,6 +279,10 @@ static int acquire_link_info(sd_netlink *rtnl, char **patterns, LinkInfo **ret) 
 
         typesafe_qsort(links, c, link_info_compare);
 
+        if (bus)
+                for (j = 0; j < c; j++)
+                        (void) acquire_link_bitrates(bus, links + j);
+
         *ret = TAKE_PTR(links);
 
         return (int) c;
@@ -240,7 +299,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        c = acquire_link_info(rtnl, argc > 1 ? argv + 1 : NULL, &links);
+        c = acquire_link_info(NULL, rtnl, argc > 1 ? argv + 1 : NULL, &links);
         if (c < 0)
                 return c;
 
@@ -848,6 +907,32 @@ static int dump_statistics(Table *table, const LinkInfo *info) {
         return 0;
 }
 
+static const struct {
+        double val;
+        const char *str;
+} prefix_table[] = {
+        { .val = 1e15, .str = "P" },
+        { .val = 1e12, .str = "T" },
+        { .val = 1e9,  .str = "G" },
+        { .val = 1e6,  .str = "M" },
+        { .val = 1e3,  .str = "k" },
+};
+
+static void get_prefix(double val, double *ret_div, const char **ret_prefix) {
+        assert(ret_div);
+        assert(ret_prefix);
+
+        for (size_t i = 0; i < ELEMENTSOF(prefix_table); i++)
+                if (val > prefix_table[i].val) {
+                        *ret_div = prefix_table[i].val;
+                        *ret_prefix = prefix_table[i].str;
+                        return;
+                }
+
+        *ret_div = 1;
+        *ret_prefix = NULL;
+}
+
 static int link_status_one(
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
@@ -1056,6 +1141,27 @@ static int link_status_one(
                         return r;
         }
 
+        if (info->has_bitrates) {
+                const char *tx_prefix, *rx_prefix;
+                double tx_div, rx_div;
+
+                get_prefix(info->tx_bitrate, &tx_div, &tx_prefix);
+                get_prefix(info->rx_bitrate, &rx_div, &rx_prefix);
+
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+                r = table_add_cell_full(table, NULL, TABLE_STRING, "Bit Rate (Tx/Rx):", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell_stringf(table, NULL, "%.4g %sbps/%.4g %sbps",
+                                           info->tx_bitrate / tx_div, strempty(tx_prefix),
+                                           info->rx_bitrate / rx_div, strempty(rx_prefix));
+                if (r < 0)
+                        return r;
+        }
+
         if (info->has_tx_queues || info->has_rx_queues) {
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
@@ -1182,12 +1288,17 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
 }
 
 static int link_status(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
         int r, c, i;
 
         (void) pager_open(arg_pager_flags);
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -1198,11 +1309,11 @@ static int link_status(int argc, char *argv[], void *userdata) {
                 log_debug_errno(r, "Failed to open hardware database: %m");
 
         if (arg_all)
-                c = acquire_link_info(rtnl, NULL, &links);
+                c = acquire_link_info(bus, rtnl, NULL, &links);
         else if (argc <= 1)
                 return system_status(rtnl, hwdb);
         else
-                c = acquire_link_info(rtnl, argv + 1, &links);
+                c = acquire_link_info(bus, rtnl, argv + 1, &links);
         if (c < 0)
                 return c;
 
@@ -1278,7 +1389,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        c = acquire_link_info(rtnl, argc > 1 ? argv + 1 : NULL, &links);
+        c = acquire_link_info(NULL, rtnl, argc > 1 ? argv + 1 : NULL, &links);
         if (c < 0)
                 return c;
 
