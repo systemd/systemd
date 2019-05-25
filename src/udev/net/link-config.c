@@ -260,7 +260,7 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
 
                                 (void) link_unsigned_attribute(device, "name_assign_type", &name_assign_type);
 
-                                if (name_assign_type == NET_NAME_ENUM) {
+                                if (name_assign_type == NET_NAME_ENUM && !strv_contains(link->match_name, "*")) {
                                         log_warning("Config file %s applies to device based on potentially unpredictable interface name '%s'",
                                                     link->filename, sysname);
                                         *ret = link;
