@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
+#include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
@@ -65,7 +66,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-static char *link_bus_path(Link *link) {
+char *link_bus_path(Link *link) {
         _cleanup_free_ char *ifindex = NULL;
         char *p;
         int r;

@@ -5,6 +5,7 @@
 #include "sd-event.h"
 #include "sd-netlink.h"
 
+#include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-speed-meter.h"

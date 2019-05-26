@@ -20,6 +20,8 @@
 #include "network-internal.h"
 #include "networkd-can.h"
 #include "networkd-ipv6-proxy-ndp.h"
+#include "networkd-link-bus.h"
+#include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
