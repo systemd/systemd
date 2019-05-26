@@ -132,8 +132,6 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s);
 DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m);
 
-bool dns_server_address_valid(int family, const union in_addr_union *sa);
-
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s);
 DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s);
 
