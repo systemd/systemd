@@ -106,6 +106,47 @@ static int generate_keydev_mount(const char *name, const char *keydev, char **un
         return 0;
 }
 
+static int print_dependencies(FILE *f, const char* device_path) {
+        int r;
+
+        if (STR_IN_SET(device_path, "-", "none"))
+                /* None, nothing to do */
+                return 0;
+
+        if (PATH_IN_SET(device_path, "/dev/urandom", "/dev/random", "/dev/hw_random")) {
+                /* RNG device, add random dep */
+                fputs("After=systemd-random-seed.service\n", f);
+                return 0;
+        }
+
+        _cleanup_free_ char *udev_node = fstab_node_to_udev_node(device_path);
+        if (!udev_node)
+                return log_oom();
+
+        if (path_equal(udev_node, "/dev/null"))
+                return 0;
+
+        if (path_startswith(udev_node, "/dev/")) {
+                /* We are dealing with a block device, add dependency for correspoding unit */
+                _cleanup_free_ char *unit = NULL;
+
+                r = unit_name_from_path(udev_node, ".device", &unit);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate unit name: %m");
+
+                fprintf(f, "After=%1$s\nRequires=%1$s\n", unit);
+        } else {
+                /* Regular file, add mount dependency */
+                _cleanup_free_ char *escaped_path = specifier_escape(device_path);
+                if (!escaped_path)
+                        return log_oom();
+
+                fprintf(f, "RequiresMountsFor=%s\n", escaped_path);
+        }
+
+        return 0;
+}
+
 static int create_disk(
                 const char *name,
                 const char *device,
@@ -114,11 +155,11 @@ static int create_disk(
                 const char *options) {
 
         _cleanup_free_ char *n = NULL, *d = NULL, *u = NULL, *e = NULL,
-                *filtered = NULL, *u_escaped = NULL, *password_escaped = NULL, *filtered_escaped = NULL, *name_escaped = NULL, *keydev_mount = NULL;
+                *filtered = NULL, *u_escaped = NULL, *password_escaped = NULL, *filtered_escaped = NULL, *name_escaped = NULL, *keydev_mount = NULL, *header_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
         bool noauto, nofail, tmp, swap, netdev;
-        int r;
+        int r, detached_header;
 
         assert(name);
         assert(device);
@@ -128,6 +169,10 @@ static int create_disk(
         tmp = fstab_test_option(options, "tmp\0");
         swap = fstab_test_option(options, "swap\0");
         netdev = fstab_test_option(options, "_netdev\0");
+
+        detached_header = fstab_filter_options(options, "header\0", NULL, &header_path, NULL);
+        if (detached_header < 0)
+                return log_error_errno(detached_header, "Failed to parse header= option value: %m");
 
         if (tmp && swap)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -203,29 +248,16 @@ static int create_disk(
                         netdev ? "remote-cryptsetup.target" : "cryptsetup.target");
 
         if (password) {
-                if (PATH_IN_SET(password, "/dev/urandom", "/dev/random", "/dev/hw_random"))
-                        fputs("After=systemd-random-seed.service\n", f);
-                else if (!STR_IN_SET(password, "-", "none")) {
-                        _cleanup_free_ char *uu;
+                r = print_dependencies(f, password);
+                if (r < 0)
+                        return r;
+        }
 
-                        uu = fstab_node_to_udev_node(password);
-                        if (!uu)
-                                return log_oom();
-
-                        if (!path_equal(uu, "/dev/null")) {
-
-                                if (path_startswith(uu, "/dev/")) {
-                                        _cleanup_free_ char *dd = NULL;
-
-                                        r = unit_name_from_path(uu, ".device", &dd);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to generate unit name: %m");
-
-                                        fprintf(f, "After=%1$s\nRequires=%1$s\n", dd);
-                                } else
-                                        fprintf(f, "RequiresMountsFor=%s\n", password_escaped);
-                        }
-                }
+        /* Check if a header option was specified */
+        if (detached_header > 0) {
+                r = print_dependencies(f, header_path);
+                if (r < 0)
+                        return r;
         }
 
         if (path_startswith(u, "/dev/")) {
