@@ -211,11 +211,11 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--bind-device=</option></term>
+        <term><option>--bind-device</option></term>
 
-        <listitem><para>Takes a boolean argument, defaults to off. This option only has an effect in automount mode,
-        and controls whether the automount unit shall be bound to the backing device's lifetime. If enabled, the
-        automount point will be removed automatically when the backing device vanishes. If disabled the automount point
+        <listitem><para>This option only has an effect in automount mode,
+        and controls whether the automount unit shall be bound to the backing device's lifetime. If set, the
+        automount point will be removed automatically when the backing device vanishes. By default the automount point
         stays around, and subsequent accesses will block until backing device is replugged. This option has no effect
         in case of non-device mounts, such as network or virtual file system mounts.</para>
 
