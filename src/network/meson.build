@@ -156,6 +156,8 @@ if conf.get('ENABLE_NETWORKD') == 1
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.network1.service',
                      install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.network1.policy',
+                     install_dir : polkitpolicydir)
         if install_polkit
                 install_data('systemd-networkd.rules',
                              install_dir : polkitrulesdir)

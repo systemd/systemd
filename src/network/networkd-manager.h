@@ -25,6 +25,7 @@ struct Manager {
         sd_resolve *resolve;
         sd_bus *bus;
         sd_device_monitor *device_monitor;
+        Hashmap *polkit_registry;
 
         bool enumerating:1;
         bool dirty:1;

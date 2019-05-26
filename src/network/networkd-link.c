@@ -609,6 +609,13 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .ifindex = ifindex,
                 .iftype = iftype,
                 .sysctl_ipv6_enabled = -1,
+
+                .n_dns = (unsigned) -1,
+                .dns_default_route = -1,
+                .llmnr = _RESOLVE_SUPPORT_INVALID,
+                .mdns = _RESOLVE_SUPPORT_INVALID,
+                .dnssec_mode = _DNSSEC_MODE_INVALID,
+                .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
         };
 
         link->ifname = strdup(ifname);
@@ -655,10 +662,33 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         return 0;
 }
 
+void link_ntp_settings_clear(Link *link) {
+        link->ntp = strv_free(link->ntp);
+}
+
+void link_dns_settings_clear(Link *link) {
+        link->dns = mfree(link->dns);
+        link->n_dns = (unsigned) -1;
+
+        link->search_domains = ordered_set_free_free(link->search_domains);
+        link->route_domains = ordered_set_free_free(link->route_domains);
+
+        link->dns_default_route = -1;
+        link->llmnr = _RESOLVE_SUPPORT_INVALID;
+        link->mdns = _RESOLVE_SUPPORT_INVALID;
+        link->dnssec_mode = _DNSSEC_MODE_INVALID;
+        link->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
+
+        link->dnssec_negative_trust_anchors = set_free_free(link->dnssec_negative_trust_anchors);
+}
+
 static Link *link_free(Link *link) {
         Address *address;
 
         assert(link);
+
+        link_ntp_settings_clear(link);
+        link_dns_settings_clear(link);
 
         link->routes = set_free_with_destructor(link->routes, route_free);
         link->routes_foreign = set_free_with_destructor(link->routes_foreign, route_free);
@@ -3386,6 +3416,26 @@ static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
         fputc('\n', f);
 }
 
+static void link_save_dns(FILE *f, struct in_addr_data *dns, unsigned n_dns, bool *space) {
+        unsigned j;
+        int r;
+
+        for (j = 0; j < n_dns; j++) {
+                _cleanup_free_ char *b = NULL;
+
+                r = in_addr_to_string(dns[j].family, &dns[j].address, &b);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to format address, ignoring: %m");
+                        continue;
+                }
+
+                if (*space)
+                        fputc(' ', f);
+                fputs(b, f);
+                *space = true;
+        }
+}
+
 int link_save(Link *link) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -3437,7 +3487,6 @@ int link_save(Link *link) {
                 char **dhcp6_domains = NULL, **dhcp_domains = NULL;
                 const char *dhcp_domainname = NULL, *p;
                 sd_dhcp6_lease *dhcp6_lease = NULL;
-                unsigned j;
                 bool space;
 
                 fprintf(f, "REQUIRED_FOR_ONLINE=%s\n",
@@ -3457,21 +3506,10 @@ int link_save(Link *link) {
                 fputs("DNS=", f);
                 space = false;
 
-                for (j = 0; j < link->network->n_dns; j++) {
-                        _cleanup_free_ char *b = NULL;
-
-                        r = in_addr_to_string(link->network->dns[j].family,
-                                              &link->network->dns[j].address,  &b);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to format address, ignoring: %m");
-                                continue;
-                        }
-
-                        if (space)
-                                fputc(' ', f);
-                        fputs(b, f);
-                        space = true;
-                }
+                if (link->n_dns != (unsigned) -1)
+                        link_save_dns(f, link->dns, link->n_dns, &space);
+                else
+                        link_save_dns(f, link->network->dns, link->network->n_dns, &space);
 
                 if (link->network->dhcp_use_dns &&
                     link->dhcp_lease) {
@@ -3514,7 +3552,7 @@ int link_save(Link *link) {
 
                 fputs("NTP=", f);
                 space = false;
-                fputstrv(f, link->network->ntp, NULL, &space);
+                fputstrv(f, link->ntp ?: link->network->ntp, NULL, &space);
 
                 if (link->network->dhcp_use_ntp &&
                     link->dhcp_lease) {
@@ -3557,7 +3595,7 @@ int link_save(Link *link) {
 
                 fputs("DOMAINS=", f);
                 space = false;
-                ORDERED_SET_FOREACH(p, link->network->search_domains, i)
+                ORDERED_SET_FOREACH(p, link->search_domains ?: link->network->search_domains, i)
                         fputs_with_space(f, p, NULL, &space);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) {
@@ -3580,7 +3618,7 @@ int link_save(Link *link) {
 
                 fputs("ROUTE_DOMAINS=", f);
                 space = false;
-                ORDERED_SET_FOREACH(p, link->network->route_domains, i)
+                ORDERED_SET_FOREACH(p, link->route_domains ?: link->network->route_domains, i)
                         fputs_with_space(f, p, NULL, &space);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE) {
@@ -3602,21 +3640,37 @@ int link_save(Link *link) {
                 fputc('\n', f);
 
                 fprintf(f, "LLMNR=%s\n",
-                        resolve_support_to_string(link->network->llmnr));
+                        resolve_support_to_string(link->llmnr >= 0 ? link->llmnr : link->network->llmnr));
                 fprintf(f, "MDNS=%s\n",
-                        resolve_support_to_string(link->network->mdns));
-                if (link->network->dns_default_route >= 0)
+                        resolve_support_to_string(link->mdns >= 0 ? link->mdns : link->network->mdns));
+                if (link->dns_default_route >= 0)
+                        fprintf(f, "DNS_DEFAULT_ROUTE=%s\n", yes_no(link->dns_default_route));
+                else if (link->network->dns_default_route >= 0)
                         fprintf(f, "DNS_DEFAULT_ROUTE=%s\n", yes_no(link->network->dns_default_route));
 
-                if (link->network->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
+                if (link->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
+                        fprintf(f, "DNS_OVER_TLS=%s\n",
+                                dns_over_tls_mode_to_string(link->dns_over_tls_mode));
+                else if (link->network->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
                         fprintf(f, "DNS_OVER_TLS=%s\n",
                                 dns_over_tls_mode_to_string(link->network->dns_over_tls_mode));
 
-                if (link->network->dnssec_mode != _DNSSEC_MODE_INVALID)
+                if (link->dnssec_mode != _DNSSEC_MODE_INVALID)
+                        fprintf(f, "DNSSEC=%s\n",
+                                dnssec_mode_to_string(link->dnssec_mode));
+                else if (link->network->dnssec_mode != _DNSSEC_MODE_INVALID)
                         fprintf(f, "DNSSEC=%s\n",
                                 dnssec_mode_to_string(link->network->dnssec_mode));
 
-                if (!set_isempty(link->network->dnssec_negative_trust_anchors)) {
+                if (!set_isempty(link->dnssec_negative_trust_anchors)) {
+                        const char *n;
+
+                        fputs("DNSSEC_NTA=", f);
+                        space = false;
+                        SET_FOREACH(n, link->dnssec_negative_trust_anchors, i)
+                                fputs_with_space(f, n, NULL, &space);
+                        fputc('\n', f);
+                } else if (!set_isempty(link->network->dnssec_negative_trust_anchors)) {
                         const char *n;
 
                         fputs("DNSSEC_NTA=", f);
