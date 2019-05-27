@@ -247,11 +247,8 @@
 
         <listitem>
           <para>Get/set per-interface DNS configuration. These commands may be used to configure various DNS settings
-          for network interfaces that aren't managed by
-          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. (These
-          commands will fail when used on interfaces that are managed by <command>systemd-networkd</command>, please
-          configure their DNS settings directly inside the <filename>.network</filename> files instead.) These commands
-          may be used to inform <command>systemd-resolved</command> about per-interface DNS configuration determined
+          for network interfaces. These commands may be used to inform <command>systemd-resolved</command> or
+          <command>systemd-networkd</command> about per-interface DNS configuration determined
           through external means. The <option>dns</option> command expects IPv4 or IPv6 address specifications of DNS
           servers to use. The <option>domain</option> command expects valid DNS domains, possibly prefixed with
           <literal>~</literal>, and configures a per-interface search or route-only domain. The
