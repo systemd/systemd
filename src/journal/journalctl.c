@@ -1968,7 +1968,7 @@ static int flush_to_var(void) {
 }
 
 static int relinquish_var(void) {
-        return simple_varlink_call("--relinquish-var", "io.systemd.Journal.RelinquishVar");
+        return simple_varlink_call("--relinquish-var/--smart-relinquish-var", "io.systemd.Journal.RelinquishVar");
 }
 
 static int rotate(void) {
