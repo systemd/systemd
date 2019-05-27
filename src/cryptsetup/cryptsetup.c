@@ -715,6 +715,18 @@ static int run(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set LUKS data device %s: %m", argv[3]);
                         }
+#ifdef CRYPT_ANY_TOKEN
+                        /* Tokens are available in LUKS2 only, but it is ok to call (and fail) with LUKS1. */
+                        if (!key_file) {
+                                r = crypt_activate_by_token(cd, argv[2], CRYPT_ANY_TOKEN, NULL, flags);
+                                if (r >= 0) {
+                                        log_debug("Volume %s activated with LUKS token id %i.", argv[2], r);
+                                        return 0;
+                                }
+
+                                log_debug_errno(r, "Token activation unsuccessful for device %s: %m", crypt_get_device_name(cd));
+                        }
+#endif
                 }
 
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
