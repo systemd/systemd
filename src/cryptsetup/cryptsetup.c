@@ -502,11 +502,14 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                 if (r < 0)
                         return log_error_errno(r, "Failed to load LUKS superblock on device %s: %m", crypt_get_device_name(cd));
 
-                if (data_device)
+                if (data_device) {
                         r = crypt_set_data_device(cd, data_device);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set LUKS data device %s: %m", data_device);
+                }
         }
 
-        if ((!arg_type && r < 0) || streq_ptr(arg_type, CRYPT_PLAIN)) {
+        if ((!arg_type && !crypt_get_type(cd)) || streq_ptr(arg_type, CRYPT_PLAIN)) {
                 struct crypt_params_plain params = {
                         .offset = arg_offset,
                         .skip = arg_skip,
@@ -547,12 +550,12 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                 /* In contrast to what the name crypt_setup() might suggest this doesn't actually format
                  * anything, it just configures encryption parameters when used for plain mode. */
                 r = crypt_format(cd, CRYPT_PLAIN, cipher, cipher_mode, NULL, NULL, arg_keyfile_size, &params);
+                if (r < 0)
+                        return log_error_errno(r, "Loading of cryptographic parameters failed: %m");
 
                 /* hash == NULL implies the user passed "plain" */
                 pass_volume_key = (params.hash == NULL);
         }
-        if (r < 0)
-                return log_error_errno(r, "Loading of cryptographic parameters failed: %m");
 
         log_info("Set cipher %s, mode %s, key size %i bits for device %s.",
                  crypt_get_cipher(cd),
