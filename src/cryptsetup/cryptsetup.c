@@ -475,7 +475,6 @@ static int attach_tcrypt(
 static int attach_luks_or_plain(struct crypt_device *cd,
                                 const char *name,
                                 const char *key_file,
-                                const char *data_device,
                                 char **passwords,
                                 uint32_t flags) {
         int r = 0;
@@ -484,20 +483,6 @@ static int attach_luks_or_plain(struct crypt_device *cd,
         assert(cd);
         assert(name);
         assert(key_file || passwords);
-
-        if (!arg_type || STR_IN_SET(arg_type, ANY_LUKS, CRYPT_LUKS1)) {
-                r = crypt_load(cd, CRYPT_LUKS, NULL);
-                if (r < 0) {
-                        log_error("crypt_load() failed on device %s.\n", crypt_get_device_name(cd));
-                        return r;
-                }
-
-                if (data_device) {
-                        r = crypt_set_data_device(cd, data_device);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set LUKS data device %s: %m", data_device);
-                }
-        }
 
         if ((!arg_type && !crypt_get_type(cd)) || streq_ptr(arg_type, CRYPT_PLAIN)) {
                 struct crypt_params_plain params = {
@@ -687,6 +672,18 @@ int main(int argc, char *argv[]) {
                                 log_warning("Key file %s is world-readable. This is not a good idea!", key_file);
                 }
 
+                if (!arg_type || STR_IN_SET(arg_type, ANY_LUKS, CRYPT_LUKS1)) {
+                        r = crypt_load(cd, CRYPT_LUKS, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to load LUKS superblock on device %s: %m", crypt_get_device_name(cd));
+
+                        if (arg_header) {
+                                r = crypt_set_data_device(cd, argv[3]);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set LUKS data device %s: %m", argv[3]);
+                        }
+                }
+
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
                         _cleanup_strv_free_erase_ char **passwords = NULL;
 
@@ -704,7 +701,6 @@ int main(int argc, char *argv[]) {
                                 r = attach_luks_or_plain(cd,
                                                          argv[2],
                                                          key_file,
-                                                         arg_header ? argv[3] : NULL,
                                                          passwords,
                                                          flags);
                         if (r >= 0)
