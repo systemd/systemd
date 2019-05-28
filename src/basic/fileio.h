@@ -21,6 +21,7 @@ typedef enum {
         WRITE_STRING_FILE_SYNC              = 1 << 4,
         WRITE_STRING_FILE_DISABLE_BUFFER    = 1 << 5,
         WRITE_STRING_FILE_NOFOLLOW          = 1 << 6,
+        WRITE_STRING_FILE_MKDIR_0755        = 1 << 7,
 
         /* And before you wonder, why write_string_file_atomic_label_ts() is a separate function instead of just one
            more flag here: it's about linking: we don't want to pull -lselinux into all users of write_string_file()
