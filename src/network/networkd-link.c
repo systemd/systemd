@@ -965,7 +965,8 @@ void link_check_ready(Link *link) {
                 return;
 
         if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link)) &&
-            !(link->dhcp4_configured || link->dhcp6_configured) &&
+            !link->dhcp4_configured &&
+            !link->dhcp6_configured &&
             !(link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4) && link->ipv4ll_address && link->ipv4ll_route))
                 /* When DHCP is enabled, at least one protocol must provide an address, or
                  * an IPv4ll fallback address must be configured. */
