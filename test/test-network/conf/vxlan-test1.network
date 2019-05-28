@@ -3,4 +3,5 @@ Name=test1
 
 [Network]
 IPv6AcceptRA=false
+LinkLocalAddressing=yes
 VXLAN=vxlan99

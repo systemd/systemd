@@ -265,6 +265,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'vtitun97',
         'vtitun98',
         'vtitun99',
+        'vxcan99',
         'vxlan99',
         'wg98',
         'wg99']
@@ -334,6 +335,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-vti-tunnel-local-any.netdev',
         '25-vti-tunnel-remote-any.netdev',
         '25-vti-tunnel.netdev',
+        '25-vxcan.netdev',
         '25-vxlan.netdev',
         '25-wireguard-23-peers.netdev',
         '25-wireguard-23-peers.network',
@@ -410,8 +412,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
 
         self.wait_online(['bridge99', 'test1:degraded'], bool_any=True)
-        self.check_link_exists('bridge99')
-        self.check_link_exists('test1')
 
         self.check_operstate('bridge99', '(?:off|no-carrier)', setup_state='configuring')
         self.check_operstate('test1', 'degraded')
@@ -458,7 +458,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                                              '21-vlan.network', '21-vlan-test1.network')
         self.start_networkd(0)
 
-        self.wait_online(['test1', 'vlan99'])
+        self.wait_online(['test1:degraded', 'vlan99:routable'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1'], universal_newlines=True).rstrip()
         print(output)
@@ -570,12 +570,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'link/ether 12:34:56:78:9a:bd')
 
-    def test_dummy(self):
-        self.copy_unit_to_networkd_unit_path('11-dummy.netdev')
-        self.start_networkd(0)
-
-        self.wait_online(['test1:off'])
-
     def test_tun(self):
         self.copy_unit_to_networkd_unit_path('25-tun.netdev')
         self.start_networkd(0)
@@ -600,10 +594,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_vrf(self):
-        self.copy_unit_to_networkd_unit_path('25-vrf.netdev')
+        self.copy_unit_to_networkd_unit_path('25-vrf.netdev', 'netdev-link-local-addressing-yes.network')
         self.start_networkd(0)
 
-        self.wait_online(['vrf99:off'])
+        self.wait_online(['vrf99:carrier'])
 
     @expectedFailureIfModuleIsNotAvailable('vcan')
     def test_vcan(self):
@@ -611,6 +605,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
 
         self.wait_online(['vcan99:carrier'])
+
+    @expectedFailureIfModuleIsNotAvailable('vxcan')
+    def test_vxcan(self):
+        self.copy_unit_to_networkd_unit_path('25-vxcan.netdev', 'netdev-link-local-addressing-yes.network')
+        self.start_networkd(0)
+
+        self.wait_online(['vxcan99:carrier', 'vxcan-peer:carrier'])
 
     @expectedFailureIfModuleIsNotAvailable('wireguard')
     def test_wireguard(self):
@@ -644,10 +645,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             self.assertRegex(output, 'CJQUtcS9emY2fLYqDlpSZiE/QJyHkPWr\+WHtZLZ90FU=')
 
     def test_geneve(self):
-        self.copy_unit_to_networkd_unit_path('25-geneve.netdev')
+        self.copy_unit_to_networkd_unit_path('25-geneve.netdev', 'netdev-link-local-addressing-yes.network')
         self.start_networkd(0)
 
-        self.wait_online(['geneve99:off'])
+        self.wait_online(['geneve99:degraded'])
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'geneve99'], universal_newlines=True).rstrip()
         print(output)
@@ -842,9 +843,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['isataptun99:routable', 'dummy98:degraded'])
 
-        self.check_link_exists('dummy98')
-        self.check_link_exists('isataptun99')
-
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'isataptun99'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, "isatap ")
@@ -884,10 +882,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'oseq')
 
     def test_tunnel_independent(self):
-        self.copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent.netdev')
+        self.copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent.netdev', 'netdev-link-local-addressing-yes.network')
         self.start_networkd(0)
 
-        self.wait_online(['ipiptun99:off'])
+        self.wait_online(['ipiptun99:carrier'])
 
     @expectedFailureIfModuleIsNotAvailable('fou')
     def test_fou(self):
@@ -1400,8 +1398,6 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['dummy98:degraded'])
 
-        self.check_link_exists('dummy98')
-
         self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'forwarding'), '1')
         self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'use_tempaddr'), '2')
         self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'dad_transmits'), '3')
@@ -1420,8 +1416,6 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['dummy98:routable'])
 
-        self.check_link_exists('dummy98')
-
         output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope global dummy98')
@@ -1438,8 +1432,6 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.start_networkd(0)
         self.wait_online(['dummy98:routable'])
-
-        self.check_link_exists('dummy98')
 
         output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dummy98'], universal_newlines=True).rstrip()
         print(output)
