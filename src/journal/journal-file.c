@@ -335,7 +335,8 @@ bool journal_file_is_offlining(JournalFile *f) {
 }
 
 JournalFile* journal_file_close(JournalFile *f) {
-        assert(f);
+        if (!f)
+                return NULL;
 
 #if HAVE_GCRYPT
         /* Write the final tag */
