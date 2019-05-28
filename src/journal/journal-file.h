@@ -144,6 +144,7 @@ int journal_file_open(
 int journal_file_set_offline(JournalFile *f, bool wait);
 bool journal_file_is_offlining(JournalFile *f);
 JournalFile* journal_file_close(JournalFile *j);
+DEFINE_TRIVIAL_CLEANUP_FUNC(JournalFile*, journal_file_close);
 
 int journal_file_open_reliably(
                 const char *fname,
