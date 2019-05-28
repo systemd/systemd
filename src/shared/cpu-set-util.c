@@ -34,36 +34,7 @@ char* cpu_set_to_string(const CPUSet *a) {
         return TAKE_PTR(str) ?: strdup("");
 }
 
-cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
-        cpu_set_t *c;
-        unsigned n = 1024;
-
-        /* Allocates the cpuset in the right size */
-
-        for (;;) {
-                c = CPU_ALLOC(n);
-                if (!c)
-                        return NULL;
-
-                if (sched_getaffinity(0, CPU_ALLOC_SIZE(n), c) >= 0) {
-                        CPU_ZERO_S(CPU_ALLOC_SIZE(n), c);
-
-                        if (ncpus)
-                                *ncpus = n;
-
-                        return c;
-                }
-
-                CPU_FREE(c);
-
-                if (errno != EINVAL)
-                        return NULL;
-
-                n *= 2;
-        }
-}
-
-static int cpu_set_realloc(CPUSet *cpu_set, unsigned ncpus) {
+int cpu_set_realloc(CPUSet *cpu_set, unsigned ncpus) {
         size_t need;
 
         assert(cpu_set);

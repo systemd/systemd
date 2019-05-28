@@ -8,8 +8,6 @@
 DEFINE_TRIVIAL_CLEANUP_FUNC(cpu_set_t*, CPU_FREE);
 #define _cleanup_cpu_free_ _cleanup_(CPU_FREEp)
 
-cpu_set_t* cpu_set_malloc(unsigned *ncpus);
-
 /* This wraps the libc interface with a variable to keep the allocated size. */
 typedef struct CPUSet {
         cpu_set_t *set;
@@ -26,6 +24,7 @@ static inline void cpu_set_reset(CPUSet *a) {
 int cpu_set_add_all(CPUSet *a, const CPUSet *b);
 
 char* cpu_set_to_string(const CPUSet *a);
+int cpu_set_realloc(CPUSet *cpu_set, unsigned ncpus);
 int parse_cpu_set_full(
                 const char *rvalue,
                 CPUSet *cpu_set,

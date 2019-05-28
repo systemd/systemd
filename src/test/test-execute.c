@@ -179,13 +179,12 @@ static void test_exec_bindpaths(Manager *m) {
 }
 
 static void test_exec_cpuaffinity(Manager *m) {
-        _cleanup_cpu_free_ cpu_set_t *c = NULL;
-        unsigned n;
+        _cleanup_(cpu_set_reset) CPUSet c = {};
 
-        assert_se(c = cpu_set_malloc(&n));
-        assert_se(sched_getaffinity(0, CPU_ALLOC_SIZE(n), c) >= 0);
+        assert_se(cpu_set_realloc(&c, 8192) >= 0); /* just allocate the maximum possible size */
+        assert_se(sched_getaffinity(0, c.allocated, c.set) >= 0);
 
-        if (CPU_ISSET_S(0, CPU_ALLOC_SIZE(n), c) == 0) {
+        if (!CPU_ISSET_S(0, c.allocated, c.set)) {
                 log_notice("Cannot use CPU 0, skipping %s", __func__);
                 return;
         }
@@ -193,8 +192,8 @@ static void test_exec_cpuaffinity(Manager *m) {
         test(__func__, m, "exec-cpuaffinity1.service", 0, CLD_EXITED);
         test(__func__, m, "exec-cpuaffinity2.service", 0, CLD_EXITED);
 
-        if (CPU_ISSET_S(1, CPU_ALLOC_SIZE(n), c) == 0 ||
-            CPU_ISSET_S(2, CPU_ALLOC_SIZE(n), c) == 0) {
+        if (!CPU_ISSET_S(1, c.allocated, c.set) ||
+            !CPU_ISSET_S(2, c.allocated, c.set)) {
                 log_notice("Cannot use CPU 1 or 2, skipping remaining tests in %s", __func__);
                 return;
         }
