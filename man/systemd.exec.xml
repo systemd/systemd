@@ -1517,24 +1517,29 @@ RestrictNamespaces=~cgroup net</programlisting>
       <varlistentry>
         <term><varname>SystemCallFilter=</varname></term>
 
-        <listitem><para>Takes a space-separated list of system call names. If this setting is used, all system calls
-        executed by the unit processes except for the listed ones will result in immediate process termination with the
-        <constant>SIGSYS</constant> signal (whitelisting). If the first character of the list is <literal>~</literal>,
-        the effect is inverted: only the listed system calls will result in immediate process termination
-        (blacklisting). Blacklisted system calls and system call groups may optionally be suffixed with a colon
-        (<literal>:</literal>) and <literal>errno</literal> error number (between 0 and 4095) or errno name such as
-        <constant>EPERM</constant>, <constant>EACCES</constant> or <constant>EUCLEAN</constant>. This value will be
-        returned when a blacklisted system call is triggered, instead of terminating the processes immediately.  This
-        value takes precedence over the one given in <varname>SystemCallErrorNumber=</varname>.  If running in user
-        mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
-        <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. This feature makes use of
-        the Secure Computing Mode 2 interfaces of the kernel ('seccomp filtering') and is useful for enforcing a
-        minimal sandboxing environment. Note that the <function>execve</function>, <function>exit</function>,
-        <function>exit_group</function>, <function>getrlimit</function>, <function>rt_sigreturn</function>,
-        <function>sigreturn</function> system calls and the system calls for querying time and sleeping are implicitly
-        whitelisted and do not need to be listed explicitly. This option may be specified more than once, in which case
-        the filter masks are merged. If the empty string is assigned, the filter is reset, all prior assignments will
-        have no effect. This does not affect commands prefixed with <literal>+</literal>.</para>
+        <listitem><para>Takes a space-separated list of system call names. If this setting is used, all
+        system calls executed by the unit processes except for the listed ones will result in immediate
+        process termination with the <constant>SIGSYS</constant> signal (whitelisting). (See
+        <varname>SystemCallErrorNumber=</varname> below for changing the default action). If the first
+        character of the list is <literal>~</literal>, the effect is inverted: only the listed system calls
+        will result in immediate process termination (blacklisting). Blacklisted system calls and system call
+        groups may optionally be suffixed with a colon (<literal>:</literal>) and <literal>errno</literal>
+        error number (between 0 and 4095) or errno name such as <constant>EPERM</constant>,
+        <constant>EACCES</constant> or <constant>EUCLEAN</constant> (see <citerefentry
+        project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry> for a
+        full list). This value will be returned when a blacklisted system call is triggered, instead of
+        terminating the processes immediately.  This value takes precedence over the one given in
+        <varname>SystemCallErrorNumber=</varname>, see below.  If running in user mode, or in system mode,
+        but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
+        <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. This feature
+        makes use of the Secure Computing Mode 2 interfaces of the kernel ('seccomp filtering') and is useful
+        for enforcing a minimal sandboxing environment. Note that the <function>execve</function>,
+        <function>exit</function>, <function>exit_group</function>, <function>getrlimit</function>,
+        <function>rt_sigreturn</function>, <function>sigreturn</function> system calls and the system calls
+        for querying time and sleeping are implicitly whitelisted and do not need to be listed
+        explicitly. This option may be specified more than once, in which case the filter masks are
+        merged. If the empty string is assigned, the filter is reset, all prior assignments will have no
+        effect. This does not affect commands prefixed with <literal>+</literal>.</para>
 
         <para>Note that on systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn off
         alternative ABIs for services, so that they cannot be used to circumvent the restrictions of this
@@ -1694,6 +1699,22 @@ RestrictNamespaces=~cgroup net</programlisting>
 SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM</programlisting>
 
+        <para>Note that various kernel system calls are defined redundantly: there are multiple system calls
+        for executing the same operation. For example, the <function>pidfd_send_signal()</function> system
+        call may be used to execute operations similar to what can be done with the older
+        <function>kill()</function> system call, hence blocking the latter without the former only provides
+        weak protection. Since new system calls are added regularly to the kernel as development progresses,
+        keeping system call blacklists comprehensive requires constant work. It is thus recommended to use
+        whitelisting instead, which offers the benefit that new system calls are by default implicitly
+        blocked until the whitelist is updated.</para>
+
+        <para>Also note that a number of system calls are required to be accessible for the dynamic linker to
+        work. The dynamic linker is required for running most regular programs (specifically: all dynamic ELF
+        binaries, which is how most distributions build packaged programs). This means that blocking these
+        system calls (which include <function>open()</function>, <function>openat()</function> or
+        <function>mmap()</function>) will make most programs typically shipped with generic distributions
+        unusable.</para>
+
         <para>It is recommended to combine the file system namespacing related options with
         <varname>SystemCallFilter=~@mount</varname>, in order to prohibit the unit's processes to undo the
         mappings. Specifically these are the options <varname>PrivateTmp=</varname>,
@@ -1706,11 +1727,13 @@ SystemCallErrorNumber=EPERM</programlisting>
       <varlistentry>
         <term><varname>SystemCallErrorNumber=</varname></term>
 
-        <listitem><para>Takes an <literal>errno</literal> error number (between 1 and 4095) or errno name such as
-        <constant>EPERM</constant>, <constant>EACCES</constant> or <constant>EUCLEAN</constant>, to return when the
-        system call filter configured with <varname>SystemCallFilter=</varname> is triggered, instead of terminating
-        the process immediately. When this setting is not used, or when the empty string is assigned, the process will
-        be terminated immediately when the filter is triggered.</para></listitem>
+        <listitem><para>Takes an <literal>errno</literal> error number (between 1 and 4095) or errno name
+        such as <constant>EPERM</constant>, <constant>EACCES</constant> or <constant>EUCLEAN</constant>, to
+        return when the system call filter configured with <varname>SystemCallFilter=</varname> is triggered,
+        instead of terminating the process immediately. See <citerefentry
+        project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry> for a
+        full list of error codes. When this setting is not used, or when the empty string is assigned, the
+        process will be terminated immediately when the filter is triggered.</para></listitem>
       </varlistentry>
 
       <varlistentry>
