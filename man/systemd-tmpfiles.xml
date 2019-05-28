@@ -158,8 +158,12 @@
 
       <varlistentry>
         <term><option>--root=<replaceable>root</replaceable></option></term>
-        <listitem><para>Takes a directory path as an argument. All paths will be prefixed with the given alternate
-        <replaceable>root</replaceable> path, including config search paths.</para>
+        <listitem><para>Takes a directory path as an argument. All paths listed in
+        <filename>tmpfiles.d/</filename> files will be prefixed with the given alternate
+        <replaceable>root</replaceable> path, including configuration file search paths. (Note that this
+        option does not affect the source paths of <command>L</command>/<command>L+</command> symlink lines
+        or <command>C</command> file copy lines, hence make sure to define symlinks or copy source paths
+        relatively).</para>
 
         <para>Note that this option does not alter how the users and groups specified in the configuration files are
         resolved. With or without this option, users and groups are always resolved according to the host's user and

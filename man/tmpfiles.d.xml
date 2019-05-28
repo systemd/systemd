@@ -243,15 +243,15 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
         <varlistentry>
           <term><varname>L</varname></term>
           <term><varname>L+</varname></term>
-          <listitem><para>Create a symlink if it does not exist
-          yet. If suffixed with <varname>+</varname> and a file or
-          directory already exists where the symlink is to be created,
-          it will be removed and be replaced by the symlink. If the
-          argument is omitted, symlinks to files with the same name
-          residing in the directory
-          <filename>/usr/share/factory/</filename> are created. Note
-          that permissions and ownership on symlinks are ignored.
-          </para></listitem>
+          <listitem><para>Create a symbolic link (symlink) if it does not exist yet. If the command character
+          is suffixed with <varname>+</varname> and a file or directory already exists where the symlink is
+          to be created, it will be removed and be replaced by the symlink. The symlink target is defined in
+          the argument column. If the argument is omitted, symlinks to files with the same name residing in
+          the directory <filename>/usr/share/factory/</filename> are created. Note that permissions and
+          ownership on symlinks are ignored. If specified the symlink target is used literally and is
+          unaffected by the <option>--root=</option> command line option of
+          <command>systemd-tmpfiles</command>. In order to create symlinks that take <option>--root=</option>
+          into account, consider generating relative rather than absolute symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -282,14 +282,16 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
 
         <varlistentry>
           <term><varname>C</varname></term>
-          <listitem><para>Recursively copy a file or directory, if the
-          destination files or directories do not exist yet or the
-          destination directory is empty. Note that this command will not
-          descend into subdirectories if the destination directory already
-          exists and is not empty. Instead, the entire copy operation is
+          <listitem><para>Recursively copy a file or directory, if the destination files or directories do
+          not exist yet or the destination directory is empty. The source file or directory to copy is
+          specified in the argument column. If the source path specified is relative it's considered relative
+          to the destination path. Note that this command will not descend into subdirectories if the
+          destination directory already exists and is not empty. Instead, the entire copy operation is
           skipped. If the argument is omitted, files from the source directory
-          <filename>/usr/share/factory/</filename> with the same name
-          are copied. Does not follow symlinks.</para></listitem>
+          <filename>/usr/share/factory/</filename> with the same name are copied. Note that the source file
+          paths are not affected by the <option>--root=</option> command line switch of
+          <command>systemd-tmpfiles</command>; use relative source paths for copying files from the tree
+          specified with <option>--root=</option>. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
