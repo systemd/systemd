@@ -253,8 +253,9 @@ static int open_journal(
                 bool seal,
                 JournalMetrics *metrics,
                 JournalFile **ret) {
+
+        _cleanup_(journal_file_closep) JournalFile *f = NULL;
         int r;
-        JournalFile *f;
 
         assert(s);
         assert(fname);
@@ -271,12 +272,10 @@ static int open_journal(
                 return r;
 
         r = journal_file_enable_post_change_timer(f, s->event, POST_CHANGE_TIMER_INTERVAL_USEC);
-        if (r < 0) {
-                (void) journal_file_close(f);
+        if (r < 0)
                 return r;
-        }
 
-        *ret = f;
+        *ret = TAKE_PTR(f);
         return r;
 }
 
