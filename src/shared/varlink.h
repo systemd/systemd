@@ -73,6 +73,7 @@ int varlink_flush(Varlink *v);
 int varlink_close(Varlink *v);
 
 Varlink* varlink_flush_close_unref(Varlink *v);
+Varlink* varlink_close_unref(Varlink *v);
 
 /* Enqueue method call, not expecting a reply */
 int varlink_send(Varlink *v, const char *method, JsonVariant *parameters);
@@ -152,6 +153,7 @@ int varlink_server_set_connections_max(VarlinkServer *s, unsigned m);
 int varlink_server_set_description(VarlinkServer *s, const char *description);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_flush_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 
