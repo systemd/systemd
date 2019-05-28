@@ -3407,7 +3407,7 @@ int json_dispatch_string(const char *name, JsonVariant *variant, JsonDispatchFla
 int json_dispatch_strv(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         _cleanup_strv_free_ char **l = NULL;
         char ***s = userdata;
-        size_t i;
+        JsonVariant *e;
         int r;
 
         assert(variant);
@@ -3421,11 +3421,7 @@ int json_dispatch_strv(const char *name, JsonVariant *variant, JsonDispatchFlags
         if (!json_variant_is_array(variant))
                 return json_log(variant, SYNTHETIC_ERRNO(EINVAL), flags, "JSON field '%s' is not an array.", strna(name));
 
-        for (i = 0; i < json_variant_elements(variant); i++) {
-                JsonVariant *e;
-
-                assert_se(e = json_variant_by_index(variant, i));
-
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
                 if (!json_variant_is_string(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a string.");
 
