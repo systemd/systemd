@@ -5,9 +5,6 @@
 
 #include "macro.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(cpu_set_t*, CPU_FREE);
-#define _cleanup_cpu_free_ _cleanup_(CPU_FREEp)
-
 /* This wraps the libc interface with a variable to keep the allocated size. */
 typedef struct CPUSet {
         cpu_set_t *set;
