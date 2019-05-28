@@ -53,6 +53,39 @@ CHANGES WITH 243 in spe:
           their builds as unfortunately the popular container managers have not
           caught up with the kernel API changes.
 
+        * Man pages are not built by default anymore (html pages were already
+          disabled by default), to make development builds quicker. When
+          building systemd for a full installation with documentation, meson
+          should be called -Dman=true and/or -Dhtml=true as appropriate. The
+          default was changed based on the assumption that quick one-off or
+          repeated development builds are much more common than full optimized
+          builds for installation, and people need to pass various other
+          options to when doing "proper" builds anyway, so the gain from making
+          development builds quicker is bigger than the one time disruption for
+          packagers.
+
+          Two scripts are created in the *build* directory to generate and
+          preview man and html pages on demand, e.g.:
+
+          build/man/man systemctl
+          build/man/html systemd.index
+
+        * /usr/sbin/halt.local is no longer supported. Implementation in
+          distributions was inconsistent and it seems this functionality was
+          very rarely used.
+
+          To replace this functionality, users should:
+          - either define a new unit and make it a dependency of final.target
+            (systemctl add-wants final.target my-halt-local.service)
+          - or move the shutdown script to /usr/lib/systemd/system-shutdown/
+            and ensure that it accepts "halt", "poweroff", "reboot", and
+            "kexec" as an argument, see the description in systemd-shutdown(8).
+
+        * When a [Match] section in .link or .network file is empty (contains
+          no match patterns), a warning will be emitted. Please add any "match
+          all" pattern instead, e.g. OriginalName=* or Name=* if case all
+          interfaces should really be matched.
+
           …
 
 CHANGES WITH 242:
