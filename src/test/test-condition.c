@@ -13,6 +13,7 @@
 #include "audit-util.h"
 #include "cgroup-util.h"
 #include "condition.h"
+#include "cpu-set-util.h"
 #include "efivars.h"
 #include "hostname-util.h"
 #include "id128-util.h"

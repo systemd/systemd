@@ -4,7 +4,6 @@
 #include <errno.h>
 #include <limits.h>
 #include <linux/oom.h>
-#include <sched.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -1474,7 +1473,7 @@ static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",
         [IOPRIO_CLASS_BE] = "best-effort",
-        [IOPRIO_CLASS_IDLE] = "idle"
+        [IOPRIO_CLASS_IDLE] = "idle",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, IOPRIO_N_CLASSES);
@@ -1495,7 +1494,7 @@ static const char* const sched_policy_table[] = {
         [SCHED_BATCH] = "batch",
         [SCHED_IDLE] = "idle",
         [SCHED_FIFO] = "fifo",
-        [SCHED_RR] = "rr"
+        [SCHED_RR] = "rr",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);
