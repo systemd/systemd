@@ -904,7 +904,7 @@ static int dump_core(int argc, char **argv, void *userdata) {
 
 static int run_debug(int argc, char **argv, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ char *exe = NULL, *path = NULL;
+        _cleanup_free_ char *exe = NULL, *path = NULL, *debugger = NULL;
         bool unlink_path = false;
         const char *data, *fork_name;
         size_t len;
@@ -920,6 +920,10 @@ static int run_debug(int argc, char **argv, void *userdata) {
                 else
                         arg_debugger = "gdb";
         }
+
+        debugger = strdup(arg_debugger);
+        if (!debugger)
+                return -ENOMEM;
 
         if (arg_field) {
                 log_error("Option --field/-F only makes sense with list");
@@ -966,19 +970,19 @@ static int run_debug(int argc, char **argv, void *userdata) {
         /* Don't interfere with gdb and its handling of SIGINT. */
         (void) ignore_signals(SIGINT, -1);
 
-        fork_name = strjoina("(", arg_debugger, ")");
+        fork_name = strjoina("(", debugger, ")");
 
         r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 goto finish;
         if (r == 0) {
-                execlp(arg_debugger, arg_debugger, exe, "-c", path, NULL);
+                execlp(debugger, debugger, exe, "-c", path, NULL);
                 log_open();
-                log_error_errno(errno, "Failed to invoke %s: %m", arg_debugger);
+                log_error_errno(errno, "Failed to invoke %s: %m", debugger);
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate_and_check(arg_debugger, pid, WAIT_LOG_ABNORMAL);
+        r = wait_for_terminate_and_check(debugger, pid, WAIT_LOG_ABNORMAL);
 
 finish:
         (void) default_signals(SIGINT, -1);
