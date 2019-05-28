@@ -45,3 +45,5 @@ int parse_cpu_set_extend(
 static inline int parse_cpu_set(const char *rvalue, CPUSet *cpu_set){
         return parse_cpu_set_full(rvalue, cpu_set, false, NULL, NULL, 0, NULL);
 }
+
+int cpus_in_affinity_mask(void);

@@ -21,6 +21,7 @@
 #include "cap-list.h"
 #include "cgroup-util.h"
 #include "condition.h"
+#include "cpu-set-util.h"
 #include "efivars.h"
 #include "env-file.h"
 #include "extract-word.h"
