@@ -1906,11 +1906,8 @@ void server_done(Server *s) {
 
         client_context_flush_all(s);
 
-        if (s->system_journal)
-                (void) journal_file_close(s->system_journal);
-
-        if (s->runtime_journal)
-                (void) journal_file_close(s->runtime_journal);
+        (void) journal_file_close(s->system_journal);
+        (void) journal_file_close(s->runtime_journal);
 
         ordered_hashmap_free_with_destructor(s->user_journals, journal_file_close);
 
