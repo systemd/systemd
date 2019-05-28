@@ -190,6 +190,8 @@ static int dhcp_lease_lost(Link *link) {
 
         log_link_warning(link, "DHCP lease lost");
 
+        link->dhcp4_configured = false;
+
         (void) sd_dhcp_lease_get_address(link->dhcp_lease, &address);
 
         if (link->network->dhcp_use_routes) {
@@ -306,7 +308,6 @@ static int dhcp_lease_lost(Link *link) {
 
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
         link_dirty(link);
-        link->dhcp4_configured = false;
 
         return 0;
 }
