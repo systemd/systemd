@@ -427,6 +427,8 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         assert(client);
         assert(link);
 
+        link->dhcp4_configured = false;
+
         r = sd_dhcp_client_get_lease(client, &lease);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: No lease: %m");
