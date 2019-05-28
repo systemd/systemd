@@ -2052,12 +2052,14 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
 
         varlink_set_state(v, VARLINK_IDLE_SERVER);
 
-        r = varlink_attach_event(v, server->event, server->event_priority);
-        if (r < 0) {
-                varlink_log_errno(v, r, "Failed to attach new connection: %m");
-                v->fd = -1; /* take the fd out of the connection again */
-                varlink_close(v);
-                return r;
+        if (server->event) {
+                r = varlink_attach_event(v, server->event, server->event_priority);
+                if (r < 0) {
+                        varlink_log_errno(v, r, "Failed to attach new connection: %m");
+                        v->fd = -1; /* take the fd out of the connection again */
+                        varlink_close(v);
+                        return r;
+                }
         }
 
         if (ret)
