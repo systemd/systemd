@@ -651,6 +651,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "fork\0"
                 "getrusage\0"
                 "kill\0"
+                "pidfd_send_signal\0"
                 "prctl\0"
                 "rt_sigqueueinfo\0"
                 "rt_tgsigqueueinfo\0"
