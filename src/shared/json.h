@@ -311,6 +311,9 @@ int json_log_internal(JsonVariant *variant, int level, int error, const char *fi
                         : -ERRNO_VALUE(_e);                             \
         })
 
+#define json_log_oom(variant, flags) \
+        json_log(variant, flags, SYNTHETIC_ERRNO(ENOMEM), "Out of memory.")
+
 #define JSON_VARIANT_STRING_CONST(x) _JSON_VARIANT_STRING_CONST(UNIQ, (x))
 
 #define _JSON_VARIANT_STRING_CONST(xq, x)                               \
