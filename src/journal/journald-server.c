@@ -255,7 +255,7 @@ static int open_journal(
                 JournalMetrics *metrics,
                 JournalFile **ret) {
 
-        JournalFile *f;
+        _cleanup_(journal_file_closep) JournalFile *f = NULL;
         int r;
 
         assert(s);
@@ -273,12 +273,10 @@ static int open_journal(
                 return r;
 
         r = journal_file_enable_post_change_timer(f, s->event, POST_CHANGE_TIMER_INTERVAL_USEC);
-        if (r < 0) {
-                (void) journal_file_close(f);
+        if (r < 0)
                 return r;
-        }
 
-        *ret = f;
+        *ret = TAKE_PTR(f);
         return r;
 }
 
@@ -2232,11 +2230,8 @@ void server_done(Server *s) {
 
         client_context_flush_all(s);
 
-        if (s->system_journal)
-                (void) journal_file_close(s->system_journal);
-
-        if (s->runtime_journal)
-                (void) journal_file_close(s->runtime_journal);
+        (void) journal_file_close(s->system_journal);
+        (void) journal_file_close(s->runtime_journal);
 
         ordered_hashmap_free_with_destructor(s->user_journals, journal_file_close);
 
