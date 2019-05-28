@@ -97,9 +97,6 @@
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
 
-/* This assumes there is a 'tty' group */
-#define TTY_MODE 0620
-
 #define SNDBUF_SIZE (8*1024*1024)
 
 static int shift_fds(int fds[], size_t n_fds) {
@@ -728,25 +725,24 @@ static int setup_output(
 }
 
 static int chown_terminal(int fd, uid_t uid) {
-        struct stat st;
+        int r;
 
         assert(fd >= 0);
 
         /* Before we chown/chmod the TTY, let's ensure this is actually a tty */
-        if (isatty(fd) < 1)
-                return 0;
+        if (isatty(fd) < 1) {
+                if (IN_SET(errno, EINVAL, ENOTTY))
+                        return 0; /* not a tty */
+
+                return -errno;
+        }
 
         /* This might fail. What matters are the results. */
-        (void) fchown(fd, uid, -1);
-        (void) fchmod(fd, TTY_MODE);
+        r = fchmod_and_chown(fd, TTY_MODE, uid, -1);
+        if (r < 0)
+                return r;
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (st.st_uid != uid || (st.st_mode & 0777) != TTY_MODE)
-                return -EPERM;
-
-        return 0;
+        return 1;
 }
 
 static int setup_confirm_stdio(const char *vc, int *_saved_stdin, int *_saved_stdout) {

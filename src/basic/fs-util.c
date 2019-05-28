@@ -213,113 +213,68 @@ int readlink_and_make_absolute(const char *p, char **r) {
 }
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
-        char fd_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -1;
-        bool st_valid = false;
-        struct stat st;
-        int r;
 
         assert(path);
-
-        /* Under the assumption that we are running privileged we first change the access mode and only then
-         * hand out ownership to avoid a window where access is too open. */
 
         fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW); /* Let's acquire an O_PATH fd, as precaution to change
                                                        * mode/owner on the same file */
         if (fd < 0)
                 return -errno;
 
-        xsprintf(fd_path, "/proc/self/fd/%i", fd);
-
-        if (mode != MODE_INVALID) {
-                if ((mode & S_IFMT) != 0) {
-
-                        if (stat(fd_path, &st) < 0)
-                                return -errno;
-
-                        if ((mode & S_IFMT) != (st.st_mode & S_IFMT))
-                                return -EINVAL;
-
-                        st_valid = true;
-                }
-
-                if (chmod(fd_path, mode & 07777) < 0) {
-                        r = -errno;
-
-                        if (!st_valid && stat(fd_path, &st) < 0)
-                                return -errno;
-
-                        if ((mode & 07777) != (st.st_mode & 07777))
-                                return r;
-
-                        st_valid = true;
-                }
-        }
-
-        if (uid != UID_INVALID || gid != GID_INVALID) {
-                if (chown(fd_path, uid, gid) < 0) {
-                        r = -errno;
-
-                        if (!st_valid && stat(fd_path, &st) < 0)
-                                return -errno;
-
-                        if (uid != UID_INVALID && st.st_uid != uid)
-                                return r;
-                        if (gid != GID_INVALID && st.st_gid != gid)
-                                return r;
-                }
-        }
-
-        return 0;
+        return fchmod_and_chown(fd, mode, uid, gid);
 }
 
 int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
-        bool st_valid = false;
+        char fd_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
+        bool do_chown, do_chmod;
         struct stat st;
-        int r;
 
-        /* Under the assumption that we are running privileged we first change the access mode and only then hand out
-         * ownership to avoid a window where access is too open. */
+        /* Change ownership and access mode of the specified fd. Tries to do so safely, ensuring that at no
+         * point in time the access mode is above the old access mode under the old ownership or the new
+         * access mode under the new ownership. Note: this call tries hard to leave the access mode
+         * unaffected if the uid/gid is changed, i.e. it undoes implicit suid/sgid dropping the kernel does
+         * on chown().
+         *
+         * This call is happy with O_PATH fds, since we always go via /proc/self/fd/ to change
+         * ownership/access mode. */
 
-        if (mode != MODE_INVALID) {
-                if ((mode & S_IFMT) != 0) {
+        xsprintf(fd_path, "/proc/self/fd/%i", fd);
+        if (stat(fd_path, &st) < 0)
+                return -errno;
 
-                        if (fstat(fd, &st) < 0)
+        do_chown =
+                (uid != UID_INVALID && st.st_uid != uid) ||
+                (gid != GID_INVALID && st.st_gid != gid);
+
+        do_chmod =
+                !S_ISLNK(st.st_mode) && /* chmod is not defined on symlinks */
+                ((mode != MODE_INVALID && ((st.st_mode ^ mode) & 07777) != 0) ||
+                 do_chown); /* If we change ownership, make sure we reset the mode afterwards, since chown()
+                             * modifies the access mode too */
+
+        if (mode == MODE_INVALID)
+                mode = st.st_mode; /* If we only shall do a chown(), save original mode, since chown() might break it. */
+        else if ((mode & S_IFMT) != 0 && ((mode ^ st.st_mode) & S_IFMT) != 0)
+                return -EINVAL; /* insist on the right file type if it was specified */
+
+        if (do_chown && do_chmod) {
+                mode_t minimal = st.st_mode & mode; /* the subset of the old and the new mask */
+
+                if (((minimal ^ st.st_mode) & 07777) != 0)
+                        if (chmod(fd_path, minimal & 07777) < 0)
                                 return -errno;
-
-                        if ((mode & S_IFMT) != (st.st_mode & S_IFMT))
-                                return -EINVAL;
-
-                        st_valid = true;
-                }
-
-                if (fchmod(fd, mode & 07777) < 0) {
-                        r = -errno;
-
-                        if (!st_valid && fstat(fd, &st) < 0)
-                                return -errno;
-
-                        if ((mode & 07777) != (st.st_mode & 07777))
-                                return r;
-
-                        st_valid = true;
-                }
         }
 
-        if (uid != UID_INVALID || gid != GID_INVALID)
-                if (fchown(fd, uid, gid) < 0) {
-                        r = -errno;
+        if (do_chown)
+                if (chown(fd_path, uid, gid) < 0)
+                        return -errno;
 
-                        if (!st_valid && fstat(fd, &st) < 0)
-                                return -errno;
+        if (do_chmod)
+                if (chmod(fd_path, mode & 07777) < 0)
+                        return -errno;
 
-                        if (uid != UID_INVALID && st.st_uid != uid)
-                                return r;
-                        if (gid != GID_INVALID && st.st_gid != gid)
-                                return r;
-                }
-
-        return 0;
+        return do_chown || do_chmod;
 }
 
 int fchmod_umask(int fd, mode_t m) {
@@ -404,13 +359,7 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
          * something fchown(), fchmod(), futimensat() don't allow. */
         xsprintf(fdpath, "/proc/self/fd/%i", fd);
 
-        if (mode != MODE_INVALID)
-                if (chmod(fdpath, mode) < 0)
-                        ret = -errno;
-
-        if (uid_is_valid(uid) || gid_is_valid(gid))
-                if (chown(fdpath, uid, gid) < 0 && ret >= 0)
-                        ret = -errno;
+        ret = fchmod_and_chown(fd, mode, uid, gid);
 
         if (stamp != USEC_INFINITY) {
                 struct timespec ts[2];

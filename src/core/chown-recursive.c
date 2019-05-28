@@ -8,6 +8,7 @@
 #include "chown-recursive.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "stdio-util.h"
 #include "strv.h"
@@ -22,16 +23,13 @@ static int chown_one(
 
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         const char *n;
+        int r;
 
         assert(fd >= 0);
         assert(st);
 
-        if ((!uid_is_valid(uid) || st->st_uid == uid) &&
-            (!gid_is_valid(gid) || st->st_gid == gid))
-                return 0;
-
-        /* We change ownership through the /proc/self/fd/%i path, so that we have a stable reference that works with
-         * O_PATH. (Note: fchown() and fchmod() do not work with O_PATH, the kernel refuses that. */
+        /* We change ACLs through the /proc/self/fd/%i path, so that we have a stable reference that works
+         * with O_PATH. */
         xsprintf(procfs_path, "/proc/self/fd/%i", fd);
 
         /* Drop any ACL if there is one */
@@ -40,16 +38,9 @@ static int chown_one(
                         if (!IN_SET(errno, ENODATA, EOPNOTSUPP, ENOSYS, ENOTTY))
                                 return -errno;
 
-        if (chown(procfs_path, uid, gid) < 0)
-                return -errno;
-
-        /* The linux kernel alters the mode in some cases of chown(), as well when we change ACLs. Let's undo this. We
-         * do this only for non-symlinks however. That's because for symlinks the access mode is ignored anyway and
-         * because on some kernels/file systems trying to change the access mode will succeed but has no effect while
-         * on others it actively fails. */
-        if (!S_ISLNK(st->st_mode))
-                if (chmod(procfs_path, st->st_mode & 07777 & mask) < 0)
-                        return -errno;
+        r = fchmod_and_chown(fd, st->st_mode & mask, uid, gid);
+        if (r < 0)
+                return r;
 
         return 1;
 }

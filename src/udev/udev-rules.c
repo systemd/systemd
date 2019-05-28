@@ -22,6 +22,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "libudev-util.h"
@@ -2591,25 +2592,14 @@ int udev_rules_apply_static_dev_perms(UdevRules *rules) {
                                 else
                                         mode = 0600;
                         }
-                        if (mode != (stats.st_mode & 01777)) {
-                                r = chmod(device_node, mode);
-                                if (r < 0)
-                                        return log_error_errno(errno, "Failed to chmod '%s' %#o: %m",
-                                                               device_node, mode);
-                                else
-                                        log_debug("chmod '%s' %#o", device_node, mode);
-                        }
 
-                        if ((uid != 0 && uid != stats.st_uid) || (gid != 0 && gid != stats.st_gid)) {
-                                r = chown(device_node, uid, gid);
-                                if (r < 0)
-                                        return log_error_errno(errno, "Failed to chown '%s' %u %u: %m",
-                                                               device_node, uid, gid);
-                                else
-                                        log_debug("chown '%s' %u %u", device_node, uid, gid);
-                        }
+                        r = chmod_and_chown(device_node, mode, uid, gid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to chown/chmod '%s' uid=" UID_FMT ", gid=" GID_FMT ", mode=%#o: %m", device_node, uid, gid, mode);
+                        if (r > 0)
+                                log_debug("chown/chmod '%s' uid=" UID_FMT ", gid=" GID_FMT ", mode=%#o", device_node, uid, gid, mode);
 
-                        utimensat(AT_FDCWD, device_node, NULL, 0);
+                        (void) utimensat(AT_FDCWD, device_node, NULL, 0);
                         break;
                 }
                 case TK_END:
