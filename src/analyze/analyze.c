@@ -1673,6 +1673,18 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
 }
 #endif
 
+static void parsing_hint(const char *p, bool calendar, bool timestamp, bool timespan) {
+        if (calendar && calendar_spec_from_string(p, NULL) >= 0)
+                log_notice("Hint: this expression is a valid calendar specification. "
+                           "Use 'systemd-analyze calendar \"%s\"' instead?", p);
+        if (timestamp && parse_timestamp(p, NULL) >= 0)
+                log_notice("Hint: this expression is a valid timestamp. "
+                           "Use 'systemd-analyze timestamp \"%s\"' instead?", p);
+        if (timespan && parse_time(p, NULL, USEC_PER_SEC) >= 0)
+                log_notice("Hint: this expression is a valid timespan. "
+                           "Use 'systemd-analyze timespan \"%s\"' instead?", p);
+}
+
 static int dump_timespan(int argc, char *argv[], void *userdata) {
         char **input_timespan;
 
@@ -1682,12 +1694,18 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
                 char ft_buf[FORMAT_TIMESPAN_MAX];
 
                 r = parse_time(*input_timespan, &output_usecs, USEC_PER_SEC);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse time span '%s': %m", *input_timespan);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse time span '%s': %m", *input_timespan);
+                        parsing_hint(*input_timespan, true, true, false);
+                        return r;
+                }
 
                 printf("Original: %s\n", *input_timespan);
                 printf("      %ss: %" PRIu64 "\n", special_glyph(SPECIAL_GLYPH_MU), output_usecs);
-                printf("   Human: %s\n", format_timespan(ft_buf, sizeof(ft_buf), output_usecs, usec_magnitude));
+                printf("   Human: %s%s%s\n",
+                       ansi_highlight(),
+                       format_timespan(ft_buf, sizeof(ft_buf), output_usecs, usec_magnitude),
+                       ansi_normal());
 
                 if (input_timespan[1])
                         putchar('\n');
@@ -1696,18 +1714,65 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
         return EXIT_SUCCESS;
 }
 
+static int test_timestamp_one(const char *p) {
+        usec_t usec;
+        char buf[FORMAT_TIMESTAMP_MAX];
+        int r;
+
+        r = parse_timestamp(p, &usec);
+        if (r < 0) {
+                log_error_errno(r, "Failed to parse \"%s\": %m", p);
+                parsing_hint(p, true, false, true);
+                return r;
+        }
+
+        printf("  Original form: %s\n", p);
+        printf("Normalized form: %s%s%s\n",
+               ansi_highlight_blue(),
+               format_timestamp(buf, sizeof buf, usec),
+               ansi_normal());
+
+        if (!in_utc_timezone())
+                printf("       (in UTC): %s\n", format_timestamp_utc(buf, sizeof buf, usec));
+
+        printf("   UNIX seconds: @%"PRI_USEC"%s%0*"PRI_USEC"\n",
+               usec / USEC_PER_SEC,
+               usec % USEC_PER_SEC ? "." : "",
+               usec % USEC_PER_SEC ? 6 : 0,
+               usec % USEC_PER_SEC);
+
+        printf("       From now: %s\n", format_timestamp_relative(buf, sizeof buf, usec));
+
+        return 0;
+}
+
+static int test_timestamp(int argc, char *argv[], void *userdata) {
+        int ret = 0, r;
+        char **p;
+
+        STRV_FOREACH(p, strv_skip(argv, 1)) {
+                r = test_timestamp_one(*p);
+                if (ret == 0 && r < 0)
+                        ret = r;
+
+                if (*(p + 1))
+                        putchar('\n');
+        }
+
+        return ret;
+}
+
 static int test_calendar_one(usec_t n, const char *p) {
         _cleanup_(calendar_spec_freep) CalendarSpec *spec = NULL;
         _cleanup_free_ char *t = NULL;
         int r;
 
         r = calendar_spec_from_string(p, &spec);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse calendar specification '%s': %m", p);
-
-        r = calendar_spec_normalize(spec);
-        if (r < 0)
-                return log_error_errno(r, "Failed to normalize calendar specification '%s': %m", p);
+        if (r < 0) {
+                log_error_errno(r, "Failed to parse calendar specification '%s': %m", p);
+                parsing_hint(p, false, true, true);
+                return r;
+        }
 
         r = calendar_spec_to_string(spec, &t);
         if (r < 0)
@@ -1891,8 +1956,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  unit-paths               List load directories for units\n"
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
                "  verify FILE...           Check unit files for correctness\n"
-               "  calendar SPEC...         Validate repetitive calendar time events\n"
                "  service-watchdogs [BOOL] Get/set service watchdog state\n"
+               "  calendar SPEC...         Validate repetitive calendar time events\n"
+               "  timestamp TIMESTAMP...   Validate a timestamp\n"
                "  timespan SPAN...         Validate a time span\n"
                "  security [UNIT...]       Analyze security of unit\n"
                "\nSee the %s for details.\n"
@@ -2093,8 +2159,9 @@ static int run(int argc, char *argv[]) {
                 { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },
                 { "verify",            2,        VERB_ANY, 0,            do_verify              },
                 { "calendar",          2,        VERB_ANY, 0,            test_calendar          },
-                { "service-watchdogs", VERB_ANY, 2,        0,            service_watchdogs      },
+                { "timestamp",         2,        VERB_ANY, 0,            test_timestamp         },
                 { "timespan",          2,        VERB_ANY, 0,            dump_timespan          },
+                { "service-watchdogs", VERB_ANY, 2,        0,            service_watchdogs      },
                 { "security",          VERB_ANY, VERB_ANY, 0,            do_security            },
                 {}
         };
