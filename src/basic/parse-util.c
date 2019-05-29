@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <linux/oom.h>
 #include <locale.h>
+#include <net/if.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -90,6 +91,24 @@ int parse_ifindex(const char *s, int *ret) {
                 return -EINVAL;
 
         *ret = ifi;
+        return 0;
+}
+
+int parse_ifindex_or_ifname(const char *s, int *ret) {
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        r = parse_ifindex(s, ret);
+        if (r >= 0)
+                return r;
+
+        r = (int) if_nametoindex(s);
+        if (r <= 0)
+                return -errno;
+
+        *ret = r;
         return 0;
 }
 
