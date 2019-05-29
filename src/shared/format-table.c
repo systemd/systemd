@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "gunicode.h"
 #include "memory-util.h"
 #include "pager.h"
@@ -1108,9 +1109,9 @@ static const char *table_data_format(TableData *d) {
 
         case TABLE_IFINDEX: {
                 _cleanup_free_ char *p;
-                char name[IF_NAMESIZE + 1] = {};
+                char name[IF_NAMESIZE + 1];
 
-                if (if_indextoname(d->ifindex, name)) {
+                if (format_ifname(d->ifindex, name)) {
                         p = strdup(name);
                         if (!p)
                                 return NULL;

@@ -20,6 +20,7 @@
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "hwdb-util.h"
 #include "local-addresses.h"
 #include "locale-util.h"
@@ -499,9 +500,9 @@ static int dump_gateways(
                 /* Show interface name for the entry if we show
                  * entries for all interfaces */
                 if (ifindex <= 0) {
-                        char name[IF_NAMESIZE+1] = {};
+                        char name[IF_NAMESIZE+1];
 
-                        if (if_indextoname(local[i].ifindex, name))
+                        if (format_ifname(local[i].ifindex, name))
                                 r = table_add_cell_stringf(table, NULL, "%s on %s", with_description ?: gateway, name);
                         else
                                 r = table_add_cell_stringf(table, NULL, "%s on %%%i", with_description ?: gateway, local[i].ifindex);
@@ -545,9 +546,9 @@ static int dump_addresses(
                         return r;
 
                 if (ifindex <= 0) {
-                        char name[IF_NAMESIZE+1] = {};
+                        char name[IF_NAMESIZE+1];
 
-                        if (if_indextoname(local[i].ifindex, name))
+                        if (format_ifname(local[i].ifindex, name))
                                 r = table_add_cell_stringf(table, NULL, "%s on %s", pretty, name);
                         else
                                 r = table_add_cell_stringf(table, NULL, "%s on %%%i", pretty, local[i].ifindex);
@@ -1358,7 +1359,6 @@ static int link_delete_send_message(sd_netlink *rtnl, int index) {
 static int link_delete(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_set_free_ Set *indexes = NULL;
-        char ifname[IFNAMSIZ] = "";
         int index, r, i;
         Iterator j;
 
@@ -1383,7 +1383,9 @@ static int link_delete(int argc, char *argv[], void *userdata) {
         SET_FOREACH(index, indexes, j) {
                 r = link_delete_send_message(rtnl, index);
                 if (r < 0) {
-                        if (if_indextoname(index, ifname))
+                        char ifname[IF_NAMESIZE + 1];
+
+                        if (format_ifname(index, ifname))
                                 return log_error_errno(r, "Failed to delete interface %s: %m", ifname);
                         else
                                 return log_error_errno(r, "Failed to delete interface %d: %m", index);
