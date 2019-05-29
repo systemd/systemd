@@ -29,19 +29,20 @@ static void test_parse_cpu_set(void) {
         cpu_set_reset(&c);
 
         /* Simple range (from CPUAffinity example) */
-        assert_se(parse_cpu_set_full("1 2", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
+        assert_se(parse_cpu_set_full("1 2 4", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
         assert_se(c.set);
         assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
         assert_se(CPU_ISSET_S(1, c.allocated, c.set));
         assert_se(CPU_ISSET_S(2, c.allocated, c.set));
-        assert_se(CPU_COUNT_S(c.allocated, c.set) == 2);
+        assert_se(CPU_ISSET_S(4, c.allocated, c.set));
+        assert_se(CPU_COUNT_S(c.allocated, c.set) == 3);
 
         assert_se(str = cpu_set_to_string(&c));
         log_info("cpu_set_to_string: %s", str);
         str = mfree(str);
         assert_se(str = cpu_set_to_range_string(&c));
         log_info("cpu_set_to_range_string: %s", str);
-        assert_se(streq(str, "1-2"));
+        assert_se(streq(str, "1-2 4"));
         str = mfree(str);
         cpu_set_reset(&c);
 
