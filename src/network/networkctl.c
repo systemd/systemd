@@ -1089,12 +1089,9 @@ static int link_delete(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (i = 1; i < argc; i++) {
-                r = parse_ifindex(argv[i], &index);
-                if (r < 0) {
-                        index = (int) if_nametoindex(argv[i]);
-                        if (index <= 0)
-                                return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
-                }
+                r = parse_ifindex_or_ifname(argv[i], &index);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
 
                 r = set_put(indexes, INT_TO_PTR(index));
                 if (r < 0)
