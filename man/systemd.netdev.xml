@@ -171,7 +171,10 @@
           <entry>WireGuard Secure Network Tunnel.</entry></row>
 
           <row><entry><varname>netdevsim</varname></entry>
-          <entry> A simulator. This simulated networking device is used for testing various networking APIs and at this time is particularly focused on testing hardware offloading related interfaces.</entry></row>
+          <entry>A simulator. This simulated networking device is used for testing various networking APIs and at this time is particularly focused on testing hardware offloading related interfaces.</entry></row>
+
+          <row><entry><varname>nlmon</varname></entry>
+          <entry>A Netlink monitor device. Use an nlmon device when you want to monitor system Netlink messages.</entry></row>
 
           <row><entry><varname>fou</varname></entry>
           <entry>Foo-over-UDP tunneling.</entry></row>

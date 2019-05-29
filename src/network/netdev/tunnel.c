@@ -778,6 +778,7 @@ const NetDevVTable ipip_vtable = {
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable sit_vtable = {
@@ -787,6 +788,7 @@ const NetDevVTable sit_vtable = {
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable vti_vtable = {
@@ -796,6 +798,7 @@ const NetDevVTable vti_vtable = {
         .fill_message_create = netdev_vti_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable vti6_vtable = {
@@ -805,6 +808,7 @@ const NetDevVTable vti6_vtable = {
         .fill_message_create = netdev_vti_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable gre_vtable = {
@@ -814,6 +818,7 @@ const NetDevVTable gre_vtable = {
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable gretap_vtable = {
@@ -823,6 +828,7 @@ const NetDevVTable gretap_vtable = {
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable ip6gre_vtable = {
@@ -832,6 +838,7 @@ const NetDevVTable ip6gre_vtable = {
         .fill_message_create = netdev_ip6gre_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable ip6gretap_vtable = {
@@ -841,6 +848,7 @@ const NetDevVTable ip6gretap_vtable = {
         .fill_message_create = netdev_ip6gre_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable ip6tnl_vtable = {
@@ -850,6 +858,7 @@ const NetDevVTable ip6tnl_vtable = {
         .fill_message_create = netdev_ip6tnl_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable erspan_vtable = {
@@ -859,4 +868,5 @@ const NetDevVTable erspan_vtable = {
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };

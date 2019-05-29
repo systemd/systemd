@@ -1246,4 +1246,5 @@ const NetDevVTable macsec_vtable = {
         .done = macsec_done,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_macsec_verify,
+        .generate_mac = true,
 };

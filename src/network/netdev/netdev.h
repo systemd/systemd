@@ -49,6 +49,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_ERSPAN,
         NETDEV_KIND_L2TP,
         NETDEV_KIND_MACSEC,
+        NETDEV_KIND_NLMON,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_TUNNEL, /* Used by config_parse_stacked_netdev() */
         _NETDEV_KIND_INVALID = -1
@@ -131,6 +132,9 @@ typedef struct NetDevVTable {
 
         /* verify that compulsory configuration options were specified */
         int (*config_verify)(NetDev *netdev, const char *filename);
+
+        /* Generate MAC address or not When MACAddress= is not specified. */
+        bool generate_mac;
 } NetDevVTable;
 
 extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];

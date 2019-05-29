@@ -978,4 +978,5 @@ const NetDevVTable wireguard_vtable = {
         .done = wireguard_done,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = wireguard_verify,
+        .generate_mac = true,
 };

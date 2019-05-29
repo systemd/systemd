@@ -13,6 +13,8 @@ sources = files('''
         netdev/macvlan.h
         netdev/netdev.c
         netdev/netdev.h
+        netdev/nlmon.c
+        netdev/nlmon.h
         netdev/tunnel.c
         netdev/tunnel.h
         netdev/tuntap.c

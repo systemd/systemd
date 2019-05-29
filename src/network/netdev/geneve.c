@@ -355,4 +355,5 @@ const NetDevVTable geneve_vtable = {
         .create = netdev_geneve_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_geneve_verify,
+        .generate_mac = true,
 };

@@ -274,6 +274,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'isataptun99',
         'macvlan99',
         'macvtap99',
+        'nlmon99',
         'sittun96',
         'sittun97',
         'sittun98',
@@ -344,6 +345,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-macsec.key',
         '25-macsec.netdev',
         '25-macsec.network',
+        '25-nlmon.netdev',
+        '25-nlmon.network',
         '25-sit-tunnel-local-any.netdev',
         '25-sit-tunnel-remote-any.netdev',
         '25-sit-tunnel.netdev',
@@ -1004,6 +1007,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'RXSC: 8c16456c83a90002, state on')
         self.assertRegex(output, '0: PN [0-9]*, state off, key 02030400000000000000000000000000')
 
+    def test_nlmon(self):
+        self.copy_unit_to_networkd_unit_path('25-nlmon.netdev', '25-nlmon.network')
+        self.start_networkd()
+
+        self.wait_online(['nlmon99:carrier'])
 
 class NetworkdL2TPTests(unittest.TestCase, Utilities):
 
