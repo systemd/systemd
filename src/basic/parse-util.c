@@ -84,6 +84,9 @@ int parse_mode(const char *s, mode_t *ret) {
 int parse_ifindex(const char *s, int *ret) {
         int ifi, r;
 
+        assert(s);
+        assert(ret);
+
         r = safe_atoi(s, &ifi);
         if (r < 0)
                 return r;
