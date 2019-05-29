@@ -66,6 +66,9 @@ user_runtime_dir_sources = files('''
         user-runtime-dir.c
 '''.split())
 
+pam_systemd_sym = 'src/login/pam_systemd.sym'
+pam_systemd_c = files('pam_systemd.c')
+
 if conf.get('ENABLE_LOGIND') == 1
         logind_conf = configure_file(
                 input : 'logind.conf.in',
@@ -73,9 +76,6 @@ if conf.get('ENABLE_LOGIND') == 1
                 configuration : substs)
         install_data(logind_conf,
                      install_dir : pkgsysconfdir)
-
-        pam_systemd_sym = 'src/login/pam_systemd.sym'
-        pam_systemd_c = files('pam_systemd.c')
 
         install_data('org.freedesktop.login1.conf',
                      install_dir : dbuspolicydir)
