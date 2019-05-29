@@ -179,6 +179,36 @@ static void test_parse_cpu_set_extend(void) {
         log_info("cpu_set_to_string: (null)");
 }
 
+static void test_cpu_set_to_from_dbus(void) {
+        _cleanup_(cpu_set_reset) CPUSet c = {}, c2 = {};
+        _cleanup_free_ char *s = NULL;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(parse_cpu_set_extend("1 3 8 100-200", &c, true, NULL, "fake", 1, "CPUAffinity") == 0);
+        assert_se(s = cpu_set_to_string(&c));
+        log_info("cpu_set_to_string: %s", s);
+        assert_se(CPU_COUNT_S(c.allocated, c.set) == 104);
+
+        _cleanup_free_ uint8_t *array = NULL;
+        size_t allocated;
+        static const char expected[32] =
+                "\x0A\x01\x00\x00\x00\x00\x00\x00\x00\x00"
+                "\x00\x00\xF0\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+                "\xFF\xFF\xFF\xFF\xFF\x01";
+
+        assert_se(cpu_set_to_dbus(&c, &array, &allocated) == 0);
+        assert_se(array);
+        assert_se(allocated == c.allocated);
+
+        assert(memcmp(array, expected, sizeof expected) == 0);
+
+        assert_se(cpu_set_from_dbus(array, allocated, &c2) == 0);
+        assert_se(c2.set);
+        assert_se(c2.allocated == c.allocated);
+        assert_se(memcmp(c.set, c2.set, c.allocated) == 0);
+}
+
 static void test_cpus_in_affinity_mask(void) {
         int r;
 
@@ -199,6 +229,7 @@ int main(int argc, char *argv[]) {
         test_parse_cpu_set();
         test_parse_cpu_set_extend();
         test_cpus_in_affinity_mask();
+        test_cpu_set_to_from_dbus();
 
         return 0;
 }
