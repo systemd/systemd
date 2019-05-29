@@ -35,7 +35,7 @@ for phase in "${PHASES[@]}"; do
             info "Using Debian $DEBIAN_RELEASE"
             printf "FROM debian:$DEBIAN_RELEASE\nRUN bash -c 'apt-get -y update && apt-get install -y systemd'\n" | docker build -t debian-with-systemd/latest -
             info "Starting container $CONT_NAME"
-            $DOCKER_RUN -v $REPO_ROOT:/build:rw \
+            $DOCKER_RUN -v $REPO_ROOT:/build:rw -e container=docker \
                         -w /build --privileged=true --name $CONT_NAME \
                         -dit --net=host debian-with-systemd/latest /bin/systemd
             $DOCKER_EXEC bash -c "echo deb-src http://deb.debian.org/debian $DEBIAN_RELEASE main >>/etc/apt/sources.list"

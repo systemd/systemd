@@ -14,6 +14,7 @@
 #include "test-helper.h"
 #include "tests.h"
 #include "unit.h"
+#include "virt.h"
 
 /* We use the same limit here that PID 1 bumps RLIMIT_MEMLOCK to if it can */
 #define CAN_MEMLOCK_SIZE (64U*1024U*1024U)
@@ -56,8 +57,8 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        if (is_run_on_travis_ci())
-                return log_tests_skipped("test-bpf fails on Travis CI: https://github.com/systemd/systemd/issues/9666");
+        if (detect_container())
+                return log_tests_skipped("test-bpf fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
 
         assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
         rl.rlim_cur = rl.rlim_max = MAX3(rl.rlim_cur, rl.rlim_max, CAN_MEMLOCK_SIZE);
