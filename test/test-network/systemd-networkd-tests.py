@@ -346,7 +346,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-macsec.netdev',
         '25-macsec.network',
         '25-nlmon.netdev',
-        '25-nlmon.network',
         '25-sit-tunnel-local-any.netdev',
         '25-sit-tunnel-remote-any.netdev',
         '25-sit-tunnel.netdev',
@@ -1008,7 +1007,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '0: PN [0-9]*, state off, key 02030400000000000000000000000000')
 
     def test_nlmon(self):
-        self.copy_unit_to_networkd_unit_path('25-nlmon.netdev', '25-nlmon.network')
+        self.copy_unit_to_networkd_unit_path('25-nlmon.netdev', 'netdev-link-local-addressing-yes.network')
         self.start_networkd()
 
         self.wait_online(['nlmon99:carrier'])
