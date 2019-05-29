@@ -1,6 +1,0 @@
-[Match]
-Name=nlmon99
-
-[Network]
-LinkLocalAddressing=yes
-IPv6AcceptRA=no

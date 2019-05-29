@@ -11,6 +11,7 @@ Name=vxcan-peer
 Name=vrf99
 Name=geneve99
 Name=ipiptun99
+Name=nlmon99
 
 [Network]
 LinkLocalAddressing=yes
