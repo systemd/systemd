@@ -1002,7 +1002,6 @@ int varlink_wait(Varlink *v, usec_t timeout) {
         usec_t t;
 
         assert_return(v, -EINVAL);
-        assert_return(!v->server, -ENOTTY);
 
         if (v->state == VARLINK_DISCONNECTED)
                 return -ENOTCONN;
