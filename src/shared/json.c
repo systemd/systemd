@@ -1767,6 +1767,9 @@ void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const cha
                 fputc('\n', f);
         if (flags & JSON_FORMAT_SSE)
                 fputc('\n', f); /* In case of SSE add a second newline */
+
+        if (flags & JSON_FORMAT_FLUSH)
+                fflush(f);
 }
 
 int json_variant_filter(JsonVariant **v, char **to_remove) {
