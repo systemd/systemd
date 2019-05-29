@@ -228,7 +228,7 @@ class Utilities():
     def check_operstate(self, link, expected, show_status=True, setup_state='configured'):
         self.assertRegex(self.get_operstate(link, show_status, setup_state), expected)
 
-    def wait_address(self, link, address_regex, scope='global', ipv='', timeout_sec=10):
+    def wait_address(self, link, address_regex, scope='global', ipv='', timeout_sec=100):
         for i in range(timeout_sec):
             if i > 0:
                 time.sleep(1)
