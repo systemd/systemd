@@ -76,24 +76,10 @@ typedef enum StatusMode {
         STATUS_NTA,
 } StatusMode;
 
-static int parse_ifindex_and_warn(const char *s) {
-        int ifi;
-
-        assert(s);
-
-        if (parse_ifindex(s, &ifi) < 0) {
-                ifi = if_nametoindex(s);
-                if (ifi <= 0)
-                        return log_error_errno(errno, "Unknown interface '%s': %m", s);
-        }
-
-        return ifi;
-}
-
 int ifname_mangle(const char *s) {
         _cleanup_free_ char *iface = NULL;
         const char *dot;
-        int ifi;
+        int ifi, r;
 
         assert(s);
 
@@ -107,16 +93,14 @@ int ifname_mangle(const char *s) {
         if (!iface)
                 return log_oom();
 
-        if (parse_ifindex(iface, &ifi) < 0) {
-                ifi = if_nametoindex(iface);
-                if (ifi <= 0) {
-                        if (errno == ENODEV && arg_ifindex_permissive) {
-                                log_debug("Interface '%s' not found, but -f specified, ignoring.", iface);
-                                return 0; /* done */
-                        }
-
-                        return log_error_errno(errno, "Unknown interface '%s': %m", iface);
+        r = parse_ifindex_or_ifname(iface, &ifi);
+        if (r < 0) {
+                if (r == -ENODEV && arg_ifindex_permissive) {
+                        log_debug("Interface '%s' not found, but -f specified, ignoring.", iface);
+                        return 0; /* done */
                 }
+
+                return log_error_errno(r, "Unknown interface '%s': %m", iface);
         }
 
         if (arg_ifindex > 0 && arg_ifindex != ifi)
@@ -1843,9 +1827,11 @@ static int verb_status(int argc, char **argv, void *userdata) {
                 STRV_FOREACH(ifname, argv + 1) {
                         int ifindex;
 
-                        ifindex = parse_ifindex_and_warn(*ifname);
-                        if (ifindex < 0)
+                        q = parse_ifindex_or_ifname(*ifname, &ifindex);
+                        if (q < 0) {
+                                log_error_errno(q, "Unknown interface '%s', ignoring: %m", *ifname);
                                 continue;
+                        }
 
                         q = status_ifindex(bus, ifindex, NULL, STATUS_ALL, &empty_line);
                         if (q < 0)
