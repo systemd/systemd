@@ -20,6 +20,25 @@ static void test_parse_sleep_config(void) {
         log_info("/* %s */", __func__);
 
         assert(parse_sleep_config(&sleep_config) == 0);
+
+        _cleanup_free_ char *sum, *sus, *him, *his, *hym, *hys;
+
+        sum = strv_join(sleep_config->suspend_modes, ", ");
+        sus = strv_join(sleep_config->suspend_states, ", ");
+        him = strv_join(sleep_config->hibernate_modes, ", ");
+        his = strv_join(sleep_config->hibernate_states, ", ");
+        hym = strv_join(sleep_config->hybrid_modes, ", ");
+        hys = strv_join(sleep_config->hybrid_states, ", ");
+        log_debug("  allow_suspend: %u", sleep_config->allow_suspend);
+        log_debug("  allow_hibernate: %u", sleep_config->allow_hibernate);
+        log_debug("  allow_s2h: %u", sleep_config->allow_s2h);
+        log_debug("  allow_hybrid_sleep: %u", sleep_config->allow_hybrid_sleep);
+        log_debug("  suspend modes: %s", sum);
+        log_debug("         states: %s", sus);
+        log_debug("  hibernate modes: %s", him);
+        log_debug("           states: %s", his);
+        log_debug("  hybrid modes: %s", hym);
+        log_debug("        states: %s", hys);
 }
 
 static int test_fiemap(const char *path) {
@@ -88,7 +107,7 @@ static void test_sleep(void) {
 int main(int argc, char* argv[]) {
         int i, r = 0, k;
 
-        test_setup_logging(LOG_INFO);
+        test_setup_logging(LOG_DEBUG);
 
         if (getuid() != 0)
                 log_warning("This program is unlikely to work for unprivileged users");
