@@ -219,7 +219,7 @@ static int property_get_cpu_affinity(
         assert(reply);
         assert(c);
 
-        return sd_bus_message_append_array(reply, 'y', c->cpuset, CPU_ALLOC_SIZE(c->cpuset_ncpus));
+        return sd_bus_message_append_array(reply, 'y', c->cpu_set.set, c->cpu_set.allocated);
 }
 
 static int property_get_timer_slack_nsec(
@@ -1558,64 +1558,34 @@ int bus_exec_context_set_transient_property(
 #endif
         if (streq(name, "CPUAffinity")) {
                 const void *a;
-                size_t n = 0;
+                size_t n;
+                _cleanup_(cpu_set_reset) CPUSet set = {};
 
                 r = sd_bus_message_read_array(message, 'y', &a, &n);
                 if (r < 0)
                         return r;
 
+                r = cpu_set_from_dbus(a, n, &set);
+                if (r < 0)
+                        return r;
+
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (n == 0) {
-                                c->cpuset = cpu_set_mfree(c->cpuset);
-                                c->cpuset_ncpus = 0;
+                                cpu_set_reset(&c->cpu_set);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
                                 _cleanup_free_ char *str = NULL;
-                                size_t allocated = 0, len = 0, i, ncpus;
 
-                                ncpus = CPU_SIZE_TO_NUM(n);
+                                str = cpu_set_to_string(&set);
+                                if (!str)
+                                        return -ENOMEM;
 
-                                for (i = 0; i < ncpus; i++) {
-                                        _cleanup_free_ char *p = NULL;
-                                        size_t add;
-
-                                        if (!CPU_ISSET_S(i, n, (cpu_set_t*) a))
-                                                continue;
-
-                                        r = asprintf(&p, "%zu", i);
-                                        if (r < 0)
-                                                return -ENOMEM;
-
-                                        add = strlen(p);
-
-                                        if (!GREEDY_REALLOC(str, allocated, len + add + 2))
-                                                return -ENOMEM;
-
-                                        strcpy(mempcpy(str + len, p, add), " ");
-                                        len += add + 1;
-                                }
-
-                                if (len != 0)
-                                        str[len - 1] = '\0';
-
-                                if (!c->cpuset || c->cpuset_ncpus < ncpus) {
-                                        cpu_set_t *cpuset;
-
-                                        cpuset = CPU_ALLOC(ncpus);
-                                        if (!cpuset)
-                                                return -ENOMEM;
-
-                                        CPU_ZERO_S(n, cpuset);
-                                        if (c->cpuset) {
-                                                CPU_OR_S(CPU_ALLOC_SIZE(c->cpuset_ncpus), cpuset, c->cpuset, (cpu_set_t*) a);
-                                                CPU_FREE(c->cpuset);
-                                        } else
-                                                CPU_OR_S(n, cpuset, cpuset, (cpu_set_t*) a);
-
-                                        c->cpuset = cpuset;
-                                        c->cpuset_ncpus = ncpus;
-                                } else
-                                        CPU_OR_S(n, c->cpuset, c->cpuset, (cpu_set_t*) a);
+                                /* We forego any optimizations here, and always create the structure using
+                                 * cpu_set_add_all(), because we don't want to care if the existing size we
+                                 * got over dbus is appropriate. */
+                                r = cpu_set_add_all(&c->cpu_set, &set);
+                                if (r < 0)
+                                        return r;
 
                                 unit_write_settingf(u, flags, name, "%s=%s", name, str);
                         }

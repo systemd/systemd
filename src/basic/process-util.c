@@ -4,7 +4,6 @@
 #include <errno.h>
 #include <limits.h>
 #include <linux/oom.h>
-#include <sched.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -1471,45 +1470,11 @@ int set_oom_score_adjust(int value) {
                                  WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_DISABLE_BUFFER);
 }
 
-int cpus_in_affinity_mask(void) {
-        size_t n = 16;
-        int r;
-
-        for (;;) {
-                cpu_set_t *c;
-
-                c = CPU_ALLOC(n);
-                if (!c)
-                        return -ENOMEM;
-
-                if (sched_getaffinity(0, CPU_ALLOC_SIZE(n), c) >= 0) {
-                        int k;
-
-                        k = CPU_COUNT_S(CPU_ALLOC_SIZE(n), c);
-                        CPU_FREE(c);
-
-                        if (k <= 0)
-                                return -EINVAL;
-
-                        return k;
-                }
-
-                r = -errno;
-                CPU_FREE(c);
-
-                if (r != -EINVAL)
-                        return r;
-                if (n > SIZE_MAX/2)
-                        return -ENOMEM;
-                n *= 2;
-        }
-}
-
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",
         [IOPRIO_CLASS_BE] = "best-effort",
-        [IOPRIO_CLASS_IDLE] = "idle"
+        [IOPRIO_CLASS_IDLE] = "idle",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, IOPRIO_N_CLASSES);
@@ -1530,7 +1495,7 @@ static const char* const sched_policy_table[] = {
         [SCHED_BATCH] = "batch",
         [SCHED_IDLE] = "idle",
         [SCHED_FIFO] = "fifo",
-        [SCHED_RR] = "rr"
+        [SCHED_RR] = "rr",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);

@@ -1266,8 +1266,7 @@ struct cpu_data {
         uint64_t shares;
         uint64_t quota;
         uint64_t period;
-        cpu_set_t *cpuset;
-        unsigned ncpus;
+        CPUSet cpu_set;
 };
 
 static int oci_cgroup_cpu_shares(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
@@ -1302,21 +1301,20 @@ static int oci_cgroup_cpu_quota(const char *name, JsonVariant *v, JsonDispatchFl
 
 static int oci_cgroup_cpu_cpus(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         struct cpu_data *data = userdata;
-        cpu_set_t *set;
+        CPUSet set;
         const char *n;
-        int ncpus;
+        int r;
 
         assert(data);
 
         assert_se(n = json_variant_string(v));
 
-        ncpus = parse_cpu_set(n, &set);
-        if (ncpus < 0)
-                return json_log(v, flags, ncpus, "Failed to parse CPU set specification: %s", n);
+        r = parse_cpu_set(n, &set);
+        if (r < 0)
+                return json_log(v, flags, r, "Failed to parse CPU set specification: %s", n);
 
-        CPU_FREE(data->cpuset);
-        data->cpuset = set;
-        data->ncpus = ncpus;
+        cpu_set_reset(&data->cpu_set);
+        data->cpu_set = set;
 
         return 0;
 }
@@ -1345,13 +1343,12 @@ static int oci_cgroup_cpu(const char *name, JsonVariant *v, JsonDispatchFlags fl
 
         r = json_dispatch(v, table, oci_unexpected, flags, &data);
         if (r < 0) {
-                CPU_FREE(data.cpuset);
+                cpu_set_reset(&data.cpu_set);
                 return r;
         }
 
-        CPU_FREE(s->cpuset);
-        s->cpuset = data.cpuset;
-        s->cpuset_ncpus = data.ncpus;
+        cpu_set_reset(&s->cpu_set);
+        s->cpu_set = data.cpu_set;
 
         if (data.shares != UINT64_MAX) {
                 r = settings_allocate_properties(s);

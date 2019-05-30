@@ -198,5 +198,3 @@ assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX)
                 (pid) = 0;                      \
                 _pid_;                          \
         })
-
-int cpus_in_affinity_mask(void);

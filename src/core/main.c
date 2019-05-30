@@ -96,48 +96,54 @@ static enum {
         ACTION_DUMP_CONFIGURATION_ITEMS,
         ACTION_DUMP_BUS_PROPERTIES,
 } arg_action = ACTION_RUN;
-static char *arg_default_unit = NULL;
-static bool arg_system = false;
-static bool arg_dump_core = true;
-static int arg_crash_chvt = -1;
-static bool arg_crash_shell = false;
-static bool arg_crash_reboot = false;
-static char *arg_confirm_spawn = NULL;
-static ShowStatus arg_show_status = _SHOW_STATUS_INVALID;
-static bool arg_switched_root = false;
-static PagerFlags arg_pager_flags = 0;
-static bool arg_service_watchdogs = true;
-static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
-static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
-static usec_t arg_default_restart_usec = DEFAULT_RESTART_USEC;
-static usec_t arg_default_timeout_start_usec = DEFAULT_TIMEOUT_USEC;
-static usec_t arg_default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
-static usec_t arg_default_timeout_abort_usec = DEFAULT_TIMEOUT_USEC;
-static bool arg_default_timeout_abort_set = false;
-static usec_t arg_default_start_limit_interval = DEFAULT_START_LIMIT_INTERVAL;
-static unsigned arg_default_start_limit_burst = DEFAULT_START_LIMIT_BURST;
-static usec_t arg_runtime_watchdog = 0;
-static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
-static char *arg_early_core_pattern = NULL;
-static char *arg_watchdog_device = NULL;
-static char **arg_default_environment = NULL;
-static struct rlimit *arg_default_rlimit[_RLIMIT_MAX] = {};
-static uint64_t arg_capability_bounding_set = CAP_ALL;
-static bool arg_no_new_privs = false;
-static nsec_t arg_timer_slack_nsec = NSEC_INFINITY;
-static usec_t arg_default_timer_accuracy_usec = 1 * USEC_PER_MINUTE;
-static Set* arg_syscall_archs = NULL;
-static FILE* arg_serialization = NULL;
-static int arg_default_cpu_accounting = -1;
-static bool arg_default_io_accounting = false;
-static bool arg_default_ip_accounting = false;
-static bool arg_default_blockio_accounting = false;
-static bool arg_default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT;
-static bool arg_default_tasks_accounting = true;
-static uint64_t arg_default_tasks_max = UINT64_MAX;
-static sd_id128_t arg_machine_id = {};
-static EmergencyAction arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
-static OOMPolicy arg_default_oom_policy = OOM_STOP;
+
+/* Those variables are initalized to 0 automatically, so we avoid uninitialized memory access.
+ * Real defaults are assigned in reset_arguments() below. */
+static char *arg_default_unit;
+static bool arg_system;
+static bool arg_dump_core;
+static int arg_crash_chvt;
+static bool arg_crash_shell;
+static bool arg_crash_reboot;
+static char *arg_confirm_spawn;
+static ShowStatus arg_show_status;
+static bool arg_switched_root;
+static PagerFlags arg_pager_flags;
+static bool arg_service_watchdogs;
+static ExecOutput arg_default_std_output;
+static ExecOutput arg_default_std_error;
+static usec_t arg_default_restart_usec;
+static usec_t arg_default_timeout_start_usec;
+static usec_t arg_default_timeout_stop_usec;
+static usec_t arg_default_timeout_abort_usec;
+static bool arg_default_timeout_abort_set;
+static usec_t arg_default_start_limit_interval;
+static unsigned arg_default_start_limit_burst;
+static usec_t arg_runtime_watchdog;
+static usec_t arg_shutdown_watchdog;
+static char *arg_early_core_pattern;
+static char *arg_watchdog_device;
+static char **arg_default_environment;
+static struct rlimit *arg_default_rlimit[_RLIMIT_MAX];
+static uint64_t arg_capability_bounding_set;
+static bool arg_no_new_privs;
+static nsec_t arg_timer_slack_nsec;
+static usec_t arg_default_timer_accuracy_usec;
+static Set* arg_syscall_archs;
+static FILE* arg_serialization;
+static int arg_default_cpu_accounting;
+static bool arg_default_io_accounting;
+static bool arg_default_ip_accounting;
+static bool arg_default_blockio_accounting;
+static bool arg_default_memory_accounting;
+static bool arg_default_tasks_accounting;
+static uint64_t arg_default_tasks_max;
+static sd_id128_t arg_machine_id;
+static EmergencyAction arg_cad_burst_action;
+static OOMPolicy arg_default_oom_policy;
+static CPUSet arg_cpu_affinity;
+
+static int parse_configuration(void);
 
 _noreturn_ static void freeze_or_exit_or_reboot(void) {
 
@@ -567,15 +573,11 @@ static int config_parse_cpu_affinity2(
                 void *data,
                 void *userdata) {
 
-        _cleanup_cpu_free_ cpu_set_t *c = NULL;
-        int ncpus;
+        CPUSet *affinity = data;
 
-        ncpus = parse_cpu_set_and_warn(rvalue, &c, unit, filename, line, lvalue);
-        if (ncpus < 0)
-                return ncpus;
+        assert(affinity);
 
-        if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
-                log_warning_errno(errno, "Failed to set CPU affinity: %m");
+        (void) parse_cpu_set_extend(rvalue, affinity, true, unit, filename, line, lvalue);
 
         return 0;
 }
@@ -717,7 +719,7 @@ static int parse_config_file(void) {
                 { "Manager", "CrashShell",                config_parse_bool,             0, &arg_crash_shell                       },
                 { "Manager", "CrashReboot",               config_parse_bool,             0, &arg_crash_reboot                      },
                 { "Manager", "ShowStatus",                config_parse_show_status,      0, &arg_show_status                       },
-                { "Manager", "CPUAffinity",               config_parse_cpu_affinity2,    0, NULL                                   },
+                { "Manager", "CPUAffinity",               config_parse_cpu_affinity2,    0, &arg_cpu_affinity                      },
                 { "Manager", "JoinControllers",           config_parse_warn_compat,      DISABLED_CONFIGURATION, NULL              },
                 { "Manager", "RuntimeWatchdogSec",        config_parse_sec,              0, &arg_runtime_watchdog                  },
                 { "Manager", "ShutdownWatchdogSec",       config_parse_sec,              0, &arg_shutdown_watchdog                 },
@@ -1736,6 +1738,21 @@ static void initialize_core_pattern(bool skip_setup) {
                 log_warning_errno(r, "Failed to write '%s' to /proc/sys/kernel/core_pattern, ignoring: %m", arg_early_core_pattern);
 }
 
+static void update_cpu_affinity(bool skip_setup) {
+        _cleanup_free_ char *mask = NULL;
+
+        if (skip_setup || !arg_cpu_affinity.set)
+                return;
+
+        assert(arg_cpu_affinity.allocated > 0);
+
+        mask = cpu_set_to_string(&arg_cpu_affinity);
+        log_debug("Setting CPU affinity to %s.", strnull(mask));
+
+        if (sched_setaffinity(0, arg_cpu_affinity.allocated, arg_cpu_affinity.set) < 0)
+                log_warning_errno(errno, "Failed to set CPU affinity: %m");
+}
+
 static void do_reexecute(
                 int argc,
                 char *argv[],
@@ -1902,11 +1919,11 @@ static int invoke_main_loop(
                         saved_log_level = m->log_level_overridden ? log_get_max_level() : -1;
                         saved_log_target = m->log_target_overridden ? log_get_target() : _LOG_TARGET_INVALID;
 
-                        r = parse_config_file();
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to parse config file, ignoring: %m");
+                        (void) parse_configuration();
 
                         set_manager_defaults(m);
+
+                        update_cpu_affinity(false);
 
                         if (saved_log_level >= 0)
                                 manager_override_log_level(m, saved_log_level);
@@ -2066,6 +2083,8 @@ static int initialize_runtime(
         if (arg_action != ACTION_RUN)
                 return 0;
 
+        update_cpu_affinity(skip_setup);
+
         if (arg_system) {
                 /* Make sure we leave a core dump without panicking the kernel. */
                 install_crash_handler();
@@ -2189,29 +2208,73 @@ static int do_queue_default_job(
         return 0;
 }
 
-static void free_arguments(void) {
-
-        /* Frees all arg_* variables, with the exception of arg_serialization */
-        rlimit_free_all(arg_default_rlimit);
+static void reset_arguments(void) {
+        /* Frees/resets arg_* variables, with a few exceptions commented below. */
 
         arg_default_unit = mfree(arg_default_unit);
+
+        /* arg_system — ignore */
+
+        arg_dump_core = true;
+        arg_crash_chvt = -1;
+        arg_crash_shell = false;
+        arg_crash_reboot = false;
         arg_confirm_spawn = mfree(arg_confirm_spawn);
+        arg_show_status = _SHOW_STATUS_INVALID;
+        arg_switched_root = false;
+        arg_pager_flags = 0;
+        arg_service_watchdogs = true;
+        arg_default_std_output = EXEC_OUTPUT_JOURNAL;
+        arg_default_std_error = EXEC_OUTPUT_INHERIT;
+        arg_default_restart_usec = DEFAULT_RESTART_USEC;
+        arg_default_timeout_start_usec = DEFAULT_TIMEOUT_USEC;
+        arg_default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
+        arg_default_timeout_abort_usec = DEFAULT_TIMEOUT_USEC;
+        arg_default_timeout_abort_set = false;
+        arg_default_start_limit_interval = DEFAULT_START_LIMIT_INTERVAL;
+        arg_default_start_limit_burst = DEFAULT_START_LIMIT_BURST;
+        arg_runtime_watchdog = 0;
+        arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
+        arg_early_core_pattern = NULL;
+        arg_watchdog_device = NULL;
+
         arg_default_environment = strv_free(arg_default_environment);
+        rlimit_free_all(arg_default_rlimit);
+
+        arg_capability_bounding_set = CAP_ALL;
+        arg_no_new_privs = false;
+        arg_timer_slack_nsec = NSEC_INFINITY;
+        arg_default_timer_accuracy_usec = 1 * USEC_PER_MINUTE;
+
         arg_syscall_archs = set_free(arg_syscall_archs);
+
+        /* arg_serialization — ignore */
+
+        arg_default_cpu_accounting = -1;
+        arg_default_io_accounting = false;
+        arg_default_ip_accounting = false;
+        arg_default_blockio_accounting = false;
+        arg_default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT;
+        arg_default_tasks_accounting = true;
+        arg_default_tasks_max = UINT64_MAX;
+        arg_machine_id = (sd_id128_t) {};
+        arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
+        arg_default_oom_policy = OOM_STOP;
+
+        cpu_set_reset(&arg_cpu_affinity);
 }
 
-static int load_configuration(int argc, char **argv, const char **ret_error_message) {
+static int parse_configuration(void) {
         int r;
-
-        assert(ret_error_message);
 
         arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
 
+        /* Assign configuration defaults */
+        reset_arguments();
+
         r = parse_config_file();
-        if (r < 0) {
-                *ret_error_message = "Failed to parse config file";
-                return r;
-        }
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse config file, ignoring: %m");
 
         if (arg_system) {
                 r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
@@ -2221,6 +2284,16 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
 
         /* Note that this also parses bits from the kernel command line, including "debug". */
         log_parse_environment();
+
+        return 0;
+}
+
+static int load_configuration(int argc, char **argv, const char **ret_error_message) {
+        int r;
+
+        assert(ret_error_message);
+
+        (void) parse_configuration();
 
         r = parse_argv(argc, argv);
         if (r < 0) {
@@ -2682,7 +2755,7 @@ finish:
                 m = manager_free(m);
         }
 
-        free_arguments();
+        reset_arguments();
         mac_selinux_finish();
 
         if (reexecute)
