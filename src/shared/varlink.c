@@ -246,8 +246,7 @@ static int varlink_new(Varlink **ret) {
 
         assert(ret);
 
-        /* Here use new0 as the below structured initializer is nested. */
-        v = new0(Varlink, 1);
+        v = new(Varlink, 1);
         if (!v)
                 return -ENOMEM;
 
