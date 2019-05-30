@@ -110,7 +110,6 @@ typedef struct LinkInfo {
         uint32_t rx_queues;
 
         bool has_mac_address:1;
-        bool has_mtu:1;
         bool has_tx_queues:1;
         bool has_rx_queues:1;
 } LinkInfo;
@@ -162,14 +161,9 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
                 sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &info->mac_address) >= 0 &&
                 memcmp(&info->mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0;
 
-        info->has_mtu =
-                sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu) >= 0 &&
-                info->mtu > 0;
-
-        if (info->has_mtu) {
-                (void) sd_netlink_message_read_u32(m, IFLA_MIN_MTU, &info->min_mtu);
-                (void) sd_netlink_message_read_u32(m, IFLA_MAX_MTU, &info->max_mtu);
-        }
+        (void) sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu);
+        (void) sd_netlink_message_read_u32(m, IFLA_MIN_MTU, &info->min_mtu);
+        (void) sd_netlink_message_read_u32(m, IFLA_MAX_MTU, &info->max_mtu);
 
         info->has_rx_queues =
                 sd_netlink_message_read_u32(m, IFLA_NUM_RX_QUEUES, &info->rx_queues) >= 0 &&
@@ -988,15 +982,27 @@ static int link_status_one(
                         return r;
         }
 
-        if (info->has_mtu) {
+        if (info->mtu > 0) {
+                char min_str[DECIMAL_STR_MAX(uint32_t)], max_str[DECIMAL_STR_MAX(uint32_t)];
+
+                xsprintf(min_str, "%" PRIu32, info->min_mtu);
+                xsprintf(max_str, "%" PRIu32, info->max_mtu);
+
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
                 r = table_add_cell_full(table, NULL, TABLE_STRING, "MTU:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
                 if (r < 0)
                         return r;
-                r = table_add_cell_stringf(table, NULL, "%" PRIu32 " (Minimum: %" PRIu32 ", Maximum: %" PRIu32 ")",
-                                          info->mtu, info->min_mtu, info->max_mtu);
+                r = table_add_cell_stringf(table, NULL, "%" PRIu32 "%s%s%s%s%s%s%s",
+                                           info->mtu,
+                                           info->min_mtu > 0 || info->max_mtu > 0 ? " (" : "",
+                                           info->min_mtu > 0 ? "Minimum: " : "",
+                                           info->min_mtu > 0 ? min_str : "",
+                                           info->min_mtu > 0 && info->max_mtu > 0 ? ", " : "",
+                                           info->max_mtu > 0 ? "Maximum: " : "",
+                                           info->max_mtu > 0 ? max_str : "",
+                                           info->min_mtu > 0 || info->max_mtu > 0 ? ")" : "");
                 if (r < 0)
                         return r;
         }
