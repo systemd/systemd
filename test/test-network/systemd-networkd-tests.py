@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1+
 # systemd-networkd tests
 
+import argparse
 import os
 import re
 import shutil
@@ -22,7 +23,12 @@ network_sysctl_ipv4_path='/proc/sys/net/ipv4/conf'
 dnsmasq_pid_file='/run/networkd-ci/test-test-dnsmasq.pid'
 dnsmasq_log_file='/run/networkd-ci/test-dnsmasq-log-file'
 
+networkd_bin='/usr/lib/systemd/systemd-networkd'
 wait_online_bin='/usr/lib/systemd/systemd-networkd-wait-online'
+networkctl_bin='/usr/bin/networkctl'
+use_valgrind=False
+enable_debug=False
+env = {}
 
 def is_module_available(module_name):
     lsmod_output = subprocess.check_output('lsmod', universal_newlines=True)
@@ -79,8 +85,35 @@ def setUpModule():
 
     subprocess.check_call('systemctl stop systemd-networkd.socket', shell=True)
 
+    drop_in = [
+        '[Service]',
+        'Restart=no',
+        'ExecStart=',
+    ]
+    if use_valgrind:
+        drop_in += [
+            'ExecStart=!!valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all ' + networkd_bin,
+            'PrivateTmp=yes',
+            'MemoryDenyWriteExecute=no',
+        ]
+    else:
+        drop_in += ['ExecStart=!!' + networkd_bin]
+    if enable_debug:
+        drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
+
+    drop_in_str = '\n'.join(drop_in)
+    print(drop_in_str)
+
+    os.makedirs('/run/systemd/system/systemd-networkd.service.d', exist_ok=True)
+    with open('/run/systemd/system/systemd-networkd.service.d/00-override.conf', mode='w') as f:
+        f.write(drop_in_str)
+
+    subprocess.check_call('systemctl daemon-reload', shell=True)
+
 def tearDownModule():
     shutil.rmtree(networkd_ci_path)
+    shutil.rmtree('/run/systemd/system/systemd-networkd.service.d')
+    subprocess.check_call('systemctl daemon-reload', shell=True)
 
     subprocess.check_call('systemctl stop systemd-networkd.service', shell=True)
     subprocess.check_call('systemctl start systemd-networkd.socket', shell=True)
@@ -205,19 +238,19 @@ class Utilities():
             time.sleep(sleep_sec)
 
     def wait_online(self, links_with_operstate, timeout='20s', bool_any=False):
-        args = [wait_online_bin, f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
+        args = wait_online_cmd + [f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
         if bool_any:
             args += ['--any']
         try:
-            subprocess.check_call(args)
+            subprocess.check_call(args, env=env)
         except subprocess.CalledProcessError:
             for link in links_with_operstate:
-                output = subprocess.check_output(['networkctl', 'status', link.split(':')[0]], universal_newlines=True).rstrip()
+                output = subprocess.check_output(networkctl_cmd + ['status', link.split(':')[0]], universal_newlines=True, env=env).rstrip()
                 print(output)
             raise
 
     def get_operstate(self, link, show_status=True, setup_state='configured'):
-        output = subprocess.check_output(['networkctl', 'status', link], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', link], universal_newlines=True, env=env).rstrip()
         if show_status:
             print(output)
         for line in output.splitlines():
@@ -418,19 +451,19 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '00:50:56:c0:00:28')
 
-        output = subprocess.check_output(['networkctl', 'list'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['list'], universal_newlines=True, env=env).rstrip()
         self.assertRegex(output, '1 lo ')
         self.assertRegex(output, 'dropin-test')
 
-        output = subprocess.check_output(['networkctl', 'list', 'dropin-test'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['list', 'dropin-test'], universal_newlines=True, env=env).rstrip()
         self.assertNotRegex(output, '1 lo ')
         self.assertRegex(output, 'dropin-test')
 
-        output = subprocess.check_output(['networkctl', 'list', 'dropin-*'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['list', 'dropin-*'], universal_newlines=True, env=env).rstrip()
         self.assertNotRegex(output, '1 lo ')
         self.assertRegex(output, 'dropin-test')
 
-        output = subprocess.check_output(['networkctl', 'status', 'dropin-*'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', 'dropin-*'], universal_newlines=True, env=env).rstrip()
         self.assertNotRegex(output, '1: lo ')
         self.assertRegex(output, 'dropin-test')
 
@@ -1192,7 +1225,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         self.check_link_exists('test1')
 
-        output = subprocess.check_output(['networkctl', 'status', 'test1'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', 'test1'], universal_newlines=True, env=env).rstrip()
         print(output)
         self.assertRegex(output, '192.168.0.15')
         self.assertRegex(output, '192.168.0.1')
@@ -1336,7 +1369,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         self.check_link_exists('dummy98')
 
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', 'dummy98'], universal_newlines=True, env=env).rstrip()
         print(output)
         self.assertRegex(output, 'unmanaged')
 
@@ -1518,7 +1551,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['dummy98:routable'])
 
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', 'dummy98'], universal_newlines=True, env=env).rstrip()
         print(output)
         self.assertRegex(output, 'Address: 192.168.42.100')
         self.assertRegex(output, 'DNS: 192.168.42.1')
@@ -1811,7 +1844,7 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['veth99:degraded', 'veth-peer:degraded'])
 
-        output = subprocess.check_output(['networkctl', 'lldp'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['lldp'], universal_newlines=True, env=env).rstrip()
         print(output)
         self.assertRegex(output, 'veth-peer')
         self.assertRegex(output, 'veth99')
@@ -1837,7 +1870,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', 'veth99'], universal_newlines=True, env=env).rstrip()
         print(output)
         self.assertRegex(output, '2002:da8:1:0')
 
@@ -1864,7 +1897,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', 'veth99'], universal_newlines=True, env=env).rstrip()
         print(output)
         self.assertRegex(output, '192.168.5.*')
         self.assertRegex(output, 'Gateway: 192.168.5.1')
@@ -1877,7 +1910,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.start_networkd(0)
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', 'veth99'], universal_newlines=True, env=env).rstrip()
         print(output)
         self.assertRegex(output, 'Gateway: 192.168.5.*')
         self.assertRegex(output, '192.168.5.*')
@@ -1930,7 +1963,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.start_dnsmasq()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', 'veth99'], universal_newlines=True, env=env).rstrip()
         print(output)
         self.assertRegex(output, '2600::')
         self.assertNotRegex(output, '192.168.5')
@@ -1948,7 +1981,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.start_dnsmasq()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', 'veth99'], universal_newlines=True, env=env).rstrip()
         print(output)
         self.assertNotRegex(output, '2600::')
         self.assertRegex(output, '192.168.5')
@@ -1965,7 +1998,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255', ipv='-4')
         self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128', ipv='-6')
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', 'veth99'], universal_newlines=True, env=env).rstrip()
         print(output)
         self.assertRegex(output, '2600::')
         self.assertRegex(output, '192.168.5')
@@ -2084,7 +2117,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.start_dnsmasq()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', 'veth99'], universal_newlines=True, env=env).rstrip()
         print(output)
         self.assertRegex(output, '192.168.5.*')
 
@@ -2094,7 +2127,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
         time.sleep(125)
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', 'veth99'], universal_newlines=True, env=env).rstrip()
         print(output)
         self.assertRegex(output, '192.168.5.*')
 
@@ -2196,7 +2229,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.start_dnsmasq()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        output = subprocess.check_output(['networkctl', 'status', 'veth99'], universal_newlines=True).rstrip()
+        output = subprocess.check_output(networkctl_cmd + ['status', 'veth99'], universal_newlines=True, env=env).rstrip()
         print(output)
         self.assertRegex(output, '192.168.5')
 
@@ -2311,5 +2344,42 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, f'192.168.5.1 proto dhcp scope link src {address2} metric 1024')
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--build-dir', help='Path to build dir', dest='build_dir')
+    parser.add_argument('--networkd', help='Path to systemd-networkd', dest='networkd_bin')
+    parser.add_argument('--wait-online', help='Path to systemd-networkd-wait-online', dest='wait_online_bin')
+    parser.add_argument('--networkctl', help='Path to networkctl', dest='networkctl_bin')
+    parser.add_argument('--valgrind', help='Enable valgrind', dest='use_valgrind', type=bool, nargs='?', const=True, default=use_valgrind)
+    parser.add_argument('--debug', help='Generate debugging logs', dest='enable_debug', type=bool, nargs='?', const=True, default=enable_debug)
+    ns, args = parser.parse_known_args(namespace=unittest)
+
+    if ns.build_dir:
+        if ns.networkd_bin or ns.wait_online_bin or ns.networkctl_bin:
+            print('WARNING: --networkd, --wait-online, or --networkctl options are ignored when --build-dir is specified.')
+        networkd_bin = os.path.join(ns.build_dir, 'systemd-networkd')
+        wait_online_bin = os.path.join(ns.build_dir, 'systemd-networkd-wait-online')
+        networkctl_bin = os.path.join(ns.build_dir, 'networkctl')
+    else:
+        if ns.networkd_bin:
+            networkd_bin = ns.networkd_bin
+        if ns.wait_online_bin:
+            wait_online_bin = ns.wait_online_bin
+        if ns.networkctl_bin:
+            networkctl_bin = ns.networkctl_bin
+
+    use_valgrind = ns.use_valgrind
+    enable_debug = ns.enable_debug
+
+    if use_valgrind:
+        networkctl_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', networkctl_bin]
+        wait_online_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', wait_online_bin]
+    else:
+        networkctl_cmd = [networkctl_bin]
+        wait_online_cmd = [wait_online_bin]
+
+    if enable_debug:
+        env.update({ 'SYSTEMD_LOG_LEVEL' : 'debug' })
+
+    sys.argv[1:] = args
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
                                                      verbosity=3))
