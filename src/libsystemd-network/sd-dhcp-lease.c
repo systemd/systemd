@@ -333,7 +333,7 @@ static int lease_parse_string(const uint8_t *option, size_t len, char **ret) {
                 if (memchr(option, 0, len - 1))
                         return -EINVAL;
 
-                string = strndup((const char *) option, len);
+                string = memdup_suffix0((const char *) option, len);
                 if (!string)
                         return -ENOMEM;
 
