@@ -1212,6 +1212,7 @@ static int varlink_enqueue_json(Varlink *v, JsonVariant *m) {
         r = json_variant_format(m, 0, &text);
         if (r < 0)
                 return r;
+        assert(text[r] == '\0');
 
         if (v->output_buffer_size + r + 1 > VARLINK_BUFFER_MAX)
                 return -ENOBUFS;
