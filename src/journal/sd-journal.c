@@ -1734,7 +1734,7 @@ static void remove_directory(sd_journal *j, Directory *d) {
                 hashmap_remove(j->directories_by_wd, INT_TO_PTR(d->wd));
 
                 if (j->inotify_fd >= 0)
-                        inotify_rm_watch(j->inotify_fd, d->wd);
+                        (void) inotify_rm_watch(j->inotify_fd, d->wd);
         }
 
         hashmap_remove(j->directories_by_path, d->path);
