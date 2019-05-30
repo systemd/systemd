@@ -2304,7 +2304,7 @@ int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMeth
 
 int varlink_server_bind_method_many_internal(VarlinkServer *s, ...) {
         va_list ap;
-        int r;
+        int r = 0;
 
         assert_return(s, -EINVAL);
 
@@ -2321,10 +2321,11 @@ int varlink_server_bind_method_many_internal(VarlinkServer *s, ...) {
 
                 r = varlink_server_bind_method(s, method, callback);
                 if (r < 0)
-                        return r;
+                        break;
         }
+        va_end(ap);
 
-        return 0;
+        return r;
 }
 
 int varlink_server_bind_connect(VarlinkServer *s, VarlinkConnect callback) {
