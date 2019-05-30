@@ -66,10 +66,10 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
         /* use default values unless set */
         sc->allow_suspend = allow_suspend != 0;
         sc->allow_hibernate = allow_hibernate != 0;
-        sc->allow_hybrid_sleep = allow_hybrid_sleep > 0
-                || (allow_suspend != 0 && allow_hibernate != 0);
-        sc->allow_s2h = allow_s2h > 0
-                || (allow_suspend != 0 && allow_hibernate != 0);
+        sc->allow_hybrid_sleep = allow_hybrid_sleep >= 0 ? allow_hybrid_sleep
+                : (allow_suspend != 0 && allow_hibernate != 0);
+        sc->allow_s2h = allow_s2h >= 0 ? allow_s2h
+                : (allow_suspend != 0 && allow_hibernate != 0);
 
         if (!sc->suspend_states)
                 sc->suspend_states = strv_new("mem", "standby", "freeze");
