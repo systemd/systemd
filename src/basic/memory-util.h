@@ -37,8 +37,8 @@ static inline int memcmp_nn(const void *s1, size_t n1, const void *s2, size_t n2
 #define memzero(x,l)                                            \
         ({                                                      \
                 size_t _l_ = (l);                               \
-                void *_x_ = (x);                                \
-                _l_ == 0 ? _x_ : memset(_x_, 0, _l_);           \
+                if (_l_ > 0)                                    \
+                        memset(x, 0, _l_);                      \
         })
 
 #define zero(x) (memzero(&(x), sizeof(x)))
