@@ -246,8 +246,7 @@ static int varlink_new(Varlink **ret) {
 
         assert(ret);
 
-        /* Here use new0 as the below structured initializer is nested. */
-        v = new0(Varlink, 1);
+        v = new(Varlink, 1);
         if (!v)
                 return -ENOMEM;
 
@@ -1212,6 +1211,7 @@ static int varlink_enqueue_json(Varlink *v, JsonVariant *m) {
         r = json_variant_format(m, 0, &text);
         if (r < 0)
                 return r;
+        assert(text[r] == '\0');
 
         if (v->output_buffer_size + r + 1 > VARLINK_BUFFER_MAX)
                 return -ENOBUFS;
@@ -2304,7 +2304,7 @@ int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMeth
 
 int varlink_server_bind_method_many_internal(VarlinkServer *s, ...) {
         va_list ap;
-        int r;
+        int r = 0;
 
         assert_return(s, -EINVAL);
 
@@ -2321,10 +2321,11 @@ int varlink_server_bind_method_many_internal(VarlinkServer *s, ...) {
 
                 r = varlink_server_bind_method(s, method, callback);
                 if (r < 0)
-                        return r;
+                        break;
         }
+        va_end(ap);
 
-        return 0;
+        return r;
 }
 
 int varlink_server_bind_connect(VarlinkServer *s, VarlinkConnect callback) {
