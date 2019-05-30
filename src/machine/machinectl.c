@@ -606,9 +606,9 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 fputs("\t   Iface:", stdout);
 
                 for (c = 0; c < i->n_netif; c++) {
-                        char name[IF_NAMESIZE+1] = "";
+                        char name[IF_NAMESIZE+1];
 
-                        if (if_indextoname(i->netif[c], name)) {
+                        if (format_ifname(i->netif[c], name)) {
                                 fputc(' ', stdout);
                                 fputs(name, stdout);
 

@@ -14,6 +14,7 @@
 #include "bus-util.h"
 #include "dns-domain.h"
 #include "escape.h"
+#include "format-util.h"
 #include "gcrypt-util.h"
 #include "in-addr-util.h"
 #include "main-func.h"
@@ -140,12 +141,12 @@ static void print_source(uint64_t flags, usec_t rtt) {
 }
 
 static void print_ifindex_comment(int printed_so_far, int ifindex) {
-        char ifname[IF_NAMESIZE];
+        char ifname[IF_NAMESIZE + 1];
 
         if (ifindex <= 0)
                 return;
 
-        if (!if_indextoname(ifindex, ifname))
+        if (!format_ifname(ifindex, ifname))
                 log_warning_errno(errno, "Failed to resolve interface name for index %i, ignoring: %m", ifindex);
         else
                 printf("%*s%s-- link: %s%s",
@@ -1382,7 +1383,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(link_info_clear) struct link_info link_info = {};
         _cleanup_free_ char *ifi = NULL, *p = NULL;
-        char ifname[IF_NAMESIZE] = "";
+        char ifname[IF_NAMESIZE + 1] = "";
         char **i;
         int r;
 
@@ -1390,7 +1391,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         assert(ifindex > 0);
 
         if (!name) {
-                if (!if_indextoname(ifindex, ifname))
+                if (!format_ifname(ifindex, ifname))
                         return log_error_errno(errno, "Failed to resolve interface name for %i: %m", ifindex);
 
                 name = ifname;
@@ -1844,12 +1845,12 @@ static int verb_status(int argc, char **argv, void *userdata) {
 }
 
 static int log_interface_is_managed(int r, int ifindex) {
-        char ifname[IFNAMSIZ];
+        char ifname[IF_NAMESIZE + 1];
 
         return log_error_errno(r,
                                "The specified interface %s is managed by systemd-networkd. Operation refused.\n"
                                "Please configure DNS settings for systemd-networkd managed interfaces directly in their .network files.",
-                               strna(if_indextoname(ifindex, ifname)));
+                               strna(format_ifname(ifindex, ifname)));
 }
 
 static int verb_dns(int argc, char **argv, void *userdata) {

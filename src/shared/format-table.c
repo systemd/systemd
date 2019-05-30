@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <ctype.h>
+#include <net/if.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "gunicode.h"
 #include "memory-util.h"
 #include "pager.h"
@@ -73,9 +75,14 @@ typedef struct TableData {
                 usec_t timespan;
                 uint64_t size;
                 char string[0];
+                int int_val;
+                int32_t int32;
+                int64_t int64;
+                unsigned uint_val;
                 uint32_t uint32;
                 uint64_t uint64;
                 int percent;        /* we use 'int' as datatype for percent values in order to match the result of parse_percent() */
+                int ifindex;
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;
@@ -226,13 +233,18 @@ static size_t table_data_size(TableDataType type, const void *data) {
                 return sizeof(usec_t);
 
         case TABLE_SIZE:
+        case TABLE_INT64:
         case TABLE_UINT64:
                 return sizeof(uint64_t);
 
+        case TABLE_INT32:
         case TABLE_UINT32:
                 return sizeof(uint32_t);
 
+        case TABLE_INT:
+        case TABLE_UINT:
         case TABLE_PERCENT:
+        case TABLE_IFINDEX:
                 return sizeof(int);
 
         default:
@@ -378,6 +390,20 @@ int table_add_cell_full(
         t->data[t->n_cells++] = TAKE_PTR(d);
 
         return 0;
+}
+
+int table_add_cell_stringf(Table *t, TableCell **ret_cell, const char *format, ...) {
+        _cleanup_free_ char *buffer = NULL;
+        va_list ap;
+        int r;
+
+        va_start(ap, format);
+        r = vasprintf(&buffer, format, ap);
+        va_end(ap);
+        if (r < 0)
+                return -ENOMEM;
+
+        return table_add_cell(t, ret_cell, TABLE_STRING, buffer);
 }
 
 int table_dup_cell(Table *t, TableCell *cell) {
@@ -664,9 +690,14 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 union {
                         uint64_t size;
                         usec_t usec;
+                        int int_val;
+                        int32_t int32;
+                        int64_t int64;
+                        unsigned uint_val;
                         uint32_t uint32;
                         uint64_t uint64;
                         int percent;
+                        int ifindex;
                         bool b;
                 } buffer;
 
@@ -696,6 +727,26 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         data = &buffer.size;
                         break;
 
+                case TABLE_INT:
+                        buffer.int_val = va_arg(ap, int);
+                        data = &buffer.int_val;
+                        break;
+
+                case TABLE_INT32:
+                        buffer.int32 = va_arg(ap, int32_t);
+                        data = &buffer.int32;
+                        break;
+
+                case TABLE_INT64:
+                        buffer.int64 = va_arg(ap, int64_t);
+                        data = &buffer.int64;
+                        break;
+
+                case TABLE_UINT:
+                        buffer.uint_val = va_arg(ap, unsigned);
+                        data = &buffer.uint_val;
+                        break;
+
                 case TABLE_UINT32:
                         buffer.uint32 = va_arg(ap, uint32_t);
                         data = &buffer.uint32;
@@ -709,6 +760,11 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_PERCENT:
                         buffer.percent = va_arg(ap, int);
                         data = &buffer.percent;
+                        break;
+
+                case TABLE_IFINDEX:
+                        buffer.ifindex = va_arg(ap, int);
+                        data = &buffer.ifindex;
                         break;
 
                 case _TABLE_DATA_TYPE_MAX:
@@ -831,6 +887,18 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_SIZE:
                         return CMP(a->size, b->size);
 
+                case TABLE_INT:
+                        return CMP(a->int_val, b->int_val);
+
+                case TABLE_INT32:
+                        return CMP(a->int32, b->int32);
+
+                case TABLE_INT64:
+                        return CMP(a->int64, b->int64);
+
+                case TABLE_UINT:
+                        return CMP(a->uint_val, b->uint_val);
+
                 case TABLE_UINT32:
                         return CMP(a->uint32, b->uint32);
 
@@ -839,6 +907,9 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 
                 case TABLE_PERCENT:
                         return CMP(a->percent, b->percent);
+
+                case TABLE_IFINDEX:
+                        return CMP(a->ifindex, b->ifindex);
 
                 default:
                         ;
@@ -952,6 +1023,54 @@ static const char *table_data_format(TableData *d) {
                 break;
         }
 
+        case TABLE_INT: {
+                _cleanup_free_ char *p;
+
+                p = new(char, DECIMAL_STR_WIDTH(d->int_val) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%i", d->int_val);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_INT32: {
+                _cleanup_free_ char *p;
+
+                p = new(char, DECIMAL_STR_WIDTH(d->int32) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%" PRIi32, d->int32);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_INT64: {
+                _cleanup_free_ char *p;
+
+                p = new(char, DECIMAL_STR_WIDTH(d->int64) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%" PRIi64, d->int64);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_UINT: {
+                _cleanup_free_ char *p;
+
+                p = new(char, DECIMAL_STR_WIDTH(d->uint_val) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%u", d->uint_val);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
         case TABLE_UINT32: {
                 _cleanup_free_ char *p;
 
@@ -984,6 +1103,23 @@ static const char *table_data_format(TableData *d) {
                         return NULL;
 
                 sprintf(p, "%i%%" , d->percent);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_IFINDEX: {
+                _cleanup_free_ char *p;
+                char name[IF_NAMESIZE + 1];
+
+                if (format_ifname(d->ifindex, name)) {
+                        p = strdup(name);
+                        if (!p)
+                                return NULL;
+                } else {
+                        if (asprintf(&p, "%i" , d->ifindex) < 0)
+                                return NULL;
+                }
+
                 d->formatted = TAKE_PTR(p);
                 break;
         }
@@ -1491,6 +1627,18 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
 
                 return json_variant_new_unsigned(ret, d->size);
 
+        case TABLE_INT:
+                return json_variant_new_integer(ret, d->int_val);
+
+        case TABLE_INT32:
+                return json_variant_new_integer(ret, d->int32);
+
+        case TABLE_INT64:
+                return json_variant_new_integer(ret, d->int64);
+
+        case TABLE_UINT:
+                return json_variant_new_unsigned(ret, d->uint_val);
+
         case TABLE_UINT32:
                 return json_variant_new_unsigned(ret, d->uint32);
 
@@ -1499,6 +1647,9 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
 
         case TABLE_PERCENT:
                 return json_variant_new_integer(ret, d->percent);
+
+        case TABLE_IFINDEX:
+                return json_variant_new_integer(ret, d->ifindex);
 
         default:
                 return -EINVAL;

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <inttypes.h>
+#include <net/if.h>
 
 #if SIZEOF_PID_T == 4
 #  define PID_PRI PRIi32
@@ -65,3 +66,5 @@
 #else
 #  error Unknown ino_t size
 #endif
+
+char *format_ifname(int ifindex, char buf[static IF_NAMESIZE + 1]);

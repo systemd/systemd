@@ -15,9 +15,14 @@ typedef enum TableDataType {
         TABLE_TIMESTAMP,
         TABLE_TIMESPAN,
         TABLE_SIZE,
+        TABLE_INT,
+        TABLE_INT32,
+        TABLE_INT64,
+        TABLE_UINT,
         TABLE_UINT32,
         TABLE_UINT64,
         TABLE_PERCENT,
+        TABLE_IFINDEX,
         _TABLE_DATA_TYPE_MAX,
         _TABLE_DATA_TYPE_INVALID = -1,
 } TableDataType;
@@ -36,6 +41,7 @@ int table_add_cell_full(Table *t, TableCell **ret_cell, TableDataType type, cons
 static inline int table_add_cell(Table *t, TableCell **ret_cell, TableDataType type, const void *data) {
         return table_add_cell_full(t, ret_cell, type, data, (size_t) -1, (size_t) -1, (unsigned) -1, (unsigned) -1, (unsigned) -1);
 }
+int table_add_cell_stringf(Table *t, TableCell **ret_cell, const char *format, ...) _printf_(3, 4);
 
 int table_dup_cell(Table *t, TableCell *cell);
 
