@@ -29,6 +29,8 @@ networkctl_bin='/usr/bin/networkctl'
 use_valgrind=False
 enable_debug=False
 env = {}
+asan_options=None
+ubsan_options=None
 
 def is_module_available(module_name):
     lsmod_output = subprocess.check_output('lsmod', universal_newlines=True)
@@ -93,13 +95,18 @@ def setUpModule():
     if use_valgrind:
         drop_in += [
             'ExecStart=!!valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all ' + networkd_bin,
-            'PrivateTmp=yes',
-            'MemoryDenyWriteExecute=no',
+            'PrivateTmp=yes'
         ]
     else:
         drop_in += ['ExecStart=!!' + networkd_bin]
     if enable_debug:
         drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
+    if asan_options:
+        drop_in += ['Environment=ASAN_OPTIONS="' + asan_options + '"']
+    if ubsan_options:
+        drop_in += ['Environment=UBSAN_OPTIONS="' + ubsan_options + '"']
+    if use_valgrind or asan_options or ubsan_options:
+        drop_in += ['MemoryDenyWriteExecute=no']
 
     drop_in_str = '\n'.join(drop_in)
     print(drop_in_str)
@@ -2351,6 +2358,8 @@ if __name__ == '__main__':
     parser.add_argument('--networkctl', help='Path to networkctl', dest='networkctl_bin')
     parser.add_argument('--valgrind', help='Enable valgrind', dest='use_valgrind', type=bool, nargs='?', const=True, default=use_valgrind)
     parser.add_argument('--debug', help='Generate debugging logs', dest='enable_debug', type=bool, nargs='?', const=True, default=enable_debug)
+    parser.add_argument('--asan-options', help='ASAN options', dest='asan_options')
+    parser.add_argument('--ubsan-options', help='UBSAN options', dest='ubsan_options')
     ns, args = parser.parse_known_args(namespace=unittest)
 
     if ns.build_dir:
@@ -2369,6 +2378,8 @@ if __name__ == '__main__':
 
     use_valgrind = ns.use_valgrind
     enable_debug = ns.enable_debug
+    asan_options = ns.asan_options
+    ubsan_options = ns.ubsan_options
 
     if use_valgrind:
         networkctl_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', networkctl_bin]
@@ -2379,6 +2390,10 @@ if __name__ == '__main__':
 
     if enable_debug:
         env.update({ 'SYSTEMD_LOG_LEVEL' : 'debug' })
+    if asan_options:
+        env.update({ 'ASAN_OPTIONS' : asan_options })
+    if ubsan_options:
+        env.update({ 'UBSAN_OPTIONS' : ubsan_options })
 
     sys.argv[1:] = args
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
