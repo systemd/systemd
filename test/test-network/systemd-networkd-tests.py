@@ -30,6 +30,7 @@ use_valgrind=False
 enable_debug=False
 env = {}
 asan_options=None
+lsan_options=None
 ubsan_options=None
 
 def is_module_available(module_name):
@@ -103,9 +104,11 @@ def setUpModule():
         drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
     if asan_options:
         drop_in += ['Environment=ASAN_OPTIONS="' + asan_options + '"']
+    if lsan_options:
+        drop_in += ['Environment=LSAN_OPTIONS="' + lsan_options + '"']
     if ubsan_options:
         drop_in += ['Environment=UBSAN_OPTIONS="' + ubsan_options + '"']
-    if use_valgrind or asan_options or ubsan_options:
+    if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
 
     drop_in_str = '\n'.join(drop_in)
@@ -2359,6 +2362,7 @@ if __name__ == '__main__':
     parser.add_argument('--valgrind', help='Enable valgrind', dest='use_valgrind', type=bool, nargs='?', const=True, default=use_valgrind)
     parser.add_argument('--debug', help='Generate debugging logs', dest='enable_debug', type=bool, nargs='?', const=True, default=enable_debug)
     parser.add_argument('--asan-options', help='ASAN options', dest='asan_options')
+    parser.add_argument('--lsan-options', help='LSAN options', dest='lsan_options')
     parser.add_argument('--ubsan-options', help='UBSAN options', dest='ubsan_options')
     ns, args = parser.parse_known_args(namespace=unittest)
 
@@ -2379,6 +2383,7 @@ if __name__ == '__main__':
     use_valgrind = ns.use_valgrind
     enable_debug = ns.enable_debug
     asan_options = ns.asan_options
+    lsan_options = ns.lsan_options
     ubsan_options = ns.ubsan_options
 
     if use_valgrind:
@@ -2392,6 +2397,8 @@ if __name__ == '__main__':
         env.update({ 'SYSTEMD_LOG_LEVEL' : 'debug' })
     if asan_options:
         env.update({ 'ASAN_OPTIONS' : asan_options })
+    if lsan_options:
+        env.update({ 'LSAN_OPTIONS' : lsan_options })
     if ubsan_options:
         env.update({ 'UBSAN_OPTIONS' : ubsan_options })
 
