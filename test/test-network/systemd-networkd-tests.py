@@ -30,6 +30,7 @@ use_valgrind=False
 enable_debug=False
 env = {}
 asan_options=None
+lsan_options=None
 ubsan_options=None
 
 def is_module_available(module_name):
@@ -86,6 +87,7 @@ def setUpModule():
     copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conf'), networkd_ci_path)
 
     subprocess.check_call('systemctl stop systemd-networkd.socket', shell=True)
+    subprocess.check_call('systemctl stop systemd-networkd.service', shell=True)
 
     drop_in = [
         '[Service]',
@@ -103,26 +105,29 @@ def setUpModule():
         drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
     if asan_options:
         drop_in += ['Environment=ASAN_OPTIONS="' + asan_options + '"']
+    if lsan_options:
+        drop_in += ['Environment=LSAN_OPTIONS="' + lsan_options + '"']
     if ubsan_options:
         drop_in += ['Environment=UBSAN_OPTIONS="' + ubsan_options + '"']
-    if use_valgrind or asan_options or ubsan_options:
+    if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
-
-    drop_in_str = '\n'.join(drop_in)
-    print(drop_in_str)
 
     os.makedirs('/run/systemd/system/systemd-networkd.service.d', exist_ok=True)
     with open('/run/systemd/system/systemd-networkd.service.d/00-override.conf', mode='w') as f:
-        f.write(drop_in_str)
+        f.write('\n'.join(drop_in))
 
     subprocess.check_call('systemctl daemon-reload', shell=True)
+    output = subprocess.check_output(['systemctl', 'cat', 'systemd-networkd.service'], universal_newlines=True).rstrip()
+    print(output)
 
 def tearDownModule():
     shutil.rmtree(networkd_ci_path)
+
+    subprocess.check_call('systemctl stop systemd-networkd.service', shell=True)
+
     shutil.rmtree('/run/systemd/system/systemd-networkd.service.d')
     subprocess.check_call('systemctl daemon-reload', shell=True)
 
-    subprocess.check_call('systemctl stop systemd-networkd.service', shell=True)
     subprocess.check_call('systemctl start systemd-networkd.socket', shell=True)
     subprocess.check_call('systemctl start systemd-networkd.service', shell=True)
 
@@ -2359,6 +2364,7 @@ if __name__ == '__main__':
     parser.add_argument('--valgrind', help='Enable valgrind', dest='use_valgrind', type=bool, nargs='?', const=True, default=use_valgrind)
     parser.add_argument('--debug', help='Generate debugging logs', dest='enable_debug', type=bool, nargs='?', const=True, default=enable_debug)
     parser.add_argument('--asan-options', help='ASAN options', dest='asan_options')
+    parser.add_argument('--lsan-options', help='LSAN options', dest='lsan_options')
     parser.add_argument('--ubsan-options', help='UBSAN options', dest='ubsan_options')
     ns, args = parser.parse_known_args(namespace=unittest)
 
@@ -2379,6 +2385,7 @@ if __name__ == '__main__':
     use_valgrind = ns.use_valgrind
     enable_debug = ns.enable_debug
     asan_options = ns.asan_options
+    lsan_options = ns.lsan_options
     ubsan_options = ns.ubsan_options
 
     if use_valgrind:
@@ -2392,6 +2399,8 @@ if __name__ == '__main__':
         env.update({ 'SYSTEMD_LOG_LEVEL' : 'debug' })
     if asan_options:
         env.update({ 'ASAN_OPTIONS' : asan_options })
+    if lsan_options:
+        env.update({ 'LSAN_OPTIONS' : lsan_options })
     if ubsan_options:
         env.update({ 'UBSAN_OPTIONS' : ubsan_options })
 
