@@ -975,7 +975,8 @@ static int introspect(int argc, char **argv, void *userdata) {
 
                 r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", m->interface);
                 if (r < 0)
-                        return log_error_errno(r, "%s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to get all properties on interface %s: %s",
+                                               m->interface, bus_error_message(&error, r));
 
                 r = sd_bus_message_enter_container(reply, 'a', "{sv}");
                 if (r < 0)
@@ -1181,7 +1182,12 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                 return r;
 
         /* upgrade connection; it's not used for anything else after this call */
-        r = sd_bus_message_new_method_call(bus, &message, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.Monitoring", "BecomeMonitor");
+        r = sd_bus_message_new_method_call(bus,
+                                           &message,
+                                           "org.freedesktop.DBus",
+                                           "/org/freedesktop/DBus",
+                                           "org.freedesktop.DBus.Monitoring",
+                                           "BecomeMonitor");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1229,7 +1235,8 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
 
         r = sd_bus_call(bus, message, arg_timeout, &error, NULL);
         if (r < 0)
-                return log_error_errno(r, "%s", bus_error_message(&error, r));
+                return log_error_errno(r, "Call to org.freedesktop.DBus.Monitoring.BecomeMonitor failed: %s",
+                                       bus_error_message(&error, r));
 
         r = sd_bus_get_unique_name(bus, &unique_name);
         if (r < 0)
@@ -1987,7 +1994,7 @@ static int call(int argc, char **argv, void *userdata) {
 
         r = sd_bus_call(bus, m, arg_timeout, &error, &reply);
         if (r < 0)
-                return log_error_errno(r, "%s", bus_error_message(&error, r));
+                return log_error_errno(r, "Call failed: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_is_empty(reply);
         if (r < 0)
@@ -2089,7 +2096,9 @@ static int get_property(int argc, char **argv, void *userdata) {
 
                 r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "Get", &error, &reply, "ss", argv[3], *i);
                 if (r < 0)
-                        return log_error_errno(r, "%s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to get property %s on interface %s: %s",
+                                               *i, argv[3],
+                                               bus_error_message(&error, r));
 
                 r = sd_bus_message_peek_type(reply, &type, &contents);
                 if (r < 0)
@@ -2173,7 +2182,9 @@ static int set_property(int argc, char **argv, void *userdata) {
 
         r = sd_bus_call(bus, m, arg_timeout, &error, NULL);
         if (r < 0)
-                return log_error_errno(r, "%s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to set property %s on interface %s: %s",
+                                       argv[4], argv[3],
+                                       bus_error_message(&error, r));
 
         return 0;
 }
