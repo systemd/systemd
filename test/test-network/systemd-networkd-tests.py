@@ -364,6 +364,18 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(networkctl_cmd + ['status', 'veth-peer'], universal_newlines=True, env=env).rstrip()
         self.assertRegex(output, 'Driver: veth')
 
+    def test_delete_links(self):
+        self.copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network',
+                                             '25-veth.netdev', 'netdev-link-local-addressing-yes.network')
+        self.start_networkd(0)
+
+        self.wait_online(['test1:degraded', 'veth99:degraded', 'veth-peer:degraded'])
+
+        subprocess.check_call(networkctl_cmd + ['delete', 'test1', 'veth99'])
+        self.assertFalse(self.link_exists('test1'))
+        self.assertFalse(self.link_exists('veth99'))
+        self.assertFalse(self.link_exists('veth-peer'))
+
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     links =[
