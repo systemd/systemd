@@ -997,10 +997,10 @@ static int link_status_one(
                 r = table_add_cell_stringf(table, NULL, "%" PRIu32 "%s%s%s%s%s%s%s",
                                            info->mtu,
                                            info->min_mtu > 0 || info->max_mtu > 0 ? " (" : "",
-                                           info->min_mtu > 0 ? "Minimum: " : "",
+                                           info->min_mtu > 0 ? "min: " : "",
                                            info->min_mtu > 0 ? min_str : "",
                                            info->min_mtu > 0 && info->max_mtu > 0 ? ", " : "",
-                                           info->max_mtu > 0 ? "Maximum: " : "",
+                                           info->max_mtu > 0 ? "max: " : "",
                                            info->max_mtu > 0 ? max_str : "",
                                            info->min_mtu > 0 || info->max_mtu > 0 ? ")" : "");
                 if (r < 0)
