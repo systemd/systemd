@@ -4330,11 +4330,10 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
         if (c->cpu_set.set) {
-                fprintf(f, "%sCPUAffinity:", prefix);
-                for (i = 0; i < c->cpu_set.allocated * 8; i++)
-                        if (CPU_ISSET_S(i, c->cpu_set.allocated, c->cpu_set.set))
-                                fprintf(f, " %u", i);
-                fputs("\n", f);
+                _cleanup_free_ char *affinity = NULL;
+
+                affinity = cpu_set_to_range_string(&c->cpu_set);
+                fprintf(f, "%sCPUAffinity: %s\n", prefix, affinity);
         }
 
         if (c->timer_slack_nsec != NSEC_INFINITY)
