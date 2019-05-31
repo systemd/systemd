@@ -112,14 +112,13 @@ def setUpModule():
     if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
 
-    drop_in_str = '\n'.join(drop_in)
-    print(drop_in_str)
-
     os.makedirs('/run/systemd/system/systemd-networkd.service.d', exist_ok=True)
     with open('/run/systemd/system/systemd-networkd.service.d/00-override.conf', mode='w') as f:
-        f.write(drop_in_str)
+        f.write('\n'.join(drop_in))
 
     subprocess.check_call('systemctl daemon-reload', shell=True)
+    output = subprocess.check_output(['systemctl', 'cat', 'systemd-networkd.service'], universal_newlines=True).rstrip()
+    print(output)
 
 def tearDownModule():
     shutil.rmtree(networkd_ci_path)
