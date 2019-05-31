@@ -215,12 +215,15 @@ static int property_get_cpu_affinity(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
+        _cleanup_free_ uint8_t *array = NULL;
+        size_t allocated;
 
         assert(bus);
         assert(reply);
         assert(c);
 
-        return sd_bus_message_append_array(reply, 'y', c->cpu_set.set, c->cpu_set.allocated);
+        (void) cpu_set_to_dbus(&c->cpu_set, &array, &allocated);
+        return sd_bus_message_append_array(reply, 'y', array, allocated);
 }
 
 static int property_get_numa_mask(
