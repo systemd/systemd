@@ -91,6 +91,23 @@ def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
 
     return f
 
+def expectedFailureIfLinkFileFieldIsNotSet():
+    def f(func):
+        support = False
+        rc = call('ip link add name dummy99 type dummy')
+        if rc == 0:
+            ret = run('udevadm info -w10s /sys/class/net/dummy99', stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            if ret.returncode == 0 and 'E: ID_NET_LINK_FILE=' in ret.stdout.rstrip():
+                support = True
+            call('ip link del dummy99')
+
+        if support:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def expectedFailureIfEthtoolDoesNotSupportDriver():
     def f(func):
         support = False
@@ -370,6 +387,35 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, 'status', 'test1', env=env)
         self.assertRegex(output, 'MTU: 1600')
+
+    def test_type(self):
+        copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network')
+        start_networkd()
+        wait_online(['test1:degraded'])
+
+        output = check_output(*networkctl_cmd, 'status', 'test1')
+        print(output)
+        self.assertRegex(output, 'Type: ether')
+
+        output = check_output(*networkctl_cmd, 'status', 'lo')
+        print(output)
+        self.assertRegex(output, 'Type: loopback')
+
+    @expectedFailureIfLinkFileFieldIsNotSet()
+    def test_udev_link_file(self):
+        copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network')
+        start_networkd()
+        wait_online(['test1:degraded'])
+
+        output = check_output(*networkctl_cmd, 'status', 'test1')
+        print(output)
+        self.assertRegex(output, r'Link File: (?:/usr)/lib/systemd/network/99-default.link')
+        self.assertRegex(output, r'Network File: /run/systemd/network/11-dummy.network')
+
+        output = check_output(*networkctl_cmd, 'status', 'lo')
+        print(output)
+        self.assertRegex(output, r'Link File: (?:/usr)/lib/systemd/network/99-default.link')
+        self.assertRegex(output, r'Network File: n/a')
 
     @expectedFailureIfEthtoolDoesNotSupportDriver()
     def test_udev_driver(self):
