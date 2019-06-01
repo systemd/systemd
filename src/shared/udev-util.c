@@ -113,8 +113,13 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         return 0;
 }
 
-int device_wait_for_initialization(sd_device *device, const char *subsystem, sd_device **ret) {
+static int device_timeout_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        return sd_event_exit(sd_event_source_get_event(s), -ETIMEDOUT);
+}
+
+int device_wait_for_initialization(sd_device *device, const char *subsystem, usec_t timeout, sd_device **ret) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *timeout_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         struct DeviceMonitorData data = {};
         int r;
@@ -159,6 +164,14 @@ int device_wait_for_initialization(sd_device *device, const char *subsystem, sd_
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
+        if (timeout != USEC_INFINITY) {
+                r = sd_event_add_time(event, &timeout_source,
+                                      CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + timeout, 0,
+                                      device_timeout_handler, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add timeout event source: %m");
+        }
+
         /* Check again, maybe things changed. Udev will re-read the db if the device wasn't initialized
          * yet. */
         if (sd_device_get_is_initialized(device) > 0) {
@@ -169,7 +182,7 @@ int device_wait_for_initialization(sd_device *device, const char *subsystem, sd_
 
         r = sd_event_loop(event);
         if (r < 0)
-                return log_error_errno(r, "Event loop failed: %m");
+                return log_error_errno(r, "Failed to wait for device to be initialized: %m");
 
         if (ret)
                 *ret = TAKE_PTR(data.device);
