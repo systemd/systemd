@@ -126,6 +126,8 @@ def setUpModule():
         drop_in += ['Environment=LSAN_OPTIONS="' + lsan_options + '"']
     if ubsan_options:
         drop_in += ['Environment=UBSAN_OPTIONS="' + ubsan_options + '"']
+    if asan_options or lsan_options or ubsan_options:
+        drop_in += ['SystemCallFilter=']
     if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
 
