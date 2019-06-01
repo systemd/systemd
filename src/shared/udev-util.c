@@ -3,6 +3,7 @@
 #include <errno.h>
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "env-file.h"
 #include "log.h"
 #include "parse-util.h"
@@ -119,7 +120,6 @@ int device_wait_for_initialization(sd_device *device, const char *subsystem, sd_
         int r;
 
         assert(device);
-        assert(subsystem);
 
         if (sd_device_get_is_initialized(device) > 0) {
                 if (ret)
@@ -139,9 +139,17 @@ int device_wait_for_initialization(sd_device *device, const char *subsystem, sd_
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire monitor: %m");
 
-        r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, subsystem, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add %s subsystem match to monitor: %m", subsystem);
+        if (!subsystem) {
+                r = sd_device_get_subsystem(device, &subsystem);
+                if (r < 0 && r != -ENOENT)
+                        return log_device_error_errno(device, r, "Failed to get subsystem: %m");
+        }
+
+        if (subsystem) {
+                r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, subsystem, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add %s subsystem match to monitor: %m", subsystem);
+        }
 
         r = sd_device_monitor_attach_event(monitor, event);
         if (r < 0)
