@@ -309,6 +309,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
     units = [
         '11-dummy.netdev',
+        '11-dummy-mtu.netdev',
         '11-dummy.network',
         '25-veth.netdev',
         'netdev-link-local-addressing-yes.network',
@@ -346,6 +347,15 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(networkctl_cmd + ['status', 'tes[a-z][0-9]'], universal_newlines=True, env=env).rstrip()
         self.assertNotRegex(output, '1: lo ')
         self.assertRegex(output, 'test1')
+
+    def test_mtu(self):
+        self.copy_unit_to_networkd_unit_path('11-dummy-mtu.netdev', '11-dummy.network')
+        self.start_networkd(0)
+
+        self.wait_online(['test1:degraded'])
+
+        output = subprocess.check_output(networkctl_cmd + ['status', 'test1'], universal_newlines=True, env=env).rstrip()
+        self.assertRegex(output, 'MTU: 1600')
 
     @expectedFailureIfEthtoolDoesNotSupportDriver()
     def test_udev_driver(self):
