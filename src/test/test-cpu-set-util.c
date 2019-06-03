@@ -24,7 +24,7 @@ static void test_parse_cpu_set(void) {
         str = mfree(str);
         assert_se(str = cpu_set_to_range_string(&c));
         log_info("cpu_set_to_range_string: %s", str);
-        assert_se(streq(str, "0-0"));
+        assert_se(streq(str, "0"));
         str = mfree(str);
         cpu_set_reset(&c);
 
@@ -93,17 +93,19 @@ static void test_parse_cpu_set(void) {
         cpu_set_reset(&c);
 
         /* Commas with spaces (and trailing comma, space) */
-        assert_se(parse_cpu_set_full("0, 1, 2, 3, 4, 5, 6, 7, ", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
+        assert_se(parse_cpu_set_full("0, 1, 2, 3, 4, 5, 6, 7, 63, ", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
         assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
-        assert_se(CPU_COUNT_S(c.allocated, c.set) == 8);
+        assert_se(CPU_COUNT_S(c.allocated, c.set) == 9);
         for (cpu = 0; cpu < 8; cpu++)
                 assert_se(CPU_ISSET_S(cpu, c.allocated, c.set));
+
+        assert_se(CPU_ISSET_S(63, c.allocated, c.set));
         assert_se(str = cpu_set_to_string(&c));
         log_info("cpu_set_to_string: %s", str);
         str = mfree(str);
         assert_se(str = cpu_set_to_range_string(&c));
         log_info("cpu_set_to_range_string: %s", str);
-        assert_se(streq(str, "0-7"));
+        assert_se(streq(str, "0-7 63"));
         str = mfree(str);
         cpu_set_reset(&c);
 
@@ -159,11 +161,11 @@ static void test_parse_cpu_set(void) {
         cpu_set_reset(&c);
 
         /* Mix ranges and individual CPUs */
-        assert_se(parse_cpu_set_full("0,1 4-11", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
+        assert_se(parse_cpu_set_full("0,2 4-11", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
         assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 10);
         assert_se(CPU_ISSET_S(0, c.allocated, c.set));
-        assert_se(CPU_ISSET_S(1, c.allocated, c.set));
+        assert_se(CPU_ISSET_S(2, c.allocated, c.set));
         for (cpu = 4; cpu < 12; cpu++)
                 assert_se(CPU_ISSET_S(cpu, c.allocated, c.set));
         assert_se(str = cpu_set_to_string(&c));
@@ -171,7 +173,7 @@ static void test_parse_cpu_set(void) {
         str = mfree(str);
         assert_se(str = cpu_set_to_range_string(&c));
         log_info("cpu_set_to_range_string: %s", str);
-        assert_se(streq(str, "0-1 4-11"));
+        assert_se(streq(str, "0 2 4-11"));
         str = mfree(str);
         cpu_set_reset(&c);
 
