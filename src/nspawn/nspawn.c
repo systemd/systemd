@@ -2317,7 +2317,11 @@ static int drop_capabilities(uid_t uid) {
 
                 if (q.ambient == (uint64_t) -1 && ambient_capabilities_supported())
                         q.ambient = 0;
-        } else
+
+                if (capability_quintet_mangle(&q))
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Cannot set capabilities that are not in the current bounding set.");
+
+        } else {
                 q = (CapabilityQuintet) {
                         .bounding = arg_caps_retain,
                         .effective = uid == 0 ? arg_caps_retain : 0,
@@ -2325,6 +2329,13 @@ static int drop_capabilities(uid_t uid) {
                         .permitted = uid == 0 ? arg_caps_retain : 0,
                         .ambient = ambient_capabilities_supported() ? 0 : (uint64_t) -1,
                 };
+
+                /* If we're not using OCI, proceed with mangled capabilities (so we don't error out)
+                 * in order to maintain the same behavior as systemd < 242. */
+                if (capability_quintet_mangle(&q))
+                        log_warning("Some capabilities will not be set because they are not in the current bounding set.");
+
+        }
 
         return capability_quintet_enforce(&q);
 }
