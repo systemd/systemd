@@ -464,7 +464,7 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: no netmask: %m");
 
-        if (!link->network->dhcp_critical) {
+        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
                 r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
@@ -581,7 +581,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 }
         }
 
-        if (!link->network->dhcp_critical) {
+        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
                 r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
@@ -649,7 +649,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
                         }
 
-                        if (link->network->dhcp_critical) {
+                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
                                 log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
                                 return 0;
                         }
@@ -669,7 +669,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                 case SD_DHCP_CLIENT_EVENT_EXPIRED:
                 case SD_DHCP_CLIENT_EVENT_IP_CHANGE:
 
-                        if (link->network->dhcp_critical) {
+                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
                                 log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
                                 return 0;
                         }
