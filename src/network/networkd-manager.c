@@ -1447,7 +1447,7 @@ void manager_free(Manager *m) {
                 if (link->dhcp6_client)
                         (void) dhcp6_lease_pd_prefix_lost(link->dhcp6_client, link);
 
-                link_stop_clients(link);
+                (void) link_stop_clients(link, true);
 
                 link_unref(link);
         }
