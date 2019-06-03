@@ -314,20 +314,11 @@ static int list_links(int argc, char *argv[], void *userdata) {
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_minimum_width(table, cell, 3);
         (void) table_set_weight(table, cell, 0);
-        (void) table_set_ellipsize_percent(table, cell, 0);
+        (void) table_set_ellipsize_percent(table, cell, 100);
         (void) table_set_align_percent(table, cell, 100);
 
         assert_se(cell = table_get_cell(table, 0, 1));
-        (void) table_set_minimum_width(table, cell, 16);
-
-        assert_se(cell = table_get_cell(table, 0, 2));
-        (void) table_set_minimum_width(table, cell, 18);
-
-        assert_se(cell = table_get_cell(table, 0, 3));
-        (void) table_set_minimum_width(table, cell, 16);
-
-        assert_se(cell = table_get_cell(table, 0, 4));
-        (void) table_set_minimum_width(table, cell, 10);
+        (void) table_set_ellipsize_percent(table, cell, 100);
 
         for (i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
@@ -350,7 +341,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
                 t = link_get_type_string(links[i].iftype, d);
 
-                r = table_add_cell_full(table, NULL, TABLE_INT, &links[i].ifindex, SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_INT, &links[i].ifindex);
                 if (r < 0)
                         return r;
 
@@ -545,7 +536,7 @@ static int dump_gateways(
                 if (r < 0)
                         return r;
 
-                r = table_add_cell_full(table, NULL, TABLE_STRING, i == 0 ? "Gateway:" : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, i == 0 ? "Gateway:" : "");
                 if (r < 0)
                         return r;
 
@@ -603,7 +594,7 @@ static int dump_addresses(
                 if (r < 0)
                         return r;
 
-                r = table_add_cell_full(table, NULL, TABLE_STRING, i == 0 ? "Address:" : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, i == 0 ? "Address:" : "");
                 if (r < 0)
                         return r;
 
@@ -658,6 +649,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
 
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_align_percent(table, cell, 100);
+        (void) table_set_ellipsize_percent(table, cell, 100);
 
         assert_se(cell = table_get_cell(table, 0, 1));
         (void) table_set_align_percent(table, cell, 100);
@@ -692,15 +684,13 @@ static int dump_address_labels(sd_netlink *rtnl) {
                 if (r < 0)
                         continue;
 
-                r = table_add_cell_full(table, NULL, TABLE_UINT32, &label, SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_UINT32, &label);
                 if (r < 0)
                         return r;
 
                 r = table_add_cell_stringf(table, &cell, "%s/%u", pretty, prefixlen);
                 if (r < 0)
                         return r;
-
-                (void) table_set_align_percent(table, cell, 100);
         }
 
         return table_print(table, NULL);
@@ -796,7 +786,7 @@ static int dump_lldp_neighbors(Table *table, const char *prefix, int ifindex) {
                 if (r < 0)
                         return r;
 
-                r = table_add_cell_full(table, NULL, TABLE_STRING, c == 0 ? prefix : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, c == 0 ? prefix : "");
                 if (r < 0)
                         return r;
 
@@ -835,7 +825,7 @@ static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes
                 if (r < 0)
                         return r;
 
-                r = table_add_cell_full(table, NULL, TABLE_STRING, c == 0 ? prefix : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, c == 0 ? prefix : "");
                 if (r < 0)
                         return r;
 
@@ -859,7 +849,7 @@ static int dump_list(Table *table, const char *prefix, char **l) {
                 if (r < 0)
                         return r;
 
-                r = table_add_cell_full(table, NULL, TABLE_STRING, i == l ? prefix : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, i == l ? prefix : "");
                 if (r < 0)
                         return r;
 
@@ -875,8 +865,7 @@ static int dump_list(Table *table, const char *prefix, char **l) {
         r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);             \
         if (r < 0)                                                      \
                 return r;                                               \
-        r = table_add_cell_full(table, NULL, TABLE_STRING, name ":",    \
-                                SIZE_MAX, SIZE_MAX, 0, 100, 0);         \
+        r = table_add_cell(table, NULL, TABLE_STRING, name ":");   \
         if (r < 0)                                                      \
                 return r;                                               \
         r = table_add_cell(table, NULL, info->has_stats64 ? TABLE_UINT64 : TABLE_UINT32, \
@@ -994,16 +983,22 @@ static int link_status_one(
         if (!table)
                 return -ENOMEM;
 
+        assert_se(cell = table_get_cell(table, 0, 0));
+        (void) table_set_ellipsize_percent(table, cell, 100);
+
+        assert_se(cell = table_get_cell(table, 0, 1));
+        (void) table_set_ellipsize_percent(table, cell, 100);
+
         table_set_header(table, false);
 
         r = table_add_cell(table, &cell, TABLE_STRING, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE));
         if (r < 0)
                 return r;
-        (void) table_set_ellipsize_percent(table, cell, 0);
         (void) table_set_color(table, cell, on_color_operational);
-        r = table_add_cell_stringf(table, NULL, "%i: %s", info->ifindex, info->name);
+        r = table_add_cell_stringf(table, &cell, "%i: %s", info->ifindex, info->name);
         if (r < 0)
                 return r;
+        (void) table_set_align_percent(table, cell, 0);
         r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
         if (r < 0)
                 return r;
@@ -1011,9 +1006,10 @@ static int link_status_one(
         r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
         if (r < 0)
                 return r;
-        r = table_add_cell_full(table, NULL, TABLE_STRING, "Link File:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        r = table_add_cell(table, &cell, TABLE_STRING, "Link File:");
         if (r < 0)
                 return r;
+        (void) table_set_align_percent(table, cell, 100);
         r = table_add_cell(table, NULL, TABLE_STRING, strna(link));
         if (r < 0)
                 return r;
@@ -1021,7 +1017,7 @@ static int link_status_one(
         r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
         if (r < 0)
                 return r;
-        r = table_add_cell_full(table, NULL, TABLE_STRING, "Network File:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        r = table_add_cell(table, NULL, TABLE_STRING, "Network File:");
         if (r < 0)
                 return r;
         r = table_add_cell(table, NULL, TABLE_STRING, strna(network));
@@ -1031,7 +1027,7 @@ static int link_status_one(
         r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
         if (r < 0)
                 return r;
-        r = table_add_cell_full(table, NULL, TABLE_STRING, "Type:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        r = table_add_cell(table, NULL, TABLE_STRING, "Type:");
         if (r < 0)
                 return r;
         r = table_add_cell(table, NULL, TABLE_STRING, strna(t));
@@ -1041,7 +1037,7 @@ static int link_status_one(
         r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
         if (r < 0)
                 return r;
-        r = table_add_cell_full(table, NULL, TABLE_STRING, "State:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        r = table_add_cell(table, NULL, TABLE_STRING, "State:");
         if (r < 0)
                 return r;
         r = table_add_cell_stringf(table, NULL, "%s%s%s (%s%s%s)",
@@ -1054,7 +1050,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "Path:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "Path:");
                 if (r < 0)
                         return r;
                 r = table_add_cell(table, NULL, TABLE_STRING, path);
@@ -1065,7 +1061,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "Driver:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "Driver:");
                 if (r < 0)
                         return r;
                 r = table_add_cell(table, NULL, TABLE_STRING, driver);
@@ -1076,7 +1072,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "Vendor:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "Vendor:");
                 if (r < 0)
                         return r;
                 r = table_add_cell(table, NULL, TABLE_STRING, vendor);
@@ -1087,7 +1083,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "Model:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "Model:");
                 if (r < 0)
                         return r;
                 r = table_add_cell(table, NULL, TABLE_STRING, model);
@@ -1104,7 +1100,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "HW Address:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "HW Address:");
                 if (r < 0)
                         return r;
                 r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
@@ -1125,7 +1121,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "MTU:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "MTU:");
                 if (r < 0)
                         return r;
                 r = table_add_cell_stringf(table, NULL, "%" PRIu32 "%s%s%s%s%s%s%s",
@@ -1151,7 +1147,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "Bit Rate (Tx/Rx):", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "Bit Rate (Tx/Rx):");
                 if (r < 0)
                         return r;
 
@@ -1166,7 +1162,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "Queue Length (Tx/Rx):", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "Queue Length (Tx/Rx):");
                 if (r < 0)
                         return r;
                 r = table_add_cell_stringf(table, NULL, "%" PRIu32 "/%" PRIu32, info->tx_queues, info->rx_queues);
@@ -1204,7 +1200,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "Time Zone:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "Time Zone:");
                 if (r < 0)
                         return r;
                 r = table_add_cell(table, NULL, TABLE_STRING, tz);
@@ -1240,15 +1236,21 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         if (!table)
                 return -ENOMEM;
 
+        assert_se(cell = table_get_cell(table, 0, 0));
+        (void) table_set_ellipsize_percent(table, cell, 100);
+
+        assert_se(cell = table_get_cell(table, 0, 1));
+        (void) table_set_align_percent(table, cell, 100);
+        (void) table_set_ellipsize_percent(table, cell, 100);
+
         table_set_header(table, false);
 
         r = table_add_cell(table, &cell, TABLE_STRING, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE));
         if (r < 0)
                 return r;
         (void) table_set_color(table, cell, on_color_operational);
-        (void) table_set_ellipsize_percent(table, cell, 0);
 
-        r = table_add_cell_full(table, NULL, TABLE_STRING, "State:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        r = table_add_cell(table, NULL, TABLE_STRING, "State:");
         if (r < 0)
                 return r;
 
