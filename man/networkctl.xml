@@ -58,6 +58,17 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term>
+          <option>-s</option>
+          <option>--stats</option>
+        </term>
+
+        <listitem>
+          <para>Show link statistics with <command>status</command>.</para>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />

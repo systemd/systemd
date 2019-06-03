@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-hwdb.h"
 #include "sd-lldp.h"
@@ -16,6 +17,9 @@
 
 #include "alloc-util.h"
 #include "arphrd-list.h"
+#include "bus-common-errors.h"
+#include "bus-error.h"
+#include "bus-util.h"
 #include "device-util.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
@@ -45,6 +49,7 @@
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_all = false;
+static bool arg_stats = false;
 
 static char *link_get_type_string(unsigned short iftype, sd_device *d) {
         const char *t, *devtype;
@@ -109,9 +114,20 @@ typedef struct LinkInfo {
         uint32_t tx_queues;
         uint32_t rx_queues;
 
+        union {
+                struct rtnl_link_stats64 stats64;
+                struct rtnl_link_stats stats;
+        };
+
+        double tx_bitrate;
+        double rx_bitrate;
+
         bool has_mac_address:1;
         bool has_tx_queues:1;
         bool has_rx_queues:1;
+        bool has_stats64:1;
+        bool has_stats:1;
+        bool has_bitrates:1;
 } LinkInfo;
 
 static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
@@ -173,13 +189,65 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
                 sd_netlink_message_read_u32(m, IFLA_NUM_TX_QUEUES, &info->tx_queues) >= 0 &&
                 info->tx_queues > 0;
 
+        if (sd_netlink_message_read(m, IFLA_STATS64, sizeof info->stats64, &info->stats64) >= 0)
+                info->has_stats64 = true;
+        else if (sd_netlink_message_read(m, IFLA_STATS, sizeof info->stats, &info->stats) >= 0)
+                info->has_stats = true;
+
         return 1;
 }
 
-static int acquire_link_info(sd_netlink *rtnl, char **patterns, LinkInfo **ret) {
+static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *path = NULL, *ifindex_str = NULL;
+        int r;
+
+        if (asprintf(&ifindex_str, "%i", link->ifindex) < 0)
+                return -ENOMEM;
+
+        r = sd_bus_path_encode("/org/freedesktop/network1/link", ifindex_str, &path);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.network1",
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &error,
+                        &reply,
+                        "ss",
+                        "org.freedesktop.network1.Link",
+                        "BitRates");
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, BUS_ERROR_SPEED_METER_INACTIVE))
+                        return 0;
+                return log_error_errno(r, "%s", bus_error_message(&error, r));
+        }
+
+        r = sd_bus_message_enter_container(reply, 'v', "(dd)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_read(reply, "(dd)", &link->tx_bitrate, &link->rx_bitrate);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        link->has_bitrates = link->tx_bitrate >= 0 && link->rx_bitrate >= 0;
+
+        return 0;
+}
+
+static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
-        size_t allocated = 0, c = 0;
+        size_t allocated = 0, c = 0, j;
         sd_netlink_message *i;
         int r;
 
@@ -211,6 +279,10 @@ static int acquire_link_info(sd_netlink *rtnl, char **patterns, LinkInfo **ret) 
 
         typesafe_qsort(links, c, link_info_compare);
 
+        if (bus)
+                for (j = 0; j < c; j++)
+                        (void) acquire_link_bitrates(bus, links + j);
+
         *ret = TAKE_PTR(links);
 
         return (int) c;
@@ -227,7 +299,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        c = acquire_link_info(rtnl, argc > 1 ? argv + 1 : NULL, &links);
+        c = acquire_link_info(NULL, rtnl, argc > 1 ? argv + 1 : NULL, &links);
         if (c < 0)
                 return c;
 
@@ -242,20 +314,11 @@ static int list_links(int argc, char *argv[], void *userdata) {
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_minimum_width(table, cell, 3);
         (void) table_set_weight(table, cell, 0);
-        (void) table_set_ellipsize_percent(table, cell, 0);
+        (void) table_set_ellipsize_percent(table, cell, 100);
         (void) table_set_align_percent(table, cell, 100);
 
         assert_se(cell = table_get_cell(table, 0, 1));
-        (void) table_set_minimum_width(table, cell, 16);
-
-        assert_se(cell = table_get_cell(table, 0, 2));
-        (void) table_set_minimum_width(table, cell, 18);
-
-        assert_se(cell = table_get_cell(table, 0, 3));
-        (void) table_set_minimum_width(table, cell, 16);
-
-        assert_se(cell = table_get_cell(table, 0, 4));
-        (void) table_set_minimum_width(table, cell, 10);
+        (void) table_set_ellipsize_percent(table, cell, 100);
 
         for (i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
@@ -278,7 +341,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
                 t = link_get_type_string(links[i].iftype, d);
 
-                r = table_add_cell_full(table, NULL, TABLE_INT, &links[i].ifindex, SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_INT, &links[i].ifindex);
                 if (r < 0)
                         return r;
 
@@ -473,7 +536,7 @@ static int dump_gateways(
                 if (r < 0)
                         return r;
 
-                r = table_add_cell_full(table, NULL, TABLE_STRING, i == 0 ? "Gateway:" : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, i == 0 ? "Gateway:" : "");
                 if (r < 0)
                         return r;
 
@@ -531,7 +594,7 @@ static int dump_addresses(
                 if (r < 0)
                         return r;
 
-                r = table_add_cell_full(table, NULL, TABLE_STRING, i == 0 ? "Address:" : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, i == 0 ? "Address:" : "");
                 if (r < 0)
                         return r;
 
@@ -586,6 +649,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
 
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_align_percent(table, cell, 100);
+        (void) table_set_ellipsize_percent(table, cell, 100);
 
         assert_se(cell = table_get_cell(table, 0, 1));
         (void) table_set_align_percent(table, cell, 100);
@@ -620,15 +684,13 @@ static int dump_address_labels(sd_netlink *rtnl) {
                 if (r < 0)
                         continue;
 
-                r = table_add_cell_full(table, NULL, TABLE_UINT32, &label, SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_UINT32, &label);
                 if (r < 0)
                         return r;
 
                 r = table_add_cell_stringf(table, &cell, "%s/%u", pretty, prefixlen);
                 if (r < 0)
                         return r;
-
-                (void) table_set_align_percent(table, cell, 100);
         }
 
         return table_print(table, NULL);
@@ -724,7 +786,7 @@ static int dump_lldp_neighbors(Table *table, const char *prefix, int ifindex) {
                 if (r < 0)
                         return r;
 
-                r = table_add_cell_full(table, NULL, TABLE_STRING, c == 0 ? prefix : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, c == 0 ? prefix : "");
                 if (r < 0)
                         return r;
 
@@ -763,7 +825,7 @@ static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes
                 if (r < 0)
                         return r;
 
-                r = table_add_cell_full(table, NULL, TABLE_STRING, c == 0 ? prefix : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, c == 0 ? prefix : "");
                 if (r < 0)
                         return r;
 
@@ -787,7 +849,7 @@ static int dump_list(Table *table, const char *prefix, char **l) {
                 if (r < 0)
                         return r;
 
-                r = table_add_cell_full(table, NULL, TABLE_STRING, i == l ? prefix : "", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, i == l ? prefix : "");
                 if (r < 0)
                         return r;
 
@@ -797,6 +859,67 @@ static int dump_list(Table *table, const char *prefix, char **l) {
         }
 
         return 0;
+}
+
+#define DUMP_STATS_ONE(name, val_name)                                  \
+        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);             \
+        if (r < 0)                                                      \
+                return r;                                               \
+        r = table_add_cell(table, NULL, TABLE_STRING, name ":");   \
+        if (r < 0)                                                      \
+                return r;                                               \
+        r = table_add_cell(table, NULL, info->has_stats64 ? TABLE_UINT64 : TABLE_UINT32, \
+                           info->has_stats64 ? (void*) &info->stats64.val_name : (void*) &info->stats.val_name); \
+        if (r < 0)                                                      \
+                return r;
+
+static int dump_statistics(Table *table, const LinkInfo *info) {
+        int r;
+
+        if (!arg_stats)
+                return 0;
+
+        if (!info->has_stats64 && !info->has_stats)
+                return 0;
+
+        DUMP_STATS_ONE("Rx Packets", rx_packets);
+        DUMP_STATS_ONE("Tx Packets", tx_packets);
+        DUMP_STATS_ONE("Rx Bytes", rx_bytes);
+        DUMP_STATS_ONE("Tx Bytes", tx_bytes);
+        DUMP_STATS_ONE("Rx Errors", rx_errors);
+        DUMP_STATS_ONE("Tx Errors", tx_errors);
+        DUMP_STATS_ONE("Rx Dropped", rx_dropped);
+        DUMP_STATS_ONE("Tx Dropped", tx_dropped);
+        DUMP_STATS_ONE("Multicast Packets", multicast);
+        DUMP_STATS_ONE("Collisions", collisions);
+
+        return 0;
+}
+
+static const struct {
+        double val;
+        const char *str;
+} prefix_table[] = {
+        { .val = 1e15, .str = "P" },
+        { .val = 1e12, .str = "T" },
+        { .val = 1e9,  .str = "G" },
+        { .val = 1e6,  .str = "M" },
+        { .val = 1e3,  .str = "k" },
+};
+
+static void get_prefix(double val, double *ret_div, const char **ret_prefix) {
+        assert(ret_div);
+        assert(ret_prefix);
+
+        for (size_t i = 0; i < ELEMENTSOF(prefix_table); i++)
+                if (val > prefix_table[i].val) {
+                        *ret_div = prefix_table[i].val;
+                        *ret_prefix = prefix_table[i].str;
+                        return;
+                }
+
+        *ret_div = 1;
+        *ret_prefix = NULL;
 }
 
 static int link_status_one(
@@ -860,16 +983,22 @@ static int link_status_one(
         if (!table)
                 return -ENOMEM;
 
+        assert_se(cell = table_get_cell(table, 0, 0));
+        (void) table_set_ellipsize_percent(table, cell, 100);
+
+        assert_se(cell = table_get_cell(table, 0, 1));
+        (void) table_set_ellipsize_percent(table, cell, 100);
+
         table_set_header(table, false);
 
         r = table_add_cell(table, &cell, TABLE_STRING, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE));
         if (r < 0)
                 return r;
-        (void) table_set_ellipsize_percent(table, cell, 0);
         (void) table_set_color(table, cell, on_color_operational);
-        r = table_add_cell_stringf(table, NULL, "%i: %s", info->ifindex, info->name);
+        r = table_add_cell_stringf(table, &cell, "%i: %s", info->ifindex, info->name);
         if (r < 0)
                 return r;
+        (void) table_set_align_percent(table, cell, 0);
         r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
         if (r < 0)
                 return r;
@@ -877,9 +1006,10 @@ static int link_status_one(
         r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
         if (r < 0)
                 return r;
-        r = table_add_cell_full(table, NULL, TABLE_STRING, "Link File:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        r = table_add_cell(table, &cell, TABLE_STRING, "Link File:");
         if (r < 0)
                 return r;
+        (void) table_set_align_percent(table, cell, 100);
         r = table_add_cell(table, NULL, TABLE_STRING, strna(link));
         if (r < 0)
                 return r;
@@ -887,7 +1017,7 @@ static int link_status_one(
         r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
         if (r < 0)
                 return r;
-        r = table_add_cell_full(table, NULL, TABLE_STRING, "Network File:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        r = table_add_cell(table, NULL, TABLE_STRING, "Network File:");
         if (r < 0)
                 return r;
         r = table_add_cell(table, NULL, TABLE_STRING, strna(network));
@@ -897,7 +1027,7 @@ static int link_status_one(
         r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
         if (r < 0)
                 return r;
-        r = table_add_cell_full(table, NULL, TABLE_STRING, "Type:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        r = table_add_cell(table, NULL, TABLE_STRING, "Type:");
         if (r < 0)
                 return r;
         r = table_add_cell(table, NULL, TABLE_STRING, strna(t));
@@ -907,7 +1037,7 @@ static int link_status_one(
         r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
         if (r < 0)
                 return r;
-        r = table_add_cell_full(table, NULL, TABLE_STRING, "State:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        r = table_add_cell(table, NULL, TABLE_STRING, "State:");
         if (r < 0)
                 return r;
         r = table_add_cell_stringf(table, NULL, "%s%s%s (%s%s%s)",
@@ -920,7 +1050,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "Path:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "Path:");
                 if (r < 0)
                         return r;
                 r = table_add_cell(table, NULL, TABLE_STRING, path);
@@ -931,7 +1061,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "Driver:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "Driver:");
                 if (r < 0)
                         return r;
                 r = table_add_cell(table, NULL, TABLE_STRING, driver);
@@ -942,7 +1072,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "Vendor:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "Vendor:");
                 if (r < 0)
                         return r;
                 r = table_add_cell(table, NULL, TABLE_STRING, vendor);
@@ -953,7 +1083,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "Model:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "Model:");
                 if (r < 0)
                         return r;
                 r = table_add_cell(table, NULL, TABLE_STRING, model);
@@ -970,7 +1100,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "HW Address:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "HW Address:");
                 if (r < 0)
                         return r;
                 r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
@@ -991,7 +1121,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "MTU:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "MTU:");
                 if (r < 0)
                         return r;
                 r = table_add_cell_stringf(table, NULL, "%" PRIu32 "%s%s%s%s%s%s%s",
@@ -1007,11 +1137,32 @@ static int link_status_one(
                         return r;
         }
 
+        if (info->has_bitrates) {
+                const char *tx_prefix, *rx_prefix;
+                double tx_div, rx_div;
+
+                get_prefix(info->tx_bitrate, &tx_div, &tx_prefix);
+                get_prefix(info->rx_bitrate, &rx_div, &rx_prefix);
+
+                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+                r = table_add_cell(table, NULL, TABLE_STRING, "Bit Rate (Tx/Rx):");
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell_stringf(table, NULL, "%.4g %sbps/%.4g %sbps",
+                                           info->tx_bitrate / tx_div, strempty(tx_prefix),
+                                           info->rx_bitrate / rx_div, strempty(rx_prefix));
+                if (r < 0)
+                        return r;
+        }
+
         if (info->has_tx_queues || info->has_rx_queues) {
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "Queue Length (Tx/Rx):", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "Queue Length (Tx/Rx):");
                 if (r < 0)
                         return r;
                 r = table_add_cell_stringf(table, NULL, "%" PRIu32 "/%" PRIu32, info->tx_queues, info->rx_queues);
@@ -1049,7 +1200,7 @@ static int link_status_one(
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return r;
-                r = table_add_cell_full(table, NULL, TABLE_STRING, "Time Zone:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+                r = table_add_cell(table, NULL, TABLE_STRING, "Time Zone:");
                 if (r < 0)
                         return r;
                 r = table_add_cell(table, NULL, TABLE_STRING, tz);
@@ -1058,6 +1209,10 @@ static int link_status_one(
         }
 
         r = dump_lldp_neighbors(table, "Connected To:", info->ifindex);
+        if (r < 0)
+                return r;
+
+        r = dump_statistics(table, info);
         if (r < 0)
                 return r;
 
@@ -1081,15 +1236,21 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         if (!table)
                 return -ENOMEM;
 
+        assert_se(cell = table_get_cell(table, 0, 0));
+        (void) table_set_ellipsize_percent(table, cell, 100);
+
+        assert_se(cell = table_get_cell(table, 0, 1));
+        (void) table_set_align_percent(table, cell, 100);
+        (void) table_set_ellipsize_percent(table, cell, 100);
+
         table_set_header(table, false);
 
         r = table_add_cell(table, &cell, TABLE_STRING, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE));
         if (r < 0)
                 return r;
         (void) table_set_color(table, cell, on_color_operational);
-        (void) table_set_ellipsize_percent(table, cell, 0);
 
-        r = table_add_cell_full(table, NULL, TABLE_STRING, "State:", SIZE_MAX, SIZE_MAX, 0, 100, 0);
+        r = table_add_cell(table, NULL, TABLE_STRING, "State:");
         if (r < 0)
                 return r;
 
@@ -1129,12 +1290,17 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
 }
 
 static int link_status(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
         int r, c, i;
 
         (void) pager_open(arg_pager_flags);
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -1145,11 +1311,11 @@ static int link_status(int argc, char *argv[], void *userdata) {
                 log_debug_errno(r, "Failed to open hardware database: %m");
 
         if (arg_all)
-                c = acquire_link_info(rtnl, NULL, &links);
+                c = acquire_link_info(bus, rtnl, NULL, &links);
         else if (argc <= 1)
                 return system_status(rtnl, hwdb);
         else
-                c = acquire_link_info(rtnl, argv + 1, &links);
+                c = acquire_link_info(bus, rtnl, argv + 1, &links);
         if (c < 0)
                 return c;
 
@@ -1225,7 +1391,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        c = acquire_link_info(rtnl, argc > 1 ? argv + 1 : NULL, &links);
+        c = acquire_link_info(NULL, rtnl, argc > 1 ? argv + 1 : NULL, &links);
         if (c < 0)
                 return c;
 
@@ -1415,8 +1581,9 @@ static int help(void) {
                "     --version          Show package version\n"
                "     --no-pager         Do not pipe output into a pager\n"
                "     --no-legend        Do not show the headers and footers\n"
-               "  -a --all              Show status for all links\n\n"
-               "Commands:\n"
+               "  -a --all              Show status for all links\n"
+               "  -s --stats            Show detailed link statics\n"
+               "\nCommands:\n"
                "  list [PATTERN...]     List links\n"
                "  status [PATTERN...]   Show link status\n"
                "  lldp [PATTERN...]     Show LLDP neighbors\n"
@@ -1444,6 +1611,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
                 { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
                 { "all",       no_argument,       NULL, 'a'           },
+                { "stats",     no_argument,       NULL, 's'           },
                 {}
         };
 
@@ -1452,7 +1620,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ha", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "has", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -1472,6 +1640,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'a':
                         arg_all = true;
+                        break;
+
+                case 's':
+                        arg_stats = true;
                         break;
 
                 case '?':

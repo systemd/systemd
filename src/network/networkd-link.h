@@ -122,6 +122,10 @@ typedef struct Link {
         Hashmap *bound_by_links;
         Hashmap *bound_to_links;
         Set *slaves;
+
+        /* For speed meter */
+        struct rtnl_link_stats64 stats_old, stats_new;
+        bool stats_updated;
 } Link;
 
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);

@@ -11,6 +11,7 @@
 #include "dhcp-identifier.h"
 #include "hashmap.h"
 #include "list.h"
+#include "time-util.h"
 
 #include "networkd-address-pool.h"
 #include "networkd-link.h"
@@ -55,6 +56,13 @@ struct Manager {
         Set *rules_saved;
 
         int sysctl_ipv6_enabled;
+
+        /* For link speed meter*/
+        bool use_speed_meter;
+        sd_event_source *speed_meter_event_source;
+        usec_t speed_meter_interval_usec;
+        usec_t speed_meter_usec_new;
+        usec_t speed_meter_usec_old;
 };
 
 extern const sd_bus_vtable manager_vtable[];
