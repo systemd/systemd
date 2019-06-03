@@ -455,7 +455,7 @@ fallback:
         return 0;
 }
 
-const struct udev_builtin udev_builtin_usb_id = {
+const UdevBuiltin udev_builtin_usb_id = {
         .name = "usb_id",
         .cmd = builtin_usb_id,
         .help = "USB device properties",

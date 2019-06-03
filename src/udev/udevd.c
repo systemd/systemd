@@ -64,9 +64,9 @@
 #include "syslog-util.h"
 #include "udev-builtin.h"
 #include "udev-ctrl.h"
+#include "udev-event.h"
 #include "udev-util.h"
 #include "udev-watch.h"
-#include "udev.h"
 #include "user-util.h"
 
 #define WORKER_NUM_MAX 2048U

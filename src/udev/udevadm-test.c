@@ -20,7 +20,7 @@
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
-#include "udev.h"
+#include "udev-event.h"
 #include "udevadm.h"
 
 static const char *arg_action = "add";

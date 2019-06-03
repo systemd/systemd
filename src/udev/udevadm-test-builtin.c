@@ -63,7 +63,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 int builtin_main(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        enum udev_builtin_cmd cmd;
+        UdevBuiltinCommand cmd;
         int r;
 
         log_set_max_level(LOG_DEBUG);

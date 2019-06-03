@@ -33,7 +33,7 @@ static int builtin_btrfs(sd_device *dev, int argc, char *argv[], bool test) {
         return 0;
 }
 
-const struct udev_builtin udev_builtin_btrfs = {
+const UdevBuiltin udev_builtin_btrfs = {
         .name = "btrfs",
         .cmd = builtin_btrfs,
         .help = "btrfs volume management",
