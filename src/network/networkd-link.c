@@ -2486,6 +2486,33 @@ static bool link_is_static_route_configured(Link *link, Route *route) {
         return false;
 }
 
+static bool link_address_is_dynamic(Link *link, Address *address) {
+        Route *route;
+        Iterator i;
+
+        assert(link);
+        assert(address);
+
+        if (address->cinfo.ifa_prefered != CACHE_INFO_INFINITY_LIFE_TIME)
+                return true;
+
+        /* Even when the address is leased from a DHCP server, networkd assign the address
+         * without lifetime when KeepConfiguration=dhcp. So, let's check that we have
+         * corresponding routes with RTPROT_DHCP. */
+        SET_FOREACH(route, link->routes_foreign, i) {
+                if (route->protocol != RTPROT_DHCP)
+                        continue;
+
+                if (address->family != route->family)
+                        continue;
+
+                if (in_addr_equal(address->family, &address->in_addr, &route->prefsrc))
+                        return true;
+        }
+
+        return false;
+}
+
 static int link_drop_foreign_config(Link *link) {
         Address *address;
         Route *route;
@@ -2495,6 +2522,12 @@ static int link_drop_foreign_config(Link *link) {
         SET_FOREACH(address, link->addresses_foreign, i) {
                 /* we consider IPv6LL addresses to be managed by the kernel */
                 if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1)
+                        continue;
+
+                if (link_address_is_dynamic(link, address)) {
+                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+                                continue;
+                } else if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
                         continue;
 
                 if (link_is_static_address_configured(link, address)) {
@@ -2511,6 +2544,14 @@ static int link_drop_foreign_config(Link *link) {
         SET_FOREACH(route, link->routes_foreign, i) {
                 /* do not touch routes managed by the kernel */
                 if (route->protocol == RTPROT_KERNEL)
+                        continue;
+
+                if (route->protocol == RTPROT_STATIC &&
+                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                        continue;
+
+                if (route->protocol == RTPROT_DHCP &&
+                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
                         continue;
 
                 if (link_is_static_route_configured(link, route)) {
@@ -2580,7 +2621,7 @@ static int link_configure(Link *link) {
         /* Drop foreign config, but ignore loopback or critical devices.
          * We do not want to remove loopback address or addresses used for root NFS. */
         if (!(link->flags & IFF_LOOPBACK) &&
-            !(link->network->keep_configuration & (KEEP_CONFIGURATION_DHCP_ON_START | KEEP_CONFIGURATION_STATIC))) {
+            link->network->keep_configuration != KEEP_CONFIGURATION_YES) {
                 r = link_drop_foreign_config(link);
                 if (r < 0)
                         return r;
