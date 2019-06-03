@@ -181,7 +181,7 @@ static int wait_for_partitions_to_appear(
                         continue;
 
                 if (!FLAGS_SET(flags, DISSECT_IMAGE_NO_UDEV)) {
-                        r = device_wait_for_initialization(q, "block", NULL);
+                        r = device_wait_for_initialization(q, "block", USEC_INFINITY, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -251,7 +251,7 @@ static int loop_wait_for_partitions_to_appear(
         log_debug("Waiting for device (parent + %d partitions) to appear...", num_partitions);
 
         if (!FLAGS_SET(flags, DISSECT_IMAGE_NO_UDEV)) {
-                r = device_wait_for_initialization(d, "block", &device);
+                r = device_wait_for_initialization(d, "block", USEC_INFINITY, &device);
                 if (r < 0)
                         return r;
         } else

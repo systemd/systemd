@@ -175,6 +175,14 @@
             <para>Cleanup the udev database.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><option>-w<optional>SECONDS</optional></option></term>
+          <term><option>--wait-for-initialization<optional>=SECONDS</optional></option></term>
+          <listitem>
+            <para>Wait for device to be initialized. If argument <replaceable>SECONDS</replaceable>
+            is not specified, the default is to wait forever.</para>
+          </listitem>
+        </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>

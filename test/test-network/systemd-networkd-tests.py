@@ -79,6 +79,23 @@ def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
 
     return f
 
+def expectedFailureIfEthtoolDoesNotSupportDriver():
+    def f(func):
+        support = False
+        rc = subprocess.call(['ip', 'link', 'add', 'name', 'dummy99', 'type', 'dummy'])
+        if rc == 0:
+            ret = subprocess.run(['udevadm', 'info', '-w10s', '/sys/class/net/dummy99'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+            if ret.returncode == 0 and 'E: ID_NET_DRIVER=dummy' in ret.stdout.rstrip():
+                support = True
+            subprocess.call(['ip', 'link', 'del', 'dummy99'])
+
+        if support:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def setUpModule():
     os.makedirs(network_unit_file_path, exist_ok=True)
     os.makedirs(networkd_ci_path, exist_ok=True)
@@ -109,6 +126,8 @@ def setUpModule():
         drop_in += ['Environment=LSAN_OPTIONS="' + lsan_options + '"']
     if ubsan_options:
         drop_in += ['Environment=UBSAN_OPTIONS="' + ubsan_options + '"']
+    if asan_options or lsan_options or ubsan_options:
+        drop_in += ['SystemCallFilter=']
     if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
 
@@ -283,6 +302,91 @@ class Utilities():
         else:
             self.assertRegex(output, address_regex)
 
+class NetworkctlTests(unittest.TestCase, Utilities):
+
+    links = [
+        'test1',
+        'veth99',
+    ]
+
+    units = [
+        '11-dummy.netdev',
+        '11-dummy-mtu.netdev',
+        '11-dummy.network',
+        '25-veth.netdev',
+        'netdev-link-local-addressing-yes.network',
+    ]
+
+    def setUp(self):
+        self.remove_links(self.links)
+
+    def tearDown(self):
+        self.remove_links(self.links)
+        self.remove_unit_from_networkd_path(self.units)
+
+    def test_glob(self):
+        self.copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network')
+        self.start_networkd(0)
+
+        self.wait_online(['test1:degraded'])
+
+        output = subprocess.check_output(networkctl_cmd + ['list'], universal_newlines=True, env=env).rstrip()
+        self.assertRegex(output, '1 lo ')
+        self.assertRegex(output, 'test1')
+
+        output = subprocess.check_output(networkctl_cmd + ['list', 'test1'], universal_newlines=True, env=env).rstrip()
+        self.assertNotRegex(output, '1 lo ')
+        self.assertRegex(output, 'test1')
+
+        output = subprocess.check_output(networkctl_cmd + ['list', 'te*'], universal_newlines=True, env=env).rstrip()
+        self.assertNotRegex(output, '1 lo ')
+        self.assertRegex(output, 'test1')
+
+        output = subprocess.check_output(networkctl_cmd + ['status', 'te*'], universal_newlines=True, env=env).rstrip()
+        self.assertNotRegex(output, '1: lo ')
+        self.assertRegex(output, 'test1')
+
+        output = subprocess.check_output(networkctl_cmd + ['status', 'tes[a-z][0-9]'], universal_newlines=True, env=env).rstrip()
+        self.assertNotRegex(output, '1: lo ')
+        self.assertRegex(output, 'test1')
+
+    def test_mtu(self):
+        self.copy_unit_to_networkd_unit_path('11-dummy-mtu.netdev', '11-dummy.network')
+        self.start_networkd(0)
+
+        self.wait_online(['test1:degraded'])
+
+        output = subprocess.check_output(networkctl_cmd + ['status', 'test1'], universal_newlines=True, env=env).rstrip()
+        self.assertRegex(output, 'MTU: 1600')
+
+    @expectedFailureIfEthtoolDoesNotSupportDriver()
+    def test_udev_driver(self):
+        self.copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network',
+                                             '25-veth.netdev', 'netdev-link-local-addressing-yes.network')
+        self.start_networkd(0)
+
+        self.wait_online(['test1:degraded', 'veth99:degraded', 'veth-peer:degraded'])
+
+        output = subprocess.check_output(networkctl_cmd + ['status', 'test1'], universal_newlines=True, env=env).rstrip()
+        self.assertRegex(output, 'Driver: dummy')
+
+        output = subprocess.check_output(networkctl_cmd + ['status', 'veth99'], universal_newlines=True, env=env).rstrip()
+        self.assertRegex(output, 'Driver: veth')
+
+        output = subprocess.check_output(networkctl_cmd + ['status', 'veth-peer'], universal_newlines=True, env=env).rstrip()
+        self.assertRegex(output, 'Driver: veth')
+
+    def test_delete_links(self):
+        self.copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network',
+                                             '25-veth.netdev', 'netdev-link-local-addressing-yes.network')
+        self.start_networkd(0)
+
+        self.wait_online(['test1:degraded', 'veth99:degraded', 'veth-peer:degraded'])
+
+        subprocess.check_call(networkctl_cmd + ['delete', 'test1', 'veth99'])
+        self.assertFalse(self.link_exists('test1'))
+        self.assertFalse(self.link_exists('veth99'))
+        self.assertFalse(self.link_exists('veth-peer'))
 
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
@@ -451,40 +555,15 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.remove_links(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
-    def test_dropin_and_networkctl_glob(self):
+    def test_dropin_and_name_conflict(self):
         self.copy_unit_to_networkd_unit_path('10-dropin-test.netdev', '15-name-conflict-test.netdev')
         self.start_networkd(0)
 
         self.wait_online(['dropin-test:off'])
 
-        # This also tests NetDev.Name= conflict and basic networkctl functionalities
-
         output = subprocess.check_output(['ip', 'link', 'show', 'dropin-test'], universal_newlines=True).rstrip()
         print(output)
         self.assertRegex(output, '00:50:56:c0:00:28')
-
-        output = subprocess.check_output(networkctl_cmd + ['list'], universal_newlines=True, env=env).rstrip()
-        self.assertRegex(output, '1 lo ')
-        self.assertRegex(output, 'dropin-test')
-
-        output = subprocess.check_output(networkctl_cmd + ['list', 'dropin-test'], universal_newlines=True, env=env).rstrip()
-        self.assertNotRegex(output, '1 lo ')
-        self.assertRegex(output, 'dropin-test')
-
-        output = subprocess.check_output(networkctl_cmd + ['list', 'dropin-*'], universal_newlines=True, env=env).rstrip()
-        self.assertNotRegex(output, '1 lo ')
-        self.assertRegex(output, 'dropin-test')
-
-        output = subprocess.check_output(networkctl_cmd + ['status', 'dropin-*'], universal_newlines=True, env=env).rstrip()
-        self.assertNotRegex(output, '1: lo ')
-        self.assertRegex(output, 'dropin-test')
-
-        ret = subprocess.run(['ethtool', '--driver', 'dropin-test'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-        print(ret.stdout.rstrip())
-        if ret.returncode == 0 and re.search('driver: dummy', ret.stdout.rstrip()) != None:
-            self.assertRegex(output, 'Driver: dummy')
-        else:
-            print('ethtool does not support driver field at least for dummy interfaces, skipping test for Driver field of networkctl.')
 
     def test_wait_online_any(self):
         self.copy_unit_to_networkd_unit_path('25-bridge.netdev', '25-bridge.network', '11-dummy.netdev', '11-dummy.network')

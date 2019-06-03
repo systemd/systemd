@@ -109,7 +109,7 @@ static int determine_state_file(
         if (r < 0)
                 return r;
 
-        r = device_wait_for_initialization(d, "rfkill", &device);
+        r = device_wait_for_initialization(d, "rfkill", USEC_INFINITY, &device);
         if (r < 0)
                 return r;
 
