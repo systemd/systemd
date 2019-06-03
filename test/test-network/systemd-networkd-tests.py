@@ -1864,6 +1864,98 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 10.1.2.3/16 scope global dummy98')
         self.assertNotRegex(output, 'inet 10.2.3.4/16 scope global dynamic dummy98')
 
+class NetworkdStateFileTests(unittest.TestCase, Utilities):
+    links = [
+        'dummy98',
+    ]
+
+    units = [
+        '12-dummy.netdev',
+        'state-file-tests.network',
+    ]
+
+    def setUp(self):
+        remove_links(self.links)
+        stop_networkd(show_logs=False)
+
+    def tearDown(self):
+        remove_links(self.links)
+        remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
+
+    def test_state_file(self):
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'state-file-tests.network')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output(*networkctl_cmd, '--no-legend', 'list', 'dummy98', env=env)
+        print(output)
+        ifindex = output.split()[0]
+
+        path = os.path.join('/run/systemd/netif/links/', ifindex)
+        self.assertTrue(os.path.exists(path))
+        time.sleep(2)
+
+        with open(path) as f:
+            data = f.read()
+            self.assertRegex(data, r'ADMIN_STATE=configured')
+            self.assertRegex(data, r'OPER_STATE=routable')
+            self.assertRegex(data, r'REQUIRED_FOR_ONLINE=yes')
+            self.assertRegex(data, r'REQUIRED_OPER_STATE_FOR_ONLINE=routable')
+            self.assertRegex(data, r'NETWORK_FILE=/run/systemd/network/state-file-tests.network')
+            self.assertRegex(data, r'DNS=10.10.10.10 10.10.10.11')
+            self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
+            self.assertRegex(data, r'DOMAINS=hogehoge')
+            self.assertRegex(data, r'ROUTE_DOMAINS=foofoo')
+            self.assertRegex(data, r'LLMNR=no')
+            self.assertRegex(data, r'MDNS=yes')
+            self.assertRegex(data, r'DNSSEC=no')
+            self.assertRegex(data, r'ADDRESSES=192.168.(?:10.10|12.12)/24 192.168.(?:12.12|10.10)/24')
+
+        check_output(*resolvectl_cmd, 'dns', 'dummy98', '10.10.10.12', '10.10.10.13', env=env)
+        check_output(*resolvectl_cmd, 'domain', 'dummy98', 'hogehogehoge', '~foofoofoo', env=env)
+        check_output(*resolvectl_cmd, 'llmnr', 'dummy98', 'yes', env=env)
+        check_output(*resolvectl_cmd, 'mdns', 'dummy98', 'no', env=env)
+        check_output(*resolvectl_cmd, 'dnssec', 'dummy98', 'yes', env=env)
+        check_output(*timedatectl_cmd, 'ntp-servers', 'dummy98', '2.fedora.pool.ntp.org', '3.fedora.pool.ntp.org', env=env)
+        time.sleep(2)
+
+        with open(path) as f:
+            data = f.read()
+            self.assertRegex(data, r'DNS=10.10.10.12 10.10.10.13')
+            self.assertRegex(data, r'NTP=2.fedora.pool.ntp.org 3.fedora.pool.ntp.org')
+            self.assertRegex(data, r'DOMAINS=hogehogehoge')
+            self.assertRegex(data, r'ROUTE_DOMAINS=foofoofoo')
+            self.assertRegex(data, r'LLMNR=yes')
+            self.assertRegex(data, r'MDNS=no')
+            self.assertRegex(data, r'DNSSEC=yes')
+
+        check_output(*timedatectl_cmd, 'revert', 'dummy98', env=env)
+        time.sleep(2)
+
+        with open(path) as f:
+            data = f.read()
+            self.assertRegex(data, r'DNS=10.10.10.12 10.10.10.13')
+            self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
+            self.assertRegex(data, r'DOMAINS=hogehogehoge')
+            self.assertRegex(data, r'ROUTE_DOMAINS=foofoofoo')
+            self.assertRegex(data, r'LLMNR=yes')
+            self.assertRegex(data, r'MDNS=no')
+            self.assertRegex(data, r'DNSSEC=yes')
+
+        check_output(*resolvectl_cmd, 'revert', 'dummy98', env=env)
+        time.sleep(2)
+
+        with open(path) as f:
+            data = f.read()
+            self.assertRegex(data, r'DNS=10.10.10.10 10.10.10.11')
+            self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
+            self.assertRegex(data, r'DOMAINS=hogehoge')
+            self.assertRegex(data, r'ROUTE_DOMAINS=foofoo')
+            self.assertRegex(data, r'LLMNR=no')
+            self.assertRegex(data, r'MDNS=yes')
+            self.assertRegex(data, r'DNSSEC=no')
+
 class NetworkdBondTests(unittest.TestCase, Utilities):
     links = [
         'bond199',
