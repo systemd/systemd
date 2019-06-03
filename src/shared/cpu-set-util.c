@@ -55,7 +55,7 @@ char *cpu_set_to_range_string(const CPUSet *set) {
                         if (!GREEDY_REALLOC(str, allocated, len + 2 + 2 * DECIMAL_STR_MAX(unsigned)))
                                 return NULL;
 
-                        if (range_end > range_start || len == 0)
+                        if (range_end > range_start)
                                 r = sprintf(str + len, len > 0 ? " %d-%d" : "%d-%d", range_start, range_end);
                         else
                                 r = sprintf(str + len, len > 0 ? " %d" : "%d", range_start);
@@ -67,7 +67,7 @@ char *cpu_set_to_range_string(const CPUSet *set) {
                 if (!GREEDY_REALLOC(str, allocated, len + 2 + 2 * DECIMAL_STR_MAX(int)))
                         return NULL;
 
-                if (range_end > range_start || len == 0)
+                if (range_end > range_start)
                         r = sprintf(str + len, len > 0 ? " %d-%d" : "%d-%d", range_start, range_end);
                 else
                         r = sprintf(str + len, len > 0 ? " %d" : "%d", range_start);
