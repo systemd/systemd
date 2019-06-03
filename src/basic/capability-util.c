@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "capability-util.h"
+#include "cap-list.h"
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
@@ -362,6 +363,43 @@ bool ambient_capabilities_supported(void) {
                 !IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS);
 
         return cache;
+}
+
+bool capability_quintet_mangle(CapabilityQuintet *q) {
+        unsigned long i;
+        uint64_t combined, drop = 0;
+        bool ambient_supported;
+
+        assert(q);
+
+        combined = q->effective | q->bounding | q->inheritable | q->permitted;
+
+        ambient_supported = q->ambient != (uint64_t) -1;
+        if (ambient_supported)
+                combined |= q->ambient;
+
+        for (i = 0; i <= cap_last_cap(); i++) {
+                unsigned long bit = UINT64_C(1) << i;
+                if (!FLAGS_SET(combined, bit))
+                        continue;
+
+                if (prctl(PR_CAPBSET_READ, i) > 0)
+                        continue;
+
+                drop |= bit;
+
+                log_debug("Not in the current bounding set: %s", capability_to_name(i));
+        }
+
+        q->effective &= ~drop;
+        q->bounding &= ~drop;
+        q->inheritable &= ~drop;
+        q->permitted &= ~drop;
+
+        if (ambient_supported)
+                q->ambient &= ~drop;
+
+        return drop != 0; /* Let the caller know we changed something */
 }
 
 int capability_quintet_enforce(const CapabilityQuintet *q) {

@@ -69,4 +69,9 @@ static inline bool capability_quintet_is_set(const CapabilityQuintet *q) {
                 q->ambient != (uint64_t) -1;
 }
 
+/* Mangles the specified caps quintet taking the current bounding set into account:
+ * drops all caps from all five sets if our bounding set doesn't allow them.
+ * Returns true if the quintet was modified. */
+bool capability_quintet_mangle(CapabilityQuintet *q);
+
 int capability_quintet_enforce(const CapabilityQuintet *q);
