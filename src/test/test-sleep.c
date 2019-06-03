@@ -16,12 +16,10 @@
 #include "util.h"
 
 static void test_parse_sleep_config(void) {
-        const char *verb;
-
+        _cleanup_(free_sleep_configp) SleepConfig *sleep_config = NULL;
         log_info("/* %s */", __func__);
 
-        FOREACH_STRING(verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate")
-                assert_se(parse_sleep_config(verb, NULL, NULL, NULL, NULL) == 0);
+        assert(parse_sleep_config(&sleep_config) == 0);
 }
 
 static int test_fiemap(const char *path) {

@@ -199,37 +199,29 @@ static int execute(char **modes, char **states) {
         return r;
 }
 
-static int execute_s2h(usec_t hibernate_delay_sec) {
-        _cleanup_strv_free_ char **hibernate_modes = NULL, **hibernate_states = NULL,
-                                 **suspend_modes = NULL, **suspend_states = NULL;
+static int execute_s2h(const SleepConfig *sleep_config) {
         _cleanup_close_ int tfd = -1;
         char buf[FORMAT_TIMESPAN_MAX];
         struct itimerspec ts = {};
         struct pollfd fds;
         int r;
 
-        r = parse_sleep_config("suspend", NULL, &suspend_modes, &suspend_states, NULL);
-        if (r < 0)
-                return r;
-
-        r = parse_sleep_config("hibernate", NULL, &hibernate_modes, &hibernate_states, NULL);
-        if (r < 0)
-                return r;
+        assert(sleep_config);
 
         tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
         if (tfd < 0)
                 return log_error_errno(errno, "Error creating timerfd: %m");
 
         log_debug("Set timerfd wake alarm for %s",
-                  format_timespan(buf, sizeof(buf), hibernate_delay_sec, USEC_PER_SEC));
+                  format_timespan(buf, sizeof(buf), sleep_config->hibernate_delay_sec, USEC_PER_SEC));
 
-        timespec_store(&ts.it_value, hibernate_delay_sec);
+        timespec_store(&ts.it_value, sleep_config->hibernate_delay_sec);
 
         r = timerfd_settime(tfd, 0, &ts, NULL);
         if (r < 0)
                 return log_error_errno(errno, "Error setting hibernate timer: %m");
 
-        r = execute(suspend_modes, suspend_states);
+        r = execute(sleep_config->suspend_modes, sleep_config->suspend_states);
         if (r < 0)
                 return r;
 
@@ -248,11 +240,12 @@ static int execute_s2h(usec_t hibernate_delay_sec) {
 
         /* If woken up after alarm time, hibernate */
         log_debug("Attempting to hibernate after waking from %s timer",
-                  format_timespan(buf, sizeof(buf), hibernate_delay_sec, USEC_PER_SEC));
-        r = execute(hibernate_modes, hibernate_states);
+                  format_timespan(buf, sizeof(buf), sleep_config->hibernate_delay_sec, USEC_PER_SEC));
+
+        r = execute(sleep_config->hibernate_modes, sleep_config->hibernate_states);
         if (r < 0) {
                 log_notice("Couldn't hibernate, will try to suspend again.");
-                r = execute(suspend_modes, suspend_states);
+                r = execute(sleep_config->suspend_modes, sleep_config->suspend_states);
                 if (r < 0) {
                         log_notice("Could neither hibernate nor suspend again, giving up.");
                         return r;
@@ -335,8 +328,8 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         bool allow;
-        _cleanup_strv_free_ char **modes = NULL, **states = NULL;
-        usec_t delay = 0;
+        char **modes = NULL, **states = NULL;
+        _cleanup_(free_sleep_configp) SleepConfig *sleep_config = NULL;
         int r;
 
         log_setup_service();
@@ -345,7 +338,11 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = parse_sleep_config(arg_verb, &allow, &modes, &states, &delay);
+        r = parse_sleep_config(&sleep_config);
+        if (r < 0)
+                return r;
+
+        r = sleep_settings(arg_verb, sleep_config, &allow, &modes, &states);
         if (r < 0)
                 return r;
 
@@ -355,7 +352,7 @@ static int run(int argc, char *argv[]) {
                                        arg_verb);
 
         if (streq(arg_verb, "suspend-then-hibernate"))
-                return execute_s2h(delay);
+                return execute_s2h(sleep_config);
         else
                 return execute(modes, states);
 }
