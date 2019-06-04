@@ -414,7 +414,10 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                 return r;
 
         /* apply rules, create node, symlinks */
-        udev_event_execute_rules(udev_event, arg_event_timeout_usec, manager->properties, manager->rules);
+        r = udev_event_execute_rules(udev_event, arg_event_timeout_usec, manager->properties, manager->rules);
+        if (r < 0)
+                return r;
+
         udev_event_execute_run(udev_event, arg_event_timeout_usec);
 
         if (!manager->rtnl)
