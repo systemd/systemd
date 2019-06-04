@@ -70,6 +70,24 @@ CHANGES WITH 243 in spe:
           build/man/man systemctl
           build/man/html systemd.index
 
+        * The D-Bus "wire format" for CPUAffinity attribute is changed on
+          big-endian machines. Before, bytes were written and read in native
+          machine order as exposed by the native libc __cpu_mask interface.
+          Now, little-endian order is always used (CPUs 0–7 are described by
+          bits 0–7 in byte 0, CPUs 8–15 are described by byte 1, and so on).
+          This change fixes D-Bus calls that cross endianness boundary.
+
+          The presentation format used for CPUAffinity by systemctl show and
+          systemd-analyze dump is changed to present CPU indices instead of the
+          raw __cpu_mask bitmask. For example, CPUAffinity=0-1 would be shown
+          as CPUAffinity=03000000000000000000000000000… (on little-endian) or
+          CPUAffinity=00000000000000300000000000000… (on 64-bit big-endian),
+          and is now shown as CPUAffinity=0-1, matching the input format. The
+          maximum integer that will be printed in new format is 8191 (four
+          digits), while the old format always used a very long number (with
+          the length varying by architecture), so they can be unambiguously
+          distinguished.
+
         * /usr/sbin/halt.local is no longer supported. Implementation in
           distributions was inconsistent and it seems this functionality was
           very rarely used.
@@ -83,7 +101,7 @@ CHANGES WITH 243 in spe:
 
         * When a [Match] section in .link or .network file is empty (contains
           no match patterns), a warning will be emitted. Please add any "match
-          all" pattern instead, e.g. OriginalName=* or Name=* if case all
+          all" pattern instead, e.g. OriginalName=* or Name=* in case all
           interfaces should really be matched.
 
           …
