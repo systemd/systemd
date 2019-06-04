@@ -15,7 +15,7 @@ static void test_parse_cpu_set(void) {
         /* Single value */
         assert_se(parse_cpu_set_full("0", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
         assert_se(c.set);
-        assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
+        assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_ISSET_S(0, c.allocated, c.set));
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 1);
 
@@ -31,7 +31,7 @@ static void test_parse_cpu_set(void) {
         /* Simple range (from CPUAffinity example) */
         assert_se(parse_cpu_set_full("1 2 4", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
         assert_se(c.set);
-        assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
+        assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_ISSET_S(1, c.allocated, c.set));
         assert_se(CPU_ISSET_S(2, c.allocated, c.set));
         assert_se(CPU_ISSET_S(4, c.allocated, c.set));
@@ -48,7 +48,7 @@ static void test_parse_cpu_set(void) {
 
         /* A more interesting range */
         assert_se(parse_cpu_set_full("0 1 2 3 8 9 10 11", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
-        assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
+        assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 8);
         for (cpu = 0; cpu < 4; cpu++)
                 assert_se(CPU_ISSET_S(cpu, c.allocated, c.set));
@@ -66,7 +66,7 @@ static void test_parse_cpu_set(void) {
 
         /* Quoted strings */
         assert_se(parse_cpu_set_full("8 '9' 10 \"11\"", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
-        assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
+        assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 4);
         for (cpu = 8; cpu < 12; cpu++)
                 assert_se(CPU_ISSET_S(cpu, c.allocated, c.set));
@@ -81,7 +81,7 @@ static void test_parse_cpu_set(void) {
 
         /* Use commas as separators */
         assert_se(parse_cpu_set_full("0,1,2,3 8,9,10,11", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
-        assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
+        assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 8);
         for (cpu = 0; cpu < 4; cpu++)
                 assert_se(CPU_ISSET_S(cpu, c.allocated, c.set));
@@ -94,7 +94,7 @@ static void test_parse_cpu_set(void) {
 
         /* Commas with spaces (and trailing comma, space) */
         assert_se(parse_cpu_set_full("0, 1, 2, 3, 4, 5, 6, 7, 63, ", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
-        assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
+        assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 9);
         for (cpu = 0; cpu < 8; cpu++)
                 assert_se(CPU_ISSET_S(cpu, c.allocated, c.set));
@@ -111,7 +111,7 @@ static void test_parse_cpu_set(void) {
 
         /* Ranges */
         assert_se(parse_cpu_set_full("0-3,8-11", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
-        assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
+        assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 8);
         for (cpu = 0; cpu < 4; cpu++)
                 assert_se(CPU_ISSET_S(cpu, c.allocated, c.set));
@@ -124,7 +124,7 @@ static void test_parse_cpu_set(void) {
 
         /* Ranges with trailing comma, space */
         assert_se(parse_cpu_set_full("0-3  8-11, ", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
-        assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
+        assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 8);
         for (cpu = 0; cpu < 4; cpu++)
                 assert_se(CPU_ISSET_S(cpu, c.allocated, c.set));
@@ -141,13 +141,13 @@ static void test_parse_cpu_set(void) {
 
         /* Negative range (returns empty cpu_set) */
         assert_se(parse_cpu_set_full("3-0", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
-        assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
+        assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 0);
         cpu_set_reset(&c);
 
         /* Overlapping ranges */
         assert_se(parse_cpu_set_full("0-7 4-11", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
-        assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
+        assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 12);
         for (cpu = 0; cpu < 12; cpu++)
                 assert_se(CPU_ISSET_S(cpu, c.allocated, c.set));
@@ -162,7 +162,7 @@ static void test_parse_cpu_set(void) {
 
         /* Mix ranges and individual CPUs */
         assert_se(parse_cpu_set_full("0,2 4-11", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
-        assert_se(c.allocated >= sizeof(__cpu_mask) / 8);
+        assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 10);
         assert_se(CPU_ISSET_S(0, c.allocated, c.set));
         assert_se(CPU_ISSET_S(2, c.allocated, c.set));
