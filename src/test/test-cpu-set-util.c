@@ -254,7 +254,9 @@ static void test_cpu_set_to_from_dbus(void) {
         assert_se(array);
         assert_se(allocated == c.allocated);
 
-        assert(memcmp(array, expected, sizeof expected) == 0);
+        assert_se(allocated <= sizeof expected);
+        assert_se(allocated >= DIV_ROUND_UP(201u, 8u)); /* We need at least 201 bits for our mask */
+        assert(memcmp(array, expected, allocated) == 0);
 
         assert_se(cpu_set_from_dbus(array, allocated, &c2) == 0);
         assert_se(c2.set);
