@@ -2086,8 +2086,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         # link become 'routable' when at least one protocol provide an valid address.
-        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255', ipv='-4')
-        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128', ipv='-6')
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         output = subprocess.check_output(networkctl_cmd + ['status', 'veth99'], universal_newlines=True, env=env).rstrip()
         print(output)
@@ -2171,8 +2171,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         # link become 'routable' when at least one protocol provide an valid address.
-        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255', ipv='-4')
-        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128', ipv='-6')
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
@@ -2230,8 +2230,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         # link become 'routable' when at least one protocol provide an valid address.
-        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255', ipv='-4')
-        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128', ipv='-6')
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99', 'scope', 'global'], universal_newlines=True).rstrip()
         print(output)
@@ -2273,8 +2273,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online(['veth99:routable', 'veth-peer:routable', 'vrf99:carrier'])
 
         # link become 'routable' when at least one protocol provide an valid address.
-        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255', ipv='-4')
-        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128', ipv='-6')
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         print('## ip -d link show dev vrf99')
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'dev', 'vrf99'], universal_newlines=True).rstrip()
