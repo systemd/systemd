@@ -472,7 +472,7 @@ static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, 
         return 1;
 }
 
-int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netlink_message_handler_t callback, bool update) {
+int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
