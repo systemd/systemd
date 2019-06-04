@@ -13,4 +13,4 @@ if [ -z "$target" ]; then
     exit 1
 fi
 ninja -C "@BUILD_ROOT@" "$target"
-exec man build/"$target"
+exec man "@BUILD_ROOT@/$target"
