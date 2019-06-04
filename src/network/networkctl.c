@@ -1533,6 +1533,7 @@ static int link_delete(int argc, char *argv[], void *userdata) {
         _cleanup_set_free_ Set *indexes = NULL;
         int index, r, i;
         Iterator j;
+        void *p;
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -1552,8 +1553,8 @@ static int link_delete(int argc, char *argv[], void *userdata) {
                         return log_oom();
         }
 
-        SET_FOREACH(index, indexes, j) {
-                r = link_delete_send_message(rtnl, index);
+        SET_FOREACH(p, indexes, j) {
+                r = link_delete_send_message(rtnl, PTR_TO_INT(p));
                 if (r < 0) {
                         char ifname[IF_NAMESIZE + 1];
 
