@@ -23,6 +23,7 @@
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "unit.h"
+#include "virt.h"
 
 enum {
         MAP_KEY_PACKETS,
@@ -484,19 +485,17 @@ int bpf_firewall_compile(Unit *u) {
         supported = bpf_firewall_supported();
         if (supported < 0)
                 return supported;
-        if (supported == BPF_FIREWALL_UNSUPPORTED) {
-                log_unit_debug(u, "BPF firewalling not supported on this manager, proceeding without.");
-                return -EOPNOTSUPP;
-        }
-        if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI && u->type == UNIT_SLICE) {
+        if (supported == BPF_FIREWALL_UNSUPPORTED)
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                            "BPF firewalling not supported on this manager, proceeding without.");
+        if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI && u->type == UNIT_SLICE)
                 /* If BPF_F_ALLOW_MULTI is not supported we don't support any BPF magic on inner nodes (i.e. on slice
                  * units), since that would mean leaf nodes couldn't do any BPF anymore at all. Under the assumption
                  * that BPF is more interesting on leaf nodes we hence avoid it on inner nodes in that case. This is
                  * consistent with old systemd behaviour from before v238, where BPF wasn't supported in inner nodes at
                  * all, either. */
-                log_unit_debug(u, "BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
-                return -EOPNOTSUPP;
-        }
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                            "BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
 
         /* Note that when we compile a new firewall we first flush out the access maps and the BPF programs themselves,
          * but we reuse the the accounting maps. That way the firewall in effect always maps to the actual
@@ -645,6 +644,8 @@ int bpf_firewall_reset_accounting(int map_fd) {
         return bpf_map_update_element(map_fd, &key, &value);
 }
 
+static int bpf_firewall_unsupported_reason = 0;
+
 int bpf_firewall_supported(void) {
         struct bpf_insn trivial[] = {
                 BPF_MOV64_IMM(BPF_REG_0, 1),
@@ -669,7 +670,9 @@ int bpf_firewall_supported(void) {
                 return supported;
 
         if (geteuid() != 0) {
-                log_debug("Not enough privileges, BPF firewalling is not supported.");
+                bpf_firewall_unsupported_reason =
+                        log_debug_errno(SYNTHETIC_ERRNO(EACCES),
+                                        "Not enough privileges, BPF firewalling is not supported.");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
@@ -677,7 +680,9 @@ int bpf_firewall_supported(void) {
         if (r < 0)
                 return log_error_errno(r, "Can't determine whether the unified hierarchy is used: %m");
         if (r == 0) {
-                log_debug("Not running with unified cgroups, BPF firewalling is not supported.");
+                bpf_firewall_unsupported_reason =
+                        log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                        "Not running with unified cgroups, BPF firewalling is not supported.");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
@@ -687,7 +692,8 @@ int bpf_firewall_supported(void) {
                          1,
                          BPF_F_NO_PREALLOC);
         if (fd < 0) {
-                log_debug_errno(fd, "Can't allocate BPF LPM TRIE map, BPF firewalling is not supported: %m");
+                bpf_firewall_unsupported_reason =
+                        log_debug_errno(fd, "Can't allocate BPF LPM TRIE map, BPF firewalling is not supported: %m");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
@@ -695,19 +701,22 @@ int bpf_firewall_supported(void) {
 
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &program);
         if (r < 0) {
-                log_debug_errno(r, "Can't allocate CGROUP SKB BPF program, BPF firewalling is not supported: %m");
+                bpf_firewall_unsupported_reason =
+                        log_debug_errno(r, "Can't allocate CGROUP SKB BPF program, BPF firewalling is not supported: %m");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
         r = bpf_program_add_instructions(program, trivial, ELEMENTSOF(trivial));
         if (r < 0) {
-                log_debug_errno(r, "Can't add trivial instructions to CGROUP SKB BPF program, BPF firewalling is not supported: %m");
+                bpf_firewall_unsupported_reason =
+                        log_debug_errno(r, "Can't add trivial instructions to CGROUP SKB BPF program, BPF firewalling is not supported: %m");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
         r = bpf_program_load_kernel(program, NULL, 0);
         if (r < 0) {
-                log_debug_errno(r, "Can't load kernel CGROUP SKB BPF program, BPF firewalling is not supported: %m");
+                bpf_firewall_unsupported_reason =
+                        log_debug_errno(r, "Can't load kernel CGROUP SKB BPF program, BPF firewalling is not supported: %m");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
@@ -727,7 +736,8 @@ int bpf_firewall_supported(void) {
 
         if (bpf(BPF_PROG_DETACH, &attr, sizeof(attr)) < 0) {
                 if (errno != EBADF) {
-                        log_debug_errno(errno, "Didn't get EBADF from BPF_PROG_DETACH, BPF firewalling is not supported: %m");
+                        bpf_firewall_unsupported_reason =
+                                log_debug_errno(errno, "Didn't get EBADF from BPF_PROG_DETACH, BPF firewalling is not supported: %m");
                         return supported = BPF_FIREWALL_UNSUPPORTED;
                 }
 
@@ -764,5 +774,20 @@ int bpf_firewall_supported(void) {
         } else {
                 log_debug("Wut? Kernel accepted our invalid BPF_PROG_ATTACH+BPF_F_ALLOW_MULTI call? Something is weird, assuming BPF firewalling is broken and hence not supported.");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
+        }
+}
+
+void emit_bpf_firewall_warning(Unit *u) {
+        static bool warned = false;
+
+        if (!warned) {
+                bool quiet = bpf_firewall_unsupported_reason == -EPERM && detect_container();
+
+                log_unit_full(u, quiet ? LOG_DEBUG : LOG_WARNING, bpf_firewall_unsupported_reason,
+                              "unit configures an IP firewall, but %s.\n"
+                              "(This warning is only shown for the first unit using IP firewalling.)",
+                              getuid() != 0 ? "not running as root" :
+                                              "the local system does not support BPF/cgroup firewalling");
+                warned = true;
         }
 }

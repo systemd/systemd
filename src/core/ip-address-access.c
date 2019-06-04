@@ -134,21 +134,6 @@ int config_parse_ip_address_access(
 
         *list = ip_address_access_reduce(*list);
 
-        if (*list) {
-                r = bpf_firewall_supported();
-                if (r < 0)
-                        return r;
-                if (r == BPF_FIREWALL_UNSUPPORTED) {
-                        static bool warned = false;
-
-                        log_full(warned ? LOG_DEBUG : LOG_WARNING,
-                                 "File %s:%u configures an IP firewall (%s=%s), but the local system does not support BPF/cgroup based firewalling.\n"
-                                 "Proceeding WITHOUT firewalling in effect! (This warning is only shown for the first loaded unit using IP firewalling.)", filename, line, lvalue, rvalue);
-
-                        warned = true;
-                }
-        }
-
         return 0;
 }
 

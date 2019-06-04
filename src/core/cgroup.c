@@ -1540,6 +1540,10 @@ CGroupMask unit_get_target_mask(Unit *u) {
          * hierarchy that shall be enabled for it. */
 
         mask = unit_get_own_mask(u) | unit_get_members_mask(u) | unit_get_siblings_mask(u);
+
+        if (mask & CGROUP_MASK_BPF_FIREWALL & ~u->manager->cgroup_supported)
+                emit_bpf_firewall_warning(u);
+
         mask &= u->manager->cgroup_supported;
         mask &= ~unit_get_ancestor_disable_mask(u);
 

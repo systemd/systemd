@@ -1426,21 +1426,6 @@ int bus_cgroup_set_property(
                                 return r;
 
                         unit_write_setting(u, flags, name, buf);
-
-                        if (*list) {
-                                r = bpf_firewall_supported();
-                                if (r < 0)
-                                        return r;
-                                if (r == BPF_FIREWALL_UNSUPPORTED) {
-                                        static bool warned = false;
-
-                                        log_full(warned ? LOG_DEBUG : LOG_WARNING,
-                                                 "Transient unit %s configures an IP firewall, but the local system does not support BPF/cgroup firewalling.\n"
-                                                 "Proceeding WITHOUT firewalling in effect! (This warning is only shown for the first started transient unit using IP firewalling.)", u->id);
-
-                                        warned = true;
-                                }
-                        }
                 }
 
                 return 1;
