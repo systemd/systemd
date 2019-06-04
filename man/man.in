@@ -6,10 +6,11 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-target=$(ninja -C "@BUILD_ROOT@" -t query man/man | grep -E -m1 "man/$1\.[0-9]$" | awk '{print $2}')
+page="$(echo "$1" | sed 's/\./\\./')"
+target=$(ninja -C "@BUILD_ROOT@" -t query man/man | grep -E -m1 "man/$page\.[0-9]$" | awk '{print $2}')
 if [ -z "$target" ]; then
     echo "Cannot find page $1"
     exit 1
 fi
 ninja -C "@BUILD_ROOT@" "$target"
-exec man build/"$target"
+exec man "@BUILD_ROOT@/$target"

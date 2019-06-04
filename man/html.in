@@ -9,4 +9,4 @@ fi
 target="man/$1.html"
 ninja -C "@BUILD_ROOT@" "$target"
 set -x
-exec xdg-open build/"$target"
+exec xdg-open "@BUILD_ROOT@/$target"
