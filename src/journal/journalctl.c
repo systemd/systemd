@@ -1952,10 +1952,14 @@ static int simple_varlink_call(const char *option, const char *method) {
                 return log_error_errno(r, "Failed to connect to /run/systemd/journal/io.systemd.journal: %m");
 
         (void) varlink_set_description(link, "journal");
+        (void) varlink_set_relative_timeout(link, USEC_INFINITY);
 
         r = varlink_call(link, method, NULL, NULL, &error, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to execute varlink call: %s", error);
+                return log_error_errno(r, "Failed to execute varlink call: %m");
+        if (error)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOANO),
+                                       "Failed to execute varlink call: %s", error);
 
         return 0;
 }
@@ -1965,7 +1969,7 @@ static int flush_to_var(void) {
 }
 
 static int relinquish_var(void) {
-        return simple_varlink_call("--relinquish-var", "io.systemd.Journal.RelinquishVar");
+        return simple_varlink_call("--relinquish-var/--smart-relinquish-var", "io.systemd.Journal.RelinquishVar");
 }
 
 static int rotate(void) {
