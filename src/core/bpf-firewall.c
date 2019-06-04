@@ -484,19 +484,17 @@ int bpf_firewall_compile(Unit *u) {
         supported = bpf_firewall_supported();
         if (supported < 0)
                 return supported;
-        if (supported == BPF_FIREWALL_UNSUPPORTED) {
-                log_unit_debug(u, "BPF firewalling not supported on this manager, proceeding without.");
-                return -EOPNOTSUPP;
-        }
-        if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI && u->type == UNIT_SLICE) {
+        if (supported == BPF_FIREWALL_UNSUPPORTED)
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                            "BPF firewalling not supported on this manager, proceeding without.");
+        if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI && u->type == UNIT_SLICE)
                 /* If BPF_F_ALLOW_MULTI is not supported we don't support any BPF magic on inner nodes (i.e. on slice
                  * units), since that would mean leaf nodes couldn't do any BPF anymore at all. Under the assumption
                  * that BPF is more interesting on leaf nodes we hence avoid it on inner nodes in that case. This is
                  * consistent with old systemd behaviour from before v238, where BPF wasn't supported in inner nodes at
                  * all, either. */
-                log_unit_debug(u, "BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
-                return -EOPNOTSUPP;
-        }
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                            "BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
 
         /* Note that when we compile a new firewall we first flush out the access maps and the BPF programs themselves,
          * but we reuse the the accounting maps. That way the firewall in effect always maps to the actual
@@ -764,5 +762,17 @@ int bpf_firewall_supported(void) {
         } else {
                 log_debug("Wut? Kernel accepted our invalid BPF_PROG_ATTACH+BPF_F_ALLOW_MULTI call? Something is weird, assuming BPF firewalling is broken and hence not supported.");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
+        }
+}
+
+void emit_bpf_firewall_warning(Unit *u) {
+        static bool warned = false;
+
+        if (!warned) {
+                log_unit_warning(u, "unit configures an IP firewall, but %s.\n"
+                                    "(This warning is only shown for the first unit using IP firewalling.)",
+                                 getuid() != 0 ? "not running as root" :
+                                                 "the local system does not support BPF/cgroup firewalling");
+                warned = true;
         }
 }
