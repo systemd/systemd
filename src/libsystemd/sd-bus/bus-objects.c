@@ -1437,16 +1437,22 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
                 return 0;
 
         if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Properties", "Get") ||
-            sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Properties", "Set"))
+            sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Properties", "Set")) {
+                const char *interface = NULL, *property = NULL;
+
+                (void) sd_bus_message_rewind(m, true);
+                (void) sd_bus_message_read_basic(m, 's', &interface);
+                (void) sd_bus_message_read_basic(m, 's', &property);
+
                 r = sd_bus_reply_method_errorf(
                                 m,
                                 SD_BUS_ERROR_UNKNOWN_PROPERTY,
-                                "Unknown property or interface.");
-        else
+                                "Unknown interface %s or property %s.", strnull(interface), strnull(property));
+        } else
                 r = sd_bus_reply_method_errorf(
                                 m,
                                 SD_BUS_ERROR_UNKNOWN_METHOD,
-                                "Unknown method '%s' or interface '%s'.", m->member, m->interface);
+                                "Unknown method %s or interface %s.", m->member, m->interface);
 
         if (r < 0)
                 return r;
