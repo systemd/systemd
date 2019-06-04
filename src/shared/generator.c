@@ -158,7 +158,7 @@ int generator_write_fsck_deps(
 
                 lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/"SPECIAL_FSCK_ROOT_SERVICE);
 
-                mkdir_parents(lnk, 0755);
+                (void) mkdir_parents(lnk, 0755);
                 if (symlink(SYSTEM_DATA_UNIT_PATH "/"SPECIAL_FSCK_ROOT_SERVICE, lnk) < 0)
                         return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
 
