@@ -275,8 +275,8 @@ static int routing_policy_rule_add_internal(Manager *m,
         rule->tos = tos;
         rule->fwmark = fwmark;
         rule->table = table;
-        rule->iif = iif;
-        rule->oif = oif;
+        rule->iif = TAKE_PTR(iif);
+        rule->oif = TAKE_PTR(oif);
         rule->protocol = protocol;
         rule->sport = *sport;
         rule->dport = *dport;
@@ -292,9 +292,7 @@ static int routing_policy_rule_add_internal(Manager *m,
         if (ret)
                 *ret = rule;
 
-        rule = NULL;
-        iif = oif = NULL;
-
+        TAKE_PTR(rule);
         return 0;
 }
 
