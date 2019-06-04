@@ -2282,16 +2282,19 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'vrf table 42')
 
         print('## ip address show vrf vrf99')
-        output_ip_vrf = subprocess.check_output(['ip', 'address', 'show', 'vrf', 'vrf99'], universal_newlines=True).rstrip()
-        print(output_ip_vrf)
+        output = subprocess.check_output(['ip', 'address', 'show', 'vrf', 'vrf99'], universal_newlines=True).rstrip()
+        print(output)
+        self.assertRegex(output, 'inet 169.254.[0-9]*.[0-9]*/16 brd 169.254.255.255 scope link veth99')
+        self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        self.assertRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)')
+        self.assertRegex(output, 'inet6 .* scope link')
 
         print('## ip address show dev veth99')
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99'], universal_newlines=True).rstrip()
         print(output)
-        self.assertEqual(output, output_ip_vrf)
         self.assertRegex(output, 'inet 169.254.[0-9]*.[0-9]*/16 brd 169.254.255.255 scope link veth99')
         self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
-        self.assertRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global dynamic noprefixroute')
+        self.assertRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)')
         self.assertRegex(output, 'inet6 .* scope link')
 
         print('## ip route show vrf vrf99')
