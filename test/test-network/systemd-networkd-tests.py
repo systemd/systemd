@@ -1567,8 +1567,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('25-sysctl-disable-ipv6.network', '12-dummy.netdev')
 
         print('## Disable ipv6')
-        self.assertEqual(subprocess.call(['sysctl', 'net.ipv6.conf.all.disable_ipv6=1']), 0)
-        self.assertEqual(subprocess.call(['sysctl', 'net.ipv6.conf.default.disable_ipv6=1']), 0)
+        check_output('sysctl net.ipv6.conf.all.disable_ipv6=1')
+        check_output('sysctl net.ipv6.conf.default.disable_ipv6=1')
 
         self.start_networkd(0)
         self.wait_online(['dummy98:routable'])
@@ -1581,11 +1581,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertEqual(output, '')
         self.check_operstate('dummy98', 'routable')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
+        check_output('ip link del dummy98')
 
         print('## Enable ipv6')
-        self.assertEqual(subprocess.call(['sysctl', 'net.ipv6.conf.all.disable_ipv6=0']), 0)
-        self.assertEqual(subprocess.call(['sysctl', 'net.ipv6.conf.default.disable_ipv6=0']), 0)
+        check_output('sysctl net.ipv6.conf.all.disable_ipv6=0')
+        check_output('sysctl net.ipv6.conf.default.disable_ipv6=0')
 
         self.start_networkd(0)
         self.wait_online(['dummy98:routable'])
@@ -1604,8 +1604,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         self.check_link_exists('test1')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
-        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
+        check_output('ip link add dummy98 type dummy')
+        check_output('ip link set dummy98 up')
         time.sleep(2)
         output = check_output('ip address show test1')
         print(output)
@@ -1613,8 +1613,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
         self.check_operstate('test1', 'routable')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy99', 'type', 'dummy']), 0)
-        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy99', 'up']), 0)
+        check_output('ip link add dummy99 type dummy')
+        check_output('ip link set dummy99 up')
         time.sleep(2)
         output = check_output('ip address show test1')
         print(output)
@@ -1622,7 +1622,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
         self.check_operstate('test1', 'routable')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
+        check_output('ip link del dummy98')
         time.sleep(2)
         output = check_output('ip address show test1')
         print(output)
@@ -1630,7 +1630,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
         self.check_operstate('test1', 'routable')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy99']), 0)
+        check_output('ip link del dummy99')
         time.sleep(2)
         output = check_output('ip address show test1')
         print(output)
@@ -1639,8 +1639,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, '192.168.10')
         self.check_operstate('test1', 'off')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
-        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
+        check_output('ip link add dummy98 type dummy')
+        check_output('ip link set dummy98 up')
         time.sleep(2)
         output = check_output('ip address show test1')
         print(output)
@@ -1732,22 +1732,22 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         self.check_operstate('test1', 'enslaved')
         self.check_operstate('bond99', 'routable')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'down']), 0)
+        check_output('ip link set dummy98 down')
         time.sleep(2)
 
         self.check_operstate('dummy98', 'off')
         self.check_operstate('test1', 'enslaved')
         self.check_operstate('bond99', 'degraded-carrier')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
+        check_output('ip link set dummy98 up')
         time.sleep(2)
 
         self.check_operstate('dummy98', 'enslaved')
         self.check_operstate('test1', 'enslaved')
         self.check_operstate('bond99', 'routable')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'down']), 0)
-        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'test1', 'down']), 0)
+        check_output('ip link set dummy98 down')
+        check_output('ip link set test1 down')
         time.sleep(2)
 
         self.check_operstate('dummy98', 'off')
@@ -1844,7 +1844,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
 
         self.check_operstate('bridge99', 'degraded-carrier')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
+        check_output('ip link del dummy98')
         time.sleep(3)
 
         self.check_operstate('bridge99', 'no-carrier')
@@ -1892,20 +1892,20 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
 
         self.check_link_exists('bridge99')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
-        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
-        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
+        check_output('ip link add dummy98 type dummy')
+        check_output('ip link set dummy98 up')
+        check_output('ip link del dummy98')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
-        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
-        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
+        check_output('ip link add dummy98 type dummy')
+        check_output('ip link set dummy98 up')
+        check_output('ip link del dummy98')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
-        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
-        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
+        check_output('ip link add dummy98 type dummy')
+        check_output('ip link set dummy98 up')
+        check_output('ip link del dummy98')
 
-        self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
-        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
+        check_output('ip link add dummy98 type dummy')
+        check_output('ip link set dummy98 up')
 
         for trial in range(30):
             if trial > 0:
