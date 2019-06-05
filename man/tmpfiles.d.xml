@@ -36,6 +36,37 @@
 <filename>…</filename>
 <filename>/usr/share/user-tmpfiles.d/*.conf</filename>
     </literallayout></para>
+
+    <programlisting>#Type Path                                     Mode User Group Age         Argument
+f     /file/to/create                          mode user group -           content
+F     /file/to/create-or-truncate              mode user group -           content
+w     /file/to/write-to                        -    -    -     -           content
+d     /directory/to/create-and-cleanup         mode user group cleanup-age -
+D     /directory/to/create-and-remove          mode user group cleanup-age -
+e     /directory/to/cleanup                    mode user group cleanup-age -
+v     /subvolume/to/create                     mode user group -           -
+v     /subvolume-or-directory/to/create        mode user group -           -
+Q     /subvolume/to/create                     mode user group -           -
+p     /fifo/to/create                          mode user group -           -
+L     /symlink/to/create                       -    -    -     -           symlink/target/path
+c     /dev/char-device-to-create               mode user group -           -
+b     /dev/block-device-to-create              mode user group -           -
+# p+, L+, c+, b+ create target unconditionally
+C     /target/to/create                        -    -    -     -           /source/to/copy
+x     /path-or-glob/to/ignore                  -    -    -     -           -
+X     /path-or-glob/to/ignore/recursively      -    -    -     -           -
+r     /empty/dir/to/remove                     -    -    -     -           -
+R     /dir/to/remove/recursively               -    -    -     -           -
+z     /path-or-glob/to/adjust/mode             mode user group -           MAC context
+Z     /path-or-glob/to/adjust/mode/recursively mode user group -           MAC context
+t     /path-or-glob/to/set/xattrs              -    -    -     -           xattrs
+T     /path-or-glob/to/set/xattrs/recursively  -    -    -     -           xattrs
+h     /path-or-glob/to/set/attrs               -    -    -     -           file attrs
+H     /path-or-glob/to/set/attrs/recursively   -    -    -     -           file attrs
+a     /path-or-glob/to/set/acls                -    -    -     -           POSIX ACLs
+A     /path-or-glob/to/set/acls/recursively    -    -    -     -           POSIX ACLs
+# a+, A+ append ACLs
+</programlisting>
   </refsynopsisdiv>
 
   <refsect1>
