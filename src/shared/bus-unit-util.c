@@ -9,6 +9,7 @@
 #include "condition.h"
 #include "cpu-set-util.h"
 #include "escape.h"
+#include "exec-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
@@ -244,19 +245,21 @@ static int bus_append_parse_size(sd_bus_message *m, const char *field, const cha
 }
 
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
-        bool ignore_failure = false, explicit_path = false, done = false;
-        _cleanup_strv_free_ char **l = NULL;
-        _cleanup_free_ char *path = NULL;
+        bool explicit_path = false, done = false;
+        _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
+        _cleanup_free_ char *path = NULL, *upgraded_name = NULL;
+        ExecCommandFlags flags = 0;
+        bool is_ex_prop = endswith(field, "Ex");
         int r;
 
         do {
                 switch (*eq) {
 
                 case '-':
-                        if (ignore_failure)
+                        if (FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE))
                                 done = true;
                         else {
-                                ignore_failure = true;
+                                flags |= EXEC_COMMAND_IGNORE_FAILURE;
                                 eq++;
                         }
                         break;
@@ -270,17 +273,56 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                         }
                         break;
 
+                case ':':
+                        if (FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND))
+                                done = true;
+                        else {
+                                flags |= EXEC_COMMAND_NO_ENV_EXPAND;
+                                eq++;
+                        }
+                        break;
+
                 case '+':
+                        if (flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC))
+                                done = true;
+                        else {
+                                flags |= EXEC_COMMAND_FULLY_PRIVILEGED;
+                                eq++;
+                        }
+                        break;
+
                 case '!':
-                        /* The bus API doesn't support +, ! and !! currently, unfortunately. :-( */
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Sorry, but +, ! and !! are currently not supported for transient services.");
+                        if (flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_AMBIENT_MAGIC))
+                                done = true;
+                        else if (FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)) {
+                                flags &= ~EXEC_COMMAND_NO_SETUID;
+                                flags |= EXEC_COMMAND_AMBIENT_MAGIC;
+                                eq++;
+                        } else {
+                                flags |= EXEC_COMMAND_NO_SETUID;
+                                eq++;
+                        }
+                        break;
 
                 default:
                         done = true;
                         break;
                 }
         } while (!done);
+
+        if (!is_ex_prop && (flags & (EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC))) {
+                /* Upgrade the ExecXYZ= property to ExecXYZEx= for convenience */
+                is_ex_prop = true;
+                upgraded_name = strappend(field, "Ex");
+                if (!upgraded_name)
+                        return log_oom();
+        }
+
+        if (is_ex_prop) {
+                r = exec_command_flags_to_strv(flags, &ex_opts);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert ExecCommandFlags to strv: %m");
+        }
 
         if (explicit_path) {
                 r = extract_first_word(&eq, &path, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
@@ -296,21 +338,21 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, upgraded_name ?: field);
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_open_container(m, 'v', "a(sasb)");
+        r = sd_bus_message_open_container(m, 'v', is_ex_prop ? "a(sasas)" : "a(sasb)");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_open_container(m, 'a', "(sasb)");
+        r = sd_bus_message_open_container(m, 'a', is_ex_prop ? "(sasas)" : "(sasb)");
         if (r < 0)
                 return bus_log_create_error(r);
 
         if (!strv_isempty(l)) {
 
-                r = sd_bus_message_open_container(m, 'r', "sasb");
+                r = sd_bus_message_open_container(m, 'r', is_ex_prop ? "sasas" : "sasb");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -322,7 +364,7 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "b", ignore_failure);
+                r = is_ex_prop ? sd_bus_message_append_strv(m, ex_opts) : sd_bus_message_append(m, "b", FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1351,8 +1393,8 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 
         if (STR_IN_SET(field,
                        "ExecStartPre", "ExecStart", "ExecStartPost",
+                       "ExecStartPreEx", "ExecStartEx", "ExecStartPostEx",
                        "ExecReload", "ExecStop", "ExecStopPost"))
-
                 return bus_append_exec_command(m, field, eq);
 
         if (STR_IN_SET(field, "RestartPreventExitStatus", "RestartForceExitStatus", "SuccessExitStatus")) {

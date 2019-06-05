@@ -829,6 +829,50 @@ static int append_exec_command(sd_bus_message *reply, ExecCommand *c) {
         return sd_bus_message_close_container(reply);
 }
 
+static int append_exec_ex_command(sd_bus_message *reply, ExecCommand *c) {
+        _cleanup_strv_free_ char **ex_opts = NULL;
+        int r;
+
+        assert(reply);
+        assert(c);
+
+        if (!c->path)
+                return 0;
+
+        r = sd_bus_message_open_container(reply, 'r', "sasasttttuii");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "s", c->path);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_strv(reply, c->argv);
+        if (r < 0)
+                return r;
+
+        r = exec_command_flags_to_strv(c->flags, &ex_opts);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_strv(reply, ex_opts);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "ttttuii",
+                                  c->exec_status.start_timestamp.realtime,
+                                  c->exec_status.start_timestamp.monotonic,
+                                  c->exec_status.exit_timestamp.realtime,
+                                  c->exec_status.exit_timestamp.monotonic,
+                                  (uint32_t) c->exec_status.pid,
+                                  (int32_t) c->exec_status.code,
+                                  (int32_t) c->exec_status.status);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_close_container(reply);
+}
+
 int bus_property_get_exec_command(
                 sd_bus *bus,
                 const char *path,
@@ -883,6 +927,47 @@ int bus_property_get_exec_command_list(
         return sd_bus_message_close_container(reply);
 }
 
+int bus_property_get_exec_ex_command_list(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *ret_error) {
+
+        ExecCommand *c, *exec_command = *(ExecCommand**) userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(sasasttttuii)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(command, c, exec_command) {
+                r = append_exec_ex_command(reply, c);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static char *exec_command_flags_to_exec_chars(ExecCommandFlags flags) {
+        char *res = NULL;
+
+        asprintf(&res, "%s%s%s%s%s",
+                FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE)   ? "-" : "",
+                FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND)    ? ":" : "",
+                FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED) ? "+" : "",
+                FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "",
+                FLAGS_SET(flags, EXEC_COMMAND_AMBIENT_MAGIC)    ? "!!" : "");
+
+        return res;
+}
+
 int bus_set_transient_exec_command(
                 Unit *u,
                 const char *name,
@@ -890,15 +975,16 @@ int bus_set_transient_exec_command(
                 sd_bus_message *message,
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
+        bool is_ex_prop = endswith(name, "Ex");
         unsigned n = 0;
         int r;
 
-        r = sd_bus_message_enter_container(message, 'a', "(sasb)");
+        r = sd_bus_message_enter_container(message, 'a', is_ex_prop ? "(sasas)" : "(sasb)");
         if (r < 0)
                 return r;
 
-        while ((r = sd_bus_message_enter_container(message, 'r', "sasb")) > 0) {
-                _cleanup_strv_free_ char **argv = NULL;
+        while ((r = sd_bus_message_enter_container(message, 'r', is_ex_prop ? "sasas" : "sasb")) > 0) {
+                _cleanup_strv_free_ char **argv = NULL, **ex_opts = NULL;
                 const char *path;
                 int b;
 
@@ -913,7 +999,7 @@ int bus_set_transient_exec_command(
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_read(message, "b", &b);
+                r = is_ex_prop ? sd_bus_message_read_strv(message, &ex_opts) : sd_bus_message_read(message, "b", &b);
                 if (r < 0)
                         return r;
 
@@ -936,7 +1022,12 @@ int bus_set_transient_exec_command(
 
                         c->argv = TAKE_PTR(argv);
 
-                        c->flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
+                        if (is_ex_prop) {
+                                r = exec_command_flags_from_strv(ex_opts, &c->flags);
+                                if (r < 0)
+                                        return r;
+                        } else
+                                c->flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
 
                         path_simplify(c->path, false);
                         exec_command_append_list(exec_command, c);
@@ -967,7 +1058,7 @@ int bus_set_transient_exec_command(
                 fputs("ExecStart=\n", f);
 
                 LIST_FOREACH(command, c, *exec_command) {
-                        _cleanup_free_ char *a = NULL, *t = NULL;
+                        _cleanup_free_ char *a = NULL, *t = NULL, *exec_chars = NULL;
                         const char *p;
 
                         p = unit_escape_setting(c->path, UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS, &t);
@@ -978,11 +1069,11 @@ int bus_set_transient_exec_command(
                         if (!a)
                                 return -ENOMEM;
 
-                        fprintf(f, "%s=%s@%s %s\n",
-                                name,
-                                c->flags & EXEC_COMMAND_IGNORE_FAILURE ? "-" : "",
-                                p,
-                                a);
+                        exec_chars = exec_command_flags_to_exec_chars(c->flags);
+                        if (!exec_chars)
+                                return -ENOMEM;
+
+                        fprintf(f, "%s=%s@%s %s\n", name, exec_chars, p, a);
                 }
 
                 r = fflush_and_check(f);

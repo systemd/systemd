@@ -210,6 +210,9 @@ ServiceType service_type_from_string(const char *s) _pure_;
 const char* service_exec_command_to_string(ServiceExecCommand i) _const_;
 ServiceExecCommand service_exec_command_from_string(const char *s) _pure_;
 
+const char* service_exec_ex_command_to_string(ServiceExecCommand i) _const_;
+ServiceExecCommand service_exec_ex_command_from_string(const char *s) _pure_;
+
 const char* notify_state_to_string(NotifyState i) _const_;
 NotifyState notify_state_from_string(const char *s) _pure_;
 

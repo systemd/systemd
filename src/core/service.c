@@ -4188,6 +4188,14 @@ static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] =
 
 DEFINE_STRING_TABLE_LOOKUP(service_exec_command, ServiceExecCommand);
 
+static const char* const service_exec_ex_command_table[_SERVICE_EXEC_COMMAND_MAX] = {
+        [SERVICE_EXEC_START_PRE] = "ExecStartPreEx",
+        [SERVICE_EXEC_START] = "ExecStartEx",
+        [SERVICE_EXEC_START_POST] = "ExecStartPostEx",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(service_exec_ex_command, ServiceExecCommand);
+
 static const char* const notify_state_table[_NOTIFY_STATE_MAX] = {
         [NOTIFY_UNKNOWN] = "unknown",
         [NOTIFY_READY] = "ready",
