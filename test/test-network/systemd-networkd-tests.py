@@ -7,7 +7,6 @@ import os
 import re
 import shutil
 import signal
-import socket
 import subprocess
 import sys
 import time
