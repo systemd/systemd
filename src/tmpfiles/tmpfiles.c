@@ -2638,13 +2638,22 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
 
         case COPY_FILES:
                 if (!i.argument) {
-                        i.argument = strappend("/usr/share/factory/", i.path);
+                        i.argument = path_join(arg_root, "/usr/share/factory/", i.path);
                         if (!i.argument)
                                 return log_oom();
+
                 } else if (!path_is_absolute(i.argument)) {
                         *invalid_config = true;
                         log_error("[%s:%u] Source path is not absolute.", fname, line);
                         return -EBADMSG;
+
+                } else if (arg_root) {
+                        char *p;
+
+                        p = prefix_root(arg_root, i.argument);
+                        if (!p)
+                                return log_oom();
+                        free_and_replace(i.argument, p);
                 }
 
                 path_simplify(i.argument, false);
@@ -2738,7 +2747,6 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 p = prefix_root(arg_root, i.path);
                 if (!p)
                         return log_oom();
-
                 free_and_replace(i.path, p);
         }
 
