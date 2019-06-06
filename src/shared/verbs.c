@@ -50,7 +50,7 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         const Verb *verb;
         const char *name;
         unsigned i;
-        int left, r;
+        int left;
 
         assert(verbs);
         assert(verbs[0].dispatch);
@@ -107,12 +107,6 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
                 else
                         log_info("Running in chroot, ignoring request.");
                 return 0;
-        }
-
-        if (verb->flags & VERB_MUST_BE_ROOT) {
-                r = must_be_root();
-                if (r < 0)
-                        return r;
         }
 
         if (name)

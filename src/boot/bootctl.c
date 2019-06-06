@@ -1435,16 +1435,15 @@ static int verb_set_default(int argc, char *argv[], void *userdata) {
 }
 
 static int bootctl_main(int argc, char *argv[]) {
-
         static const Verb verbs[] = {
-                { "help",        VERB_ANY, VERB_ANY, 0,                 help             },
-                { "status",      VERB_ANY, 1,        VERB_DEFAULT,      verb_status      },
-                { "install",     VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install     },
-                { "update",      VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install     },
-                { "remove",      VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_remove      },
-                { "list",        VERB_ANY, 1,        0,                 verb_list        },
-                { "set-default", 2,        2,        VERB_MUST_BE_ROOT, verb_set_default },
-                { "set-oneshot", 2,        2,        VERB_MUST_BE_ROOT, verb_set_default },
+                { "help",        VERB_ANY, VERB_ANY, 0,            help             },
+                { "status",      VERB_ANY, 1,        VERB_DEFAULT, verb_status      },
+                { "install",     VERB_ANY, 1,        0,            verb_install     },
+                { "update",      VERB_ANY, 1,        0,            verb_install     },
+                { "remove",      VERB_ANY, 1,        0,            verb_remove      },
+                { "list",        VERB_ANY, 1,        0,            verb_list        },
+                { "set-default", 2,        2,        0,            verb_set_default },
+                { "set-oneshot", 2,        2,        0,            verb_set_default },
                 {}
         };
 

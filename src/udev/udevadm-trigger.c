@@ -25,7 +25,7 @@ static bool arg_dry_run = false;
 
 static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_set) {
         sd_device *d;
-        int r;
+        int r, ret = 0;
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
                 _cleanup_free_ char *filename = NULL;
@@ -45,7 +45,10 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_se
 
                 r = write_string_file(filename, action, WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to write '%s' to '%s', ignoring: %m", action, filename);
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_ERR, r,
+                                       "Failed to write '%s' to '%s': %m", action, filename);
+                        if (ret == 0 && r != -ENOENT)
+                                ret = r;
                         continue;
                 }
 
@@ -56,7 +59,7 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_se
                 }
         }
 
-        return 0;
+        return ret;
 }
 
 static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *userdata) {
@@ -299,12 +302,6 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 default:
                         assert_not_reached("Unknown option");
                 }
-        }
-
-        if (!arg_dry_run || ping) {
-                r = must_be_root();
-                if (r < 0)
-                        return r;
         }
 
         if (ping) {

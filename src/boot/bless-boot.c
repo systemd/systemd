@@ -480,13 +480,12 @@ exists:
 }
 
 static int run(int argc, char *argv[]) {
-
         static const Verb verbs[] = {
-                { "help",          VERB_ANY, VERB_ANY, 0,                 help        },
-                { "status",        VERB_ANY, 1,        VERB_DEFAULT,      verb_status },
-                { "good",          VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_set    },
-                { "bad",           VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_set    },
-                { "indeterminate", VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_set    },
+                { "help",          VERB_ANY, VERB_ANY, 0,            help        },
+                { "status",        VERB_ANY, 1,        VERB_DEFAULT, verb_status },
+                { "good",          VERB_ANY, 1,        0,            verb_set    },
+                { "bad",           VERB_ANY, 1,        0,            verb_set    },
+                { "indeterminate", VERB_ANY, 1,        0,            verb_set    },
                 {}
         };
 

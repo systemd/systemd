@@ -1942,6 +1942,7 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                 statelen = STRLEN("STATE"),
                 failedlen = STRLEN("FAILED"),
                 jobslen = STRLEN("JOBS");
+        bool state_missing;
 
         assert(machine_infos || n == 0);
 
@@ -1952,7 +1953,7 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                 failedlen = MAX(failedlen, DECIMAL_STR_WIDTH(m->n_failed_units));
                 jobslen = MAX(jobslen, DECIMAL_STR_WIDTH(m->n_jobs));
 
-                if (!arg_plain && !streq_ptr(m->state, "running"))
+                if (!arg_plain && m->state && !streq(m->state, "running"))
                         circle_len = 2;
         }
 
@@ -1991,9 +1992,12 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                 if (circle_len > 0)
                         printf("%s%s%s ", on_state, circle ? special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE) : " ", off_state);
 
+                if (!m->state)
+                        state_missing = true;
+
                 if (m->is_host)
                         printf("%-*s (host) %s%-*s%s %s%*" PRIu32 "%s %*" PRIu32 "\n",
-                               (int) (namelen - (STRLEN(" (host)"))),
+                               (int) (namelen - strlen(" (host)")),
                                strna(m->name),
                                on_state, statelen, strna(m->state), off_state,
                                on_failed, failedlen, m->n_failed_units, off_failed,
@@ -2006,8 +2010,12 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                                jobslen, m->n_jobs);
         }
 
-        if (!arg_no_legend)
-                printf("\n%u machines listed.\n", n);
+        if (!arg_no_legend) {
+                printf("\n");
+                if (state_missing && geteuid() != 0)
+                        printf("Notice: some information only available to privileged users was not shown.\n");
+                printf("%u machines listed.\n", n);
+        }
 }
 
 static int list_machines(int argc, char *argv[], void *userdata) {
@@ -8876,7 +8884,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "list-sockets",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_sockets         },
                 { "list-timers",           VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_timers          },
                 { "list-jobs",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_jobs            },
-                { "list-machines",         VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY|VERB_MUST_BE_ROOT, list_machines },
+                { "list-machines",         VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_machines        },
                 { "clear-jobs",            VERB_ANY, 1,        VERB_ONLINE_ONLY, trivial_method       },
                 { "cancel",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, cancel_job           },
                 { "start",                 2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
