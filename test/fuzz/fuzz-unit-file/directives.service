@@ -290,6 +290,7 @@ rd.udev.event_timeout=
 rd.udev.exec_delay=
 rd.udev.log_priority=
 resume=
+resumeflags=
 root=
 rootflags=
 rootfstype=

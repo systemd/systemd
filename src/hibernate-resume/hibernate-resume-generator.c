@@ -17,10 +17,12 @@
 
 static const char *arg_dest = "/tmp";
 static char *arg_resume_device = NULL;
+static char *arg_resume_options = NULL;
 static char *arg_root_options = NULL;
 static bool arg_noresume = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_resume_device, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_resume_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
@@ -36,6 +38,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return log_oom();
 
                 free_and_replace(arg_resume_device, s);
+
+        } else if (streq(key, "resumeflags")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                if (!strextend_with_separator(&arg_resume_options, ",", value, NULL))
+                        return log_oom();
 
         } else if (streq(key, "rootflags")) {
 
@@ -59,6 +69,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
 static int process_resume(void) {
         _cleanup_free_ char *name = NULL, *lnk = NULL;
+        const char *opts;
         int r;
 
         if (!arg_resume_device)
@@ -76,7 +87,12 @@ static int process_resume(void) {
         if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-hibernate-resume@.service", lnk) < 0)
                 return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
 
-        r = generator_write_timeouts(arg_dest, arg_resume_device, arg_resume_device, arg_root_options, NULL);
+        if (arg_resume_options)
+                opts = arg_resume_options;
+        else
+                opts = arg_root_options;
+
+        r = generator_write_timeouts(arg_dest, arg_resume_device, arg_resume_device, opts, NULL);
         if (r < 0)
                 return r;
 

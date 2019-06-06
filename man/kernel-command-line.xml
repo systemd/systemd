@@ -402,10 +402,11 @@
 
       <varlistentry>
         <term><varname>resume=</varname></term>
+        <term><varname>resumeflags=</varname></term>
 
         <listitem>
           <para>Enables resume from hibernation using the specified
-          device. All
+          device and mount options. All
           <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-like
           paths are supported. For details, see
           <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
