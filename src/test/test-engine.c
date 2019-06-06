@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL,
-             *h = NULL, *i = NULL, *unit_with_multiple_dashes = NULL;
+             *h = NULL, *i = NULL, *a_conj = NULL, *unit_with_multiple_dashes = NULL;
         Job *j;
         int r;
 
@@ -108,6 +108,16 @@ int main(int argc, char *argv[]) {
         assert_se(a->job && a->job->type == JOB_STOP);
         assert_se(d->job && d->job->type == JOB_STOP);
         assert_se(b->job && b->job->type == JOB_START);
+        manager_dump_jobs(m, stdout, "\t");
+
+        printf("Load6:\n");
+        manager_clear_jobs(m);
+        assert_se(manager_load_startable_unit_or_warn(m, "a-conj.service", NULL, &a_conj) >= 0);
+        SERVICE(a)->state = SERVICE_DEAD;
+        manager_dump_units(m, stdout, "\t");
+
+        printf("Test12: (Trivial cycle, Unfixable)\n");
+        assert_se(manager_add_job(m, JOB_START, a_conj, JOB_REPLACE, NULL, NULL, &j) == -EDEADLK);
         manager_dump_jobs(m, stdout, "\t");
 
         assert_se(!hashmap_get(a->dependencies[UNIT_PROPAGATES_RELOAD_TO], b));

@@ -2,6 +2,7 @@
 
 test_data_files = '''
         a.service
+        a-conj.service
         b.service
         basic.target
         c.service
