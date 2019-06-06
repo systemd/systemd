@@ -7,6 +7,7 @@ SUBSYSTEM=="cpu", ACTION=="add", TEST=="online", ATTR{online}=="0", ATTR{online}
 SUBSYSTEM!="memory", GOTO="memory_hotplug_end"
 ACTION!="add", GOTO="memory_hotplug_end"
 PROGRAM="/bin/uname -p", RESULT=="s390*", GOTO="memory_hotplug_end"
+PROGRAM="/bin/uname -p", RESULT=="ppc64*", GOTO="memory_hotplug_end"
 
 ENV{.state}="online"
 PROGRAM="/bin/systemd-detect-virt", RESULT=="none", ENV{.state}="online_movable"
