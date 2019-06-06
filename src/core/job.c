@@ -477,35 +477,13 @@ static bool job_is_runnable(Job *j) {
         if (j->type == JOB_NOP)
                 return true;
 
-        if (IN_SET(j->type, JOB_START, JOB_VERIFY_ACTIVE, JOB_RELOAD)) {
-                /* Immediate result is that the job is or might be
-                 * started. In this case let's wait for the
-                 * dependencies, regardless whether they are
-                 * starting or stopping something. */
-
-                HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i)
-                        if (other->job)
-                                return false;
-        }
-
-        /* Also, if something else is being stopped and we should
-         * change state after it, then let's wait. */
-
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i)
-                if (other->job &&
-                    IN_SET(other->job->type, JOB_STOP, JOB_RESTART))
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i)
+                if (other->job && job_compare(j, other->job, UNIT_AFTER) > 0)
                         return false;
 
-        /* This means that for a service a and a service b where b
-         * shall be started after a:
-         *
-         *  start a + start b → 1st step start a, 2nd step start b
-         *  start a + stop b  → 1st step stop b,  2nd step start a
-         *  stop a  + start b → 1st step stop a,  2nd step start b
-         *  stop a  + stop b  → 1st step stop b,  2nd step stop a
-         *
-         *  This has the side effect that restarts are properly
-         *  synchronized too. */
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i)
+                if (other->job && job_compare(j, other->job, UNIT_BEFORE) > 0)
+                        return false;
 
         return true;
 }
@@ -1455,46 +1433,14 @@ bool job_may_gc(Job *j) {
         if (j->type == JOB_NOP)
                 return false;
 
-        /* If a job is ordered after ours, and is to be started, then it needs to wait for us, regardless if we stop or
-         * start, hence let's not GC in that case. */
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i) {
-                if (!other->job)
-                        continue;
-
-                if (other->job->ignore_order)
-                        continue;
-
-                if (IN_SET(other->job->type, JOB_START, JOB_VERIFY_ACTIVE, JOB_RELOAD))
+        /* The logic is inverse to job_is_runnable, we cannot GC as long as we block any job. */
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i)
+                if (other->job && job_compare(j, other->job, UNIT_BEFORE) < 0)
                         return false;
-        }
 
-        /* If we are going down, but something else is ordered After= us, then it needs to wait for us */
-        if (IN_SET(j->type, JOB_STOP, JOB_RESTART))
-                HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i) {
-                        if (!other->job)
-                                continue;
-
-                        if (other->job->ignore_order)
-                                continue;
-
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i)
+                if (other->job && job_compare(j, other->job, UNIT_AFTER) < 0)
                         return false;
-                }
-
-        /* The logic above is kinda the inverse of the job_is_runnable() logic. Specifically, if the job "we" is
-         * ordered before the job "other":
-         *
-         *  we start + other start → stay
-         *  we start + other stop  → gc
-         *  we stop  + other start → stay
-         *  we stop  + other stop  → gc
-         *
-         * "we" are ordered after "other":
-         *
-         *  we start + other start → gc
-         *  we start + other stop  → gc
-         *  we stop  + other start → stay
-         *  we stop  + other stop  → stay
-         */
 
         return true;
 }
@@ -1512,7 +1458,7 @@ void job_add_to_gc_queue(Job *j) {
         j->in_gc_queue = true;
 }
 
-static int job_compare(Job * const *a, Job * const *b) {
+static int job_compare_id(Job * const *a, Job * const *b) {
         return CMP((*a)->id, (*b)->id);
 }
 
@@ -1521,7 +1467,7 @@ static size_t sort_job_list(Job **list, size_t n) {
         size_t a, b;
 
         /* Order by numeric IDs */
-        typesafe_qsort(list, n, job_compare);
+        typesafe_qsort(list, n, job_compare_id);
 
         /* Filter out duplicates */
         for (a = 0, b = 0; a < n; a++) {
@@ -1552,23 +1498,21 @@ int job_get_before(Job *j, Job*** ret) {
                 return 0;
         }
 
-        if (IN_SET(j->type, JOB_START, JOB_VERIFY_ACTIVE, JOB_RELOAD)) {
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i) {
+                if (!other->job)
+                        continue;
+                if (job_compare(j, other->job, UNIT_AFTER) <= 0)
+                        continue;
 
-                HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i) {
-                        if (!other->job)
-                                continue;
-
-                        if (!GREEDY_REALLOC(list, n_allocated, n+1))
-                                return -ENOMEM;
-                        list[n++] = other->job;
-                }
+                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                        return -ENOMEM;
+                list[n++] = other->job;
         }
 
         HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i) {
                 if (!other->job)
                         continue;
-
-                if (!IN_SET(other->job->type, JOB_STOP, JOB_RESTART))
+                if (job_compare(j, other->job, UNIT_BEFORE) <= 0)
                         continue;
 
                 if (!GREEDY_REALLOC(list, n_allocated, n+1))
@@ -1602,7 +1546,7 @@ int job_get_after(Job *j, Job*** ret) {
                 if (other->job->ignore_order)
                         continue;
 
-                if (!IN_SET(other->job->type, JOB_START, JOB_VERIFY_ACTIVE, JOB_RELOAD))
+                if (job_compare(j, other->job, UNIT_BEFORE) >= 0)
                         continue;
 
                 if (!GREEDY_REALLOC(list, n_allocated, n+1))
@@ -1610,19 +1554,20 @@ int job_get_after(Job *j, Job*** ret) {
                 list[n++] = other->job;
         }
 
-        if (IN_SET(j->type, JOB_STOP, JOB_RESTART)) {
 
-                HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i) {
-                        if (!other->job)
-                                continue;
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i) {
+                if (!other->job)
+                        continue;
 
-                        if (other->job->ignore_order)
-                                continue;
+                if (other->job->ignore_order)
+                        continue;
 
-                        if (!GREEDY_REALLOC(list, n_allocated, n+1))
-                                return -ENOMEM;
-                        list[n++] = other->job;
-                }
+                if (job_compare(j, other->job, UNIT_AFTER) >= 0)
+                        continue;
+
+                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                        return -ENOMEM;
+                list[n++] = other->job;
         }
 
         n = sort_job_list(list, n);
@@ -1691,4 +1636,46 @@ const char* job_type_to_access_method(JobType t) {
                 return "stop";
         else
                 return "reload";
+}
+
+/*
+ * assume_dep   assumed dependency between units (a is before/after b)
+ *
+ * Returns
+ *    0         jobs are independent,
+ *   >0         a should run after b,
+ *   <0         a should run before b,
+ *
+ * The logic means that for a service a and a service b where b.After=a:
+ *
+ *  start a + start b → 1st step start a, 2nd step start b
+ *  start a + stop b  → 1st step stop b,  2nd step start a
+ *  stop a  + start b → 1st step stop a,  2nd step start b
+ *  stop a  + stop b  → 1st step stop b,  2nd step stop a
+ *
+ *  This has the side effect that restarts are properly
+ *  synchronized too.
+ */
+int job_compare(Job *a, Job *b, UnitDependency assume_dep) {
+        assert(a->type < _JOB_TYPE_MAX_IN_TRANSACTION);
+        assert(b->type < _JOB_TYPE_MAX_IN_TRANSACTION);
+        assert(IN_SET(assume_dep, UNIT_AFTER, UNIT_BEFORE));
+
+        /* Trivial cases first */
+        if (a->type == JOB_NOP || b->type == JOB_NOP)
+                return 0;
+
+        if (a->ignore_order || b->ignore_order)
+                return 0;
+
+        if (assume_dep == UNIT_AFTER)
+                return -job_compare(b, a, UNIT_BEFORE);
+
+        /* Let's make it simple, JOB_STOP goes always first (in case both ua and ub stop,
+         * then ub's stop goes first anyway).
+         * JOB_RESTART is JOB_STOP in disguise (before it is patched to JOB_START). */
+        if (IN_SET(b->type, JOB_STOP, JOB_RESTART))
+                return 1;
+        else
+                return -1;
 }

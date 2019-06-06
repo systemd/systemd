@@ -237,3 +237,5 @@ const char* job_result_to_string(JobResult t) _const_;
 JobResult job_result_from_string(const char *s) _pure_;
 
 const char* job_type_to_access_method(JobType t);
+
+int job_compare(Job *a, Job *b, UnitDependency assume_dep);
