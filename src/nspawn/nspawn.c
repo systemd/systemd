@@ -3438,7 +3438,7 @@ static int outer_child(
 
         l = send_one_fd(notify_socket, fd, 0);
         if (l < 0)
-                return log_error_errno(errno, "Failed to send notify fd: %m");
+                return log_error_errno(l, "Failed to send notify fd: %m");
 
         pid_socket = safe_close(pid_socket);
         uuid_socket = safe_close(uuid_socket);
