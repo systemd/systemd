@@ -178,6 +178,7 @@ systemd_sources = files('main.c')
 
 in_files = [['macros.systemd',   rpmmacrosdir],
             ['system.conf',      pkgsysconfdir],
+            ['user.conf',        pkgsysconfdir],
             ['systemd.pc',       pkgconfigdatadir],
             ['triggers.systemd', '']]
 
@@ -203,9 +204,6 @@ policy = configure_file(
         configuration : substs)
 install_data(policy,
              install_dir : polkitpolicydir)
-
-install_data('user.conf',
-             install_dir : pkgsysconfdir)
 
 meson.add_install_script('sh', '-c', mkdir_p.format(systemshutdowndir))
 meson.add_install_script('sh', '-c', mkdir_p.format(systemsleepdir))

@@ -323,6 +323,7 @@ struct Manager {
         uint8_t return_value;
 
         ShowStatus show_status;
+        StatusUnitFormat status_unit_format;
         char *confirm_spawn;
         bool no_console_output;
         bool service_watchdogs;

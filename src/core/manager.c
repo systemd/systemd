@@ -734,6 +734,8 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                 .unit_file_scope = scope,
                 .objective = _MANAGER_OBJECTIVE_INVALID,
 
+                .status_unit_format = STATUS_UNIT_FORMAT_DEFAULT,
+
                 .default_timer_accuracy_usec = USEC_PER_MINUTE,
                 .default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
                 .default_tasks_accounting = true,
