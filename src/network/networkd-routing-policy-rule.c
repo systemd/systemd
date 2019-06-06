@@ -46,8 +46,10 @@ void routing_policy_rule_free(RoutingPolicyRule *rule) {
         }
 
         if (rule->manager) {
-                set_remove(rule->manager->rules, rule);
-                set_remove(rule->manager->rules_foreign, rule);
+                if (set_get(rule->manager->rules, rule) == rule)
+                        set_remove(rule->manager->rules, rule);
+                if (set_get(rule->manager->rules_foreign, rule) == rule)
+                        set_remove(rule->manager->rules_foreign, rule);
         }
 
         network_config_section_free(rule->section);
@@ -275,8 +277,8 @@ static int routing_policy_rule_add_internal(Manager *m,
         rule->tos = tos;
         rule->fwmark = fwmark;
         rule->table = table;
-        rule->iif = iif;
-        rule->oif = oif;
+        rule->iif = TAKE_PTR(iif);
+        rule->oif = TAKE_PTR(oif);
         rule->protocol = protocol;
         rule->sport = *sport;
         rule->dport = *dport;
@@ -292,9 +294,7 @@ static int routing_policy_rule_add_internal(Manager *m,
         if (ret)
                 *ret = rule;
 
-        rule = NULL;
-        iif = oif = NULL;
-
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -474,7 +474,7 @@ static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, 
         return 1;
 }
 
-int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netlink_message_handler_t callback, bool update) {
+int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 

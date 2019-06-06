@@ -830,7 +830,7 @@ static int link_request_set_routing_policy_rule(Link *link) {
                         continue;
                 }
 
-                r = routing_policy_rule_configure(rule, link, NULL, false);
+                r = routing_policy_rule_configure(rule, link, NULL);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not set routing policy rules: %m");
                         link_enter_failed(link);
