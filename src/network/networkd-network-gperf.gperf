@@ -87,6 +87,7 @@ Network.IPv6ProxyNDPAddress,            config_parse_ipv6_proxy_ndp_address,    
 Network.BindCarrier,                    config_parse_strv,                               0,                             offsetof(Network, bind_carrier)
 Network.ConfigureWithoutCarrier,        config_parse_bool,                               0,                             offsetof(Network, configure_without_carrier)
 Network.IgnoreCarrierLoss,              config_parse_bool,                               0,                             offsetof(Network, ignore_carrier_loss)
+Network.KeepConfiguration,              config_parse_keep_configuration,                 0,                             offsetof(Network, keep_configuration)
 Address.Address,                        config_parse_address,                            0,                             0
 Address.Peer,                           config_parse_address,                            0,                             0
 Address.Broadcast,                      config_parse_broadcast,                          0,                             0
@@ -143,7 +144,7 @@ DHCP.Anonymize,                         config_parse_bool,                      
 DHCP.SendHostname,                      config_parse_bool,                               0,                             offsetof(Network, dhcp_send_hostname)
 DHCP.Hostname,                          config_parse_hostname,                           0,                             offsetof(Network, dhcp_hostname)
 DHCP.RequestBroadcast,                  config_parse_bool,                               0,                             offsetof(Network, dhcp_broadcast)
-DHCP.CriticalConnection,                config_parse_bool,                               0,                             offsetof(Network, dhcp_critical)
+DHCP.CriticalConnection,                config_parse_tristate,                           0,                             offsetof(Network, dhcp_critical) /* deprecated */
 DHCP.VendorClassIdentifier,             config_parse_string,                             0,                             offsetof(Network, dhcp_vendor_class_identifier)
 DHCP.MaxAttempts,                       config_parse_dhcp_max_attempts,                  0,                             0
 DHCP.UserClass,                         config_parse_dhcp_user_class,                    0,                             offsetof(Network, dhcp_user_class)
