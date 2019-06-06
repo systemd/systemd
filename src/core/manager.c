@@ -231,7 +231,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
                               "%sA %s job is running for %s (%s / %s)",
                               strempty(job_of_n),
                               job_type_to_string(j->type),
-                              unit_description(j->unit),
+                              unit_status_string(j->unit),
                               time, limit);
 }
 

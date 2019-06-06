@@ -671,6 +671,7 @@ int unit_set_slice(Unit *u, Unit *slice);
 int unit_set_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
+const char *unit_status_string(Unit *u) _pure_;
 
 bool unit_has_name(const Unit *u, const char *name);
 

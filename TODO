@@ -524,8 +524,6 @@ Features:
 
 * maybe add support for specifier expansion in user.conf, specifically DefaultEnvironment=
 
-* consider showing the unit names during boot up in the status output, not just the unit descriptions
-
 * maybe allow timer units with an empty Units= setting, so that they
   can be used for resuming the system but nothing else.
 
