@@ -114,7 +114,7 @@ static int link_set_dhcp_routes(Link *link) {
 
                 r = route_configure(route, link, dhcp4_route_handler);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set host route: %m");
+                        return log_link_error_errno(link, r, "Could not set host route: %m");
 
                 link->dhcp4_messages++;
         }
@@ -153,7 +153,7 @@ static int link_set_dhcp_routes(Link *link) {
 
                 r = route_configure(route_gw, link, dhcp4_route_handler);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set host route: %m");
+                        return log_link_error_errno(link, r, "Could not set host route: %m");
 
                 link->dhcp4_messages++;
 
@@ -169,11 +169,8 @@ static int link_set_dhcp_routes(Link *link) {
                 route->table = table;
 
                 r = route_configure(route, link, dhcp4_route_handler);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not set routes: %m");
-                        link_enter_failed(link);
-                        return r;
-                }
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not set routes: %m");
 
                 link->dhcp4_messages++;
         }
@@ -389,7 +386,11 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         } else if (r >= 0)
                 manager_rtnl_process_address(rtnl, m, link->manager);
 
-        link_set_dhcp_routes(link);
+        r = link_set_dhcp_routes(link);
+        if (r < 0) {
+                link_enter_failed(link);
+                return 1;
+        }
 
         /* Add back static routes since kernel removes while DHCPv4 address is removed from when lease expires */
         link_request_set_routes(link);
