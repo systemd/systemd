@@ -530,29 +530,20 @@ int machine_kill(Machine *m, KillWho who, int signo) {
         return manager_kill_unit(m->manager, m->unit, signo, NULL);
 }
 
-int machine_openpt(Machine *m, int flags) {
+int machine_openpt(Machine *m, int flags, char **ret_slave) {
         assert(m);
 
         switch (m->class) {
 
-        case MACHINE_HOST: {
-                int fd;
+        case MACHINE_HOST:
 
-                fd = posix_openpt(flags);
-                if (fd < 0)
-                        return -errno;
-
-                if (unlockpt(fd) < 0)
-                        return -errno;
-
-                return fd;
-        }
+                return openpt_allocate(flags, ret_slave);
 
         case MACHINE_CONTAINER:
                 if (m->leader <= 0)
                         return -EINVAL;
 
-                return openpt_in_namespace(m->leader, flags);
+                return openpt_allocate_in_namespace(m->leader, flags, ret_slave);
 
         default:
                 return -EOPNOTSUPP;
