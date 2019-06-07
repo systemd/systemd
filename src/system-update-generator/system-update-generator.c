@@ -57,7 +57,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         assert_se(arg_dest = dest_early);
 
         r = generate_symlink();
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
