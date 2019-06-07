@@ -509,6 +509,12 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
 
         prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
 
+        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+                r = sd_dhcp_lease_get_lifetime(lease, &lifetime);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
+        }
+
         r = sd_dhcp_lease_get_router(lease, &router);
         if (r < 0 && r != -ENODATA)
                 return log_link_error_errno(link, r, "DHCP error: Could not get gateway: %m");
@@ -580,12 +586,6 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set timezone to '%s': %m", tz);
                 }
-        }
-
-        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
-                r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
         }
 
         r = dhcp4_update_address(link, &address, &netmask, lifetime);
