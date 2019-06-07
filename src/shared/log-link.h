@@ -17,8 +17,8 @@
 #define log_link_full(link, level, error, ...)                          \
         ({                                                              \
                 const Link *_l = (link);                                \
-                (_l && _l->ifname) ? log_object_internal(level, error, __FILE__, __LINE__, __func__, "INTERFACE=", _l->ifname, NULL, NULL, ##__VA_ARGS__) : \
-                        log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+                (_l && _l->ifname) ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, "INTERFACE=", _l->ifname, NULL, NULL, ##__VA_ARGS__) : \
+                        log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })                                                              \
 
 #define log_link_debug(link, ...)   log_link_full(link, LOG_DEBUG, 0, ##__VA_ARGS__)

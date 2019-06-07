@@ -76,7 +76,7 @@ typedef struct {
 
 #if ENABLE_DEBUG_HASHMAP
 # define HASHMAP_DEBUG_PARAMS , const char *func, const char *file, int line
-# define HASHMAP_DEBUG_SRC_ARGS   , __func__, __FILE__, __LINE__
+# define HASHMAP_DEBUG_SRC_ARGS   , __func__, PROJECT_FILE, __LINE__
 # define HASHMAP_DEBUG_PASS_ARGS   , func, file, line
 #else
 # define HASHMAP_DEBUG_PARAMS

@@ -788,14 +788,14 @@ bool condition_test_list(Condition *first, const char *(*to_string)(ConditionTyp
                         assert(p);
 
                         if (r < 0)
-                                logger(userdata, LOG_WARNING, r, __FILE__, __LINE__, __func__,
+                                logger(userdata, LOG_WARNING, r, PROJECT_FILE, __LINE__, __func__,
                                        "Couldn't determine result for %s=%s%s%s, assuming failed: %m",
                                        to_string(c->type),
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
                                        p);
                         else
-                                logger(userdata, LOG_DEBUG, 0, __FILE__, __LINE__, __func__,
+                                logger(userdata, LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__,
                                        "%s=%s%s%s %s.",
                                        to_string(c->type),
                                        c->trigger ? "|" : "",
