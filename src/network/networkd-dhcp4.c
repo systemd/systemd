@@ -21,10 +21,14 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
 
         link->dhcp4_messages--;
 
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_error_errno(link, r, "Could not set DHCPv4 route: %m");
                 link_enter_failed(link);
+                return 1;
         }
 
         if (link->dhcp4_messages == 0) {
@@ -379,12 +383,17 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 
         assert(link);
 
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_error_errno(link, r, "Could not set DHCPv4 address: %m");
                 link_enter_failed(link);
-        } else if (r >= 0)
-                manager_rtnl_process_address(rtnl, m, link->manager);
+                return 1;
+        }
+
+        manager_rtnl_process_address(rtnl, m, link->manager);
 
         r = link_set_dhcp_routes(link);
         if (r < 0) {
