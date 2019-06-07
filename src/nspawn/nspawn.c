@@ -2923,17 +2923,9 @@ static int inner_child(
                 _cleanup_free_ char *console = NULL;
 
                 /* Allocate a pty and make it available as /dev/console. */
-
-                master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                master = openpt_allocate(O_RDWR|O_NONBLOCK, &console);
                 if (master < 0)
-                        return log_error_errno(errno, "Failed to acquire pseudo tty: %m");
-
-                r = ptsname_malloc(master, &console);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine tty name: %m");
-
-                if (unlockpt(master) < 0)
-                        return log_error_errno(errno, "Failed to unlock tty: %m");
+                        return log_error_errno(master, "Failed to allocate a pty: %m");
 
                 r = setup_dev_console(console);
                 if (r < 0)
