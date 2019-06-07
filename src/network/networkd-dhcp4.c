@@ -472,11 +472,8 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
         }
 
         r = dhcp4_update_address(link, &address, &netmask, lifetime);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Could not update IP address: %m");
-                link_enter_failed(link);
-                return r;
-        }
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not update IP address: %m");
 
         return 0;
 }
@@ -589,11 +586,8 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         }
 
         r = dhcp4_update_address(link, &address, &netmask, lifetime);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Could not update IP address: %m");
-                link_enter_failed(link);
-                return r;
-        }
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not update IP address: %m");
 
         return 0;
 }
