@@ -687,6 +687,8 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
         assert(link->manager);
         assert(link->manager->event);
 
+        dhcp4_release_old_lease(link);
+
         if (link->dhcp_client && (!may_keep_dhcp || !link->network ||
                                   !FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP))) {
                 k = sd_dhcp_client_stop(link->dhcp_client);

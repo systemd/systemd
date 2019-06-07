@@ -78,7 +78,7 @@ typedef struct Link {
         bool addresses_ready;
 
         sd_dhcp_client *dhcp_client;
-        sd_dhcp_lease *dhcp_lease;
+        sd_dhcp_lease *dhcp_lease, *dhcp_lease_old;
         char *lease_file;
         uint32_t original_mtu;
         unsigned dhcp4_messages;
@@ -167,6 +167,7 @@ int link_set_mtu(Link *link, uint32_t mtu);
 int ipv4ll_configure(Link *link);
 bool link_ipv4ll_enabled(Link *link, AddressFamilyBoolean mask);
 
+void dhcp4_release_old_lease(Link *link);
 int dhcp4_configure(Link *link);
 int dhcp4_set_client_identifier(Link *link);
 int dhcp4_set_promote_secondaries(Link *link);
