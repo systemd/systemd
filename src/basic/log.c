@@ -351,7 +351,7 @@ static int write_to_console(
                 get_log_colors(LOG_PRI(level), &on, &off, NULL);
 
         if (show_location) {
-                (void) snprintf(location, sizeof location, "(%s:%i) ", file, line);
+                (void) snprintf(location, sizeof location, "%s:%i: ", file, line);
                 iovec[n++] = IOVEC_MAKE_STRING(location);
         }
 
