@@ -1942,7 +1942,7 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                 statelen = STRLEN("STATE"),
                 failedlen = STRLEN("FAILED"),
                 jobslen = STRLEN("JOBS");
-        bool state_missing;
+        bool state_missing = false;
 
         assert(machine_infos || n == 0);
 

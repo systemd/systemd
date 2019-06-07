@@ -1378,6 +1378,8 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
 
         c = unit_get_cgroup_context(u);
 
+        assert(c);
+
         /* Figure out which controllers we need, based on the cgroup context object */
 
         if (c->cpu_accounting)
