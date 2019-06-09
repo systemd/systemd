@@ -15,19 +15,24 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int manager_send_changed(Manager *manager, const char *property, ...) {
-        char **l;
-
+int manager_send_changed_strv(Manager *manager, char **properties) {
         assert(manager);
+        assert(properties);
 
         if (!manager->bus)
-                return 0; /* replace by assert when we have kdbus */
-
-        l = strv_from_stdarg_alloca(property);
+                return 0;
 
         return sd_bus_emit_properties_changed_strv(
                         manager->bus,
                         "/org/freedesktop/network1",
                         "org.freedesktop.network1.Manager",
-                        l);
+                        properties);
+}
+
+int manager_send_changed(Manager *manager, const char *property, ...) {
+        char **l;
+
+        l = strv_from_stdarg_alloca(property);
+
+        return manager_send_changed_strv(manager, l);
 }

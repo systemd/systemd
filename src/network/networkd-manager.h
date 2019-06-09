@@ -83,6 +83,7 @@ int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, vo
 int manager_rtnl_process_route(sd_netlink *nl, sd_netlink_message *message, void *userdata);
 int manager_rtnl_process_rule(sd_netlink *nl, sd_netlink_message *message, void *userdata);
 
+int manager_send_changed_strv(Manager *m, char **properties);
 int manager_send_changed(Manager *m, const char *property, ...) _sentinel_;
 void manager_dirty(Manager *m);
 
