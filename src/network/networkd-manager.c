@@ -1078,8 +1078,11 @@ static int manager_save(Manager *m) {
         Link *link;
         Iterator i;
         _cleanup_free_ char *temp_path = NULL;
+        _cleanup_strv_free_ char **p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         LinkOperationalState operstate = LINK_OPERSTATE_OFF;
+        LinkCarrierState carrier_state = LINK_CARRIER_STATE_OFF;
+        LinkAddressState address_state = LINK_ADDRESS_STATE_OFF;
         const char *operstate_str;
         int r;
 
@@ -1109,6 +1112,12 @@ static int manager_save(Manager *m) {
 
                 if (link->operstate > operstate)
                         operstate = link->operstate;
+
+                if (link->carrier_state > carrier_state)
+                        carrier_state = link->carrier_state;
+
+                if (link->address_state > address_state)
+                        address_state = link->address_state;
 
                 if (!link->network)
                         continue;
@@ -1181,6 +1190,9 @@ static int manager_save(Manager *m) {
                 }
         }
 
+        if (carrier_state >= LINK_CARRIER_STATE_ENSLAVED)
+                carrier_state = LINK_CARRIER_STATE_CARRIER;
+
         operstate_str = link_operstate_to_string(operstate);
         assert(operstate_str);
 
@@ -1214,9 +1226,26 @@ static int manager_save(Manager *m) {
 
         if (m->operational_state != operstate) {
                 m->operational_state = operstate;
-                r = manager_send_changed(m, "OperationalState", NULL);
+                if (strv_extend(&p, "OperationalState") < 0)
+                        log_oom();
+        }
+
+        if (m->carrier_state != carrier_state) {
+                m->carrier_state = carrier_state;
+                if (strv_extend(&p, "CarrierState") < 0)
+                        log_oom();
+        }
+
+        if (m->address_state != address_state) {
+                m->address_state = address_state;
+                if (strv_extend(&p, "AddressState") < 0)
+                        log_oom();
+        }
+
+        if (p) {
+                r = manager_send_changed_strv(m, p);
                 if (r < 0)
-                        log_error_errno(r, "Could not emit changed OperationalState: %m");
+                        log_error_errno(r, "Could not emit changed properties: %m");
         }
 
         m->dirty = false;

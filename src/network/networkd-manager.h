@@ -33,6 +33,8 @@ struct Manager {
 
         char *state_file;
         LinkOperationalState operational_state;
+        LinkCarrierState carrier_state;
+        LinkAddressState address_state;
 
         Hashmap *links;
         Hashmap *netdevs;
