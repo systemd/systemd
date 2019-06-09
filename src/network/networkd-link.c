@@ -3607,7 +3607,7 @@ static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
 int link_save(Link *link) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *admin_state, *oper_state;
+        const char *admin_state, *oper_state, *carrier_state, *address_state;
         Address *a;
         Route *route;
         Iterator i;
@@ -3631,6 +3631,12 @@ int link_save(Link *link) {
         oper_state = link_operstate_to_string(link->operstate);
         assert(oper_state);
 
+        carrier_state = link_carrier_state_to_string(link->carrier_state);
+        assert(carrier_state);
+
+        address_state = link_address_state_to_string(link->address_state);
+        assert(address_state);
+
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
                 goto fail;
@@ -3640,8 +3646,10 @@ int link_save(Link *link) {
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "ADMIN_STATE=%s\n"
-                "OPER_STATE=%s\n",
-                admin_state, oper_state);
+                "OPER_STATE=%s\n"
+                "CARRIER_STATE=%s\n"
+                "ADDRESS_STATE=%s\n",
+                admin_state, oper_state, carrier_state, address_state);
 
         if (link->network) {
                 char **dhcp6_domains = NULL, **dhcp_domains = NULL;

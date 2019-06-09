@@ -1083,7 +1083,7 @@ static int manager_save(Manager *m) {
         LinkOperationalState operstate = LINK_OPERSTATE_OFF;
         LinkCarrierState carrier_state = LINK_CARRIER_STATE_OFF;
         LinkAddressState address_state = LINK_ADDRESS_STATE_OFF;
-        const char *operstate_str;
+        const char *operstate_str, *carrier_state_str, *address_state_str;
         int r;
 
         assert(m);
@@ -1196,6 +1196,12 @@ static int manager_save(Manager *m) {
         operstate_str = link_operstate_to_string(operstate);
         assert(operstate_str);
 
+        carrier_state_str = link_carrier_state_to_string(carrier_state);
+        assert(carrier_state_str);
+
+        address_state_str = link_address_state_to_string(address_state);
+        assert(address_state_str);
+
         r = fopen_temporary(m->state_file, &f, &temp_path);
         if (r < 0)
                 return r;
@@ -1204,7 +1210,10 @@ static int manager_save(Manager *m) {
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "OPER_STATE=%s\n", operstate_str);
+                "OPER_STATE=%s\n"
+                "CARRIER_STATE=%s\n"
+                "ADDRESS_STATE=%s\n",
+                operstate_str, carrier_state_str, address_state_str);
 
         ordered_set_print(f, "DNS=", dns);
         ordered_set_print(f, "NTP=", ntp);
