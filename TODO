@@ -56,10 +56,6 @@ Features:
   with a nice speed-up on services that have many processes running in the same
   cgroup.
 
-* clean up sleep.c:
-  - Make sure resume= and resume_offset= on the kernel cmdline always take
-    precedence
-
 * make MAINPID= message reception checks even stricter: if service uses User=,
   then check sending UID and ignore message if it doesn't match the user or
   root.
