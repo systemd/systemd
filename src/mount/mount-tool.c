@@ -1533,7 +1533,8 @@ static int run(int argc, char* argv[]) {
         if (arg_action == ACTION_UMOUNT)
                 return action_umount(bus, argc, argv);
 
-        if (!path_is_normalized(arg_mount_what)) {
+        if ((!arg_mount_type || !fstype_is_network(arg_mount_type))
+            && !path_is_normalized(arg_mount_what)) {
                 log_error("Path contains non-normalized components: %s", arg_mount_what);
                 return -EINVAL;
         }
