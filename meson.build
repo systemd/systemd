@@ -50,6 +50,14 @@ endif
 
 #####################################################################
 
+if get_option('link-units') == 'auto'
+        link_units = meson.is_cross_build()
+else
+        link_units = get_option('link-units') == 'true'
+endif
+conf.set10('SYSTEMD_LINK_UNITS', link_units,
+           description : 'Link unit files during install')
+
 if get_option('split-usr') == 'auto'
         split_usr = run_command('test', '-L', '/bin').returncode() != 0
 else
@@ -3036,6 +3044,7 @@ run_target(
 status = [
         '@0@ @1@'.format(meson.project_name(), meson.project_version()),
 
+        'link units:                        @0@'.format(link_units),
         'split /usr:                        @0@'.format(split_usr),
         'split bin-sbin:                    @0@'.format(split_bin),
         'prefix directory:                  @0@'.format(prefixdir),

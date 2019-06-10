@@ -34,7 +34,8 @@ units = [
         ['local-fs-pre.target',                 ''],
         ['local-fs.target',                     ''],
         ['machine.slice',                       'ENABLE_MACHINED'],
-        ['machines.target',                     'ENABLE_MACHINED'],
+        ['machines.target',                     'ENABLE_MACHINED', '',
+         join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
         ['multi-user.target',                   '',
          'runlevel2.target runlevel3.target runlevel4.target'],
         ['network-online.target',               ''],
@@ -51,9 +52,11 @@ units = [
         ['proc-sys-fs-binfmt_misc.mount',       'ENABLE_BINFMT'],
         ['reboot.target',                       '',
          'runlevel6.target ctrl-alt-del.target'],
-        ['remote-cryptsetup.target',            'HAVE_LIBCRYPTSETUP'],
+        ['remote-cryptsetup.target',            'HAVE_LIBCRYPTSETUP', '',
+         join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
         ['remote-fs-pre.target',                ''],
-        ['remote-fs.target',                    ''],
+        ['remote-fs.target',                    '', '',
+         join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
         ['rescue.target',                       '',
          'runlevel1.target'],
         ['rpcbind.target',                      ''],
@@ -94,7 +97,8 @@ units = [
          'sockets.target.wants/'],
         ['systemd-journald.socket',             '',
          'sockets.target.wants/'],
-        ['systemd-networkd.socket',             'ENABLE_NETWORKD'],
+        ['systemd-networkd.socket',             'ENABLE_NETWORKD', '',
+         join_paths(pkgsysconfdir, 'system/sockets.target.wants/')],
         ['systemd-poweroff.service',             ''],
         ['systemd-reboot.service',               ''],
         ['systemd-rfkill.socket',               'ENABLE_RFKILL'],
@@ -171,8 +175,11 @@ in_units = [
          'dbus-org.freedesktop.machine1.service'],
         ['systemd-modules-load.service',         'HAVE_KMOD',
          'sysinit.target.wants/'],
-        ['systemd-networkd.service',             'ENABLE_NETWORKD'],
-        ['systemd-networkd-wait-online.service', 'ENABLE_NETWORKD'],
+        ['systemd-networkd.service',             'ENABLE_NETWORKD', '',
+         join_paths(pkgsysconfdir, 'system/dbus-org.freedesktop.network1.service') + ' ' +
+         join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
+        ['systemd-networkd-wait-online.service', 'ENABLE_NETWORKD', '',
+         join_paths(pkgsysconfdir, 'system/network-online.target.wants/')],
         ['systemd-nspawn@.service',              ''],
         ['systemd-portabled.service',            'ENABLE_PORTABLED',
          'dbus-org.freedesktop.portable1.service'],
@@ -180,7 +187,9 @@ in_units = [
         ['systemd-random-seed.service',          'ENABLE_RANDOMSEED',
          'sysinit.target.wants/'],
         ['systemd-remount-fs.service',           ''],
-        ['systemd-resolved.service',             'ENABLE_RESOLVE'],
+        ['systemd-resolved.service',             'ENABLE_RESOLVE', '',
+         join_paths(pkgsysconfdir, 'system/dbus-org.freedesktop.resolve1.service') + ' ' +
+         join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],
         ['systemd-rfkill.service',               'ENABLE_RFKILL'],
         ['systemd-suspend.service',              ''],
         ['systemd-sysctl.service',               '',
@@ -189,7 +198,8 @@ in_units = [
          'sysinit.target.wants/'],
         ['systemd-timedated.service',            'ENABLE_TIMEDATED',
          'dbus-org.freedesktop.timedate1.service'],
-        ['systemd-timesyncd.service',            'ENABLE_TIMESYNCD'],
+        ['systemd-timesyncd.service',            'ENABLE_TIMESYNCD', '',
+         join_paths(pkgsysconfdir, 'system/sysinit.target.wants/')],
         ['systemd-time-wait-sync.service',       'ENABLE_TIMESYNCD'],
         ['systemd-tmpfiles-clean.service',       'ENABLE_TMPFILES'],
         ['systemd-tmpfiles-setup-dev.service',   'ENABLE_TMPFILES',
@@ -219,7 +229,8 @@ m4_units = [
         ['console-getty.service',              ''],
         ['container-getty@.service',           ''],
         ['getty@.service',                     '',
-         'autovt@.service '],
+         'autovt@.service ',
+         join_paths(pkgsysconfdir, 'system/getty.target.wants/getty@tty1.service')],
         ['serial-getty@.service',              ''],
 ]
 
@@ -245,15 +256,24 @@ foreach tuple : in_units
                 install_dir : systemunitdir)
 
         if install and tuple.length() > 2
-                foreach target : tuple[2].split()
-                        meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
-                endforeach
+                if tuple[2] != ''
+                        foreach target : tuple[2].split()
+                                meson.add_install_script(
+                                        'meson-add-wants.sh', systemunitdir, target, file)
+                        endforeach
+                endif
+                if tuple.length() > 3 and conf.get('SYSTEMD_LINK_UNITS') == 1
+                        foreach target : tuple[3].split()
+                                meson.add_install_script(
+                                        'meson-add-wants.sh', systemunitdir, target, file)
+                        endforeach
+                endif
         endif
 endforeach
 
 foreach tuple : m4_units
         file = tuple[0]
-        input = tuple.get(3, file + '.m4')
+        input = file + '.m4'
 
         # we do this here because install_data does not accept custom_target output
         conds = tuple[1].split(' ')
@@ -270,15 +290,24 @@ foreach tuple : m4_units
                 install_dir : systemunitdir)
 
         if tuple.length() > 2 and install
-                foreach target : tuple[2].split()
-                        meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
-                endforeach
+                if tuple[2] != ''
+                        foreach target : tuple[2].split()
+                                meson.add_install_script(
+                                        'meson-add-wants.sh', systemunitdir, target, file)
+                        endforeach
+                endif
+                if tuple.length() > 3 and conf.get('SYSTEMD_LINK_UNITS') == 1
+                        foreach target : tuple[3].split()
+                                meson.add_install_script(
+                                        'meson-add-wants.sh', systemunitdir, target, file)
+                        endforeach
+                endif
         endif
 endforeach
 
 foreach tuple : units
         file = tuple[0]
-        input = tuple.get(3, file)
+        input = file
 
         conds = tuple[1].split(' ')
         install = ((conds.get(0, '') == '' or conf.get(conds[0]) == 1) and
@@ -288,8 +317,14 @@ foreach tuple : units
                 install_data(input,
                              install_dir : systemunitdir)
 
-                if tuple.length() > 2
+                if tuple.length() > 2 and tuple[2] != ''
                         foreach target : tuple[2].split()
+                                meson.add_install_script(
+                                        'meson-add-wants.sh', systemunitdir, target, file)
+                        endforeach
+                endif
+                if tuple.length() > 3 and conf.get('SYSTEMD_LINK_UNITS') == 1
+                        foreach target : tuple[3].split()
                                 meson.add_install_script(
                                         'meson-add-wants.sh', systemunitdir, target, file)
                         endforeach

@@ -4,6 +4,8 @@
 option('version-tag', type : 'string',
        description : 'override the git version string')
 
+option('link-units', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : '''Link unit files during install''')
 option('split-usr', type : 'combo', choices : ['auto', 'true', 'false'],
        description : '''/bin, /sbin aren't symlinks into /usr''')
 option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
