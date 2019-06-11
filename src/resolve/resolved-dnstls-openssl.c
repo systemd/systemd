@@ -6,6 +6,7 @@
 
 #include <openssl/bio.h>
 #include <openssl/err.h>
+#include <string.h>
 
 #include "io-util.h"
 #include "resolved-dns-stream.h"
@@ -34,9 +35,11 @@ static int dnstls_flush_write_buffer(DnsStream *stream) {
                         return ss;
                 } else {
                         stream->dnstls_data.write_buffer->length -= ss;
-                        stream->dnstls_data.write_buffer->data += ss;
 
                         if (stream->dnstls_data.write_buffer->length > 0) {
+                                memmove(stream->dnstls_data.write_buffer->data,
+                                        stream->dnstls_data.write_buffer->data + ss,
+                                        stream->dnstls_data.write_buffer->length);
                                 stream->dnstls_events |= EPOLLOUT;
                                 return -EAGAIN;
                         }
