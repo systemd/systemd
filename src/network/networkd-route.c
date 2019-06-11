@@ -500,6 +500,11 @@ int route_configure(
         assert(IN_SET(route->family, AF_INET, AF_INET6));
         assert(callback);
 
+        if (route->family == AF_INET6 && manager_sysctl_ipv6_enabled(link->manager) == 0) {
+                log_link_warning(link, "An IPv6 route is requested, but IPv6 is disabled by sysctl, ignoring.");
+                return 0;
+        }
+
         if (route_get(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, NULL) <= 0 &&
             set_size(link->routes) >= routes_max())
                 return log_link_error_errno(link, SYNTHETIC_ERRNO(E2BIG),
@@ -688,7 +693,7 @@ int route_configure(
         sd_event_source_unref(route->expire);
         route->expire = TAKE_PTR(expire);
 
-        return 0;
+        return 1;
 }
 
 int network_add_ipv4ll_route(Network *network) {
