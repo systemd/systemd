@@ -838,8 +838,8 @@ static int link_request_set_routing_policy_rule(Link *link) {
                         link_enter_failed(link);
                         return r;
                 }
-
-                link->routing_policy_rule_messages++;
+                if (r > 0)
+                        link->routing_policy_rule_messages++;
         }
 
         routing_policy_rule_purge(link->manager, link);
