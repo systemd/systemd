@@ -96,8 +96,8 @@ Happy hacking!
 ## Fuzzers
 
 systemd includes fuzzers in `src/fuzz/` that use libFuzzer and are automatically
-run by [OSS-Fuzz](https://github.com/google/oss-fuzz) with sanitizers. To add a
-fuzz target, create a new `src/fuzz/fuzz-foo.c` file with a `LLVMFuzzerTestOneInput`
+run by [OSS-Fuzz](https://github.com/google/oss-fuzz) and [Fuzzit](https://fuzzit.dev) with sanitizers.
+To add a fuzz target, create a new `src/fuzz/fuzz-foo.c` file with a `LLVMFuzzerTestOneInput`
 function and add it to the list in `src/fuzz/meson.build`.
 
 Whenever possible, a seed corpus and a dictionary should also be added with new
@@ -115,6 +115,10 @@ python infra/helper.py build_image systemd
 python infra/helper.py build_fuzzers --sanitizer memory systemd ../systemd
 python infra/helper.py run_fuzzer systemd fuzz-foo
 ```
+
+When you add a new target you should also add the target on [Fuzzit](https://app.fuzzit.dev/admin/RxqRpGNXquIvqrmp4iJS/dashboard)
+ (Please ask someone with permissions). One the target is configured on Fuzzit you need to add it to
+ `travis-ci/managers/fuzzit.sh` so the new target will run sanity tests on every pull-request and periodic fuzzing jobs.
 
 If you find a bug that impacts the security of systemd, please follow the
 guidance in [CONTRIBUTING.md](CONTRIBUTING.md) on how to report a security vulnerability.

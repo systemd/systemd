@@ -15,6 +15,9 @@ stages:
     - name: Coverity
       if: type = cron
 
+    - name: Fuzzit-Fuzzing
+      if: type = cron
+
 jobs:
     include:
         - stage: Build & test
@@ -90,6 +93,22 @@ jobs:
               - set +e
           after_script:
               - $CI_MANAGERS/debian.sh CLEANUP
+
+        - stage: Fuzzit-Sanity
+          name:  Continuous Fuzzing Sanity via Fuzzit (sanity)
+          language: bash
+          script:
+            - set -e
+            - $CI_MANAGERS/fuzzit.sh sanity
+            - set +e
+
+        - stage: Fuzzit-Fuzzing
+          name: Continuous Fuzzing Sanity via Fuzzit (fuzzing daily)
+          language: bash
+          script:
+            - set -e
+            - $CI_MANAGERS/fuzzit.sh fuzzing
+            - set +e
 
         - stage: Coverity
           language: bash
