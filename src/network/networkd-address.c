@@ -566,6 +566,11 @@ int address_configure(
         assert(link->manager->rtnl);
         assert(callback);
 
+        if (address->family == AF_INET6 && manager_sysctl_ipv6_enabled(link->manager) == 0) {
+                log_link_warning(link, "An IPv6 address is requested, but IPv6 is disabled by sysctl, ignoring.");
+                return 0;
+        }
+
         /* If this is a new address, then refuse adding more than the limit */
         if (address_get(link, address->family, &address->in_addr, address->prefixlen, NULL) <= 0 &&
             set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
@@ -665,7 +670,7 @@ int address_configure(
                 return log_link_error_errno(link, r, "Could not add address: %m");
         }
 
-        return 0;
+        return 1;
 }
 
 int config_parse_broadcast(

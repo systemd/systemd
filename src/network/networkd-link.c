@@ -1194,8 +1194,8 @@ static int link_request_set_addresses(Link *link) {
                         link_enter_failed(link);
                         return r;
                 }
-
-                link->address_messages++;
+                if (r > 0)
+                        link->address_messages++;
         }
 
         LIST_FOREACH(labels, label, link->network->address_labels) {

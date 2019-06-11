@@ -209,8 +209,8 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 link_enter_failed(link);
                 return r;
         }
-
-        link->ndisc_messages++;
+        if (r > 0)
+                link->ndisc_messages++;
 
         return 0;
 }
