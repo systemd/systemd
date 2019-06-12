@@ -51,6 +51,7 @@
 #define BUS_ERROR_OPERATION_IN_PROGRESS "org.freedesktop.login1.OperationInProgress"
 #define BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED "org.freedesktop.login1.SleepVerbNotSupported"
 #define BUS_ERROR_SESSION_BUSY "org.freedesktop.login1.SessionBusy"
+#define BUS_ERROR_NOT_YOUR_DEVICE "org.freedesktop.login1.NotYourDevice"
 
 #define BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED "org.freedesktop.timedate1.AutomaticTimeSyncEnabled"
 #define BUS_ERROR_NO_NTP_SUPPORT "org.freedesktop.timedate1.NoNTPSupport"

@@ -43,6 +43,7 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/sessions systemd/seats systemd/users systemd/inhibit systemd/shutdown
 RuntimeDirectoryPreserve=yes
+StateDirectory=systemd/linger
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service

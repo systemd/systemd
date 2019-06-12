@@ -27,6 +27,10 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "logind-dbus.h"
+#include "logind-seat-dbus.h"
+#include "logind-session-dbus.h"
+#include "logind-user-dbus.h"
 #include "logind.h"
 #include "missing_capability.h"
 #include "mkdir.h"
@@ -46,47 +50,78 @@
 #include "utmp-wtmp.h"
 #include "virt.h"
 
-static int get_sender_session(Manager *m, sd_bus_message *message, sd_bus_error *error, Session **ret) {
+static int get_sender_session(
+                Manager *m,
+                sd_bus_message *message,
+                bool consult_display,
+                sd_bus_error *error,
+                Session **ret) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        Session *session = NULL;
         const char *name;
-        Session *session;
         int r;
 
-        /* Get client login session.  This is not what you are looking for these days,
-         * as apps may instead belong to a user service unit.  This includes terminal
-         * emulators and hence command-line apps. */
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_AUGMENT, &creds);
+        /* Acquire the sender's session. This first checks if the sending process is inside a session itself,
+         * and returns that. If not and 'consult_display' is true, this returns the display session of the
+         * owning user of the caller. */
+
+        r = sd_bus_query_sender_creds(message,
+                                      SD_BUS_CREDS_SESSION|SD_BUS_CREDS_AUGMENT|
+                                      (consult_display ? SD_BUS_CREDS_OWNER_UID : 0), &creds);
         if (r < 0)
                 return r;
 
         r = sd_bus_creds_get_session(creds, &name);
-        if (r == -ENXIO)
-                goto err_no_session;
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                if (r != -ENXIO)
+                        return r;
 
-        session = hashmap_get(m->sessions, name);
+                if (consult_display) {
+                        uid_t uid;
+
+                        r = sd_bus_creds_get_owner_uid(creds, &uid);
+                        if (r < 0) {
+                                if (r != -ENXIO)
+                                        return r;
+                        } else {
+                                User *user;
+
+                                user = hashmap_get(m->users, UID_TO_PTR(uid));
+                                if (user)
+                                        session = user->display;
+                        }
+                }
+        } else
+                session = hashmap_get(m->sessions, name);
+
         if (!session)
-                goto err_no_session;
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SESSION_FOR_PID,
+                                         consult_display ?
+                                         "Caller does not belong to any known session and doesn't own any suitable session." :
+                                         "Caller does not belong to any known session.");
 
         *ret = session;
         return 0;
-
-err_no_session:
-        return sd_bus_error_setf(error, BUS_ERROR_NO_SESSION_FOR_PID,
-                                 "Caller does not belong to any known session");
 }
 
-int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret) {
+int manager_get_session_from_creds(
+                Manager *m,
+                sd_bus_message *message,
+                const char *name,
+                sd_bus_error *error,
+                Session **ret) {
+
         Session *session;
 
         assert(m);
         assert(message);
         assert(ret);
 
-        if (isempty(name))
-                return get_sender_session(m, message, error, ret);
+        if (SEAT_IS_SELF(name)) /* the caller's own session */
+                return get_sender_session(m, message, false, error, ret);
+        if (SEAT_IS_AUTO(name)) /* The caller's own session if they have one, otherwise their user's display session */
+                return get_sender_session(m, message, true, error, ret);
 
         session = hashmap_get(m->sessions, name);
         if (!session)
@@ -97,7 +132,6 @@ int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const ch
 }
 
 static int get_sender_user(Manager *m, sd_bus_message *message, sd_bus_error *error, User **ret) {
-
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         uid_t uid;
         User *user;
@@ -109,21 +143,20 @@ static int get_sender_user(Manager *m, sd_bus_message *message, sd_bus_error *er
                 return r;
 
         r = sd_bus_creds_get_owner_uid(creds, &uid);
-        if (r == -ENXIO)
-                goto err_no_user;
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                if (r != -ENXIO)
+                        return r;
 
-        user = hashmap_get(m->users, UID_TO_PTR(uid));
+                user = NULL;
+        } else
+                user = hashmap_get(m->users, UID_TO_PTR(uid));
+
         if (!user)
-                goto err_no_user;
+                return sd_bus_error_setf(error, BUS_ERROR_NO_USER_FOR_PID,
+                                         "Caller does not belong to any logged in or lingering user");
 
         *ret = user;
         return 0;
-
-err_no_user:
-        return sd_bus_error_setf(error, BUS_ERROR_NO_USER_FOR_PID,
-                                 "Caller does not belong to any logged in user or lingering user");
 }
 
 int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, sd_bus_error *error, User **ret) {
@@ -145,7 +178,13 @@ int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, 
         return 0;
 }
 
-int manager_get_seat_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Seat **ret) {
+int manager_get_seat_from_creds(
+                Manager *m,
+                sd_bus_message *message,
+                const char *name,
+                sd_bus_error *error,
+                Seat **ret) {
+
         Seat *seat;
         int r;
 
@@ -153,16 +192,17 @@ int manager_get_seat_from_creds(Manager *m, sd_bus_message *message, const char 
         assert(message);
         assert(ret);
 
-        if (isempty(name)) {
+        if (SEAT_IS_SELF(name) || SEAT_IS_AUTO(name)) {
                 Session *session;
 
-                r = manager_get_session_from_creds(m, message, NULL, error, &session);
+                /* Use these special seat names as session names */
+                r = manager_get_session_from_creds(m, message, name, error, &session);
                 if (r < 0)
                         return r;
 
                 seat = session->seat;
                 if (!seat)
-                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "Session has no seat.");
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "Session '%s' has no seat.", session->id);
         } else {
                 seat = hashmap_get(m->seats, name);
                 if (!seat)
@@ -809,11 +849,9 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                 if (asprintf(&id, "%"PRIu32, audit_id) < 0)
                         return -ENOMEM;
 
-                /* Wut? There's already a session by this name and we
-                 * didn't find it above? Weird, then let's not trust
-                 * the audit data and let's better register a new
-                 * ID */
-                if (hashmap_get(m->sessions, id)) {
+                /* Wut? There's already a session by this name and we didn't find it above? Weird, then let's
+                 * not trust the audit data and let's better register a new ID */
+                if (hashmap_contains(m->sessions, id)) {
                         log_warning("Existing logind session ID %s used by new audit session, ignoring.", id);
                         audit_id = AUDIT_SESSION_INVALID;
                         id = mfree(id);
@@ -827,8 +865,12 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         if (asprintf(&id, "c%lu", ++m->session_counter) < 0)
                                 return -ENOMEM;
 
-                } while (hashmap_get(m->sessions, id));
+                } while (hashmap_contains(m->sessions, id));
         }
+
+        /* The generated names should not clash with 'auto' or 'self' */
+        assert(!SESSION_IS_SELF(id));
+        assert(!SESSION_IS_AUTO(id));
 
         /* If we are not watching utmp already, try again */
         manager_reconnect_utmp(m);
@@ -990,8 +1032,7 @@ static int method_activate_session_on_seat(sd_bus_message *message, void *userda
         assert(message);
         assert(m);
 
-        /* Same as ActivateSession() but refuses to work if
-         * the seat doesn't match */
+        /* Same as ActivateSession() but refuses to work if the seat doesn't match */
 
         r = sd_bus_message_read(message, "ss", &session_name, &seat_name);
         if (r < 0)
@@ -1367,11 +1408,22 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
+        if (!path_is_normalized(sysfs))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", sysfs);
         if (!path_startswith(sysfs, "/sys"))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not in /sys", sysfs);
 
-        if (!seat_name_is_valid(seat))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Seat %s is not valid", seat);
+        if (SEAT_IS_SELF(seat) || SEAT_IS_AUTO(seat)) {
+                Seat *found;
+
+                r = manager_get_seat_from_creds(m, message, seat, error, &found);
+                if (r < 0)
+                        return r;
+
+                seat = found->id;
+
+        } else if (!seat_name_is_valid(seat)) /* Note that a seat does not have to exist yet for this operation to succeed */
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Seat name %s is not valid", seat);
 
         r = bus_verify_polkit_async(
                         message,

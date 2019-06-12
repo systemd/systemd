@@ -27,6 +27,13 @@ Features:
 * when killing due to service watchdog timeout maybe detect whether target
   process is under ptracing and then log loudly and continue instead.
 
+* introduce a new group to own TPM devices
+
+* make rfkill uaccess controllable by default, i.e. steal rule from
+  gnome-bluetooth and friends
+
+* warn if udev rules files are marked executable (docker?)
+
 * tweak journald context caching. In addition to caching per-process attributes
   keyed by PID, cache per-cgroup attributes (i.e. the various xattrs we read)
   keyed by cgroup path, and guarded by ctime changes. This should provide us

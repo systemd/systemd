@@ -69,18 +69,7 @@ int user_check_linger_file(User *u);
 void user_elect_display(User *u);
 void user_update_last_session_timer(User *u);
 
-extern const sd_bus_vtable user_vtable[];
-int user_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
-int user_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
-char *user_bus_path(User *s);
-
-int user_send_signal(User *u, bool new_user);
-int user_send_changed(User *u, const char *properties, ...) _sentinel_;
-
 const char* user_state_to_string(UserState s) _const_;
 UserState user_state_from_string(const char *s) _pure_;
-
-int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_compat_user_tasks_max);

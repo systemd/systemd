@@ -18,6 +18,10 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "logind-dbus.h"
+#include "logind-seat-dbus.h"
+#include "logind-session-dbus.h"
+#include "logind-user-dbus.h"
 #include "logind.h"
 #include "main-func.h"
 #include "parse-util.h"
@@ -44,9 +48,8 @@ static int manager_new(Manager **ret) {
         *m = (Manager) {
                 .console_active_fd = -1,
                 .reserve_vt_fd = -1,
+                .idle_action_not_before_usec = now(CLOCK_MONOTONIC),
         };
-
-        m->idle_action_not_before_usec = now(CLOCK_MONOTONIC);
 
         m->devices = hashmap_new(&string_hash_ops);
         m->seats = hashmap_new(&string_hash_ops);
@@ -118,6 +121,7 @@ static Manager* manager_unref(Manager *m) {
         hashmap_free(m->users);
         hashmap_free(m->inhibitors);
         hashmap_free(m->buttons);
+        hashmap_free(m->brightness_writers);
 
         hashmap_free(m->user_units);
         hashmap_free(m->session_units);
@@ -1215,7 +1219,7 @@ static int run(int argc, char *argv[]) {
         (void) mkdir_label("/run/systemd/users", 0755);
         (void) mkdir_label("/run/systemd/sessions", 0755);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, SIGCHLD, -1) >= 0);
 
         r = manager_new(&m);
         if (r < 0)
