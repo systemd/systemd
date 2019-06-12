@@ -197,6 +197,20 @@ static int scope_load(Unit *u) {
         return scope_verify(s);
 }
 
+static usec_t scope_coldplug_timeout(Scope *s) {
+        assert(s);
+
+        switch (s->deserialized_state) {
+
+        case SCOPE_STOP_SIGKILL:
+        case SCOPE_STOP_SIGTERM:
+                return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->timeout_stop_usec);
+
+        default:
+                return USEC_INFINITY;
+        }
+}
+
 static int scope_coldplug(Unit *u) {
         Scope *s = SCOPE(u);
         int r;
@@ -207,11 +221,9 @@ static int scope_coldplug(Unit *u) {
         if (s->deserialized_state == s->state)
                 return 0;
 
-        if (IN_SET(s->deserialized_state, SCOPE_STOP_SIGKILL, SCOPE_STOP_SIGTERM)) {
-                r = scope_arm_timer(s, usec_add(u->state_change_timestamp.monotonic, s->timeout_stop_usec));
-                if (r < 0)
-                        return r;
-        }
+        r = scope_arm_timer(s, scope_coldplug_timeout(s));
+        if (r < 0)
+                return r;
 
         if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED))
                 (void) unit_enqueue_rewatch_pids(u);
