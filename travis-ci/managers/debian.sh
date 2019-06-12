@@ -85,6 +85,7 @@ for phase in "${PHASES[@]}"; do
                     -Dseccomp=false \
                     -Dlibidn=false -Dlibidn2=false \
                     -Dxz=false -Dzlib=false -Dlz4=false \
+                    -Dmount=false \
                     -Dvalgrind=true \
                     -Db_lundef=false -Dsplit-usr=true $MESON_ARGS build
             $DOCKER_EXEC ninja -v -C build
