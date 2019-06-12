@@ -75,7 +75,7 @@ for phase in "${PHASES[@]}"; do
             # see https://github.com/mesonbuild/meson/issues/764
             # (it apparently affects MSan as well)
             docker exec $ENV_VARS -it $CONT_NAME \
-                meson -Dc_args='-fsanitize=memory -fsanitize-memory-track-origins=2' \
+                meson -Dc_args='-g -O0 -ftrapv -fsanitize=memory -fsanitize-memory-track-origins=2 -Wno-unused-function' \
                     -Db_sanitize=memory --werror -Dtests=unsafe \
                     -Dgcrypt=false \
                     -Dacl=false \
