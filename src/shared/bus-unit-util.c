@@ -1402,6 +1402,10 @@ static int bus_append_path_property(sd_bus_message *m, const char *field, const 
 }
 
 static int bus_append_scope_property(sd_bus_message *m, const char *field, const char *eq) {
+        if (streq(field, "RuntimeMaxSec"))
+
+                return bus_append_parse_sec_rename(m, field, eq);
+
         if (streq(field, "TimeoutStopSec"))
 
                 return bus_append_parse_sec_rename(m, field, eq);

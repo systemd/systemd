@@ -84,4 +84,14 @@ END_SEC=$(date -u '+%s')
 ELAPSED=$(($END_SEC-$START_SEC))
 [[ "$ELAPSED" -ge 5 ]] && [[ "$ELAPSED" -le 7 ]] || exit 1
 
+# Test time-limited scopes
+START_SEC=$(date -u '+%s')
+set +e
+systemd-run --scope --property=RuntimeMaxSec=3s sleep 10
+RESULT=$?
+END_SEC=$(date -u '+%s')
+ELAPSED=$(($END_SEC-$START_SEC))
+[[ "$ELAPSED" -ge 3 ]] && [[ "$ELAPSED" -le 5 ]] || exit 1
+[[ "$RESULT" -ne 0 ]] || exit 1
+
 touch /testok

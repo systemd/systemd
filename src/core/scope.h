@@ -24,6 +24,7 @@ struct Scope {
         ScopeState state, deserialized_state;
         ScopeResult result;
 
+        usec_t runtime_max_usec;
         usec_t timeout_stop_usec;
 
         char *controller;

@@ -468,6 +468,7 @@ CGROUP_CONTEXT_CONFIG_ITEMS(Slice)m4_dnl
 m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Scope)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Scope)m4_dnl
+Scope.RuntimeMaxSec,             config_parse_sec,                   0,                             offsetof(Scope, runtime_max_usec)
 Scope.TimeoutStopSec,            config_parse_sec,                   0,                             offsetof(Scope, timeout_stop_usec)
 m4_dnl The [Install] section is ignored here.
 Install.Alias,                   NULL,                               0,                             0
