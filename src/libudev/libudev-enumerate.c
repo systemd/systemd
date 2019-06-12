@@ -17,6 +17,7 @@
 #include "device-enumerator-private.h"
 #include "device-util.h"
 #include "libudev-device-internal.h"
+#include "libudev-list-internal.h"
 
 /**
  * SECTION:libudev-enumerate
@@ -333,7 +334,7 @@ _public_ int udev_enumerate_add_match_parent(struct udev_enumerate *udev_enumera
         if (!parent)
                 return 0;
 
-        r = sd_device_enumerator_add_match_parent(udev_enumerate->enumerator, parent->device);
+        r = sd_device_enumerator_add_match_parent(udev_enumerate->enumerator, udev_device_get_sd_device(parent));
         if (r < 0)
                 return r;
 

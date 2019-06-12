@@ -23,6 +23,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "libudev-device-internal.h"
+#include "libudev-list-internal.h"
 #include "parse-util.h"
 #include "time-util.h"
 
@@ -35,6 +36,36 @@
  * filesystem. Devices usually belong to a kernel subsystem, and have
  * a unique name inside that subsystem.
  */
+
+/**
+ * udev_device:
+ *
+ * Opaque object representing one kernel sys device.
+ */
+struct udev_device {
+        struct udev *udev;
+
+        /* real device object */
+        sd_device *device;
+
+        /* legacy */
+        unsigned n_ref;
+
+        struct udev_device *parent;
+        bool parent_set;
+
+        struct udev_list *properties;
+        uint64_t properties_generation;
+        struct udev_list *tags;
+        uint64_t tags_generation;
+        struct udev_list *devlinks;
+        uint64_t devlinks_generation;
+        bool properties_read:1;
+        bool tags_read:1;
+        bool devlinks_read:1;
+        struct udev_list *sysattrs;
+        bool sysattrs_read;
+};
 
 /**
  * udev_device_get_seqnum:
@@ -833,4 +864,10 @@ _public_ int udev_device_has_tag(struct udev_device *udev_device, const char *ta
         assert_return(udev_device, 0);
 
         return sd_device_has_tag(udev_device->device, tag) > 0;
+}
+
+sd_device *udev_device_get_sd_device(struct udev_device *udev_device) {
+        assert(udev_device);
+
+        return udev_device->device;
 }
