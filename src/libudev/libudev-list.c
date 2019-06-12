@@ -27,7 +27,6 @@ struct udev_list_entry {
         struct udev_list *list;
         char *name;
         char *value;
-        int num;
 };
 
 /* the list's head points to itself if empty */
