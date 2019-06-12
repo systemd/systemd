@@ -279,6 +279,27 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
         return 0;
 }
 
+static int append_session_runtime_max_sec(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
+        usec_t val;
+        int r;
+
+        /* No need to parse "infinity" here, it will be set by default later in scope_init() */
+        if (isempty(limit) || streq(limit, "infinity"))
+                return 0;
+
+        r = parse_sec(limit, &val);
+        if (r >= 0) {
+                r = sd_bus_message_append(m, "(sv)", "RuntimeMaxUSec", "t", (uint64_t) val);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
+                        return r;
+                }
+        } else
+                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.runtime_max_sec: %s, ignoring.", limit);
+
+        return 0;
+}
+
 static int append_session_tasks_max(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
         uint64_t val;
         int r;
@@ -412,7 +433,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 *seat = NULL,
                 *type = NULL, *class = NULL,
                 *class_pam = NULL, *type_pam = NULL, *cvtnr = NULL, *desktop = NULL, *desktop_pam = NULL,
-                *memory_max = NULL, *tasks_max = NULL, *cpu_weight = NULL, *io_weight = NULL;
+                *memory_max = NULL, *tasks_max = NULL, *cpu_weight = NULL, *io_weight = NULL, *runtime_max_sec = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int session_fd = -1, existing, r;
         bool debug = false, remote;
@@ -545,6 +566,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         (void) pam_get_data(handle, "systemd.tasks_max",  (const void **)&tasks_max);
         (void) pam_get_data(handle, "systemd.cpu_weight", (const void **)&cpu_weight);
         (void) pam_get_data(handle, "systemd.io_weight",  (const void **)&io_weight);
+        (void) pam_get_data(handle, "systemd.runtime_max_sec", (const void **)&runtime_max_sec);
 
         /* Talk to logind over the message bus */
 
@@ -563,8 +585,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                            strempty(seat), vtnr, strempty(tty), strempty(display),
                            yes_no(remote), strempty(remote_user), strempty(remote_host));
                 pam_syslog(handle, LOG_DEBUG, "Session limits: "
-                           "memory_max=%s tasks_max=%s cpu_weight=%s io_weight=%s",
-                           strna(memory_max), strna(tasks_max), strna(cpu_weight), strna(io_weight));
+                           "memory_max=%s tasks_max=%s cpu_weight=%s io_weight=%s runtime_max_sec=%s",
+                           strna(memory_max), strna(tasks_max), strna(cpu_weight), strna(io_weight), strna(runtime_max_sec));
         }
 
         r = sd_bus_message_new_method_call(
@@ -605,6 +627,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         }
 
         r = append_session_memory_max(handle, m, memory_max);
+        if (r < 0)
+                return PAM_SESSION_ERR;
+
+        r = append_session_runtime_max_sec(handle, m, runtime_max_sec);
         if (r < 0)
                 return PAM_SESSION_ERR;
 
