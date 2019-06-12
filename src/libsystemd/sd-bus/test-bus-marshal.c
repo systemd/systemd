@@ -203,6 +203,7 @@ int main(int argc, char *argv[]) {
         log_info("message size = %zu, contents =\n%s", sz, h);
 
 #if HAVE_GLIB
+        /* Work-around for asan bug. See c8d980a3e962aba2ea3a4cedf75fa94890a6d746. */
 #if !HAS_FEATURE_ADDRESS_SANITIZER
         {
                 GDBusMessage *g;
