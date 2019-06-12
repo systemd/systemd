@@ -59,6 +59,7 @@ static int bus_scope_set_transient_property(
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
 
+        Unit *u = UNIT(s);
         int r;
 
         assert(s);
@@ -68,7 +69,7 @@ static int bus_scope_set_transient_property(
         flags |= UNIT_PRIVATE;
 
         if (streq(name, "TimeoutStopUSec"))
-                return bus_set_transient_usec(UNIT(s), name, &s->timeout_stop_usec, message, flags, error);
+                return bus_set_transient_usec(u, name, &s->timeout_stop_usec, message, flags, error);
 
         if (streq(name, "PIDs")) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
@@ -101,12 +102,12 @@ static int bus_scope_set_transient_property(
                         } else
                                 pid = (uid_t) upid;
 
-                        r = unit_pid_attachable(UNIT(s), pid, error);
+                        r = unit_pid_attachable(u, pid, error);
                         if (r < 0)
                                 return r;
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                r = unit_watch_pid(UNIT(s), pid, false);
+                                r = unit_watch_pid(u, pid, false);
                                 if (r < 0 && r != -EEXIST)
                                         return r;
                         }
@@ -128,7 +129,7 @@ static int bus_scope_set_transient_property(
 
                 /* We can't support direct connections with this, as direct connections know no service or unique name
                  * concept, but the Controller field stores exactly that. */
-                if (sd_bus_message_get_bus(message) != UNIT(s)->manager->api_bus)
+                if (sd_bus_message_get_bus(message) != u->manager->api_bus)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Sorry, Controller= logic only supported via the bus.");
 
                 r = sd_bus_message_read(message, "s", &controller);
