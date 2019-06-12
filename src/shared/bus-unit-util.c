@@ -1401,6 +1401,14 @@ static int bus_append_path_property(sd_bus_message *m, const char *field, const 
         return 0;
 }
 
+static int bus_append_scope_property(sd_bus_message *m, const char *field, const char *eq) {
+        if (streq(field, "TimeoutStopSec"))
+
+                return bus_append_parse_sec_rename(m, field, eq);
+
+        return 0;
+}
+
 static int bus_append_service_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
@@ -1789,15 +1797,15 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
                 break;
 
         case UNIT_SCOPE:
-
-                if (streq(field, "TimeoutStopSec"))
-                        return bus_append_parse_sec_rename(m, field, eq);
-
                 r = bus_append_cgroup_property(m, field, eq);
                 if (r != 0)
                         return r;
 
                 r = bus_append_kill_property(m, field, eq);
+                if (r != 0)
+                        return r;
+
+                r = bus_append_scope_property(m, field, eq);
                 if (r != 0)
                         return r;
                 break;
