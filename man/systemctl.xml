@@ -1341,7 +1341,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                   </row>
                   <row>
                     <entry><literal>indirect</literal></entry>
-                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> unit file section, listing other unit files that might be enabled, or it has an alias under a different name through a symlink that is not specified in Also=. For template unit file, an instance different than the one specified in <varname>DefaultInstance=</varname> is enabled.</entry>
+                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> unit file section, listing other unit files that might be enabled, or it has an alias under a different name through a symlink that is not specified in <varname>Also=</varname>. For template unit file, an instance different than the one specified in <varname>DefaultInstance=</varname> is enabled.</entry>
                     <entry>0</entry>
                   </row>
                   <row>
