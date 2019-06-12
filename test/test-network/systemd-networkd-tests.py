@@ -1579,7 +1579,12 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 address show dummy98')
         print(output)
         self.assertEqual(output, '')
-        self.check_operstate('dummy98', 'routable')
+        output = check_output('ip -4 route show dev dummy98')
+        print(output)
+        self.assertEqual(output, '10.2.0.0/16 proto kernel scope link src 10.2.3.4')
+        output = check_output('ip -6 route show dev dummy98')
+        print(output)
+        self.assertEqual(output, '')
 
         check_output('ip link del dummy98')
 
@@ -1595,8 +1600,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope global dummy98')
         output = check_output('ip -6 address show dummy98')
         print(output)
+        self.assertRegex(output, 'inet6 2607:5300:203:3906::/64 scope global')
         self.assertRegex(output, 'inet6 .* scope link')
-        self.check_operstate('dummy98', 'routable')
+        output = check_output('ip -4 route show dev dummy98')
+        print(output)
+        self.assertEqual(output, '10.2.0.0/16 proto kernel scope link src 10.2.3.4')
+        output = check_output('ip -6 route show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'default via 2607:5300:203:39ff:ff:ff:ff:ff proto static')
 
     def test_bind_carrier(self):
         copy_unit_to_networkd_unit_path('25-bind-carrier.network', '11-dummy.netdev')
