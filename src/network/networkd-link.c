@@ -838,8 +838,8 @@ static int link_request_set_routing_policy_rule(Link *link) {
                         link_enter_failed(link);
                         return r;
                 }
-
-                link->routing_policy_rule_messages++;
+                if (r > 0)
+                        link->routing_policy_rule_messages++;
         }
 
         routing_policy_rule_purge(link->manager, link);
@@ -913,8 +913,8 @@ int link_request_set_routes(Link *link) {
                                 link_enter_failed(link);
                                 return r;
                         }
-
-                        link->route_messages++;
+                        if (r > 0)
+                                link->route_messages++;
                 }
 
         if (link->route_messages == 0) {
@@ -1194,8 +1194,8 @@ static int link_request_set_addresses(Link *link) {
                         link_enter_failed(link);
                         return r;
                 }
-
-                link->address_messages++;
+                if (r > 0)
+                        link->address_messages++;
         }
 
         LIST_FOREACH(labels, label, link->network->address_labels) {

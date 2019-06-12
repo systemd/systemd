@@ -484,6 +484,11 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
         assert(link->manager);
         assert(link->manager->rtnl);
 
+        if (rule->family == AF_INET6 && manager_sysctl_ipv6_enabled(link->manager) == 0) {
+                log_link_warning(link, "An IPv6 routing policy rule is requested, but IPv6 is disabled by sysctl, ignoring.");
+                return 0;
+        }
+
         r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, rule->family);
         if (r < 0)
                 return log_error_errno(r, "Could not allocate RTM_NEWRULE message: %m");
@@ -593,7 +598,7 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
         if (r < 0)
                 return log_error_errno(r, "Could not add rule: %m");
 
-        return 0;
+        return 1;
 }
 
 static int parse_fwmark_fwmask(const char *s, uint32_t *fwmark, uint32_t *fwmask) {
