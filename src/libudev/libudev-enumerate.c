@@ -34,7 +34,7 @@
 struct udev_enumerate {
         struct udev *udev;
         unsigned n_ref;
-        struct udev_list devices_list;
+        struct udev_list *devices_list;
         bool devices_uptodate:1;
 
         sd_device_enumerator *enumerator;
@@ -50,6 +50,7 @@ struct udev_enumerate {
  **/
 _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_(udev_list_freep) struct udev_list *list = NULL;
         struct udev_enumerate *udev_enumerate;
         int r;
 
@@ -61,6 +62,10 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
         if (r < 0)
                 return_with_errno(NULL, r);
 
+        list = udev_list_new(false);
+        if (!list)
+                return_with_errno(NULL, ENOMEM);
+
         udev_enumerate = new(struct udev_enumerate, 1);
         if (!udev_enumerate)
                 return_with_errno(NULL, ENOMEM);
@@ -69,9 +74,8 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
                 .udev = udev,
                 .n_ref = 1,
                 .enumerator = TAKE_PTR(e),
+                .devices_list = TAKE_PTR(list),
         };
-
-        udev_list_init(&udev_enumerate->devices_list, false);
 
         return udev_enumerate;
 }
@@ -79,7 +83,7 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
 static struct udev_enumerate *udev_enumerate_free(struct udev_enumerate *udev_enumerate) {
         assert(udev_enumerate);
 
-        udev_list_cleanup(&udev_enumerate->devices_list);
+        udev_list_free(udev_enumerate->devices_list);
         sd_device_enumerator_unref(udev_enumerate->enumerator);
         return mfree(udev_enumerate);
 }
@@ -134,7 +138,7 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
         if (!udev_enumerate->devices_uptodate) {
                 sd_device *device;
 
-                udev_list_cleanup(&udev_enumerate->devices_list);
+                udev_list_cleanup(udev_enumerate->devices_list);
 
                 FOREACH_DEVICE_AND_SUBSYSTEM(udev_enumerate->enumerator, device) {
                         const char *syspath;
@@ -144,14 +148,14 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                         if (r < 0)
                                 return_with_errno(NULL, r);
 
-                        if (!udev_list_entry_add(&udev_enumerate->devices_list, syspath, NULL))
+                        if (!udev_list_entry_add(udev_enumerate->devices_list, syspath, NULL))
                                 return_with_errno(NULL, ENOMEM);
                 }
 
                 udev_enumerate->devices_uptodate = true;
         }
 
-        e = udev_list_get_entry(&udev_enumerate->devices_list);
+        e = udev_list_get_entry(udev_enumerate->devices_list);
         if (!e)
                 return_with_errno(NULL, ENODATA);
 

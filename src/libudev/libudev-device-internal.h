@@ -23,16 +23,16 @@ struct udev_device {
         struct udev_device *parent;
         bool parent_set;
 
-        struct udev_list properties;
+        struct udev_list *properties;
         uint64_t properties_generation;
-        struct udev_list tags;
+        struct udev_list *tags;
         uint64_t tags_generation;
-        struct udev_list devlinks;
+        struct udev_list *devlinks;
         uint64_t devlinks_generation;
         bool properties_read:1;
         bool tags_read:1;
         bool devlinks_read:1;
-        struct udev_list sysattrs;
+        struct udev_list *sysattrs;
         bool sysattrs_read;
 };
 

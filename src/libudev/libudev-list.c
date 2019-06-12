@@ -16,6 +16,10 @@
  * Libudev list operations.
  */
 
+struct udev_list_node {
+        struct udev_list_node *next, *prev;
+};
+
 /**
  * udev_list_entry:
  *
@@ -27,6 +31,14 @@ struct udev_list_entry {
         struct udev_list *list;
         char *name;
         char *value;
+};
+
+struct udev_list {
+        struct udev_list_node node;
+        struct udev_list_entry **entries;
+        unsigned entries_cur;
+        unsigned entries_max;
+        bool unique;
 };
 
 /* the list's head points to itself if empty */
@@ -64,10 +76,20 @@ static struct udev_list_entry *list_node_to_entry(struct udev_list_node *node) {
         return container_of(node, struct udev_list_entry, node);
 }
 
-void udev_list_init(struct udev_list *list, bool unique) {
-        memzero(list, sizeof(struct udev_list));
-        list->unique = unique;
+struct udev_list *udev_list_new(bool unique) {
+        struct udev_list *list;
+
+        list = new(struct udev_list, 1);
+        if (!list)
+                return NULL;
+
+        *list = (struct udev_list) {
+                .unique = unique,
+        };
+
         udev_list_node_init(&list->node);
+
+        return list;
 }
 
 /* insert entry into a list as the last element  */
@@ -211,14 +233,22 @@ static void udev_list_entry_delete(struct udev_list_entry *entry) {
              entry = tmp, tmp = udev_list_entry_get_next(tmp))
 
 void udev_list_cleanup(struct udev_list *list) {
-        struct udev_list_entry *entry_loop;
-        struct udev_list_entry *entry_tmp;
+        struct udev_list_entry *entry_loop, *entry_tmp;
 
         list->entries = mfree(list->entries);
         list->entries_cur = 0;
         list->entries_max = 0;
         udev_list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(list))
                 udev_list_entry_delete(entry_loop);
+}
+
+struct udev_list *udev_list_free(struct udev_list *list) {
+        if (!list)
+                return NULL;
+
+        udev_list_cleanup(list);
+
+        return mfree(list);
 }
 
 struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
