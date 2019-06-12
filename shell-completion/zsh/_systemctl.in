@@ -35,6 +35,7 @@
         "add-requires:Add Requires= dependencies to a unit"
         "reenable:Reenable one or more unit files"
         "preset:Enable/disable one or more unit files based on preset configuration"
+        "preset-all:Enable/disable all unit files based on preset configuration"
         "set-default:Set the default target"
         "get-default:Query the default target"
         "edit:Edit one or more unit files"
