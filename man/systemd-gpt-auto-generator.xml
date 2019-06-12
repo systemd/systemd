@@ -187,6 +187,12 @@
     <filename>/dev/mapper/home</filename> and <filename>/dev/mapper/srv</filename>. Note that this might
     create conflicts if the same partition is listed in <filename>/etc/crypttab</filename> with a different
     device mapper device name.</para>
+    
+    <para>When systemd is running in the initrd the <filename>/</filename> partition may be encrypted in LUKS
+      format as well. In this case, a device mapper device is set up under the name <filename>/dev/mapper/root</filename>,
+      and a <filename>sysroot.mount</filename> is set up that mounts the device under <filename>/sysroot</filename>.
+      For more information, see <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    </para>
 
     <para>Mount and automount units for the EFI System Partition (ESP) are generated on EFI systems. The ESP
     is mounted to <filename>/boot/</filename> (except if an Extended Boot Loader partition exists, see
