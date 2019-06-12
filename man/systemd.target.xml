@@ -34,8 +34,8 @@
     <para>This unit type has no specific options. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
-    configuration items are configured in the generic [Unit] and
-    [Install] sections. A separate [Target] section does not exist,
+    configuration items are configured in the generic <literal>[Unit]</literal> and
+    <literal>[Install]</literal> sections. A separate <literal>[Target]</literal> section does not exist,
     since no target-specific options may be configured.</para>
 
     <para>Target units do not offer any additional functionality on

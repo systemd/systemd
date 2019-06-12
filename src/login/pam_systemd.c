@@ -271,7 +271,7 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
                                         return r;
                                 }
                         } else
-                                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.limit: %s, ignoring.", limit);
+                                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.memory_max: %s, ignoring.", limit);
                 }
         }
 
@@ -294,7 +294,7 @@ static int append_session_tasks_max(pam_handle_t *handle, sd_bus_message *m, con
                         return r;
                 }
         } else
-                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.limit: %s, ignoring.", limit);
+                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.tasks_max: %s, ignoring.", limit);
 
         return 0;
 }
