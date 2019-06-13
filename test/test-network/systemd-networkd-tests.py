@@ -471,6 +471,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-bond.netdev',
         '25-bond-balanced-tlb.netdev',
         '25-bridge.netdev',
+        '25-bridge-configure-without-carrier.network',
         '25-bridge.network',
         '25-erspan-tunnel-local-any.netdev',
         '25-erspan-tunnel.netdev',
@@ -585,10 +586,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.check_operstate('test1', 'degraded')
 
     def test_bridge(self):
-        copy_unit_to_networkd_unit_path('25-bridge.netdev')
+        copy_unit_to_networkd_unit_path('25-bridge.netdev', '25-bridge-configure-without-carrier.network')
         start_networkd(0)
 
-        wait_online(['bridge99:off'])
+        wait_online(['bridge99:no-carrier'])
 
         tick = os.sysconf('SC_CLK_TCK')
         self.assertEqual(9, round(float(read_link_attr('bridge99', 'bridge', 'hello_time')) / tick))
