@@ -61,12 +61,8 @@ int manager_handle_action(
         int r;
 
         assert(m);
-
-        /* If the key handling is turned off, don't do anything */
-        if (handle == HANDLE_IGNORE) {
-                log_debug("Refusing operation, as it is turned off.");
-                return 0;
-        }
+        /* We should be called only with valid actions different than HANDLE_IGNORE. */
+        assert(handle > HANDLE_IGNORE && handle < _HANDLE_ACTION_MAX);
 
         if (inhibit_key == INHIBIT_HANDLE_LID_SWITCH) {
                 /* If the last system suspend or startup is too close,
