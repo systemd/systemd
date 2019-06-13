@@ -269,7 +269,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
         for (i = reply; i; i = sd_netlink_message_next(i)) {
-                if (!GREEDY_REALLOC(links, allocated, c+1))
+                if (!GREEDY_REALLOC0(links, allocated, c+1))
                         return -ENOMEM;
 
                 r = decode_link(i, links + c, patterns);
