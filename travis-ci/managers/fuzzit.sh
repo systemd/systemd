@@ -14,7 +14,14 @@ pip3 install meson
 
 cd $REPO_ROOT
 export PATH="$HOME/.local/bin/:$PATH"
-export SANITIZER=address,undefined
+
+# We use a subset of https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html#available-checks instead of "undefined"
+# because that's how the fuzzers are built on OSS-Fuzz: https://github.com/google/oss-fuzz/blob/a3c935fe9ca7f82bafa520731525e1cc38acf650/infra/base-images/base-builder/Dockerfile#L33-L34
+# and we know they don't fail there. We can turn on everything else later after the issues mentioned in
+# https://github.com/systemd/systemd/pull/12771#issuecomment-502139157 are sorted out at least.
+# TODO: "null" should probably be added too. On OSS-Fuzz it was turned off in https://github.com/google/oss-fuzz/pull/674
+# TODO: figure out what to do about unsigned-integer-overflow: https://github.com/google/oss-fuzz/issues/910
+export SANITIZER="address -fsanitize=bool,array-bounds,float-divide-by-zero,function,integer-divide-by-zero,return,shift,signed-integer-overflow,unsigned-integer-overflow,vla-bound,vptr -fno-sanitize-recover=bool,array-bounds,float-divide-by-zero,function,integer-divide-by-zero,return,shift,signed-integer-overflow,vla-bound,vptr"
 tools/oss-fuzz.sh
 
 export FUZZING_TYPE=${1:-sanity}
@@ -28,7 +35,7 @@ fi
 # on pull-request we use a write-only key which is ok for now. maybe there will be a better solution in the future
 export FUZZIT_API_KEY=7c1bd82fe0927ffe1b4bf1e2e86cc812b28dfe08a7080a7bf498e98715884a163402ee37ba95d4b1637247deffcea43e
 export FUZZIT_ADDITIONAL_FILES="./out/src/shared/libsystemd-shared-242.so"
-export FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT} --asan_options quarantine_size_mb=10 --ubsan_options=print_stacktrace=1:print_summary=1:halt_on_error=1"
+export FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT} --asan_options quarantine_size_mb=10 --ubsan_options=print_stacktrace=1:print_summary=1:halt_on_error=1:silence_unsigned_overflow=1"
 wget -O fuzzit https://bin.fuzzit.dev/fuzzit-1.1
 chmod +x fuzzit
 
