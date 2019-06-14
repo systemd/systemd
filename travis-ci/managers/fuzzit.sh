@@ -28,16 +28,19 @@ fi
 # on pull-request we use a write-only key which is ok for now. maybe there will be a better solution in the future
 export FUZZIT_API_KEY=7c1bd82fe0927ffe1b4bf1e2e86cc812b28dfe08a7080a7bf498e98715884a163402ee37ba95d4b1637247deffcea43e
 export FUZZIT_ADDITIONAL_FILES="./out/src/shared/libsystemd-shared-242.so"
-export FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch "${FUZZIT_BRANCH}" --revision ${TRAVIS_COMMIT}"
+export FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT} --asan_options quarantine_size_mb=10"
 wget -O fuzzit https://bin.fuzzit.dev/fuzzit-1.1
 chmod +x fuzzit
 
 ./fuzzit auth ${FUZZIT_API_KEY}
+
+# The following was generated with
+# ./fuzzit get targets | jq --raw-output '.target_name + " " + .id' | perl -alne 'printf("./fuzzit c job \${FUZZIT_ARGS} %s ./out/%s \${FUZZIT_ADDITIONAL_FILES}\n", $F[1], $F[0])'
 ./fuzzit c job ${FUZZIT_ARGS} 2ODbhEjfRF2AZtrUotMh ./out/fuzz-bus-label ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} 62XnUyWTLAvIRh1vFkEw ./out/fuzz-journald-stream ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} 6AdGwIiI3l1Edu9V4fvF ./out/fuzz-env-file ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} 7ubB4DVu2EiYgPVtRUNV ./out/fuzz-calendarspec ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} --asan_options "quarantine_size_mb=10"  8D0NrVtSwTpl23a9k0vv ./out/fuzz-nspawn-oci ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} 8D0NrVtSwTpl23a9k0vv ./out/fuzz-nspawn-oci ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} 8tbrzwxsaIPalIRBHtK8 ./out/fuzz-link-parser ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} 9T5He9cANxHTBLaBURpz ./out/fuzz-journald-kmsg ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} BRaEBuU7QVlSp1HOjlDb ./out/fuzz-udev-database ${FUZZIT_ADDITIONAL_FILES}
@@ -47,14 +50,19 @@ chmod +x fuzzit
 ./fuzzit c job ${FUZZIT_ARGS} P1MpkewCNQCYLdMFggnU ./out/fuzz-journald-audit ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} RmD47BxVRbAZlq07XW30 ./out/fuzz-unit-file ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} S0dGMaaGwkvsLc0IqIJ7 ./out/fuzz-catalog ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} X7qIoGLAoBgjVf19SfvY ./out/fuzz-compress ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} YAfecldFs2xaXn0Ws1BE ./out/fuzz-dns-packet ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} bgRZAE9E5uXRbUX76tId ./out/fuzz-ndisc-rs ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} cXCm75EhdDf5t2sSBLRC ./out/fuzz-hostname-util ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} cbgsYEyX6776MHFotO9O ./out/fuzz-nspawn-settings ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} d8lokp0LCLYgQwI7vyx6 ./out/fuzz-journald-native-fd ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} eoc9rbm2jKqIEg6Kdonv ./out/fuzz-network-parser ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} ezQIlJWCX3xPUJdhLnWM ./out/fuzz-dhcp-server ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} ge3eTzephghWD3Stw2TE ./out/fuzz-journald-syslog ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} nPIt1SCDkGkSFDth5RlG ./out/fuzz-json ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} nU0lRNNkQrXirDMNOpR1 ./out/fuzz-varlink ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} pzrzgLQY2cG8Iexb0tOt ./out/fuzz-journal-remote ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} qCWFcENjlfWJX0Q3cIOT ./out/fuzz-journald-native ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} s7d3LuRbkETCPSyxUvW8 ./out/fuzz-time-util ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} udjVYJfH4N01vaHNF5Kv ./out/fuzz-lldp ${FUZZIT_ADDITIONAL_FILES}
 ./fuzzit c job ${FUZZIT_ARGS} vbYVccyWoDdgqzrQeln8 ./out/fuzz-bus-message ${FUZZIT_ADDITIONAL_FILES}
