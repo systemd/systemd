@@ -11,11 +11,17 @@ env:
         - REPO_ROOT="$TRAVIS_BUILD_DIR"
 
 stages:
-    # Run Coverity periodically instead of for each commit/PR
-    - name: Coverity
-      if: type = cron
+    - name: Build & test
+      if: type != cron
 
     - name: Fuzzit-Fuzzing
+      if: type = cron
+
+    - name: Fuzzit-Sanity
+      if: type != cron
+
+    # Run Coverity periodically instead of for each commit/PR
+    - name: Coverity
       if: type = cron
 
 jobs:
