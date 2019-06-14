@@ -184,15 +184,15 @@ def remove_links(links):
 
 def remove_fou_ports(ports):
     for port in ports:
-        call('ip fou del port', port)
+        call('ip fou del port', port, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def remove_routing_policy_rule_tables(tables):
     for table in tables:
-        call('ip rule del table', table)
+        call('ip rule del table', table, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def remove_routes(routes):
     for route_type, addr in routes:
-        call('ip route del', route_type, addr)
+        call('ip route del', route_type, addr, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def l2tp_tunnel_remove(tunnel_ids):
     output = check_output('ip l2tp show tunnel')
