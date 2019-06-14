@@ -1485,9 +1485,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         start_networkd(0)
         wait_online(['test1:degraded', 'dummy98:carrier'])
 
-        self.check_link_exists('test1')
-        self.check_link_exists('dummy98')
-
         output = check_output('ip address show dev test1')
         print(output)
         self.assertRegex(output, 'inet .* scope link')
@@ -1496,9 +1493,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip address show dev dummy98')
         print(output)
         self.assertNotRegex(output, 'inet6* .* scope link')
-
-        self.check_operstate('test1', 'degraded')
-        self.check_operstate('dummy98', 'carrier')
 
         '''
         Documentation/networking/ip-sysctl.txt
@@ -2395,9 +2389,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip route show table main dev veth99')
         print(output)
         self.assertEqual(output, '')
-
-        self.check_operstate('vrf99', 'carrier')
-        self.check_operstate('veth99', 'routable')
 
     def test_dhcp_client_gateway_onlink_implicit(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
