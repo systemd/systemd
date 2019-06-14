@@ -11,6 +11,9 @@ env:
         - REPO_ROOT="$TRAVIS_BUILD_DIR"
 
 stages:
+    - name: Build & test
+      if: type != cron
+
     - name: Fuzzit-Fuzzing
       if: type = cron
 
