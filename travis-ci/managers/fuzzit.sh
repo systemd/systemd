@@ -24,18 +24,20 @@ export PATH="$HOME/.local/bin/:$PATH"
 export SANITIZER="address -fsanitize=bool,array-bounds,float-divide-by-zero,function,integer-divide-by-zero,return,shift,signed-integer-overflow,unsigned-integer-overflow,vla-bound,vptr -fno-sanitize-recover=bool,array-bounds,float-divide-by-zero,function,integer-divide-by-zero,return,shift,signed-integer-overflow,vla-bound,vptr"
 tools/oss-fuzz.sh
 
-export FUZZING_TYPE=${1:-sanity}
+FUZZING_TYPE=${1:-sanity}
 if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-    export FUZZIT_BRANCH="${TRAVIS_BRANCH}"
+    FUZZIT_BRANCH="${TRAVIS_BRANCH}"
 else
-    export FUZZIT_BRANCH="PR-${TRAVIS_PULL_REQUEST}"
+    FUZZIT_BRANCH="PR-${TRAVIS_PULL_REQUEST}"
 fi
 
 # Because we want Fuzzit to run on every pull-request and Travis/Azure doesnt support encrypted keys
 # on pull-request we use a write-only key which is ok for now. maybe there will be a better solution in the future
-export FUZZIT_API_KEY=7c1bd82fe0927ffe1b4bf1e2e86cc812b28dfe08a7080a7bf498e98715884a163402ee37ba95d4b1637247deffcea43e
-export FUZZIT_ADDITIONAL_FILES="./out/src/shared/libsystemd-shared-242.so"
-export FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT} --asan_options quarantine_size_mb=10 --ubsan_options=print_stacktrace=1:print_summary=1:halt_on_error=1:silence_unsigned_overflow=1"
+FUZZIT_API_KEY=7c1bd82fe0927ffe1b4bf1e2e86cc812b28dfe08a7080a7bf498e98715884a163402ee37ba95d4b1637247deffcea43e
+FUZZIT_ADDITIONAL_FILES="./out/src/shared/libsystemd-shared-242.so"
+ASAN_OPTIONS=quarantine_size_mb=10
+UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1:silence_unsigned_overflow=1
+FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT} --asan_options ${ASAN_OPTIONS} --ubsan_options ${UBSAN_OPTIONS}"
 wget -O fuzzit https://bin.fuzzit.dev/fuzzit-1.1
 chmod +x fuzzit
 
