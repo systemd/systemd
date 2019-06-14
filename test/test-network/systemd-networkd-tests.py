@@ -878,7 +878,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                                         '25-ip6gre-tunnel.netdev', '25-tunnel.network',
                                         '25-ip6gre-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                                         '25-ip6gre-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
-        start_networkd()
+        start_networkd(5)
 
         # Old kernels seem not to support IPv6LL address on ip6gre tunnel, So please do not use wait_online() here.
 
@@ -1310,10 +1310,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
     def test_address_preferred_lifetime_zero_ipv6(self):
         copy_unit_to_networkd_unit_path('25-address-preferred-lifetime-zero-ipv6.network', '12-dummy.netdev')
-        start_networkd()
+        start_networkd(5)
 
         self.check_link_exists('dummy98')
-
         self.check_operstate('dummy98', 'routable', setup_state='configuring')
 
         output = check_output('ip address show dummy98')
