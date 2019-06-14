@@ -1382,8 +1382,6 @@ int manager_new(Manager **ret) {
         if (!m->state_file)
                 return -ENOMEM;
 
-        m->sysctl_ipv6_enabled = -1;
-
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
@@ -1885,19 +1883,4 @@ int manager_request_product_uuid(Manager *m, Link *link) {
                 return log_warning_errno(r, "Failed to get product UUID: %m");
 
         return 0;
-}
-
-int manager_sysctl_ipv6_enabled(Manager *manager) {
-        _cleanup_free_ char *value = NULL;
-        int r;
-
-        if (manager->sysctl_ipv6_enabled >= 0)
-                return manager->sysctl_ipv6_enabled;
-
-        r = sysctl_read_ip_property(AF_INET6, "all", "disable_ipv6", &value);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to read net.ipv6.conf.all.disable_ipv6 sysctl property: %m");
-
-        manager->sysctl_ipv6_enabled = value[0] == '0';
-        return manager->sysctl_ipv6_enabled;
 }

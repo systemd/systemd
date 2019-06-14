@@ -500,7 +500,7 @@ int route_configure(
         assert(IN_SET(route->family, AF_INET, AF_INET6));
         assert(callback);
 
-        if (route->family == AF_INET6 && manager_sysctl_ipv6_enabled(link->manager) == 0) {
+        if (route->family == AF_INET6 && link_sysctl_ipv6_enabled(link) == 0) {
                 log_link_warning(link, "An IPv6 route is requested, but IPv6 is disabled by sysctl, ignoring.");
                 return 0;
         }

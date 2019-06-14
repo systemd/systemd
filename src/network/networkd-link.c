@@ -62,6 +62,20 @@ DUID* link_get_duid(Link *link) {
                 return &link->manager->duid;
 }
 
+int link_sysctl_ipv6_enabled(Link *link) {
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        r = sysctl_read_ip_property(AF_INET6, link->ifname, "disable_ipv6", &value);
+        if (r < 0)
+                return log_link_warning_errno(link, r,
+                                              "Failed to read net.ipv6.conf.%s.disable_ipv6 sysctl property: %m",
+                                              link->ifname);
+
+        link->sysctl_ipv6_enabled = value[0] == '0';
+        return link->sysctl_ipv6_enabled;
+}
+
 static bool link_dhcp6_enabled(Link *link) {
         assert(link);
 
@@ -80,7 +94,7 @@ static bool link_dhcp6_enabled(Link *link) {
         if (STRPTR_IN_SET(link->kind, "can", "vcan", "vxcan"))
                 return false;
 
-        if (manager_sysctl_ipv6_enabled(link->manager) == 0)
+        if (link_sysctl_ipv6_enabled(link) == 0)
                 return false;
 
         return link->network->dhcp & ADDRESS_FAMILY_IPV6;
@@ -166,7 +180,7 @@ static bool link_ipv6ll_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
-        if (manager_sysctl_ipv6_enabled(link->manager) == 0)
+        if (link_sysctl_ipv6_enabled(link) == 0)
                 return false;
 
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
@@ -181,7 +195,7 @@ static bool link_ipv6_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
-        if (manager_sysctl_ipv6_enabled(link->manager) == 0)
+        if (link_sysctl_ipv6_enabled(link) == 0)
                 return false;
 
         if (STRPTR_IN_SET(link->kind, "can", "vcan", "vxcan"))
@@ -230,7 +244,7 @@ static bool link_ipv6_forward_enabled(Link *link) {
         if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
                 return false;
 
-        if (manager_sysctl_ipv6_enabled(link->manager) == 0)
+        if (link_sysctl_ipv6_enabled(link) == 0)
                 return false;
 
         return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
@@ -541,6 +555,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .rtnl_extended_attrs = true,
                 .ifindex = ifindex,
                 .iftype = iftype,
+                .sysctl_ipv6_enabled = -1,
         };
 
         link->ifname = strdup(ifname);
