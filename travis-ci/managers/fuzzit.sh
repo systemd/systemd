@@ -28,7 +28,7 @@ fi
 # on pull-request we use a write-only key which is ok for now. maybe there will be a better solution in the future
 export FUZZIT_API_KEY=7c1bd82fe0927ffe1b4bf1e2e86cc812b28dfe08a7080a7bf498e98715884a163402ee37ba95d4b1637247deffcea43e
 export FUZZIT_ADDITIONAL_FILES="./out/src/shared/libsystemd-shared-242.so"
-export FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT} --asan_options quarantine_size_mb=10"
+export FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT} --asan_options quarantine_size_mb=10 --ubsan_options=print_stacktrace=1:print_summary=1:halt_on_error=1"
 wget -O fuzzit https://bin.fuzzit.dev/fuzzit-1.1
 chmod +x fuzzit
 
