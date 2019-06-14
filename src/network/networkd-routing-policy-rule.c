@@ -484,7 +484,7 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        if (rule->family == AF_INET6 && manager_sysctl_ipv6_enabled(link->manager) == 0) {
+        if (rule->family == AF_INET6 && link_sysctl_ipv6_enabled(link) == 0) {
                 log_link_warning(link, "An IPv6 routing policy rule is requested, but IPv6 is disabled by sysctl, ignoring.");
                 return 0;
         }

@@ -124,7 +124,7 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         assert(link->manager);
         assert(fdb_entry);
 
-        if (fdb_entry->family == AF_INET6 && manager_sysctl_ipv6_enabled(link->manager) == 0) {
+        if (fdb_entry->family == AF_INET6 && link_sysctl_ipv6_enabled(link) == 0) {
                 log_link_warning(link, "An IPv6 fdb entry is requested, but IPv6 is disabled by sysctl, ignoring.");
                 return 0;
         }

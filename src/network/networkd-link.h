@@ -126,6 +126,8 @@ typedef struct Link {
         /* For speed meter */
         struct rtnl_link_stats64 stats_old, stats_new;
         bool stats_updated;
+
+        int sysctl_ipv6_enabled;
 } Link;
 
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
@@ -191,6 +193,8 @@ uint32_t link_get_vrf_table(Link *link);
 uint32_t link_get_dhcp_route_table(Link *link);
 uint32_t link_get_ipv6_accept_ra_route_table(Link *link);
 int link_request_set_routes(Link *link);
+
+int link_sysctl_ipv6_enabled(Link *link);
 
 #define ADDRESS_FMT_VAL(address)                   \
         be32toh((address).s_addr) >> 24,           \
