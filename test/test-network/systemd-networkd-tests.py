@@ -184,15 +184,15 @@ def remove_links(links):
 
 def remove_fou_ports(ports):
     for port in ports:
-        call('ip fou del port', port)
+        call('ip fou del port', port, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def remove_routing_policy_rule_tables(tables):
     for table in tables:
-        call('ip rule del table', table)
+        call('ip rule del table', table, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def remove_routes(routes):
     for route_type, addr in routes:
-        call('ip route del', route_type, addr)
+        call('ip route del', route_type, addr, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def l2tp_tunnel_remove(tunnel_ids):
     output = check_output('ip l2tp show tunnel')
@@ -879,7 +879,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                                         '25-ip6gre-tunnel.netdev', '25-tunnel.network',
                                         '25-ip6gre-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                                         '25-ip6gre-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
-        start_networkd()
+        start_networkd(5)
 
         # Old kernels seem not to support IPv6LL address on ip6gre tunnel, So please do not use wait_online() here.
 
@@ -1143,7 +1143,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     def test_nlmon(self):
         copy_unit_to_networkd_unit_path('25-nlmon.netdev', 'netdev-link-local-addressing-yes.network')
-        start_networkd()
+        start_networkd(0)
 
         wait_online(['nlmon99:carrier'])
 
@@ -1311,10 +1311,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
     def test_address_preferred_lifetime_zero_ipv6(self):
         copy_unit_to_networkd_unit_path('25-address-preferred-lifetime-zero-ipv6.network', '12-dummy.netdev')
-        start_networkd()
+        start_networkd(5)
 
         self.check_link_exists('dummy98')
-
         self.check_operstate('dummy98', 'routable', setup_state='configuring')
 
         output = check_output('ip address show dummy98')
@@ -1324,9 +1323,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
     def test_configure_without_carrier(self):
         copy_unit_to_networkd_unit_path('configure-without-carrier.network', '11-dummy.netdev')
-        start_networkd()
-
-        self.check_link_exists('test1')
+        start_networkd(0)
+        wait_online(['test1:routable'])
 
         output = check_output(*networkctl_cmd, 'status', 'test1')
         print(output)
@@ -1336,10 +1334,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
     def test_routing_policy_rule(self):
         copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev')
-
-        start_networkd()
-
-        self.check_link_exists('test1')
+        start_networkd(0)
+        wait_online(['test1:degraded'])
 
         output = check_output('ip rule')
         print(output)
@@ -1356,10 +1352,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         for trial in range(3):
             # Remove state files only first time
-            start_networkd(remove_state_files=(trial == 0))
-
-            self.check_link_exists('test1')
-            self.check_link_exists('dummy98')
+            start_networkd(0, remove_state_files=(trial == 0))
+            wait_online(['test1:degraded', 'dummy98:degraded'])
+            time.sleep(1)
 
             output = check_output('ip rule list table 7')
             print(output)
@@ -1372,10 +1367,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     @expectedFailureIfRoutingPolicyPortRangeIsNotAvailable()
     def test_routing_policy_rule_port_range(self):
         copy_unit_to_networkd_unit_path('25-fibrule-port-range.network', '11-dummy.netdev')
-
-        start_networkd()
-
-        self.check_link_exists('test1')
+        start_networkd(0)
+        wait_online(['test1:degraded'])
 
         output = check_output('ip rule')
         print(output)
@@ -1389,10 +1382,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     @expectedFailureIfRoutingPolicyIPProtoIsNotAvailable()
     def test_routing_policy_rule_invert(self):
         copy_unit_to_networkd_unit_path('25-fibrule-invert.network', '11-dummy.netdev')
-
-        start_networkd()
-
-        self.check_link_exists('test1')
+        start_networkd(0)
+        wait_online(['test1:degraded'])
 
         output = check_output('ip rule')
         print(output)
@@ -1404,7 +1395,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_route_static(self):
         copy_unit_to_networkd_unit_path('25-route-static.network', '12-dummy.netdev')
         start_networkd(0)
-
         wait_online(['dummy98:routable'])
 
         output = check_output('ip -6 route show dev dummy98')
@@ -1445,10 +1435,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # reuse a bond from an earlier test, which does make the addresses go through
         # tentative state, and do our test on that
         copy_unit_to_networkd_unit_path('23-active-slave.network', '25-route-ipv6-src.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
-        start_networkd()
-
-        self.check_link_exists('dummy98')
-        self.check_link_exists('bond199')
+        start_networkd(0)
+        wait_online(['dummy98:enslaved', 'bond199:routable'])
 
         output = check_output('ip -6 route list dev bond199')
         print(output)
@@ -1458,9 +1446,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
     def test_ip_link_mac_address(self):
         copy_unit_to_networkd_unit_path('25-address-link-section.network', '12-dummy.netdev')
-        start_networkd()
-
-        self.check_link_exists('dummy98')
+        start_networkd(0)
+        wait_online(['dummy98:degraded'])
 
         output = check_output('ip link show dummy98')
         print(output)
@@ -1468,19 +1455,16 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
     def test_ip_link_unmanaged(self):
         copy_unit_to_networkd_unit_path('25-link-section-unmanaged.network', '12-dummy.netdev')
-        start_networkd()
+        start_networkd(5)
 
         self.check_link_exists('dummy98')
 
-        output = check_output(*networkctl_cmd, 'status', 'dummy98')
-        print(output)
-        self.assertRegex(output, 'unmanaged')
+        self.check_operstate('dummy98', 'off', setup_state='unmanaged')
 
     def test_ipv6_address_label(self):
         copy_unit_to_networkd_unit_path('25-ipv6-address-label-section.network', '12-dummy.netdev')
-        start_networkd()
-
-        self.check_link_exists('dummy98')
+        start_networkd(0)
+        wait_online(['dummy98:degraded'])
 
         output = check_output('ip addrlabel list')
         print(output)
@@ -1488,11 +1472,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
     def test_ipv6_neighbor(self):
         copy_unit_to_networkd_unit_path('25-neighbor-section.network', '12-dummy.netdev')
-        start_networkd()
+        start_networkd(0)
+        wait_online(['dummy98:degraded'], timeout='40s')
 
-        self.check_link_exists('dummy98')
-
-        output = check_output('ip neigh list')
+        output = check_output('ip neigh list dev dummy98')
         print(output)
         self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
         self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
@@ -1503,9 +1486,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         start_networkd(0)
         wait_online(['test1:degraded', 'dummy98:carrier'])
 
-        self.check_link_exists('test1')
-        self.check_link_exists('dummy98')
-
         output = check_output('ip address show dev test1')
         print(output)
         self.assertRegex(output, 'inet .* scope link')
@@ -1514,9 +1494,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip address show dev dummy98')
         print(output)
         self.assertNotRegex(output, 'inet6* .* scope link')
-
-        self.check_operstate('test1', 'degraded')
-        self.check_operstate('dummy98', 'carrier')
 
         '''
         Documentation/networking/ip-sysctl.txt
@@ -1612,9 +1589,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
     def test_bind_carrier(self):
         copy_unit_to_networkd_unit_path('25-bind-carrier.network', '11-dummy.netdev')
-        start_networkd()
-
-        self.check_link_exists('test1')
+        start_networkd(0)
+        wait_online(['test1:routable'])
 
         check_output('ip link add dummy98 type dummy')
         check_output('ip link set dummy98 up')
@@ -2414,9 +2390,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip route show table main dev veth99')
         print(output)
         self.assertEqual(output, '')
-
-        self.check_operstate('vrf99', 'carrier')
-        self.check_operstate('veth99', 'routable')
 
     def test_dhcp_client_gateway_onlink_implicit(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
