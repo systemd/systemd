@@ -5,6 +5,7 @@
 #error This source file requires DNS-over-TLS to be enabled
 #endif
 
+typedef struct DnsTlsManagerData DnsTlsManagerData;
 typedef struct DnsTlsServerData DnsTlsServerData;
 typedef struct DnsTlsStreamData DnsTlsStreamData;
 
@@ -28,5 +29,7 @@ int dnstls_stream_shutdown(DnsStream *stream, int error);
 ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count);
 ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count);
 
-void dnstls_server_init(DnsServer *server);
 void dnstls_server_free(DnsServer *server);
+
+void dnstls_manager_init(Manager *manager);
+void dnstls_manager_free(Manager *manager);

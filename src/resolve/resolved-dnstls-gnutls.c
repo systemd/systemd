@@ -41,7 +41,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         if (r < 0)
                 return r;
 
-        r = gnutls_credentials_set(gs, GNUTLS_CRD_CERTIFICATE, server->dnstls_data.cert_cred);
+        r = gnutls_credentials_set(gs, GNUTLS_CRD_CERTIFICATE, stream->manager->dnstls_data.cert_cred);
         if (r < 0)
                 return r;
 
@@ -187,19 +187,26 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
         return ss;
 }
 
-void dnstls_server_init(DnsServer *server) {
-        assert(server);
-
-        /* Do not verify cerificate */
-        gnutls_certificate_allocate_credentials(&server->dnstls_data.cert_cred);
-}
-
 void dnstls_server_free(DnsServer *server) {
         assert(server);
 
-        if (server->dnstls_data.cert_cred)
-                gnutls_certificate_free_credentials(server->dnstls_data.cert_cred);
-
         if (server->dnstls_data.session_data.data)
                 gnutls_free(server->dnstls_data.session_data.data);
+}
+
+void dnstls_manager_init(Manager *manager) {
+        int r;
+        assert(manager);
+
+        gnutls_certificate_allocate_credentials(&manager->dnstls_data.cert_cred);
+        r = gnutls_certificate_set_x509_trust_file(manager->dnstls_data.cert_cred, manager->trusted_certificate_file, GNUTLS_X509_FMT_PEM);
+        if (r < 0)
+                log_error("Failed to load trusted certificate file %s: %s", manager->trusted_certificate_file, gnutls_strerror(r));
+}
+
+void dnstls_manager_free(Manager *manager) {
+        assert(manager);
+
+        if (manager->dnstls_data.cert_cred)
+                gnutls_certificate_free_credentials(manager->dnstls_data.cert_cred);
 }

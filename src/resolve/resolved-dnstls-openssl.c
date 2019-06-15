@@ -54,6 +54,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         int error, r;
 
         assert(stream);
+        assert(stream->manager);
         assert(server);
 
         rb = BIO_new_socket(stream->fd, 0);
@@ -67,7 +68,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         BIO_get_mem_ptr(wb, &stream->dnstls_data.write_buffer);
         stream->dnstls_data.buffer_offset = 0;
 
-        s = SSL_new(server->dnstls_data.ctx);
+        s = SSL_new(stream->manager->dnstls_data.ctx);
         if (!s)
                 return -ENOMEM;
 
@@ -336,22 +337,29 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
         return ss;
 }
 
-void dnstls_server_init(DnsServer *server) {
-        assert(server);
-
-        server->dnstls_data.ctx = SSL_CTX_new(TLS_client_method());
-        if (server->dnstls_data.ctx) {
-                SSL_CTX_set_min_proto_version(server->dnstls_data.ctx, TLS1_2_VERSION);
-                SSL_CTX_set_options(server->dnstls_data.ctx, SSL_OP_NO_COMPRESSION);
-        }
-}
-
 void dnstls_server_free(DnsServer *server) {
         assert(server);
 
-        if (server->dnstls_data.ctx)
-                SSL_CTX_free(server->dnstls_data.ctx);
-
         if (server->dnstls_data.session)
                 SSL_SESSION_free(server->dnstls_data.session);
+}
+
+void dnstls_manager_init(Manager *manager) {
+        int r;
+        assert(manager);
+
+        ERR_load_crypto_strings();
+        SSL_load_error_strings();
+        manager->dnstls_data.ctx = SSL_CTX_new(TLS_client_method());
+        if (manager->dnstls_data.ctx) {
+                SSL_CTX_set_min_proto_version(manager->dnstls_data.ctx, TLS1_2_VERSION);
+                SSL_CTX_set_options(manager->dnstls_data.ctx, SSL_OP_NO_COMPRESSION);
+        }
+}
+
+void dnstls_manager_free(Manager *manager) {
+        assert(manager);
+
+        if (manager->dnstls_data.ctx)
+                SSL_CTX_free(manager->dnstls_data.ctx);
 }

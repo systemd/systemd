@@ -82,10 +82,6 @@ int dns_server_new(
 
         s->linked = true;
 
-#if ENABLE_DNS_OVER_TLS
-        dnstls_server_init(s);
-#endif
-
         /* A new DNS server that isn't fallback is added and the one
          * we used so far was a fallback one? Then let's try to pick
          * the new one */

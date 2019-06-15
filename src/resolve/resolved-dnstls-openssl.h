@@ -8,8 +8,11 @@
 #include <openssl/ssl.h>
 #include <stdbool.h>
 
-struct DnsTlsServerData {
+struct DnsTlsManagerData {
         SSL_CTX *ctx;
+};
+
+struct DnsTlsServerData {
         SSL_SESSION *session;
 };
 

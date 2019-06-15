@@ -597,6 +597,10 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse configuration file: %m");
 
+#if ENABLE_DNS_OVER_TLS
+        dnstls_manager_init(m);
+#endif
+
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
@@ -676,6 +680,10 @@ Manager *manager_free(Manager *m) {
          * owners */
         while (m->dns_streams)
                 dns_stream_unref(m->dns_streams);
+
+#if ENABLE_DNS_OVER_TLS
+        dnstls_manager_free(m);
+#endif
 
         hashmap_free(m->links);
         hashmap_free(m->dns_transactions);

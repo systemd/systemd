@@ -18,6 +18,7 @@ typedef struct Manager Manager;
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dns-trust-anchor.h"
+#include "resolved-dnstls.h"
 #include "resolved-link.h"
 
 #define MANAGER_SEARCH_DOMAINS_MAX 256
@@ -38,6 +39,10 @@ struct Manager {
         DnsOverTlsMode dns_over_tls_mode;
         bool enable_cache;
         DnsStubListenerMode dns_stub_listener_mode;
+
+#if ENABLE_DNS_OVER_TLS
+        DnsTlsManagerData dnstls_data;
+#endif
 
         /* Network */
         Hashmap *links;
