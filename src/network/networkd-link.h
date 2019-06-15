@@ -60,6 +60,8 @@ typedef struct Link {
 
         LinkState state;
         LinkOperationalState operstate;
+        LinkCarrierState carrier_state;
+        LinkAddressState address_state;
 
         unsigned address_messages;
         unsigned address_label_messages;

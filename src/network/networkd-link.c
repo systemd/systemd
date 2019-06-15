@@ -360,62 +360,84 @@ static void link_update_master_operstate(Link *link, NetDev *netdev) {
 
 void link_update_operstate(Link *link, bool also_update_master) {
         LinkOperationalState operstate;
+        LinkCarrierState carrier_state;
+        LinkAddressState address_state;
+        uint8_t scope = RT_SCOPE_NOWHERE;
+        Address *address;
         Iterator i;
 
         assert(link);
 
         if (link->kernel_operstate == IF_OPER_DORMANT)
-                operstate = LINK_OPERSTATE_DORMANT;
+                carrier_state = LINK_CARRIER_STATE_DORMANT;
         else if (link_has_carrier(link)) {
-                Address *address;
-                uint8_t scope = RT_SCOPE_NOWHERE;
-
-                /* if we have carrier, check what addresses we have */
-                SET_FOREACH(address, link->addresses, i) {
-                        if (!address_is_ready(address))
-                                continue;
-
-                        if (address->scope < scope)
-                                scope = address->scope;
-                }
-
-                /* for operstate we also take foreign addresses into account */
-                SET_FOREACH(address, link->addresses_foreign, i) {
-                        if (!address_is_ready(address))
-                                continue;
-
-                        if (address->scope < scope)
-                                scope = address->scope;
-                }
-
-                if (scope < RT_SCOPE_SITE)
-                        /* universally accessible addresses found */
-                        operstate = LINK_OPERSTATE_ROUTABLE;
-                else if (scope < RT_SCOPE_HOST)
-                        /* only link or site local addresses found */
-                        operstate = LINK_OPERSTATE_DEGRADED;
+                if (link_is_enslaved(link))
+                        carrier_state = LINK_CARRIER_STATE_ENSLAVED;
                 else
-                        /* no useful addresses found */
-                        operstate = LINK_OPERSTATE_CARRIER;
+                        carrier_state = LINK_CARRIER_STATE_CARRIER;
         } else if (link->flags & IFF_UP)
-                operstate = LINK_OPERSTATE_NO_CARRIER;
+                carrier_state = LINK_CARRIER_STATE_NO_CARRIER;
         else
-                operstate = LINK_OPERSTATE_OFF;
+                carrier_state = LINK_CARRIER_STATE_OFF;
 
-        if (IN_SET(operstate, LINK_OPERSTATE_DEGRADED, LINK_OPERSTATE_CARRIER) &&
-            link_is_enslaved(link))
-                operstate = LINK_OPERSTATE_ENSLAVED;
-
-        if (operstate >= LINK_OPERSTATE_CARRIER) {
+        if (carrier_state >= LINK_CARRIER_STATE_CARRIER) {
                 Link *slave;
 
                 SET_FOREACH(slave, link->slaves, i) {
                         link_update_operstate(slave, false);
 
-                        if (slave->operstate < LINK_OPERSTATE_CARRIER)
-                                operstate = LINK_OPERSTATE_DEGRADED_CARRIER;
+                        if (slave->carrier_state < LINK_CARRIER_STATE_CARRIER)
+                                carrier_state = LINK_CARRIER_STATE_DEGRADED_CARRIER;
                 }
         }
+
+        SET_FOREACH(address, link->addresses, i) {
+                if (!address_is_ready(address))
+                        continue;
+
+                if (address->scope < scope)
+                        scope = address->scope;
+        }
+
+        /* for operstate we also take foreign addresses into account */
+        SET_FOREACH(address, link->addresses_foreign, i) {
+                if (!address_is_ready(address))
+                        continue;
+
+                if (address->scope < scope)
+                        scope = address->scope;
+        }
+
+        if (scope < RT_SCOPE_SITE)
+                /* universally accessible addresses found */
+                address_state = LINK_ADDRESS_STATE_ROUTABLE;
+        else if (scope < RT_SCOPE_HOST)
+                /* only link or site local addresses found */
+                address_state = LINK_ADDRESS_STATE_DEGRADED;
+        else
+                /* no useful addresses found */
+                address_state = LINK_ADDRESS_STATE_OFF;
+
+        /* Mapping of address and carrier state vs operational state
+         *                                                     carrier state
+         *                          | off | no-carrier | dormant | degraded-carrier | carrier  | enslaved
+         *                 ------------------------------------------------------------------------------
+         *                 off      | off | no-carrier | dormant | degraded-carrier | carrier  | enslaved
+         * address_state   degraded | off | no-carrier | dormant | degraded-carrier | degraded | enslaved
+         *                 routable | off | no-carrier | dormant | degraded-carrier | routable | routable
+         */
+
+        if (carrier_state < LINK_CARRIER_STATE_CARRIER || address_state == LINK_ADDRESS_STATE_OFF)
+                operstate = (LinkOperationalState) carrier_state;
+        else if (address_state == LINK_ADDRESS_STATE_ROUTABLE)
+                operstate = LINK_OPERSTATE_ROUTABLE;
+        else if (carrier_state == LINK_CARRIER_STATE_CARRIER)
+                operstate = LINK_OPERSTATE_DEGRADED;
+        else
+                operstate = LINK_OPERSTATE_ENSLAVED;
+
+        link->carrier_state = carrier_state;
+        link->address_state = address_state;
 
         if (link->operstate != operstate) {
                 link->operstate = operstate;
