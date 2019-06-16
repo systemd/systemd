@@ -29,11 +29,3 @@ int manager_send_changed_strv(Manager *manager, char **properties) {
                         "org.freedesktop.network1.Manager",
                         properties);
 }
-
-int manager_send_changed(Manager *manager, const char *property, ...) {
-        char **l;
-
-        l = strv_from_stdarg_alloca(property);
-
-        return manager_send_changed_strv(manager, l);
-}
