@@ -41,3 +41,9 @@ typedef enum LinkAddressState {
 
 const char* link_operstate_to_string(LinkOperationalState s) _const_;
 LinkOperationalState link_operstate_from_string(const char *s) _pure_;
+
+const char* link_carrier_state_to_string(LinkCarrierState s) _const_;
+LinkCarrierState link_carrier_state_from_string(const char *s) _pure_;
+
+const char* link_address_state_to_string(LinkAddressState s) _const_;
+LinkAddressState link_address_state_from_string(const char *s) _pure_;

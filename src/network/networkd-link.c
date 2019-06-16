@@ -362,7 +362,9 @@ void link_update_operstate(Link *link, bool also_update_master) {
         LinkOperationalState operstate;
         LinkCarrierState carrier_state;
         LinkAddressState address_state;
+        _cleanup_strv_free_ char **p = NULL;
         uint8_t scope = RT_SCOPE_NOWHERE;
+        bool changed = false;
         Address *address;
         Iterator i;
 
@@ -436,14 +438,31 @@ void link_update_operstate(Link *link, bool also_update_master) {
         else
                 operstate = LINK_OPERSTATE_ENSLAVED;
 
-        link->carrier_state = carrier_state;
-        link->address_state = address_state;
+        if (link->carrier_state != carrier_state) {
+                link->carrier_state = carrier_state;
+                changed = true;
+                if (strv_extend(&p, "CarrierState") < 0)
+                        log_oom();
+        }
+
+        if (link->address_state != address_state) {
+                link->address_state = address_state;
+                changed = true;
+                if (strv_extend(&p, "AddressState") < 0)
+                        log_oom();
+        }
 
         if (link->operstate != operstate) {
                 link->operstate = operstate;
-                link_send_changed(link, "OperationalState", NULL);
-                link_dirty(link);
+                changed = true;
+                if (strv_extend(&p, "OperationalState") < 0)
+                        log_oom();
         }
+
+        if (p)
+                link_send_changed_strv(link, p);
+        if (changed)
+                link_dirty(link);
 
         if (also_update_master && link->network) {
                 link_update_master_operstate(link, link->network->bond);
