@@ -145,17 +145,15 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         return 1;
 }
 
-int link_send_changed(Link *link, const char *property, ...) {
+int link_send_changed_strv(Link *link, char **properties) {
         _cleanup_free_ char *p = NULL;
-        char **l;
 
         assert(link);
         assert(link->manager);
+        assert(properties);
 
         if (!link->manager->bus)
-                return 0; /* replace with assert when we have kdbus */
-
-        l = strv_from_stdarg_alloca(property);
+                return 0;
 
         p = link_bus_path(link);
         if (!p)
@@ -165,5 +163,13 @@ int link_send_changed(Link *link, const char *property, ...) {
                         link->manager->bus,
                         p,
                         "org.freedesktop.network1.Link",
-                        l);
+                        properties);
+}
+
+int link_send_changed(Link *link, const char *property, ...) {
+        char **properties;
+
+        properties = strv_from_stdarg_alloca(property);
+
+        return link_send_changed_strv(link, properties);
 }
