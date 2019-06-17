@@ -1792,10 +1792,14 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         'bridge99-ignore-carrier-loss.network',
         'bridge99.network']
 
+    routing_policy_rule_tables = ['100']
+
     def setUp(self):
+        remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
         remove_links(self.links)
 
     def tearDown(self):
+        remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
 
@@ -1871,8 +1875,6 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
                                         '26-bridge-slave-interface-1.network', '26-bridge-slave-interface-2.network',
                                         'bridge99-ignore-carrier-loss.network')
-        call('ip rule del table 100')
-
         start_networkd()
 
         self.check_link_exists('dummy98')
@@ -1892,14 +1894,9 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 192.168.0.15/24 brd 192.168.0.255 scope global bridge99')
         self.assertRegex(output, 'inet 192.168.0.16/24 scope global secondary bridge99')
 
-        call('ip rule del table 100')
-
     def test_bridge_ignore_carrier_loss_frequent_loss_and_gain(self):
         copy_unit_to_networkd_unit_path('26-bridge.netdev', '26-bridge-slave-interface-1.network',
                                         'bridge99-ignore-carrier-loss.network')
-
-        call('ip rule del table 100')
-
         start_networkd()
 
         self.check_link_exists('bridge99')
@@ -1934,8 +1931,6 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         output = check_output('ip rule list table 100')
         print(output)
         self.assertEqual(output, '0:	from all to 8.8.8.8 lookup 100')
-
-        call('ip rule del table 100')
 
 class NetworkdLLDPTests(unittest.TestCase, Utilities):
     links = ['veth99']
