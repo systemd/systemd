@@ -1245,9 +1245,9 @@ static void bump_file_max_and_nr_open(void) {
 #endif
 
 #if BUMP_PROC_SYS_FS_FILE_MAX
-        /* I so wanted to use STRINGIFY(ULONG_MAX) here, but alas we can't as glibc/gcc define that as
-         * "(0x7fffffffffffffffL * 2UL + 1UL)". Seriously. 😢 */
-        if (asprintf(&t, "%lu\n", ULONG_MAX) < 0) {
+        /* The maximum the kernel allows for this since 5.2 is LONG_MAX, use that. (Previously thing where
+         * different but the operation would fail silently.) */
+        if (asprintf(&t, "%li\n", LONG_MAX) < 0) {
                 log_oom();
                 return;
         }
