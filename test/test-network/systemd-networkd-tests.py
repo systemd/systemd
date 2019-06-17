@@ -1684,7 +1684,6 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         '23-active-slave.network',
         '23-bond199.network',
         '23-primary-slave.network',
-        '23-test1-bond199.network',
         '25-bond-active-backup-slave.netdev',
         '25-bond.netdev',
         'bond99.network',
@@ -1699,34 +1698,27 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
 
     def test_bond_active_slave(self):
         copy_unit_to_networkd_unit_path('23-active-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
-        start_networkd()
-
-        self.check_link_exists('dummy98')
-        self.check_link_exists('bond199')
+        start_networkd(0)
+        wait_online(['dummy98:enslaved', 'bond199:degraded'])
 
         output = check_output('ip -d link show bond199')
         print(output)
         self.assertRegex(output, 'active_slave dummy98')
 
     def test_bond_primary_slave(self):
-        copy_unit_to_networkd_unit_path('23-primary-slave.network', '23-test1-bond199.network', '25-bond-active-backup-slave.netdev', '11-dummy.netdev')
-        start_networkd()
-
-        self.check_link_exists('test1')
-        self.check_link_exists('bond199')
+        copy_unit_to_networkd_unit_path('23-primary-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
+        start_networkd(0)
+        wait_online(['dummy98:enslaved', 'bond199:degraded'])
 
         output = check_output('ip -d link show bond199')
         print(output)
-        self.assertRegex(output, 'primary test1')
+        self.assertRegex(output, 'primary dummy98')
 
     def test_bond_operstate(self):
         copy_unit_to_networkd_unit_path('25-bond.netdev', '11-dummy.netdev', '12-dummy.netdev',
                                         'bond99.network','bond-slave.network')
-        start_networkd()
-
-        self.check_link_exists('bond99')
-        self.check_link_exists('dummy98')
-        self.check_link_exists('test1')
+        start_networkd(0)
+        wait_online(['dummy98:enslaved', 'test1:enslaved', 'bond99:routable'])
 
         output = check_output('ip -d link show dummy98')
         print(output)
