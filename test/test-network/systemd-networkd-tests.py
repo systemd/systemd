@@ -196,7 +196,7 @@ def remove_routes(routes):
     for route_type, addr in routes:
         call('ip route del', route_type, addr, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-def l2tp_tunnel_remove(tunnel_ids):
+def remove_l2tp_tunnels(tunnel_ids):
     output = check_output('ip l2tp show tunnel')
     for tid in tunnel_ids:
         words='Tunnel ' + tid + ', encap'
@@ -1167,11 +1167,11 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
     l2tp_tunnel_ids = [ '10' ]
 
     def setUp(self):
-        l2tp_tunnel_remove(self.l2tp_tunnel_ids)
+        remove_l2tp_tunnels(self.l2tp_tunnel_ids)
         remove_links(self.links)
 
     def tearDown(self):
-        l2tp_tunnel_remove(self.l2tp_tunnel_ids)
+        remove_l2tp_tunnels(self.l2tp_tunnel_ids)
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
 
