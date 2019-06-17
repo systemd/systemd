@@ -59,6 +59,8 @@ shared_sources = files('''
         enable-mempool.c
         env-file-label.c
         env-file-label.h
+        ethtool-util.c
+        ethtool-util.h
         exec-util.c
         exec-util.h
         exit-status.c

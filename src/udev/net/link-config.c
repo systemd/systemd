@@ -354,7 +354,9 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (r < 0)
                 return r;
 
-        r = ethtool_set_glinksettings(&ctx->ethtool_fd, old_name, config);
+        r = ethtool_set_glinksettings(&ctx->ethtool_fd, old_name,
+                                      config->autonegotiation, config->advertise,
+                                      config->speed, config->duplex, config->port);
         if (r < 0) {
 
                 if (config->port != _NET_DEV_PORT_INVALID)
