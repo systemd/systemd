@@ -21,7 +21,7 @@ export PATH="$HOME/.local/bin/:$PATH"
 # https://github.com/systemd/systemd/pull/12771#issuecomment-502139157 are sorted out at least.
 # TODO: "null" should probably be added too. On OSS-Fuzz it was turned off in https://github.com/google/oss-fuzz/pull/674
 # TODO: figure out what to do about unsigned-integer-overflow: https://github.com/google/oss-fuzz/issues/910
-export SANITIZER="address -fsanitize=bool,array-bounds,float-divide-by-zero,function,integer-divide-by-zero,return,shift,signed-integer-overflow,unsigned-integer-overflow,vla-bound,vptr,nonnull-attribute -fno-sanitize-recover=bool,array-bounds,float-divide-by-zero,function,integer-divide-by-zero,return,shift,signed-integer-overflow,vla-bound,vptr,nonnull-attribute"
+export SANITIZER="address -fsanitize=array-bounds,bool,float-divide-by-zero,function,integer-divide-by-zero,nonnull-attribute,return,shift,signed-integer-overflow,unsigned-integer-overflow,vla-bound,vptr -fno-sanitize-recover=array-bounds,bool,float-divide-by-zero,function,integer-divide-by-zero,nonnull-attribute,return,shift,signed-integer-overflow,vla-bound,vptr"
 tools/oss-fuzz.sh
 
 FUZZING_TYPE=${1:-sanity}
