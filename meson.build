@@ -1203,7 +1203,7 @@ if dns_over_tls != 'false'
                 have_openssl = conf.get('HAVE_OPENSSL') == 1
                 if dns_over_tls != 'auto' and not have_openssl
                         str = dns_over_tls == 'openssl' ? ' with openssl' : ''
-                        error('DNS-over-TLS support was requested$0$, but dependencies are not available'.format(str))
+                        error('DNS-over-TLS support was requested@0@, but dependencies are not available'.format(str))
                 endif
         endif
         have = have_gnutls or have_openssl
