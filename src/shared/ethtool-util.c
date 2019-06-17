@@ -453,11 +453,13 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
         if (ecmd.req.link_mode_masks_nwords <= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
                 return -EOPNOTSUPP;
 
-        u = new0(struct ethtool_link_usettings , 1);
+        u = new(struct ethtool_link_usettings, 1);
         if (!u)
                 return -ENOMEM;
 
-        u->base = ecmd.req;
+        *u = (struct ethtool_link_usettings) {
+                .base = ecmd.req,
+        };
 
         offset = 0;
         memcpy(u->link_modes.supported, &ecmd.link_mode_data[offset], 4 * ecmd.req.link_mode_masks_nwords);
@@ -486,23 +488,24 @@ static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **u
         if (r < 0)
                 return -errno;
 
-        e = new0(struct ethtool_link_usettings, 1);
+        e = new(struct ethtool_link_usettings, 1);
         if (!e)
                 return -ENOMEM;
 
-        e->base.cmd = ETHTOOL_GSET;
+        *e = (struct ethtool_link_usettings) {
+                .base.cmd = ETHTOOL_GSET,
+                .base.link_mode_masks_nwords = 1,
+                .base.speed = ethtool_cmd_speed(&ecmd),
+                .base.duplex = ecmd.duplex,
+                .base.port = ecmd.port,
+                .base.phy_address = ecmd.phy_address,
+                .base.autoneg = ecmd.autoneg,
+                .base.mdio_support = ecmd.mdio_support,
 
-        e->base.link_mode_masks_nwords = 1;
-        e->base.speed = ethtool_cmd_speed(&ecmd);
-        e->base.duplex = ecmd.duplex;
-        e->base.port = ecmd.port;
-        e->base.phy_address = ecmd.phy_address;
-        e->base.autoneg = ecmd.autoneg;
-        e->base.mdio_support = ecmd.mdio_support;
-
-        e->link_modes.supported[0] = ecmd.supported;
-        e->link_modes.advertising[0] = ecmd.advertising;
-        e->link_modes.lp_advertising[0] = ecmd.lp_advertising;
+                .link_modes.supported[0] = ecmd.supported,
+                .link_modes.advertising[0] = ecmd.advertising,
+                .link_modes.lp_advertising[0] = ecmd.lp_advertising,
+        };
 
         *u = e;
 
