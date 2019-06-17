@@ -1799,11 +1799,8 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
                                         '26-bridge-slave-interface-1.network', '26-bridge-slave-interface-2.network',
                                         'bridge99.network')
-        start_networkd()
-
-        self.check_link_exists('dummy98')
-        self.check_link_exists('test1')
-        self.check_link_exists('bridge99')
+        start_networkd(0)
+        wait_online(['dummy98:enslaved', 'test1:enslaved', 'bridge99:routable'])
 
         output = check_output('ip -d link show test1')
         print(output)
@@ -1834,18 +1831,12 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         if (os.path.exists('/sys/devices/virtual/net/bridge00/lower_dummy98/brport/multicast_to_unicast')):
             self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_to_unicast'), '1')
 
-        self.check_operstate('test1', 'enslaved')
-        self.check_operstate('dummy98', 'enslaved')
-        self.check_operstate('bridge99', 'routable')
-
         check_output('ip address add 192.168.0.16/24 dev bridge99')
         time.sleep(1)
 
         output = check_output('ip addr show bridge99')
         print(output)
         self.assertRegex(output, '192.168.0.16/24')
-
-        self.check_operstate('bridge99', 'routable')
 
         self.assertEqual(call('ip link del test1'), 0)
         time.sleep(3)
@@ -1867,11 +1858,8 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
                                         '26-bridge-slave-interface-1.network', '26-bridge-slave-interface-2.network',
                                         'bridge99-ignore-carrier-loss.network')
-        start_networkd()
-
-        self.check_link_exists('dummy98')
-        self.check_link_exists('test1')
-        self.check_link_exists('bridge99')
+        start_networkd(0)
+        wait_online(['dummy98:enslaved', 'test1:enslaved', 'bridge99:routable'])
 
         check_output('ip address add 192.168.0.16/24 dev bridge99')
         time.sleep(1)
@@ -1889,32 +1877,16 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
     def test_bridge_ignore_carrier_loss_frequent_loss_and_gain(self):
         copy_unit_to_networkd_unit_path('26-bridge.netdev', '26-bridge-slave-interface-1.network',
                                         'bridge99-ignore-carrier-loss.network')
-        start_networkd()
+        start_networkd(0)
+        wait_online(['bridge99:no-carrier'])
 
-        self.check_link_exists('bridge99')
+        for trial in range(4):
+            check_output('ip link add dummy98 type dummy')
+            check_output('ip link set dummy98 up')
+            if trial < 3:
+                check_output('ip link del dummy98')
 
-        check_output('ip link add dummy98 type dummy')
-        check_output('ip link set dummy98 up')
-        check_output('ip link del dummy98')
-
-        check_output('ip link add dummy98 type dummy')
-        check_output('ip link set dummy98 up')
-        check_output('ip link del dummy98')
-
-        check_output('ip link add dummy98 type dummy')
-        check_output('ip link set dummy98 up')
-        check_output('ip link del dummy98')
-
-        check_output('ip link add dummy98 type dummy')
-        check_output('ip link set dummy98 up')
-
-        for trial in range(30):
-            if trial > 0:
-                time.sleep(1)
-            if get_operstate('bridge99') == 'routable' and get_operstate('dummy98') == 'enslaved':
-                break
-        else:
-            self.assertTrue(False)
+        wait_online(['bridge99:routable', 'dummy98:enslaved'])
 
         output = check_output('ip address show bridge99')
         print(output)
