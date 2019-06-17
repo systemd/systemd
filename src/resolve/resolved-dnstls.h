@@ -31,5 +31,5 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count);
 
 void dnstls_server_free(DnsServer *server);
 
-void dnstls_manager_init(Manager *manager);
+int dnstls_manager_init(Manager *manager);
 void dnstls_manager_free(Manager *manager);

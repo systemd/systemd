@@ -344,17 +344,21 @@ void dnstls_server_free(DnsServer *server) {
                 SSL_SESSION_free(server->dnstls_data.session);
 }
 
-void dnstls_manager_init(Manager *manager) {
+int dnstls_manager_init(Manager *manager) {
         int r;
         assert(manager);
 
         ERR_load_crypto_strings();
         SSL_load_error_strings();
         manager->dnstls_data.ctx = SSL_CTX_new(TLS_client_method());
-        if (manager->dnstls_data.ctx) {
-                SSL_CTX_set_min_proto_version(manager->dnstls_data.ctx, TLS1_2_VERSION);
-                SSL_CTX_set_options(manager->dnstls_data.ctx, SSL_OP_NO_COMPRESSION);
-        }
+
+        if (!manager->dnstls_data.ctx)
+                return -ENOMEM;
+
+        SSL_CTX_set_min_proto_version(manager->dnstls_data.ctx, TLS1_2_VERSION);
+        SSL_CTX_set_options(manager->dnstls_data.ctx, SSL_OP_NO_COMPRESSION);
+
+        return 0;
 }
 
 void dnstls_manager_free(Manager *manager) {

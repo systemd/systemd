@@ -598,7 +598,9 @@ int manager_new(Manager **ret) {
                 log_warning_errno(r, "Failed to parse configuration file: %m");
 
 #if ENABLE_DNS_OVER_TLS
-        dnstls_manager_init(m);
+        r = dnstls_manager_init(m);
+        if (r < 0)
+                return r;
 #endif
 
         r = sd_event_default(&m->event);

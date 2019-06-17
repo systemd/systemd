@@ -194,14 +194,15 @@ void dnstls_server_free(DnsServer *server) {
                 gnutls_free(server->dnstls_data.session_data.data);
 }
 
-void dnstls_manager_init(Manager *manager) {
+int dnstls_manager_init(Manager *manager) {
         int r;
         assert(manager);
 
-        gnutls_certificate_allocate_credentials(&manager->dnstls_data.cert_cred);
-        r = gnutls_certificate_set_x509_trust_file(manager->dnstls_data.cert_cred, manager->trusted_certificate_file, GNUTLS_X509_FMT_PEM);
+        r = gnutls_certificate_allocate_credentials(&manager->dnstls_data.cert_cred);
         if (r < 0)
-                log_error("Failed to load trusted certificate file %s: %s", manager->trusted_certificate_file, gnutls_strerror(r));
+                return -ENOMEM;
+
+        return 0;
 }
 
 void dnstls_manager_free(Manager *manager) {
