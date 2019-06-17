@@ -22,6 +22,7 @@
 #include "bus-util.h"
 #include "device-util.h"
 #include "ether-addr-util.h"
+#include "ethtool-util.h"
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
@@ -122,12 +123,19 @@ typedef struct LinkInfo {
         uint64_t tx_bitrate;
         uint64_t rx_bitrate;
 
+        /* ethtool info */
+        int autonegotiation;
+        size_t speed;
+        Duplex duplex;
+        NetDevPort port;
+
         bool has_mac_address:1;
         bool has_tx_queues:1;
         bool has_rx_queues:1;
         bool has_stats64:1;
         bool has_stats:1;
         bool has_bitrates:1;
+        bool has_ethtool_link_info:1;
 } LinkInfo;
 
 static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
@@ -249,6 +257,7 @@ static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
 static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
+        _cleanup_close_ int fd = -1;
         size_t allocated = 0, c = 0, j;
         sd_netlink_message *i;
         int r;
@@ -275,8 +284,16 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
                 r = decode_link(i, links + c, patterns);
                 if (r < 0)
                         return r;
-                if (r > 0)
-                        c++;
+                if (r == 0)
+                        continue;
+
+                r = ethtool_get_link_info(&fd, links[c].name,
+                                          &links[c].autonegotiation, &links[c].speed,
+                                          &links[c].duplex, &links[c].port);
+                if (r >= 0)
+                        links[c].has_ethtool_link_info = true;
+
+                c++;
         }
 
         typesafe_qsort(links, c, link_info_compare);
@@ -1140,6 +1157,59 @@ static int link_status_one(
                 r = table_add_cell_stringf(table, NULL, "%" PRIu32 "/%" PRIu32, info->tx_queues, info->rx_queues);
                 if (r < 0)
                         return r;
+        }
+
+        if (info->has_ethtool_link_info) {
+                const char *duplex = duplex_to_string(info->duplex);
+                const char *port = port_to_string(info->port);
+
+                if (IN_SET(info->autonegotiation, AUTONEG_DISABLE, AUTONEG_ENABLE)) {
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Auto negotiation:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_BOOLEAN, &info->autonegotiation);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (info->speed > 0) {
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Speed:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_BPS, &info->speed);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (duplex) {
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Duplex:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, duplex);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (port) {
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Port:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, port);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = dump_addresses(rtnl, table, info->ifindex);
