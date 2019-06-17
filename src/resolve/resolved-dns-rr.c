@@ -7,6 +7,7 @@
 #include "dns-type.h"
 #include "escape.h"
 #include "hexdecoct.h"
+#include "memory-util.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
@@ -555,7 +556,7 @@ int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const u
 
 #define FIELD_EQUAL(a, b, field) \
         ((a).field ## _size == (b).field ## _size &&  \
-         memcmp((a).field, (b).field, (a).field ## _size) == 0)
+         memcmp_safe((a).field, (b).field, (a).field ## _size) == 0)
 
 int dns_resource_record_payload_equal(const DnsResourceRecord *a, const DnsResourceRecord *b) {
         int r;
