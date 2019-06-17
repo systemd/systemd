@@ -35,6 +35,8 @@
 
 static char* arg_verb = NULL;
 
+STATIC_DESTRUCTOR_REGISTER(arg_verb, freep);
+
 static int write_hibernate_location_info(void) {
         _cleanup_free_ char *device = NULL, *type = NULL;
         _cleanup_free_ struct fiemap *fiemap = NULL;
@@ -317,7 +319,9 @@ static int parse_argv(int argc, char *argv[]) {
                                        "Usage: %s COMMAND",
                                        program_invocation_short_name);
 
-        arg_verb = argv[optind];
+        arg_verb = strdup(argv[optind]);
+        if (!arg_verb)
+                return log_oom();
 
         if (!STR_IN_SET(arg_verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
