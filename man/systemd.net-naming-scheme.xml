@@ -306,6 +306,21 @@
         </varlistentry>
 
         <varlistentry>
+          <term><constant>v241</constant></term>
+
+          <listitem><para><option>MACAddressPolicy=persistent</option> was extended to set MAC addresses
+          based on the device name. Previously addresses were only based on the
+          <varname noindex='true'>ID_NET_NAME_*</varname> attributes, which meant that interface names would
+          never be generated for virtual devices. Now a persistent address will be generated for most
+          devices, including in particular bridges.</para>
+
+          <para>Note: when userspace does not set a MAC address for a bridge device, the kernel will
+          initially assign a random address, and then change it when the first device is enslaved to the
+          bridge. With this naming policy change, bridges get a persistent MAC address based on the bridge
+          name instead of the first enslaved device.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><constant>v243</constant></term>
 
           <listitem><para>Support for renaming netdevsim (simulated networking) devices was added. Previously

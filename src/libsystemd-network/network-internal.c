@@ -39,7 +39,7 @@ const char *net_get_name_persistent(sd_device *device) {
 
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
 
-int net_get_unique_predictable_data(sd_device *device, uint64_t *result) {
+int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_t *result) {
         size_t l, sz = 0;
         const char *name;
         int r;
@@ -50,7 +50,7 @@ int net_get_unique_predictable_data(sd_device *device, uint64_t *result) {
         /* net_get_name_persistent() will return one of the device names based on stable information about
          * the device. If this is not available, we fall back to using the actual device name. */
         name = net_get_name_persistent(device);
-        if (!name)
+        if (!name && use_sysname)
                 (void) sd_device_get_sysname(device, &name);
         if (!name)
                 return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENODATA),
