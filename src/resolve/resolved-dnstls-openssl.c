@@ -6,7 +6,6 @@
 
 #include <openssl/bio.h>
 #include <openssl/err.h>
-#include <string.h>
 
 #include "io-util.h"
 #include "resolved-dns-stream.h"
@@ -21,12 +20,12 @@ static int dnstls_flush_write_buffer(DnsStream *stream) {
         assert(stream);
         assert(stream->encrypted);
 
-        if (stream->dnstls_data.write_buffer->length > 0) {
+        if (stream->dnstls_data.buffer_offset < stream->dnstls_data.write_buffer->length) {
                 assert(stream->dnstls_data.write_buffer->data);
 
                 struct iovec iov[1];
-                iov[0] = IOVEC_MAKE(stream->dnstls_data.write_buffer->data,
-                                    stream->dnstls_data.write_buffer->length);
+                iov[0] = IOVEC_MAKE(stream->dnstls_data.write_buffer->data + stream->dnstls_data.buffer_offset,
+                                    stream->dnstls_data.write_buffer->length - stream->dnstls_data.buffer_offset);
                 ss = dns_stream_writev(stream, iov, 1, DNS_STREAM_WRITE_TLS_DATA);
                 if (ss < 0) {
                         if (ss == -EAGAIN)
@@ -34,14 +33,14 @@ static int dnstls_flush_write_buffer(DnsStream *stream) {
 
                         return ss;
                 } else {
-                        stream->dnstls_data.write_buffer->length -= ss;
+                        stream->dnstls_data.buffer_offset += ss;
 
-                        if (stream->dnstls_data.write_buffer->length > 0) {
-                                memmove(stream->dnstls_data.write_buffer->data,
-                                        stream->dnstls_data.write_buffer->data + ss,
-                                        stream->dnstls_data.write_buffer->length);
+                        if (stream->dnstls_data.buffer_offset < stream->dnstls_data.write_buffer->length) {
                                 stream->dnstls_events |= EPOLLOUT;
                                 return -EAGAIN;
+                        } else {
+                                BIO_reset(SSL_get_wbio(stream->dnstls_data.ssl));
+                                stream->dnstls_data.buffer_offset = 0;
                         }
                 }
         }
@@ -66,6 +65,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
                 return -ENOMEM;
 
         BIO_get_mem_ptr(wb, &stream->dnstls_data.write_buffer);
+        stream->dnstls_data.buffer_offset = 0;
 
         s = SSL_new(server->dnstls_data.ctx);
         if (!s)
@@ -89,12 +89,13 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         }
 
         stream->encrypted = true;
+        stream->dnstls_data.ssl = TAKE_PTR(s);
 
         r = dnstls_flush_write_buffer(stream);
-        if (r < 0 && r != -EAGAIN)
+        if (r < 0 && r != -EAGAIN) {
+                SSL_free(TAKE_PTR(stream->dnstls_data.ssl));
                 return r;
-
-        stream->dnstls_data.ssl = TAKE_PTR(s);
+        }
 
         return 0;
 }
