@@ -160,6 +160,44 @@ int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
         return 0;
 }
 
+int ethtool_get_link_info(int *fd, const char *ifname,
+                          int *ret_autonegotiation, size_t *ret_speed,
+                          Duplex *ret_duplex, NetDevPort *ret_port) {
+        struct ethtool_cmd ecmd = {
+                .cmd = ETHTOOL_GSET,
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &ecmd,
+        };
+        int r;
+
+        if (*fd < 0) {
+                r = ethtool_connect_or_warn(fd, false);
+                if (r < 0)
+                        return r;
+        }
+
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        if (ret_autonegotiation)
+                *ret_autonegotiation = ecmd.autoneg;
+
+        if (ret_speed)
+                *ret_speed = ethtool_cmd_speed(&ecmd) * 1000 * 1000;
+
+        if (ret_duplex)
+                *ret_duplex = ecmd.duplex;
+
+        if (ret_port)
+                *ret_port = ecmd.port;
+
+        return 0;
+}
+
 int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex) {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET

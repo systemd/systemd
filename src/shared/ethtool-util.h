@@ -80,6 +80,9 @@ typedef struct netdev_channels {
 } netdev_channels;
 
 int ethtool_get_driver(int *fd, const char *ifname, char **ret);
+int ethtool_get_link_info(int *fd, const char *ifname,
+                          int *ret_autonegotiation, size_t *ret_speed,
+                          Duplex *ret_duplex, NetDevPort *ret_port);
 int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex);
 int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol);
 int ethtool_set_features(int *fd, const char *ifname, int *features);
