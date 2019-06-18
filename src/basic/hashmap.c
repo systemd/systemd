@@ -11,6 +11,7 @@
 #include "macro.h"
 #include "memory-util.h"
 #include "mempool.h"
+#include "missing.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "set.h"
@@ -285,7 +286,11 @@ _destructor_ static void cleanup_pools(void) {
         /* The pool is only allocated by the main thread, but the memory can
          * be passed to other threads. Let's clean up if we are the main thread
          * and no other threads are live. */
-        if (!is_main_thread())
+        /* We build our own is_main_thread() here, which doesn't use C11
+         * TLS based caching of the result. That's because valgrind apparently
+         * doesn't like malloc() (which C11 TLS internally uses) to be called
+         * from a GCC destructors. */
+        if (getpid() != gettid())
                 return;
 
         r = get_proc_field("/proc/self/status", "Threads", WHITESPACE, &t);
