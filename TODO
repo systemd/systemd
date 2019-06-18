@@ -209,9 +209,6 @@ Features:
   /etc/resolv.conf. Should be smart and do something useful on read-only
   images, for example fallback to read-only bind mounting the file instead.
 
-* nspawn's console TTY should be allocated from within the container, not
-  mounted in from the outside
-
 * show invocation ID in systemd-run output
 
 * bypass SIGTERM state in unit files if KillSignal is SIGKILL

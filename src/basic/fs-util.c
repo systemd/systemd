@@ -226,7 +226,6 @@ int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
 }
 
 int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
-        char fd_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         bool do_chown, do_chmod;
         struct stat st;
 
@@ -236,11 +235,9 @@ int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
          * unaffected if the uid/gid is changed, i.e. it undoes implicit suid/sgid dropping the kernel does
          * on chown().
          *
-         * This call is happy with O_PATH fds, since we always go via /proc/self/fd/ to change
-         * ownership/access mode. */
+         * This call is happy with O_PATH fds. */
 
-        xsprintf(fd_path, "/proc/self/fd/%i", fd);
-        if (stat(fd_path, &st) < 0)
+        if (fstat(fd, &st) < 0)
                 return -errno;
 
         do_chown =
@@ -262,16 +259,16 @@ int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
                 mode_t minimal = st.st_mode & mode; /* the subset of the old and the new mask */
 
                 if (((minimal ^ st.st_mode) & 07777) != 0)
-                        if (chmod(fd_path, minimal & 07777) < 0)
+                        if (fchmod_opath(fd, minimal & 07777) < 0)
                                 return -errno;
         }
 
         if (do_chown)
-                if (chown(fd_path, uid, gid) < 0)
+                if (fchownat(fd, "", uid, gid, AT_EMPTY_PATH) < 0)
                         return -errno;
 
         if (do_chmod)
-                if (chmod(fd_path, mode & 07777) < 0)
+                if (fchmod_opath(fd, mode & 07777) < 0)
                         return -errno;
 
         return do_chown || do_chmod;

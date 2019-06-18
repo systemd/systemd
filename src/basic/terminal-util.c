@@ -1049,7 +1049,34 @@ int ptsname_malloc(int fd, char **ret) {
         }
 }
 
-int ptsname_namespace(int pty, char **ret) {
+int openpt_allocate(int flags, char **ret_slave) {
+        _cleanup_close_ int fd = -1;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        fd = posix_openpt(flags|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        if (ret_slave) {
+                r = ptsname_malloc(fd, &p);
+                if (r < 0)
+                        return r;
+
+                if (!path_startswith(p, "/dev/pts/"))
+                        return -EINVAL;
+        }
+
+        if (unlockpt(fd) < 0)
+                return -errno;
+
+        if (ret_slave)
+                *ret_slave = TAKE_PTR(p);
+
+        return TAKE_FD(fd);
+}
+
+static int ptsname_namespace(int pty, char **ret) {
         int no = -1, r;
 
         /* Like ptsname(), but doesn't assume that the path is
@@ -1068,8 +1095,8 @@ int ptsname_namespace(int pty, char **ret) {
         return 0;
 }
 
-int openpt_in_namespace(pid_t pid, int flags) {
-        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
+int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1, fd = -1;
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         pid_t child;
         int r;
@@ -1088,18 +1115,13 @@ int openpt_in_namespace(pid_t pid, int flags) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                int master;
-
                 pair[0] = safe_close(pair[0]);
 
-                master = posix_openpt(flags|O_NOCTTY|O_CLOEXEC);
-                if (master < 0)
+                fd = openpt_allocate(flags, NULL);
+                if (fd < 0)
                         _exit(EXIT_FAILURE);
 
-                if (unlockpt(master) < 0)
-                        _exit(EXIT_FAILURE);
-
-                if (send_one_fd(pair[1], master, 0) < 0)
+                if (send_one_fd(pair[1], fd, 0) < 0)
                         _exit(EXIT_FAILURE);
 
                 _exit(EXIT_SUCCESS);
@@ -1113,7 +1135,17 @@ int openpt_in_namespace(pid_t pid, int flags) {
         if (r != EXIT_SUCCESS)
                 return -EIO;
 
-        return receive_one_fd(pair[0], 0);
+        fd = receive_one_fd(pair[0], 0);
+        if (fd < 0)
+                return fd;
+
+        if (ret_slave) {
+                r = ptsname_namespace(fd, ret_slave);
+                if (r < 0)
+                        return r;
+        }
+
+        return TAKE_FD(fd);
 }
 
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {

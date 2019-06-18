@@ -151,9 +151,9 @@ int getttyname_malloc(int fd, char **r);
 int getttyname_harder(int fd, char **r);
 
 int ptsname_malloc(int fd, char **ret);
-int ptsname_namespace(int pty, char **ret);
 
-int openpt_in_namespace(pid_t pid, int flags);
+int openpt_allocate(int flags, char **ret_slave);
+int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave);
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode);
 
 int vt_default_utf8(void);
