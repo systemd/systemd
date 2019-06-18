@@ -563,7 +563,7 @@ static int dir_cleanup(
                         continue;
                 }
 
-                sub_path = strjoin(p, "/", dent->d_name);
+                sub_path = path_join(p, dent->d_name);
                 if (!sub_path) {
                         r = log_oom();
                         goto finish;
