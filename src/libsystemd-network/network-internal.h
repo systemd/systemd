@@ -32,8 +32,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ifnames);
 CONFIG_PARSER_PROTOTYPE(config_parse_ifalias);
 CONFIG_PARSER_PROTOTYPE(config_parse_bridge_port_priority);
 
-int net_get_unique_predictable_data(sd_device *device, uint64_t *result);
-const char *net_get_name(sd_device *device);
+int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_t *result);
+const char *net_get_name_persistent(sd_device *device);
 
 size_t serialize_in_addrs(FILE *f,
                           const struct in_addr *addresses,
