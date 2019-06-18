@@ -11,10 +11,8 @@
 #include "random-util.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-transaction.h"
-#include "resolved-llmnr.h"
-#if ENABLE_DNS_OVER_TLS
 #include "resolved-dnstls.h"
-#endif
+#include "resolved-llmnr.h"
 #include "string-table.h"
 
 #define TRANSACTIONS_MAX 4096

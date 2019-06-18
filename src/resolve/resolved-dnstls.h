@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#if !ENABLE_DNS_OVER_TLS
-#error This source file requires DNS-over-TLS to be enabled
-#endif
+#if ENABLE_DNS_OVER_TLS
 
 typedef struct DnsTlsManagerData DnsTlsManagerData;
 typedef struct DnsTlsServerData DnsTlsServerData;
@@ -19,6 +17,7 @@ typedef struct DnsTlsStreamData DnsTlsStreamData;
 
 #include "resolved-dns-stream.h"
 #include "resolved-dns-transaction.h"
+#include "resolved-manager.h"
 
 #define DNSTLS_STREAM_CLOSED 1
 
@@ -33,3 +32,5 @@ void dnstls_server_free(DnsServer *server);
 
 int dnstls_manager_init(Manager *manager);
 void dnstls_manager_free(Manager *manager);
+
+#endif /* ENABLE_DNS_OVER_TLS */

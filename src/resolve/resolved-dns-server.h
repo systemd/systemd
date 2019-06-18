@@ -35,11 +35,9 @@ typedef enum DnsServerFeatureLevel {
 const char* dns_server_feature_level_to_string(int i) _const_;
 int dns_server_feature_level_from_string(const char *s) _pure_;
 
+#include "resolved-dnstls.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
-#if ENABLE_DNS_OVER_TLS
-#include "resolved-dnstls.h"
-#endif
 
 struct DnsServer {
         Manager *manager;
