@@ -656,14 +656,16 @@ static int dir_cleanup(
                                 continue;
                         }
 
-                        if (mountpoint && S_ISREG(s.st_mode))
-                                if (s.st_uid == 0 && STR_IN_SET(dent->d_name,
-                                                                ".journal",
-                                                                "aquota.user",
-                                                                "aquota.group")) {
-                                        log_debug("Skipping \"%s\".", sub_path);
-                                        continue;
-                                }
+                        if (mountpoint &&
+                            S_ISREG(s.st_mode) &&
+                            s.st_uid == 0 &&
+                            STR_IN_SET(dent->d_name,
+                                       ".journal",
+                                       "aquota.user",
+                                       "aquota.group")) {
+                                log_debug("Skipping \"%s\".", sub_path);
+                                continue;
+                        }
 
                         /* Ignore sockets that are listed in /proc/net/unix */
                         if (S_ISSOCK(s.st_mode) && unix_socket_alive(sub_path)) {
