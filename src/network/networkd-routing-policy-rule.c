@@ -176,7 +176,7 @@ int routing_policy_rule_get(Manager *m,
 
         RoutingPolicyRule rule, *existing;
 
-        assert_return(m, -1);
+        assert(m);
 
         rule = (RoutingPolicyRule) {
                 .family = family,
