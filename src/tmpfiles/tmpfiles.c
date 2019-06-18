@@ -461,38 +461,6 @@ static bool unix_socket_alive(const char *fn) {
         return !!set_get(unix_sockets, (char*) fn);
 }
 
-static int dir_is_mount_point(DIR *d, const char *subdir) {
-
-        int mount_id_parent, mount_id;
-        int r_p, r;
-
-        r_p = name_to_handle_at_loop(dirfd(d), ".", NULL, &mount_id_parent, 0);
-        if (r_p < 0)
-                r_p = -errno;
-
-        r = name_to_handle_at_loop(dirfd(d), subdir, NULL, &mount_id, 0);
-        if (r < 0)
-                r = -errno;
-
-        /* got no handle; make no assumptions, return error */
-        if (r_p < 0 && r < 0)
-                return r_p;
-
-        /* got both handles; if they differ, it is a mount point */
-        if (r_p >= 0 && r >= 0)
-                return mount_id_parent != mount_id;
-
-        /* got only one handle; assume different mount points if one
-         * of both queries was not supported by the filesystem */
-        if (IN_SET(r_p, -ENOSYS, -EOPNOTSUPP) || IN_SET(r, -ENOSYS, -EOPNOTSUPP))
-                return true;
-
-        /* return error */
-        if (r_p < 0)
-                return r_p;
-        return r;
-}
-
 static DIR* xopendirat_nomod(int dirfd, const char *path) {
         DIR *dir;
 
@@ -557,10 +525,16 @@ static int dir_cleanup(
                 /* Try to detect bind mounts of the same filesystem instance; they
                  * do not differ in device major/minors. This type of query is not
                  * supported on all kernels or filesystem types though. */
-                if (S_ISDIR(s.st_mode) && dir_is_mount_point(d, dent->d_name) > 0) {
-                        log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.",
-                                  p, dent->d_name);
-                        continue;
+                if (S_ISDIR(s.st_mode)) {
+                        int q;
+
+                        q = fd_is_mount_point(dirfd(d), dent->d_name, 0);
+                        if (q < 0)
+                                log_debug_errno(q, "Failed to determine whether \"%s/%s\" is a mount point, ignoring: %m", p, dent->d_name);
+                        else if (q > 0) {
+                                log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.", p, dent->d_name);
+                                continue;
+                        }
                 }
 
                 sub_path = path_join(p, dent->d_name);
