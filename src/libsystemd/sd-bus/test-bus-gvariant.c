@@ -150,6 +150,7 @@ static int test_marshal(void) {
 
         assert_se(sd_bus_message_seal(m, 4711, 0) >= 0);
 
+#if !HAS_FEATURE_MEMORY_SANITIZER
 #if HAVE_GLIB
         {
                 GVariant *v;
@@ -174,11 +175,13 @@ static int test_marshal(void) {
                 g_variant_unref(v);
         }
 #endif
+#endif
 
         assert_se(bus_message_dump(m, NULL, BUS_MESSAGE_DUMP_WITH_HEADER) >= 0);
 
         assert_se(bus_message_get_blob(m, &blob, &sz) >= 0);
 
+#if !HAS_FEATURE_MEMORY_SANITIZER
 #if HAVE_GLIB
         {
                 GVariant *v;
@@ -191,6 +194,7 @@ static int test_marshal(void) {
                 g_free(t);
                 g_variant_unref(v);
         }
+#endif
 #endif
 
         assert_se(bus_message_from_malloc(bus, blob, sz, NULL, 0, NULL, &n) >= 0);

@@ -204,7 +204,7 @@ int main(int argc, char *argv[]) {
 
 #if HAVE_GLIB
         /* Work-around for asan bug. See c8d980a3e962aba2ea3a4cedf75fa94890a6d746. */
-#if !HAS_FEATURE_ADDRESS_SANITIZER
+#if !HAS_FEATURE_ADDRESS_SANITIZER && !HAS_FEATURE_MEMORY_SANITIZER
         {
                 GDBusMessage *g;
                 char *p;
