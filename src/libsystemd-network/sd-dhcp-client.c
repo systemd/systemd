@@ -1385,6 +1385,23 @@ static int client_handle_forcerenew(sd_dhcp_client *client, DHCPMessage *force, 
         return 0;
 }
 
+static bool lease_equal(const sd_dhcp_lease *a, const sd_dhcp_lease *b) {
+        if (a->address != b->address)
+                return false;
+
+        if (a->subnet_mask != b->subnet_mask)
+                return false;
+
+        if (a->router_size != b->router_size)
+                return false;
+
+        for (size_t i = 0; i < a->router_size; i++)
+                if (a->router[i].s_addr != b->router[i].s_addr)
+                        return false;
+
+        return true;
+}
+
 static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack, size_t len) {
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char *error_message = NULL;
@@ -1437,12 +1454,10 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack, size_t le
 
         r = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
         if (client->lease) {
-                if (client->lease->address != lease->address ||
-                    client->lease->subnet_mask != lease->subnet_mask ||
-                    client->lease->router != lease->router) {
-                        r = SD_DHCP_CLIENT_EVENT_IP_CHANGE;
-                } else
+                if (lease_equal(client->lease, lease))
                         r = SD_DHCP_CLIENT_EVENT_RENEW;
+                else
+                        r = SD_DHCP_CLIENT_EVENT_IP_CHANGE;
 
                 client->lease = sd_dhcp_lease_unref(client->lease);
         }
