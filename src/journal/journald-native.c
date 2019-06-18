@@ -63,7 +63,7 @@ static void server_process_entry_meta(
                  startswith(p, "SYSLOG_IDENTIFIER=")) {
                 char *t;
 
-                t = strndup(p + 18, l - 18);
+                t = memdup_suffix0(p + 18, l - 18);
                 if (t) {
                         free(*identifier);
                         *identifier = t;
@@ -73,7 +73,7 @@ static void server_process_entry_meta(
                    startswith(p, "MESSAGE=")) {
                 char *t;
 
-                t = strndup(p + 8, l - 8);
+                t = memdup_suffix0(p + 8, l - 8);
                 if (t) {
                         free(*message);
                         *message = t;
