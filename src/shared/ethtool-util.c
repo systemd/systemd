@@ -115,14 +115,15 @@ assert_cc((ELEMENTSOF(ethtool_link_mode_bit_table)-1) / 32 < N_ADVERTISE);
 
 DEFINE_STRING_TABLE_LOOKUP(ethtool_link_mode_bit, enum ethtool_link_mode_bit_indices);
 
-int ethtool_connect(int *ret) {
+static int ethtool_connect_or_warn(int *ret, bool warn) {
         int fd;
 
         assert_return(ret, -EINVAL);
 
         fd = socket_ioctl_fd();
         if (fd < 0)
-                return fd;
+                return log_full_errno(warn ? LOG_WARNING: LOG_DEBUG, fd,
+                                       "ethtool: could not create control socket: %m");
 
         *ret = fd;
 
@@ -140,9 +141,9 @@ int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
         int r;
 
         if (*fd < 0) {
-                r = ethtool_connect(fd);
+                r = ethtool_connect_or_warn(fd, true);
                 if (r < 0)
-                        return log_warning_errno(r, "ethtool: could not connect to ethtool: %m");
+                        return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
@@ -173,9 +174,9 @@ int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex
                 return 0;
 
         if (*fd < 0) {
-                r = ethtool_connect(fd);
+                r = ethtool_connect_or_warn(fd, true);
                 if (r < 0)
-                        return log_warning_errno(r, "ethtool: could not connect to ethtool: %m");
+                        return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
@@ -231,9 +232,9 @@ int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
                 return 0;
 
         if (*fd < 0) {
-                r = ethtool_connect(fd);
+                r = ethtool_connect_or_warn(fd, true);
                 if (r < 0)
-                        return log_warning_errno(r, "ethtool: could not connect to ethtool: %m");
+                        return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
@@ -368,9 +369,9 @@ int ethtool_set_features(int *fd, const char *ifname, int *features) {
         struct ifreq ifr = {};
 
         if (*fd < 0) {
-                r = ethtool_connect(fd);
+                r = ethtool_connect_or_warn(fd, true);
                 if (r < 0)
-                        return log_warning_errno(r, "ethtool: could not connect to ethtool: %m");
+                        return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
@@ -599,9 +600,9 @@ int ethtool_set_glinksettings(
         }
 
         if (*fd < 0) {
-                r = ethtool_connect(fd);
+                r = ethtool_connect_or_warn(fd, true);
                 if (r < 0)
-                        return log_warning_errno(r, "ethtool: could not connect to ethtool: %m");
+                        return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
@@ -654,9 +655,9 @@ int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels)
         int r;
 
         if (*fd < 0) {
-                r = ethtool_connect(fd);
+                r = ethtool_connect_or_warn(fd, true);
                 if (r < 0)
-                        return log_warning_errno(r, "ethtool: could not connect to ethtool: %m");
+                        return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);

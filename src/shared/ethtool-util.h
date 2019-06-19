@@ -79,8 +79,6 @@ typedef struct netdev_channels {
         bool combined_count_set;
 } netdev_channels;
 
-int ethtool_connect(int *ret);
-
 int ethtool_get_driver(int *fd, const char *ifname, char **ret);
 int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex);
 int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol);
