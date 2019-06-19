@@ -6,7 +6,7 @@
 
 #include "conf-parser.h"
 
-struct link_config;
+#define N_ADVERTISE 2
 
 /* we can't use DUPLEX_ prefix, as it
  * clashes with <linux/ethtool.h> */
@@ -79,13 +79,16 @@ typedef struct netdev_channels {
         bool combined_count_set;
 } netdev_channels;
 
-int ethtool_connect(int *ret);
-
 int ethtool_get_driver(int *fd, const char *ifname, char **ret);
+int ethtool_get_link_info(int *fd, const char *ifname,
+                          int *ret_autonegotiation, size_t *ret_speed,
+                          Duplex *ret_duplex, NetDevPort *ret_port);
 int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex);
 int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol);
 int ethtool_set_features(int *fd, const char *ifname, int *features);
-int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *link);
+int ethtool_set_glinksettings(int *fd, const char *ifname,
+                              int autonegotiation, uint32_t advertise[static N_ADVERTISE],
+                              size_t speed, Duplex duplex, NetDevPort port);
 int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels);
 
 const char *duplex_to_string(Duplex d) _const_;

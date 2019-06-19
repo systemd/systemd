@@ -47,8 +47,8 @@ Link.TCP6SegmentationOffload,    config_parse_tristate,           0,            
 Link.UDPSegmentationOffload,     config_parse_warn_compat,        DISABLED_LEGACY,               0
 Link.GenericReceiveOffload,      config_parse_tristate,           0,                             offsetof(link_config, features[NET_DEV_FEAT_GRO])
 Link.LargeReceiveOffload,        config_parse_tristate,           0,                             offsetof(link_config, features[NET_DEV_FEAT_LRO])
-Link.RxChannels,                 config_parse_channel,            0,                             0
-Link.TxChannels,                 config_parse_channel,            0,                             0
-Link.OtherChannels,              config_parse_channel,            0,                             0
-Link.CombinedChannels,           config_parse_channel,            0,                             0
-Link.Advertise,                  config_parse_advertise,          0,                             0
+Link.RxChannels,                 config_parse_channel,            0,                             offsetof(link_config, channels)
+Link.TxChannels,                 config_parse_channel,            0,                             offsetof(link_config, channels)
+Link.OtherChannels,              config_parse_channel,            0,                             offsetof(link_config, channels)
+Link.CombinedChannels,           config_parse_channel,            0,                             offsetof(link_config, channels)
+Link.Advertise,                  config_parse_advertise,          0,                             offsetof(link_config, advertise)

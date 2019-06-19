@@ -7,7 +7,7 @@
 
 #include "conf-parser.h"
 #include "ethtool-util.h"
-#include "link-config.h"
+#include "extract-word.h"
 #include "log.h"
 #include "memory-util.h"
 #include "missing.h"
@@ -111,18 +111,19 @@ static const char* const ethtool_link_mode_bit_table[] = {
         [ETHTOOL_LINK_MODE_FEC_BASER_BIT]              = "fec-baser",
 };
 /* Make sure the array is large enough to fit all bits */
-assert_cc((ELEMENTSOF(ethtool_link_mode_bit_table)-1) / 32 < ELEMENTSOF(((struct link_config){}).advertise));
+assert_cc((ELEMENTSOF(ethtool_link_mode_bit_table)-1) / 32 < N_ADVERTISE);
 
 DEFINE_STRING_TABLE_LOOKUP(ethtool_link_mode_bit, enum ethtool_link_mode_bit_indices);
 
-int ethtool_connect(int *ret) {
+static int ethtool_connect_or_warn(int *ret, bool warn) {
         int fd;
 
         assert_return(ret, -EINVAL);
 
         fd = socket_ioctl_fd();
         if (fd < 0)
-                return fd;
+                return log_full_errno(warn ? LOG_WARNING: LOG_DEBUG, fd,
+                                       "ethtool: could not create control socket: %m");
 
         *ret = fd;
 
@@ -140,9 +141,9 @@ int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
         int r;
 
         if (*fd < 0) {
-                r = ethtool_connect(fd);
+                r = ethtool_connect_or_warn(fd, true);
                 if (r < 0)
-                        return log_warning_errno(r, "link_config: could not connect to ethtool: %m");
+                        return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
@@ -156,6 +157,44 @@ int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
                 return -ENOMEM;
 
         *ret = d;
+        return 0;
+}
+
+int ethtool_get_link_info(int *fd, const char *ifname,
+                          int *ret_autonegotiation, size_t *ret_speed,
+                          Duplex *ret_duplex, NetDevPort *ret_port) {
+        struct ethtool_cmd ecmd = {
+                .cmd = ETHTOOL_GSET,
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &ecmd,
+        };
+        int r;
+
+        if (*fd < 0) {
+                r = ethtool_connect_or_warn(fd, false);
+                if (r < 0)
+                        return r;
+        }
+
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        if (ret_autonegotiation)
+                *ret_autonegotiation = ecmd.autoneg;
+
+        if (ret_speed)
+                *ret_speed = ethtool_cmd_speed(&ecmd) * 1000 * 1000;
+
+        if (ret_duplex)
+                *ret_duplex = ecmd.duplex;
+
+        if (ret_port)
+                *ret_port = ecmd.port;
+
         return 0;
 }
 
@@ -173,9 +212,9 @@ int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex
                 return 0;
 
         if (*fd < 0) {
-                r = ethtool_connect(fd);
+                r = ethtool_connect_or_warn(fd, true);
                 if (r < 0)
-                        return log_warning_errno(r, "link_config: could not connect to ethtool: %m");
+                        return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
@@ -231,9 +270,9 @@ int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
                 return 0;
 
         if (*fd < 0) {
-                r = ethtool_connect(fd);
+                r = ethtool_connect_or_warn(fd, true);
                 if (r < 0)
-                        return log_warning_errno(r, "link_config: could not connect to ethtool: %m");
+                        return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
@@ -368,16 +407,16 @@ int ethtool_set_features(int *fd, const char *ifname, int *features) {
         struct ifreq ifr = {};
 
         if (*fd < 0) {
-                r = ethtool_connect(fd);
+                r = ethtool_connect_or_warn(fd, true);
                 if (r < 0)
-                        return log_warning_errno(r, "link_config: could not connect to ethtool: %m");
+                        return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
         r = get_stringset(*fd, &ifr, ETH_SS_FEATURES, &strings);
         if (r < 0)
-                return log_warning_errno(r, "link_config: could not get ethtool features for %s", ifname);
+                return log_warning_errno(r, "ethtool: could not get ethtool features for %s", ifname);
 
         sfeatures = alloca0(sizeof(struct ethtool_sfeatures) + DIV_ROUND_UP(strings->len, 32U) * sizeof(sfeatures->features[0]));
         sfeatures->cmd = ETHTOOL_SFEATURES;
@@ -389,7 +428,7 @@ int ethtool_set_features(int *fd, const char *ifname, int *features) {
 
                         r = find_feature_index(strings, netdev_feature_table[i]);
                         if (r < 0) {
-                                log_warning_errno(r, "link_config: could not find feature: %s", netdev_feature_table[i]);
+                                log_warning_errno(r, "ethtool: could not find feature: %s", netdev_feature_table[i]);
                                 continue;
                         }
 
@@ -409,7 +448,7 @@ int ethtool_set_features(int *fd, const char *ifname, int *features) {
 
         r = ioctl(*fd, SIOCETHTOOL, &ifr);
         if (r < 0)
-                return log_warning_errno(r, "link_config: could not set ethtool features for %s", ifname);
+                return log_warning_errno(r, "ethtool: could not set ethtool features for %s", ifname);
 
         return 0;
 }
@@ -453,11 +492,13 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
         if (ecmd.req.link_mode_masks_nwords <= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
                 return -EOPNOTSUPP;
 
-        u = new0(struct ethtool_link_usettings , 1);
+        u = new(struct ethtool_link_usettings, 1);
         if (!u)
                 return -ENOMEM;
 
-        u->base = ecmd.req;
+        *u = (struct ethtool_link_usettings) {
+                .base = ecmd.req,
+        };
 
         offset = 0;
         memcpy(u->link_modes.supported, &ecmd.link_mode_data[offset], 4 * ecmd.req.link_mode_masks_nwords);
@@ -486,23 +527,24 @@ static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **u
         if (r < 0)
                 return -errno;
 
-        e = new0(struct ethtool_link_usettings, 1);
+        e = new(struct ethtool_link_usettings, 1);
         if (!e)
                 return -ENOMEM;
 
-        e->base.cmd = ETHTOOL_GSET;
+        *e = (struct ethtool_link_usettings) {
+                .base.cmd = ETHTOOL_GSET,
+                .base.link_mode_masks_nwords = 1,
+                .base.speed = ethtool_cmd_speed(&ecmd),
+                .base.duplex = ecmd.duplex,
+                .base.port = ecmd.port,
+                .base.phy_address = ecmd.phy_address,
+                .base.autoneg = ecmd.autoneg,
+                .base.mdio_support = ecmd.mdio_support,
 
-        e->base.link_mode_masks_nwords = 1;
-        e->base.speed = ethtool_cmd_speed(&ecmd);
-        e->base.duplex = ecmd.duplex;
-        e->base.port = ecmd.port;
-        e->base.phy_address = ecmd.phy_address;
-        e->base.autoneg = ecmd.autoneg;
-        e->base.mdio_support = ecmd.mdio_support;
-
-        e->link_modes.supported[0] = ecmd.supported;
-        e->link_modes.advertising[0] = ecmd.advertising;
-        e->link_modes.lp_advertising[0] = ecmd.lp_advertising;
+                .link_modes.supported[0] = ecmd.supported,
+                .link_modes.advertising[0] = ecmd.advertising,
+                .link_modes.lp_advertising[0] = ecmd.lp_advertising,
+        };
 
         *u = e;
 
@@ -578,20 +620,27 @@ static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettin
  * link mode; if the link is down, the speed is 0, %SPEED_UNKNOWN or the highest
  * enabled speed and @duplex is %DUPLEX_UNKNOWN or the best enabled duplex mode.
  */
-int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *link) {
+int ethtool_set_glinksettings(
+                int *fd,
+                const char *ifname,
+                int autonegotiation,
+                uint32_t advertise[static N_ADVERTISE],
+                size_t speed,
+                Duplex duplex,
+                NetDevPort port) {
         _cleanup_free_ struct ethtool_link_usettings *u = NULL;
         struct ifreq ifr = {};
         int r;
 
-        if (link->autonegotiation != AUTONEG_DISABLE && eqzero(link->advertise)) {
-                log_info("link_config: autonegotiation is unset or enabled, the speed and duplex are not writable.");
+        if (autonegotiation != AUTONEG_DISABLE && memeqzero(advertise, sizeof(uint32_t) * N_ADVERTISE)) {
+                log_info("ethtool: autonegotiation is unset or enabled, the speed and duplex are not writable.");
                 return 0;
         }
 
         if (*fd < 0) {
-                r = ethtool_connect(fd);
+                r = ethtool_connect_or_warn(fd, true);
                 if (r < 0)
-                        return log_warning_errno(r, "link_config: could not connect to ethtool: %m");
+                        return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
@@ -600,26 +649,26 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
         if (r < 0) {
                 r = get_gset(*fd, &ifr, &u);
                 if (r < 0)
-                        return log_warning_errno(r, "link_config: Cannot get device settings for %s : %m", ifname);
+                        return log_warning_errno(r, "ethtool: Cannot get device settings for %s : %m", ifname);
         }
 
-        if (link->speed)
-                u->base.speed = DIV_ROUND_UP(link->speed, 1000000);
+        if (speed > 0)
+                u->base.speed = DIV_ROUND_UP(speed, 1000000);
 
-        if (link->duplex != _DUP_INVALID)
-                u->base.duplex = link->duplex;
+        if (duplex != _DUP_INVALID)
+                u->base.duplex = duplex;
 
-        if (link->port != _NET_DEV_PORT_INVALID)
-                u->base.port = link->port;
+        if (port != _NET_DEV_PORT_INVALID)
+                u->base.port = port;
 
-        if (link->autonegotiation >= 0)
-                u->base.autoneg = link->autonegotiation;
+        if (autonegotiation >= 0)
+                u->base.autoneg = autonegotiation;
 
-        if (!eqzero(link->advertise)) {
+        if (!memeqzero(advertise, sizeof(uint32_t) * N_ADVERTISE)) {
                 u->base.autoneg = AUTONEG_ENABLE;
-                memcpy(&u->link_modes.advertising, link->advertise, sizeof(link->advertise));
-                memzero((uint8_t*) &u->link_modes.advertising + sizeof(link->advertise),
-                        ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES - sizeof(link->advertise));
+                memcpy(&u->link_modes.advertising, advertise, sizeof(uint32_t) * N_ADVERTISE);
+                memzero((uint8_t*) &u->link_modes.advertising + sizeof(uint32_t) * N_ADVERTISE,
+                        ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES - sizeof(uint32_t) * N_ADVERTISE);
         }
 
         if (u->base.cmd == ETHTOOL_GLINKSETTINGS)
@@ -627,57 +676,9 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
         else
                 r = set_sset(*fd, &ifr, u);
         if (r < 0)
-                return log_warning_errno(r, "link_config: Cannot set device settings for %s : %m", ifname);
+                return log_warning_errno(r, "ethtool: Cannot set device settings for %s : %m", ifname);
 
         return r;
-}
-
-int config_parse_channel(const char *unit,
-                         const char *filename,
-                         unsigned line,
-                         const char *section,
-                         unsigned section_line,
-                         const char *lvalue,
-                         int ltype,
-                         const char *rvalue,
-                         void *data,
-                         void *userdata) {
-        link_config *config = data;
-        uint32_t k;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse channel value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (k < 1) {
-                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Invalid %s value, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        if (streq(lvalue, "RxChannels")) {
-                config->channels.rx_count = k;
-                config->channels.rx_count_set = true;
-        } else if (streq(lvalue, "TxChannels")) {
-                config->channels.tx_count = k;
-                config->channels.tx_count_set = true;
-        } else if (streq(lvalue, "OtherChannels")) {
-                config->channels.other_count = k;
-                config->channels.other_count_set = true;
-        } else if (streq(lvalue, "CombinedChannels")) {
-                config->channels.combined_count = k;
-                config->channels.combined_count_set = true;
-        }
-
-        return 0;
 }
 
 int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels) {
@@ -692,9 +693,9 @@ int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels)
         int r;
 
         if (*fd < 0) {
-                r = ethtool_connect(fd);
+                r = ethtool_connect_or_warn(fd, true);
                 if (r < 0)
-                        return log_warning_errno(r, "link_config: could not connect to ethtool: %m");
+                        return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
@@ -734,6 +735,54 @@ int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels)
         return 0;
 }
 
+int config_parse_channel(const char *unit,
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         unsigned section_line,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata) {
+        netdev_channels *channels = data;
+        uint32_t k;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = safe_atou32(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse channel value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (k < 1) {
+                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Invalid %s value, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (streq(lvalue, "RxChannels")) {
+                channels->rx_count = k;
+                channels->rx_count_set = true;
+        } else if (streq(lvalue, "TxChannels")) {
+                channels->tx_count = k;
+                channels->tx_count_set = true;
+        } else if (streq(lvalue, "OtherChannels")) {
+                channels->other_count = k;
+                channels->other_count_set = true;
+        } else if (streq(lvalue, "CombinedChannels")) {
+                channels->combined_count = k;
+                channels->combined_count_set = true;
+        }
+
+        return 0;
+}
+
 int config_parse_advertise(const char *unit,
                            const char *filename,
                            unsigned line,
@@ -744,7 +793,7 @@ int config_parse_advertise(const char *unit,
                            const char *rvalue,
                            void *data,
                            void *userdata) {
-        link_config *config = data;
+        uint32_t *advertise = data;
         const char *p;
         int r;
 
@@ -756,7 +805,7 @@ int config_parse_advertise(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty string resets the value. */
-                zero(config->advertise);
+                memzero(advertise, sizeof(uint32_t) * N_ADVERTISE);
                 return 0;
         }
 
@@ -782,7 +831,7 @@ int config_parse_advertise(const char *unit,
                         continue;
                 }
 
-                config->advertise[mode / 32] |= 1UL << (mode % 32);
+                advertise[mode / 32] |= 1UL << (mode % 32);
         }
 
         return 0;

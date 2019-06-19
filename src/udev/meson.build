@@ -40,8 +40,6 @@ libudev_core_sources = '''
         udev-builtin-usb_id.c
         net/link-config.c
         net/link-config.h
-        net/ethtool-util.c
-        net/ethtool-util.h
         net/naming-scheme.c
         net/naming-scheme.h
 '''.split()

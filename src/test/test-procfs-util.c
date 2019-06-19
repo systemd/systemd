@@ -2,8 +2,8 @@
 
 #include <errno.h>
 
+#include "format-util.h"
 #include "log.h"
-#include "parse-util.h"
 #include "procfs-util.h"
 
 int main(int argc, char *argv[]) {
