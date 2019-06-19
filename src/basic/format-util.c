@@ -32,7 +32,7 @@ char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) {
                 { "K", UINT64_C(1000) },
         };
         const suffix_table *table;
-        size_t i;
+        size_t n, i;
 
         assert_cc(ELEMENTSOF(table_iec) == ELEMENTSOF(table_non_iec));
 
@@ -40,16 +40,19 @@ char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) {
                 return NULL;
 
         table = flag & FORMAT_BYTES_USE_IEC ? table_iec : table_non_iec;
+        n = ELEMENTSOF(table_iec);
 
-        for (i = 0; i < ELEMENTSOF(table_iec); i++)
+        for (i = 0; i < n; i++)
                 if (t >= table[i].factor) {
-                        if (flag & FORMAT_BYTES_BELOW_POINT)
+                        if (flag & FORMAT_BYTES_BELOW_POINT) {
                                 snprintf(buf, l,
                                          "%" PRIu64 ".%" PRIu64 "%s",
                                          t / table[i].factor,
-                                         ((t*UINT64_C(10)) / table[i].factor) % UINT64_C(10),
+                                         i != n - 1 ?
+                                         (t / table[i + 1].factor * UINT64_C(10) / table[n - 1].factor) % UINT64_C(10):
+                                         (t * UINT64_C(10) / table[i].factor) % UINT64_C(10),
                                          table[i].suffix);
-                        else
+                        } else
                                 snprintf(buf, l,
                                          "%" PRIu64 "%s",
                                          t / table[i].factor,
