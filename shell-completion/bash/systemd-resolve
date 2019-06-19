@@ -64,7 +64,7 @@ _systemd-resolve() {
                 comps="yes no allow-downgrade"
                 ;;
             --set-dnsovertls)
-                comps="no opportunistic"
+                comps="yes no opportunistic"
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

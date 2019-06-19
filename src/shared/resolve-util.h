@@ -42,6 +42,9 @@ enum DnsOverTlsMode {
          * fallback to using an unencrypted connection */
         DNS_OVER_TLS_OPPORTUNISTIC,
 
+        /* Enforce DNS-over-TLS and require valid server certificates */
+        DNS_OVER_TLS_YES,
+
         _DNS_OVER_TLS_MODE_MAX,
         _DNS_OVER_TLS_MODE_INVALID = -1
 };

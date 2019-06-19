@@ -25,5 +25,6 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dnssec_mode, DnssecMode, DNSSEC_YES);
 static const char* const dns_over_tls_mode_table[_DNS_OVER_TLS_MODE_MAX] = {
         [DNS_OVER_TLS_NO] = "no",
         [DNS_OVER_TLS_OPPORTUNISTIC] = "opportunistic",
+        [DNS_OVER_TLS_YES] = "yes",
 };
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_over_tls_mode, DnsOverTlsMode, _DNS_OVER_TLS_MODE_INVALID);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_over_tls_mode, DnsOverTlsMode, DNS_OVER_TLS_YES);

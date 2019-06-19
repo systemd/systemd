@@ -9,6 +9,11 @@
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
 
+#if GNUTLS_VERSION_NUMBER >= 0x030600
+#define PRIORTY_STRING "NORMAL:-VERS-ALL:+VERS-TLS1.2:+VERS-TLS1.3"
+#else
+#define PRIORTY_STRING "NORMAL:-VERS-ALL:+VERS-TLS1.2"
+#endif
 DEFINE_TRIVIAL_CLEANUP_FUNC(gnutls_session_t, gnutls_deinit);
 
 static ssize_t dnstls_stream_writev(gnutls_transport_ptr_t p, const giovec_t *iov, int iovcnt) {
@@ -37,11 +42,11 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
                 return r;
 
         /* As DNS-over-TLS is a recent protocol, older TLS versions can be disabled */
-        r = gnutls_priority_set_direct(gs, "NORMAL:-VERS-ALL:+VERS-TLS1.2", NULL);
+        r = gnutls_priority_set_direct(gs, PRIORTY_STRING, NULL);
         if (r < 0)
                 return r;
 
-        r = gnutls_credentials_set(gs, GNUTLS_CRD_CERTIFICATE, server->dnstls_data.cert_cred);
+        r = gnutls_credentials_set(gs, GNUTLS_CRD_CERTIFICATE, stream->manager->dnstls_data.cert_cred);
         if (r < 0)
                 return r;
 
@@ -53,6 +58,9 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
                 server->dnstls_data.session_data.data = NULL;
                 server->dnstls_data.session_data.size = 0;
         }
+
+        if (server->manager->dns_over_tls_mode == DNS_OVER_TLS_YES)
+                gnutls_session_set_verify_cert(gs, NULL, 0);
 
         gnutls_handshake_set_timeout(gs, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
 
@@ -187,19 +195,31 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
         return ss;
 }
 
-void dnstls_server_init(DnsServer *server) {
-        assert(server);
-
-        /* Do not verify cerificate */
-        gnutls_certificate_allocate_credentials(&server->dnstls_data.cert_cred);
-}
-
 void dnstls_server_free(DnsServer *server) {
         assert(server);
 
-        if (server->dnstls_data.cert_cred)
-                gnutls_certificate_free_credentials(server->dnstls_data.cert_cred);
-
         if (server->dnstls_data.session_data.data)
                 gnutls_free(server->dnstls_data.session_data.data);
+}
+
+int dnstls_manager_init(Manager *manager) {
+        int r;
+        assert(manager);
+
+        r = gnutls_certificate_allocate_credentials(&manager->dnstls_data.cert_cred);
+        if (r < 0)
+                return -ENOMEM;
+
+        r = gnutls_certificate_set_x509_system_trust(manager->dnstls_data.cert_cred);
+        if (r < 0)
+                log_warning("Failed to load system trust store: %s", gnutls_strerror(r));
+
+        return 0;
+}
+
+void dnstls_manager_free(Manager *manager) {
+        assert(manager);
+
+        if (manager->dnstls_data.cert_cred)
+                gnutls_certificate_free_credentials(manager->dnstls_data.cert_cred);
 }
