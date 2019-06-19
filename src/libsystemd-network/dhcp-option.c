@@ -198,7 +198,7 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
                                 if (memchr(option, 0, len - 1))
                                         return -EINVAL;
 
-                                string = strndup((const char *) option, len);
+                                string = memdup_suffix0((const char *) option, len);
                                 if (!string)
                                         return -ENOMEM;
 
