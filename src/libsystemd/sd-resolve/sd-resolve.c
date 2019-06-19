@@ -248,6 +248,8 @@ static int send_addrinfo_reply(
                 ._h_errno = _h_errno,
         };
 
+        msan_unpoison(&resp, sizeof(resp));
+
         if (ret == 0 && ai) {
                 void *p = &buffer;
                 struct addrinfo *k;
@@ -308,6 +310,8 @@ static int send_nameinfo_reply(
                 ._h_errno = _h_errno,
         };
 
+        msan_unpoison(&resp, sizeof(resp));
+
         iov[0] = IOVEC_MAKE(&resp, sizeof(NameInfoResponse));
         iov[1] = IOVEC_MAKE((void*) host, hl);
         iov[2] = IOVEC_MAKE((void*) serv, sl);
@@ -351,6 +355,8 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
                        .ai_socktype = ai_req->ai_socktype,
                        .ai_protocol = ai_req->ai_protocol,
                };
+
+               msan_unpoison(&hints, sizeof(hints));
 
                node = ai_req->node_len ? (const char*) ai_req + sizeof(AddrInfoRequest) : NULL;
                service = ai_req->service_len ? (const char*) ai_req + sizeof(AddrInfoRequest) + ai_req->node_len : NULL;
@@ -960,6 +966,8 @@ int resolve_getaddrinfo_with_destroy_callback(
                 .ai_protocol = hints ? hints->ai_protocol : 0,
         };
 
+        msan_unpoison(&req, sizeof(req));
+
         iov[mh.msg_iovlen++] = IOVEC_MAKE(&req, sizeof(AddrInfoRequest));
         if (node)
                 iov[mh.msg_iovlen++] = IOVEC_MAKE((void*) node, req.node_len);
@@ -1045,6 +1053,8 @@ int resolve_getnameinfo_with_destroy_callback(
                 .gethost = !!(get & SD_RESOLVE_GET_HOST),
                 .getserv = !!(get & SD_RESOLVE_GET_SERVICE),
         };
+
+        msan_unpoison(&req, sizeof(req));
 
         iov[0] = IOVEC_MAKE(&req, sizeof(NameInfoRequest));
         iov[1] = IOVEC_MAKE((void*) sa, salen);
