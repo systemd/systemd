@@ -444,7 +444,7 @@ static int prefix_where_needed(MountEntry *m, size_t n, const char *root_directo
                 if (m[i].has_prefix)
                         continue;
 
-                s = prefix_root(root_directory, mount_entry_path(m+i));
+                s = path_join(root_directory, mount_entry_path(m+i));
                 if (!s)
                         return -ENOMEM;
 
