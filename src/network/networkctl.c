@@ -119,8 +119,8 @@ typedef struct LinkInfo {
                 struct rtnl_link_stats stats;
         };
 
-        double tx_bitrate;
-        double rx_bitrate;
+        uint64_t tx_bitrate;
+        uint64_t rx_bitrate;
 
         bool has_mac_address:1;
         bool has_tx_queues:1;
@@ -229,11 +229,11 @@ static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
                                       r, "Failed to query link bit rates: %s", bus_error_message(&error, r));
         }
 
-        r = sd_bus_message_enter_container(reply, 'v', "(dd)");
+        r = sd_bus_message_enter_container(reply, 'v', "(tt)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = sd_bus_message_read(reply, "(dd)", &link->tx_bitrate, &link->rx_bitrate);
+        r = sd_bus_message_read(reply, "(tt)", &link->tx_bitrate, &link->rx_bitrate);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -241,7 +241,7 @@ static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        link->has_bitrates = link->tx_bitrate >= 0 && link->rx_bitrate >= 0;
+        link->has_bitrates = true;
 
         return 0;
 }
@@ -898,32 +898,6 @@ static int dump_statistics(Table *table, const LinkInfo *info) {
         return 0;
 }
 
-static const struct {
-        double val;
-        const char *str;
-} prefix_table[] = {
-        { .val = 1e15, .str = "P" },
-        { .val = 1e12, .str = "T" },
-        { .val = 1e9,  .str = "G" },
-        { .val = 1e6,  .str = "M" },
-        { .val = 1e3,  .str = "k" },
-};
-
-static void get_prefix(double val, double *ret_div, const char **ret_prefix) {
-        assert(ret_div);
-        assert(ret_prefix);
-
-        for (size_t i = 0; i < ELEMENTSOF(prefix_table); i++)
-                if (val > prefix_table[i].val) {
-                        *ret_div = prefix_table[i].val;
-                        *ret_prefix = prefix_table[i].str;
-                        return;
-                }
-
-        *ret_div = 1;
-        *ret_prefix = NULL;
-}
-
 static int link_status_one(
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
@@ -1140,11 +1114,7 @@ static int link_status_one(
         }
 
         if (info->has_bitrates) {
-                const char *tx_prefix, *rx_prefix;
-                double tx_div, rx_div;
-
-                get_prefix(info->tx_bitrate, &tx_div, &tx_prefix);
-                get_prefix(info->rx_bitrate, &rx_div, &rx_prefix);
+                char tx[FORMAT_BYTES_MAX], rx[FORMAT_BYTES_MAX];
 
                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
@@ -1153,9 +1123,9 @@ static int link_status_one(
                 if (r < 0)
                         return r;
 
-                r = table_add_cell_stringf(table, NULL, "%.4g %sbps/%.4g %sbps",
-                                           info->tx_bitrate / tx_div, strempty(tx_prefix),
-                                           info->rx_bitrate / rx_div, strempty(rx_prefix));
+                r = table_add_cell_stringf(table, NULL, "%sbps/%sbps",
+                                           format_bytes_full(tx, sizeof tx, info->tx_bitrate, 0),
+                                           format_bytes_full(rx, sizeof rx, info->rx_bitrate, 0));
                 if (r < 0)
                         return r;
         }

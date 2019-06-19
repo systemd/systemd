@@ -22,7 +22,8 @@ static int property_get_bit_rates(
 
         Link *link = userdata;
         Manager *manager;
-        double tx, rx, interval_sec;
+        double interval_sec;
+        uint64_t tx, rx;
 
         assert(bus);
         assert(reply);
@@ -40,19 +41,19 @@ static int property_get_bit_rates(
                 return sd_bus_error_set(error, BUS_ERROR_SPEED_METER_INACTIVE, "Failed to measure bit-rates.");
 
         assert(manager->speed_meter_usec_new > manager->speed_meter_usec_old);
-        interval_sec = (double) (manager->speed_meter_usec_new - manager->speed_meter_usec_old) / USEC_PER_SEC;
+        interval_sec = (manager->speed_meter_usec_new - manager->speed_meter_usec_old) / USEC_PER_SEC;
 
         if (link->stats_new.tx_bytes > link->stats_old.tx_bytes)
-                tx = (link->stats_new.tx_bytes - link->stats_old.tx_bytes) / interval_sec;
+                tx = (uint64_t) ((link->stats_new.tx_bytes - link->stats_old.tx_bytes) / interval_sec);
         else
-                tx = (UINT64_MAX - (link->stats_old.tx_bytes - link->stats_new.tx_bytes)) / interval_sec;
+                tx = (uint64_t) ((UINT64_MAX - (link->stats_old.tx_bytes - link->stats_new.tx_bytes)) / interval_sec);
 
         if (link->stats_new.rx_bytes > link->stats_old.rx_bytes)
-                rx = (link->stats_new.rx_bytes - link->stats_old.rx_bytes) / interval_sec;
+                rx = (uint64_t) ((link->stats_new.rx_bytes - link->stats_old.rx_bytes) / interval_sec);
         else
-                rx = (UINT64_MAX - (link->stats_old.rx_bytes - link->stats_new.rx_bytes)) / interval_sec;
+                rx = (uint64_t) ((UINT64_MAX - (link->stats_old.rx_bytes - link->stats_new.rx_bytes)) / interval_sec);
 
-        return sd_bus_message_append(reply, "(dd)", tx, rx);
+        return sd_bus_message_append(reply, "(tt)", tx, rx);
 }
 
 const sd_bus_vtable link_vtable[] = {
@@ -60,7 +61,7 @@ const sd_bus_vtable link_vtable[] = {
 
         SD_BUS_PROPERTY("OperationalState", "s", property_get_operational_state, offsetof(Link, operstate), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("AdministrativeState", "s", property_get_administrative_state, offsetof(Link, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("BitRates", "(dd)", property_get_bit_rates, 0, 0),
+        SD_BUS_PROPERTY("BitRates", "(tt)", property_get_bit_rates, 0, 0),
 
         SD_BUS_VTABLE_END
 };
