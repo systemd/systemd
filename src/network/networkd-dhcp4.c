@@ -483,6 +483,7 @@ static int dhcp4_update_address(Link *link,
                                 uint32_t lifetime) {
         _cleanup_(address_freep) Address *addr = NULL;
         unsigned prefixlen;
+        uint32_t table;
         int r;
 
         assert(address);
@@ -495,12 +496,16 @@ static int dhcp4_update_address(Link *link,
         if (r < 0)
                 return r;
 
+        table = link_get_dhcp_route_table(link);
+
         addr->family = AF_INET;
         addr->in_addr.in.s_addr = address->s_addr;
         addr->cinfo.ifa_prefered = lifetime;
         addr->cinfo.ifa_valid = lifetime;
         addr->prefixlen = prefixlen;
         addr->broadcast.s_addr = address->s_addr | ~netmask->s_addr;
+        if (table)
+                addr->flags |= IFA_F_NOPREFIXROUTE;
 
         /* allow reusing an existing address and simply update its lifetime
          * in case it already exists */
