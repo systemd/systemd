@@ -1895,11 +1895,11 @@ static int copy_devnodes(const char *dest) {
                 _cleanup_free_ char *from = NULL, *to = NULL;
                 struct stat st;
 
-                from = strappend("/dev/", d);
+                from = path_join("/dev/", d);
                 if (!from)
                         return log_oom();
 
-                to = prefix_root(dest, from);
+                to = path_join(dest, from);
                 if (!to)
                         return log_oom();
 
@@ -1945,7 +1945,7 @@ static int copy_devnodes(const char *dest) {
                         if (asprintf(&sl, "%s/%u:%u", dn, major(st.st_rdev), minor(st.st_rdev)) < 0)
                                 return log_oom();
 
-                        prefixed = prefix_root(dest, sl);
+                        prefixed = path_join(dest, sl);
                         if (!prefixed)
                                 return log_oom();
 
@@ -1972,7 +1972,7 @@ static int make_extra_nodes(const char *dest) {
                 _cleanup_free_ char *path = NULL;
                 DeviceNode *n = arg_extra_nodes + i;
 
-                path = prefix_root(dest, n->path);
+                path = path_join(dest, n->path);
                 if (!path)
                         return log_oom();
 

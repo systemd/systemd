@@ -388,12 +388,12 @@ static void test_prefix_root_one(const char *r, const char *p, const char *expec
         _cleanup_free_ char *s = NULL;
         const char *t;
 
-        assert_se(s = prefix_root(r, p));
-        assert_se(streq_ptr(s, expected));
+        assert_se(s = path_join(r, p));
+        assert_se(path_equal_ptr(s, expected));
 
         t = prefix_roota(r, p);
         assert_se(t);
-        assert_se(streq_ptr(t, expected));
+        assert_se(path_equal_ptr(t, expected));
 }
 
 static void test_prefix_root(void) {

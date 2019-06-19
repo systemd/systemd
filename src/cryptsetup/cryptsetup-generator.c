@@ -235,7 +235,7 @@ static int create_disk(
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate keydev mount unit: %m");
 
-                p = prefix_root(keydev_mount, password_escaped);
+                p = path_join(keydev_mount, password_escaped);
                 if (!p)
                         return log_oom();
 

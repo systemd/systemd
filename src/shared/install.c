@@ -794,7 +794,7 @@ static int find_symlinks_fd(
                         if (!path_is_absolute(dest)) {
                                 char *x;
 
-                                x = prefix_root(root_dir, dest);
+                                x = path_join(root_dir, dest);
                                 if (!x)
                                         return -ENOMEM;
 
@@ -1377,7 +1377,7 @@ static int unit_file_load_or_readlink(
 
                 if (path_is_absolute(target))
                         /* This is an absolute path, prefix the root so that we always deal with fully qualified paths */
-                        info->symlink_target = prefix_root(root_dir, target);
+                        info->symlink_target = path_join(root_dir, target);
                 else
                         /* This is a relative path, take it relative to the dir the symlink is located in. */
                         info->symlink_target = file_in_same_dir(path, target);
@@ -2188,7 +2188,7 @@ int unit_file_link(
                 if (!unit_name_is_valid(fn, UNIT_NAME_ANY))
                         return -EINVAL;
 
-                full = prefix_root(paths.root_dir, *i);
+                full = path_join(paths.root_dir, *i);
                 if (!full)
                         return -ENOMEM;
 

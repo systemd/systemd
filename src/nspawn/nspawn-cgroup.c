@@ -370,7 +370,7 @@ static int mount_legacy_cgns_supported(
                         if (streq(controller, tok))
                                 break;
 
-                        target = prefix_root("/sys/fs/cgroup/", tok);
+                        target = path_join("/sys/fs/cgroup/", tok);
                         if (!target)
                                 return log_oom();
 
@@ -451,7 +451,7 @@ static int mount_legacy_cgns_unsupported(
                 if (!controller)
                         break;
 
-                origin = prefix_root("/sys/fs/cgroup/", controller);
+                origin = path_join("/sys/fs/cgroup/", controller);
                 if (!origin)
                         return log_oom();
 
@@ -468,7 +468,7 @@ static int mount_legacy_cgns_unsupported(
                 else {
                         _cleanup_free_ char *target = NULL;
 
-                        target = prefix_root(dest, origin);
+                        target = path_join(dest, origin);
                         if (!target)
                                 return log_oom();
 

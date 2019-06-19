@@ -116,10 +116,8 @@ int mkfs_exists(const char *fstype);
              _slash && ((*_slash = 0), true);                           \
              _slash = strrchr((prefix), '/'))
 
-char *prefix_root(const char *root, const char *path);
-
-/* Similar to prefix_root(), but returns an alloca() buffer, or
- * possibly a const pointer into the path parameter */
+/* Similar to path_join(), but only works for two components, and only the first one may be NULL and returns
+ * an alloca() buffer, or possibly a const pointer into the path parameter */
 #define prefix_roota(root, path)                                        \
         ({                                                              \
                 const char* _path = (path), *_root = (root), *_ret;     \

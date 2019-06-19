@@ -256,7 +256,7 @@ char **path_strv_resolve(char **l, const char *root) {
 
                 if (root) {
                         orig = *s;
-                        t = prefix_root(root, orig);
+                        t = path_join(root, orig);
                         if (!t) {
                                 enomem = true;
                                 continue;
@@ -686,40 +686,6 @@ int mkfs_exists(const char *fstype) {
         return binary_is_good(mkfs);
 }
 
-char *prefix_root(const char *root, const char *path) {
-        char *n, *p;
-        size_t l;
-
-        /* If root is passed, prefixes path with it. Otherwise returns
-         * it as is. */
-
-        assert(path);
-
-        /* First, drop duplicate prefixing slashes from the path */
-        while (path[0] == '/' && path[1] == '/')
-                path++;
-
-        if (empty_or_root(root))
-                return strdup(path);
-
-        l = strlen(root) + 1 + strlen(path) + 1;
-
-        n = new(char, l);
-        if (!n)
-                return NULL;
-
-        p = stpcpy(n, root);
-
-        while (p > n && p[-1] == '/')
-                p--;
-
-        if (path[0] != '/')
-                *(p++) = '/';
-
-        strcpy(p, path);
-        return n;
-}
-
 int parse_path_argument_and_warn(const char *path, bool suppress_root, char **arg) {
         char *p;
         int r;
@@ -1027,7 +993,7 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
                 _cleanup_free_ char *path = NULL;
                 char *c, **name;
 
-                path = prefix_root(root, pattern);
+                path = path_join(root, pattern);
                 if (!path)
                         return -ENOMEM;
 

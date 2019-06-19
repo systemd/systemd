@@ -456,13 +456,11 @@ static int patch_root_prefix(char **p, const char *root_dir) {
         if (!*p)
                 return 0;
 
-        c = prefix_root(root_dir, *p);
+        c = path_join(root_dir, *p);
         if (!c)
                 return -ENOMEM;
 
-        free(*p);
-        *p = c;
-
+        free_and_replace(*p, c);
         return 0;
 }
 

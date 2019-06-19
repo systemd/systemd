@@ -97,7 +97,7 @@ static char *resolve_source_path(const char *dest, const char *source) {
                 return NULL;
 
         if (source[0] == '+')
-                return prefix_root(dest, source + 1);
+                return path_join(dest, source + 1);
 
         return strdup(source);
 }
@@ -433,11 +433,11 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         FOREACH_STRING(x, "block", "bus", "class", "dev", "devices", "kernel") {
                 _cleanup_free_ char *from = NULL, *to = NULL;
 
-                from = prefix_root(full, x);
+                from = path_join(full, x);
                 if (!from)
                         return log_oom();
 
-                to = prefix_root(top, x);
+                to = path_join(top, x);
                 if (!to)
                         return log_oom();
 
@@ -1190,7 +1190,9 @@ int setup_pivot_root(const char *directory, const char *pivot_root_new, const ch
          * Requires all file systems at directory and below to be mounted
          * MS_PRIVATE or MS_SLAVE so they can be moved.
          */
-        directory_pivot_root_new = prefix_root(directory, pivot_root_new);
+        directory_pivot_root_new = path_join(directory, pivot_root_new);
+        if (!directory_pivot_root_new)
+                return log_oom();
 
         /* Remount directory_pivot_root_new to make it movable. */
         r = mount_verbose(LOG_ERR, directory_pivot_root_new, directory_pivot_root_new, NULL, MS_BIND, NULL);
@@ -1204,7 +1206,11 @@ int setup_pivot_root(const char *directory, const char *pivot_root_new, const ch
                 }
 
                 remove_pivot_tmp = true;
-                pivot_tmp_pivot_root_old = prefix_root(pivot_tmp, pivot_root_old);
+                pivot_tmp_pivot_root_old = path_join(pivot_tmp, pivot_root_old);
+                if (!pivot_tmp_pivot_root_old) {
+                        r = log_oom();
+                        goto done;
+                }
 
                 r = mount_verbose(LOG_ERR, directory_pivot_root_new, pivot_tmp, NULL, MS_MOVE, NULL);
                 if (r < 0)
