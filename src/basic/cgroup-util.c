@@ -91,10 +91,9 @@ int cg_read_event(
                 const char *controller,
                 const char *path,
                 const char *event,
-                char **val) {
+                char **ret) {
 
         _cleanup_free_ char *events = NULL, *content = NULL;
-        char *p, *line;
         int r;
 
         r = cg_get_path(controller, path, "cgroup.events", &events);
@@ -105,22 +104,33 @@ int cg_read_event(
         if (r < 0)
                 return r;
 
-        p = content;
-        while ((line = strsep(&p, "\n"))) {
-                char *key;
+        for (const char *p = content;;) {
+                _cleanup_free_ char *line = NULL, *key = NULL, *val = NULL;
+                const char *q;
 
-                key = strsep(&line, " ");
-                if (!key || !line)
+                r = extract_first_word(&p, &line, "\n", 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENOENT;
+
+                q = line;
+                r = extract_first_word(&q, &key, " ", 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         return -EINVAL;
 
-                if (strcmp(key, event))
+                if (!streq(key, event))
                         continue;
 
-                *val = strdup(line);
+                val = strdup(q);
+                if (!val)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(val);
                 return 0;
         }
-
-        return -ENOENT;
 }
 
 bool cg_ns_supported(void) {
