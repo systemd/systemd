@@ -725,15 +725,12 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
 }
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
-        uint8_t tos = 0, to_prefixlen = 0, from_prefixlen = 0, protocol = 0;
-        struct fib_rule_port_range sport = {}, dport = {};
-        union in_addr_union to = IN_ADDR_NULL, from = IN_ADDR_NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
         RoutingPolicyRule *rule = NULL;
-        uint32_t fwmark = 0, table = 0;
         const char *iif = NULL, *oif = NULL;
         Manager *m = userdata;
+        unsigned flags;
         uint16_t type;
-        int family;
         int r;
 
         assert(rtnl);
@@ -757,35 +754,41 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 return 0;
         }
 
-        r = sd_rtnl_message_get_family(message, &family);
+        r = routing_policy_rule_new(&tmp);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get rule family, ignoring: %m");
-                return 0;
-        } else if (!IN_SET(family, AF_INET, AF_INET6)) {
-                log_debug("rtnl: received address with invalid family %u, ignoring", family);
+                log_oom();
                 return 0;
         }
 
-        switch (family) {
+        r = sd_rtnl_message_get_family(message, &tmp->family);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get rule family, ignoring: %m");
+                return 0;
+        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
+                log_debug("rtnl: received address with invalid family %u, ignoring", tmp->family);
+                return 0;
+        }
+
+        switch (tmp->family) {
         case AF_INET:
-                r = sd_netlink_message_read_in_addr(message, FRA_SRC, &from.in);
+                r = sd_netlink_message_read_in_addr(message, FRA_SRC, &tmp->from.in);
                 if (r < 0 && r != -ENODATA) {
                         log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
                         return 0;
                 } else if (r >= 0) {
-                        r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &from_prefixlen);
+                        r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &tmp->from_prefixlen);
                         if (r < 0) {
                                 log_warning_errno(r, "rtnl: failed to retrieve rule from prefix length, ignoring: %m");
                                 return 0;
                         }
                 }
 
-                r = sd_netlink_message_read_in_addr(message, FRA_DST, &to.in);
+                r = sd_netlink_message_read_in_addr(message, FRA_DST, &tmp->to.in);
                 if (r < 0 && r != -ENODATA) {
                         log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
                         return 0;
                 } else if (r >= 0) {
-                        r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &to_prefixlen);
+                        r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &tmp->to_prefixlen);
                         if (r < 0) {
                                 log_warning_errno(r, "rtnl: failed to retrieve rule to prefix length, ignoring: %m");
                                 return 0;
@@ -795,24 +798,24 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 break;
 
         case AF_INET6:
-                r = sd_netlink_message_read_in6_addr(message, FRA_SRC, &from.in6);
+                r = sd_netlink_message_read_in6_addr(message, FRA_SRC, &tmp->from.in6);
                 if (r < 0 && r != -ENODATA) {
                         log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
                         return 0;
                 } else if (r >= 0) {
-                        r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &from_prefixlen);
+                        r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &tmp->from_prefixlen);
                         if (r < 0) {
                                 log_warning_errno(r, "rtnl: failed to retrieve rule from prefix length, ignoring: %m");
                                 return 0;
                         }
                 }
 
-                r = sd_netlink_message_read_in6_addr(message, FRA_DST, &to.in6);
+                r = sd_netlink_message_read_in6_addr(message, FRA_DST, &tmp->to.in6);
                 if (r < 0 && r != -ENODATA) {
                         log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
                         return 0;
                 } else if (r >= 0) {
-                        r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &to_prefixlen);
+                        r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &tmp->to_prefixlen);
                         if (r < 0) {
                                 log_warning_errno(r, "rtnl: failed to retrieve rule to prefix length, ignoring: %m");
                                 return 0;
@@ -825,22 +828,41 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 assert_not_reached("Received unsupported address family");
         }
 
-        if (from_prefixlen == 0 && to_prefixlen == 0)
+        if (tmp->from_prefixlen == 0 && tmp->to_prefixlen == 0)
                 return 0;
 
-        r = sd_netlink_message_read_u32(message, FRA_FWMARK, &fwmark);
+        r = sd_rtnl_message_routing_policy_rule_get_flags(message, &flags);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get flag, ignoring: %m");
+                return 0;
+        }
+        tmp->invert_rule = flags & FIB_RULE_INVERT;
+
+        r = sd_netlink_message_read_u32(message, FRA_FWMARK, &tmp->fwmark);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_FWMARK attribute, ignoring: %m");
                 return 0;
         }
 
-        r = sd_netlink_message_read_u32(message, FRA_TABLE, &table);
+        r = sd_netlink_message_read_u32(message, FRA_FWMASK, &tmp->fwmask);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_FWMASK attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, FRA_PRIORITY, &tmp->priority);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_PRIORITY attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, FRA_TABLE, &tmp->table);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_TABLE attribute, ignoring: %m");
                 return 0;
         }
 
-        r = sd_rtnl_message_routing_policy_rule_get_tos(message, &tos);
+        r = sd_rtnl_message_routing_policy_rule_get_tos(message, &tmp->tos);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get ip rule TOS, ignoring: %m");
                 return 0;
@@ -851,37 +873,43 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 log_warning_errno(r, "rtnl: could not get FRA_IIFNAME attribute, ignoring: %m");
                 return 0;
         }
+        r = free_and_strdup(&tmp->iif, iif);
+        if (r < 0)
+                return log_oom();
 
         r = sd_netlink_message_read_string(message, FRA_OIFNAME, &oif);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_OIFNAME attribute, ignoring: %m");
                 return 0;
         }
+        r = free_and_strdup(&tmp->oif, oif);
+        if (r < 0)
+                return log_oom();
 
-        r = sd_netlink_message_read_u8(message, FRA_IP_PROTO, &protocol);
+        r = sd_netlink_message_read_u8(message, FRA_IP_PROTO, &tmp->protocol);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_IP_PROTO attribute, ignoring: %m");
                 return 0;
         }
 
-        r = sd_netlink_message_read(message, FRA_SPORT_RANGE, sizeof(sport), (void *) &sport);
+        r = sd_netlink_message_read(message, FRA_SPORT_RANGE, sizeof(tmp->sport), &tmp->sport);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_SPORT_RANGE attribute, ignoring: %m");
                 return 0;
         }
 
-        r = sd_netlink_message_read(message, FRA_DPORT_RANGE, sizeof(dport), (void *) &dport);
+        r = sd_netlink_message_read(message, FRA_DPORT_RANGE, sizeof(tmp->dport), &tmp->dport);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_DPORT_RANGE attribute, ignoring: %m");
                 return 0;
         }
 
-        (void) routing_policy_rule_get(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, &sport, &dport, &rule);
+        (void) routing_policy_rule_get(m, tmp, &rule);
 
         switch (type) {
         case RTM_NEWRULE:
                 if (!rule) {
-                        r = routing_policy_rule_add_foreign(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, &sport, &dport, &rule);
+                        r = routing_policy_rule_add_foreign(m, tmp, &rule);
                         if (r < 0) {
                                 log_warning_errno(r, "Could not add rule, ignoring: %m");
                                 return 0;

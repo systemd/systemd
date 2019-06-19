@@ -839,9 +839,7 @@ static int link_request_set_routing_policy_rule(Link *link) {
         link->routing_policy_rules_configured = false;
 
         LIST_FOREACH(rules, rule, link->network->rules) {
-                r = routing_policy_rule_get(link->manager, rule->family, &rule->from, rule->from_prefixlen, &rule->to,
-                                            rule->to_prefixlen, rule->tos, rule->fwmark, rule->table, rule->iif, rule->oif,
-                                            rule->protocol, &rule->sport, &rule->dport, &rrule);
+                r = routing_policy_rule_get(link->manager, rule, &rrule);
                 if (r >= 0) {
                         if (r == 0)
                                 (void) routing_policy_rule_make_local(link->manager, rrule);

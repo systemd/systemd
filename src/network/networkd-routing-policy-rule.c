@@ -73,8 +73,12 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
                 siphash24_compress(&rule->to, FAMILY_ADDRESS_SIZE(rule->family), state);
                 siphash24_compress(&rule->to_prefixlen, sizeof(rule->to_prefixlen), state);
 
+                siphash24_compress_boolean(rule->invert_rule, state);
+
                 siphash24_compress(&rule->tos, sizeof(rule->tos), state);
                 siphash24_compress(&rule->fwmark, sizeof(rule->fwmark), state);
+                siphash24_compress(&rule->fwmask, sizeof(rule->fwmask), state);
+                siphash24_compress(&rule->priority, sizeof(rule->priority), state);
                 siphash24_compress(&rule->table, sizeof(rule->table), state);
 
                 siphash24_compress(&rule->protocol, sizeof(rule->protocol), state);
@@ -112,11 +116,23 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
                 if (r != 0)
                         return r;
 
+                r = CMP(a->invert_rule, b->invert_rule);
+                if (r != 0)
+                        return r;
+
                 r = CMP(a->tos, b->tos);
                 if (r != 0)
                         return r;
 
+                r = CMP(a->fwmark, b->fwmark);
+                if (r != 0)
+                        return r;
+
                 r = CMP(a->fwmask, b->fwmask);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->priority, b->priority);
                 if (r != 0)
                         return r;
 
@@ -158,50 +174,20 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
 
 DEFINE_PRIVATE_HASH_OPS(routing_policy_rule_hash_ops, RoutingPolicyRule, routing_policy_rule_hash_func, routing_policy_rule_compare_func);
 
-int routing_policy_rule_get(Manager *m,
-                            int family,
-                            const union in_addr_union *from,
-                            uint8_t from_prefixlen,
-                            const union in_addr_union *to,
-                            uint8_t to_prefixlen,
-                            uint8_t tos,
-                            uint32_t fwmark,
-                            uint32_t table,
-                            const char *iif,
-                            const char *oif,
-                            uint8_t protocol,
-                            struct fib_rule_port_range *sport,
-                            struct fib_rule_port_range *dport,
-                            RoutingPolicyRule **ret) {
+int routing_policy_rule_get(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
 
-        RoutingPolicyRule rule, *existing;
+        RoutingPolicyRule *existing;
 
         assert(m);
 
-        rule = (RoutingPolicyRule) {
-                .family = family,
-                .from = *from,
-                .from_prefixlen = from_prefixlen,
-                .to = *to,
-                .to_prefixlen = to_prefixlen,
-                .tos = tos,
-                .fwmark = fwmark,
-                .table = table,
-                .iif = (char*) iif,
-                .oif = (char*) oif,
-                .protocol = protocol,
-                .sport = *sport,
-                .dport = *dport,
-        };
-
-        existing = set_get(m->rules, &rule);
+        existing = set_get(m->rules, rule);
         if (existing) {
                 if (ret)
                         *ret = existing;
                 return 1;
         }
 
-        existing = set_get(m->rules_foreign, &rule);
+        existing = set_get(m->rules_foreign, rule);
         if (existing) {
                 if (ret)
                         *ret = existing;
@@ -229,37 +215,23 @@ int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule) {
         return -ENOENT;
 }
 
-static int routing_policy_rule_add_internal(Manager *m,
-                                            Set **rules,
-                                            int family,
-                                            const union in_addr_union *from,
-                                            uint8_t from_prefixlen,
-                                            const union in_addr_union *to,
-                                            uint8_t to_prefixlen,
-                                            uint8_t tos,
-                                            uint32_t fwmark,
-                                            uint32_t table,
-                                            const char *_iif,
-                                            const char *_oif,
-                                            uint8_t protocol,
-                                            const struct fib_rule_port_range *sport,
-                                            const struct fib_rule_port_range *dport,
-                                            RoutingPolicyRule **ret) {
-
+static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPolicyRule *in, RoutingPolicyRule **ret) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
         _cleanup_free_ char *iif = NULL, *oif = NULL;
         int r;
 
-        assert_return(rules, -EINVAL);
+        assert(m);
+        assert(rules);
+        assert(in);
 
-        if (_iif) {
-                iif = strdup(_iif);
+        if (in->iif) {
+                iif = strdup(in->iif);
                 if (!iif)
                         return -ENOMEM;
         }
 
-        if (_oif) {
-                oif = strdup(_oif);
+        if (in->oif) {
+                oif = strdup(in->oif);
                 if (!oif)
                         return -ENOMEM;
         }
@@ -269,19 +241,22 @@ static int routing_policy_rule_add_internal(Manager *m,
                 return r;
 
         rule->manager = m;
-        rule->family = family;
-        rule->from = *from;
-        rule->from_prefixlen = from_prefixlen;
-        rule->to = *to;
-        rule->to_prefixlen = to_prefixlen;
-        rule->tos = tos;
-        rule->fwmark = fwmark;
-        rule->table = table;
+        rule->family = in->family;
+        rule->from = in->from;
+        rule->from_prefixlen = in->from_prefixlen;
+        rule->to = in->to;
+        rule->to_prefixlen = in->to_prefixlen;
+        rule->invert_rule = in->invert_rule;
+        rule->tos = in->tos;
+        rule->fwmark = in->fwmark;
+        rule->fwmask = in->fwmask;
+        rule->priority = in->priority;
+        rule->table = in->table;
         rule->iif = TAKE_PTR(iif);
         rule->oif = TAKE_PTR(oif);
-        rule->protocol = protocol;
-        rule->sport = *sport;
-        rule->dport = *dport;
+        rule->protocol = in->protocol;
+        rule->sport = in->sport;
+        rule->dport = in->dport;
 
         r = set_ensure_allocated(rules, &routing_policy_rule_hash_ops);
         if (r < 0)
@@ -298,41 +273,12 @@ static int routing_policy_rule_add_internal(Manager *m,
         return 0;
 }
 
-int routing_policy_rule_add(Manager *m,
-                            int family,
-                            const union in_addr_union *from,
-                            uint8_t from_prefixlen,
-                            const union in_addr_union *to,
-                            uint8_t to_prefixlen,
-                            uint8_t tos,
-                            uint32_t fwmark,
-                            uint32_t table,
-                            const char *iif,
-                            const char *oif,
-                            uint8_t protocol,
-                            const struct fib_rule_port_range *sport,
-                            const struct fib_rule_port_range *dport,
-                            RoutingPolicyRule **ret) {
-
-        return routing_policy_rule_add_internal(m, &m->rules, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, sport, dport, ret);
+static int routing_policy_rule_add(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
+        return routing_policy_rule_add_internal(m, &m->rules, rule, ret);
 }
 
-int routing_policy_rule_add_foreign(Manager *m,
-                                    int family,
-                                    const union in_addr_union *from,
-                                    uint8_t from_prefixlen,
-                                    const union in_addr_union *to,
-                                    uint8_t to_prefixlen,
-                                    uint8_t tos,
-                                    uint32_t fwmark,
-                                    uint32_t table,
-                                    const char *iif,
-                                    const char *oif,
-                                    uint8_t protocol,
-                                    const struct fib_rule_port_range *sport,
-                                    const struct fib_rule_port_range *dport,
-                                    RoutingPolicyRule **ret) {
-        return routing_policy_rule_add_internal(m, &m->rules_foreign, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, sport, dport, ret);
+int routing_policy_rule_add_foreign(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
+        return routing_policy_rule_add_internal(m, &m->rules_foreign, rule, ret);
 }
 
 static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -593,8 +539,7 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
 
         link_ref(link);
 
-        r = routing_policy_rule_add(link->manager, rule->family, &rule->from, rule->from_prefixlen, &rule->to,
-                                    rule->to_prefixlen, rule->tos, rule->fwmark, rule->table, rule->iif, rule->oif, rule->protocol, &rule->sport, &rule->dport, NULL);
+        r = routing_policy_rule_add(link->manager, rule, NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not add rule: %m");
 
