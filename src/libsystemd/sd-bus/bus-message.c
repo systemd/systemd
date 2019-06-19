@@ -5265,7 +5265,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         if (!b)
                                 return -EBADMSG;
 
-                        sig = strndup(b+1, item_size - (b+1-(char*) q));
+                        sig = memdup_suffix0(b+1, item_size - (b+1-(char*) q));
                         if (!sig)
                                 return -ENOMEM;
 
