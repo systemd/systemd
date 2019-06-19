@@ -15,6 +15,7 @@
 #include "pretty-print.h"
 #include "sort-util.h"
 #include "string-util.h"
+#include "strxcpyx.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "utf8.h"
@@ -235,6 +236,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_SIZE:
         case TABLE_INT64:
         case TABLE_UINT64:
+        case TABLE_BPS:
                 return sizeof(uint64_t);
 
         case TABLE_INT32:
@@ -723,6 +725,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_SIZE:
+                case TABLE_BPS:
                         buffer.size = va_arg(ap, uint64_t);
                         data = &buffer.size;
                         break;
@@ -885,6 +888,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                         return CMP(a->timespan, b->timespan);
 
                 case TABLE_SIZE:
+                case TABLE_BPS:
                         return CMP(a->size, b->size);
 
                 case TABLE_INT:
@@ -1018,6 +1022,24 @@ static const char *table_data_format(TableData *d) {
 
                 if (!format_bytes(p, FORMAT_BYTES_MAX, d->size))
                         return "n/a";
+
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_BPS: {
+                _cleanup_free_ char *p;
+                size_t n;
+
+                p = new(char, FORMAT_BYTES_MAX+2);
+                if (!p)
+                        return NULL;
+
+                if (!format_bytes_full(p, FORMAT_BYTES_MAX, d->size, 0))
+                        return "n/a";
+
+                n = strlen(p);
+                strscpy(p + n, FORMAT_BYTES_MAX + 2 - n, "bps");
 
                 d->formatted = TAKE_PTR(p);
                 break;
@@ -1622,6 +1644,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 return json_variant_new_unsigned(ret, d->timespan);
 
         case TABLE_SIZE:
+        case TABLE_BPS:
                 if (d->size == (size_t) -1)
                         return json_variant_new_null(ret);
 
