@@ -239,14 +239,13 @@ static int send_addrinfo_reply(
 
         assert(out_fd >= 0);
 
-        resp = (AddrInfoResponse) {
-                .header.type = RESPONSE_ADDRINFO,
-                .header.id = id,
-                .header.length = sizeof(AddrInfoResponse),
-                .ret = ret,
-                ._errno = _errno,
-                ._h_errno = _h_errno,
-        };
+        /* Do not use structured initializer here. MSan or valgrind do not like it. */
+        resp.header.type = RESPONSE_ADDRINFO;
+        resp.header.id = id;
+        resp.header.length = sizeof(AddrInfoResponse);
+        resp.ret = ret;
+        resp._errno = _errno;
+        resp._h_errno = _h_errno;
 
         if (ret == 0 && ai) {
                 void *p = &buffer;
@@ -297,16 +296,15 @@ static int send_nameinfo_reply(
         sl = serv ? strlen(serv)+1 : 0;
         hl = host ? strlen(host)+1 : 0;
 
-        resp = (NameInfoResponse) {
-                .header.type = RESPONSE_NAMEINFO,
-                .header.id = id,
-                .header.length = sizeof(NameInfoResponse) + hl + sl,
-                .hostlen = hl,
-                .servlen = sl,
-                .ret = ret,
-                ._errno = _errno,
-                ._h_errno = _h_errno,
-        };
+        /* Do not use structured initializer here. MSan or valgrind do not like it. */
+        resp.header.type = RESPONSE_NAMEINFO;
+        resp.header.id = id;
+        resp.header.length = sizeof(NameInfoResponse) + hl + sl;
+        resp.hostlen = hl;
+        resp.servlen = sl;
+        resp.ret = ret;
+        resp._errno = _errno;
+        resp._h_errno = _h_errno;
 
         iov[0] = IOVEC_MAKE(&resp, sizeof(NameInfoResponse));
         iov[1] = IOVEC_MAKE((void*) host, hl);
@@ -338,19 +336,18 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
 
         case REQUEST_ADDRINFO: {
                const AddrInfoRequest *ai_req = &packet->addrinfo_request;
-               struct addrinfo hints, *result = NULL;
+               struct addrinfo hints = {}, *result = NULL;
                const char *node, *service;
                int ret;
 
                assert_return(length >= sizeof(AddrInfoRequest), -EBADMSG);
                assert_return(length == sizeof(AddrInfoRequest) + ai_req->node_len + ai_req->service_len, -EBADMSG);
 
-               hints = (struct addrinfo) {
-                       .ai_flags = ai_req->ai_flags,
-                       .ai_family = ai_req->ai_family,
-                       .ai_socktype = ai_req->ai_socktype,
-                       .ai_protocol = ai_req->ai_protocol,
-               };
+               /* Do not use structured initializer here. MSan does not like it. */
+               hints.ai_flags = ai_req->ai_flags;
+               hints.ai_family = ai_req->ai_family;
+               hints.ai_socktype = ai_req->ai_socktype;
+               hints.ai_protocol = ai_req->ai_protocol;
 
                node = ai_req->node_len ? (const char*) ai_req + sizeof(AddrInfoRequest) : NULL;
                service = ai_req->service_len ? (const char*) ai_req + sizeof(AddrInfoRequest) + ai_req->node_len : NULL;
@@ -945,20 +942,17 @@ int resolve_getaddrinfo_with_destroy_callback(
         node_len = node ? strlen(node) + 1 : 0;
         service_len = service ? strlen(service) + 1 : 0;
 
-        req = (AddrInfoRequest) {
-                .node_len = node_len,
-                .service_len = service_len,
-
-                .header.id = q->id,
-                .header.type = REQUEST_ADDRINFO,
-                .header.length = sizeof(AddrInfoRequest) + node_len + service_len,
-
-                .hints_valid = hints,
-                .ai_flags = hints ? hints->ai_flags : 0,
-                .ai_family = hints ? hints->ai_family : 0,
-                .ai_socktype = hints ? hints->ai_socktype : 0,
-                .ai_protocol = hints ? hints->ai_protocol : 0,
-        };
+        /* Do not use structured initializer here. MSan or valgrind do not like it. */
+        req.node_len = node_len;
+        req.service_len = service_len;
+        req.header.id = q->id;
+        req.header.type = REQUEST_ADDRINFO;
+        req.header.length = sizeof(AddrInfoRequest) + node_len + service_len;
+        req.hints_valid = hints;
+        req.ai_flags = hints ? hints->ai_flags : 0;
+        req.ai_family = hints ? hints->ai_family : 0;
+        req.ai_socktype = hints ? hints->ai_socktype : 0;
+        req.ai_protocol = hints ? hints->ai_protocol : 0;
 
         iov[mh.msg_iovlen++] = IOVEC_MAKE(&req, sizeof(AddrInfoRequest));
         if (node)
@@ -1035,16 +1029,14 @@ int resolve_getnameinfo_with_destroy_callback(
         q->getnameinfo_handler = callback;
         q->userdata = userdata;
 
-        req = (NameInfoRequest) {
-                .header.id = q->id,
-                .header.type = REQUEST_NAMEINFO,
-                .header.length = sizeof(NameInfoRequest) + salen,
-
-                .flags = flags,
-                .sockaddr_len = salen,
-                .gethost = !!(get & SD_RESOLVE_GET_HOST),
-                .getserv = !!(get & SD_RESOLVE_GET_SERVICE),
-        };
+        /* Do not use structured initializer here. MSan or valgrind do not like it. */
+        req.header.id = q->id;
+        req.header.type = REQUEST_NAMEINFO;
+        req.header.length = sizeof(NameInfoRequest) + salen;
+        req.flags = flags;
+        req.sockaddr_len = salen;
+        req.gethost = !!(get & SD_RESOLVE_GET_HOST);
+        req.getserv = !!(get & SD_RESOLVE_GET_SERVICE);
 
         iov[0] = IOVEC_MAKE(&req, sizeof(NameInfoRequest));
         iov[1] = IOVEC_MAKE((void*) sa, salen);
