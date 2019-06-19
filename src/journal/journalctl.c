@@ -1678,9 +1678,11 @@ static int add_syslog_identifier(sd_journal *j) {
         assert(j);
 
         STRV_FOREACH(i, arg_syslog_identifier) {
-                char *u;
+                _cleanup_free_ char *u = NULL;
 
-                u = strjoina("SYSLOG_IDENTIFIER=", *i);
+                u = strjoin("SYSLOG_IDENTIFIER=", *i);
+                if (!u)
+                        return -ENOMEM;
                 r = sd_journal_add_match(j, u, 0);
                 if (r < 0)
                         return r;

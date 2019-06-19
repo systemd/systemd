@@ -648,11 +648,11 @@ int find_legacy_keymap(Context *c, char **ret) {
                         if (startswith_comma(c->x11_layout, a[1]))
                                 matching = 5;
                         else  {
-                                char *x;
+                                _cleanup_free_ char *x = NULL;
 
                                 /* If that didn't work, strip off the
                                  * other layouts from the entry, too */
-                                x = strndupa(a[1], strcspn(a[1], ","));
+                                x = strndup(a[1], strcspn(a[1], ","));
                                 if (startswith_comma(c->x11_layout, x))
                                         matching = 1;
                         }
