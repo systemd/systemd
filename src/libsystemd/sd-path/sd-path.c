@@ -325,8 +325,9 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
 }
 
 _public_ int sd_path_home(uint64_t type, const char *suffix, char **path) {
-        char *buffer = NULL, *cc;
+        _cleanup_free_ char *buffer = NULL;
         const char *ret;
+        char *cc;
         int r;
 
         assert_return(path, -EINVAL);
@@ -351,7 +352,7 @@ _public_ int sd_path_home(uint64_t type, const char *suffix, char **path) {
                 if (!buffer)
                         return -ENOMEM;
 
-                *path = buffer;
+                *path = TAKE_PTR(buffer);
                 return 0;
         }
 
@@ -366,19 +367,16 @@ _public_ int sd_path_home(uint64_t type, const char *suffix, char **path) {
                                 return -ENOMEM;
                 }
 
-                *path = buffer;
+                *path = TAKE_PTR(buffer);
                 return 0;
         }
 
         suffix += strspn(suffix, "/");
         cc = path_join(ret, suffix);
-
-        free(buffer);
-
         if (!cc)
                 return -ENOMEM;
 
-        *path = cc;
+        *path = TAKE_PTR(cc);
         return 0;
 }
 
