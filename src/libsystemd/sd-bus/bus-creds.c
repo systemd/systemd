@@ -662,7 +662,9 @@ static int has_cap(sd_bus_creds *c, size_t offset, int capability) {
         if ((unsigned long) capability > lc)
                 return 0;
 
-        sz = DIV_ROUND_UP(lc, 32LU);
+        /* If the last cap is 63, then there are 64 caps defined, and we need 2 entries á 32bit hence. *
+         * If the last cap is 64, then there are 65 caps defined, and we need 3 entries á 32bit hence. */
+        sz = DIV_ROUND_UP(lc+1, 32LU);
 
         return !!(c->capability[offset * sz + CAP_TO_INDEX((uint32_t) capability)] & CAP_TO_MASK_CORRECTED((uint32_t) capability));
 }
@@ -714,7 +716,7 @@ static int parse_caps(sd_bus_creds *c, unsigned offset, const char *p) {
         assert(c);
         assert(p);
 
-        max = DIV_ROUND_UP(cap_last_cap(), 32U);
+        max = DIV_ROUND_UP(cap_last_cap()+1, 32U);
         p += strspn(p, WHITESPACE);
 
         sz = strlen(p);
@@ -1259,7 +1261,7 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         if (c->mask & mask & (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS)) {
                 assert(c->capability);
 
-                n->capability = memdup(c->capability, DIV_ROUND_UP(cap_last_cap(), 32U) * 4 * 4);
+                n->capability = memdup(c->capability, DIV_ROUND_UP(cap_last_cap()+1, 32U) * 4 * 4);
                 if (!n->capability)
                         return -ENOMEM;
 
