@@ -188,11 +188,35 @@ static int link_set_dhcp_routes(Link *link) {
         /* Clear old entries in case the set was already allocated */
         set_clear(link->dhcp_routes);
 
-        table = link_get_dhcp_route_table(link);
-
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
+
+        /* Now add here the prefix routes */
+        if (link->network->dhcp_route_table != RT_TABLE_MAIN) {
+                _cleanup_(route_freep) Route *prefix_route = NULL;
+                struct in_addr netmask;
+
+                r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP error: No netmask: %m");
+
+                r = route_new(&prefix_route);
+                if (r < 0)
+                        return log_link_error_errno(link, r,  "Could not allocate route: %m");
+
+                prefix_route->family = AF_INET;
+                prefix_route->dst.in.s_addr = address.s_addr & netmask.s_addr;
+                prefix_route->dst_prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
+                prefix_route->prefsrc.in = address;
+                prefix_route->scope = RT_SCOPE_LINK;
+                prefix_route->protocol = RTPROT_DHCP;
+                prefix_route->table = table;
+
+                r = dhcp_route_configure(&prefix_route, link);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not set prefix route: %m");
+        }
 
         n = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes);
         if (n == -ENODATA)
@@ -611,6 +635,11 @@ static int dhcp4_update_address(Link *link,
         addr->cinfo.ifa_valid = lifetime;
         addr->prefixlen = prefixlen;
         addr->broadcast.s_addr = address->s_addr | ~netmask->s_addr;
+
+        /* If DHCP route is set then stop creating prefix route. Instead add
+           it later on that table */
+        if (link->network->dhcp_route_table != RT_TABLE_MAIN)
+                addr->flags |= IFA_F_NOPREFIXROUTE;
 
         /* allow reusing an existing address and simply update its lifetime
          * in case it already exists */
