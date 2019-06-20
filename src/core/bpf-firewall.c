@@ -430,10 +430,8 @@ static int bpf_firewall_prepare_access_maps(
                         return r;
         }
 
-        *ret_ipv4_map_fd = ipv4_map_fd;
-        *ret_ipv6_map_fd = ipv6_map_fd;
-
-        ipv4_map_fd = ipv6_map_fd = -1;
+        *ret_ipv4_map_fd = TAKE_FD(ipv4_map_fd);
+        *ret_ipv6_map_fd = TAKE_FD(ipv6_map_fd);
         return 0;
 }
 
