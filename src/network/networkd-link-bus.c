@@ -3,12 +3,15 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
+#include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
 #include "strv.h"
 
-static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_operational_state, link_operstate, LinkOperationalState);
+BUS_DEFINE_PROPERTY_GET_ENUM(property_get_operational_state, link_operstate, LinkOperationalState);
+BUS_DEFINE_PROPERTY_GET_ENUM(property_get_carrier_state, link_carrier_state, LinkCarrierState);
+BUS_DEFINE_PROPERTY_GET_ENUM(property_get_address_state, link_address_state, LinkAddressState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_administrative_state, link_state, LinkState);
 
 static int property_get_bit_rates(
@@ -60,13 +63,15 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("OperationalState", "s", property_get_operational_state, offsetof(Link, operstate), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("CarrierState", "s", property_get_carrier_state, offsetof(Link, carrier_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("AddressState", "s", property_get_address_state, offsetof(Link, address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("AdministrativeState", "s", property_get_administrative_state, offsetof(Link, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("BitRates", "(tt)", property_get_bit_rates, 0, 0),
 
         SD_BUS_VTABLE_END
 };
 
-static char *link_bus_path(Link *link) {
+char *link_bus_path(Link *link) {
         _cleanup_free_ char *ifindex = NULL;
         char *p;
         int r;
@@ -145,17 +150,15 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         return 1;
 }
 
-int link_send_changed(Link *link, const char *property, ...) {
+int link_send_changed_strv(Link *link, char **properties) {
         _cleanup_free_ char *p = NULL;
-        char **l;
 
         assert(link);
         assert(link->manager);
+        assert(properties);
 
         if (!link->manager->bus)
-                return 0; /* replace with assert when we have kdbus */
-
-        l = strv_from_stdarg_alloca(property);
+                return 0;
 
         p = link_bus_path(link);
         if (!p)
@@ -165,5 +168,13 @@ int link_send_changed(Link *link, const char *property, ...) {
                         link->manager->bus,
                         p,
                         "org.freedesktop.network1.Link",
-                        l);
+                        properties);
+}
+
+int link_send_changed(Link *link, const char *property, ...) {
+        char **properties;
+
+        properties = strv_from_stdarg_alloca(property);
+
+        return link_send_changed_strv(link, properties);
 }

@@ -20,6 +20,8 @@
 #include "network-internal.h"
 #include "networkd-can.h"
 #include "networkd-ipv6-proxy-ndp.h"
+#include "networkd-link-bus.h"
+#include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
@@ -358,68 +360,109 @@ static void link_update_master_operstate(Link *link, NetDev *netdev) {
 
 void link_update_operstate(Link *link, bool also_update_master) {
         LinkOperationalState operstate;
+        LinkCarrierState carrier_state;
+        LinkAddressState address_state;
+        _cleanup_strv_free_ char **p = NULL;
+        uint8_t scope = RT_SCOPE_NOWHERE;
+        bool changed = false;
+        Address *address;
         Iterator i;
 
         assert(link);
 
         if (link->kernel_operstate == IF_OPER_DORMANT)
-                operstate = LINK_OPERSTATE_DORMANT;
+                carrier_state = LINK_CARRIER_STATE_DORMANT;
         else if (link_has_carrier(link)) {
-                Address *address;
-                uint8_t scope = RT_SCOPE_NOWHERE;
-
-                /* if we have carrier, check what addresses we have */
-                SET_FOREACH(address, link->addresses, i) {
-                        if (!address_is_ready(address))
-                                continue;
-
-                        if (address->scope < scope)
-                                scope = address->scope;
-                }
-
-                /* for operstate we also take foreign addresses into account */
-                SET_FOREACH(address, link->addresses_foreign, i) {
-                        if (!address_is_ready(address))
-                                continue;
-
-                        if (address->scope < scope)
-                                scope = address->scope;
-                }
-
-                if (scope < RT_SCOPE_SITE)
-                        /* universally accessible addresses found */
-                        operstate = LINK_OPERSTATE_ROUTABLE;
-                else if (scope < RT_SCOPE_HOST)
-                        /* only link or site local addresses found */
-                        operstate = LINK_OPERSTATE_DEGRADED;
+                if (link_is_enslaved(link))
+                        carrier_state = LINK_CARRIER_STATE_ENSLAVED;
                 else
-                        /* no useful addresses found */
-                        operstate = LINK_OPERSTATE_CARRIER;
+                        carrier_state = LINK_CARRIER_STATE_CARRIER;
         } else if (link->flags & IFF_UP)
-                operstate = LINK_OPERSTATE_NO_CARRIER;
+                carrier_state = LINK_CARRIER_STATE_NO_CARRIER;
         else
-                operstate = LINK_OPERSTATE_OFF;
+                carrier_state = LINK_CARRIER_STATE_OFF;
 
-        if (IN_SET(operstate, LINK_OPERSTATE_DEGRADED, LINK_OPERSTATE_CARRIER) &&
-            link_is_enslaved(link))
-                operstate = LINK_OPERSTATE_ENSLAVED;
-
-        if (operstate >= LINK_OPERSTATE_CARRIER) {
+        if (carrier_state >= LINK_CARRIER_STATE_CARRIER) {
                 Link *slave;
 
                 SET_FOREACH(slave, link->slaves, i) {
                         link_update_operstate(slave, false);
 
-                        if (slave->operstate < LINK_OPERSTATE_CARRIER)
-                                operstate = LINK_OPERSTATE_DEGRADED_CARRIER;
+                        if (slave->carrier_state < LINK_CARRIER_STATE_CARRIER)
+                                carrier_state = LINK_CARRIER_STATE_DEGRADED_CARRIER;
                 }
+        }
+
+        SET_FOREACH(address, link->addresses, i) {
+                if (!address_is_ready(address))
+                        continue;
+
+                if (address->scope < scope)
+                        scope = address->scope;
+        }
+
+        /* for operstate we also take foreign addresses into account */
+        SET_FOREACH(address, link->addresses_foreign, i) {
+                if (!address_is_ready(address))
+                        continue;
+
+                if (address->scope < scope)
+                        scope = address->scope;
+        }
+
+        if (scope < RT_SCOPE_SITE)
+                /* universally accessible addresses found */
+                address_state = LINK_ADDRESS_STATE_ROUTABLE;
+        else if (scope < RT_SCOPE_HOST)
+                /* only link or site local addresses found */
+                address_state = LINK_ADDRESS_STATE_DEGRADED;
+        else
+                /* no useful addresses found */
+                address_state = LINK_ADDRESS_STATE_OFF;
+
+        /* Mapping of address and carrier state vs operational state
+         *                                                     carrier state
+         *                          | off | no-carrier | dormant | degraded-carrier | carrier  | enslaved
+         *                 ------------------------------------------------------------------------------
+         *                 off      | off | no-carrier | dormant | degraded-carrier | carrier  | enslaved
+         * address_state   degraded | off | no-carrier | dormant | degraded-carrier | degraded | enslaved
+         *                 routable | off | no-carrier | dormant | degraded-carrier | routable | routable
+         */
+
+        if (carrier_state < LINK_CARRIER_STATE_CARRIER || address_state == LINK_ADDRESS_STATE_OFF)
+                operstate = (LinkOperationalState) carrier_state;
+        else if (address_state == LINK_ADDRESS_STATE_ROUTABLE)
+                operstate = LINK_OPERSTATE_ROUTABLE;
+        else if (carrier_state == LINK_CARRIER_STATE_CARRIER)
+                operstate = LINK_OPERSTATE_DEGRADED;
+        else
+                operstate = LINK_OPERSTATE_ENSLAVED;
+
+        if (link->carrier_state != carrier_state) {
+                link->carrier_state = carrier_state;
+                changed = true;
+                if (strv_extend(&p, "CarrierState") < 0)
+                        log_oom();
+        }
+
+        if (link->address_state != address_state) {
+                link->address_state = address_state;
+                changed = true;
+                if (strv_extend(&p, "AddressState") < 0)
+                        log_oom();
         }
 
         if (link->operstate != operstate) {
                 link->operstate = operstate;
-                link_send_changed(link, "OperationalState", NULL);
-                link_dirty(link);
+                changed = true;
+                if (strv_extend(&p, "OperationalState") < 0)
+                        log_oom();
         }
+
+        if (p)
+                link_send_changed_strv(link, p);
+        if (changed)
+                link_dirty(link);
 
         if (also_update_master && link->network) {
                 link_update_master_operstate(link, link->network->bond);
@@ -3563,7 +3606,7 @@ static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
 int link_save(Link *link) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *admin_state, *oper_state;
+        const char *admin_state, *oper_state, *carrier_state, *address_state;
         Address *a;
         Route *route;
         Iterator i;
@@ -3587,6 +3630,12 @@ int link_save(Link *link) {
         oper_state = link_operstate_to_string(link->operstate);
         assert(oper_state);
 
+        carrier_state = link_carrier_state_to_string(link->carrier_state);
+        assert(carrier_state);
+
+        address_state = link_address_state_to_string(link->address_state);
+        assert(address_state);
+
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
                 goto fail;
@@ -3596,8 +3645,10 @@ int link_save(Link *link) {
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "ADMIN_STATE=%s\n"
-                "OPER_STATE=%s\n",
-                admin_state, oper_state);
+                "OPER_STATE=%s\n"
+                "CARRIER_STATE=%s\n"
+                "ADDRESS_STATE=%s\n",
+                admin_state, oper_state, carrier_state, address_state);
 
         if (link->network) {
                 char **dhcp6_domains = NULL, **dhcp_domains = NULL;

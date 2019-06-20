@@ -63,6 +63,7 @@ sources = files('''
         networkd-ipv6-proxy-ndp.c
         networkd-ipv6-proxy-ndp.h
         networkd-link-bus.c
+        networkd-link-bus.h
         networkd-link.c
         networkd-link.h
         networkd-lldp-rx.c

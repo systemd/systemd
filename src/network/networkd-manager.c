@@ -21,6 +21,7 @@
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "networkd-link-bus.h"
 #include "networkd-manager.h"
 #include "networkd-speed-meter.h"
 #include "ordered-set.h"
@@ -1105,9 +1106,12 @@ static int manager_save(Manager *m) {
         Link *link;
         Iterator i;
         _cleanup_free_ char *temp_path = NULL;
+        _cleanup_strv_free_ char **p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         LinkOperationalState operstate = LINK_OPERSTATE_OFF;
-        const char *operstate_str;
+        LinkCarrierState carrier_state = LINK_CARRIER_STATE_OFF;
+        LinkAddressState address_state = LINK_ADDRESS_STATE_OFF;
+        const char *operstate_str, *carrier_state_str, *address_state_str;
         int r;
 
         assert(m);
@@ -1136,6 +1140,12 @@ static int manager_save(Manager *m) {
 
                 if (link->operstate > operstate)
                         operstate = link->operstate;
+
+                if (link->carrier_state > carrier_state)
+                        carrier_state = link->carrier_state;
+
+                if (link->address_state > address_state)
+                        address_state = link->address_state;
 
                 if (!link->network)
                         continue;
@@ -1208,8 +1218,17 @@ static int manager_save(Manager *m) {
                 }
         }
 
+        if (carrier_state >= LINK_CARRIER_STATE_ENSLAVED)
+                carrier_state = LINK_CARRIER_STATE_CARRIER;
+
         operstate_str = link_operstate_to_string(operstate);
         assert(operstate_str);
+
+        carrier_state_str = link_carrier_state_to_string(carrier_state);
+        assert(carrier_state_str);
+
+        address_state_str = link_address_state_to_string(address_state);
+        assert(address_state_str);
 
         r = fopen_temporary(m->state_file, &f, &temp_path);
         if (r < 0)
@@ -1219,7 +1238,10 @@ static int manager_save(Manager *m) {
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "OPER_STATE=%s\n", operstate_str);
+                "OPER_STATE=%s\n"
+                "CARRIER_STATE=%s\n"
+                "ADDRESS_STATE=%s\n",
+                operstate_str, carrier_state_str, address_state_str);
 
         ordered_set_print(f, "DNS=", dns);
         ordered_set_print(f, "NTP=", ntp);
@@ -1241,9 +1263,26 @@ static int manager_save(Manager *m) {
 
         if (m->operational_state != operstate) {
                 m->operational_state = operstate;
-                r = manager_send_changed(m, "OperationalState", NULL);
+                if (strv_extend(&p, "OperationalState") < 0)
+                        log_oom();
+        }
+
+        if (m->carrier_state != carrier_state) {
+                m->carrier_state = carrier_state;
+                if (strv_extend(&p, "CarrierState") < 0)
+                        log_oom();
+        }
+
+        if (m->address_state != address_state) {
+                m->address_state = address_state;
+                if (strv_extend(&p, "AddressState") < 0)
+                        log_oom();
+        }
+
+        if (p) {
+                r = manager_send_changed_strv(m, p);
                 if (r < 0)
-                        log_error_errno(r, "Could not emit changed OperationalState: %m");
+                        log_error_errno(r, "Could not emit changed properties: %m");
         }
 
         m->dirty = false;
