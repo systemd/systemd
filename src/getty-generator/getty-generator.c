@@ -189,9 +189,11 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                        "sclp_line0",
                        "ttysclp0",
                        "3270!tty1") {
-                const char *p;
+                _cleanup_free_ char *p = NULL;
 
-                p = strjoina("/sys/class/tty/", j);
+                p = path_join("/sys/class/tty", j);
+                if (!p)
+                        return -ENOMEM;
                 if (access(p, F_OK) < 0)
                         continue;
 

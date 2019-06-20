@@ -793,7 +793,7 @@ int config_parse_address(const char *unit,
                 n->in_addr_peer = buffer;
 
         if (n->family == AF_INET && n->broadcast.s_addr == 0 && n->prefixlen <= 30)
-                n->broadcast.s_addr = n->in_addr.in.s_addr | htonl(0xfffffffflu >> n->prefixlen);
+                n->broadcast.s_addr = n->in_addr.in.s_addr | htobe32(0xfffffffflu >> n->prefixlen);
 
         n = NULL;
 

@@ -198,7 +198,6 @@ static int detect_vm_xen(void) {
 /* Returns -errno, or 0 for domU, or 1 for dom0 */
 static int detect_vm_xen_dom0(void) {
         _cleanup_free_ char *domcap = NULL;
-        char *cap, *i;
         int r;
 
         r = read_one_line_file(PATH_FEATURES, &domcap);
@@ -229,17 +228,22 @@ static int detect_vm_xen_dom0(void) {
         if (r < 0)
                 return r;
 
-        i = domcap;
-        while ((cap = strsep(&i, ",")))
-                if (streq(cap, "control_d"))
-                        break;
-        if (!cap) {
-                log_debug("Virtualization XEN DomU found (/proc/xen/capabilities)");
-                return 0;
-        }
+        for (const char *i = domcap;;) {
+                _cleanup_free_ char *cap = NULL;
 
-        log_debug("Virtualization XEN Dom0 ignored (/proc/xen/capabilities)");
-        return 1;
+                r = extract_first_word(&i, &cap, ",", 0);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("Virtualization XEN DomU found (/proc/xen/capabilities)");
+                        return 0;
+                }
+
+                if (streq(cap, "control_d")) {
+                        log_debug("Virtualization XEN Dom0 ignored (/proc/xen/capabilities)");
+                        return 1;
+                }
+        }
 }
 
 static int detect_vm_hypervisor(void) {

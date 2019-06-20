@@ -266,9 +266,9 @@ int fw_add_local_dnat(
         mr->range[0].flags = NF_NAT_RANGE_PROTO_SPECIFIED|NF_NAT_RANGE_MAP_IPS;
         mr->range[0].min_ip = mr->range[0].max_ip = remote->in.s_addr;
         if (protocol == IPPROTO_TCP)
-                mr->range[0].min.tcp.port = mr->range[0].max.tcp.port = htons(remote_port);
+                mr->range[0].min.tcp.port = mr->range[0].max.tcp.port = htobe16(remote_port);
         else
-                mr->range[0].min.udp.port = mr->range[0].max.udp.port = htons(remote_port);
+                mr->range[0].min.udp.port = mr->range[0].max.udp.port = htobe16(remote_port);
 
         mask = alloca0(sz);
         memset(mask, 0xFF, sz);

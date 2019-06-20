@@ -371,7 +371,7 @@ static int enumerate_dir(
         return 0;
 }
 
-static bool should_skip_path(const char *prefix, const char *suffix) {
+static int should_skip_path(const char *prefix, const char *suffix) {
 #if HAVE_SPLIT_USR
         _cleanup_free_ char *target = NULL;
         const char *p;
@@ -383,10 +383,16 @@ static bool should_skip_path(const char *prefix, const char *suffix) {
                 return false;
 
         NULSTR_FOREACH(p, prefixes) {
+                _cleanup_free_ char *tmp = NULL;
+
                 if (path_startswith(dirname, p))
                         continue;
 
-                if (path_equal(target, strjoina(p, "/", suffix))) {
+                tmp = path_join(p, suffix);
+                if (!tmp)
+                        return -ENOMEM;
+
+                if (path_equal(target, tmp)) {
                         log_debug("%s redirects to %s, skipping.", dirname, target);
                         return true;
                 }
@@ -423,7 +429,7 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
         NULSTR_FOREACH(p, prefixes) {
                 _cleanup_free_ char *t = NULL;
 
-                if (should_skip_path(p, suffix))
+                if (should_skip_path(p, suffix) > 0)
                         continue;
 
                 t = strjoin(p, "/", suffix);

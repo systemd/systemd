@@ -1600,14 +1600,16 @@ static int device_sysattrs_read_all(sd_device *device) {
                 return r;
 
         FOREACH_DIRENT_ALL(dent, dir, return -errno) {
-                char *path;
+                _cleanup_free_ char *path = NULL;
                 struct stat statbuf;
 
                 /* only handle symlinks and regular files */
                 if (!IN_SET(dent->d_type, DT_LNK, DT_REG))
                         continue;
 
-                path = strjoina(syspath, "/", dent->d_name);
+                path = path_join(syspath, dent->d_name);
+                if (!path)
+                        return -ENOMEM;
 
                 if (lstat(path, &statbuf) != 0)
                         continue;
