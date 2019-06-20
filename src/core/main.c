@@ -296,47 +296,6 @@ static int console_setup(void) {
         return 0;
 }
 
-static int parse_crash_chvt(const char *value) {
-        int b;
-
-        if (safe_atoi(value, &arg_crash_chvt) >= 0)
-                return 0;
-
-        b = parse_boolean(value);
-        if (b < 0)
-                return b;
-
-        if (b > 0)
-                arg_crash_chvt = 0; /* switch to where kmsg goes */
-        else
-                arg_crash_chvt = -1; /* turn off switching */
-
-        return 0;
-}
-
-static int parse_confirm_spawn(const char *value, char **console) {
-        char *s;
-        int r;
-
-        r = value ? parse_boolean(value) : 1;
-        if (r == 0) {
-                *console = NULL;
-                return 0;
-        }
-
-        if (r > 0) /* on with default tty */
-                s = strdup("/dev/console");
-        else if (is_path(value)) /* on with fully qualified path */
-                s = strdup(value);
-        else /* on with only a tty file name, not a fully qualified path */
-                s = path_join("/dev", value);
-        if (!s)
-                return -ENOMEM;
-
-        *console = s;
-        return 0;
-}
-
 static int set_machine_id(const char *m) {
         sd_id128_t t;
         assert(m);
@@ -392,7 +351,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!value)
                         arg_crash_chvt = 0; /* turn on */
                 else {
-                        r = parse_crash_chvt(value);
+                        r = parse_crash_chvt(value, &arg_crash_chvt);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse crash chvt switch %s, ignoring: %m", value);
                 }
@@ -562,151 +521,6 @@ DEFINE_SETTER(config_parse_target, log_set_target_from_string, "target");
 DEFINE_SETTER(config_parse_color, log_show_color_from_string, "color" );
 DEFINE_SETTER(config_parse_location, log_show_location_from_string, "location");
 
-static int config_parse_cpu_affinity2(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        CPUSet *affinity = data;
-
-        assert(affinity);
-
-        (void) parse_cpu_set_extend(rvalue, affinity, true, unit, filename, line, lvalue);
-
-        return 0;
-}
-
-static int config_parse_show_status(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        int k;
-        ShowStatus *b = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        k = parse_show_status(rvalue, b);
-        if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse show status setting, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
-static int config_parse_output_restricted(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ExecOutput t, *eo = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        t = exec_output_from_string(rvalue);
-        if (t < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse output type, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Standard output types socket, fd:, file:, append: are not supported as defaults, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *eo = t;
-        return 0;
-}
-
-static int config_parse_crash_chvt(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        r = parse_crash_chvt(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CrashChangeVT= setting, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
-static int config_parse_timeout_abort(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        rvalue += strspn(rvalue, WHITESPACE);
-        if (isempty(rvalue)) {
-                arg_default_timeout_abort_set = false;
-                return 0;
-        }
-
-        r = parse_sec(rvalue, &arg_default_timeout_abort_usec);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse DefaultTimeoutAbortSec= setting, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        arg_default_timeout_abort_set = true;
-        return 0;
-}
-
 static int parse_config_file(void) {
 
         const ConfigTableItem items[] = {
@@ -715,8 +529,8 @@ static int parse_config_file(void) {
                 { "Manager", "LogColor",                  config_parse_color,            0, NULL                                   },
                 { "Manager", "LogLocation",               config_parse_location,         0, NULL                                   },
                 { "Manager", "DumpCore",                  config_parse_bool,             0, &arg_dump_core                         },
-                { "Manager", "CrashChVT", /* legacy */    config_parse_crash_chvt,       0, NULL                                   },
-                { "Manager", "CrashChangeVT",             config_parse_crash_chvt,       0, NULL                                   },
+                { "Manager", "CrashChVT", /* legacy */    config_parse_crash_chvt,       0, &arg_crash_chvt                        },
+                { "Manager", "CrashChangeVT",             config_parse_crash_chvt,       0, &arg_crash_chvt                        },
                 { "Manager", "CrashShell",                config_parse_bool,             0, &arg_crash_shell                       },
                 { "Manager", "CrashReboot",               config_parse_bool,             0, &arg_crash_reboot                      },
                 { "Manager", "ShowStatus",                config_parse_show_status,      0, &arg_show_status                       },
@@ -738,7 +552,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStandardError",      config_parse_output_restricted,0, &arg_default_std_error                 },
                 { "Manager", "DefaultTimeoutStartSec",    config_parse_sec,              0, &arg_default_timeout_start_usec        },
                 { "Manager", "DefaultTimeoutStopSec",     config_parse_sec,              0, &arg_default_timeout_stop_usec         },
-                { "Manager", "DefaultTimeoutAbortSec",    config_parse_timeout_abort,    0, NULL                                   },
+                { "Manager", "DefaultTimeoutAbortSec",    config_parse_timeout_abort,    0, &arg_default_timeout_abort_set         },
                 { "Manager", "DefaultRestartSec",         config_parse_sec,              0, &arg_default_restart_usec              },
                 { "Manager", "DefaultStartLimitInterval", config_parse_sec,              0, &arg_default_start_limit_interval      }, /* obsolete alias */
                 { "Manager", "DefaultStartLimitIntervalSec",config_parse_sec,            0, &arg_default_start_limit_interval      },
@@ -1020,7 +834,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CRASH_CHVT:
-                        r = parse_crash_chvt(optarg);
+                        r = parse_crash_chvt(optarg, &arg_crash_chvt);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse crash virtual terminal index: \"%s\": %m",
                                                        optarg);

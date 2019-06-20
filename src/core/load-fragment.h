@@ -4,6 +4,10 @@
 #include "conf-parser.h"
 #include "unit.h"
 
+/* Config-parsing helpers relevant only for sources under src/core/ */
+int parse_crash_chvt(const char *value, int *data);
+int parse_confirm_spawn(const char *value, char **console);
+
 /* Read service data from .desktop file style configuration fragments */
 
 int unit_load_fragment(Unit *u);
@@ -111,6 +115,11 @@ CONFIG_PARSER_PROTOTYPE(config_parse_oom_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_numa_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_numa_mask);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_filter_bpf_progs);
+CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity2);
+CONFIG_PARSER_PROTOTYPE(config_parse_show_status);
+CONFIG_PARSER_PROTOTYPE(config_parse_output_restricted);
+CONFIG_PARSER_PROTOTYPE(config_parse_crash_chvt);
+CONFIG_PARSER_PROTOTYPE(config_parse_timeout_abort);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
