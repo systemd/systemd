@@ -566,7 +566,7 @@ static int fd_copy_directory(
 
                 if (progress_path) {
                         if (display_path)
-                                child_display_path = dp = strjoin(display_path, "/", de->d_name);
+                                child_display_path = dp = path_join(display_path, de->d_name);
                         else
                                 child_display_path = de->d_name;
 

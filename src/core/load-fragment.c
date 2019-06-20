@@ -676,7 +676,7 @@ int config_parse_exec(
                         NULSTR_FOREACH(prefix, DEFAULT_PATH_NULSTR) {
                                 _cleanup_free_ char *fullpath = NULL;
 
-                                fullpath = strjoin(prefix, "/", path);
+                                fullpath = path_join(prefix, path);
                                 if (!fullpath)
                                         return log_oom();
 

@@ -200,7 +200,7 @@ static int enumerate_dir_d(
 
         assert(!endswith(drop, "/"));
 
-        path = strjoin(toppath, "/", drop);
+        path = path_join(toppath, drop);
         if (!path)
                 return -ENOMEM;
 
@@ -230,7 +230,7 @@ static int enumerate_dir_d(
                 if (!endswith(*file, ".conf"))
                         continue;
 
-                p = strjoin(path, "/", *file);
+                p = path_join(path, *file);
                 if (!p)
                         return -ENOMEM;
                 d = p + strlen(toppath) + 1;
@@ -347,7 +347,7 @@ static int enumerate_dir(
         STRV_FOREACH(t, files) {
                 _cleanup_free_ char *p = NULL;
 
-                p = strjoin(path, "/", *t);
+                p = path_join(path, *t);
                 if (!p)
                         return -ENOMEM;
 
@@ -426,7 +426,7 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
                 if (should_skip_path(p, suffix))
                         continue;
 
-                t = strjoin(p, "/", suffix);
+                t = path_join(p, suffix);
                 if (!t) {
                         r = -ENOMEM;
                         goto finish;

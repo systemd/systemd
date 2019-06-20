@@ -1005,7 +1005,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 STRV_FOREACH(dp, c->directories[dt].paths) {
                         _cleanup_free_ char *p;
 
-                        p = strjoin(u->manager->prefix[dt], "/", *dp);
+                        p = path_join(u->manager->prefix[dt], *dp);
                         if (!p)
                                 return -ENOMEM;
 
@@ -4520,7 +4520,7 @@ int unit_make_transient(Unit *u) {
 
         (void) mkdir_p_label(u->manager->lookup_paths.transient, 0755);
 
-        path = strjoin(u->manager->lookup_paths.transient, "/", u->id);
+        path = path_join(u->manager->lookup_paths.transient, u->id);
         if (!path)
                 return -ENOMEM;
 

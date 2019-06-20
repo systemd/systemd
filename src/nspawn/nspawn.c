@@ -1934,7 +1934,7 @@ static int copy_devnodes(const char *dest) {
                         if (r < 0)
                                 return log_error_errno(r, "chown() of device node %s failed: %m", to);
 
-                        dn = strjoin("/dev/", S_ISCHR(st.st_mode) ? "char" : "block");
+                        dn = path_join("/dev", S_ISCHR(st.st_mode) ? "char" : "block");
                         if (!dn)
                                 return log_oom();
 
@@ -2585,7 +2585,7 @@ static int determine_names(void) {
                  * search for a machine, but instead create a new one
                  * in /var/lib/machine. */
 
-                arg_directory = strjoin("/var/lib/machines/", arg_machine);
+                arg_directory = path_join("/var/lib/machines", arg_machine);
                 if (!arg_directory)
                         return log_oom();
         }
@@ -3980,7 +3980,7 @@ static int load_settings(void) {
         FOREACH_STRING(i, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
                 _cleanup_free_ char *j = NULL;
 
-                j = strjoin(i, "/", fn);
+                j = path_join(i, fn);
                 if (!j)
                         return log_oom();
 

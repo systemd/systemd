@@ -167,7 +167,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                                        "sd-device: Canonicalized path '%s' does not starts with sysfs mount point '%s'",
                                                        syspath, real_sys);
 
-                        new_syspath = strjoin("/sys/", p);
+                        new_syspath = path_join("/sys", p);
                         if (!new_syspath)
                                 return -ENOMEM;
 

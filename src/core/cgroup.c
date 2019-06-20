@@ -1617,11 +1617,7 @@ char *unit_default_cgroup_path(const Unit *u) {
         if (!escaped)
                 return NULL;
 
-        if (slice)
-                return strjoin(u->manager->cgroup_root, "/", slice, "/",
-                               escaped);
-        else
-                return strjoin(u->manager->cgroup_root, "/", escaped);
+        return path_join(empty_to_root(u->manager->cgroup_root), slice, escaped);
 }
 
 int unit_set_cgroup_path(Unit *u, const char *path) {
@@ -2472,7 +2468,7 @@ static int unit_watch_pids_in_path(Unit *u, const char *path) {
                 while ((r = cg_read_subgroup(d, &fn)) > 0) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = strjoin(path, "/", fn);
+                        p = path_join(path, fn);
                         free(fn);
 
                         if (!p)

@@ -303,7 +303,7 @@ static int acquire_transient_dir(
                 return -EOPNOTSUPP;
 
         if (tempdir)
-                transient = strjoin(tempdir, "/transient");
+                transient = path_join(tempdir, "transient");
         else if (scope == UNIT_FILE_SYSTEM)
                 transient = strdup("/run/systemd/transient");
         else

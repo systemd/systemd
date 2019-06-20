@@ -348,7 +348,7 @@ int cg_kill_recursive(
         while ((r = cg_read_subgroup(d, &fn)) > 0) {
                 _cleanup_free_ char *p = NULL;
 
-                p = strjoin(path, "/", fn);
+                p = path_join(path, fn);
                 free(fn);
                 if (!p)
                         return -ENOMEM;
@@ -482,7 +482,7 @@ int cg_migrate_recursive(
         while ((r = cg_read_subgroup(d, &fn)) > 0) {
                 _cleanup_free_ char *p = NULL;
 
-                p = strjoin(pfrom, "/", fn);
+                p = path_join(pfrom, fn);
                 free(fn);
                 if (!p)
                         return -ENOMEM;
@@ -570,13 +570,13 @@ static int join_path_legacy(const char *controller, const char *path, const char
         dn = controller_to_dirname(controller);
 
         if (isempty(path) && isempty(suffix))
-                t = strappend("/sys/fs/cgroup/", dn);
+                t = path_join("/sys/fs/cgroup", dn);
         else if (isempty(path))
-                t = strjoin("/sys/fs/cgroup/", dn, "/", suffix);
+                t = path_join("/sys/fs/cgroup", dn, suffix);
         else if (isempty(suffix))
-                t = strjoin("/sys/fs/cgroup/", dn, "/", path);
+                t = path_join("/sys/fs/cgroup", dn, path);
         else
-                t = strjoin("/sys/fs/cgroup/", dn, "/", path, "/", suffix);
+                t = path_join("/sys/fs/cgroup", dn, path, suffix);
         if (!t)
                 return -ENOMEM;
 
@@ -592,11 +592,11 @@ static int join_path_unified(const char *path, const char *suffix, char **fs) {
         if (isempty(path) && isempty(suffix))
                 t = strdup("/sys/fs/cgroup");
         else if (isempty(path))
-                t = strappend("/sys/fs/cgroup/", suffix);
+                t = path_join("/sys/fs/cgroup", suffix);
         else if (isempty(suffix))
-                t = strappend("/sys/fs/cgroup/", path);
+                t = path_join("/sys/fs/cgroup", path);
         else
-                t = strjoin("/sys/fs/cgroup/", path, "/", suffix);
+                t = path_join("/sys/fs/cgroup", path, suffix);
         if (!t)
                 return -ENOMEM;
 
@@ -623,7 +623,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
                 else if (!path)
                         t = strdup(suffix);
                 else
-                        t = strjoin(path, "/", suffix);
+                        t = path_join(path, suffix);
                 if (!t)
                         return -ENOMEM;
 
@@ -1227,7 +1227,7 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
                 while ((r = cg_read_subgroup(d, &fn)) > 0) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = strjoin(path, "/", fn);
+                        p = path_join(path, fn);
                         free(fn);
                         if (!p)
                                 return -ENOMEM;
