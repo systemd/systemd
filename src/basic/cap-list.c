@@ -62,7 +62,7 @@ int capability_set_to_string_alloc(uint64_t set, char **s) {
 
         assert(s);
 
-        for (i = 0; i < cap_last_cap(); i++)
+        for (i = 0; i <= cap_last_cap(); i++)
                 if (set & (UINT64_C(1) << i)) {
                         const char *p;
                         size_t add;
