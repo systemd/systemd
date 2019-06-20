@@ -1241,9 +1241,7 @@ static int process_kernel(int argc, char* argv[]) {
         n_iovec = n_to_free;
 
         iovec[n_iovec++] = IOVEC_MAKE_STRING("MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
-
-        assert_cc(2 == LOG_CRIT);
-        iovec[n_iovec++] = IOVEC_MAKE_STRING("PRIORITY=2");
+        iovec[n_iovec++] = IOVEC_MAKE_STRING("PRIORITY=" STRINGIFY(LOG_CRIT));
 
         assert(n_iovec <= ELEMENTSOF(iovec));
 
@@ -1339,8 +1337,7 @@ static int process_backtrace(int argc, char *argv[]) {
         }
 
         iovec[n_iovec++] = IOVEC_MAKE_STRING("MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR);
-        assert_cc(2 == LOG_CRIT);
-        iovec[n_iovec++] = IOVEC_MAKE_STRING("PRIORITY=2");
+        iovec[n_iovec++] = IOVEC_MAKE_STRING("PRIORITY=" STRINGIFY(LOG_CRIT));
 
         assert(n_iovec <= n_allocated);
 
