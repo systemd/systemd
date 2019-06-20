@@ -72,6 +72,47 @@ static int parse_socket_protocol(const char *s) {
         return r;
 }
 
+int parse_crash_chvt(const char *value, int *data) {
+        int b;
+
+        if (safe_atoi(value, data) >= 0)
+                return 0;
+
+        b = parse_boolean(value);
+        if (b < 0)
+                return b;
+
+        if (b > 0)
+                *data = 0; /* switch to where kmsg goes */
+        else
+                *data = -1; /* turn off switching */
+
+        return 0;
+}
+
+int parse_confirm_spawn(const char *value, char **console) {
+        char *s;
+        int r;
+
+        r = value ? parse_boolean(value) : 1;
+        if (r == 0) {
+                *console = NULL;
+                return 0;
+        }
+
+        if (r > 0) /* on with default tty */
+                s = strdup("/dev/console");
+        else if (is_path(value)) /* on with fully qualified path */
+                s = strdup(value);
+        else /* on with only a tty file name, not a fully qualified path */
+                s = strjoin("/dev/", value);
+        if (!s)
+                return -ENOMEM;
+
+        *console = s;
+        return 0;
+}
+
 DEFINE_CONFIG_PARSE(config_parse_socket_protocol, parse_socket_protocol, "Failed to parse socket protocol");
 DEFINE_CONFIG_PARSE(config_parse_exec_secure_bits, secure_bits_from_string, "Failed to parse secure bits");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_collect_mode, collect_mode, CollectMode, "Failed to parse garbage collection mode");
@@ -4979,4 +5020,152 @@ void unit_dump_config_items(FILE *f) {
                 fprintf(f, "%s=%s\n", lvalue, rvalue);
                 prev = i;
         }
+}
+
+int config_parse_cpu_affinity2(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CPUSet *affinity = data;
+
+        assert(affinity);
+
+        (void) parse_cpu_set_extend(rvalue, affinity, true, unit, filename, line, lvalue);
+
+        return 0;
+}
+
+int config_parse_show_status(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int k;
+        ShowStatus *b = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        k = parse_show_status(rvalue, b);
+        if (k < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse show status setting, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_output_restricted(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecOutput t, *eo = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        t = exec_output_from_string(rvalue);
+        if (t < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse output type, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Standard output types socket, fd:, file:, append: are not supported as defaults, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *eo = t;
+        return 0;
+}
+
+int config_parse_crash_chvt(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_crash_chvt(rvalue, data);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CrashChangeVT= setting, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_timeout_abort(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t *timeout_usec = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(timeout_usec);
+
+        rvalue += strspn(rvalue, WHITESPACE);
+        if (isempty(rvalue)) {
+                *timeout_usec = false;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, timeout_usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse DefaultTimeoutAbortSec= setting, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *timeout_usec = true;
+        return 0;
 }
