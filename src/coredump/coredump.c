@@ -1276,11 +1276,7 @@ static int process_backtrace(int argc, char *argv[]) {
         r = gather_pid_metadata(context, iovec, &n_to_free);
         if (r < 0)
                 goto finish;
-        if (r > 0) {
-                /* This was a special crash, and has already been processed. */
-                r = 0;
-                goto finish;
-        }
+
         n_iovec = n_to_free;
 
         for (;;) {
