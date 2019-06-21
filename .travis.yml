@@ -148,8 +148,7 @@ jobs:
           script:
               - set -e
               # Preconfigure with meson to prevent Coverity from capturing meson metadata
-              # Set compiler flag to prevent emit failure
-              - $DOCKER_EXEC sh -c "CFLAGS='-D_Float128=long\ double -D_Float64=double -D_Float64x=long\ double -D_Float32=float -D_Float32x=double' meson cov-build -Dman=false"
+              - $DOCKER_EXEC meson cov-build -Dman=false
               # Run Coverity
               - $DOCKER_EXEC tools/coverity.sh build
               - $DOCKER_EXEC tools/coverity.sh upload
