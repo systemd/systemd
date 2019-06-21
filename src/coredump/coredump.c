@@ -1254,10 +1254,10 @@ static int process_backtrace(int argc, char *argv[]) {
 
         log_debug("Processing backtrace on stdin...");
 
-        if (argc < CONTEXT_COMM + 1)
+        if (argc < CONTEXT_COMM + 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Not enough arguments passed (%i, expected %i).",
-                                       argc - 1, CONTEXT_COMM + 1 - 1);
+                                       argc - 1, CONTEXT_COMM + 2 - 1);
 
         context[CONTEXT_PID]       = argv[2 + CONTEXT_PID];
         context[CONTEXT_UID]       = argv[2 + CONTEXT_UID];
