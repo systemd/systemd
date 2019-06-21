@@ -4,8 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  Copyright © 2016 Jan Synáček
 -->
 
 <refentry id="sd_journal_has_runtime_files" xmlns:xi="http://www.w3.org/2001/XInclude">
