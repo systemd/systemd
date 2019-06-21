@@ -262,3 +262,11 @@ char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *f
                 iovec[(*n_iovec)++] = IOVEC_MAKE_STRING(x);
         return x;
 }
+
+char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value) {
+        char *x;
+
+        x = set_iovec_string_field(iovec, n_iovec, field, value);
+        free(value);
+        return x;
+}

@@ -73,3 +73,4 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
 #define IOVEC_MAKE_STRING(string) (struct iovec) IOVEC_INIT_STRING(string)
 
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value);
+char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value);

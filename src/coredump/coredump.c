@@ -1050,14 +1050,6 @@ static int send_iovec(const struct iovec iovec[], size_t n_iovec, int input_fd) 
         return 0;
 }
 
-static char* set_iovec_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value) {
-        char *x;
-
-        x = set_iovec_string_field(iovec, n_iovec, field, value);
-        free(value);
-        return x;
-}
-
 static int gather_pid_metadata(char *context[_CONTEXT_MAX], struct iovec *iovec, size_t *n_iovec) {
 
         /* We need 27 empty slots in iovec!
@@ -1100,7 +1092,7 @@ static int gather_pid_metadata(char *context[_CONTEXT_MAX], struct iovec *iovec,
         }
 
         if (cg_pid_get_user_unit(pid, &t) >= 0)
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_USER_UNIT=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_USER_UNIT=", t);
 
         /* The next few are mandatory */
         if (!set_iovec_string_field(iovec, n_iovec, "COREDUMP_PID=", context[CONTEXT_PID]))
@@ -1129,7 +1121,7 @@ static int gather_pid_metadata(char *context[_CONTEXT_MAX], struct iovec *iovec,
                 return log_oom();
 
         if (sd_pid_get_session(pid, &t) >= 0)
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_SESSION=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_SESSION=", t);
 
         if (sd_pid_get_owner_uid(pid, &owner_uid) >= 0) {
                 r = asprintf(&t, "COREDUMP_OWNER_UID=" UID_FMT, owner_uid);
@@ -1138,55 +1130,55 @@ static int gather_pid_metadata(char *context[_CONTEXT_MAX], struct iovec *iovec,
         }
 
         if (sd_pid_get_slice(pid, &t) >= 0)
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_SLICE=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_SLICE=", t);
 
         if (get_process_cmdline(pid, SIZE_MAX, 0, &t) >= 0)
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_CMDLINE=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_CMDLINE=", t);
 
         if (cg_pid_get_path_shifted(pid, NULL, &t) >= 0)
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_CGROUP=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_CGROUP=", t);
 
         if (compose_open_fds(pid, &t) >= 0)
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_OPEN_FDS=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_OPEN_FDS=", t);
 
         p = procfs_file_alloca(pid, "status");
         if (read_full_file(p, &t, NULL) >= 0)
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_PROC_STATUS=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_PROC_STATUS=", t);
 
         p = procfs_file_alloca(pid, "maps");
         if (read_full_file(p, &t, NULL) >= 0)
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_PROC_MAPS=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_PROC_MAPS=", t);
 
         p = procfs_file_alloca(pid, "limits");
         if (read_full_file(p, &t, NULL) >= 0)
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_PROC_LIMITS=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_PROC_LIMITS=", t);
 
         p = procfs_file_alloca(pid, "cgroup");
         if (read_full_file(p, &t, NULL) >=0)
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_PROC_CGROUP=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_PROC_CGROUP=", t);
 
         p = procfs_file_alloca(pid, "mountinfo");
         if (read_full_file(p, &t, NULL) >=0)
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_PROC_MOUNTINFO=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_PROC_MOUNTINFO=", t);
 
         if (get_process_cwd(pid, &t) >= 0)
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_CWD=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_CWD=", t);
 
         if (get_process_root(pid, &t) >= 0) {
                 bool proc_self_root_is_slash;
 
                 proc_self_root_is_slash = strcmp(t, "/") == 0;
 
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_ROOT=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_ROOT=", t);
 
                 /* If the process' root is "/", then there is a chance it has
                  * mounted own root and hence being containerized. */
                 if (proc_self_root_is_slash && get_process_container_parent_cmdline(pid, &t) > 0)
-                        set_iovec_field_free(iovec, n_iovec, "COREDUMP_CONTAINER_CMDLINE=", t);
+                        set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_CONTAINER_CMDLINE=", t);
         }
 
         if (get_process_environ(pid, &t) >= 0)
-                set_iovec_field_free(iovec, n_iovec, "COREDUMP_ENVIRON=", t);
+                set_iovec_string_field_free(iovec, n_iovec, "COREDUMP_ENVIRON=", t);
 
         t = strjoin("COREDUMP_TIMESTAMP=", context[CONTEXT_TIMESTAMP], "000000");
         if (t)
