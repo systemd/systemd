@@ -2558,7 +2558,6 @@ static int apply_working_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const char *home,
-                const bool needs_mount_ns,
                 int *exit_status) {
 
         const char *d, *wd;
@@ -2580,20 +2579,34 @@ static int apply_working_directory(
         else
                 wd = "/";
 
+        if (params->flags & EXEC_APPLY_CHROOT)
+                d = wd;
+        else
+                d = prefix_roota(context->root_directory, wd);
+
+        if (chdir(d) < 0 && !context->working_directory_missing_ok) {
+                *exit_status = EXIT_CHDIR;
+                return -errno;
+        }
+
+        return 0;
+}
+
+static int apply_root_directory(
+                const ExecContext *context,
+                const ExecParameters *params,
+                const bool needs_mount_ns,
+                int *exit_status) {
+
+        assert(context);
+        assert(exit_status);
+
         if (params->flags & EXEC_APPLY_CHROOT) {
                 if (!needs_mount_ns && context->root_directory)
                         if (chroot(context->root_directory) < 0) {
                                 *exit_status = EXIT_CHROOT;
                                 return -errno;
                         }
-
-                d = wd;
-        } else
-                d = prefix_roota(context->root_directory, wd);
-
-        if (chdir(d) < 0 && !context->working_directory_missing_ok) {
-                *exit_status = EXIT_CHDIR;
-                return -errno;
         }
 
         return 0;
@@ -3540,6 +3553,11 @@ static int exec_child(
                 }
         }
 
+        /* chroot to root directory first, before we lose the ability to chroot */
+        r = apply_root_directory(context, params, needs_mount_namespace, exit_status);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Chrooting to the requested root directory failed: %m");
+
         if (needs_setuid) {
                 if (uid_is_valid(uid)) {
                         r = enforce_user(context, uid);
@@ -3572,7 +3590,7 @@ static int exec_child(
 
         /* Apply working directory here, because the working directory might be on NFS and only the user running
          * this service might have the correct privilege to change to the working directory */
-        r = apply_working_directory(context, params, home, needs_mount_namespace, exit_status);
+        r = apply_working_directory(context, params, home, exit_status);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Changing to the requested working directory failed: %m");
 
