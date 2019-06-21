@@ -68,21 +68,14 @@
 assert_cc(JOURNAL_SIZE_MAX <= DATA_SIZE_MAX);
 
 enum {
-        /* We use this as array indexes for a couple of special fields we use for
-         * naming coredump files, and attaching xattrs, and for indexing argv[].
-
-         * Our pattern for man:systectl(1) kernel.core_pattern is such that the
-         * kernel passes fields until CONTEXT_RLIMIT as arguments in argv[]. After
-         * that it gets complicated: the kernel passes "comm" as one or more fields
-         * starting at index CONTEXT_COMM (in other words, full "comm" is under index
-         * CONTEXT_COMM when it does not contain spaces, which is the common
-         * case). This mapping is not reversible, so we prefer to retrieve "comm"
-         * from /proc. We only fall back to argv[CONTEXT_COMM...] when that fails.
+        /* We use this as array indexes for a couple of special fields we use for naming
+         * coredump files, and attaching xattrs, and for indexing argv[].
          *
-         * In the internal context[] array, fields before CONTEXT_COMM are the
-         * strings from argv[], so they should not be freed. The strings at indices
-         * CONTEXT_COMM and higher are allocated by us and should be freed at the
-         * end.
+         * In the internal context[] array, fields before CONTEXT_COMM are the strings
+         * from argv[] passed by the kernel according to our pattern defined in
+         * /proc/sys/kernel/core_pattern (see man:core(5)). So they should not be
+         * freed. The strings at indices CONTEXT_COMM and higher are allocated by us and
+         * should be freed at the end.
          */
         CONTEXT_PID,
         CONTEXT_UID,
@@ -1065,15 +1058,12 @@ static char* set_iovec_field_free(struct iovec *iovec, size_t *n_iovec, const ch
         return x;
 }
 
-static int gather_pid_metadata(
-                char* context[_CONTEXT_MAX],
-                char **comm_fallback,
-                struct iovec *iovec, size_t *n_iovec) {
+static int gather_pid_metadata(char *context[_CONTEXT_MAX], struct iovec *iovec, size_t *n_iovec) {
 
         /* We need 27 empty slots in iovec!
          *
-         * Note that if we fail on oom later on, we do not roll-back changes to the iovec structure. (It remains valid,
-         * with the first n_iovec fields initialized.) */
+         * Note that if we fail on oom later on, we do not roll-back changes to the iovec
+         * structure. (It remains valid, with the first n_iovec fields initialized.) */
 
         uid_t owner_uid;
         pid_t pid;
@@ -1086,12 +1076,8 @@ static int gather_pid_metadata(
                 return log_error_errno(r, "Failed to parse PID \"%s\": %m", context[CONTEXT_PID]);
 
         r = get_process_comm(pid, &context[CONTEXT_COMM]);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to get COMM, falling back to the command line: %m");
-                context[CONTEXT_COMM] = strv_join(comm_fallback, " ");
-                if (!context[CONTEXT_COMM])
-                        return log_oom();
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get COMM: %m");
 
         r = get_process_exe(pid, &context[CONTEXT_EXE]);
         if (r < 0)
@@ -1234,7 +1220,7 @@ static int process_kernel(int argc, char* argv[]) {
         context[CONTEXT_RLIMIT]    = argv[1 + CONTEXT_RLIMIT];
         context[CONTEXT_HOSTNAME]  = argv[1 + CONTEXT_HOSTNAME];
 
-        r = gather_pid_metadata(context, argv + 1 + CONTEXT_COMM, iovec, &n_to_free);
+        r = gather_pid_metadata(context, iovec, &n_to_free);
         if (r < 0)
                 goto finish;
 
@@ -1295,7 +1281,7 @@ static int process_backtrace(int argc, char *argv[]) {
         if (!iovec)
                 return log_oom();
 
-        r = gather_pid_metadata(context, argv + 2 + CONTEXT_COMM, iovec, &n_to_free);
+        r = gather_pid_metadata(context, iovec, &n_to_free);
         if (r < 0)
                 goto finish;
         if (r > 0) {
