@@ -24,6 +24,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* seed: check if first-boot and then don't do anything
+
 * when killing due to service watchdog timeout maybe detect whether target
   process is under ptracing and then log loudly and continue instead.
 
