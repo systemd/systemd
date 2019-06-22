@@ -356,19 +356,19 @@
         </varlistentry>
 
         <varlistentry>
-          <term><constant>SD_BUS_VTABLE_CONST</constant></term>
-          <term><constant>SD_BUS_VTABLE_EMITS_CHANGE</constant></term>
-          <term><constant>SD_BUS_VTABLE_EMITS_INVALIDATION</constant></term>
+          <term><constant>SD_BUS_VTABLE_PROPERTY_CONST</constant></term>
+          <term><constant>SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE</constant></term>
+          <term><constant>SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION</constant></term>
 
           <listitem><para>Those three flags correspond to different values of the
           <constant>org.freedesktop.DBus.Property.EmitsChangedSignal</constant> annotation, which specifies
           whether the <constant>org.freedesktop.DBus.Properties.PropertiesChanged</constant> signal is
-          emitted whenever the property changes. <constant>SD_BUS_VTABLE_CONST</constant> corresponds to
+          emitted whenever the property changes. <constant>SD_BUS_VTABLE_PROPERTY_CONST</constant> corresponds to
           <constant>const</constant> and means that the property never changes during the lifetime of the
           object it belongs to, so no signal needs to be emitted.
-          <constant>SD_BUS_VTABLE_EMITS_CHANGE</constant> corresponds to <constant>true</constant> and means
-          that the signal is emitted. <constant>SD_BUS_VTABLE_EMITS_INVALIDATION</constant> corresponds to
-          <constant>invalides</constant> and means that the signal is emitted, but the value is not included
+          <constant>SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE</constant> corresponds to <constant>true</constant> and means
+          that the signal is emitted. <constant>SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION</constant> corresponds to
+          <constant>invalidates</constant> and means that the signal is emitted, but the value is not included
           in the signal.</para>
           </listitem>
         </varlistentry>
@@ -378,7 +378,7 @@
 
           <listitem><para>Mark this vtable property entry as requiring explicit request to for the value to
           be shown (generally because the value is large or slow to calculate). This entry cannot be combined
-          with <constant>SD_BUS_VTABLE_EMITS_CHANGE</constant>, and will not be shown in property listings by
+          with <constant>SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE</constant>, and will not be shown in property listings by
           default (e.g. <command>busctl introspect</command>).  This corresponds to the
           <constant>org.freedesktop.systemd1.Explicit</constant> annotation in introspection data.</para>
           </listitem>
