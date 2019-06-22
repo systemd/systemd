@@ -325,7 +325,7 @@ static int extract_now(
                                 return -ENOMEM;
                         fd = -1;
 
-                        m->source = strjoin(resolved, "/", de->d_name);
+                        m->source = path_join(resolved, de->d_name);
                         if (!m->source)
                                 return -ENOMEM;
 
@@ -691,7 +691,7 @@ static int install_chroot_dropin(
         assert(m);
         assert(dropin_dir);
 
-        dropin = strjoin(dropin_dir, "/20-portable.conf");
+        dropin = path_join(dropin_dir, "20-portable.conf");
         if (!dropin)
                 return -ENOMEM;
 
@@ -778,7 +778,7 @@ static int install_profile_dropin(
                 return 0;
         }
 
-        dropin = strjoin(dropin_dir, "/10-profile.conf");
+        dropin = path_join(dropin_dir, "10-profile.conf");
         if (!dropin)
                 return -ENOMEM;
 

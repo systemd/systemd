@@ -589,10 +589,7 @@ static int search_and_fopen_internal(const char *path, const char *mode, const c
                 _cleanup_free_ char *p = NULL;
                 FILE *f;
 
-                if (root)
-                        p = strjoin(root, *i, "/", path);
-                else
-                        p = strjoin(*i, "/", path);
+                p = path_join(root, *i, path);
                 if (!p)
                         return -ENOMEM;
 

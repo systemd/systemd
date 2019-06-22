@@ -956,7 +956,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                 if (r == 0)
                         break;
 
-                j = strjoin(p, "/", g);
+                j = path_join(p, g);
                 if (!j)
                         return -ENOMEM;
 

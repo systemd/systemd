@@ -349,7 +349,7 @@ static int bus_service_set_transient_property(
                         if (e) {
                                 char *z;
 
-                                z = strjoin("/run/", e);
+                                z = path_join("/run", e);
                                 if (!z)
                                         return log_oom();
 

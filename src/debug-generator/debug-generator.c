@@ -6,6 +6,7 @@
 #include "generator.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
@@ -99,7 +100,7 @@ static int generate_mask_symlinks(void) {
         STRV_FOREACH(u, arg_mask) {
                 _cleanup_free_ char *p = NULL;
 
-                p = strjoin(arg_dest, "/", *u);
+                p = path_join(empty_to_root(arg_dest), *u);
                 if (!p)
                         return log_oom();
 

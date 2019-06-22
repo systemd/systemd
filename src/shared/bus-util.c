@@ -31,6 +31,7 @@
 #include "mountpoint-util.h"
 #include "nsflags.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "proc-cmdline.h"
 #include "rlimit-util.h"
 #include "stdio-util.h"
@@ -1552,7 +1553,7 @@ int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id,
         if (!external_label)
                 return -ENOMEM;
 
-        p = strjoin(prefix, "/", sender_label, "/", external_label);
+        p = path_join(prefix, sender_label, external_label);
         if (!p)
                 return -ENOMEM;
 

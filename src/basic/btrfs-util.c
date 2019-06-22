@@ -1530,7 +1530,7 @@ static int subvol_snapshot_children(
                         if (old_child_fd < 0)
                                 return -errno;
 
-                        np = strjoin(subvolume, "/", ino_args.name);
+                        np = path_join(subvolume, ino_args.name);
                         if (!np)
                                 return -ENOMEM;
 

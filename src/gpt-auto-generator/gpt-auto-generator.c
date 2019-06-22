@@ -181,7 +181,7 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        p = strjoin(arg_dest, "/", unit);
+        p = path_join(empty_to_root(arg_dest), unit);
         if (!p)
                 return log_oom();
 
@@ -299,7 +299,7 @@ static int add_swap(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        unit = strjoin(arg_dest, "/", name);
+        unit = path_join(empty_to_root(arg_dest), name);
         if (!unit)
                 return log_oom();
 

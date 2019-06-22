@@ -789,7 +789,7 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
                 if (!startswith(de->d_name, "loop"))
                         continue;
 
-                sys = strjoin("/sys/devices/virtual/block/", de->d_name, "/loop/backing_file");
+                sys = path_join("/sys/devices/virtual/block", de->d_name, "loop/backing_file");
                 if (!sys)
                         return -ENOMEM;
 
@@ -802,7 +802,7 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
                 if (files_same(fname, backing_file, 0) <= 0)
                         continue;
 
-                l = strjoin("/dev/", de->d_name);
+                l = path_join("/dev", de->d_name);
                 if (!l)
                         return -ENOMEM;
 
@@ -1125,7 +1125,7 @@ static int acquire_mount_where(sd_device *d) {
                 if (!filename_is_valid(escaped))
                         return 0;
 
-                arg_mount_where = strjoin("/run/media/system/", escaped);
+                arg_mount_where = path_join("/run/media/system", escaped);
         } else
                 arg_mount_where = strdup(v);
 
@@ -1257,7 +1257,7 @@ static int discover_loop_backing_file(void) {
                         return -EINVAL;
                 }
 
-                arg_mount_where = strjoin("/run/media/system/", escaped);
+                arg_mount_where = path_join("/run/media/system", escaped);
                 if (!arg_mount_where)
                         return log_oom();
 

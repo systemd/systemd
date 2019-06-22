@@ -994,7 +994,7 @@ static int make_dm_name_and_node(const void *original_node, const char *suffix, 
         if (!filename_is_valid(name))
                 return -EINVAL;
 
-        node = strjoin(crypt_get_dir(), "/", name);
+        node = path_join(crypt_get_dir(), name);
         if (!node)
                 return -ENOMEM;
 

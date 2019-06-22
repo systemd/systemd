@@ -145,7 +145,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
                                         return log_error_errno(errno, "Failed to acquire temporary directory: %m");
                                 }
 
-                                m->source = strjoin(m->rm_rf_tmpdir, "/src");
+                                m->source = path_join(m->rm_rf_tmpdir, "src");
                                 if (!m->source)
                                         return log_oom();
 

@@ -146,10 +146,7 @@ static int image_new(
         if (!i->name)
                 return -ENOMEM;
 
-        if (path)
-                i->path = strjoin(path, "/", filename);
-        else
-                i->path = strdup(filename);
+        i->path = path_join(path, filename);
         if (!i->path)
                 return -ENOMEM;
 

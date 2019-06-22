@@ -2192,8 +2192,8 @@ int server_init(Server *s) {
         server_cache_boot_id(s);
         server_cache_machine_id(s);
 
-        s->runtime_storage.path = strjoin("/run/log/journal/", SERVER_MACHINE_ID(s));
-        s->system_storage.path  = strjoin("/var/log/journal/", SERVER_MACHINE_ID(s));
+        s->runtime_storage.path = path_join("/run/log/journal", SERVER_MACHINE_ID(s));
+        s->system_storage.path  = path_join("/var/log/journal", SERVER_MACHINE_ID(s));
         if (!s->runtime_storage.path || !s->system_storage.path)
                 return -ENOMEM;
 

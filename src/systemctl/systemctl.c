@@ -7329,12 +7329,12 @@ static int get_file_to_edit(
         assert(name);
         assert(ret_path);
 
-        path = strjoin(paths->persistent_config, "/", name);
+        path = path_join(paths->persistent_config, name);
         if (!path)
                 return log_oom();
 
         if (arg_runtime) {
-                run = strjoin(paths->runtime_config, "/", name);
+                run = path_join(paths->runtime_config, name);
                 if (!run)
                         return log_oom();
         }

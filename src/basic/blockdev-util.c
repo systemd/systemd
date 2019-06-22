@@ -115,11 +115,11 @@ int block_get_originating(dev_t dt, dev_t *ret) {
                          * setups, however, only if both partitions are on the same physical device. Hence, let's
                          * verify this. */
 
-                        u = strjoin(p, "/", de->d_name, "/../dev");
+                        u = path_join(p, de->d_name, "../dev");
                         if (!u)
                                 return -ENOMEM;
 
-                        v = strjoin(p, "/", found->d_name, "/../dev");
+                        v = path_join(p, found->d_name, "../dev");
                         if (!v)
                                 return -ENOMEM;
 

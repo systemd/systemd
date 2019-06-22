@@ -36,6 +36,7 @@
 #include "memory-util.h"
 #include "missing.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -3756,7 +3757,7 @@ _public_ int sd_bus_path_encode(const char *prefix, const char *external_id, cha
         if (!e)
                 return -ENOMEM;
 
-        ret = strjoin(prefix, "/", e);
+        ret = path_join(prefix, e);
         if (!ret)
                 return -ENOMEM;
 

@@ -115,7 +115,7 @@ static int files_add(
 
                         key = p;
                 } else {
-                        p = strjoin(dirpath, "/", de->d_name);
+                        p = path_join(dirpath, de->d_name);
                         if (!p)
                                 return -ENOMEM;
 

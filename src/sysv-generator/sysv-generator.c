@@ -784,7 +784,7 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                                 continue;
                         }
 
-                        fpath = strjoin(*path, "/", de->d_name);
+                        fpath = path_join(*path, de->d_name);
                         if (!fpath)
                                 return log_oom();
 
@@ -829,7 +829,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                         _cleanup_free_ char *path = NULL;
                         struct dirent *de;
 
-                        path = strjoin(*p, "/", rcnd_table[i].path);
+                        path = path_join(*p, rcnd_table[i].path);
                         if (!path) {
                                 r = log_oom();
                                 goto finish;
@@ -859,7 +859,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                 if (a < 0 || b < 0)
                                         continue;
 
-                                fpath = strjoin(*p, "/", de->d_name);
+                                fpath = path_join(*p, de->d_name);
                                 if (!fpath) {
                                         r = log_oom();
                                         goto finish;

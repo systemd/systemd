@@ -2334,7 +2334,7 @@ static int compile_bind_mounts(
                          * directory. For that we overmount the usually inaccessible "private" subdirectory with a
                          * tmpfs that makes it accessible and is empty except for the submounts we do this for. */
 
-                        private_root = strjoin(params->prefix[t], "/private");
+                        private_root = path_join(params->prefix[t], "private");
                         if (!private_root) {
                                 r = -ENOMEM;
                                 goto finish;
@@ -2350,9 +2350,9 @@ static int compile_bind_mounts(
 
                         if (context->dynamic_user &&
                             !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION))
-                                s = strjoin(params->prefix[t], "/private/", *suffix);
+                                s = path_join(params->prefix[t], "private", *suffix);
                         else
-                                s = strjoin(params->prefix[t], "/", *suffix);
+                                s = path_join(params->prefix[t], *suffix);
                         if (!s) {
                                 r = -ENOMEM;
                                 goto finish;
@@ -2364,7 +2364,7 @@ static int compile_bind_mounts(
                                 /* When RootDirectory= or RootImage= are set, then the symbolic link to the private
                                  * directory is not created on the root directory. So, let's bind-mount the directory
                                  * on the 'non-private' place. */
-                                d = strjoin(params->prefix[t], "/", *suffix);
+                                d = path_join(params->prefix[t], *suffix);
                         else
                                 d = strdup(s);
                         if (!d) {
@@ -2800,9 +2800,9 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
                         char *e;
 
                         if (t == EXEC_DIRECTORY_RUNTIME)
-                                e = strjoin(p->prefix[t], "/", *i);
+                                e = path_join(p->prefix[t], *i);
                         else
-                                e = strjoin(p->prefix[t], "/private/", *i);
+                                e = path_join(p->prefix[t], "private", *i);
                         if (!e)
                                 return -ENOMEM;
 
@@ -2840,7 +2840,7 @@ static int exec_parameters_get_cgroup_path(const ExecParameters *params, char **
 
         using_subcgroup = FLAGS_SET(params->flags, EXEC_CONTROL_CGROUP|EXEC_CGROUP_DELEGATE|EXEC_IS_CONTROL);
         if (using_subcgroup)
-                p = strjoin(params->cgroup_path, "/.control");
+                p = path_join(params->cgroup_path, ".control");
         else
                 p = strdup(params->cgroup_path);
         if (!p)

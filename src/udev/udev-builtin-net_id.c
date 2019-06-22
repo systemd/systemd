@@ -139,7 +139,7 @@ static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn
                 if (!startswith(dent->d_name, "virtfn"))
                         continue;
 
-                virtfn_link_file = strjoin(physfn_pci_syspath, "/", dent->d_name);
+                virtfn_link_file = path_join(physfn_pci_syspath, dent->d_name);
                 if (!virtfn_link_file)
                         return -ENOMEM;
 
