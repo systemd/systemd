@@ -32,6 +32,7 @@
 #include "networkd-neighbor.h"
 #include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"
+#include "networkd-wifi-iwd.h"
 #include "networkd-wifi-wpa_supplicant.h"
 #include "set.h"
 #include "socket-util.h"
@@ -730,8 +731,11 @@ static Link *link_free(Link *link) {
 
         sd_bus_slot_unref(link->wpa_supplicant_interface_slot);
         sd_bus_slot_unref(link->wpa_supplicant_network_slot);
+        sd_bus_slot_unref(link->iwd_slot);
         free(link->wpa_supplicant_interface_path);
         free(link->wpa_supplicant_network_path);
+        free(link->iwd_path);
+        free(link->iwd_station_network_path);
         free(link->ssid);
 
         (void) unlink(link->state_file);
@@ -2854,6 +2858,10 @@ static int link_initialized_and_synced(Link *link) {
 
         if (!link->network) {
                 r = wpa_supplicant_get_interface(link);
+                if (r < 0)
+                        return r;
+
+                r = iwd_get_ssid_async(link);
                 if (r < 0)
                         return r;
 

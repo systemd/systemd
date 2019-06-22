@@ -60,6 +60,9 @@ typedef struct Link {
         sd_bus_slot *wpa_supplicant_network_slot;
         char *wpa_supplicant_interface_path;
         char *wpa_supplicant_network_path;
+        sd_bus_slot *iwd_slot;
+        char *iwd_path;
+        char *iwd_station_network_path;
         char *ssid;
 
         unsigned flags;

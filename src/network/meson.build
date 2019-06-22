@@ -101,6 +101,8 @@ sources = files('''
         networkd-speed-meter.h
         networkd-util.c
         networkd-util.h
+        networkd-wifi-iwd.c
+        networkd-wifi-iwd.h
         networkd-wifi-wpa_supplicant.c
         networkd-wifi-wpa_supplicant.h
 '''.split())
