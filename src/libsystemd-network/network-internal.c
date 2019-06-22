@@ -106,11 +106,23 @@ bool net_match_config(Set *match_mac,
                       char * const *match_drivers,
                       char * const *match_types,
                       char * const *match_names,
+                      sd_device *device,
                       const struct ether_addr *dev_mac,
-                      const char *dev_path,
-                      const char *dev_driver,
-                      const char *dev_type,
                       const char *dev_name) {
+
+        const char *dev_path = NULL, *dev_driver = NULL, *dev_type = NULL, *mac_str;
+
+        if (device) {
+                (void) sd_device_get_property_value(device, "ID_PATH", &dev_path);
+                (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &dev_driver);
+                (void) sd_device_get_devtype(device, &dev_type);
+
+                if (!dev_name)
+                        (void) sd_device_get_sysname(device, &dev_name);
+                if (!dev_mac &&
+                    sd_device_get_sysattr_value(device, "address", &mac_str) >= 0)
+                        dev_mac = ether_aton(mac_str);
+        }
 
         if (match_mac && (!dev_mac || !set_contains(match_mac, dev_mac)))
                 return false;

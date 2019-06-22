@@ -19,10 +19,8 @@ bool net_match_config(Set *match_mac,
                       char * const *match_driver,
                       char * const *match_type,
                       char * const *match_name,
+                      sd_device *device,
                       const struct ether_addr *dev_mac,
-                      const char *dev_path,
-                      const char *dev_driver,
-                      const char *dev_type,
                       const char *dev_name);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_net_condition);

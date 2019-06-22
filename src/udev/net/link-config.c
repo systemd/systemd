@@ -240,42 +240,29 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         assert(ret);
 
         LIST_FOREACH(links, link, ctx->links) {
-                const char *address = NULL, *id_path = NULL, *id_net_driver = NULL, *devtype = NULL, *sysname = NULL;
-
-                (void) sd_device_get_sysattr_value(device, "address", &address);
-                (void) sd_device_get_property_value(device, "ID_PATH", &id_path);
-                (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &id_net_driver);
-                (void) sd_device_get_devtype(device, &devtype);
-                (void) sd_device_get_sysname(device, &sysname);
-
                 if (net_match_config(link->match_mac, link->match_path, link->match_driver,
                                      link->match_type, link->match_name,
-                                     address ? ether_aton(address) : NULL,
-                                     id_path,
-                                     id_net_driver,
-                                     devtype,
-                                     sysname)) {
+                                     device, NULL, NULL)) {
                         if (link->match_name) {
                                 unsigned name_assign_type = NET_NAME_UNKNOWN;
 
                                 (void) link_unsigned_attribute(device, "name_assign_type", &name_assign_type);
 
                                 if (name_assign_type == NET_NAME_ENUM && !strv_contains(link->match_name, "*")) {
-                                        log_warning("Config file %s applies to device based on potentially unpredictable interface name '%s'",
-                                                    link->filename, sysname);
+                                        log_device_warning(device, "Config file %s applies to device based on potentially unpredictable interface name",
+                                                           link->filename);
                                         *ret = link;
 
                                         return 0;
                                 } else if (name_assign_type == NET_NAME_RENAMED) {
-                                        log_warning("Config file %s matches device based on renamed interface name '%s', ignoring",
-                                                    link->filename, sysname);
+                                        log_device_warning(device, "Config file %s matches device based on renamed interface name, ignoring",
+                                                           link->filename);
 
                                         continue;
                                 }
                         }
 
-                        log_debug("Config file %s applies to device %s",
-                                  link->filename, sysname);
+                        log_device_debug(device, "Config file %s is applied", link->filename);
 
                         *ret = link;
                         return 0;
