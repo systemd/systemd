@@ -113,7 +113,7 @@
           <listitem>
             <para>A whitespace-separated list of shell-style globs
             matching the driver currently bound to the device, as
-            exposed by the udev property <literal>DRIVER</literal>
+            exposed by the udev property <literal>ID_NET_DRIVER</literal>
             of its parent device, or if that is not set the driver
             as exposed by <literal>ethtool -i</literal> of the
             device itself. If the list is prefixed with a "!", the

@@ -103,7 +103,7 @@
         <term><varname>Driver=</varname></term>
         <listitem>
           <para>A whitespace-separated list of shell-style globs matching the driver currently bound to the
-          device, as exposed by the udev property <varname>DRIVER</varname> of its parent device, or if that
+          device, as exposed by the udev property <varname>ID_NET_DRIVER</varname> of its parent device, or if that
           is not set, the driver as exposed by <command>ethtool -i</command> of the device itself.</para>
         </listitem>
       </varlistentry>
