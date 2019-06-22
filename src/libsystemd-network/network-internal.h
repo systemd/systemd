@@ -28,7 +28,8 @@ bool net_match_config(Set *match_mac,
 CONFIG_PARSER_PROTOTYPE(config_parse_net_condition);
 CONFIG_PARSER_PROTOTYPE(config_parse_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_hwaddrs);
-CONFIG_PARSER_PROTOTYPE(config_parse_ifnames);
+CONFIG_PARSER_PROTOTYPE(config_parse_match_strv);
+CONFIG_PARSER_PROTOTYPE(config_parse_match_ifnames);
 CONFIG_PARSER_PROTOTYPE(config_parse_ifalias);
 CONFIG_PARSER_PROTOTYPE(config_parse_bridge_port_priority);
 
