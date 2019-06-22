@@ -20,6 +20,7 @@ Driver=
 Architecture=
 Path=
 Name=
+Property=
 Virtualization=
 KernelCommandLine=
 Host=

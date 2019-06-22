@@ -12,6 +12,7 @@
 #include "conf-parser.h"
 #include "device-util.h"
 #include "dhcp-lease-internal.h"
+#include "env-util.h"
 #include "ether-addr-util.h"
 #include "hexdecoct.h"
 #include "log.h"
@@ -101,11 +102,46 @@ static bool net_condition_test_strv(char * const *patterns, const char *string) 
         return has_positive_rule ? match : true;
 }
 
+static int net_condition_test_property(char * const *match_property, sd_device *device) {
+        char * const *p;
+
+        if (strv_isempty(match_property))
+                return true;
+
+        STRV_FOREACH(p, match_property) {
+                _cleanup_free_ char *key = NULL;
+                const char *val, *dev_val;
+                bool invert, v;
+
+                invert = **p == '!';
+
+                val = strchr(*p + invert, '=');
+                if (!val)
+                        return -EINVAL;
+
+                key = strndup(*p + invert, val - *p - invert);
+                if (!key)
+                        return -ENOMEM;
+
+                val++;
+
+                v = device &&
+                        sd_device_get_property_value(device, key, &dev_val) >= 0 &&
+                        fnmatch(val, dev_val, 0) == 0;
+
+                if (invert ? v : !v)
+                        return false;
+        }
+
+        return true;
+}
+
 bool net_match_config(Set *match_mac,
                       char * const *match_paths,
                       char * const *match_drivers,
                       char * const *match_types,
                       char * const *match_names,
+                      char * const *match_property,
                       sd_device *device,
                       const struct ether_addr *dev_mac,
                       const char *dev_name) {
@@ -137,6 +173,9 @@ bool net_match_config(Set *match_mac,
                 return false;
 
         if (!net_condition_test_strv(match_names, dev_name))
+                return false;
+
+        if (!net_condition_test_property(match_property, device))
                 return false;
 
         return true;
@@ -280,6 +319,64 @@ int config_parse_match_ifnames(
                 if (!ifname_valid(word)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
                                    "Interface name is not valid or too long, ignoring assignment: %s", word);
+                        continue;
+                }
+
+                if (invert) {
+                        k = strjoin("!", word);
+                        if (!k)
+                                return log_oom();
+                } else
+                        k = TAKE_PTR(word);
+
+                r = strv_consume(sv, TAKE_PTR(k));
+                if (r < 0)
+                        return log_oom();
+        }
+}
+
+int config_parse_match_property(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const char *p = rvalue;
+        char ***sv = data;
+        bool invert;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        invert = *p == '!';
+        p += invert;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (!env_assignment_is_valid(word)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid property or value, ignoring assignment: %s", word);
                         continue;
                 }
 

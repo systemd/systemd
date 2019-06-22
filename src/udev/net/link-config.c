@@ -51,6 +51,7 @@ static void link_config_free(link_config *link) {
         strv_free(link->match_driver);
         strv_free(link->match_type);
         strv_free(link->match_name);
+        strv_free(link->match_property);
         condition_free_list(link->conditions);
 
         free(link->description);
@@ -161,7 +162,7 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
 
         if (set_isempty(link->match_mac) && strv_isempty(link->match_path) &&
             strv_isempty(link->match_driver) && strv_isempty(link->match_type) &&
-            strv_isempty(link->match_name) && !link->conditions)
+            strv_isempty(link->match_name) && strv_isempty(link->match_property) && !link->conditions)
                 log_warning("%s: No valid settings found in the [Match] section. "
                             "The file will match all interfaces. "
                             "If that is intended, please add OriginalName=* in the [Match] section.",
@@ -241,7 +242,7 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
 
         LIST_FOREACH(links, link, ctx->links) {
                 if (net_match_config(link->match_mac, link->match_path, link->match_driver,
-                                     link->match_type, link->match_name,
+                                     link->match_type, link->match_name, link->match_property,
                                      device, NULL, NULL)) {
                         if (link->match_name) {
                                 unsigned name_assign_type = NET_NAME_UNKNOWN;

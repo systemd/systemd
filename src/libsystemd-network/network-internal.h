@@ -19,6 +19,7 @@ bool net_match_config(Set *match_mac,
                       char * const *match_driver,
                       char * const *match_type,
                       char * const *match_name,
+                      char * const *match_property,
                       sd_device *device,
                       const struct ether_addr *dev_mac,
                       const char *dev_name);
@@ -28,6 +29,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_hwaddrs);
 CONFIG_PARSER_PROTOTYPE(config_parse_match_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_match_ifnames);
+CONFIG_PARSER_PROTOTYPE(config_parse_match_property);
 CONFIG_PARSER_PROTOTYPE(config_parse_ifalias);
 CONFIG_PARSER_PROTOTYPE(config_parse_bridge_port_priority);
 

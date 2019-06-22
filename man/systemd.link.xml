@@ -116,6 +116,21 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>Property=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of udev property name with its value after a equal
+          (<literal>=</literal>). If multiple properties are specified, the test results are ANDed.
+          If the list is prefixed with a "!", the test is inverted. If a value contains white
+          spaces, then please quote whole key and value pair. If a value contains quotation, then
+          please escape the quotation with <literal>\</literal>.</para>
+
+          <para>Example: if a .link file has the following:
+          <programlisting>Property=ID_MODEL_ID=9999 "ID_VENDOR_FROM_DATABASE=vendor name" "KEY=with \"quotation\""</programlisting>
+          then, the .link file matches only when an interface has all the above three properties.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>Host=</varname></term>
         <listitem>
           <para>Matches against the hostname or machine ID of the host. See <varname>ConditionHost=</varname> in
