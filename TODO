@@ -26,6 +26,20 @@ Features:
 
 * seed: check if first-boot and then don't do anything
 
+* logind: rework pam_logind to also do a bus call in case of invocation from
+  user@.service, which returns the XDG_RUNTIME_DIR value, and make this
+  behaviour selectable via pam module option.
+
+* introduce a new per-process uuid, similar to the boot id, the machine id, the
+  invocation id, that is derived from process creds, specifically a hashed
+  combination of AT_RANDOM + getpid() + the starttime from
+  /proc/self/status. Then add these ids implicitly when logging. Deriving this
+  uuid from these three things has the benefit that it can be derived easily
+  from /proc/$PID/ in a stable, and unique way that changes on both fork() and
+  exec().
+
+* let's not GC a unit while its ratelimits are still pending
+
 * when killing due to service watchdog timeout maybe detect whether target
   process is under ptracing and then log loudly and continue instead.
 
