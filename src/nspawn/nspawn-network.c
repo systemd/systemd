@@ -168,12 +168,31 @@ static int add_veth(
         return 0;
 }
 
+static char *shorten_ifname(char *ifname) {
+        unsigned char hash = 0xff;
+
+        assert(ifname);
+
+        if (strlen(ifname) >= IFNAMSIZ) {
+
+                /* Create a simple 8-bit hash of an interface name */
+                for (char *pos = ifname; *pos != 0; pos++)
+                        hash = ((hash << 1) | (hash >> 7)) ^ *pos;
+
+                /* Shorten the string and insert hash */
+                snprintf(ifname + IFNAMSIZ - 3, 3, "%02x", hash);
+        }
+
+        return ifname;
+}
+
 int setup_veth(const char *machine_name,
                pid_t pid,
                char iface_name[IFNAMSIZ],
                bool bridge) {
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_free_ char *n = NULL;
         struct ether_addr mac_host, mac_container;
         int r, i;
 
@@ -183,8 +202,10 @@ int setup_veth(const char *machine_name,
 
         /* Use two different interface name prefixes depending whether
          * we are in bridge mode or not. */
-        snprintf(iface_name, IFNAMSIZ - 1, "%s-%s",
-                 bridge ? "vb" : "ve", machine_name);
+        n = strappend(bridge ? "vb-" : "ve-", machine_name);
+
+        shorten_ifname(n);
+        snprintf(iface_name, IFNAMSIZ, "%s", n);
 
         r = generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
         if (r < 0)
@@ -493,7 +514,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (!n)
                         return log_oom();
 
-                strshorten(n, IFNAMSIZ-1);
+                shorten_ifname(n);
 
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, n);
                 if (r < 0)
@@ -568,7 +589,7 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (!n)
                         return log_oom();
 
-                strshorten(n, IFNAMSIZ-1);
+                shorten_ifname(n);
 
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, n);
                 if (r < 0)

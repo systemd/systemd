@@ -831,7 +831,9 @@
         container names may have a length up to 64 characters. As this option derives the host-side interface
         name from the container name the name is possibly truncated. Thus, care needs to be taken to ensure
         that interface names remain unique in this case, or even better container names are generally not
-        chosen longer than 12 characters, to avoid the truncation. Alternatively, the
+        chosen longer than 12 characters, to avoid the truncation. If the name is truncated,
+        <command>systemd-nspawn</command> will automatically append a 2-digit hash value to the name to reduce
+        the chance of collisions. However, the hash algorithm is not collision-free. Alternatively, the
         <option>--network-veth-extra=</option> option may be used, which allows free configuration of the
         host-side interface name independently of the container name — but might require a bit more
         additional configuration in case bridging in a fashion similar to <option>--network-bridge=</option>
