@@ -30,6 +30,7 @@ typedef enum NamingSchemeFlags {
         NAMING_STABLE_VIRTUAL_MACS = 1 << 5, /* Use device name to generate MAC, see 6d3646406560 */
         NAMING_NETDEVSIM           = 1 << 6, /* Generate names for netdevsim devices, see eaa9d507d855 */
         NAMING_LABEL_NOPREFIX      = 1 << 7, /* Don't prepend ID_NET_LABEL_ONBOARD with interface type prefix */
+        NAMING_NSPAWN_LONG_HASH    = 1 << 8, /* Shorten nspawn interfaces by including 24bit hash, instead of simple truncation  */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -37,6 +38,7 @@ typedef enum NamingSchemeFlags {
         NAMING_V240 = NAMING_V239 | NAMING_INFINIBAND | NAMING_ZERO_ACPI_INDEX | NAMING_ALLOW_RERENAMES,
         NAMING_V241 = NAMING_V240 | NAMING_STABLE_VIRTUAL_MACS,
         NAMING_V243 = NAMING_V241 | NAMING_NETDEVSIM | NAMING_LABEL_NOPREFIX,
+        NAMING_V245 = NAMING_V243 | NAMING_NSPAWN_LONG_HASH,
 
         _NAMING_SCHEME_FLAGS_INVALID = -1,
 } NamingSchemeFlags;
