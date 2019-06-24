@@ -388,9 +388,9 @@ static int search_from_environment(
                 bool env_search_sufficient,
                 const char *first, ...) {
 
+        _cleanup_strv_free_ char **l = NULL;
         const char *e;
         char *h = NULL;
-        char **l = NULL;
         int r;
 
         assert(list);
@@ -403,7 +403,7 @@ static int search_from_environment(
                                 return -ENOMEM;
 
                         if (env_search_sufficient) {
-                                *list = l;
+                                *list = TAKE_PTR(l);
                                 return 0;
                         }
                 }
@@ -424,10 +424,8 @@ static int search_from_environment(
                 e = secure_getenv(env_home);
                 if (e && path_is_absolute(e)) {
                         h = strdup(e);
-                        if (!h) {
-                                strv_free(l);
+                        if (!h)
                                 return -ENOMEM;
-                        }
                 }
         }
 
@@ -435,23 +433,18 @@ static int search_from_environment(
                 e = secure_getenv("HOME");
                 if (e && path_is_absolute(e)) {
                         h = path_join(e, home_suffix);
-
-                        if (!h) {
-                                strv_free(l);
+                        if (!h)
                                 return -ENOMEM;
-                        }
                 }
         }
 
         if (h) {
                 r = strv_consume_prepend(&l, h);
-                if (r < 0) {
-                        strv_free(l);
+                if (r < 0)
                         return -ENOMEM;
-                }
         }
 
-        *list = l;
+        *list = TAKE_PTR(l);
         return 0;
 }
 
