@@ -61,8 +61,8 @@ int pull_find_old_etags(
         }
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
+                _cleanup_free_ char *u = NULL;
                 const char *a, *b;
-                char *u;
 
                 if (de->d_type != DT_UNKNOWN &&
                     de->d_type != dt)
@@ -97,12 +97,10 @@ int pull_find_old_etags(
                 if (r < 0)
                         return r;
 
-                if (!http_etag_is_valid(u)) {
-                        free(u);
+                if (!http_etag_is_valid(u))
                         continue;
-                }
 
-                r = strv_consume(&l, u);
+                r = strv_consume(&l, TAKE_PTR(u));
                 if (r < 0)
                         return r;
         }
