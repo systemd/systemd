@@ -70,8 +70,13 @@
       <varlistentry>
         <term><option>--test</option></term>
 
-        <listitem><para>Determine startup sequence, dump it and exit.
-        This is an option useful for debugging only.</para></listitem>
+        <listitem><para>Determine the initial start-up transaction (i.e. the list of jobs enqueued at
+        start-up), dump it and exit. This option is useful for debugging only. Note that during regular
+        service manager start-up further units might be started than this operation shows, because hardware,
+        socket, bus or other kinds of activation might add additional jobs. Use <option>--system</option> to
+        request the initial transaction of the system service manager (this is also the implied default),
+        combine with <option>--user</option> to request the initial transaction of the per-user service
+        manager instead.</para></listitem>
       </varlistentry>
       <varlistentry>
         <term><option>--dump-configuration-items</option></term>
@@ -94,23 +99,20 @@
         not specified, defaults to
         <filename>default.target</filename>.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--system</option></term>
         <term><option>--user</option></term>
 
-        <listitem><para>For <option>--system</option>, tell systemd to
-        run a system instance, even if the process ID is not 1, i.e.
-        systemd is not run as init process. <option>--user</option>
-        does the opposite, running a user instance even if the process
-        ID is 1. Normally, it should not be necessary to pass these
-        options, as systemd automatically detects the mode it is
-        started in. These options are hence of little use except for
-        debugging. Note that it is not supported booting and
-        maintaining a full system with systemd running in
-        <option>--system</option> mode, but PID not 1. In practice,
-        passing <option>--system</option> explicitly is only useful in
-        conjunction with <option>--test</option>.</para></listitem>
+        <listitem><para>When used in conjunction with <option>--test</option>, selects whether to calculate
+        the initial transaction for the system instance or for a per-user instance. These options have no
+        effect when invoked without <option>--test</option>, as during regular
+        (i.e. non-<option>--test</option>) invocations the service manager will automatically detect whether
+        it shall operate in system or per-user mode, by checking whether the PID it is run as is 1 or
+        not. Note that it is not supported booting and maintaining a system with the service manager running
+        in <option>--system</option> mode but with a PID other than 1.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--dump-core</option></term>
 
@@ -232,8 +234,6 @@
         <option>tty</option>,
         <option>journal</option>,
         <option>journal+console</option>,
-        <option>syslog</option>,
-        <option>syslog+console</option>,
         <option>kmsg</option>,
         <option>kmsg+console</option>.  If the
         argument is omitted
