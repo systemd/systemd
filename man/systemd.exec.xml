@@ -254,14 +254,15 @@
         part of a unit for which dynamic users/groups are enabled do not leave files or directories owned by
         these users/groups around, as a different unit might get the same UID/GID assigned later on, and thus
         gain access to these files or directories. If <varname>DynamicUser=</varname> is enabled,
-        <varname>RemoveIPC=</varname>, <varname>PrivateTmp=</varname> are implied. This ensures that the
-        lifetime of IPC objects and temporary files created by the executed processes is bound to the runtime
-        of the service, and hence the lifetime of the dynamic user/group. Since <filename>/tmp</filename> and
-        <filename>/var/tmp</filename> are usually the only world-writable directories on a system this
-        ensures that a unit making use of dynamic user/group allocation cannot leave files around after unit
-        termination. Furthermore <varname>NoNewPrivileges=</varname> and <varname>RestrictSUIDSGID=</varname>
-        are implicitly enabled to ensure that processes invoked cannot take benefit or create SUID/SGID files
-        or directories. Moreover <varname>ProtectSystem=strict</varname> and
+        <varname>RemoveIPC=</varname> and <varname>PrivateTmp=</varname> are implied (and cannot be turned
+        off). This ensures that the lifetime of IPC objects and temporary files created by the executed
+        processes is bound to the runtime of the service, and hence the lifetime of the dynamic
+        user/group. Since <filename>/tmp/</filename> and <filename>/var/tmp/</filename> are usually the only
+        world-writable directories on a system this ensures that a unit making use of dynamic user/group
+        allocation cannot leave files around after unit termination. Furthermore
+        <varname>NoNewPrivileges=</varname> and <varname>RestrictSUIDSGID=</varname> are implicitly enabled
+        (and cannot be disabled), to ensure that processes invoked cannot take benefit or create SUID/SGID
+        files or directories. Moreover <varname>ProtectSystem=strict</varname> and
         <varname>ProtectHome=read-only</varname> are implied, thus prohibiting the service to write to
         arbitrary file system locations. In order to allow the service to write to certain directories, they
         have to be whitelisted using <varname>ReadWritePaths=</varname>, but care must be taken so that
