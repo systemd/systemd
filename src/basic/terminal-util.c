@@ -720,8 +720,7 @@ int get_kernel_consoles(char ***ret) {
 
         p = line;
         for (;;) {
-                _cleanup_free_ char *tty = NULL;
-                char *path;
+                _cleanup_free_ char *tty = NULL, *path = NULL;
 
                 r = extract_first_word(&p, &tty, NULL, 0);
                 if (r < 0)
@@ -736,17 +735,16 @@ int get_kernel_consoles(char ***ret) {
                                 return r;
                 }
 
-                path = strappend("/dev/", tty);
+                path = path_join("/dev", tty);
                 if (!path)
                         return -ENOMEM;
 
                 if (access(path, F_OK) < 0) {
                         log_debug_errno(errno, "Console device %s is not accessible, skipping: %m", path);
-                        free(path);
                         continue;
                 }
 
-                r = strv_consume(&l, path);
+                r = strv_consume(&l, TAKE_PTR(path));
                 if (r < 0)
                         return r;
         }

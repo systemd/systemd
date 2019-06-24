@@ -2108,22 +2108,19 @@ int bus_exec_context_set_transient_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute.", path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                _cleanup_free_ char *q = NULL;
-                                char *buf;
+                                _cleanup_free_ char *q = NULL, *buf = NULL;
 
                                 buf = strjoin(b ? "-" : "", path);
                                 if (!buf)
                                         return -ENOMEM;
 
                                 q = specifier_escape(buf);
-                                if (!q) {
-                                        free(buf);
+                                if (!q)
                                         return -ENOMEM;
-                                }
 
                                 fprintf(f, "EnvironmentFile=%s\n", q);
 
-                                r = strv_consume(&l, buf);
+                                r = strv_consume(&l, TAKE_PTR(buf));
                                 if (r < 0)
                                         return r;
                         }

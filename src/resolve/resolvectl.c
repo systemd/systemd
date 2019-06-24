@@ -1229,7 +1229,7 @@ static int map_link_dns_servers(sd_bus *bus, const char *member, sd_bus_message 
                 return r;
 
         for (;;) {
-                char *pretty = NULL;
+                _cleanup_free_ char *pretty = NULL;
 
                 r = read_dns_server_one(m, false, &pretty);
                 if (r < 0)
@@ -1240,7 +1240,7 @@ static int map_link_dns_servers(sd_bus *bus, const char *member, sd_bus_message 
                 if (isempty(pretty))
                         continue;
 
-                r = strv_consume(l, pretty);
+                r = strv_consume(l, TAKE_PTR(pretty));
                 if (r < 0)
                         return r;
         }
@@ -1306,7 +1306,7 @@ static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, 
                 return r;
 
         for (;;) {
-                char *pretty = NULL;
+                _cleanup_free_ char *pretty = NULL;
 
                 r = read_domain_one(m, false, &pretty);
                 if (r < 0)
@@ -1317,7 +1317,7 @@ static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, 
                 if (isempty(pretty))
                         continue;
 
-                r = strv_consume(l, pretty);
+                r = strv_consume(l, TAKE_PTR(pretty));
                 if (r < 0)
                         return r;
         }
@@ -1536,7 +1536,7 @@ static int map_global_dns_servers(sd_bus *bus, const char *member, sd_bus_messag
                 return r;
 
         for (;;) {
-                char *pretty = NULL;
+                _cleanup_free_ char *pretty = NULL;
 
                 r = read_dns_server_one(m, true, &pretty);
                 if (r < 0)
@@ -1547,7 +1547,7 @@ static int map_global_dns_servers(sd_bus *bus, const char *member, sd_bus_messag
                 if (isempty(pretty))
                         continue;
 
-                r = strv_consume(l, pretty);
+                r = strv_consume(l, TAKE_PTR(pretty));
                 if (r < 0)
                         return r;
         }
@@ -1580,7 +1580,7 @@ static int map_global_domains(sd_bus *bus, const char *member, sd_bus_message *m
                 return r;
 
         for (;;) {
-                char *pretty = NULL;
+                _cleanup_free_ char *pretty = NULL;
 
                 r = read_domain_one(m, true, &pretty);
                 if (r < 0)
@@ -1591,7 +1591,7 @@ static int map_global_domains(sd_bus *bus, const char *member, sd_bus_message *m
                 if (isempty(pretty))
                         continue;
 
-                r = strv_consume(l, pretty);
+                r = strv_consume(l, TAKE_PTR(pretty));
                 if (r < 0)
                         return r;
         }
