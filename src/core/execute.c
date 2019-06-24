@@ -2099,27 +2099,30 @@ static int setup_exec_directory(
                      (type == EXEC_DIRECTORY_RUNTIME && context->runtime_directory_preserve_mode != EXEC_PRESERVE_NO))) {
                         _cleanup_free_ char *private_root = NULL;
 
-                        /* So, here's one extra complication when dealing with DynamicUser=1 units. In that case we
-                         * want to avoid leaving a directory around fully accessible that is owned by a dynamic user
-                         * whose UID is later on reused. To lock this down we use the same trick used by container
-                         * managers to prohibit host users to get access to files of the same UID in containers: we
-                         * place everything inside a directory that has an access mode of 0700 and is owned root:root,
-                         * so that it acts as security boundary for unprivileged host code. We then use fs namespacing
-                         * to make this directory permeable for the service itself.
+                        /* So, here's one extra complication when dealing with DynamicUser=1 units. In that
+                         * case we want to avoid leaving a directory around fully accessible that is owned by
+                         * a dynamic user whose UID is later on reused. To lock this down we use the same
+                         * trick used by container managers to prohibit host users to get access to files of
+                         * the same UID in containers: we place everything inside a directory that has an
+                         * access mode of 0700 and is owned root:root, so that it acts as security boundary
+                         * for unprivileged host code. We then use fs namespacing to make this directory
+                         * permeable for the service itself.
                          *
-                         * Specifically: for a service which wants a special directory "foo/" we first create a
-                         * directory "private/" with access mode 0700 owned by root:root. Then we place "foo" inside of
-                         * that directory (i.e. "private/foo/"), and make "foo" a symlink to "private/foo". This way,
-                         * privileged host users can access "foo/" as usual, but unprivileged host users can't look
-                         * into it. Inside of the namespaceof the container "private/" is replaced by a more liberally
-                         * accessible tmpfs, into which the host's "private/foo/" is mounted under the same name, thus
-                         * disabling the access boundary for the service and making sure it only gets access to the
-                         * dirs it needs but no others. Tricky? Yes, absolutely, but it works!
+                         * Specifically: for a service which wants a special directory "foo/" we first create
+                         * a directory "private/" with access mode 0700 owned by root:root. Then we place
+                         * "foo" inside of that directory (i.e. "private/foo/"), and make "foo" a symlink to
+                         * "private/foo". This way, privileged host users can access "foo/" as usual, but
+                         * unprivileged host users can't look into it. Inside of the namespace of the unit
+                         * "private/" is replaced by a more liberally accessible tmpfs, into which the host's
+                         * "private/foo/" is mounted under the same name, thus disabling the access boundary
+                         * for the service and making sure it only gets access to the dirs it needs but no
+                         * others. Tricky? Yes, absolutely, but it works!
                          *
-                         * Note that we don't do this for EXEC_DIRECTORY_CONFIGURATION as that's assumed not to be
-                         * owned by the service itself.
-                         * Also, note that we don't do this for EXEC_DIRECTORY_RUNTIME as that's often used for sharing
-                         * files or sockets with other services. */
+                         * Note that we don't do this for EXEC_DIRECTORY_CONFIGURATION as that's assumed not
+                         * to be owned by the service itself.
+                         *
+                         * Also, note that we don't do this for EXEC_DIRECTORY_RUNTIME as that's often used
+                         * for sharing files or sockets with other services. */
 
                         private_root = path_join(params->prefix[type], "private");
                         if (!private_root) {
