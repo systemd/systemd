@@ -1376,7 +1376,7 @@ static int add_file_by_name(
         if (!file_type_wanted(j->flags, filename))
                 return 0;
 
-        path = strjoina(prefix, "/", filename);
+        path = prefix_roota(prefix, filename);
         return add_any_file(j, -1, path);
 }
 
@@ -1392,7 +1392,7 @@ static void remove_file_by_name(
         assert(prefix);
         assert(filename);
 
-        path = strjoina(prefix, "/", filename);
+        path = prefix_roota(prefix, filename);
         f = ordered_hashmap_get(j->files, path);
         if (!f)
                 return;

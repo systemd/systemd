@@ -31,7 +31,7 @@ int generator_open_unit_file(
         FILE *f;
         int r;
 
-        unit = strjoina(dest, "/", name);
+        unit = prefix_roota(dest, name);
 
         r = fopen_unlocked(unit, "wxe", &f);
         if (r < 0) {
@@ -319,7 +319,7 @@ int generator_hook_up_mkswap(
                 return log_error_errno(r, "Failed to make unit instance name from path \"%s\": %m",
                                        node);
 
-        unit_file = strjoina(dir, "/", unit);
+        unit_file = prefix_roota(dir, unit);
         log_debug("Creating %s", unit_file);
 
         escaped = cescape(node);
@@ -394,7 +394,7 @@ int generator_hook_up_mkfs(
                 return log_error_errno(r, "Failed to make unit instance name from path \"%s\": %m",
                                        node);
 
-        unit_file = strjoina(dir, "/", unit);
+        unit_file = prefix_roota(dir, unit);
         log_debug("Creating %s", unit_file);
 
         escaped = cescape(node);
@@ -466,7 +466,7 @@ int generator_hook_up_growfs(
                 return log_error_errno(r, "Failed to make unit name from path \"%s\": %m",
                                        where);
 
-        unit_file = strjoina(dir, "/", unit);
+        unit_file = prefix_roota(dir, unit);
         log_debug("Creating %s", unit_file);
 
         f = fopen(unit_file, "wxe");

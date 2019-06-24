@@ -609,8 +609,7 @@ void device_set_watch_handle(sd_device *device, int handle) {
 
 int device_rename(sd_device *device, const char *name) {
         _cleanup_free_ char *dirname = NULL;
-        char *new_syspath;
-        const char *interface;
+        const char *new_syspath, *interface;
         int r;
 
         assert(device);
@@ -620,7 +619,7 @@ int device_rename(sd_device *device, const char *name) {
         if (!dirname)
                 return -ENOMEM;
 
-        new_syspath = strjoina(dirname, "/", name);
+        new_syspath = prefix_roota(dirname, name);
 
         /* the user must trust that the new name is correct */
         r = device_set_syspath(device, new_syspath, false);

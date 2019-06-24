@@ -71,7 +71,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, bool requir
         if (!what_escaped)
                 return log_oom();
 
-        p = strjoina(arg_dest, "/", n);
+        p = prefix_roota(arg_dest, n);
         f = fopen(p, "wxe");
         if (!f)
                 return log_error_errno(errno, "Failed to create unit file %s: %m", p);
@@ -360,7 +360,7 @@ static int add_automount(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        p = strjoina(arg_dest, "/", unit);
+        p = prefix_roota(arg_dest, unit);
         f = fopen(p, "wxe");
         if (!f)
                 return log_error_errno(errno, "Failed to create unit file %s: %m", unit);

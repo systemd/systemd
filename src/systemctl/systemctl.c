@@ -6277,8 +6277,8 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         if (init) {
                 const char *root_systemd_path = NULL, *root_init_path = NULL;
 
-                root_systemd_path = strjoina(root, "/" SYSTEMD_BINARY_PATH);
-                root_init_path = strjoina(root, "/", init);
+                root_systemd_path = prefix_roota(root, "/" SYSTEMD_BINARY_PATH);
+                root_init_path = prefix_roota(root, init);
 
                 /* If the passed init is actually the same as the
                  * systemd binary, then let's suppress it. */

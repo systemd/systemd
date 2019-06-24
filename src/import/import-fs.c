@@ -161,7 +161,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                 log_info("Importing '%s', saving as '%s'.", strempty(pretty), local);
         }
 
-        final_path = strjoina(arg_image_root, "/", local);
+        final_path = prefix_roota(arg_image_root, local);
 
         r = tempfn_random(final_path, NULL, &temp_path);
         if (r < 0)

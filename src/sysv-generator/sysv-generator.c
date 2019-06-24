@@ -87,7 +87,7 @@ static int add_alias(const char *service, const char *alias) {
         assert(service);
         assert(alias);
 
-        link = strjoina(arg_dest, "/", alias);
+        link = prefix_roota(arg_dest, alias);
 
         r = symlink(service, link);
         if (r < 0) {
@@ -116,7 +116,7 @@ static int generate_unit_file(SysvStub *s) {
         if (!path_escaped)
                 return log_oom();
 
-        unit = strjoina(arg_dest, "/", s->name);
+        unit = prefix_roota(arg_dest, s->name);
 
         /* We might already have a symlink with the same name from a Provides:,
          * or from backup files like /etc/init.d/foo.bak. Real scripts always win,

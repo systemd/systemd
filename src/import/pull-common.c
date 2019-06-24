@@ -120,7 +120,7 @@ int pull_make_local_copy(const char *final, const char *image_root, const char *
         if (!image_root)
                 image_root = "/var/lib/machines";
 
-        p = strjoina(image_root, "/", local);
+        p = prefix_roota(image_root, local);
 
         if (force_local)
                 (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
