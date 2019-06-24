@@ -945,11 +945,9 @@
         inverse of the <varname>Sockets=</varname> setting of the
         <filename>.service</filename> it refers to.</para>
 
-        <para>This option may appear more than once, in which case the
-        list of socket units is merged. If the empty string is
-        assigned to this option, the list of sockets is reset, and all
-        prior uses of this setting will have no
-        effect.</para></listitem>
+        <para>This option may appear more than once, in which case the list of socket units is merged. Note
+        that once set, clearing the list of sockets again (for example, by assigning the empty string to this
+        option) is not supported.</para></listitem>
       </varlistentry>
 
       <varlistentry>
