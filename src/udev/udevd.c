@@ -1052,7 +1052,7 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
                 }
 
                 eq++;
-                if (!isempty(eq)) {
+                if (isempty(eq)) {
                         log_debug("Received udev control message (ENV), unsetting '%s'", key);
 
                         r = hashmap_put(manager->properties, key, NULL);
