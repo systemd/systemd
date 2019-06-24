@@ -2171,6 +2171,38 @@ static int setup_exec_directory(
                                 goto fail;
 
                 } else {
+                        _cleanup_free_ char *target = NULL;
+
+                        if (type != EXEC_DIRECTORY_CONFIGURATION &&
+                            readlink_and_make_absolute(p, &target) >= 0) {
+                                _cleanup_free_ char *q = NULL;
+
+                                /* This already exists and is a symlink? Interesting. Maybe it's one created
+                                 * by DynamicUser=1 (see above)? */
+
+                                q = path_join(params->prefix[type], "private", *rt);
+                                if (!q) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                if (path_equal(q, target)) {
+
+                                        /* Hmm, apparently DynamicUser= was once turned on for this service,
+                                         * but is no longer. Let's move the directory back up. */
+
+                                        if (unlink(p) < 0) {
+                                                r = -errno;
+                                                goto fail;
+                                        }
+
+                                        if (rename(q, p) < 0) {
+                                                r = -errno;
+                                                goto fail;
+                                        }
+                                }
+                        }
+
                         r = mkdir_label(p, context->directories[type].mode);
                         if (r < 0) {
                                 if (r != -EEXIST)
