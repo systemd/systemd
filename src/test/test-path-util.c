@@ -403,6 +403,9 @@ static void test_prefix_root(void) {
         test_prefix_root_one("///", "/foo", "/foo");
         test_prefix_root_one("/", "////foo", "/foo");
         test_prefix_root_one(NULL, "////foo", "/foo");
+        test_prefix_root_one("/", "foo", "/foo");
+        test_prefix_root_one("", "foo", "foo");
+        test_prefix_root_one(NULL, "foo", "foo");
 
         test_prefix_root_one("/foo", "/bar", "/foo/bar");
         test_prefix_root_one("/foo", "bar", "/foo/bar");
