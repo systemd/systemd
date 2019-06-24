@@ -1936,12 +1936,12 @@ SystemCallErrorNumber=EPERM</programlisting>
       <varlistentry>
         <term><varname>StandardOutput=</varname></term>
 
-        <listitem><para>Controls where file descriptor 1 (STDOUT) of the executed processes is connected to. Takes one
-        of <option>inherit</option>, <option>null</option>, <option>tty</option>, <option>journal</option>,
-        <option>syslog</option>, <option>kmsg</option>, <option>journal+console</option>,
-        <option>syslog+console</option>, <option>kmsg+console</option>,
-        <option>file:<replaceable>path</replaceable></option>, <option>append:<replaceable>path</replaceable></option>,
-        <option>socket</option> or <option>fd:<replaceable>name</replaceable></option>.</para>
+        <listitem><para>Controls where file descriptor 1 (STDOUT) of the executed processes is connected
+        to. Takes one of <option>inherit</option>, <option>null</option>, <option>tty</option>,
+        <option>journal</option>, <option>kmsg</option>, <option>journal+console</option>,
+        <option>kmsg+console</option>, <option>file:<replaceable>path</replaceable></option>,
+        <option>append:<replaceable>path</replaceable></option>, <option>socket</option> or
+        <option>fd:<replaceable>name</replaceable></option>.</para>
 
         <para><option>inherit</option> duplicates the file descriptor of standard input for standard output.</para>
 
@@ -1952,23 +1952,20 @@ SystemCallErrorNumber=EPERM</programlisting>
         see below). If the TTY is used for output only, the executed process will not become the controlling process of
         the terminal, and will not fail or wait for other processes to release the terminal.</para>
 
-        <para><option>journal</option> connects standard output with the journal which is accessible via
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.  Note that
-        everything that is written to syslog or kmsg (see below) is implicitly stored in the journal as well, the
-        specific two options listed below are hence supersets of this one.</para>
-
-        <para><option>syslog</option> connects standard output to the <citerefentry
-        project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> system syslog
-        service, in addition to the journal. Note that the journal daemon is usually configured to forward everything
-        it receives to syslog anyway, in which case this option is no different from <option>journal</option>.</para>
+        <para><option>journal</option> connects standard output with the journal, which is accessible via
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Note
+        that everything that is written to kmsg (see below) is implicitly stored in the journal as well, the
+        specific option listed below is hence a superset of this one. (Also note that any external,
+        additional syslog daemons receive their log data from the journal, too, hence this is the option to
+        use when logging shall be processed with such a daemon.)</para>
 
         <para><option>kmsg</option> connects standard output with the kernel log buffer which is accessible via
         <citerefentry project='man-pages'><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         in addition to the journal. The journal daemon might be configured to send all logs to kmsg anyway, in which
         case this option is no different from <option>journal</option>.</para>
 
-        <para><option>journal+console</option>, <option>syslog+console</option> and <option>kmsg+console</option> work
-        in a similar way as the three options above but copy the output to the system console as well.</para>
+        <para><option>journal+console</option> and <option>kmsg+console</option> work in a similar way as the
+        two options above but copy the output to the system console as well.</para>
 
         <para>The <option>file:<replaceable>path</replaceable></option> option may be used to connect a specific file
         system object to standard output. The semantics are similar to the same option of
@@ -1997,13 +1994,14 @@ SystemCallErrorNumber=EPERM</programlisting>
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
         details about named descriptors and their ordering.</para>
 
-        <para>If the standard output (or error output, see below) of a unit is connected to the journal, syslog or the
-        kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname> on
-        <filename>systemd-journald.socket</filename> (also see the "Implicit Dependencies" section above). Also note
-        that in this case stdout (or stderr, see below) will be an <constant>AF_UNIX</constant> stream socket, and not
-        a pipe or FIFO that can be re-opened. This means when executing shell scripts the construct <command>echo
-        "hello" &gt; /dev/stderr</command> for writing text to stderr will not work. To mitigate this use the construct
-        <command>echo "hello" >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para>
+        <para>If the standard output (or error output, see below) of a unit is connected to the journal or
+        the kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname>
+        on <filename>systemd-journald.socket</filename> (also see the "Implicit Dependencies" section
+        above). Also note that in this case stdout (or stderr, see below) will be an
+        <constant>AF_UNIX</constant> stream socket, and not a pipe or FIFO that can be re-opened. This means
+        when executing shell scripts the construct <command>echo "hello" &gt; /dev/stderr</command> for
+        writing text to stderr will not work. To mitigate this use the construct <command>echo "hello"
+        >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para>
 
         <para>This setting defaults to the value set with <varname>DefaultStandardOutput=</varname> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, which
@@ -2121,12 +2119,12 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
       <varlistentry>
         <term><varname>SyslogIdentifier=</varname></term>
 
-        <listitem><para>Sets the process name ("<command>syslog</command> tag") to prefix log lines sent to the logging
-        system or the kernel log buffer with. If not set, defaults to the process name of the executed process.  This
-        option is only useful when <varname>StandardOutput=</varname> or <varname>StandardError=</varname> are set to
-        <option>journal</option>, <option>syslog</option> or <option>kmsg</option> (or to the same settings in
-        combination with <option>+console</option>) and only applies to log messages written to stdout or
-        stderr.</para></listitem>
+        <listitem><para>Sets the process name ("<command>syslog</command> tag") to prefix log lines sent to
+        the logging system or the kernel log buffer with. If not set, defaults to the process name of the
+        executed process.  This option is only useful when <varname>StandardOutput=</varname> or
+        <varname>StandardError=</varname> are set to <option>journal</option> or <option>kmsg</option> (or to
+        the same settings in combination with <option>+console</option>) and only applies to log messages
+        written to stdout or stderr.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2137,12 +2135,13 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <option>auth</option>, <option>syslog</option>, <option>lpr</option>, <option>news</option>,
         <option>uucp</option>, <option>cron</option>, <option>authpriv</option>, <option>ftp</option>,
         <option>local0</option>, <option>local1</option>, <option>local2</option>, <option>local3</option>,
-        <option>local4</option>, <option>local5</option>, <option>local6</option> or <option>local7</option>. See
-        <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for details. This option is only useful when <varname>StandardOutput=</varname> or
-        <varname>StandardError=</varname> are set to <option>journal</option>, <option>syslog</option> or
-        <option>kmsg</option> (or to the same settings in combination with <option>+console</option>), and only applies
-        to log messages written to stdout or stderr. Defaults to <option>daemon</option>.</para></listitem>
+        <option>local4</option>, <option>local5</option>, <option>local6</option> or
+        <option>local7</option>. See <citerefentry
+        project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        details. This option is only useful when <varname>StandardOutput=</varname> or
+        <varname>StandardError=</varname> are set to <option>journal</option> or <option>kmsg</option> (or to
+        the same settings in combination with <option>+console</option>), and only applies to log messages
+        written to stdout or stderr. Defaults to <option>daemon</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2154,7 +2153,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <option>debug</option>. See <citerefentry
         project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
         details. This option is only useful when <varname>StandardOutput=</varname> or
-        <varname>StandardError=</varname> are set to <option>journal</option>, <option>syslog</option> or
+        <varname>StandardError=</varname> are set to <option>journal</option> or
         <option>kmsg</option> (or to the same settings in combination with <option>+console</option>), and only applies
         to log messages written to stdout or stderr. Note that individual lines output by executed processes may be
         prefixed with a different log level which can be used to override the default log level specified here. The
@@ -2167,12 +2166,13 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <term><varname>SyslogLevelPrefix=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true and <varname>StandardOutput=</varname> or
-        <varname>StandardError=</varname> are set to <option>journal</option>, <option>syslog</option> or
-        <option>kmsg</option> (or to the same settings in combination with <option>+console</option>), log lines
-        written by the executed process that are prefixed with a log level will be processed with this log level set
-        but the prefix removed. If set to false, the interpretation of these prefixes is disabled and the logged lines
-        are passed on as-is. This only applies to log messages written to stdout or stderr. For details about this
-        prefixing see <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        <varname>StandardError=</varname> are set to <option>journal</option> or <option>kmsg</option> (or to
+        the same settings in combination with <option>+console</option>), log lines written by the executed
+        process that are prefixed with a log level will be processed with this log level set but the prefix
+        removed. If set to false, the interpretation of these prefixes is disabled and the logged lines are
+        passed on as-is. This only applies to log messages written to stdout or stderr. For details about
+        this prefixing see
+        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
         Defaults to true.</para></listitem>
       </varlistentry>
 

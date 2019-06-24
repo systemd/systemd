@@ -234,8 +234,6 @@
         <option>tty</option>,
         <option>journal</option>,
         <option>journal+console</option>,
-        <option>syslog</option>,
-        <option>syslog+console</option>,
         <option>kmsg</option>,
         <option>kmsg+console</option>.  If the
         argument is omitted
