@@ -174,6 +174,7 @@ static char *shorten_ifname(char *ifname) {
         assert(ifname);
 
         if (strlen(ifname) >= IFNAMSIZ) {
+                _cleanup_free_ char *old_ifname = strdup(ifname);
 
                 /* Create a simple 8-bit hash of an interface name */
                 for (char *pos = ifname; *pos != 0; pos++)
@@ -181,6 +182,10 @@ static char *shorten_ifname(char *ifname) {
 
                 /* Shorten the string and insert hash */
                 snprintf(ifname + IFNAMSIZ - 3, 3, "%02x", hash);
+
+                /* Log the incident to make it more discoverable */
+                log_warning("Interface '%s' has been renamed to '%s' to fit length constraints.",
+                            old_ifname, ifname);
         }
 
         return ifname;
