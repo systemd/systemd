@@ -201,6 +201,10 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
 
         devpath = syspath + STRLEN("/sys");
 
+        if (devpath[0] == '\0')
+                /* '/sys' alone is not a valid device path */
+                return -ENODEV;
+
         r = device_add_property_internal(device, "DEVPATH", devpath);
         if (r < 0)
                 return r;
