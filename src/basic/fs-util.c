@@ -980,9 +980,9 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                                 /* Prefix what's left to do with what we just read, and start the loop again, but
                                  * remain in the current directory. */
-                                joined = strjoin(destination, todo);
+                                joined = path_join(destination, todo);
                         } else
-                                joined = strjoin("/", destination, todo);
+                                joined = path_join("/", destination, todo);
                         if (!joined)
                                 return -ENOMEM;
 

@@ -1949,7 +1949,7 @@ static int copy_devnodes(const char *dest) {
                         if (!prefixed)
                                 return log_oom();
 
-                        t = strjoin("../", d);
+                        t = path_join("..", d);
                         if (!t)
                                 return log_oom();
 
