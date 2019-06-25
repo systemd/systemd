@@ -117,7 +117,7 @@ int mkfs_exists(const char *fstype);
              _slash = strrchr((prefix), '/'))
 
 /* Similar to path_join(), but only works for two components, and only the first one may be NULL and returns
- * an alloca() buffer, or possibly a const pointer into the path parameter */
+ * an alloca() buffer, or possibly a const pointer into the path parameter. */
 #define prefix_roota(root, path)                                        \
         ({                                                              \
                 const char* _path = (path), *_root = (root), *_ret;     \
@@ -125,7 +125,7 @@ int mkfs_exists(const char *fstype);
                 size_t _l;                                              \
                 while (_path[0] == '/' && _path[1] == '/')              \
                         _path ++;                                       \
-                if (empty_or_root(_root))                               \
+                if (isempty(_root))                                     \
                         _ret = _path;                                   \
                 else {                                                  \
                         _l = strlen(_root) + 1 + strlen(_path) + 1;     \

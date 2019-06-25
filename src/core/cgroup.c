@@ -1926,7 +1926,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         if (isempty(suffix_path))
                 p = u->cgroup_path;
         else
-                p = strjoina(u->cgroup_path, "/", suffix_path);
+                p = prefix_roota(u->cgroup_path, suffix_path);
 
         delegated_mask = unit_get_delegate_mask(u);
 

@@ -653,10 +653,10 @@ static int portable_changes_add_with_prefix(
                 return 0;
 
         if (prefix) {
-                path = strjoina(prefix, "/", path);
+                path = prefix_roota(prefix, path);
 
                 if (source)
-                        source = strjoina(prefix, "/", source);
+                        source = prefix_roota(prefix, source);
         }
 
         return portable_changes_add(changes, n_changes, type, path, source);
@@ -847,7 +847,7 @@ static int attach_unit_file(
         } else
                 (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, where, NULL);
 
-        path = strjoina(where, "/", m->name);
+        path = prefix_roota(where, m->name);
         dropin_dir = strjoin(path, ".d");
         if (!dropin_dir)
                 return -ENOMEM;

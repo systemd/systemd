@@ -2471,7 +2471,7 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
         if (isempty(k)) /* Don't complain about other paths than /var/run, and not about /var/run itself either. */
                 return 0;
 
-        n = strjoin("/run/", k);
+        n = path_join("/run", k);
         if (!n)
                 return log_oom();
 

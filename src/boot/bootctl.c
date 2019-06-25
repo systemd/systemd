@@ -166,13 +166,13 @@ finish:
 static int enumerate_binaries(const char *esp_path, const char *path, const char *prefix) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
+        const char *p;
         int c = 0, r;
-        char *p;
 
         assert(esp_path);
         assert(path);
 
-        p = strjoina(esp_path, "/", path);
+        p = prefix_roota(esp_path, path);
         d = opendir(p);
         if (!d) {
                 if (errno == ENOENT)
@@ -766,7 +766,7 @@ static int install_variables(const char *esp_path,
                              uint32_t part, uint64_t pstart, uint64_t psize,
                              sd_id128_t uuid, const char *path,
                              bool first) {
-        char *p;
+        const char *p;
         uint16_t slot;
         int r;
 
@@ -775,7 +775,7 @@ static int install_variables(const char *esp_path,
                 return 0;
         }
 
-        p = strjoina(esp_path, path);
+        p = prefix_roota(esp_path, path);
         if (access(p, F_OK) < 0) {
                 if (errno == ENOENT)
                         return 0;
@@ -804,12 +804,12 @@ static int install_variables(const char *esp_path,
 }
 
 static int remove_boot_efi(const char *esp_path) {
-        char *p;
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
+        const char *p;
         int r, c = 0;
 
-        p = strjoina(esp_path, "/EFI/BOOT");
+        p = prefix_roota(esp_path, "/EFI/BOOT");
         d = opendir(p);
         if (!d) {
                 if (errno == ENOENT)
@@ -850,9 +850,9 @@ static int remove_boot_efi(const char *esp_path) {
 }
 
 static int rmdir_one(const char *prefix, const char *suffix) {
-        char *p;
+        const char *p;
 
-        p = strjoina(prefix, "/", suffix);
+        p = prefix_roota(prefix, suffix);
         if (rmdir(p) < 0) {
                 bool ignore = IN_SET(errno, ENOENT, ENOTEMPTY);
 
@@ -882,10 +882,10 @@ static int remove_esp_subdirs(const char *esp_path) {
 }
 
 static int remove_binaries(const char *esp_path) {
-        char *p;
+        const char *p;
         int r, q;
 
-        p = strjoina(esp_path, "/EFI/systemd");
+        p = prefix_roota(esp_path, "/EFI/systemd");
         r = rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
 
         q = remove_boot_efi(esp_path);
@@ -900,7 +900,7 @@ static int remove_loader_config(const char *esp_path) {
 
         assert(esp_path);
 
-        p = strjoina(esp_path, "/loader/loader.conf");
+        p = prefix_roota(esp_path, "/loader/loader.conf");
         if (unlink(p) < 0) {
                 log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno, "Failed to unlink file \"%s\": %m", p);
                 if (errno != ENOENT)
@@ -945,7 +945,7 @@ static int install_loader_config(const char *esp_path, sd_id128_t machine_id) {
         const char *p;
         int r, fd;
 
-        p = strjoina(esp_path, "/loader/loader.conf");
+        p = prefix_roota(esp_path, "/loader/loader.conf");
         if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
                 return 0;
 
