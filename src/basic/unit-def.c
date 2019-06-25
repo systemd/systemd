@@ -102,7 +102,8 @@ static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_INACTIVE] = "inactive",
         [UNIT_FAILED] = "failed",
         [UNIT_ACTIVATING] = "activating",
-        [UNIT_DEACTIVATING] = "deactivating"
+        [UNIT_DEACTIVATING] = "deactivating",
+        [UNIT_MAINTENANCE] = "maintenance",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);

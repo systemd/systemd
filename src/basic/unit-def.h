@@ -40,6 +40,7 @@ typedef enum UnitActiveState {
         UNIT_FAILED,
         UNIT_ACTIVATING,
         UNIT_DEACTIVATING,
+        UNIT_MAINTENANCE,
         _UNIT_ACTIVE_STATE_MAX,
         _UNIT_ACTIVE_STATE_INVALID = -1
 } UnitActiveState;
