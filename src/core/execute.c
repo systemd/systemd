@@ -2153,6 +2153,10 @@ static int setup_exec_directory(
                                  * it over. Most likely the service has been upgraded from one that didn't use
                                  * DynamicUser=1, to one that does. */
 
+                                log_info("Found pre-existing public %s= directory %s, migrating to %s.\n"
+                                         "Apparently, service previously had DynamicUser= turned off, and has now turned it on.",
+                                         exec_directory_type_to_string(type), p, pp);
+
                                 if (rename(p, pp) < 0) {
                                         r = -errno;
                                         goto fail;
@@ -2178,7 +2182,11 @@ static int setup_exec_directory(
                                 _cleanup_free_ char *q = NULL;
 
                                 /* This already exists and is a symlink? Interesting. Maybe it's one created
-                                 * by DynamicUser=1 (see above)? */
+                                 * by DynamicUser=1 (see above)?
+                                 *
+                                 * We do this for all directory types except for ConfigurationDirectory=,
+                                 * since they all support the private/ symlink logic at least in some
+                                 * configurations, see above. */
 
                                 q = path_join(params->prefix[type], "private", *rt);
                                 if (!q) {
@@ -2190,6 +2198,10 @@ static int setup_exec_directory(
 
                                         /* Hmm, apparently DynamicUser= was once turned on for this service,
                                          * but is no longer. Let's move the directory back up. */
+
+                                        log_info("Found pre-existing private %s= directory %s, migrating to %s.\n"
+                                                 "Apparently, service previously had DynamicUser= turned on, and has now turned it off.",
+                                                 exec_directory_type_to_string(type), q, p);
 
                                         if (unlink(p) < 0) {
                                                 r = -errno;
