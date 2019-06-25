@@ -784,7 +784,6 @@ log:
         if (journald_crash) {
                 /* We cannot log to the journal, so just print the message.
                  * The target was set previously to something safe. */
-                assert(startswith(core_message, "MESSAGE="));
                 log_dispatch(LOG_ERR, 0, core_message + strlen("MESSAGE="));
                 return 0;
         }
@@ -892,8 +891,6 @@ static int process_socket(int fd) {
                         r = log_error_errno(l, "Failed to determine datagram size to read: %m");
                         goto finish;
                 }
-
-                assert(l >= 0);
 
                 iovec[n_iovec].iov_len = l;
                 iovec[n_iovec].iov_base = malloc(l + 1);
