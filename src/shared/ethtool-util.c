@@ -109,6 +109,21 @@ static const char* const ethtool_link_mode_bit_table[] = {
         [ETHTOOL_LINK_MODE_FEC_NONE_BIT]               = "fec-none",
         [ETHTOOL_LINK_MODE_FEC_RS_BIT]                 = "fec-rs",
         [ETHTOOL_LINK_MODE_FEC_BASER_BIT]              = "fec-baser",
+        [ETHTOOL_LINK_MODE_50000baseKR_Full_BIT]           = "50000basekr_full",
+        [ETHTOOL_LINK_MODE_50000baseSR_Full_BIT]           = "50000basesr_full",
+        [ETHTOOL_LINK_MODE_50000baseCR_Full_BIT]           = "50000basecr_full",
+        [ETHTOOL_LINK_MODE_50000baseLR_ER_FR_Full_BIT]     = "50000baselr_er_fr_full",
+        [ETHTOOL_LINK_MODE_50000baseDR_Full_BIT]           = "50000basedr_full",
+        [ETHTOOL_LINK_MODE_100000baseKR2_Full_BIT]         = "100000basekr2_full",
+        [ETHTOOL_LINK_MODE_100000baseSR2_Full_BIT]         = "100000basesr2_full",
+        [ETHTOOL_LINK_MODE_100000baseCR2_Full_BIT]         = "100000basecr2_full",
+        [ETHTOOL_LINK_MODE_100000baseLR2_ER2_FR2_Full_BIT] = "100000baselr2_er2_fr2_full",
+        [ETHTOOL_LINK_MODE_100000baseDR2_Full_BIT]         = "100000basedr2_full",
+        [ETHTOOL_LINK_MODE_200000baseKR4_Full_BIT]         = "200000basekr4_full",
+        [ETHTOOL_LINK_MODE_200000baseSR4_Full_BIT]         = "200000basesr4_full",
+        [ETHTOOL_LINK_MODE_200000baseCR4_Full_BIT]         = "200000basecr4_full",
+        [ETHTOOL_LINK_MODE_200000baseLR4_ER4_FR4_Full_BIT] = "200000baselr4_er4_fr4_full",
+        [ETHTOOL_LINK_MODE_200000baseDR4_Full_BIT]         = "200000basedr4_full",
 };
 /* Make sure the array is large enough to fit all bits */
 assert_cc((ELEMENTSOF(ethtool_link_mode_bit_table)-1) / 32 < N_ADVERTISE);

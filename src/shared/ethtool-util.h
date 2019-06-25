@@ -6,7 +6,7 @@
 
 #include "conf-parser.h"
 
-#define N_ADVERTISE 2
+#define N_ADVERTISE 3
 
 /* we can't use DUPLEX_ prefix, as it
  * clashes with <linux/ethtool.h> */
