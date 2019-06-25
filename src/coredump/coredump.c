@@ -711,6 +711,7 @@ static int submit_coredump(
 
         _cleanup_close_ int coredump_fd = -1, coredump_node_fd = -1;
         _cleanup_free_ char *core_message = NULL, *filename = NULL, *coredump_data = NULL;
+        _cleanup_free_ char *stacktrace = NULL;
         uint64_t coredump_size = UINT64_MAX;
         bool truncated = false, journald_crash;
         int r;
@@ -732,8 +733,9 @@ static int submit_coredump(
                 /* Skip whole core dumping part */
                 goto log;
 
-        /* If we don't want to keep the coredump on disk, remove it now, as later on we will lack the privileges for
-         * it. However, we keep the fd to it, so that we can still process it and log it. */
+        /* If we don't want to keep the coredump on disk, remove it now, as later on we
+         * will lack the privileges for it. However, we keep the fd to it, so that we can
+         * still process it and log it. */
         r = maybe_remove_external_coredump(filename, coredump_size);
         if (r < 0)
                 return r;
@@ -749,9 +751,10 @@ static int submit_coredump(
         /* Vacuum again, but exclude the coredump we just created */
         (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
 
-        /* Now, let's drop privileges to become the user who owns the segfaulted process and allocate the coredump
-         * memory under the user's uid. This also ensures that the credentials journald will see are the ones of the
-         * coredumping user, thus making sure the user gets access to the core dump. Let's also get rid of all
+        /* Now, let's drop privileges to become the user who owns the segfaulted process
+         * and allocate the coredump memory under the user's uid. This also ensures that
+         * the credentials journald will see are the ones of the coredumping user, thus
+         * making sure the user gets access to the core dump. Let's also get rid of all
          * capabilities, if we run as root, we won't need them anymore. */
         r = change_uid_gid(context);
         if (r < 0)
@@ -759,33 +762,22 @@ static int submit_coredump(
 
 #if HAVE_ELFUTILS
         /* Try to get a stack trace if we can */
-        if (coredump_size <= arg_process_size_max) {
-                _cleanup_free_ char *stacktrace = NULL;
-
-                r = coredump_make_stack_trace(coredump_fd, context[CONTEXT_EXE], &stacktrace);
-                if (r >= 0)
-                        core_message = strjoin("MESSAGE=Process ", context[CONTEXT_PID],
-                                               " (", context[CONTEXT_COMM], ") of user ",
-                                               context[CONTEXT_UID], " dumped core.",
-                                               journald_crash ? "\nCoredump diverted to " : "",
-                                               journald_crash ? filename : "",
-                                               "\n\n", stacktrace);
-                else if (r == -EINVAL)
-                        log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
-                else
-                        log_warning_errno(r, "Failed to generate stack trace: %m");
-        } else
-                log_debug("Not generating stack trace: core size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
+        if (coredump_size > arg_process_size_max) {
+                log_debug("Not generating stack trace: core size %"PRIu64" is greater "
+                          "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
-
-        if (!core_message)
+        } else
+                coredump_make_stack_trace(coredump_fd, context[CONTEXT_EXE], &stacktrace);
 #endif
+
 log:
-        core_message = strjoin("MESSAGE=Process ", context[CONTEXT_PID],
-                               " (", context[CONTEXT_COMM], ") of user ",
-                               context[CONTEXT_UID], " dumped core.",
-                               journald_crash && filename ? "\nCoredump diverted to " : NULL,
-                               journald_crash && filename ? filename : NULL);
+        core_message = strjoina("MESSAGE=Process ", context[CONTEXT_PID],
+                                " (", context[CONTEXT_COMM], ") of user ",
+                                context[CONTEXT_UID], " dumped core.",
+                                journald_crash && filename ? "\nCoredump diverted to " : NULL,
+                                journald_crash && filename ? filename : NULL);
+
+        core_message = strjoin(core_message, stacktrace ? "\n\n" : NULL, stacktrace);
         if (!core_message)
                 return log_oom();
 
