@@ -3211,7 +3211,7 @@ static int exec_child(
         if (mpol_is_valid(numa_policy_get_type(&context->numa_policy))) {
                 r = apply_numa_policy(&context->numa_policy);
                 if (r == -EOPNOTSUPP)
-                        log_unit_debug_errno(unit, SYNTHETIC_ERRNO(r), "NUMA support not available, ignoring.");
+                        log_unit_debug_errno(unit, r, "NUMA support not available, ignoring.");
                 else if (r < 0) {
                         *exit_status = EXIT_NUMA_POLICY;
                         return log_unit_error_errno(unit, r, "Failed to set NUMA memory policy: %m");
