@@ -89,9 +89,8 @@
       <varlistentry>
         <term><option>--dump-bus-properties</option></term>
 
-        <listitem><para>Dump exposed bus properties. This outputs
-        a terse but complete list of properties exposed to dbus.
-        </para></listitem>
+        <listitem><para>Dump exposed bus properties. This outputs a terse but complete list of properties
+        exposed on D-Bus.</para></listitem>
       </varlistentry>
       <varlistentry>
         <term><option>--unit=</option></term>
