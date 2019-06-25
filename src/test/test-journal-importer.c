@@ -21,7 +21,7 @@ static void assert_iovec_entry(const struct iovec *iovec, const char* content) {
         "0::/user.slice/user-1002.slice/user@1002.service/gnome-terminal-server.service\n"
 
 static void test_basic_parsing(void) {
-        _cleanup_(journal_importer_cleanup) JournalImporter imp = {};
+        _cleanup_(journal_importer_cleanup) JournalImporter imp = JOURNAL_IMPORTER_INIT(-1);
         _cleanup_free_ char *journal_data_path = NULL;
         int r;
 
@@ -52,7 +52,7 @@ static void test_basic_parsing(void) {
 }
 
 static void test_bad_input(void) {
-        _cleanup_(journal_importer_cleanup) JournalImporter imp = {};
+        _cleanup_(journal_importer_cleanup) JournalImporter imp = JOURNAL_IMPORTER_INIT(-1);
         _cleanup_free_ char *journal_data_path = NULL;
         int r;
 

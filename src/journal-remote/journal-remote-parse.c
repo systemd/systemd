@@ -38,7 +38,7 @@ RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer) {
         if (!source)
                 return NULL;
 
-        source->importer.fd = fd;
+        source->importer = JOURNAL_IMPORTER_MAKE(fd);
         source->importer.passive_fd = passive_fd;
         source->importer.name = name;
 

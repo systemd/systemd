@@ -1237,9 +1237,7 @@ static int process_backtrace(int argc, char *argv[]) {
         _cleanup_free_ struct iovec *iovec = NULL;
         size_t n_iovec, n_allocated, n_to_free = 0, i;
         int r;
-         _cleanup_(journal_importer_cleanup) JournalImporter importer = {
-                .fd = STDIN_FILENO,
-        };
+         _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);
 
         log_debug("Processing backtrace on stdin...");
 
