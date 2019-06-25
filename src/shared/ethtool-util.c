@@ -186,8 +186,13 @@ int ethtool_get_link_info(int *fd, const char *ifname,
         if (ret_autonegotiation)
                 *ret_autonegotiation = ecmd.autoneg;
 
-        if (ret_speed)
-                *ret_speed = ethtool_cmd_speed(&ecmd) * 1000 * 1000;
+        if (ret_speed) {
+                uint32_t speed;
+
+                speed = ethtool_cmd_speed(&ecmd);
+                *ret_speed = speed == (uint32_t) SPEED_UNKNOWN ?
+                        SIZE_MAX : (size_t) speed * 1000 * 1000;
+        }
 
         if (ret_duplex)
                 *ret_duplex = ecmd.duplex;
