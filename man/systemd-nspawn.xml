@@ -1390,7 +1390,7 @@
       <title>Boot a minimal
       <ulink url="https://www.archlinux.org">Arch Linux</ulink> distribution in a container</title>
 
-      <programlisting># pacstrap -c -d ~/arch-tree/ base
+      <programlisting># pacstrap -c ~/arch-tree/ base
 # systemd-nspawn -bD ~/arch-tree/</programlisting>
 
       <para>This installs a minimal Arch Linux distribution into the
