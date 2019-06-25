@@ -308,6 +308,27 @@ int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
         return 0;
 }
 
+int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const char *value) {
+        _cleanup_free_ char *x = NULL;
+        int r;
+
+        x = strappend(field, value);
+        if (!x)
+                return log_oom();
+
+        r = iovw_put(iovw, x, strlen(x));
+        if (r >= 0)
+                TAKE_PTR(x);
+
+        return r;
+}
+
+int iovw_put_string_field_free(struct iovec_wrapper *iovw, const char *field, char *value) {
+        _cleanup_free_ _unused_ char *free_ptr = value;
+
+        return iovw_put_string_field(iovw, field, value);
+}
+
 void iovw_rebase(struct iovec_wrapper *iovw, char *old, char *new) {
         size_t i;
 
