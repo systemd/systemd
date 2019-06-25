@@ -126,7 +126,7 @@ static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
 
 static inline __u32 ethtool_cmd_speed(const struct ethtool_cmd *ep)
 {
-	return (ep->speed_hi << 16) | ep->speed;
+	return ((__u32) ep->speed_hi << 16) | (__u32) ep->speed;
 }
 
 /* Device supports clause 22 register access to PHY or peripherals

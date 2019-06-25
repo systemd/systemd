@@ -5,3 +5,4 @@ The files in this directory are copied from kernel-5.2, and the following modifi
 - bpf_insn.h: BPF_JMP_A() macro is also imported from include/linux/filter.h
 - dm-ioctl.h: set DM_VERSION_MINOR to 27
 - ethtool.h: define __KERNEL_DIV_ROUND_UP if not defined
+- ethtool.h: add casts in ethtool_cmd_speed()
