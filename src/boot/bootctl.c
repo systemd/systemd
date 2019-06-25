@@ -25,6 +25,7 @@
 #include "copy.h"
 #include "dirent-util.h"
 #include "efivars.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -377,13 +378,24 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
                                      *s,
                                      &status);
         if (!strv_isempty(e->options)) {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t = NULL, *t2 = NULL;
+                _cleanup_strv_free_ char **ts = NULL;
 
                 t = strv_join(e->options, " ");
                 if (!t)
                         return log_oom();
 
-                printf("      options: %s\n", t);
+
+                ts = strv_split_newlines(t);
+                if (!ts)
+                        return log_oom();
+
+                t2 = strv_join(ts, "\n              ");
+                if (!t2)
+                        return log_oom();
+
+
+                printf("      options: %s\n", t2);
         }
         if (e->device_tree)
                 boot_entry_file_list("devicetree", e->root, e->device_tree, &status);
