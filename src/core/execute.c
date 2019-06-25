@@ -5503,6 +5503,7 @@ static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EXEC_PRESERVE_YES);
 
+/* This table maps ExecDirectoryType to the setting it is configured with in the unit */
 static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
         [EXEC_DIRECTORY_RUNTIME] = "RuntimeDirectory",
         [EXEC_DIRECTORY_STATE] = "StateDirectory",
@@ -5513,6 +5514,21 @@ static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
 
+/* And this table maps ExecDirectoryType too, but to a generic term identifying the type of resource. This
+ * one is supposed to be generic enough to be used for unit types that don't use ExecContext and per-unit
+ * directories, specifically .timer units with their timestamp touch file. */
+static const char* const exec_resource_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
+        [EXEC_DIRECTORY_RUNTIME] = "runtime",
+        [EXEC_DIRECTORY_STATE] = "state",
+        [EXEC_DIRECTORY_CACHE] = "cache",
+        [EXEC_DIRECTORY_LOGS] = "logs",
+        [EXEC_DIRECTORY_CONFIGURATION] = "configuration",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(exec_resource_type, ExecDirectoryType);
+
+/* And this table also maps ExecDirectoryType, to the environment variable we pass the selected directory to
+ * the service payload in. */
 static const char* const exec_directory_env_name_table[_EXEC_DIRECTORY_TYPE_MAX] = {
         [EXEC_DIRECTORY_RUNTIME] = "RUNTIME_DIRECTORY",
         [EXEC_DIRECTORY_STATE] = "STATE_DIRECTORY",

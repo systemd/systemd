@@ -417,3 +417,6 @@ ExecKeyringMode exec_keyring_mode_from_string(const char *s) _pure_;
 
 const char* exec_directory_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;
+
+const char* exec_resource_type_to_string(ExecDirectoryType i) _const_;
+ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
