@@ -2182,7 +2182,11 @@ static int setup_exec_directory(
                                 _cleanup_free_ char *q = NULL;
 
                                 /* This already exists and is a symlink? Interesting. Maybe it's one created
-                                 * by DynamicUser=1 (see above)? */
+                                 * by DynamicUser=1 (see above)?
+                                 *
+                                 * We do this for all directory types except for ConfigurationDirectory=,
+                                 * since they all support the private/ symlink logic at least in some
+                                 * configurations, see above. */
 
                                 q = path_join(params->prefix[type], "private", *rt);
                                 if (!q) {
