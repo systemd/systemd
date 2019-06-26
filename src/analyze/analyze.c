@@ -13,6 +13,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "analyze-condition.h"
 #include "analyze-security.h"
 #include "analyze-verify.h"
 #include "build.h"
@@ -1897,6 +1898,10 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int do_condition(int argc, char *argv[], void *userdata) {
+        return verify_conditions(strv_skip(argv, 1), arg_scope);
+}
+
 static int do_verify(int argc, char *argv[], void *userdata) {
         return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators);
 }
@@ -1955,6 +1960,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  cat-config               Show configuration file and drop-ins\n"
                "  unit-paths               List load directories for units\n"
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
+               "  condition CONDITION...   Evaluate conditions and asserts\n"
                "  verify FILE...           Check unit files for correctness\n"
                "  service-watchdogs [BOOL] Get/set service watchdog state\n"
                "  calendar SPEC...         Validate repetitive calendar time events\n"
@@ -2157,6 +2163,7 @@ static int run(int argc, char *argv[]) {
                 { "cat-config",        2,        VERB_ANY, 0,            cat_config             },
                 { "unit-paths",        1,        1,        0,            dump_unit_paths        },
                 { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },
+                { "condition",         2,        VERB_ANY, 0,            do_condition           },
                 { "verify",            2,        VERB_ANY, 0,            do_verify              },
                 { "calendar",          2,        VERB_ANY, 0,            test_calendar          },
                 { "timestamp",         2,        VERB_ANY, 0,            test_timestamp         },
