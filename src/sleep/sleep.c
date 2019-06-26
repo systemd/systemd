@@ -17,6 +17,7 @@
 
 #include "sd-messages.h"
 
+#include "btrfs-util.h"
 #include "def.h"
 #include "exec-util.h"
 #include "fd-util.h"
@@ -80,7 +81,14 @@ static int write_hibernate_location_info(void) {
         if (r < 0)
                 return log_debug_errno(errno, "Unable to stat %s: %m", device);
 
-        // TODO check for btrfs and fail if offset is not provided; calculation will fail
+        r = btrfs_is_filesystem(fd);
+        if (r < 0)
+                return log_error_errno(r, "Error checking %s for Btrfs filesystem: %m", device);
+
+        if (r)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Unable to calculate swapfile offset when using Btrfs: %s", device);
+
         r = read_fiemap(fd, &fiemap);
         if (r < 0)
                 return log_debug_errno(r, "Unable to read extent map for '%s': %m", device);
