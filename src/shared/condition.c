@@ -747,20 +747,23 @@ bool condition_test_list(Condition *first, const char *(*to_string)(ConditionTyp
                 r = condition_test(c);
 
                 if (logger) {
+                        const char *p = c->type == CONDITION_NULL ? "true" : c->parameter;
+                        assert(p);
+
                         if (r < 0)
                                 logger(userdata, LOG_WARNING, r, __FILE__, __LINE__, __func__,
                                        "Couldn't determine result for %s=%s%s%s, assuming failed: %m",
                                        to_string(c->type),
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
-                                       c->parameter);
+                                       p);
                         else
                                 logger(userdata, LOG_DEBUG, 0, __FILE__, __LINE__, __func__,
                                        "%s=%s%s%s %s.",
                                        to_string(c->type),
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
-                                       c->parameter,
+                                       p,
                                        condition_result_to_string(c->result));
                 }
 
