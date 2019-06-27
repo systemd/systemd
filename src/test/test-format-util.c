@@ -5,13 +5,13 @@
 #include "string-util.h"
 
 static void test_format_bytes_one(size_t val, bool trailing_B, const char *iec_with_p, const char *iec_without_p,
-                                  const char *non_iec_with_p, const char *non_iec_without_p) {
+                                  const char *si_with_p, const char *si_without_p) {
         char buf[FORMAT_BYTES_MAX];
 
         assert_se(streq_ptr(format_bytes_full(buf, sizeof buf, val, FORMAT_BYTES_USE_IEC | FORMAT_BYTES_BELOW_POINT | (trailing_B ? FORMAT_BYTES_TRAILING_B : 0)), iec_with_p));
         assert_se(streq_ptr(format_bytes_full(buf, sizeof buf, val, FORMAT_BYTES_USE_IEC | (trailing_B ? FORMAT_BYTES_TRAILING_B : 0)), iec_without_p));
-        assert_se(streq_ptr(format_bytes_full(buf, sizeof buf, val, FORMAT_BYTES_BELOW_POINT | (trailing_B ? FORMAT_BYTES_TRAILING_B : 0)), non_iec_with_p));
-        assert_se(streq_ptr(format_bytes_full(buf, sizeof buf, val, trailing_B ? FORMAT_BYTES_TRAILING_B : 0), non_iec_without_p));
+        assert_se(streq_ptr(format_bytes_full(buf, sizeof buf, val, FORMAT_BYTES_BELOW_POINT | (trailing_B ? FORMAT_BYTES_TRAILING_B : 0)), si_with_p));
+        assert_se(streq_ptr(format_bytes_full(buf, sizeof buf, val, trailing_B ? FORMAT_BYTES_TRAILING_B : 0), si_without_p));
 }
 
 static void test_format_bytes(void) {
