@@ -23,7 +23,7 @@ char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) {
                 { "G", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
                 { "M", UINT64_C(1024)*UINT64_C(1024) },
                 { "K", UINT64_C(1024) },
-        }, table_non_iec[] = {
+        }, table_si[] = {
                 { "E", UINT64_C(1000)*UINT64_C(1000)*UINT64_C(1000)*UINT64_C(1000)*UINT64_C(1000)*UINT64_C(1000) },
                 { "P", UINT64_C(1000)*UINT64_C(1000)*UINT64_C(1000)*UINT64_C(1000)*UINT64_C(1000) },
                 { "T", UINT64_C(1000)*UINT64_C(1000)*UINT64_C(1000)*UINT64_C(1000) },
@@ -34,12 +34,12 @@ char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) {
         const suffix_table *table;
         size_t n, i;
 
-        assert_cc(ELEMENTSOF(table_iec) == ELEMENTSOF(table_non_iec));
+        assert_cc(ELEMENTSOF(table_iec) == ELEMENTSOF(table_si));
 
         if (t == (uint64_t) -1)
                 return NULL;
 
-        table = flag & FORMAT_BYTES_USE_IEC ? table_iec : table_non_iec;
+        table = flag & FORMAT_BYTES_USE_IEC ? table_iec : table_si;
         n = ELEMENTSOF(table_iec);
 
         for (i = 0; i < n; i++)
