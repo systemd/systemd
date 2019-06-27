@@ -484,29 +484,44 @@ ssize_t udev_event_apply_format(UdevEvent *event,
         return size;
 }
 
-int udev_check_format(const char *s) {
+int udev_check_format(const char *value, size_t *offset, const char **hint) {
         FormatSubstitutionType type;
+        const char *s = value;
         char attr[UTIL_PATH_SIZE];
         int r;
 
         while (*s) {
                 r = get_subst_type(&s, true, &type, attr);
-                if (r < 0)
+                if (r < 0) {
+                        if (offset)
+                                *offset = s - value;
+                        if (hint)
+                                *hint = "invalid substitution type";
                         return r;
-                if (r == 0) {
+                } else if (r == 0) {
                         s++;
                         continue;
                 }
 
-                if (IN_SET(type, FORMAT_SUBST_ATTR, FORMAT_SUBST_ENV) && isempty(attr))
+                if (IN_SET(type, FORMAT_SUBST_ATTR, FORMAT_SUBST_ENV) && isempty(attr)) {
+                        if (offset)
+                                *offset = s - value;
+                        if (hint)
+                                *hint = "attribute value missing";
                         return -EINVAL;
+                }
 
                 if (type == FORMAT_SUBST_RESULT && !isempty(attr)) {
                         unsigned i;
 
                         r = safe_atou_optional_plus(attr, &i);
-                        if (r < 0)
+                        if (r < 0) {
+                                if (offset)
+                                        *offset = s - value;
+                                if (hint)
+                                        *hint = "attribute value not a valid number";
                                 return r;
+                        }
                 }
         }
 
