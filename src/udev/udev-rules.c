@@ -30,6 +30,72 @@
 
 #define RULES_DIRS (const char* const*) CONF_PATHS_STRV("udev/rules.d")
 
+
+/*** Logging helpers ***/
+
+#define log_rule_full(device, rules, level, error, fmt, ...)            \
+        ({                                                              \
+                UdevRules *_r = (rules);                                \
+                UdevRuleFile *_f = _r ? _r->current_file : NULL;        \
+                UdevRuleLine *_l = _f ? _f->current_line : NULL;        \
+                const char *_n = _f ? _f->filename : NULL;              \
+                                                                        \
+                log_device_full(device, level, error, "%s:%u " fmt,     \
+                                strna(_n), _l ? _l->line_number : 0,    \
+                                ##__VA_ARGS__);                         \
+        })
+
+#define log_rule_debug(device, rules, ...)   log_rule_full(device, rules, LOG_DEBUG, 0, ##__VA_ARGS__)
+#define log_rule_info(device, rules, ...)    log_rule_full(device, rules, LOG_INFO, 0, ##__VA_ARGS__)
+#define log_rule_notice(device, rules, ...)  log_rule_full(device, rules, LOG_NOTICE, 0, ##__VA_ARGS__)
+#define log_rule_warning(device, rules, ...) log_rule_full(device, rules, LOG_WARNING, 0, ##__VA_ARGS__)
+#define log_rule_error(device, rules, ...)   log_rule_full(device, rules, LOG_ERR, 0, ##__VA_ARGS__)
+
+#define log_rule_debug_errno(device, rules, error, ...)   log_rule_full(device, rules, LOG_DEBUG, error, ##__VA_ARGS__)
+#define log_rule_info_errno(device, rules, error, ...)    log_rule_full(device, rules, LOG_INFO, error, ##__VA_ARGS__)
+#define log_rule_notice_errno(device, rules, error, ...)  log_rule_full(device, rules, LOG_NOTICE, error, ##__VA_ARGS__)
+#define log_rule_warning_errno(device, rules, error, ...) log_rule_full(device, rules, LOG_WARNING, error, ##__VA_ARGS__)
+#define log_rule_error_errno(device, rules, error, ...)   log_rule_full(device, rules, LOG_ERR, error, ##__VA_ARGS__)
+
+#define log_token_full(rules, ...) log_rule_full(NULL, rules, ##__VA_ARGS__)
+
+#define log_token_debug(rules, ...)   log_token_full(rules, LOG_DEBUG, 0, ##__VA_ARGS__)
+#define log_token_info(rules, ...)    log_token_full(rules, LOG_INFO, 0, ##__VA_ARGS__)
+#define log_token_notice(rules, ...)  log_token_full(rules, LOG_NOTICE, 0, ##__VA_ARGS__)
+#define log_token_warning(rules, ...) log_token_full(rules, LOG_WARNING, 0, ##__VA_ARGS__)
+#define log_token_error(rules, ...)   log_token_full(rules, LOG_ERR, 0, ##__VA_ARGS__)
+
+#define log_token_debug_errno(rules, error, ...)   log_token_full(rules, LOG_DEBUG, error, ##__VA_ARGS__)
+#define log_token_info_errno(rules, error, ...)    log_token_full(rules, LOG_INFO, error, ##__VA_ARGS__)
+#define log_token_notice_errno(rules, error, ...)  log_token_full(rules, LOG_NOTICE, error, ##__VA_ARGS__)
+#define log_token_warning_errno(rules, error, ...) log_token_full(rules, LOG_WARNING, error, ##__VA_ARGS__)
+#define log_token_error_errno(rules, error, ...)   log_token_full(rules, LOG_ERR, error, ##__VA_ARGS__)
+
+#define _log_token_invalid(rules, key, type)                      \
+        log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),     \
+                              "Invalid %s for %s.", type, key)
+
+#define log_token_invalid_op(rules, key)   _log_token_invalid(rules, key, "operator")
+#define log_token_invalid_attr(rules, key) _log_token_invalid(rules, key, "attribute")
+
+#define log_token_invalid_attr_format(rules, key, attr)                 \
+        log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),           \
+                              "Invalid attribute \"%s\" for %s, ignoring, but please fix it.", \
+                              attr, key)
+#define log_token_invalid_value(rules, key, value)                      \
+        log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),           \
+                              "Invalid value \"%s\" for %s, ignoring, but please fix it.", \
+                              value, key)
+
+static void log_unknown_owner(sd_device *dev, UdevRules *rules, int error, const char *entity, const char *name) {
+        if (IN_SET(abs(error), ENOENT, ESRCH))
+                log_rule_error(dev, rules, "Unknown %s '%s', ignoring", entity, name);
+        else
+                log_rule_error_errno(dev, rules, error, "Failed to resolve %s '%s', ignoring: %m", entity, name);
+}
+
+/*** Other functions ***/
+
 static void udev_rule_token_free(UdevRuleToken *token) {
         free(token);
 }
@@ -89,13 +155,6 @@ UdevRules *udev_rules_free(UdevRules *rules) {
         hashmap_free_free_key(rules->known_users);
         hashmap_free_free_key(rules->known_groups);
         return mfree(rules);
-}
-
-static void log_unknown_owner(sd_device *dev, UdevRules *rules, int error, const char *entity, const char *name) {
-        if (IN_SET(abs(error), ENOENT, ESRCH))
-                log_rule_error(dev, rules, "Unknown %s '%s', ignoring", entity, name);
-        else
-                log_rule_error_errno(dev, rules, error, "Failed to resolve %s '%s', ignoring: %m", entity, name);
 }
 
 static int rule_resolve_user(UdevRules *rules, const char *name, uid_t *ret) {
