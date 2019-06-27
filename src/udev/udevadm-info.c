@@ -467,9 +467,14 @@ int info_main(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Unknown device \"%s\": %m",  *p);
 
                 if (arg_wait_for_initialization_timeout > 0) {
-                        r = device_wait_for_initialization(device, NULL, arg_wait_for_initialization_timeout, NULL);
+                        sd_device *d;
+
+                        r = device_wait_for_initialization(device, NULL, arg_wait_for_initialization_timeout, &d);
                         if (r < 0)
                                 return r;
+
+                        sd_device_unref(device);
+                        device = d;
                 }
 
                 if (action == ACTION_QUERY)
