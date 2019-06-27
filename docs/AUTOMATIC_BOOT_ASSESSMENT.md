@@ -97,7 +97,7 @@ Here's an example walkthrough of how this all fits together.
    see the `+1-2` tag, and rename the file to
    `4.14.11-300.fc27.x86_64+0-3.conf` and boot it.
 
-6. If this boot also fails, on the next boot the boot loader will see the the
+6. If this boot also fails, on the next boot the boot loader will see the
    tag `+0-3`, i.e. the counter reached zero. At this point the entry will be
    considered "bad", and ordered to the end of the list of entries. The next
    newest boot entry is now tried, i.e. the system automatically reverted back

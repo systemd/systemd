@@ -34,7 +34,7 @@ formatting tools to safely and easily take exclusive ownership of a block
 device while operating: before starting work on the block device, they should
 take an `LOCK_EX` lock on it. This has two effects: first of all, in case
 `systemd-udevd` is still processing the device the tool will wait for it to
-finish. Second, after the lock is taken, it can be sure that that
+finish. Second, after the lock is taken, it can be sure that
 `systemd-udevd` will refrain from processing the block device, and thus all
 other client applications subscribed to it won't get device notifications from
 potentially half-written data either. After the operation is complete the

@@ -120,7 +120,7 @@
 
         <listitem><para>Configures the NUMA node mask that will be associated with the selected NUMA policy. Note that
         <option>default</option> and <option>local</option> NUMA policies don't require explicit NUMA node mask and
-        value of the option can be empty. Similarly to <varname>NUMAPolicy=</varname>, value can be overriden
+        value of the option can be empty. Similarly to <varname>NUMAPolicy=</varname>, value can be overridden
         by individual services in unit files, see
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
