@@ -322,7 +322,8 @@ int config_parse(const char *unit,
                         return r;
                 }
 
-                if (strchr(COMMENTS, *skip_leading_chars(buf, WHITESPACE)))
+                l = skip_leading_chars(buf, WHITESPACE);
+                if (*l != '\0' && strchr(COMMENTS, *l))
                         continue;
 
                 l = buf;
