@@ -206,7 +206,7 @@ title: Coding Style
   numeric. Specifically, if you have an `int b` and it's only used in a boolean
   sense, by all means check its state with `if (b) …` — but if `b` can actually
   have more than two semantic values, and you want to compare for non-zero,
-  then please write that explicity with `if (b != 0) …`. This helps readability
+  then please write that explicitly with `if (b != 0) …`. This helps readability
   as the value range and semantical behaviour is directly clear from the
   condition check. As a special addition: when dealing with pointers which you
   want to check for non-NULL-ness, you may also use downgrade-to-bool feature.

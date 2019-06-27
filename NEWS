@@ -107,7 +107,7 @@ CHANGES WITH 243 in spe:
         * A new setting NUMAPolicy= may be used to set process memory
           allocation policy. Setting can be specified in system.conf and
           hence will set the default policy for PID1. Default policy can be
-          overriden on per-service basis. Related setting NUMAMask= is used to
+          overridden on per-service basis. Related setting NUMAMask= is used to
           specify NUMA node mask that should be associated with the selected
           policy.
           …
@@ -938,7 +938,7 @@ CHANGES WITH 240:
           up a private /dev/ file system containing devices nodes — but when
           these are opened they don't work.
 
-          At this point is is recommended that container managers utilizing
+          At this point it is recommended that container managers utilizing
           user namespaces that intend to run systemd in the payload explicitly
           block mknod() with seccomp or similar, so that the graceful fallback
           logic works again.
