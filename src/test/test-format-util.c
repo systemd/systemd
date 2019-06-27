@@ -4,7 +4,7 @@
 #include "macro.h"
 #include "string-util.h"
 
-static void test_format_bytes_one(size_t val, bool trailing_B, const char *iec_with_p, const char *iec_without_p,
+static void test_format_bytes_one(uint64_t val, bool trailing_B, const char *iec_with_p, const char *iec_without_p,
                                   const char *si_with_p, const char *si_without_p) {
         char buf[FORMAT_BYTES_MAX];
 
@@ -23,12 +23,13 @@ static void test_format_bytes(void) {
         test_format_bytes_one(1024, false, "1.0K", "1K", "1.0K", "1K");
         test_format_bytes_one(1100, true, "1.0K", "1K", "1.1K", "1K");
         test_format_bytes_one(1500, true, "1.4K", "1K", "1.5K", "1K");
-        test_format_bytes_one((size_t) 3*1024*1024, true, "3.0M", "3M", "3.1M", "3M");
-        test_format_bytes_one((size_t) 3*1024*1024*1024, true, "3.0G", "3G", "3.2G", "3G");
-        test_format_bytes_one((size_t) 3*1024*1024*1024*1024, true, "3.0T", "3T", "3.2T", "3T");
-        test_format_bytes_one((size_t) 3*1024*1024*1024*1024*1024, true, "3.0P", "3P", "3.3P", "3P");
-        test_format_bytes_one((size_t) 3*1024*1024*1024*1024*1024*1024, true, "3.0E", "3E", "3.4E", "3E");
-        test_format_bytes_one(SIZE_MAX, true, NULL, NULL, NULL, NULL);
+        test_format_bytes_one(UINT64_C(3)*1024*1024, true, "3.0M", "3M", "3.1M", "3M");
+        test_format_bytes_one(UINT64_C(3)*1024*1024*1024, true, "3.0G", "3G", "3.2G", "3G");
+        test_format_bytes_one(UINT64_C(3)*1024*1024*1024*1024, true, "3.0T", "3T", "3.2T", "3T");
+        test_format_bytes_one(UINT64_C(3)*1024*1024*1024*1024*1024, true, "3.0P", "3P", "3.3P", "3P");
+        test_format_bytes_one(UINT64_C(3)*1024*1024*1024*1024*1024*1024, true, "3.0E", "3E", "3.4E", "3E");
+        test_format_bytes_one(UINT64_MAX, true, NULL, NULL, NULL, NULL);
+        test_format_bytes_one(UINT64_MAX, false, NULL, NULL, NULL, NULL);
 }
 
 int main(void) {
