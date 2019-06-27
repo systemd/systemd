@@ -1378,6 +1378,9 @@ static void manager_enumerate_perpetual(Manager *m) {
 
         assert(m);
 
+        if (m->test_run_flags == MANAGER_TEST_RUN_MINIMAL)
+                return;
+
         /* Let's ask every type to load all units from disk/kernel that it might know */
         for (c = 0; c < _UNIT_TYPE_MAX; c++) {
                 if (!unit_type_supported(c)) {
@@ -1394,6 +1397,9 @@ static void manager_enumerate(Manager *m) {
         UnitType c;
 
         assert(m);
+
+        if (m->test_run_flags == MANAGER_TEST_RUN_MINIMAL)
+                return;
 
         /* Let's ask every type to load all units from disk/kernel that it might know */
         for (c = 0; c < _UNIT_TYPE_MAX; c++) {

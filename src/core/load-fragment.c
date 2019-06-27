@@ -2587,13 +2587,13 @@ int config_parse_unit_condition_string(
                 return 0;
         }
 
-        trigger = rvalue[0] == '|';
+        trigger = *rvalue == '|';
         if (trigger)
-                rvalue++;
+                rvalue += 1 + strspn(rvalue + 1, WHITESPACE);
 
-        negate = rvalue[0] == '!';
+        negate = *rvalue == '!';
         if (negate)
-                rvalue++;
+                rvalue += 1 + strspn(rvalue + 1, WHITESPACE);
 
         r = unit_full_printf(u, rvalue, &s);
         if (r < 0) {

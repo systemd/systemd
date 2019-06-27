@@ -254,6 +254,7 @@ Unit.SuccessAction,              config_parse_emergency_action,      0,         
 Unit.FailureActionExitStatus,    config_parse_exit_status,           0,                             offsetof(Unit, failure_action_exit_status)
 Unit.SuccessActionExitStatus,    config_parse_exit_status,           0,                             offsetof(Unit, success_action_exit_status)
 Unit.RebootArgument,             config_parse_unit_string_printf,    0,                             offsetof(Unit, reboot_arg)
+m4_dnl Also add any conditions to condition_definitions[] in src/analyze/analyze-condition.c.
 Unit.ConditionPathExists,        config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         offsetof(Unit, conditions)
 Unit.ConditionPathExistsGlob,    config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    offsetof(Unit, conditions)
 Unit.ConditionPathIsDirectory,   config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY,   offsetof(Unit, conditions)

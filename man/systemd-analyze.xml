@@ -86,6 +86,12 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">condition</arg>
+      <arg choice="plain"><replaceable>CONDITION</replaceable>…</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">syscall-filter</arg>
       <arg choice="opt"><replaceable>SET</replaceable>…</arg>
     </cmdsynopsis>
@@ -346,6 +352,33 @@ $ eog targets.svg</programlisting>
       itself, and does not communicate with the running manager. Use
       <programlisting>systemctl [--user] [--global] show -p UnitPath --value</programlisting>
       to retrieve the actual list that the manager uses, with any empty directories omitted.</para>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze condition <replaceable>CONDITION</replaceable>...</command></title>
+
+      <para>This command will evaluate <varname noindex='true'>Condition*=...</varname> and
+      <varname noindex='true'>Assert*=...</varname> assignments, and print their values, and
+      the resulting value of the combined condition set. See
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for a list of available conditions and asserts.</para>
+
+      <example>
+        <title>Evaluate conditions that check kernel versions</title>
+
+        <programlisting>$ systemd-analyze condition 'ConditionKernelVersion = ! &lt;4.0' \
+        'ConditionKernelVersion = &gt;=5.1' \
+        'ConditionACPower=|false' \
+        'ConditionArchitecture=|!arm' \
+        'AssertPathExists=/etc/os-release'
+test.service: AssertPathExists=/etc/os-release succeeded.
+Asserts succeeded.
+test.service: ConditionArchitecture=|!arm succeeded.
+test.service: ConditionACPower=|false failed.
+test.service: ConditionKernelVersion=&gt;=5.1 succeeded.
+test.service: ConditionKernelVersion=!&lt;4.0 succeeded.
+Conditions succeeded.</programlisting>
+      </example>
     </refsect2>
 
     <refsect2>

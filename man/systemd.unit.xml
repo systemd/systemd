@@ -1007,9 +1007,7 @@
         <term><varname>ConditionMemory=</varname></term>
         <term><varname>ConditionCPUs=</varname></term>
 
-        <!-- We do not document ConditionNull=
-             here, as it is not particularly
-             useful and probably just
+        <!-- We do not document ConditionNull= here, as it is not particularly useful and probably just
              confusing. -->
 
         <listitem><para>Before starting a unit, verify that the specified condition is true. If it is not true, the
@@ -1023,6 +1021,18 @@
         (instead of being silently processed). For details about assertion conditions see below. Units with failed
         conditions are considered to be in a clean state and will be garbage collected if they are not referenced.
         This means, that when queried, the condition failure may or may not show up in the state of the unit.</para>
+
+        <para>If multiple conditions are specified, the unit will be executed if all of them apply (i.e. a
+        logical AND is applied). Condition checks can be prefixed with a pipe symbol (<literal>|</literal>)
+        in which case a condition becomes a triggering condition. If at least one triggering condition is
+        defined for a unit, then the unit will be executed if at least one of the triggering conditions apply
+        and all of the non-triggering conditions. If you prefix an argument with the pipe symbol and an
+        exclamation mark, the pipe symbol must be passed first, the exclamation second. Except for
+        <varname>ConditionPathIsSymbolicLink=</varname>, all path checks follow symlinks. If any of these
+        options is assigned the empty string, the list of conditions is reset completely, all previous
+        condition settings (of any kind) will have no effect. The <command>condition</command> verb of
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        can be used to test condition and assert expressions.</para>
 
         <para><varname>ConditionArchitecture=</varname> may be used to
         check whether the system is running on a specific
@@ -1279,23 +1289,7 @@
         comparison operator. On physical systems the number of CPUs in the affinity mask of the service
         manager usually matches the number of physical CPUs, but in special and virtual environments might
         differ. In particular, in containers the affinity mask usually matches the number of CPUs assigned to
-        the container and not the physically available ones.</para>
-
-        <para>If multiple conditions are specified, the unit will be
-        executed if all of them apply (i.e. a logical AND is applied).
-        Condition checks can be prefixed with a pipe symbol (|) in
-        which case a condition becomes a triggering condition. If at
-        least one triggering condition is defined for a unit, then the
-        unit will be executed if at least one of the triggering
-        conditions apply and all of the non-triggering conditions. If
-        you prefix an argument with the pipe symbol and an exclamation
-        mark, the pipe symbol must be passed first, the exclamation
-        second. Except for
-        <varname>ConditionPathIsSymbolicLink=</varname>, all path
-        checks follow symlinks. If any of these options is assigned
-        the empty string, the list of conditions is reset completely,
-        all previous condition settings (of any kind) will have no
-        effect.</para></listitem>
+        the container and not the physically available ones.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1334,7 +1328,11 @@
         <para>Note that neither assertion nor condition expressions result in unit state changes. Also note that both
         are checked at the time the job is to be executed, i.e. long after depending jobs and it itself were
         queued. Thus, neither condition nor assertion expressions are suitable for conditionalizing unit
-        dependencies.</para></listitem>
+        dependencies.</para>
+
+        <para>The <command>condition</command> verb of
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        can be used to test condition and assert expressions.</para></listitem>
       </varlistentry>
 
       <varlistentry>
