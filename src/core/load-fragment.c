@@ -2569,11 +2569,12 @@ int config_parse_unit_condition_string(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *s = NULL;
+        _cleanup_free_ char *buf = NULL;
         Condition **list = data, *c;
         ConditionType t = ltype;
         bool trigger, negate;
         Unit *u = userdata;
+        char *s;
         int r;
 
         assert(filename);
@@ -2595,10 +2596,20 @@ int config_parse_unit_condition_string(
         if (negate)
                 rvalue++;
 
-        r = unit_full_printf(u, rvalue, &s);
+        r = unit_full_printf(u, rvalue, &buf);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                 return 0;
+        }
+
+        s = buf;
+        if (IN_SET(*s, '\'', '\"')) {
+                size_t n = strlen(s);
+                if (s[n - 1] == s[0]) {
+                        /* Drop quotations. */
+                        s[n - 1] = '\0';
+                        s++;
+                }
         }
 
         c = condition_new(t, s, trigger, negate);
