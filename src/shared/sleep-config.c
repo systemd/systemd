@@ -178,6 +178,7 @@ int find_hibernate_location(char **device, char **type, size_t *size, size_t *us
 
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
 
+        // TODO: sort swaps in priority order rather than using first successful option
         for (i = 1;; i++) {
                 _cleanup_free_ char *dev_field = NULL, *type_field = NULL;
                 size_t size_field, used_field;
