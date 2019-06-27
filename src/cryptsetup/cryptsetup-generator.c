@@ -546,9 +546,11 @@ static int add_crypttab_devices(void) {
                         continue;
                 }
 
-                uuid = STARTSWITH_SET(device, "UUID=", "luks-");
+                uuid = startswith(device, "UUID=");
                 if (!uuid)
                         uuid = path_startswith(device, "/dev/disk/by-uuid/");
+                if (!uuid)
+                        uuid = startswith(name, "luks-");
                 if (uuid)
                         d = hashmap_get(arg_disks, uuid);
 
