@@ -847,7 +847,7 @@ static void map_context_fields(const struct iovec *iovec, const char* context[])
 }
 
 static int process_socket(int fd) {
-        _cleanup_close_ int coredump_fd = -1;
+        _cleanup_close_ int input_fd = -1;
         const char *context[_CONTEXT_MAX] = {};
         struct iovec_wrapper iovw = {};
         struct iovec iovec;
@@ -917,8 +917,8 @@ static int process_socket(int fd) {
                                 goto finish;
                         }
 
-                        assert(coredump_fd < 0);
-                        coredump_fd = *(int*) CMSG_DATA(found);
+                        assert(input_fd < 0);
+                        input_fd = *(int*) CMSG_DATA(found);
                         break;
                 }
 
@@ -943,7 +943,7 @@ static int process_socket(int fd) {
         assert(context[CONTEXT_RLIMIT]);
         assert(context[CONTEXT_HOSTNAME]);
         assert(context[CONTEXT_COMM]);
-        assert(coredump_fd >= 0);
+        assert(input_fd >= 0);
 
         /* Small quirk: the journal fields contain the timestamp padded with six zeroes,
          * so that the kernel-supplied 1s granularity timestamps becomes 1µs granularity,
@@ -953,7 +953,7 @@ static int process_socket(int fd) {
         if (k > 6)
                 context[CONTEXT_TIMESTAMP] = strndupa(context[CONTEXT_TIMESTAMP], k - 6);
 
-        r = submit_coredump(context, &iovw, coredump_fd);
+        r = submit_coredump(context, &iovw, input_fd);
 
 finish:
         iovw_free_contents(&iovw, true);
