@@ -224,10 +224,10 @@ struct UdevRules {
 #define log_token_invalid_op(rules, key)   _log_token_invalid(rules, key, "operator")
 #define log_token_invalid_attr(rules, key) _log_token_invalid(rules, key, "attribute")
 
-#define log_token_invalid_attr_format(rules, key, attr)                 \
+#define log_token_invalid_attr_format(rules, key, attr, offset, hint)   \
         log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),           \
-                              "Invalid attribute \"%s\" for %s, ignoring, but please fix it.", \
-                              attr, key)
+                              "Invalid attribute \"%s\" for %s (char %zu: %s), ignoring, but please fix it.", \
+                              attr, key, offset, hint)
 #define log_token_invalid_value(rules, key, value, offset, hint)        \
         log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),           \
                               "Invalid value \"%s\" for %s (char %zu: %s), ignoring, but please fix it.", \
@@ -520,6 +520,17 @@ static void check_value_format_and_warn(UdevRules *rules, const char *key, const
                 log_token_invalid_value(rules, key, value, offset + 1, hint);
 }
 
+static int check_attr_format_and_warn(UdevRules *rules, const char *key, const char *value) {
+        size_t offset;
+        const char *hint;
+
+        if (isempty(value))
+                return log_token_invalid_attr(rules, key);
+        if (udev_check_format(value, &offset, &hint) < 0)
+                log_token_invalid_attr_format(rules, key, value, offset + 1, hint);
+        return 0;
+}
+
 static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOperatorType op, char *value) {
         bool is_match = IN_SET(op, OP_MATCH, OP_NOMATCH);
         UdevRuleLine *rule_line;
@@ -641,10 +652,9 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
 
                 r = rule_line_add_token(rule_line, TK_M_DRIVER, op, value, NULL);
         } else if (streq(key, "ATTR")) {
-                if (isempty(attr))
-                        return log_token_invalid_attr(rules, key);
-                if (udev_check_format(attr, NULL, NULL) < 0)
-                        log_token_invalid_attr_format(rules, key, attr);
+                r = check_attr_format_and_warn(rules, key, attr);
+                if (r < 0)
+                        return r;
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (IN_SET(op, OP_ADD, OP_ASSIGN_FINAL)) {
@@ -658,10 +668,9 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 } else
                         r = rule_line_add_token(rule_line, TK_M_ATTR, op, value, attr);
         } else if (streq(key, "SYSCTL")) {
-                if (isempty(attr))
-                        return log_token_invalid_attr(rules, key);
-                if (udev_check_format(attr, NULL, NULL) < 0)
-                        log_token_invalid_attr_format(rules, key, attr);
+                r = check_attr_format_and_warn(rules, key, attr);
+                if (r < 0)
+                        return r;
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (IN_SET(op, OP_ADD, OP_ASSIGN_FINAL)) {
@@ -696,10 +705,9 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
 
                 r = rule_line_add_token(rule_line, TK_M_PARENTS_DRIVER, op, value, NULL);
         } else if (streq(key, "ATTRS")) {
-                if (isempty(attr))
-                        return log_token_invalid_attr(rules, key);
-                if (udev_check_format(attr, NULL, NULL) < 0)
-                        log_token_invalid_attr_format(rules, key, attr);
+                r = check_attr_format_and_warn(rules, key, attr);
+                if (r < 0)
+                        return r;
                 if (!is_match)
                         return log_token_invalid_op(rules, key);
 
