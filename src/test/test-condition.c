@@ -301,9 +301,11 @@ static void test_condition_test_kernel_version(void) {
         assert_se(condition_test(condition));
         condition_free(condition);
 
+        /* An artificially empty condition. It evaluates to true, but normally
+         * such condition cannot be created, because the condition list is reset instead. */
         condition = condition_new(CONDITION_KERNEL_VERSION, "", false, false);
         assert_se(condition);
-        assert_se(!condition_test(condition));
+        assert_se(condition_test(condition) > 0);
         condition_free(condition);
 
         assert_se(uname(&u) >= 0);
@@ -325,6 +327,26 @@ static void test_condition_test_kernel_version(void) {
         condition = condition_new(CONDITION_KERNEL_VERSION, "> 0.1.2", false, false);
         assert_se(condition);
         assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, ">0.1.2", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition) > 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "'>0.1.2' '<9.0.0'", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition) > 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "> 0.1.2 < 9.0.0", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, ">", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition) == -EINVAL);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, ">= 0.1.2", false, false);

@@ -207,6 +207,7 @@ static int condition_test_kernel_version(Condition *c) {
         OrderOperator order;
         struct utsname u;
         const char *p;
+        bool first = true;
 
         assert(c);
         assert(c->parameter);
@@ -215,13 +216,49 @@ static int condition_test_kernel_version(Condition *c) {
         assert_se(uname(&u) >= 0);
 
         p = c->parameter;
-        order = parse_order(&p);
 
-        /* No prefix? Then treat as glob string */
-        if (order < 0)
-                return fnmatch(skip_leading_chars(c->parameter, NULL), u.release, 0) == 0;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                const char *s;
+                int r;
 
-        return test_order(str_verscmp(u.release, skip_leading_chars(p, NULL)), order);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse condition string \"%s\": %m", p);
+                if (r == 0)
+                        break;
+
+                s = strstrip(word);
+                order = parse_order(&s);
+                if (order >= 0) {
+                        s += strspn(s, WHITESPACE);
+                        if (isempty(s)) {
+                                if (first) {
+                                        /* For backwards compatibility, allow whitespace between the operator and
+                                         * value, without quoting, but only in the first expression. */
+                                        word = mfree(word);
+                                        r = extract_first_word(&p, &word, NULL, 0);
+                                        if (r < 0)
+                                                return log_debug_errno(r, "Failed to parse condition string \"%s\": %m", p);
+                                        if (r == 0)
+                                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected end of expression: %s", p);
+                                        s = word;
+                                } else
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected end of expression: %s", p);
+                        }
+
+                        r = test_order(str_verscmp(u.release, s), order);
+                } else
+                        /* No prefix? Then treat as glob string */
+                        r = fnmatch(s, u.release, 0) == 0;
+
+                if (r == 0)
+                        return false;
+
+                first = false;
+        }
+
+        return true;
 }
 
 static int condition_test_memory(Condition *c) {
