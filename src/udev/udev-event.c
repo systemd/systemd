@@ -157,24 +157,24 @@ static int get_subst_type(const char **str, bool strict, FormatSubstitutionType 
         assert(*str);
         assert(ret_type);
 
-        if (p[0] == '$') {
+        if (*p == '$') {
                 p++;
-                if (p[0] == '$') {
+                if (*p == '$') {
                         *str = p;
                         return 0;
                 }
                 for (i = 0; i < ELEMENTSOF(map); i++)
                         if ((q = startswith(p, map[i].name)))
                                 break;
-        } else if (p[0] == '%') {
+        } else if (*p == '%') {
                 p++;
-                if (p[0] == '%') {
+                if (*p == '%') {
                         *str = p;
                         return 0;
                 }
 
                 for (i = 0; i < ELEMENTSOF(map); i++)
-                        if (p[0] == map[i].fmt) {
+                        if (*p == map[i].fmt) {
                                 q = p + 1;
                                 break;
                         }
@@ -184,7 +184,7 @@ static int get_subst_type(const char **str, bool strict, FormatSubstitutionType 
                 /* When 'strict' flag is set, then '$' and '%' must be escaped. */
                 return strict ? -EINVAL : 0;
 
-        if (q[0] == '{') {
+        if (*q == '{') {
                 const char *start, *end;
                 size_t len;
 
@@ -200,7 +200,7 @@ static int get_subst_type(const char **str, bool strict, FormatSubstitutionType 
                 strnscpy(ret_attr, UTIL_PATH_SIZE, start, len);
                 q = end + 1;
         } else
-                ret_attr[0] = '\0';
+                *ret_attr = '\0';
 
         *str = q;
         *ret_type = map[i].type;
@@ -311,7 +311,7 @@ static ssize_t udev_event_subst_format(
                         p = skip_leading_chars(event->program_result, NULL);
 
                         for (i = 1; i < index; i++) {
-                                while (p[0] != '\0' && !strchr(WHITESPACE, p[0]))
+                                while (*p && !strchr(WHITESPACE, *p))
                                         p++;
                                 p = skip_leading_chars(p, NULL);
                                 if (*p == '\0')
@@ -327,7 +327,7 @@ static ssize_t udev_event_subst_format(
                         if (has_plus)
                                 l = strpcpy(&s, l, start);
                         else {
-                                while (p[0] != '\0' && !strchr(WHITESPACE, p[0]))
+                                while (*p && !strchr(WHITESPACE, *p))
                                         p++;
                                 l = strnpcpy(&s, l, start, p - start);
                         }
@@ -447,7 +447,7 @@ ssize_t udev_event_apply_format(UdevEvent *event,
         assert(dest);
         assert(size > 0);
 
-        while (s[0] != '\0') {
+        while (*s) {
                 FormatSubstitutionType type;
                 char attr[UTIL_PATH_SIZE];
                 ssize_t subst_len;
@@ -480,33 +480,48 @@ ssize_t udev_event_apply_format(UdevEvent *event,
         }
 
         assert(size >= 1);
-        dest[0] = '\0';
+        *dest = '\0';
         return size;
 }
 
-int udev_check_format(const char *s) {
+int udev_check_format(const char *value, size_t *offset, const char **hint) {
         FormatSubstitutionType type;
+        const char *s = value;
         char attr[UTIL_PATH_SIZE];
         int r;
 
-        while (s[0] != '\0') {
+        while (*s) {
                 r = get_subst_type(&s, true, &type, attr);
-                if (r < 0)
+                if (r < 0) {
+                        if (offset)
+                                *offset = s - value;
+                        if (hint)
+                                *hint = "invalid substitution type";
                         return r;
-                if (r == 0) {
+                } else if (r == 0) {
                         s++;
                         continue;
                 }
 
-                if (IN_SET(type, FORMAT_SUBST_ATTR, FORMAT_SUBST_ENV) && isempty(attr))
+                if (IN_SET(type, FORMAT_SUBST_ATTR, FORMAT_SUBST_ENV) && isempty(attr)) {
+                        if (offset)
+                                *offset = s - value;
+                        if (hint)
+                                *hint = "attribute value missing";
                         return -EINVAL;
+                }
 
                 if (type == FORMAT_SUBST_RESULT && !isempty(attr)) {
                         unsigned i;
 
                         r = safe_atou_optional_plus(attr, &i);
-                        if (r < 0)
+                        if (r < 0) {
+                                if (offset)
+                                        *offset = s - value;
+                                if (hint)
+                                        *hint = "attribute value not a valid number";
                                 return r;
+                        }
                 }
         }
 
