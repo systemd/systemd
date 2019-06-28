@@ -998,3 +998,7 @@ static const char* const device_action_table[_DEVICE_ACTION_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(device_action, DeviceAction);
+
+void dump_device_action_table(void) {
+        DUMP_STRING_TABLE(device_action, DeviceAction, _DEVICE_ACTION_MAX);
+}
