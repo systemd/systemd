@@ -115,7 +115,7 @@ static int help(void) {
                "  -t --type=                        Type of events to trigger\n"
                "          devices                     sysfs devices (default)\n"
                "          subsystems                  sysfs subsystems and drivers\n"
-               "  -c --action=ACTION                Event action value, default is \"change\"\n"
+               "  -c --action=ACTION|help           Event action value, default is \"change\"\n"
                "  -s --subsystem-match=SUBSYSTEM    Trigger devices from a matching subsystem\n"
                "  -S --subsystem-nomatch=SUBSYSTEM  Exclude devices from a matching subsystem\n"
                "  -a --attr-match=FILE[=VALUE]      Trigger devices with a matching attribute\n"
@@ -205,6 +205,10 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type --type=%s", optarg);
                         break;
                 case 'c':
+                        if (streq(optarg, "help")) {
+                                dump_device_action_table();
+                                return 0;
+                        }
                         if (device_action_from_string(optarg) < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown action '%s'", optarg);
 
