@@ -1480,8 +1480,8 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                 }
 
                 for (;;) {
-                        _cleanup_free_ char *cid = NULL, *pid = NULL, *sname = NULL, *pdesc = NULL, *capabilities = NULL;
-                        const char *chassis_id = NULL, *port_id = NULL, *system_name = NULL, *port_description = NULL;
+                        _cleanup_free_ char *cid = NULL, *pid = NULL, *sname = NULL, *pdesc = NULL;
+                        const char *chassis_id = NULL, *port_id = NULL, *system_name = NULL, *port_description = NULL, *capabilities = NULL;
                         _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
                         uint16_t cc;
 
