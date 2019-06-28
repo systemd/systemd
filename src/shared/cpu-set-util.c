@@ -155,7 +155,7 @@ int parse_cpu_set_full(
                 unsigned cpu_lower, cpu_upper;
                 int r;
 
-                r = extract_first_word(&p, &word, WHITESPACE ",", EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, WHITESPACE ",", EXTRACT_UNQUOTE);
                 if (r == -ENOMEM)
                         return warn ? log_oom() : -ENOMEM;
                 if (r < 0)

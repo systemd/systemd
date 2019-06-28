@@ -322,7 +322,7 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
         for (;;) {
                 _cleanup_free_ char *word = NULL, *m = NULL;
 
-                r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+                r = extract_first_word(&text, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
                 if (r == 0)
@@ -391,7 +391,7 @@ static int handle_dependencies(SysvStub *s, unsigned line, const char *full_text
                 _cleanup_free_ char *word = NULL, *m = NULL;
                 bool is_before;
 
-                r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+                r = extract_first_word(&text, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
                 if (r == 0)

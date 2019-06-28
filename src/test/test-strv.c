@@ -204,7 +204,7 @@ static void test_strv_unquote(const char *quoted, char **list) {
         char **t;
         int r;
 
-        r = strv_split_extract(&s, quoted, WHITESPACE, EXTRACT_QUOTES);
+        r = strv_split_extract(&s, quoted, WHITESPACE, EXTRACT_UNQUOTE);
         assert_se(r == (int) strv_length(list));
         assert_se(s);
         j = strv_join(s, " | ");
@@ -221,7 +221,7 @@ static void test_invalid_unquote(const char *quoted) {
         char **s = NULL;
         int r;
 
-        r = strv_split_extract(&s, quoted, WHITESPACE, EXTRACT_QUOTES);
+        r = strv_split_extract(&s, quoted, WHITESPACE, EXTRACT_UNQUOTE);
         assert_se(s == NULL);
         assert_se(r == -EINVAL);
 }

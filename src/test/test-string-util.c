@@ -380,7 +380,7 @@ static void check(const char *test, char** expected, bool trailing) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&test, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&test, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0) {
                         assert_se(!trailing);
                         break;
