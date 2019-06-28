@@ -391,7 +391,7 @@ int udev_ctrl_wait(struct udev_ctrl *uctrl, usec_t timeout) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_source_set_description(uctrl->event_source, "udev-ctrl-wait-io");
+        (void) sd_event_source_set_description(source_io, "udev-ctrl-wait-io");
 
         if (timeout != USEC_INFINITY) {
                 usec_t usec;
