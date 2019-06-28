@@ -4120,6 +4120,14 @@ bool json_variant_is_sorted(JsonVariant *v) {
         return v->sorted;
 }
 
+int json_variant_unbase64(JsonVariant *v, void **ret, size_t *ret_size) {
+
+        if (!json_variant_is_string(v))
+                return -EINVAL;
+
+        return unbase64mem(json_variant_string(v), (size_t) -1, ret, ret_size);
+}
+
 static const char* const json_variant_type_table[_JSON_VARIANT_TYPE_MAX] = {
         [JSON_VARIANT_STRING] = "string",
         [JSON_VARIANT_INTEGER] = "integer",

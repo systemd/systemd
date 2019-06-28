@@ -324,5 +324,7 @@ int json_log_internal(JsonVariant *variant, int level, int error, const char *fi
                 (JsonVariant*) ((uintptr_t) UNIQ_T(json_string_const, xq) + 1); \
         })
 
+int json_variant_unbase64(JsonVariant *v, void **ret, size_t *ret_size);
+
 const char *json_variant_type_to_string(JsonVariantType t);
 JsonVariantType json_variant_type_from_string(const char *s);
