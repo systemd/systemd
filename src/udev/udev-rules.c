@@ -502,7 +502,7 @@ static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, 
                 SET_FLAG(rule_line->type, LINE_HAS_DEVLINK, true);
 
         else if (token->type >= _TK_A_MIN ||
-                 IN_SET(token->type,
+                 IN_SET(token->type, TK_M_PROGRAM,
                         TK_M_IMPORT_FILE, TK_M_IMPORT_PROGRAM, TK_M_IMPORT_BUILTIN,
                         TK_M_IMPORT_DB, TK_M_IMPORT_CMDLINE, TK_M_IMPORT_PARENT))
                 SET_FLAG(rule_line->type, LINE_UPDATE_SOMETHING, true);
