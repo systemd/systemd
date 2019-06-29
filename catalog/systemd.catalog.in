@@ -359,6 +359,13 @@ Support: %SUPPORT_URL%
 
 The unit @UNIT@ has successfully entered the 'dead' state.
 
+-- 0e4284a0caca4bfc81c0bb6786972673
+Subject: Unit skipped
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The unit @UNIT@ was skipped and has entered the 'dead' state with result '@UNIT_RESULT@'.
+
 -- d9b373ed55a64feb8242e02dbe79a49c
 Subject: Unit failed
 Defined-By: systemd

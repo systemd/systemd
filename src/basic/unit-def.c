@@ -162,6 +162,7 @@ DEFINE_STRING_TABLE_LOOKUP(scope_state, ScopeState);
 
 static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = "dead",
+        [SERVICE_CONDITION] = "condition",
         [SERVICE_START_PRE] = "start-pre",
         [SERVICE_START] = "start",
         [SERVICE_START_POST] = "start-post",
