@@ -119,7 +119,7 @@ _udevadm() {
                         comps='devices subsystems'
                         ;;
                     -c|--action)
-                        comps='add change remove bind unbind'
+                        comps=$( udevadm trigger --action help )
                         ;;
                     -y|--sysname-match|-b|--parent-match)
                         comps=$( __get_all_sysdevs )
@@ -196,7 +196,7 @@ _udevadm() {
             if __contains_word "$prev" ${OPTS[TEST]}; then
                 case $prev in
                     -a|--action)
-                        comps='add change remove bind unbind'
+                        comps=$( udevadm test --action help )
                         ;;
                     -N|--resolve-names)
                         comps='early late never'
