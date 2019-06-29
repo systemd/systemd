@@ -1034,8 +1034,8 @@ static int link_status_one(
         if (r < 0)
                 return r;
         r = table_add_cell_stringf(table, NULL, "%s%s%s (%s%s%s)",
-                                  on_color_operational, strna(operational_state), off_color_operational,
-                                  on_color_setup, strna(setup_state), off_color_setup);
+                                   on_color_operational, strna(operational_state), off_color_operational,
+                                   on_color_setup, strna(setup_state), off_color_setup);
         if (r < 0)
                 return r;
 
@@ -1097,10 +1097,10 @@ static int link_status_one(
                 if (r < 0)
                         return r;
                 r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
-                                          ether_addr_to_string(&info->mac_address, ea),
-                                          description ? " (" : "",
-                                          description,
-                                          description ? ")" : "");
+                                           ether_addr_to_string(&info->mac_address, ea),
+                                           description ? " (" : "",
+                                           strempty(description),
+                                           description ? ")" : "");
                 if (r < 0)
                         return r;
         }
