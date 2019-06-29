@@ -1334,7 +1334,7 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                 return bus_append_safe_atou(m, field, eq);
 
         if (STR_IN_SET(field,
-                       "ExecStartPre", "ExecStart", "ExecStartPost",
+                       "ExecCondition", "ExecStartPre", "ExecStart", "ExecStartPost",
                        "ExecReload", "ExecStop", "ExecStopPost"))
 
                 return bus_append_exec_command(m, field, eq);

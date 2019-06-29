@@ -36,6 +36,7 @@ typedef enum ServiceType {
 } ServiceType;
 
 typedef enum ServiceExecCommand {
+        SERVICE_EXEC_CONDITION,
         SERVICE_EXEC_START_PRE,
         SERVICE_EXEC_START,
         SERVICE_EXEC_START_POST,
@@ -67,6 +68,7 @@ typedef enum ServiceResult {
         SERVICE_FAILURE_CORE_DUMP,
         SERVICE_FAILURE_WATCHDOG,
         SERVICE_FAILURE_START_LIMIT_HIT,
+        SERVICE_SKIP_CONDITION,
         _SERVICE_RESULT_MAX,
         _SERVICE_RESULT_INVALID = -1
 } ServiceResult;

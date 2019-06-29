@@ -658,6 +658,7 @@ int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t cont
 typedef enum UnitNotifyFlags {
         UNIT_NOTIFY_RELOAD_FAILURE    = 1 << 0,
         UNIT_NOTIFY_WILL_AUTO_RESTART = 1 << 1,
+        UNIT_NOTIFY_SKIP_CONDITION    = 1 << 2,
 } UnitNotifyFlags;
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags);
@@ -806,6 +807,9 @@ int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 
 void unit_log_success(Unit *u);
 void unit_log_failure(Unit *u, const char *result);
+/* unit_log_skip is for cases like ExecCondition= where a unit is considered "done"
+ * after some execution, rather than succeeded or failed. */
+void unit_log_skip(Unit *u, const char *result);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

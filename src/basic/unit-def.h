@@ -101,6 +101,7 @@ typedef enum ScopeState {
 
 typedef enum ServiceState {
         SERVICE_DEAD,
+        SERVICE_CONDITION,
         SERVICE_START_PRE,
         SERVICE_START,
         SERVICE_START_POST,

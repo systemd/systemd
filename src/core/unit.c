@@ -2227,6 +2227,7 @@ static void unit_update_on_console(Unit *u) {
 
 static bool unit_process_job(Job *j, UnitActiveState ns, UnitNotifyFlags flags) {
         bool unexpected = false;
+        JobResult result;
 
         assert(j);
 
@@ -2249,8 +2250,16 @@ static bool unit_process_job(Job *j, UnitActiveState ns, UnitNotifyFlags flags) 
                 else if (j->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
                         unexpected = true;
 
-                        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true, false);
+                        if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+                                if (ns == UNIT_FAILED)
+                                        result = JOB_FAILED;
+                                else if (FLAGS_SET(flags, UNIT_NOTIFY_SKIP_CONDITION))
+                                        result = JOB_SKIPPED;
+                                else
+                                        result = JOB_DONE;
+
+                                job_finish_and_invalidate(j, result, true, false);
+                        }
                 }
 
                 break;
@@ -5481,6 +5490,18 @@ void unit_log_failure(Unit *u, const char *result) {
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
                    LOG_UNIT_MESSAGE(u, "Failed with result '%s'.", result),
+                   "UNIT_RESULT=%s", result);
+}
+
+void unit_log_skip(Unit *u, const char *result) {
+        assert(u);
+        assert(result);
+
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_MESSAGE_UNIT_SKIPPED_STR,
+                   LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
+                   LOG_UNIT_MESSAGE(u, "Skipped due to '%s'.", result),
                    "UNIT_RESULT=%s", result);
 }
 

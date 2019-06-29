@@ -626,8 +626,6 @@ Features:
 
 * merge unit_kill_common() and unit_kill_context()
 
-* introduce ExecCondition= in services
-
 * EFI:
   - honor language efi variables for default language selection (if there are any?)
   - honor timezone efi variables for default timezone selection (if there are any?)

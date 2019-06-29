@@ -30,7 +30,7 @@
 
 typedef void (*test_function_t)(Manager *m);
 
-static void check(const char *func, Manager *m, Unit *unit, int status_expected, int code_expected) {
+static void wait_for_service_finish(Manager *m, Unit *unit) {
         Service *service = NULL;
         usec_t ts;
         usec_t timeout = 2 * USEC_PER_MINUTE;
@@ -55,6 +55,17 @@ static void check(const char *func, Manager *m, Unit *unit, int status_expected,
                         exit(EXIT_FAILURE);
                 }
         }
+}
+
+static void check_main_result(const char *func, Manager *m, Unit *unit, int status_expected, int code_expected) {
+        Service *service = NULL;
+
+        assert_se(m);
+        assert_se(unit);
+
+        wait_for_service_finish(m, unit);
+
+        service = SERVICE(unit);
         exec_status_dump(&service->main_exec_status, stdout, "\t");
         if (service->main_exec_status.status != status_expected) {
                 log_error("%s: %s: exit status %d, expected %d",
@@ -66,6 +77,25 @@ static void check(const char *func, Manager *m, Unit *unit, int status_expected,
                 log_error("%s: %s: exit code %d, expected %d",
                           func, unit->id,
                           service->main_exec_status.code, code_expected);
+                abort();
+        }
+}
+
+static void check_service_result(const char *func, Manager *m, Unit *unit, ServiceResult result_expected) {
+        Service *service = NULL;
+
+        assert_se(m);
+        assert_se(unit);
+
+        wait_for_service_finish(m, unit);
+
+        service = SERVICE(unit);
+
+        if (service->result != result_expected) {
+                log_error("%s: %s: service end result %s, expected %s",
+                          func, unit->id,
+                          service_result_to_string(service->result),
+                          service_result_to_string(result_expected));
                 abort();
         }
 }
@@ -140,7 +170,17 @@ static void test(const char *func, Manager *m, const char *unit_name, int status
 
         assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
         assert_se(unit_start(unit) >= 0);
-        check(func, m, unit, status_expected, code_expected);
+        check_main_result(func, m, unit, status_expected, code_expected);
+}
+
+static void test_service(const char *func, Manager *m, const char *unit_name, ServiceResult result_expected) {
+        Unit *unit;
+
+        assert_se(unit_name);
+
+        assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
+        assert_se(unit_start(unit) >= 0);
+        check_service_result(func, m, unit, result_expected);
 }
 
 static void test_exec_bindpaths(Manager *m) {
@@ -669,6 +709,11 @@ static void test_exec_standardoutput_append(Manager *m) {
         test(__func__, m, "exec-standardoutput-append.service", 0, CLD_EXITED);
 }
 
+static void test_exec_condition(Manager *m) {
+        test_service(__func__, m, "exec-condition-failed.service", SERVICE_FAILURE_EXIT_CODE);
+        test_service(__func__, m, "exec-condition-skip.service", SERVICE_SKIP_CONDITION);
+}
+
 typedef struct test_entry {
         test_function_t f;
         const char *name;
@@ -709,6 +754,7 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_ambientcapabilities),
                 entry(test_exec_bindpaths),
                 entry(test_exec_capabilityboundingset),
+                entry(test_exec_condition),
                 entry(test_exec_cpuaffinity),
                 entry(test_exec_environment),
                 entry(test_exec_environmentfile),

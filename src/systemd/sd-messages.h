@@ -111,6 +111,8 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_UNIT_FAILURE_RESULT    SD_ID128_MAKE(d9,b3,73,ed,55,a6,4f,eb,82,42,e0,2d,be,79,a4,9c)
 #define SD_MESSAGE_UNIT_FAILURE_RESULT_STR \
                                           SD_ID128_MAKE_STR(d9,b3,73,ed,55,a6,4f,eb,82,42,e0,2d,be,79,a4,9c)
+#define SD_MESSAGE_UNIT_SKIPPED           SD_ID128_MAKE(0e,42,84,a0,ca,ca,4b,fc,81,c0,bb,67,86,97,26,73)
+#define SD_MESSAGE_UNIT_SKIPPED_STR       SD_ID128_MAKE_STR(0e,42,84,a0,ca,ca,4b,fc,81,c0,bb,67,86,97,26,73)
 
 #define SD_MESSAGE_SPAWN_FAILED           SD_ID128_MAKE(64,12,57,65,1c,1b,4e,c9,a8,62,4d,7a,40,a9,e1,e7)
 #define SD_MESSAGE_SPAWN_FAILED_STR       SD_ID128_MAKE_STR(64,12,57,65,1c,1b,4e,c9,a8,62,4d,7a,40,a9,e1,e7)

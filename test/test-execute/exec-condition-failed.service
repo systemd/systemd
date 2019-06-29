@@ -1,0 +1,11 @@
+[Unit]
+Description=Test for exec condition that fails the unit
+
+[Service]
+Type=oneshot
+
+# exit 255 will fail the unit
+ExecCondition=/bin/sh -c 'exit 255'
+
+# This should not get run
+ExecStart=/bin/sh -c 'true'
