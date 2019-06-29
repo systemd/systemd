@@ -819,7 +819,6 @@ static int rename_netif(UdevEvent *event) {
 
 static int update_devnode(UdevEvent *event) {
         sd_device *dev = event->dev;
-        bool apply;
         int r;
 
         r = sd_device_get_devnum(dev, NULL);
@@ -834,17 +833,13 @@ static int update_devnode(UdevEvent *event) {
 
         if (!uid_is_valid(event->uid)) {
                 r = device_get_devnode_uid(dev, &event->uid);
-                if (r == -ENOENT)
-                        event->uid = 0;
-                else if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         return log_device_error_errno(dev, r, "Failed to get devnode UID: %m");
         }
 
         if (!gid_is_valid(event->gid)) {
                 r = device_get_devnode_gid(dev, &event->gid);
-                if (r == -ENOENT)
-                        event->gid = 0;
-                else if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         return log_device_error_errno(dev, r, "Failed to get devnode GID: %m");
         }
 
@@ -852,21 +847,14 @@ static int update_devnode(UdevEvent *event) {
                 r = device_get_devnode_mode(dev, &event->mode);
                 if (r < 0 && r != -ENOENT)
                         return log_device_error_errno(dev, r, "Failed to get devnode mode: %m");
-                if (r == -ENOENT) {
-                        if (event->gid > 0)
-                                /* default 0660 if a group is assigned */
-                                event->mode = 0660;
-                        else
-                                /* default 0600 */
-                                event->mode = 0600;
-                }
         }
+        if (event->mode == MODE_INVALID && gid_is_valid(event->gid) && event->gid > 0)
+                /* If group is set, but mode is not set, "upgrade" mode for the group. */
+                event->mode = 0660;
 
-        apply = device_for_action(dev, DEVICE_ACTION_ADD) ||
-                uid_is_valid(event->uid) ||
-                gid_is_valid(event->gid) ||
-                event->mode != MODE_INVALID;
-        return udev_node_add(dev, apply, event->mode, event->uid, event->gid, event->seclabel_list);
+        bool apply_mac = device_for_action(dev, DEVICE_ACTION_ADD);
+
+        return udev_node_add(dev, apply_mac, event->mode, event->uid, event->gid, event->seclabel_list);
 }
 
 static void event_execute_rules_on_remove(
