@@ -297,7 +297,7 @@ static int node_permissions_apply(sd_device *dev, bool apply,
                 mode |= S_IFCHR;
 
         if (lstat(devnode, &stats) < 0)
-                return log_device_debug_errno(dev, errno, "cannot stat() node '%s' (%m)", devnode);
+                return log_device_debug_errno(dev, errno, "cannot stat() node %s: %m", devnode);
 
         if (((stats.st_mode & S_IFMT) != (mode & S_IFMT)) || (stats.st_rdev != devnum))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST), "Found node '%s' with non-matching devnum %s, skip handling",
