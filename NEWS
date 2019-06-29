@@ -70,6 +70,9 @@ CHANGES WITH 243 in spe:
           build/man/man systemctl
           build/man/html systemd.index
 
+        * libidn2 is used by default if both libidn2 and libidn are installed.
+          Please use -Dlibidn=true when libidn is favorable.
+
         * The D-Bus "wire format" for CPUAffinity attribute is changed on
           big-endian machines. Before, bytes were written and read in native
           machine order as exposed by the native libc __cpu_mask interface.
