@@ -26,6 +26,7 @@
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-node.h"
+#include "user-util.h"
 
 static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         _cleanup_free_ char *slink_dirname = NULL, *target = NULL;
@@ -270,13 +271,14 @@ int udev_node_update_old_links(sd_device *dev, sd_device *dev_old) {
         return 0;
 }
 
-static int node_permissions_apply(sd_device *dev, bool apply,
+static int node_permissions_apply(sd_device *dev, bool apply_mac,
                                   mode_t mode, uid_t uid, gid_t gid,
                                   OrderedHashmap *seclabel_list) {
         const char *devnode, *subsystem, *id_filename = NULL;
         struct stat stats;
         dev_t devnum;
-        int r = 0;
+        bool apply_mode, apply_uid, apply_gid;
+        int r;
 
         assert(dev);
 
@@ -299,21 +301,27 @@ static int node_permissions_apply(sd_device *dev, bool apply,
         if (lstat(devnode, &stats) < 0)
                 return log_device_debug_errno(dev, errno, "cannot stat() node %s: %m", devnode);
 
-        if (((stats.st_mode & S_IFMT) != (mode & S_IFMT)) || (stats.st_rdev != devnum))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST), "Found node '%s' with non-matching devnum %s, skip handling",
+        if ((mode != MODE_INVALID && (stats.st_mode & S_IFMT) != (mode & S_IFMT)) || stats.st_rdev != devnum)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
+                                              "Found node '%s' with non-matching devnum %s, skip handling",
                                               devnode, id_filename);
 
-        if (apply) {
+        apply_mode = mode != MODE_INVALID && (stats.st_mode & 0777) != (mode & 0777);
+        apply_uid = uid_is_valid(uid) && stats.st_uid != uid;
+        apply_gid = gid_is_valid(gid) && stats.st_gid != gid;
+
+        if (apply_mode || apply_uid || apply_gid || apply_mac) {
                 bool selinux = false, smack = false;
                 const char *name, *label;
                 Iterator i;
 
-                if ((stats.st_mode & 0777) != (mode & 0777) || stats.st_uid != uid || stats.st_gid != gid) {
+                if (apply_mode || apply_uid || apply_gid) {
                         log_device_debug(dev, "Setting permissions %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
 
                         r = chmod_and_chown(devnode, mode, uid, gid);
                         if (r < 0)
-                                log_device_warning_errno(dev, r, "Failed to set owner/mode of %s to uid=" UID_FMT ", gid=" GID_FMT ", mode=%#o: %m", devnode, uid, gid, mode);
+                                log_device_warning_errno(dev, r, "Failed to set owner/mode of %s to uid=" UID_FMT ", gid=" GID_FMT ", mode=%#o: %m",
+                                                         devnode, uid, gid, mode);
                 } else
                         log_device_debug(dev, "Preserve permissions of %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
 
