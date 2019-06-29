@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "ether-addr-util.h"
 #include "networkd-manager.h"
+#include "networkd-network-bus.h"
 #include "string-util.h"
 #include "strv.h"
 

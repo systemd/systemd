@@ -24,6 +24,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-link-bus.h"
 #include "networkd-manager.h"
+#include "networkd-network-bus.h"
 #include "networkd-speed-meter.h"
 #include "ordered-set.h"
 #include "path-util.h"
