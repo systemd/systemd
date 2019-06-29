@@ -268,8 +268,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_stacked_netdev);
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6token);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_privacy_extensions);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_dns);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
