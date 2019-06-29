@@ -21,6 +21,7 @@
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "networkd-dhcp6.h"
 #include "networkd-link-bus.h"
 #include "networkd-manager.h"
 #include "networkd-speed-meter.h"

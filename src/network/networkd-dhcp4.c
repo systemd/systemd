@@ -7,9 +7,11 @@
 #include "hostname-util.h"
 #include "parse-util.h"
 #include "network-internal.h"
+#include "networkd-dhcp4.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "sysctl-util.h"
 
@@ -1078,3 +1080,175 @@ int dhcp4_configure(Link *link) {
 
         return dhcp4_set_client_identifier(link);
 }
+
+int config_parse_dhcp_max_attempts(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        uint64_t a;
+        int r;
+
+        assert(network);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->dhcp_max_attempts = 0;
+                return 0;
+        }
+
+        if (streq(rvalue, "infinity")) {
+                network->dhcp_max_attempts = (uint64_t) -1;
+                return 0;
+        }
+
+        r = safe_atou64(rvalue, &a);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse DHCP maximum attempts, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (a == 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "%s= must be positive integer or 'infinity', ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        network->dhcp_max_attempts = a;
+
+        return 0;
+}
+
+int config_parse_dhcp_black_listed_ip_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                network->dhcp_black_listed_ip = set_free(network->dhcp_black_listed_ip);
+                return 0;
+        }
+
+        for (p = rvalue;;) {
+                _cleanup_free_ char *n = NULL;
+                union in_addr_union ip;
+
+                r = extract_first_word(&p, &n, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse DHCP black listed ip address, ignoring assignment: %s",
+                                   rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = in_addr_from_string(AF_INET, n, &ip);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "DHCP black listed ip address is invalid, ignoring assignment: %s", n);
+                        continue;
+                }
+
+                r = set_ensure_allocated(&network->dhcp_black_listed_ip, NULL);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_put(network->dhcp_black_listed_ip, UINT32_TO_PTR(ip.in.s_addr));
+                if (r < 0)
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to store DHCP black listed ip address '%s', ignoring assignment: %m", n);
+        }
+
+        return 0;
+}
+
+int config_parse_dhcp_user_class(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***l = data;
+        int r;
+
+        assert(l);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *l = strv_free(*l);
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+
+                r = extract_first_word(&rvalue, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to split user classes option, ignoring: %s", rvalue);
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                if (strlen(w) > 255) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "%s length is not in the range 1-255, ignoring.", w);
+                        continue;
+                }
+
+                r = strv_push(l, w);
+                if (r < 0)
+                        return log_oom();
+
+                w = NULL;
+        }
+
+        return 0;
+}
+
+static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
+        [DHCP_CLIENT_ID_MAC] = "mac",
+        [DHCP_CLIENT_ID_DUID] = "duid",
+        [DHCP_CLIENT_ID_DUID_ONLY] = "duid-only",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_client_identifier, DHCPClientIdentifier);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_client_identifier, dhcp_client_identifier, DHCPClientIdentifier,
+                         "Failed to parse client identifier type");

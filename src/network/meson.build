@@ -55,11 +55,16 @@ sources = files('''
         networkd-can.h
         networkd-conf.c
         networkd-conf.h
+        networkd-dhcp-common.c
+        networkd-dhcp-common.h
         networkd-dhcp4.c
+        networkd-dhcp4.h
         networkd-dhcp6.c
+        networkd-dhcp6.h
         networkd-fdb.c
         networkd-fdb.h
         networkd-ipv4ll.c
+        networkd-ipv4ll.h
         networkd-ipv6-proxy-ndp.c
         networkd-ipv6-proxy-ndp.h
         networkd-link-bus.c
