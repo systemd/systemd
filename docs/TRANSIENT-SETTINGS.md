@@ -279,6 +279,7 @@ Most service unit settings are available for transient units.
 
 ```
 ✓ PIDFile=
+✓ ExecCondition=
 ✓ ExecStartPre=
 ✓ ExecStart=
 ✓ ExecStartPost=
