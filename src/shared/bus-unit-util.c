@@ -325,12 +325,12 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
         }
 
         if (explicit_path) {
-                r = extract_first_word(&eq, &path, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
+                r = extract_first_word(&eq, &path, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse path: %m");
         }
 
-        r = strv_split_extract(&l, eq, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
+        r = strv_split_extract(&l, eq, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse command line: %m");
 
@@ -440,13 +440,13 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
         if (streq(field, "DisableControllers"))
 
-                return bus_append_strv(m, "DisableControllers", eq, EXTRACT_QUOTES);
+                return bus_append_strv(m, "DisableControllers", eq, EXTRACT_UNQUOTE);
 
         if (streq(field, "Delegate")) {
 
                 r = parse_boolean(eq);
                 if (r < 0)
-                        return bus_append_strv(m, "DelegateControllers", eq, EXTRACT_QUOTES);
+                        return bus_append_strv(m, "DelegateControllers", eq, EXTRACT_UNQUOTE);
 
                 r = sd_bus_message_append(m, "(sv)", "Delegate", "b", r);
                 if (r < 0)
@@ -819,7 +819,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                        "RuntimeDirectory", "StateDirectory", "CacheDirectory", "LogsDirectory", "ConfigurationDirectory",
                        "SupplementaryGroups", "SystemCallArchitectures"))
 
-                return bus_append_strv(m, field, eq, EXTRACT_QUOTES);
+                return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
 
         if (STR_IN_SET(field, "SyslogLevel", "LogLevelMax"))
 
@@ -881,7 +881,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
         if (STR_IN_SET(field, "Environment", "UnsetEnvironment", "PassEnvironment"))
 
-                return bus_append_strv(m, field, eq, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
+                return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
 
         if (streq(field, "EnvironmentFile")) {
 
@@ -1125,7 +1125,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 for (;;) {
                         _cleanup_free_ char *word = NULL;
 
-                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                         if (r == 0)
                                 break;
                         if (r == -ENOMEM)
@@ -1212,7 +1212,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         bool ignore_enoent = false;
                         uint64_t flags = MS_REC;
 
-                        r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                        r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse argument: %m");
                         if (r == 0)
@@ -1225,7 +1225,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         }
 
                         if (p && p[-1] == ':') {
-                                r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                                r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse argument: %m");
                                 if (r == 0)
@@ -1238,7 +1238,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                 if (p && p[-1] == ':') {
                                         _cleanup_free_ char *options = NULL;
 
-                                        r = extract_first_word(&p, &options, NULL, EXTRACT_QUOTES);
+                                        r = extract_first_word(&p, &options, NULL, EXTRACT_UNQUOTE);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to parse argument: %m");
 
@@ -1297,7 +1297,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         _cleanup_free_ char *word = NULL, *path = NULL;
                         const char *w;
 
-                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse argument: %m");
                         if (r == 0)
@@ -1446,7 +1446,7 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                         _cleanup_free_ char *word = NULL;
                         int val;
 
-                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                         if (r == 0)
                                 break;
                         if (r == -ENOMEM)
@@ -1566,7 +1566,7 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
 
         if (streq(field, "Symlinks"))
 
-                return bus_append_strv(m, field, eq, EXTRACT_QUOTES);
+                return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
 
         if (streq(field, "SocketProtocol"))
 
@@ -1684,7 +1684,7 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
         if (unit_dependency_from_string(field) >= 0 ||
             STR_IN_SET(field, "Documentation", "RequiresMountsFor"))
 
-                return bus_append_strv(m, field, eq, EXTRACT_QUOTES);
+                return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
 
         t = condition_type_from_string(field);
         if (t >= 0)

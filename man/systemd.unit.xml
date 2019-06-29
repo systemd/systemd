@@ -1136,10 +1136,11 @@
 
         <para><varname>ConditionKernelVersion=</varname> may be used to check whether the kernel version (as
         reported by <command>uname -r</command>) matches a certain expression (or if prefixed with the
-        exclamation mark does not match it). The argument must be a single string. If the string starts with
-        one of <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>,
-        <literal>!=</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal> a relative version
-        comparison is done, otherwise the specified string is matched with shell-style globs.</para>
+        exclamation mark does not match it). The argument must be a list of (potentially quoted) expressions.
+        For each of the expressions, if it starts with one of <literal>&lt;</literal>,
+        <literal>&lt;=</literal>, <literal>=</literal>, <literal>!=</literal>, <literal>&gt;=</literal>,
+        <literal>&gt;</literal> a relative version comparison is done, otherwise the specified string is
+        matched with shell-style globs.</para>
 
         <para>Note that using the kernel version string is an unreliable way to determine which features are supported
         by a kernel, because of the widespread practice of backporting drivers, features, and fixes from newer upstream

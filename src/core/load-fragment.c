@@ -334,7 +334,7 @@ int config_parse_unit_path_strv_printf(
         for (p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -638,7 +638,7 @@ int config_parse_exec(
 
                 semicolon = false;
 
-                r = extract_first_word_and_warn(&p, &firstword, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
+                r = extract_first_word_and_warn(&p, &firstword, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
                 if (r <= 0)
                         return 0;
 
@@ -784,7 +784,7 @@ int config_parse_exec(
                                 continue;
                         }
 
-                        r = extract_first_word_and_warn(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
+                        r = extract_first_word_and_warn(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
                         if (r == 0)
                                 break;
                         if (r < 0)
@@ -2244,7 +2244,7 @@ int config_parse_environ(
         for (p = rvalue;; ) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -2312,7 +2312,7 @@ int config_parse_pass_environ(
         for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -2388,7 +2388,7 @@ int config_parse_unset_environ(
         for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -2463,7 +2463,7 @@ int config_parse_log_extra_fields(
                 struct iovec *t;
                 const char *eq;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -2597,7 +2597,8 @@ int config_parse_unit_condition_string(
 
         r = unit_full_printf(u, rvalue, &s);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                 return 0;
         }
 
@@ -2687,7 +2688,7 @@ int config_parse_unit_requires_mounts_for(
         for (;;) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -2882,7 +2883,7 @@ int config_parse_syscall_archs(
                 _cleanup_free_ char *word = NULL;
                 uint32_t a;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -2986,7 +2987,7 @@ int config_parse_address_families(
                 _cleanup_free_ char *word = NULL;
                 int af;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -3305,7 +3306,7 @@ int config_parse_delegate(
                         _cleanup_free_ char *word = NULL;
                         CGroupController cc;
 
-                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                         if (r == 0)
                                 break;
                         if (r == -ENOMEM)
@@ -3362,7 +3363,7 @@ int config_parse_device_allow(
                 return 0;
         }
 
-        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -3433,7 +3434,7 @@ int config_parse_io_device_weight(
                 return 0;
         }
 
-        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -3507,7 +3508,7 @@ int config_parse_io_device_latency(
                 return 0;
         }
 
-        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -3581,7 +3582,7 @@ int config_parse_io_limit(
                 return 0;
         }
 
-        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -3672,7 +3673,7 @@ int config_parse_blockio_device_weight(
                 return 0;
         }
 
-        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -3750,7 +3751,7 @@ int config_parse_blockio_bandwidth(
                 return 0;
         }
 
-        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -3870,7 +3871,7 @@ int config_parse_exec_directories(
         for (p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -4006,7 +4007,7 @@ int config_parse_namespace_path_strv(
                 const char *w;
                 bool ignore_enoent = false, shall_prefix = false;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -4084,7 +4085,7 @@ int config_parse_temporary_filesystems(
                 _cleanup_free_ char *word = NULL, *path = NULL, *resolved = NULL;
                 const char *w;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -4160,7 +4161,7 @@ int config_parse_bind_paths(
                 char *s = NULL, *d = NULL;
                 bool rbind = true, ignore_enoent = false;
 
-                r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -4189,7 +4190,7 @@ int config_parse_bind_paths(
 
                 /* Optionally, the destination is specified. */
                 if (p && p[-1] == ':') {
-                        r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                        r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0) {
@@ -4218,7 +4219,7 @@ int config_parse_bind_paths(
                         if (p && p[-1] == ':') {
                                 _cleanup_free_ char *options = NULL;
 
-                                r = extract_first_word(&p, &options, NULL, EXTRACT_QUOTES);
+                                r = extract_first_word(&p, &options, NULL, EXTRACT_UNQUOTE);
                                 if (r == -ENOMEM)
                                         return log_oom();
                                 if (r < 0) {

@@ -216,7 +216,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
         assert(d);
         assert(line);
 
-        r = extract_first_word(&p, &domain, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &domain, NULL, EXTRACT_UNQUOTE);
         if (r < 0)
                 return log_warning_errno(r, "Unable to parse domain in line %s:%u: %m", path, line);
 
@@ -386,7 +386,7 @@ static int dns_trust_anchor_load_negative(DnsTrustAnchor *d, const char *path, u
         assert(d);
         assert(line);
 
-        r = extract_first_word(&p, &domain, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &domain, NULL, EXTRACT_UNQUOTE);
         if (r < 0)
                 return log_warning_errno(r, "Unable to parse line %s:%u: %m", path, line);
 

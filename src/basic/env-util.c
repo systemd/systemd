@@ -688,7 +688,7 @@ char **replace_env_argv(char **argv, char **env) {
                         if (e) {
                                 int r;
 
-                                r = strv_split_extract(&m, e, WHITESPACE, EXTRACT_RELAX|EXTRACT_QUOTES);
+                                r = strv_split_extract(&m, e, WHITESPACE, EXTRACT_RELAX|EXTRACT_UNQUOTE);
                                 if (r < 0) {
                                         ret[k] = NULL;
                                         strv_free(ret);

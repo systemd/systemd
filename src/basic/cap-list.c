@@ -100,7 +100,7 @@ int capability_set_from_string(const char *s, uint64_t *set) {
                 _cleanup_free_ char *word = NULL;
                 int r;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == -ENOMEM)
                         return r;
                 if (r <= 0)

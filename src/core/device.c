@@ -374,7 +374,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
         for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&wants, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&wants, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -626,7 +626,7 @@ static int device_process_new(Manager *m, sd_device *dev) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&alias, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&alias, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)

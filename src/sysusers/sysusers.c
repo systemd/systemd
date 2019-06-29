@@ -1390,7 +1390,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         /* Parse columns */
         p = buffer;
-        r = extract_many_words(&p, NULL, EXTRACT_QUOTES,
+        r = extract_many_words(&p, NULL, EXTRACT_UNQUOTE,
                                &action, &name, &id, &description, &home, &shell, NULL);
         if (r < 0)
                 return log_error_errno(r, "[%s:%u] Syntax error.", fname, line);
