@@ -190,7 +190,6 @@ if conf.get('ENABLE_NETWORKD') == 1
      []],
 
     [['src/network/test-network-tables.c',
-      'src/network/test-network-tables.c',
       test_tables_h],
      [libnetworkd_core,
       libudev_static,
