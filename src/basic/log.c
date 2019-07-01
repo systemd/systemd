@@ -1238,18 +1238,29 @@ int log_syntax_internal(
         if (unit)
                 unit_fmt = getpid_cached() == 1 ? "UNIT=%s" : "USER_UNIT=%s";
 
-        if (config_file)
-                return log_struct_internal(
-                                LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, level),
-                                error,
-                                file, line, func,
-                                "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
-                                "CONFIG_FILE=%s", config_file,
-                                "CONFIG_LINE=%u", config_line,
-                                LOG_MESSAGE("%s:%u: %s", config_file, config_line, buffer),
-                                unit_fmt, unit,
-                                NULL);
-        else if (unit)
+        if (config_file) {
+                if (config_line > 0)
+                        return log_struct_internal(
+                                        LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, level),
+                                        error,
+                                        file, line, func,
+                                        "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
+                                        "CONFIG_FILE=%s", config_file,
+                                        "CONFIG_LINE=%u", config_line,
+                                        LOG_MESSAGE("%s:%u: %s", config_file, config_line, buffer),
+                                        unit_fmt, unit,
+                                        NULL);
+                else
+                        return log_struct_internal(
+                                        LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, level),
+                                        error,
+                                        file, line, func,
+                                        "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
+                                        "CONFIG_FILE=%s", config_file,
+                                        LOG_MESSAGE("%s: %s", config_file, buffer),
+                                        unit_fmt, unit,
+                                        NULL);
+        } else if (unit)
                 return log_struct_internal(
                                 LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, level),
                                 error,
