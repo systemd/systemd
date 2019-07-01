@@ -2508,13 +2508,14 @@ static int unit_find_paths(
         int r;
 
         /**
-         * Finds where the unit is defined on disk. Returns 0 if the unit is not found. Returns 1 if it is found, and
-         * sets:
+         * Finds where the unit is defined on disk. Returns 0 if the unit is not found. Returns 1 if it is
+         * found, and sets:
          * - the path to the unit in *ret_frament_path, if it exists on disk,
-         * - and a strv of existing drop-ins in *ret_dropin_paths, if the arg is not NULL and any dropins were found.
+         * - and a strv of existing drop-ins in *ret_dropin_paths, if the arg is not NULL and any dropins
+         *   were found.
          *
-         * Returns -ERFKILL if the unit is masked, and -EKEYREJECTED if the unit file could not be loaded for some
-         * reason (the latter only applies if we are going through the service manager)
+         * Returns -ERFKILL if the unit is masked, and -EKEYREJECTED if the unit file could not be loaded for
+         * some reason (the latter only applies if we are going through the service manager).
          */
 
         assert(unit_name);
@@ -2549,7 +2550,7 @@ static int unit_find_paths(
                         r = 0;
                         goto not_found;
                 }
-                if (!streq(load_state, "loaded"))
+                if (!STR_IN_SET(load_state, "loaded", "bad-setting"))
                         return -EKEYREJECTED;
 
                 r = sd_bus_get_property_string(
