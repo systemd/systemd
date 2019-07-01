@@ -38,6 +38,8 @@ startStrace() {
 
 stopStrace() {
     kill -s TERM $COPROC_PID
+    # Make sure the strace process is indeed dead
+    while kill -0 $COPROC_PID 2>/dev/null; do sleep 0.1; done
 }
 
 startJournalctl() {
@@ -80,6 +82,7 @@ writeTestUnitNUMAPolicy() {
 pid1ReloadWithStrace() {
     startStrace
     systemctl daemon-reload
+    sleep $sleepAfterStart
     stopStrace
 }
 
