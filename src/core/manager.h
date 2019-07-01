@@ -206,6 +206,7 @@ struct Manager {
         sd_event_source *signal_event_source;
 
         sd_event_source *sigchld_event_source;
+        pid_t sigchld_pid;
 
         int time_change_fd;
         sd_event_source *time_change_event_source;

@@ -2470,6 +2470,27 @@ static void manager_invoke_sigchld_event(
                 UNIT_VTABLE(u)->sigchld_event(u, si->si_pid, si->si_code, si->si_status);
 }
 
+static int manager_waitid(Manager *m, siginfo_t *si) {
+        id_t pid, type;
+
+        assert(m);
+        assert(si);
+
+        /* We may have cached PID of the process for which we got SIGCHLD already but haven't waited for yet,
+         * if so then we wait for it, otherwise wait for any process. */
+        if (m->sigchld_pid) {
+                pid = m->sigchld_pid;
+                type = P_PID;
+
+                m->sigchld_pid = 0;
+        } else {
+                pid = 0;
+                type = P_ALL;
+        }
+
+        return waitid(type, pid, si, WEXITED|WNOHANG|WNOWAIT);
+}
+
 static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
         Manager *m = userdata;
         siginfo_t si = {};
@@ -2481,8 +2502,8 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
         /* First we call waitid() for a PID and do not reap the zombie. That way we can still access /proc/$PID for it
          * while it is a zombie. */
 
-        if (waitid(P_ALL, 0, &si, WEXITED|WNOHANG|WNOWAIT) < 0) {
-
+        r = manager_waitid(m, &si);
+        if (r < 0) {
                 if (errno != ECHILD)
                         log_error_errno(errno, "Failed to peek for child with waitid(), ignoring: %m");
 
@@ -2625,6 +2646,10 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 r = sd_event_source_set_enabled(m->sigchld_event_source, SD_EVENT_ON);
                 if (r < 0)
                         log_warning_errno(r, "Failed to enable SIGCHLD event source, ignoring: %m");
+
+                /* Cache the PID of the process so that we wait for it
+                 * once we dispatch the event source. */
+                m->sigchld_pid = sfsi.ssi_pid;
 
                 break;
 
