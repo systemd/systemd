@@ -587,9 +587,11 @@ static int output_verbose(
                 cursor);
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
-                const char *c;
+                const char *c, *p;
                 int fieldlen;
                 const char *on = "", *off = "";
+                _cleanup_free_ char *urlified = NULL;
+                size_t valuelen;
 
                 c = memchr(data, '=', length);
                 if (!c)
@@ -600,20 +602,28 @@ static int output_verbose(
                 r = field_set_test(output_fields, data, fieldlen);
                 if (r < 0)
                         return r;
-                if (!r)
+                if (r == 0)
                         continue;
 
-                if (flags & OUTPUT_COLOR && startswith(data, "MESSAGE=")) {
+                valuelen = length - 1 - fieldlen;
+
+                if ((flags & OUTPUT_COLOR) && (p = startswith(data, "MESSAGE="))) {
                         on = ANSI_HIGHLIGHT;
                         off = ANSI_NORMAL;
-                }
+                } else if ((p = startswith(data, "CONFIG_FILE="))) {
+                        if (terminal_urlify_path(p, NULL, &urlified) >= 0) {
+                                p = urlified;
+                                valuelen = strlen(urlified);
+                        }
+                } else
+                        p = c + 1;
 
                 if ((flags & OUTPUT_SHOW_ALL) ||
                     (((length < PRINT_CHAR_THRESHOLD) || flags & OUTPUT_FULL_WIDTH)
                      && utf8_is_printable(data, length))) {
                         fprintf(f, "    %s%.*s=", on, fieldlen, (const char*)data);
                         print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, false,
-                                        c + 1, length - fieldlen - 1,
+                                        p, valuelen,
                                         NULL);
                         fputs(off, f);
                 } else {
