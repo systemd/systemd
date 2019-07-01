@@ -29,6 +29,7 @@
 #include "output-mode.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "pretty-print.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -375,8 +376,8 @@ static int output_short(
         const void *data;
         size_t length;
         size_t n = 0;
-        _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL, *transport = NULL, *unit = NULL, *user_unit = NULL;
-        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0, transport_len = 0, unit_len = 0, user_unit_len = 0;
+        _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL, *transport = NULL, *config_file = NULL, *unit = NULL, *user_unit = NULL;
+        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0, transport_len = 0, config_file_len = 0, unit_len = 0, user_unit_len = 0;
         int p = LOG_INFO;
         bool ellipsized = false, audit;
         const ParseFieldVec fields[] = {
@@ -390,6 +391,7 @@ static int output_short(
                 PARSE_FIELD_VEC_ENTRY("SYSLOG_IDENTIFIER=", &identifier, &identifier_len),
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=", &realtime, &realtime_len),
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, &monotonic_len),
+                PARSE_FIELD_VEC_ENTRY("CONFIG_FILE=", &config_file, &config_file_len),
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_UNIT=", &unit, &unit_len),
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_USER_UNIT=", &user_unit, &user_unit_len),
         };
@@ -451,7 +453,8 @@ static int output_short(
                 n += hostname_len + 1;
         }
 
-        if (mode == OUTPUT_WITH_UNIT && ((unit && shall_print(unit, unit_len, flags)) || (user_unit && shall_print(user_unit, user_unit_len, flags)))) {
+        if (mode == OUTPUT_WITH_UNIT && ((unit && shall_print(unit, unit_len, flags)) ||
+                                         (user_unit && shall_print(user_unit, user_unit_len, flags)))) {
                 if (unit) {
                         fprintf(f, " %.*s", (int) unit_len, unit);
                         n += unit_len + 1;
@@ -485,6 +488,34 @@ static int output_short(
                 fprintf(f, ": [%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
         } else {
                 fputs(": ", f);
+
+                /* URLify config_file string in message, if the message starts with it.
+                 * Skip URLification if the highlighted pattern overlaps. */
+                if (config_file &&
+                    message_len >= config_file_len &&
+                    memcmp(message, config_file, config_file_len) == 0 &&
+                    IN_SET(message[config_file_len], ':', ' ', '\0') &&
+                    (!highlight || highlight_shifted[0] == 0 || highlight_shifted[0] > config_file_len)) {
+
+                        _cleanup_free_ char *t = NULL, *urlified = NULL;
+
+                        t = strndup(config_file, config_file_len);
+                        if (t && terminal_urlify_path(t, NULL, &urlified) >= 0) {
+                                size_t shift = strlen(urlified) - config_file_len;
+                                char *joined;
+
+                                joined = strjoin(urlified, message + config_file_len);
+                                if (joined) {
+                                        free_and_replace(message, joined);
+                                        message_len += shift;
+                                        if (highlight) {
+                                                highlight_shifted[0] += shift;
+                                                highlight_shifted[1] += shift;
+                                        }
+                                }
+                        }
+                }
+
                 ellipsized |=
                         print_multiline(f, n + 2, n_columns, flags, p, audit,
                                         message, message_len,
