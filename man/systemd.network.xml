@@ -113,7 +113,7 @@
           <listitem>
             <para>A whitespace-separated list of shell-style globs
             matching the driver currently bound to the device, as
-            exposed by the udev property <literal>DRIVER</literal>
+            exposed by the udev property <literal>ID_NET_DRIVER</literal>
             of its parent device, or if that is not set the driver
             as exposed by <literal>ethtool -i</literal> of the
             device itself. If the list is prefixed with a "!", the
@@ -136,6 +136,21 @@
             matching the device name, as exposed by the udev property
             <literal>INTERFACE</literal>. If the list is prefixed
             with a "!", the test is inverted.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Property=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of udev property name with its value after a equal
+            (<literal>=</literal>). If multiple properties are specified, the test results are ANDed.
+            If the list is prefixed with a "!", the test is inverted. If a value contains white
+            spaces, then please quote whole key and value pair. If a value contains quotation, then
+            please escape the quotation with <literal>\</literal>.</para>
+
+            <para>Example: if a .network file has the following:
+            <programlisting>Property=ID_MODEL_ID=9999 "ID_VENDOR_FROM_DATABASE=vendor name" "KEY=with \"quotation\""</programlisting>
+            then, the .network file matches only when an interface has all the above three properties.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>

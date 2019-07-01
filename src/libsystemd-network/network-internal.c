@@ -12,6 +12,7 @@
 #include "conf-parser.h"
 #include "device-util.h"
 #include "dhcp-lease-internal.h"
+#include "env-util.h"
 #include "ether-addr-util.h"
 #include "hexdecoct.h"
 #include "log.h"
@@ -73,26 +74,66 @@ int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_
         return 0;
 }
 
-static bool net_condition_test_strv(char * const *raw_patterns,
-                                    const char *string) {
-        if (strv_isempty(raw_patterns))
+static bool net_condition_test_strv(char * const *patterns, const char *string) {
+        char * const *p;
+        bool match = false, has_positive_rule = false;
+
+        if (strv_isempty(patterns))
                 return true;
 
-        /* If the patterns begin with "!", edit it out and negate the test. */
-        if (raw_patterns[0][0] == '!') {
-                char **patterns;
-                size_t i, length;
+        STRV_FOREACH(p, patterns) {
+                const char *q = *p;
+                bool invert;
 
-                length = strv_length(raw_patterns) + 1; /* Include the NULL. */
-                patterns = newa(char*, length);
-                patterns[0] = raw_patterns[0] + 1; /* Skip the "!". */
-                for (i = 1; i < length; i++)
-                        patterns[i] = raw_patterns[i];
+                invert = *q == '!';
+                q += invert;
 
-                return !string || !strv_fnmatch(patterns, string, 0);
+                if (!invert)
+                        has_positive_rule = true;
+
+                if (string && fnmatch(q, string, 0) == 0) {
+                        if (invert)
+                                return false;
+                        else
+                                match = true;
+                }
         }
 
-        return string && strv_fnmatch(raw_patterns, string, 0);
+        return has_positive_rule ? match : true;
+}
+
+static int net_condition_test_property(char * const *match_property, sd_device *device) {
+        char * const *p;
+
+        if (strv_isempty(match_property))
+                return true;
+
+        STRV_FOREACH(p, match_property) {
+                _cleanup_free_ char *key = NULL;
+                const char *val, *dev_val;
+                bool invert, v;
+
+                invert = **p == '!';
+
+                val = strchr(*p + invert, '=');
+                if (!val)
+                        return -EINVAL;
+
+                key = strndup(*p + invert, val - *p - invert);
+                if (!key)
+                        return -ENOMEM;
+
+                val++;
+
+                v = device &&
+                        sd_device_get_property_value(device, key, &dev_val) >= 0 &&
+                        fnmatch(val, dev_val, 0) == 0;
+
+                if (invert ? v : !v)
+                        return false;
+        }
+
+        return true;
 }
 
 bool net_match_config(Set *match_mac,
@@ -100,11 +141,24 @@ bool net_match_config(Set *match_mac,
                       char * const *match_drivers,
                       char * const *match_types,
                       char * const *match_names,
+                      char * const *match_property,
+                      sd_device *device,
                       const struct ether_addr *dev_mac,
-                      const char *dev_path,
-                      const char *dev_driver,
-                      const char *dev_type,
                       const char *dev_name) {
+
+        const char *dev_path = NULL, *dev_driver = NULL, *dev_type = NULL, *mac_str;
+
+        if (device) {
+                (void) sd_device_get_property_value(device, "ID_PATH", &dev_path);
+                (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &dev_driver);
+                (void) sd_device_get_devtype(device, &dev_type);
+
+                if (!dev_name)
+                        (void) sd_device_get_sysname(device, &dev_name);
+                if (!dev_mac &&
+                    sd_device_get_sysattr_value(device, "address", &mac_str) >= 0)
+                        dev_mac = ether_aton(mac_str);
+        }
 
         if (match_mac && (!dev_mac || !set_contains(match_mac, dev_mac)))
                 return false;
@@ -119,6 +173,9 @@ bool net_match_config(Set *match_mac,
                 return false;
 
         if (!net_condition_test_strv(match_names, dev_name))
+                return false;
+
+        if (!net_condition_test_property(match_property, device))
                 return false;
 
         return true;
@@ -164,7 +221,7 @@ int config_parse_net_condition(const char *unit,
         return 0;
 }
 
-int config_parse_ifnames(
+int config_parse_match_strv(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -176,7 +233,9 @@ int config_parse_ifnames(
                 void *data,
                 void *userdata) {
 
+        const char *p = rvalue;
         char ***sv = data;
+        bool invert;
         int r;
 
         assert(filename);
@@ -184,30 +243,154 @@ int config_parse_ifnames(
         assert(rvalue);
         assert(data);
 
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-
-                r = extract_first_word(&rvalue, &word, NULL, 0);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse interface name list: %s", rvalue);
-                        return 0;
-                }
-                if (r == 0)
-                        break;
-
-                if (!ifname_valid(word)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Interface name is not valid or too long, ignoring assignment: %s", rvalue);
-                        return 0;
-                }
-
-                r = strv_push(sv, word);
-                if (r < 0)
-                        return log_oom();
-
-                word = NULL;
+        if (isempty(rvalue)) {
+                *sv = strv_free(*sv);
+                return 0;
         }
 
-        return 0;
+        invert = *p == '!';
+        p += invert;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (invert) {
+                        k = strjoin("!", word);
+                        if (!k)
+                                return log_oom();
+                } else
+                        k = TAKE_PTR(word);
+
+                r = strv_consume(sv, TAKE_PTR(k));
+                if (r < 0)
+                        return log_oom();
+        }
+}
+
+int config_parse_match_ifnames(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const char *p = rvalue;
+        char ***sv = data;
+        bool invert;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        invert = *p == '!';
+        p += invert;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Failed to parse interface name list: %s", rvalue);
+                        return 0;
+                }
+
+                if (!ifname_valid(word)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Interface name is not valid or too long, ignoring assignment: %s", word);
+                        continue;
+                }
+
+                if (invert) {
+                        k = strjoin("!", word);
+                        if (!k)
+                                return log_oom();
+                } else
+                        k = TAKE_PTR(word);
+
+                r = strv_consume(sv, TAKE_PTR(k));
+                if (r < 0)
+                        return log_oom();
+        }
+}
+
+int config_parse_match_property(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const char *p = rvalue;
+        char ***sv = data;
+        bool invert;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        invert = *p == '!';
+        p += invert;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (!env_assignment_is_valid(word)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid property or value, ignoring assignment: %s", word);
+                        continue;
+                }
+
+                if (invert) {
+                        k = strjoin("!", word);
+                        if (!k)
+                                return log_oom();
+                } else
+                        k = TAKE_PTR(word);
+
+                r = strv_consume(sv, TAKE_PTR(k));
+                if (r < 0)
+                        return log_oom();
+        }
 }
 
 int config_parse_ifalias(const char *unit,

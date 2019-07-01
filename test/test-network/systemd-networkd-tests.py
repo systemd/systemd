@@ -463,6 +463,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '11-dummy.netdev',
         '11-dummy.network',
         '12-dummy.netdev',
+        '13-not-match-udev-property.network',
+        '14-match-udev-property.network',
         '15-name-conflict-test.netdev',
         '21-macvlan.netdev',
         '21-macvtap.netdev',
@@ -577,6 +579,15 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip link show dropin-test')
         print(output)
         self.assertRegex(output, '00:50:56:c0:00:28')
+
+    def test_match_udev_property(self):
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '13-not-match-udev-property.network', '14-match-udev-property.network')
+        start_networkd()
+        wait_online(['dummy98:routable'])
+
+        output = check_output('networkctl status dummy98')
+        print(output)
+        self.assertRegex(output, 'Network File: /run/systemd/network/14-match-udev-property')
 
     def test_wait_online_any(self):
         copy_unit_to_networkd_unit_path('25-bridge.netdev', '25-bridge.network', '11-dummy.netdev', '11-dummy.network')
