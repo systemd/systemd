@@ -29,6 +29,9 @@ testUnitNUMAConf="$testUnitFile.d/numa.conf"
 journalSleep=5
 sleepAfterStart=1
 
+# Journal cursor for easier navigation
+journalCursorFile="jounalCursorFile"
+
 startStrace() {
     coproc strace -qq -p 1 -o $straceLog -e set_mempolicy -s 1024 $1
 }
@@ -38,18 +41,16 @@ stopStrace() {
 }
 
 startJournalctl() {
-    coproc journalctl -u init.scope -f > $journalLog
+    # Save journal's cursor for later navigation
+    journalctl --no-pager --cursor-file="$journalCursorFile" -n0 -ocat
 }
 
 stopJournalctl() {
-    # Wait a few seconds until the messages get properly queued...
-    sleep $journalSleep
-    # ...and then force journald to write them to the backing storage
-    # Also, using journalctl --sync should be better than using SIGRTMIN+1, as
+    # Using journalctl --sync should be better than using SIGRTMIN+1, as
     # the --sync wait until the synchronization is complete
     echo "Force journald to write all queued messages"
     journalctl --sync
-    kill -s TERM $COPROC_PID
+    journalctl -u init.scope --cursor-file="$journalCursorFile" > "$journalLog"
 }
 
 checkNUMA() {
