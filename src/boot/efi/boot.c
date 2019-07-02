@@ -2283,6 +2283,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 EFI_LOADER_FEATURE_ENTRY_DEFAULT |
                 EFI_LOADER_FEATURE_ENTRY_ONESHOT |
                 EFI_LOADER_FEATURE_BOOT_COUNTING |
+                EFI_LOADER_FEATURE_XBOOTLDR |
                 0;
 
         _cleanup_freepool_ CHAR16 *infostr = NULL, *typestr = NULL;

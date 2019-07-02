@@ -1156,11 +1156,12 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         uint64_t flag;
                         const char *name;
                 } flags[] = {
-                        { EFI_LOADER_FEATURE_BOOT_COUNTING,           "Boot counting"                 },
-                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT,          "Menu timeout control"          },
-                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT, "One-shot menu timeout control" },
-                        { EFI_LOADER_FEATURE_ENTRY_DEFAULT,           "Default entry control"         },
-                        { EFI_LOADER_FEATURE_ENTRY_ONESHOT,           "One-shot entry control"        },
+                        { EFI_LOADER_FEATURE_BOOT_COUNTING,           "Boot counting"                  },
+                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT,          "Menu timeout control"           },
+                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT, "One-shot menu timeout control"  },
+                        { EFI_LOADER_FEATURE_ENTRY_DEFAULT,           "Default entry control"          },
+                        { EFI_LOADER_FEATURE_ENTRY_ONESHOT,           "One-shot entry control"         },
+                        { EFI_LOADER_FEATURE_XBOOTLDR,                "Support for XBOOTLDR partition" },
                 };
 
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
