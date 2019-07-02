@@ -90,10 +90,6 @@ function find_qemu_bin() {
 
     [ "$ARCH" ] || ARCH=$(uname -m)
     case $ARCH in
-    x86_64)
-        # QEMU's own build system calls it qemu-system-x86_64
-        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu-system-x86_64 2>/dev/null | grep '^/' -m1)
-        ;;
     i*86)
         # new i386 version of QEMU
         [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu-system-i386 2>/dev/null | grep '^/' -m1)
@@ -101,7 +97,7 @@ function find_qemu_bin() {
         # i386 version of QEMU
         [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu 2>/dev/null | grep '^/' -m1)
         ;;
-    ppc64*)
+    *)
         [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu-system-$ARCH 2>/dev/null | grep '^/' -m1)
         ;;
     esac
@@ -210,6 +206,10 @@ $KERNEL_APPEND \
 -kernel $KERNEL_BIN \
 -drive format=raw,cache=unsafe,file=${TESTDIR}/rootdisk.img \
 "
+
+    if [[ "$ARCH" == "aarch64" ]]; then
+        QEMU_OPTIONS="$QEMU_OPTIONS -machine virt"
+    fi
 
     if [[ "$INITRD" && "$SKIP_INITRD" != "yes" ]]; then
         QEMU_OPTIONS="$QEMU_OPTIONS -initrd $INITRD"
