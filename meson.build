@@ -1368,6 +1368,7 @@ config_h = configure_file(
 meson_apply_m4 = find_program('tools/meson-apply-m4.sh')
 
 includes = include_directories('src/basic',
+                               'src/boot',
                                'src/shared',
                                'src/systemd',
                                'src/journal',
