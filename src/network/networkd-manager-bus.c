@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "networkd-link-bus.h"
+#include "networkd-manager-bus.h"
 #include "networkd-manager.h"
 #include "strv.h"
 

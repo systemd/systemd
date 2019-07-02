@@ -80,6 +80,7 @@ sources = files('''
         networkd-lldp-tx.c
         networkd-lldp-tx.h
         networkd-manager-bus.c
+        networkd-manager-bus.h
         networkd-manager.c
         networkd-manager.h
         networkd-ndisc.c
