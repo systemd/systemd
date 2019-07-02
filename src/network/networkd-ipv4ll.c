@@ -5,8 +5,10 @@
 
 #include "network-internal.h"
 #include "networkd-address.h"
-#include "networkd-manager.h"
+#include "networkd-ipv4ll.h"
 #include "networkd-link.h"
+#include "networkd-manager.h"
+#include "parse-util.h"
 
 static int ipv4ll_address_lost(Link *link) {
         _cleanup_(address_freep) Address *address = NULL;
@@ -231,6 +233,48 @@ int ipv4ll_configure(Link *link) {
         r = sd_ipv4ll_set_callback(link->ipv4ll, ipv4ll_handler, link);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+int config_parse_ipv4ll(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        AddressFamilyBoolean *link_local = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        /* Note that this is mostly like
+         * config_parse_address_family_boolean(), except that it
+         * applies only to IPv4 */
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse %s=%s, ignoring assignment. "
+                           "Note that the setting %s= is deprecated, please use LinkLocalAddressing= instead.",
+                           lvalue, rvalue, lvalue);
+                return 0;
+        }
+
+        SET_FLAG(*link_local, ADDRESS_FAMILY_IPV4, r);
+
+        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                   "%s=%s is deprecated, please use LinkLocalAddressing=%s instead.",
+                   lvalue, rvalue, address_family_boolean_to_string(*link_local));
 
         return 0;
 }

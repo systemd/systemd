@@ -21,8 +21,10 @@
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "networkd-dhcp6.h"
 #include "networkd-link-bus.h"
 #include "networkd-manager.h"
+#include "networkd-network-bus.h"
 #include "networkd-speed-meter.h"
 #include "ordered-set.h"
 #include "path-util.h"
@@ -1313,126 +1315,6 @@ static int manager_dirty_handler(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-Link *manager_dhcp6_prefix_get(Manager *m, struct in6_addr *addr) {
-        assert_return(m, NULL);
-        assert_return(addr, NULL);
-
-        return hashmap_get(m->dhcp6_prefixes, addr);
-}
-
-static int dhcp6_route_add_handler(sd_netlink *nl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
-                log_link_debug_errno(link, r, "Received error adding DHCPv6 Prefix Delegation route: %m");
-
-        return 0;
-}
-
-int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link) {
-        _cleanup_free_ struct in6_addr *a = NULL;
-        _cleanup_free_ char *buf = NULL;
-        Link *assigned_link;
-        Route *route;
-        int r;
-
-        assert_return(m, -EINVAL);
-        assert_return(addr, -EINVAL);
-
-        r = route_add(link, AF_INET6, (union in_addr_union *) addr, 64,
-                      0, 0, 0, &route);
-        if (r < 0)
-                return r;
-
-        r = route_configure(route, link, dhcp6_route_add_handler);
-        if (r < 0)
-                return r;
-
-        (void) in_addr_to_string(AF_INET6, (union in_addr_union *) addr, &buf);
-        log_link_debug(link, "Adding prefix route %s/64", strnull(buf));
-
-        assigned_link = hashmap_get(m->dhcp6_prefixes, addr);
-        if (assigned_link) {
-                assert(assigned_link == link);
-                return 0;
-        }
-
-        a = newdup(struct in6_addr, addr, 1);
-        if (!a)
-                return -ENOMEM;
-
-        r = hashmap_ensure_allocated(&m->dhcp6_prefixes, &in6_addr_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(m->dhcp6_prefixes, a, link);
-        if (r < 0)
-                return r;
-
-        TAKE_PTR(a);
-        link_ref(link);
-        return 0;
-}
-
-static int dhcp6_route_remove_handler(sd_netlink *nl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                log_link_debug_errno(link, r, "Received error on DHCPv6 Prefix Delegation route removal: %m");
-
-        return 1;
-}
-
-static int manager_dhcp6_prefix_remove(Manager *m, struct in6_addr *addr) {
-        _cleanup_free_ struct in6_addr *a = NULL;
-        _cleanup_(link_unrefp) Link *l = NULL;
-        _cleanup_free_ char *buf = NULL;
-        Route *route;
-        int r;
-
-        assert_return(m, -EINVAL);
-        assert_return(addr, -EINVAL);
-
-        l = hashmap_remove2(m->dhcp6_prefixes, addr, (void **) &a);
-        if (!l)
-                return -EINVAL;
-
-        (void) sd_radv_remove_prefix(l->radv, addr, 64);
-        r = route_get(l, AF_INET6, (union in_addr_union *) addr, 64, 0, 0, 0, &route);
-        if (r < 0)
-                return r;
-
-        r = route_remove(route, l, dhcp6_route_remove_handler);
-        if (r < 0)
-                return r;
-
-        (void) in_addr_to_string(AF_INET6, (union in_addr_union *) addr, &buf);
-        log_link_debug(l, "Removing prefix route %s/64", strnull(buf));
-
-        return 0;
-}
-
-int manager_dhcp6_prefix_remove_all(Manager *m, Link *link) {
-        struct in6_addr *addr;
-        Iterator i;
-        Link *l;
-
-        assert_return(m, -EINVAL);
-        assert_return(link, -EINVAL);
-
-        HASHMAP_FOREACH_KEY(l, addr, m->dhcp6_prefixes, i)
-                if (l == link)
-                        (void) manager_dhcp6_prefix_remove(m, addr);
-
-        return 0;
-}
-
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -1505,7 +1387,7 @@ void manager_free(Manager *m) {
         free(m->state_file);
 
         while ((a = hashmap_first_key(m->dhcp6_prefixes)))
-                (void) manager_dhcp6_prefix_remove(m, a);
+                (void) dhcp6_prefix_remove(m, a);
         hashmap_free(m->dhcp6_prefixes);
 
         while ((link = hashmap_steal_first(m->links))) {

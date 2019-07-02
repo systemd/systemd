@@ -9,6 +9,7 @@
 #include "sd-ndisc.h"
 
 #include "missing_network.h"
+#include "networkd-dhcp6.h"
 #include "networkd-ndisc.h"
 #include "networkd-route.h"
 #include "strv.h"

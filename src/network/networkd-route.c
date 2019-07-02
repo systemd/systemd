@@ -7,6 +7,7 @@
 #include "in-addr-util.h"
 #include "missing_network.h"
 #include "netlink-util.h"
+#include "networkd-ipv4ll.h"
 #include "networkd-manager.h"
 #include "networkd-route.h"
 #include "parse-util.h"
