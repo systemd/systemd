@@ -3468,7 +3468,9 @@ int link_save(Link *link) {
                                         space = true;
                 }
 
-                if (link->network->dhcp_use_dns && dhcp6_lease) {
+                if (((link->network->dhcp_use_dns && link_dhcp6_enabled(link)) ||
+                     (link->network->ipv6_accept_ra_use_dns && link_ipv6_accept_ra_enabled(link))) &&
+                    dhcp6_lease) {
                         struct in6_addr *in6_addrs;
 
                         r = sd_dhcp6_lease_get_dns(dhcp6_lease, &in6_addrs);
