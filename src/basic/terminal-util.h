@@ -19,12 +19,13 @@
 #define ANSI_GREY    "\x1B[0;38;5;245m"
 
 /* Bold/highlighted */
-#define ANSI_HIGHLIGHT_RED     "\x1B[0;1;31m"
-#define ANSI_HIGHLIGHT_GREEN   "\x1B[0;1;32m"
-#define ANSI_HIGHLIGHT_YELLOW  "\x1B[0;1;38;5;185m"
-#define ANSI_HIGHLIGHT_BLUE    "\x1B[0;1;34m"
-#define ANSI_HIGHLIGHT_MAGENTA "\x1B[0;1;35m"
-#define ANSI_HIGHLIGHT_GREY    "\x1B[0;1;38;5;245m"
+#define ANSI_HIGHLIGHT_RED               "\x1B[0;1;31m"
+#define ANSI_HIGHLIGHT_GREEN             "\x1B[0;1;32m"
+#define ANSI_HIGHLIGHT_YELLOW            "\x1B[0;1;38;5;185m"
+#define ANSI_HIGHLIGHT_BLUE              "\x1B[0;1;34m"
+#define ANSI_HIGHLIGHT_MAGENTA           "\x1B[0;1;35m"
+#define ANSI_HIGHLIGHT_GREY              "\x1B[0;1;38;5;245m"
+#define ANSI_HIGHLIGHT_YELLOW4           "\x1B[0;1;38;5;100m"
 
 /* Underlined */
 #define ANSI_HIGHLIGHT_RED_UNDERLINE     "\x1B[0;1;4;31m"
