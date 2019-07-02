@@ -123,7 +123,18 @@ systemctlCheckNUMAProperties() {
     fi
 }
 
-checkNUMA
+if ! checkNUMA; then
+    echo >&2 "NUMA is not supported on this machine, skipping the test"
+
+    # FIXME: add some sanity checks to verify systemd behaves correctly with
+    #        NUMA disabled together with NUMAPolicy= and NUMAMask=
+
+    systemd-analyze log-level info
+    echo OK > /testok
+
+    exit 0
+fi
+
 writeTestUnit
 
 # Create systemd config drop-in directory
