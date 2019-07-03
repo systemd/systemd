@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <stdlib.h>
+#include <string.h>
+
 #include "macro.h"
 
 static inline void _reset_errno_(int *saved_errno) {
@@ -26,6 +29,11 @@ static inline int negative_errno(void) {
          * be 0 and thus the caller's error-handling might not be triggered. */
         assert_return(errno > 0, -EINVAL);
         return -errno;
+}
+
+static inline char *strerror_safe(int error) {
+        /* 'safe' here does NOT mean thread safety. */
+        return strerror(abs(error));
 }
 
 /* Hint #1: ENETUNREACH happens if we try to connect to "non-existing" special IP addresses, such as ::5.

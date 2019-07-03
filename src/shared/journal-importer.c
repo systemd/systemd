@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "io-util.h"
@@ -422,7 +423,7 @@ int journal_importer_push_data(JournalImporter *imp, const char *data, size_t si
                                        "Failed to store received data of size %zu "
                                        "(in addition to existing %zu bytes with %zu filled): %s",
                                        size, imp->size, imp->filled,
-                                       strerror(ENOMEM));
+                                       strerror_safe(ENOMEM));
 
         memcpy(imp->buf + imp->filled, data, size);
         imp->filled += size;

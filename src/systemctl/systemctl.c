@@ -4500,7 +4500,7 @@ static void print_status_info(
         if (i->status_text)
                 printf("   Status: \"%s\"\n", i->status_text);
         if (i->status_errno > 0)
-                printf("    Error: %i (%s)\n", i->status_errno, strerror(i->status_errno));
+                printf("    Error: %i (%s)\n", i->status_errno, strerror_safe(i->status_errno));
 
         if (i->ip_ingress_bytes != (uint64_t) -1 && i->ip_egress_bytes != (uint64_t) -1) {
                 char buf_in[FORMAT_BYTES_MAX], buf_out[FORMAT_BYTES_MAX];

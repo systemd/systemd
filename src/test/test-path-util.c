@@ -464,7 +464,7 @@ static void test_path_extract_filename_one(const char *input, const char *output
         int r;
 
         r = path_extract_filename(input, &k);
-        log_info("%s → %s/%s [expected: %s/%s]", strnull(input), strnull(k), strerror(-r), strnull(output), strerror(-ret));
+        log_info("%s → %s/%s [expected: %s/%s]", strnull(input), strnull(k), strerror_safe(r), strnull(output), strerror_safe(ret));
         assert_se(streq_ptr(k, output));
         assert_se(r == ret);
 }
