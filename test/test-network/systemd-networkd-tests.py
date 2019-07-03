@@ -2100,6 +2100,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-listen-port.network',
         'dhcp-client-route-metric.network',
         'dhcp-client-route-table.network',
+        'dhcp-client-use-dns-ipv4-and-ra.network',
+        'dhcp-client-use-dns-ipv4.network',
+        'dhcp-client-use-dns-no.network',
+        'dhcp-client-use-dns-yes.network',
         'dhcp-client-vrf.network',
         'dhcp-client-with-ipv4ll-fallback-with-dhcp-server.network',
         'dhcp-client-with-ipv4ll-fallback-without-dhcp-server.network',
@@ -2564,6 +2568,78 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, f'192.168.5.1 proto dhcp scope link src {address1} metric 1024')
         self.assertRegex(output, f'default via 192.168.5.1 proto dhcp src {address2} metric 1024')
         self.assertRegex(output, f'192.168.5.1 proto dhcp scope link src {address2} metric 1024')
+
+    def test_dhcp_client_use_dns_yes(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-yes.network')
+
+        start_networkd()
+        wait_online(['veth-peer:carrier'])
+        start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1 --dhcp-option=option6:dns-server,[2600::1]')
+        wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # link become 'routable' when at least one protocol provide an valid address.
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+
+        time.sleep(3)
+        output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, '192.168.5.1')
+        self.assertRegex(output, '2600::1')
+
+    def test_dhcp_client_use_dns_no(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-no.network')
+
+        start_networkd()
+        wait_online(['veth-peer:carrier'])
+        start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1 --dhcp-option=option6:dns-server,[2600::1]')
+        wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # link become 'routable' when at least one protocol provide an valid address.
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+
+        time.sleep(3)
+        output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
+        print(output)
+        self.assertNotRegex(output, '192.168.5.1')
+        self.assertNotRegex(output, '2600::1')
+
+    def test_dhcp_client_use_dns_ipv4(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-ipv4.network')
+
+        start_networkd()
+        wait_online(['veth-peer:carrier'])
+        start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1 --dhcp-option=option6:dns-server,[2600::1]')
+        wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # link become 'routable' when at least one protocol provide an valid address.
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+
+        time.sleep(3)
+        output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, '192.168.5.1')
+        self.assertNotRegex(output, '2600::1')
+
+    def test_dhcp_client_use_dns_ipv4_and_ra(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-ipv4-and-ra.network')
+
+        start_networkd()
+        wait_online(['veth-peer:carrier'])
+        start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1 --dhcp-option=option6:dns-server,[2600::1]')
+        wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # link become 'routable' when at least one protocol provide an valid address.
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+
+        time.sleep(3)
+        output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, '192.168.5.1')
+        self.assertRegex(output, '2600::1')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
