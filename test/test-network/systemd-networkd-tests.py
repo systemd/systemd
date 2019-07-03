@@ -26,7 +26,7 @@ networkd_bin='/usr/lib/systemd/systemd-networkd'
 wait_online_bin='/usr/lib/systemd/systemd-networkd-wait-online'
 networkctl_bin='/usr/bin/networkctl'
 use_valgrind=False
-enable_debug=False
+enable_debug=True
 env = {}
 asan_options=None
 lsan_options=None
@@ -282,16 +282,27 @@ def remove_log_file():
     if os.path.exists(dnsmasq_log_file):
         os.remove(dnsmasq_log_file)
 
-def start_networkd(sleep_sec=0, remove_state_files=True):
-    if (remove_state_files and
-        os.path.exists(os.path.join(networkd_runtime_directory, 'state'))):
-        check_output('systemctl stop systemd-networkd')
+def remove_networkd_state_files():
+    if os.path.exists(os.path.join(networkd_runtime_directory, 'state')):
         os.remove(os.path.join(networkd_runtime_directory, 'state'))
-        check_output('systemctl start systemd-networkd')
-    else:
-        check_output('systemctl restart systemd-networkd')
+
+def stop_networkd(show_logs=True, remove_state_files=True):
+    if show_logs:
+        invocation_id = check_output('systemctl show systemd-networkd -p InvocationID --value')
+    check_output('systemctl stop systemd-networkd')
+    if show_logs:
+        print(check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id))
+    if remove_state_files:
+        remove_networkd_state_files()
+
+def start_networkd(sleep_sec=0):
+    check_output('systemctl start systemd-networkd')
     if sleep_sec > 0:
         time.sleep(sleep_sec)
+
+def restart_networkd(sleep_sec=0, show_logs=True, remove_state_files=True):
+    stop_networkd(show_logs, remove_state_files)
+    start_networkd(sleep_sec)
 
 def wait_online(links_with_operstate, timeout='20s', bool_any=False):
     args = wait_online_cmd + [f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
@@ -348,10 +359,12 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
     def setUp(self):
         remove_links(self.links)
+        stop_networkd(show_logs=False)
 
     def tearDown(self):
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
 
     def test_glob(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network')
@@ -610,11 +623,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     def setUp(self):
         remove_fou_ports(self.fou_ports)
         remove_links(self.links)
+        stop_networkd(show_logs=False)
 
     def tearDown(self):
         remove_fou_ports(self.fou_ports)
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
 
     def test_dropin_and_name_conflict(self):
         copy_unit_to_networkd_unit_path('10-dropin-test.netdev', '15-name-conflict-test.netdev')
@@ -1226,11 +1241,13 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
     def setUp(self):
         remove_l2tp_tunnels(self.l2tp_tunnel_ids)
         remove_links(self.links)
+        stop_networkd(show_logs=False)
 
     def tearDown(self):
         remove_l2tp_tunnels(self.l2tp_tunnel_ids)
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
 
     @expectedFailureIfModuleIsNotAvailable('l2tp_eth')
     def test_l2tp_udp(self):
@@ -1324,12 +1341,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
         remove_routes(self.routes)
         remove_links(self.links)
+        stop_networkd(show_logs=False)
 
     def tearDown(self):
         remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
         remove_routes(self.routes)
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
 
     def test_address_static(self):
         copy_unit_to_networkd_unit_path('25-address-static.network', '12-dummy.netdev')
@@ -1411,7 +1430,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         for trial in range(3):
             # Remove state files only first time
-            start_networkd(0, remove_state_files=(trial == 0))
+            start_networkd()
             wait_online(['test1:degraded', 'dummy98:degraded'])
             time.sleep(1)
 
@@ -1422,6 +1441,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             output = check_output('ip rule list table 8')
             print(output)
             self.assertRegex(output, '112:	from 192.168.101.18 tos (?:0x08|throughput) iif dummy98 oif dummy98 lookup 8')
+
+            stop_networkd(remove_state_files=False)
 
     @expectedFailureIfRoutingPolicyPortRangeIsNotAvailable()
     def test_routing_policy_rule_port_range(self):
@@ -1629,7 +1650,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         check_output('sysctl net.ipv6.conf.all.disable_ipv6=0')
         check_output('sysctl net.ipv6.conf.default.disable_ipv6=0')
 
-        start_networkd()
+        restart_networkd()
         wait_online(['dummy98:routable'])
 
         output = check_output('ip -4 address show dummy98')
@@ -1748,10 +1769,12 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
 
     def setUp(self):
         remove_links(self.links)
+        stop_networkd(show_logs=False)
 
     def tearDown(self):
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
 
     def test_bond_active_slave(self):
         copy_unit_to_networkd_unit_path('23-active-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
@@ -1846,11 +1869,13 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
     def setUp(self):
         remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
         remove_links(self.links)
+        stop_networkd(show_logs=False)
 
     def tearDown(self):
         remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
 
     def test_bridge_property(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
@@ -1963,10 +1988,12 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
 
     def setUp(self):
         remove_links(self.links)
+        stop_networkd(show_logs=False)
 
     def tearDown(self):
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
 
     def test_lldp(self):
         copy_unit_to_networkd_unit_path('23-emit-lldp.network', '24-lldp.network', '25-veth.netdev')
@@ -1988,10 +2015,12 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
     def setUp(self):
         remove_links(self.links)
+        stop_networkd(show_logs=False)
 
     def tearDown(self):
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
 
     def test_ipv6_prefix_delegation(self):
         warn_about_firewalld()
@@ -2015,10 +2044,12 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
     def setUp(self):
         remove_links(self.links)
+        stop_networkd(show_logs=False)
 
     def tearDown(self):
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
 
     def test_dhcp_server(self):
         warn_about_firewalld()
@@ -2077,6 +2108,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     def setUp(self):
         stop_dnsmasq(dnsmasq_pid_file)
         remove_links(self.links)
+        stop_networkd(show_logs=False)
 
     def tearDown(self):
         stop_dnsmasq(dnsmasq_pid_file)
@@ -2084,6 +2116,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         remove_log_file()
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
 
     def test_dhcp_client_ipv6_only(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network')
@@ -2312,7 +2345,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, r'192.168.5.*')
 
-        start_networkd()
+        restart_networkd()
         wait_online(['veth-peer:routable'])
 
         output = check_output('ip address show dev veth99 scope global')
@@ -2347,7 +2380,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         # When networkd started, the links are already configured, so let's wait for 5 seconds
         # the links to be re-configured.
-        start_networkd(5)
+        restart_networkd(5)
         wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = check_output('ip -4 address show dev veth99 scope global')
