@@ -831,6 +831,31 @@ static void test_hashmap_free(void) {
         }
 }
 
+typedef struct Item {
+        int seen;
+} Item;
+static void item_seen(Item *item) {
+        item->seen++;
+}
+
+static void test_hashmap_free_with_destructor(void) {
+        Hashmap *m;
+        struct Item items[4] = {};
+        unsigned i;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(m = hashmap_new(NULL));
+        for (i = 0; i < ELEMENTSOF(items) - 1; i++)
+                assert_se(hashmap_put(m, INT_TO_PTR(i), items + i) == 1);
+
+        m = hashmap_free_with_destructor(m, item_seen);
+        assert_se(items[0].seen == 1);
+        assert_se(items[1].seen == 1);
+        assert_se(items[2].seen == 1);
+        assert_se(items[3].seen == 0);
+}
+
 static void test_hashmap_first(void) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
 
@@ -978,6 +1003,36 @@ static void test_hashmap_reserve(void) {
         assert_se(hashmap_reserve(m, UINT_MAX - 1) == -ENOMEM);
 }
 
+static void test_path_hashmap(void) {
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(h = hashmap_new(&path_hash_ops));
+
+        assert_se(hashmap_put(h, "foo", INT_TO_PTR(1)) >= 0);
+        assert_se(hashmap_put(h, "/foo", INT_TO_PTR(2)) >= 0);
+        assert_se(hashmap_put(h, "//foo", INT_TO_PTR(3)) == -EEXIST);
+        assert_se(hashmap_put(h, "//foox/", INT_TO_PTR(4)) >= 0);
+        assert_se(hashmap_put(h, "/foox////", INT_TO_PTR(5)) == -EEXIST);
+        assert_se(hashmap_put(h, "foo//////bar/quux//", INT_TO_PTR(6)) >= 0);
+        assert_se(hashmap_put(h, "foo/bar//quux/", INT_TO_PTR(8)) == -EEXIST);
+
+        assert_se(hashmap_get(h, "foo") == INT_TO_PTR(1));
+        assert_se(hashmap_get(h, "foo/") == INT_TO_PTR(1));
+        assert_se(hashmap_get(h, "foo////") == INT_TO_PTR(1));
+        assert_se(hashmap_get(h, "/foo") == INT_TO_PTR(2));
+        assert_se(hashmap_get(h, "//foo") == INT_TO_PTR(2));
+        assert_se(hashmap_get(h, "/////foo////") == INT_TO_PTR(2));
+        assert_se(hashmap_get(h, "/////foox////") == INT_TO_PTR(4));
+        assert_se(hashmap_get(h, "/foox/") == INT_TO_PTR(4));
+        assert_se(hashmap_get(h, "/foox") == INT_TO_PTR(4));
+        assert_se(!hashmap_get(h, "foox"));
+        assert_se(hashmap_get(h, "foo/bar/quux") == INT_TO_PTR(6));
+        assert_se(hashmap_get(h, "foo////bar////quux/////") == INT_TO_PTR(6));
+        assert_se(!hashmap_get(h, "/foo////bar////quux/////"));
+}
+
 static void test_string_strv_hashmap(void) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         char **s;
@@ -1006,8 +1061,7 @@ static void test_string_strv_hashmap(void) {
 }
 
 void test_hashmap_funcs(void) {
-        log_parse_environment();
-        log_open();
+        log_info("/************ %s ************/", __func__);
 
         test_hashmap_copy();
         test_hashmap_get_strv();
@@ -1032,6 +1086,7 @@ void test_hashmap_funcs(void) {
         test_hashmap_size();
         test_hashmap_many();
         test_hashmap_free();
+        test_hashmap_free_with_destructor();
         test_hashmap_first();
         test_hashmap_first_key();
         test_hashmap_steal_first_key();
@@ -1039,5 +1094,6 @@ void test_hashmap_funcs(void) {
         test_hashmap_clear_free_free();
         test_hashmap_clear_free_with_destructor();
         test_hashmap_reserve();
+        test_path_hashmap();
         test_string_strv_hashmap();
 }
