@@ -173,6 +173,8 @@ void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const cha
 int json_variant_filter(JsonVariant **v, char **to_remove);
 
 int json_variant_set_field(JsonVariant **v, const char *field, JsonVariant *value);
+int json_variant_set_field_string(JsonVariant **v, const char *field, const char *value);
+int json_variant_set_field_unsigned(JsonVariant **v, const char *field, uintmax_t value);
 
 int json_variant_strv(JsonVariant *v, char ***ret);
 
