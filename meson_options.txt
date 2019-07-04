@@ -95,6 +95,8 @@ option('timesyncd', type : 'boolean',
        description : 'install the systemd-timesyncd daemon')
 option('remote', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'support for "journal over the network"')
+option('create-log-dirs', type : 'boolean',
+       description : 'create /var/log/journal{,/remote}')
 option('nss-myhostname', type : 'boolean',
        description : 'install nss-myhostname module')
 option('nss-mymachines', type : 'combo', choices : ['auto', 'true', 'false'],
