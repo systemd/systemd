@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "random-util.h"
 #include "tests.h"
 
 static void test_alloca(void) {
@@ -132,6 +133,24 @@ static void test_cleanup_order(void) {
         log_debug("z: %p", &z);
 }
 
+static void test_auto_erase_memory(void) {
+        uint8_t *p1, *p2;
+        size_t q = 1024, i;
+
+        assert_se(p1 = new(uint8_t, q));
+        assert_se(p2 = new(uint8_t, q));
+
+        genuine_random_bytes(p1, q, RANDOM_BLOCK);
+
+        AUTO_FREE_ERASE_MEMORY(p1, q);
+        AUTO_FREE_ERASE_MEMORY(p2, q);
+
+        /* before we exit the scope, do something with this data, so that the compiler won't optimize this away */
+        memcpy(p2, p1, q);
+        for (i = 0; i < q; i++)
+                assert_se(p1[i] == p2[i]);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -140,6 +159,7 @@ int main(int argc, char *argv[]) {
         test_memdup_multiply_and_greedy_realloc();
         test_bool_assign();
         test_cleanup_order();
+        test_auto_erase_memory();
 
         return 0;
 }
