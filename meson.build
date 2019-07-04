@@ -113,7 +113,6 @@ pkgconfiglibdir = get_option('pkgconfiglibdir') == '' ? join_paths(libdir, 'pkgc
 polkitpolicydir = join_paths(datadir, 'polkit-1/actions')
 polkitrulesdir = join_paths(datadir, 'polkit-1/rules.d')
 polkitpkladir = join_paths(localstatedir, 'lib/polkit-1/localauthority/10-vendor.d')
-varlogdir = join_paths(localstatedir, 'log')
 xinitrcdir = join_paths(sysconfdir, 'X11/xinit/xinitrc.d')
 rpmmacrosdir = get_option('rpmmacrosdir')
 if rpmmacrosdir != 'no'
@@ -272,7 +271,6 @@ substs.set('systemenvgeneratordir',                           systemenvgenerator
 substs.set('userenvgeneratordir',                             userenvgeneratordir)
 substs.set('systemshutdowndir',                               systemshutdowndir)
 substs.set('systemsleepdir',                                  systemsleepdir)
-substs.set('VARLOGDIR',                                       varlogdir)
 substs.set('CERTIFICATEROOT',                                 get_option('certificate-root'))
 substs.set('SYSTEMCTL',                                       join_paths(rootbindir, 'systemctl'))
 substs.set('RANDOM_SEED',                                     join_paths(randomseeddir, 'random-seed'))
