@@ -28,8 +28,8 @@ int loop_device_make_full(
         _cleanup_free_ char *loopdev = NULL;
         unsigned n_attempts = 0;
         struct loop_info64 info;
+        LoopDevice *d = NULL;
         struct stat st;
-        LoopDevice *d;
         int nr = -1, r;
 
         assert(fd >= 0);
@@ -114,12 +114,16 @@ int loop_device_make_full(
                 .lo_sizelimit = size == UINT64_MAX ? 0 : size,
         };
 
-        if (ioctl(loop, LOOP_SET_STATUS64, &info) < 0)
-                return -errno;
+        if (ioctl(loop, LOOP_SET_STATUS64, &info) < 0) {
+                r = -errno;
+                goto fail;
+        }
 
         d = new(LoopDevice, 1);
-        if (!d)
-                return -ENOMEM;
+        if (!d) {
+                r = -ENOMEM;
+                goto fail;
+        }
 
         *d = (LoopDevice) {
                 .fd = TAKE_FD(loop),
@@ -129,6 +133,14 @@ int loop_device_make_full(
 
         *ret = d;
         return d->fd;
+
+fail:
+        if (fd >= 0)
+                (void) ioctl(fd, LOOP_CLR_FD);
+        if (d && d->fd >= 0)
+                (void) ioctl(d->fd, LOOP_CLR_FD);
+
+        return r;
 }
 
 int loop_device_make_by_path(const char *path, int open_flags, uint32_t loop_flags, LoopDevice **ret) {
