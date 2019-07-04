@@ -785,9 +785,20 @@ static const NLTypeSystem genl_wireguard_type_system = {
         .types = genl_wireguard_cmds,
 };
 
+static const NLType genl_mcast_group_types[] = {
+        [CTRL_ATTR_MCAST_GRP_NAME]  = { .type = NETLINK_TYPE_STRING },
+        [CTRL_ATTR_MCAST_GRP_ID]    = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem genl_mcast_group_type_system = {
+        .count = ELEMENTSOF(genl_mcast_group_types),
+        .types = genl_mcast_group_types,
+};
+
 static const NLType genl_get_family_types[] = {
-        [CTRL_ATTR_FAMILY_NAME] = { .type = NETLINK_TYPE_STRING },
-        [CTRL_ATTR_FAMILY_ID] = { .type = NETLINK_TYPE_U16 },
+        [CTRL_ATTR_FAMILY_NAME]  = { .type = NETLINK_TYPE_STRING },
+        [CTRL_ATTR_FAMILY_ID]    = { .type = NETLINK_TYPE_U16 },
+        [CTRL_ATTR_MCAST_GROUPS] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_mcast_group_type_system },
 };
 
 static const NLTypeSystem genl_get_family_type_system = {
