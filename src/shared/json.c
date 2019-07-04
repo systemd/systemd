@@ -1836,6 +1836,69 @@ int json_variant_set_field_unsigned(JsonVariant **v, const char *field, uintmax_
         return json_variant_set_field(v, field, m);
 }
 
+int json_variant_merge(JsonVariant **v, JsonVariant *m) {
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        _cleanup_free_ JsonVariant **array = NULL;
+        size_t v_elements, m_elements, i, k;
+        bool v_blank, m_blank;
+        int r;
+
+        m = json_variant_dereference(m);
+
+        v_blank = json_variant_is_blank_object(*v);
+        m_blank = json_variant_is_blank_object(m);
+
+        if (!v_blank && !json_variant_is_object(*v))
+                return -EINVAL;
+        if (!m_blank && !json_variant_is_object(m))
+                return -EINVAL;
+
+        if (m_blank)
+                return 0; /* nothing to do */
+
+        if (v_blank) {
+                json_variant_unref(*v);
+                *v = json_variant_ref(m);
+                return 1;
+        }
+
+        v_elements = json_variant_elements(*v);
+        m_elements = json_variant_elements(m);
+        if (v_elements > SIZE_MAX - m_elements) /* overflow check */
+                return -ENOMEM;
+
+        array = new(JsonVariant*, v_elements + m_elements);
+        if (!array)
+                return -ENOMEM;
+
+        k = 0;
+        for (i = 0; i < v_elements; i += 2) {
+                JsonVariant *u;
+
+                u = json_variant_by_index(*v, i);
+                if (!json_variant_is_string(u))
+                        return -EINVAL;
+
+                if (json_variant_by_key(m, json_variant_string(u)))
+                        continue; /* skip if exists in second variant */
+
+                array[k++] = u;
+                array[k++] = json_variant_by_index(*v, i + 1);
+        }
+
+        for (i = 0; i < m_elements; i++)
+                array[k++] = json_variant_by_index(m, i);
+
+        r = json_variant_new_object(&w, array, k);
+        if (r < 0)
+                return r;
+
+        json_variant_unref(*v);
+        *v = TAKE_PTR(w);
+
+        return 1;
+}
+
 int json_variant_strv(JsonVariant *v, char ***ret) {
         char **l = NULL;
         size_t n, i;
