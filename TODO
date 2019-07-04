@@ -37,6 +37,9 @@ Features:
 * honour specifiers in unit files that resolve to some very basic
   /etc/os-release data, such as ID, VERSION_ID, BUILD_ID, VARIANT_ID.
 
+* cryptsetup: allow encoding key directly in /etc/crypttab, maybe with a
+  "base64:" prefix. Useful in particular for pkcs11 mode.
+
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then actviate app thorugh that passing socket oveer
 
@@ -188,6 +191,38 @@ Features:
 * logind: rework pam_logind to also do a bus call in case of invocation from
   user@.service, which returns the XDG_RUNTIME_DIR value, and make this
   behaviour selectable via pam module option.
+
+* homed:
+  - when user tries to log into record signed by unrecognized key, automatically add key to our chain after polkit auth
+  - hook up machined/nspawn users with a varlink user query interface
+  - rollback when resize fails mid-operation
+  - GNOME's side for forget key on suspend (requires rework so that lock screen runs outside of uid)
+  - resize on login?
+  - fstrim on logout?
+  - shrink fs on logout?
+  - update LUKS password on login if we find there's a password that unlocks the JSON record but not the LUKS device.
+  - create on activate?
+  - properties: icon url?, preferred session type?, administrator bool (which translates to 'wheel' membership)?, address?, telephone?, vcard?, samba stuff?, parental controls?
+  - communicate clearly when usb stick is safe to remove. probably involves
+    beefing up logind to make pam session close hook synchronous and wait until
+    systemd --user is shut down.
+  - logind: maybe keep a "busy fd" as long as there's a non-released session around or the user@.service
+  - maybe make automatic, read-only, time-based reflink-copies of LUKS disk images (think: time machine)
+  - distuingish destroy / remove (i.e. currently we can unregister a user, unregister+remove their home directory, but not just remove their home directory)
+  - in systemd's PAMName= logic: query passwords with ssh-askpassword, so that we can make "loginctl set-linger" mode work
+  - fingerprint authentication, pattern authentication, …
+  - make sure "classic" user records can also be managed by homed
+  - description field for groups
+  - make size of $XDG_RUNTIME_DIR configurable in user record
+  - reuse pwquality magic in firstboot
+  - query password from kernel keyring first
+  - update even if record is "absent"
+  - add a "access mode" + "fstype" field to the "status" section of json identity records reflecting the actually used access mode and fstype, even on non-luks backends
+  - move acct mgmt stuff from pam_systemd_home to pam_systemd?
+  - when "homectl --pkcs11-token-uri=" is used, synthesize ssh-authorized-keys records for all keys we have private keys on the stick for
+  - make slice for users configurable (requires logind rework)
+  - logind: populate auto-login list bus property from PKCS#11 token
+  - when determining state of a LUKS home directory, check DM suspended sysfs file
 
 * introduce a new per-process uuid, similar to the boot id, the machine id, the
   invocation id, that is derived from process creds, specifically a hashed
@@ -489,15 +524,6 @@ Features:
   execve() and turn off watchdog support. Then, use that to implement
   "systemd-gdb" for attaching to the start-up of any system service in its
   natural habitat.
-
-* maybe add gpt-partition-based user management: each user gets his own
-  LUKS-encrypted GPT partition with a new GPT type. A small nss module
-  enumerates users via udev partition enumeration. UIDs are assigned in a fixed
-  way: the partition index is added as offset to some fixed base uid. User name
-  is stored in GPT partition name. A PAM module authenticates the user via the
-  LUKS partition password. Benefits: strong per-user security, compatibility
-  with stateless/read-only/verity-enabled root. (other idea: do this based on
-  loopback files in /home, without GPT involvement)
 
 * gpt-auto logic: related to the above, maybe support a "secondary" root
   partition, that is mounted to / and is writable, and where the actual root's
