@@ -905,8 +905,8 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
         r = netlink_message_read_internal(m, type_id, &container, NULL);
         if (r < 0)
                 return r;
-        else
-                size = (size_t)r;
+
+        size = (size_t)r;
 
         m->n_containers++;
 
