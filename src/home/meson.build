@@ -62,6 +62,15 @@ homectl_sources = files('''
         user-record-util.h
 '''.split())
 
+pam_systemd_home_sym = 'src/home/pam_systemd_home.sym'
+pam_systemd_home_c = files('''
+        home-util.c
+        home-util.h
+        pam_systemd_home.c
+        user-record-util.c
+        user-record-util.h
+'''.split())
+
 if conf.get('ENABLE_HOMED') == 1
         install_data('org.freedesktop.home1.conf',
                      install_dir : dbuspolicydir)
