@@ -30,7 +30,7 @@ int loop_device_make_full(
         struct loop_info64 info;
         struct stat st;
         LoopDevice *d;
-        int nr, r;
+        int nr = -1, r;
 
         assert(fd >= 0);
         assert(ret);
@@ -40,6 +40,14 @@ int loop_device_make_full(
                 return -errno;
 
         if (S_ISBLK(st.st_mode)) {
+                if (ioctl(loop, LOOP_GET_STATUS64, &info) >= 0) {
+                        /* Oh! This is a loopback device? That's interesting! */
+                        nr = info.lo_number;
+
+                        if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
+                                return -ENOMEM;
+                }
+
                 if (offset == 0 && IN_SET(size, 0, UINT64_MAX)) {
                         int copy;
 
@@ -55,7 +63,8 @@ int loop_device_make_full(
 
                         *d = (LoopDevice) {
                                 .fd = copy,
-                                .nr = -1,
+                                .nr = nr,
+                                .node = TAKE_PTR(loopdev),
                                 .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
                         };
 
@@ -179,8 +188,10 @@ void loop_device_relinquish(LoopDevice *d) {
 int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
         _cleanup_close_ int loop_fd = -1;
         _cleanup_free_ char *p = NULL;
+        struct loop_info64 info;
         struct stat st;
         LoopDevice *d;
+        int nr;
 
         assert(loop_path);
         assert(ret);
@@ -191,9 +202,13 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
 
         if (fstat(loop_fd, &st) < 0)
                 return -errno;
-
         if (!S_ISBLK(st.st_mode))
                 return -ENOTBLK;
+
+        if (ioctl(loop_fd, LOOP_GET_STATUS64, &info) >= 0)
+                nr = info.lo_number;
+        else
+                nr = -1;
 
         p = strdup(loop_path);
         if (!p)
@@ -205,7 +220,7 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
 
         *d = (LoopDevice) {
                 .fd = TAKE_FD(loop_fd),
-                .nr = -1,
+                .nr = nr,
                 .node = TAKE_PTR(p),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
         };
