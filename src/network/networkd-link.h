@@ -168,6 +168,7 @@ int link_down(Link *link, link_netlink_message_handler_t callback);
 
 void link_enter_failed(Link *link);
 int link_initialized(Link *link, sd_device *device);
+int link_reconfigure(Link *link);
 
 void link_set_state(Link *link, LinkState state);
 void link_check_ready(Link *link);
