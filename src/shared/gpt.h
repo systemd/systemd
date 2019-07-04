@@ -23,6 +23,7 @@
 #define GPT_SRV         SD_ID128_MAKE(3b,8f,84,25,20,e0,4f,3b,90,7f,1a,25,a7,6f,98,e8)
 #define GPT_VAR         SD_ID128_MAKE(4d,21,b0,16,b5,34,45,c2,a9,fb,5c,16,e0,91,fd,2d)
 #define GPT_TMP         SD_ID128_MAKE(7e,c6,f5,57,3b,c5,4a,ca,b2,93,16,ef,5d,f6,39,d1)
+#define GPT_USER_HOME   SD_ID128_MAKE(77,3f,91,ef,66,d4,49,b5,bd,83,d6,83,bf,40,ad,16)
 
 /* Verity partitions for the root partitions above (we only define them for the root partitions, because only they are
  * are commonly read-only and hence suitable for verity). */

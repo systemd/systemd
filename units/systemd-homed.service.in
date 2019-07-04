@@ -1,0 +1,36 @@
+#  SPDX-License-Identifier: LGPL-2.1+
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Home Manager
+Documentation=man:systemd-homed.service(8)
+RequiresMountsFor=/home
+
+[Service]
+BusName=org.freedesktop.home1
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_SETGID CAP_SETUID
+DeviceAllow=/dev/loop-control rw
+DeviceAllow=/dev/mapper/control rw
+DeviceAllow=block-* rw
+ExecStart=@rootlibexecdir@/systemd-homed
+IPAddressDeny=any
+KillMode=mixed
+LimitNOFILE=@HIGH_RLIMIT_NOFILE@
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_ALG
+RestrictNamespaces=mnt
+RestrictRealtime=yes
+StateDirectory=systemd/home
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service @mount
+@SERVICE_WATCHDOG@
