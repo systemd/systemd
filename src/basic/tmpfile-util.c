@@ -67,12 +67,12 @@ int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
 
 /* This is much like mkostemp() but is subject to umask(). */
 int mkostemp_safe(char *pattern) {
-        _unused_ _cleanup_umask_ mode_t u = umask(0077);
         int fd;
 
         assert(pattern);
 
-        fd = mkostemp(pattern, O_CLOEXEC);
+        RUN_WITH_UMASK(0077)
+                fd = mkostemp(pattern, O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
