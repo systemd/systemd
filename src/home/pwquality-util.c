@@ -10,6 +10,7 @@
 
 #include "bus-common-errors.h"
 #include "home-util.h"
+#include "memory-util.h"
 #include "pwquality-util.h"
 #include "strv.h"
 
@@ -125,6 +126,47 @@ int quality_check_password(
         return 0;
 }
 
+#define N_SUGGESTIONS 6
+
+int suggest_passwords(void) {
+        _cleanup_(pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
+        _cleanup_strv_free_erase_ char **suggestions = NULL;
+        _cleanup_(erase_and_freep) char *joined = NULL;
+        char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
+        void *auxerror;
+        size_t i;
+        int r;
+
+        pwq = pwquality_default_settings();
+        if (!pwq)
+                return log_oom();
+
+        r = pwquality_read_config(pwq, NULL, &auxerror);
+        if (r < 0)
+                log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to read libpwquality configuation, ignoring: %s",
+                                  pwquality_strerror(buf, sizeof(buf), r, auxerror));
+
+        pwquality_maybe_disable_dictionary(pwq);
+
+        suggestions = new0(char*, N_SUGGESTIONS);
+        if (!suggestions)
+                return log_oom();
+
+        for (i = 0; i < N_SUGGESTIONS; i++) {
+                r = pwquality_generate(pwq, 64, suggestions + i);
+                if (r < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to generate password, ignoring: %s",
+                                               pwquality_strerror(buf, sizeof(buf), r, NULL));
+        }
+
+        joined = strv_join(suggestions, " ");
+        if (!joined)
+                return log_oom();
+
+        log_info("Password suggestions: %s", joined);
+        return 0;
+}
+
 #else
 
 int quality_check_password(
@@ -135,6 +177,10 @@ int quality_check_password(
         assert(hr);
         assert(secret);
 
+        return 0;
+}
+
+int suggest_passwords(void) {
         return 0;
 }
 #endif
