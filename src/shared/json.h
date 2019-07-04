@@ -120,6 +120,8 @@ static inline bool json_variant_is_null(JsonVariant *v) {
 }
 
 bool json_variant_is_negative(JsonVariant *v);
+bool json_variant_is_blank_object(JsonVariant *v);
+bool json_variant_is_blank_array(JsonVariant *v);
 
 size_t json_variant_elements(JsonVariant *v);
 JsonVariant *json_variant_by_index(JsonVariant *v, size_t index);

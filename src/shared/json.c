@@ -946,6 +946,19 @@ mismatch:
         return false;
 }
 
+bool json_variant_is_blank_object(JsonVariant *v) {
+        /* Returns true if the specified object is null or empty */
+        return !v ||
+                json_variant_is_null(v) ||
+                (json_variant_is_object(v) && json_variant_elements(v) == 0);
+}
+
+bool json_variant_is_blank_array(JsonVariant *v) {
+        return !v ||
+                json_variant_is_null(v) ||
+                (json_variant_is_array(v) && json_variant_elements(v) == 0);
+}
+
 JsonVariantType json_variant_type(JsonVariant *v) {
 
         if (!v)
