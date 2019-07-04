@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "macro.h"
+#include "memory-util.h"
 
 #if HAS_FEATURE_MEMORY_SANITIZER
 #  include <sanitizer/msan_interface.h>
@@ -170,3 +171,50 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
 #else
 #  define msan_unpoison(r, s)
 #endif
+
+/* The following implements a logic for automatically erasing a specific memory area when the current scope
+ * is left. The AUTO_ERASE_MEMORY() macro takes a pointer and a size, of which it takes references. When the
+ * pointer is non-NULL when the current scope is left the pointer it points to is automatically erased and
+ * freed. Usecase:
+ *
+ *
+ * {
+ *         …
+ *         void *secret_key;
+ *         size_t secret_key_size;
+ *         …
+ *         secret_key_size = 256;
+ *         secret_key = malloc(secret_key_size);
+ *         if (!secret_key)
+ *                 return log_oom();
+ *
+ *         AUTO_ERASE_MEMORY(secret_key, secret_key_size);
+ *         …
+ *         genuine_random_bytes(secret_key, secret_key_size);
+ *         …
+ * } // memory of secret_key will be erased and freed here, automatically.
+ *
+ */
+
+struct auto_free_erase_info {
+        void **ptr;
+        size_t *size;
+};
+
+static inline void auto_free_erase_memory(struct auto_free_erase_info *info) {
+        assert(info->ptr);
+        assert(info->size);
+
+        if (*(info->ptr)) {
+                explicit_bzero_safe(*(info->ptr), *(info->size));
+                free(*(info->ptr));
+        }
+}
+
+#define _AUTO_FREE_ERASE_MEMORY(uniq, p, size)                       \
+        _cleanup_(auto_free_erase_memory)                            \
+                struct auto_free_erase_info UNIQ_T(a, uniq) =        \
+                { ({ typeof(p) *_p = &(p); (void**) _p; }), &(size) }
+
+#define AUTO_FREE_ERASE_MEMORY(p, size) \
+        _AUTO_FREE_ERASE_MEMORY(UNIQ, (p), (size))
