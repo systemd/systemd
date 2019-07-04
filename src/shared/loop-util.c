@@ -10,15 +10,18 @@
 #include "loop-util.h"
 #include "stat-util.h"
 
-int loop_device_make(int fd, int open_flags, uint32_t loop_flags, LoopDevice **ret) {
-        const struct loop_info64 info = {
-                /* Use the specified flags, but configure the read-only flag from the open flags, and force autoclear */
-                .lo_flags = (loop_flags & ~LO_FLAGS_READ_ONLY) | ((loop_flags & O_ACCMODE) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) | LO_FLAGS_AUTOCLEAR,
-        };
+int loop_device_make_full(
+                int fd,
+                int open_flags,
+                uint64_t offset,
+                uint64_t size,
+                uint32_t loop_flags,
+                LoopDevice **ret) {
 
         _cleanup_close_ int control = -1, loop = -1;
         _cleanup_free_ char *loopdev = NULL;
         unsigned n_attempts = 0;
+        struct loop_info64 info;
         struct stat st;
         LoopDevice *d;
         int nr, r;
@@ -31,31 +34,33 @@ int loop_device_make(int fd, int open_flags, uint32_t loop_flags, LoopDevice **r
                 return -errno;
 
         if (S_ISBLK(st.st_mode)) {
-                int copy;
+                if (offset == 0 && IN_SET(size, 0, UINT64_MAX)) {
+                        int copy;
 
-                /* If this is already a block device, store a copy of the fd as it is */
+                        /* If this is already a block device, store a copy of the fd as it is */
 
-                copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                if (copy < 0)
-                        return -errno;
+                        copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                        if (copy < 0)
+                                return -errno;
 
-                d = new0(LoopDevice, 1);
-                if (!d)
-                        return -ENOMEM;
+                        d = new(LoopDevice, 1);
+                        if (!d)
+                                return -ENOMEM;
 
-                *d = (LoopDevice) {
-                        .fd = copy,
-                        .nr = -1,
-                        .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
-                };
+                        *d = (LoopDevice) {
+                                .fd = copy,
+                                .nr = -1,
+                                .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
+                        };
 
-                *ret = d;
-                return d->fd;
+                        *ret = d;
+                        return d->fd;
+                }
+        } else {
+                r = stat_verify_regular(&st);
+                if (r < 0)
+                        return r;
         }
-
-        r = stat_verify_regular(&st);
-        if (r < 0)
-                return r;
 
         control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (control < 0)
@@ -86,6 +91,13 @@ int loop_device_make(int fd, int open_flags, uint32_t loop_flags, LoopDevice **r
                 loopdev = mfree(loopdev);
                 loop = safe_close(loop);
         }
+
+        info = (struct loop_info64) {
+                /* Use the specified flags, but configure the read-only flag from the open flags, and force autoclear */
+                .lo_flags = (loop_flags & ~LO_FLAGS_READ_ONLY) | ((loop_flags & O_ACCMODE) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) | LO_FLAGS_AUTOCLEAR,
+                .lo_offset = offset,
+                .lo_sizelimit = size == UINT64_MAX ? 0 : size,
+        };
 
         if (ioctl(loop, LOOP_SET_STATUS64, &info) < 0)
                 return -errno;
