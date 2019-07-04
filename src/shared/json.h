@@ -178,7 +178,9 @@ int json_variant_filter(JsonVariant **v, char **to_remove);
 
 int json_variant_set_field(JsonVariant **v, const char *field, JsonVariant *value);
 int json_variant_set_field_string(JsonVariant **v, const char *field, const char *value);
+int json_variant_set_field_integer(JsonVariant **v, const char *field, intmax_t value);
 int json_variant_set_field_unsigned(JsonVariant **v, const char *field, uintmax_t value);
+int json_variant_set_field_boolean(JsonVariant **v, const char *field, bool b);
 
 int json_variant_append_array(JsonVariant **v, JsonVariant *element);
 

@@ -1905,11 +1905,33 @@ int json_variant_set_field_string(JsonVariant **v, const char *field, const char
         return json_variant_set_field(v, field, m);
 }
 
+int json_variant_set_field_integer(JsonVariant **v, const char *field, intmax_t i) {
+        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
+        int r;
+
+        r = json_variant_new_integer(&m, i);
+        if (r < 0)
+                return r;
+
+        return json_variant_set_field(v, field, m);
+}
+
 int json_variant_set_field_unsigned(JsonVariant **v, const char *field, uintmax_t u) {
         _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
         int r;
 
         r = json_variant_new_unsigned(&m, u);
+        if (r < 0)
+                return r;
+
+        return json_variant_set_field(v, field, m);
+}
+
+int json_variant_set_field_boolean(JsonVariant **v, const char *field, bool b) {
+        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
+        int r;
+
+        r = json_variant_new_boolean(&m, b);
         if (r < 0)
                 return r;
 
