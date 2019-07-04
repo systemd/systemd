@@ -158,7 +158,7 @@ int network_verify(Network *network) {
         if (set_isempty(network->match_mac) && strv_isempty(network->match_path) &&
             strv_isempty(network->match_driver) && strv_isempty(network->match_type) &&
             strv_isempty(network->match_name) && strv_isempty(network->match_property) &&
-            !network->conditions)
+            strv_isempty(network->match_ssid) && !network->conditions)
                 log_warning("%s: No valid settings found in the [Match] section. "
                             "The file will match all interfaces. "
                             "If that is intended, please add Name=* in the [Match] section.",
@@ -513,6 +513,7 @@ static Network *network_free(Network *network) {
         strv_free(network->match_type);
         strv_free(network->match_name);
         strv_free(network->match_property);
+        strv_free(network->match_ssid);
         condition_free_list(network->conditions);
 
         free(network->description);
@@ -612,7 +613,7 @@ int network_get_by_name(Manager *manager, const char *name, Network **ret) {
 
 int network_get(Manager *manager, sd_device *device,
                 const char *ifname, const struct ether_addr *address,
-                Network **ret) {
+                const char *ssid, Network **ret) {
         Network *network;
         Iterator i;
 
@@ -622,7 +623,7 @@ int network_get(Manager *manager, sd_device *device,
         ORDERED_HASHMAP_FOREACH(network, manager->networks, i)
                 if (net_match_config(network->match_mac, network->match_path, network->match_driver,
                                      network->match_type, network->match_name, network->match_property,
-                                     device, address, ifname)) {
+                                     network->match_ssid, device, address, ifname, ssid)) {
                         if (network->match_name && device) {
                                 const char *attr;
                                 uint8_t name_assign_type = NET_NAME_UNKNOWN;

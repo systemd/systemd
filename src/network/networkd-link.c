@@ -32,6 +32,7 @@
 #include "networkd-neighbor.h"
 #include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"
+#include "networkd-wifi-wpa_supplicant.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -726,6 +727,12 @@ static Link *link_free(Link *link) {
 
         free(link->ifname);
         free(link->kind);
+
+        sd_bus_slot_unref(link->wpa_supplicant_interface_slot);
+        sd_bus_slot_unref(link->wpa_supplicant_network_slot);
+        free(link->wpa_supplicant_interface_path);
+        free(link->wpa_supplicant_network_path);
+        free(link->ssid);
 
         (void) unlink(link->state_file);
         free(link->state_file);
@@ -2757,7 +2764,7 @@ int link_reconfigure(Link *link) {
         int r;
 
         r = network_get(link->manager, link->sd_device, link->ifname,
-                        &link->mac, &network);
+                        &link->mac, link->ssid, &network);
         if (r == -ENOENT) {
                 link_enter_unmanaged(link);
                 return 0;
@@ -2846,8 +2853,12 @@ static int link_initialized_and_synced(Link *link) {
                 return r;
 
         if (!link->network) {
+                r = wpa_supplicant_get_interface(link);
+                if (r < 0)
+                        return r;
+
                 r = network_get(link->manager, link->sd_device, link->ifname,
-                                &link->mac, &network);
+                                &link->mac, link->ssid, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
                         return 0;

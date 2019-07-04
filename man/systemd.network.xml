@@ -154,6 +154,16 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>SSID=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of shell-style globs matching the SSID of the currently
+            connected wireless network. If the list is prefixed with a "!", the test is inverted.
+            Note that this works only when <command>wpa_supplicant</command> is running, and when the
+            D-Bus policy allows the <literal>systemd-network</literal> user to access its API. If not,
+            the test may fail.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Host=</varname></term>
           <listitem>
             <para>Matches against the hostname or machine ID of the host. See

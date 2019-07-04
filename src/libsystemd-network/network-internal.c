@@ -142,9 +142,11 @@ bool net_match_config(Set *match_mac,
                       char * const *match_types,
                       char * const *match_names,
                       char * const *match_property,
+                      char * const *match_ssid,
                       sd_device *device,
                       const struct ether_addr *dev_mac,
-                      const char *dev_name) {
+                      const char *dev_name,
+                      const char *ssid) {
 
         const char *dev_path = NULL, *dev_driver = NULL, *dev_type = NULL, *mac_str;
 
@@ -176,6 +178,9 @@ bool net_match_config(Set *match_mac,
                 return false;
 
         if (!net_condition_test_property(match_property, device))
+                return false;
+
+        if (!net_condition_test_strv(match_ssid, ssid))
                 return false;
 
         return true;

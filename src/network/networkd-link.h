@@ -55,6 +55,13 @@ typedef struct Link {
         uint32_t mtu;
         sd_device *sd_device;
 
+        /* wlan */
+        sd_bus_slot *wpa_supplicant_interface_slot;
+        sd_bus_slot *wpa_supplicant_network_slot;
+        char *wpa_supplicant_interface_path;
+        char *wpa_supplicant_network_path;
+        char *ssid;
+
         unsigned flags;
         uint8_t kernel_operstate;
 

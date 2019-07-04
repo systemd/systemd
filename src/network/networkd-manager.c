@@ -27,6 +27,7 @@
 #include "networkd-manager.h"
 #include "networkd-network-bus.h"
 #include "networkd-speed-meter.h"
+#include "networkd-wifi-wpa_supplicant.h"
 #include "ordered-set.h"
 #include "path-util.h"
 #include "set.h"
@@ -183,6 +184,15 @@ int manager_connect_bus(Manager *m) {
                         match_prepare_for_sleep, NULL, m);
         if (r < 0)
                 log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
+
+        r = sd_bus_match_signal_async(
+                        m->bus,
+                        NULL,
+                        "fi.w1.wpa_supplicant1",
+                        "/fi/w1/wpa_supplicant1",
+                        "fi.w1.wpa_supplicant1",
+                        "PropertiesChanged",
+                        on_wpa_supplicant_properties_changed, NULL, m);
 
         return 0;
 }
@@ -1332,6 +1342,7 @@ int manager_new(Manager **ret) {
 
         *m = (Manager) {
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
+                .wpa_supplicant_support = true,
         };
 
         m->state_file = strdup("/run/systemd/netif/state");
