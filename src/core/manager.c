@@ -2896,7 +2896,7 @@ int manager_loop(Manager *m) {
         while (m->objective == MANAGER_OK) {
                 usec_t wait_usec;
 
-                if (m->runtime_watchdog > 0 && m->runtime_watchdog != USEC_INFINITY && MANAGER_IS_SYSTEM(m))
+                if (timestamp_is_set(m->runtime_watchdog) && MANAGER_IS_SYSTEM(m))
                         watchdog_ping();
 
                 if (!ratelimit_below(&rl)) {
@@ -2927,7 +2927,7 @@ int manager_loop(Manager *m) {
                         continue;
 
                 /* Sleep for half the watchdog time */
-                if (m->runtime_watchdog > 0 && m->runtime_watchdog != USEC_INFINITY && MANAGER_IS_SYSTEM(m)) {
+                if (timestamp_is_set(m->runtime_watchdog) && MANAGER_IS_SYSTEM(m)) {
                         wait_usec = m->runtime_watchdog / 2;
                         if (wait_usec <= 0)
                                 wait_usec = 1;
