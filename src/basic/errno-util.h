@@ -36,6 +36,17 @@ static inline char *strerror_safe(int error) {
         return strerror(abs(error));
 }
 
+static inline int errno_or_else(int fallback) {
+        /* To be used when invoking library calls where errno handling is not defined clearly: we return
+         * errno if it is set, and the specified error otherwise. The idea is that the caller initializes
+         * errno to zero before doing an API call, and then uses this helper to retrieve a somewhat useful
+         * error code */
+        if (errno > 0)
+                return -errno;
+
+        return -abs(fallback);
+}
+
 /* Hint #1: ENETUNREACH happens if we try to connect to "non-existing" special IP addresses, such as ::5.
  *
  * Hint #2: The kernel sends e.g., EHOSTUNREACH or ENONET to userspace in some ICMP error cases.  See the
