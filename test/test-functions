@@ -202,6 +202,7 @@ $KERNEL_APPEND \
     QEMU_OPTIONS="-smp $QEMU_SMP \
 -net none \
 -m $QEMU_MEM \
+-machine accel=kvm -enable-kvm \
 -nographic \
 -kernel $KERNEL_BIN \
 -drive format=raw,cache=unsafe,file=${TESTDIR}/rootdisk.img \
