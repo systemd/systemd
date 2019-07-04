@@ -23,6 +23,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "utf8.h"
 
 /* Refuse putting together variants with a larger depth than 4K by default (as a protection against overflowing stacks
@@ -4002,6 +4003,81 @@ int json_dispatch_variant(const char *name, JsonVariant *variant, JsonDispatchFl
         *p = json_variant_ref(variant);
 
         return 0;
+}
+
+int json_dispatch_uid_gid(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        uid_t *uid = userdata;
+        uintmax_t k;
+
+        assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+        assert_cc(sizeof(gid_t) == sizeof(uint32_t));
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+        assert_cc(((uid_t) -1 < (uid_t) 0) == ((gid_t) -1 < (gid_t) 0));
+#pragma GCC diagnostic pop
+
+        if (json_variant_is_null(variant)) {
+                *uid = UID_INVALID;
+                return 0;
+        }
+
+        if (!json_variant_is_unsigned(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a integer.", strna(name));
+
+        k = json_variant_unsigned(variant);
+        if (k > UINT32_MAX || !uid_is_valid(k))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid UID/GID.", strna(name));
+
+        *uid = k;
+        return 0;
+}
+
+int json_dispatch_user_group_name(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        char **s = userdata;
+        const char *n;
+        int r;
+
+        if (json_variant_is_null(variant)) {
+                *s = mfree(*s);
+                return 0;
+        }
+
+        if (!json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        n = json_variant_string(variant);
+        if (!valid_user_group_name(n))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid user/group name.", strna(name));
+
+        r = free_and_strdup(s, n);
+        if (r < 0)
+                return json_log(variant, flags, r, "Failed to allocate string: %m");
+
+        return 0;
+}
+
+int json_dispatch_id128(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        sd_id128_t *uuid = userdata;
+        int r;
+
+        if (json_variant_is_null(variant)) {
+                *uuid = SD_ID128_NULL;
+                return 0;
+        }
+
+        if (!json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        r = sd_id128_from_string(json_variant_string(variant), uuid);
+        if (r < 0)
+                return json_log(variant, flags, r, "JSON field '%s' is not a valid UID.", strna(name));
+
+        return 0;
+}
+
+int json_dispatch_unsupported(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not allowed in this object.", strna(name));
 }
 
 static int json_cmp_strings(const void *x, const void *y) {
