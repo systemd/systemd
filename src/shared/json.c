@@ -1976,6 +1976,49 @@ int json_variant_merge(JsonVariant **v, JsonVariant *m) {
         return 1;
 }
 
+int json_variant_append_array(JsonVariant **v, JsonVariant *element) {
+        _cleanup_(json_variant_unrefp) JsonVariant *nv = NULL;
+        bool blank;
+        int r;
+
+        assert(v);
+        assert(element);
+
+
+        if (!*v || json_variant_is_null(*v))
+                blank = true;
+        else if (!json_variant_is_array(*v))
+                return -EINVAL;
+        else
+                blank = json_variant_elements(*v) == 0;
+
+        if (blank)
+                r = json_variant_new_array(&nv, (JsonVariant*[]) { element }, 1);
+        else {
+                _cleanup_free_ JsonVariant **array = NULL;
+                size_t i;
+
+                array = new(JsonVariant*, json_variant_elements(*v) + 1);
+                if (!array)
+                        return -ENOMEM;
+
+                for (i = 0; i < json_variant_elements(*v); i++)
+                        array[i] = json_variant_by_index(*v, i);
+
+                array[i] = element;
+
+                r = json_variant_new_array(&nv, array, i + 1);
+        }
+
+        if (r < 0)
+                return r;
+
+        json_variant_unref(*v);
+        *v = TAKE_PTR(nv);
+
+        return 0;
+}
+
 int json_variant_strv(JsonVariant *v, char ***ret) {
         char **l = NULL;
         size_t n, i;
