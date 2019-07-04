@@ -243,6 +243,7 @@ conf.set_quoted('SYSTEMD_EXPORT_PATH',                        join_paths(rootlib
 conf.set_quoted('VENDOR_KEYRING_PATH',                        join_paths(rootlibexecdir, 'import-pubring.gpg'))
 conf.set_quoted('USER_KEYRING_PATH',                          join_paths(pkgsysconfdir, 'import-pubring.gpg'))
 conf.set_quoted('DOCUMENT_ROOT',                              join_paths(pkgdatadir, 'gatewayd'))
+conf.set_quoted('SYSTEMD_USERWORK_PATH',                      join_paths(rootlibexecdir, 'systemd-userwork'))
 conf.set10('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default)
 conf.set_quoted('MEMORY_ACCOUNTING_DEFAULT_YES_NO',           memory_accounting_default ? 'yes' : 'no')
 conf.set('STATUS_UNIT_FORMAT_DEFAULT',                        'STATUS_UNIT_FORMAT_' + status_unit_format_default.to_upper())
@@ -1322,6 +1323,7 @@ foreach term : ['utmp',
                 'localed',
                 'machined',
                 'portabled',
+                'userdb',
                 'networkd',
                 'timedated',
                 'timesyncd',
@@ -1538,6 +1540,7 @@ subdir('src/kernel-install')
 subdir('src/locale')
 subdir('src/machine')
 subdir('src/portable')
+subdir('src/userdb')
 subdir('src/nspawn')
 subdir('src/resolve')
 subdir('src/timedate')
@@ -1972,6 +1975,26 @@ if conf.get('ENABLE_PORTABLED') == 1
                          install : true,
                          install_dir : rootbindir)
         public_programs += exe
+endif
+
+if conf.get('ENABLE_USERDB') == 1
+        executable('systemd-userwork',
+                   systemd_userwork_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+
+        executable('systemd-userdbd',
+                   systemd_userdbd_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
 endif
 
 foreach alias : ['halt', 'poweroff', 'reboot', 'runlevel', 'shutdown', 'telinit']
@@ -3252,6 +3275,7 @@ foreach tuple : [
         ['logind'],
         ['machined'],
         ['portabled'],
+        ['userdb'],
         ['importd'],
         ['hostnamed'],
         ['timedated'],

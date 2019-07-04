@@ -94,6 +94,8 @@ option('machined', type : 'boolean',
        description : 'install the systemd-machined stack')
 option('portabled', type : 'boolean',
        description : 'install the systemd-portabled stack')
+option('userdb', type : 'boolean',
+       description : 'install the systemd-userdbd stack')
 option('networkd', type : 'boolean',
        description : 'install the systemd-networkd stack')
 option('timedated', type : 'boolean',
