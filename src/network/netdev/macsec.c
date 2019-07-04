@@ -718,10 +718,10 @@ int config_parse_macsec_key(
 
         _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
         _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
-        _cleanup_free_ void *p;
         MACsec *s = userdata;
         SecurityAssociation *dest;
         size_t l;
+        void *p;
         int r;
 
         assert(filename);
@@ -743,18 +743,19 @@ int config_parse_macsec_key(
 
         r = unhexmem_full(rvalue, strlen(rvalue), true, &p, &l);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse key. Ignoring assignment: %m");
-                return 0;
-        }
-        if (l != 16) {
-                /* See DEFAULT_SAK_LEN in drivers/net/macsec.c */
-                explicit_bzero_safe(p, l);
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Invalid key length (%zu). Ignoring assignment", l);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse key. Ignoring assignment: %m");
                 return 0;
         }
 
+        AUTO_FREE_ERASE_MEMORY(p, l);
+
+        if (l != 16) {
+                /* See DEFAULT_SAK_LEN in drivers/net/macsec.c */
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid key length (%zu). Ignoring assignment", l);
+                return 0;
+        }
+
+        explicit_bzero_safe(dest->key, dest->key_len);
         free_and_replace(dest->key, p);
         dest->key_len = l;
 
@@ -972,8 +973,8 @@ int config_parse_macsec_use_for_encoding(
 }
 
 static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
-        _cleanup_free_ uint8_t *key = NULL;
         size_t key_len;
+        uint8_t *key;
         int r;
 
         assert(netdev);
@@ -987,12 +988,13 @@ static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
                 return log_netdev_error_errno(netdev, r,
                                               "Failed to read key from '%s', ignoring: %m",
                                               sa->key_file);
-        if (key_len != 16) {
-                explicit_bzero_safe(key, key_len);
+
+        AUTO_FREE_ERASE_MEMORY(key, key_len);
+
+        if (key_len != 16)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "Invalid key length (%zu bytes), ignoring: %m",
                                               key_len);
-        }
 
         explicit_bzero_safe(sa->key, sa->key_len);
         free_and_replace(sa->key, key);

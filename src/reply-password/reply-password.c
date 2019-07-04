@@ -35,9 +35,9 @@ static int send_on_socket(int fd, const char *socket_name, const void *packet, s
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_free_ char *packet = NULL;
         _cleanup_close_ int fd = -1;
-        size_t length = 0;
+        char *packet = NULL;
+        size_t length;
         int r;
 
         log_setup_service();
@@ -84,6 +84,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        AUTO_FREE_ERASE_MEMORY(packet, length);
+
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0) {
                 r = log_error_errno(errno, "socket() failed: %m");
@@ -93,7 +95,5 @@ int main(int argc, char *argv[]) {
         r = send_on_socket(fd, argv[2], packet, length);
 
 finish:
-        explicit_bzero_safe(packet, length);
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
