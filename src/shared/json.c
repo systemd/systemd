@@ -411,6 +411,20 @@ int json_variant_new_stringn(JsonVariant **ret, const char *s, size_t n) {
         return 0;
 }
 
+int json_variant_new_base64(JsonVariant **ret, const void *p, size_t n) {
+        _cleanup_free_ char *s = NULL;
+        ssize_t k;
+
+        assert_return(ret, -EINVAL);
+        assert_return(n == 0 || p, -EINVAL);
+
+        k = base64mem(p, n, &s);
+        if (k < 0)
+                return k;
+
+        return json_variant_new_stringn(ret, s, k);
+}
+
 static void json_variant_set(JsonVariant *a, JsonVariant *b) {
         assert(a);
 

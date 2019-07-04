@@ -55,6 +55,7 @@ typedef enum JsonVariantType {
 } JsonVariantType;
 
 int json_variant_new_stringn(JsonVariant **ret, const char *s, size_t n);
+int json_variant_new_base64(JsonVariant **ret, const void *p, size_t n);
 int json_variant_new_integer(JsonVariant **ret, intmax_t i);
 int json_variant_new_unsigned(JsonVariant **ret, uintmax_t u);
 int json_variant_new_real(JsonVariant **ret, long double d);
