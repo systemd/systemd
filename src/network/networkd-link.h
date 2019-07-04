@@ -204,6 +204,8 @@ uint32_t link_get_ipv6_accept_ra_route_table(Link *link);
 int link_request_set_routes(Link *link);
 int link_request_set_nexthop(Link *link);
 
+int link_reconfigure(Link *link);
+
 #define ADDRESS_FMT_VAL(address)                   \
         be32toh((address).s_addr) >> 24,           \
         (be32toh((address).s_addr) >> 16) & 0xFFu, \
