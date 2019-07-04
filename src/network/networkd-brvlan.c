@@ -204,49 +204,6 @@ int br_vlan_configure(Link *link, uint16_t pvid, uint32_t *br_vid_bitmap, uint32
         return 0;
 }
 
-static int parse_vid_range(const char *rvalue, uint16_t *vid, uint16_t *vid_end) {
-        int r;
-        char *p;
-        char *_rvalue = NULL;
-        uint16_t _vid = UINT16_MAX;
-        uint16_t _vid_end = UINT16_MAX;
-
-        assert(rvalue);
-        assert(vid);
-        assert(vid_end);
-
-        _rvalue = strdupa(rvalue);
-        p = strchr(_rvalue, '-');
-        if (p) {
-                *p = '\0';
-                p++;
-                r = parse_vlanid(_rvalue, &_vid);
-                if (r < 0)
-                        return r;
-
-                if (_vid == 0)
-                        return -ERANGE;
-
-                r = parse_vlanid(p, &_vid_end);
-                if (r < 0)
-                        return r;
-
-                if (_vid_end == 0)
-                        return -ERANGE;
-        } else {
-                r = parse_vlanid(_rvalue, &_vid);
-                if (r < 0)
-                        return r;
-
-                if (_vid == 0)
-                        return -ERANGE;
-        }
-
-        *vid = _vid;
-        *vid_end = _vid_end;
-        return r;
-}
-
 int config_parse_brvlan_pvid(const char *unit, const char *filename,
                              unsigned line, const char *section,
                              unsigned section_line, const char *lvalue,
@@ -287,16 +244,9 @@ int config_parse_brvlan_vlan(const char *unit, const char *filename,
                 return 0;
         }
 
-        if (UINT16_MAX == vid_end)
-                set_bit(vid++, network->br_vid_bitmap);
-        else {
-                if (vid >= vid_end) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid VLAN range, ignoring %s", rvalue);
-                        return 0;
-                }
-                for (; vid <= vid_end; vid++)
-                        set_bit(vid, network->br_vid_bitmap);
-        }
+        for (; vid <= vid_end; vid++)
+                set_bit(vid, network->br_vid_bitmap);
+
         network->use_br_vlan = true;
         return 0;
 }
@@ -322,19 +272,11 @@ int config_parse_brvlan_untagged(const char *unit, const char *filename,
                 return 0;
         }
 
-        if (UINT16_MAX == vid_end) {
+        for (; vid <= vid_end; vid++) {
                 set_bit(vid, network->br_vid_bitmap);
                 set_bit(vid, network->br_untagged_bitmap);
-        } else {
-                if (vid >= vid_end) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid VLAN range, ignoring %s", rvalue);
-                        return 0;
-                }
-                for (; vid <= vid_end; vid++) {
-                        set_bit(vid, network->br_vid_bitmap);
-                        set_bit(vid, network->br_untagged_bitmap);
-                }
         }
+
         network->use_br_vlan = true;
         return 0;
 }
