@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "install.h"
 #include "io-util.h"
 #include "locale-util.h"
 #include "loop-util.h"

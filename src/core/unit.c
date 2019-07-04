@@ -28,6 +28,7 @@
 #include "fs-util.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "install.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
