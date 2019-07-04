@@ -5,7 +5,7 @@ file = configure_file(
         output : 'README',
         configuration : substs)
 
-if conf.get('HAVE_SYSV_COMPAT') == 1
+if conf.get('HAVE_SYSV_COMPAT') == 1 and get_option('create-log-dirs')
         install_data(file,
                      install_dir : varlogdir)
 endif
