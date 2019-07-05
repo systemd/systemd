@@ -19,12 +19,12 @@
 
 static bool is_bit_set(unsigned bit, uint32_t scope) {
         assert(bit < sizeof(scope)*8);
-        return scope & (1 << bit);
+        return scope & (UINT32_C(1) << bit);
 }
 
 static void set_bit(unsigned nr, uint32_t *addr) {
         if (nr < BRIDGE_VLAN_BITMAP_MAX)
-                addr[nr / 32] |= (((uint32_t) 1) << (nr % 32));
+                addr[nr / 32] |= (UINT32_C(1) << (nr % 32));
 }
 
 static int find_next_bit(int i, uint32_t x) {
