@@ -753,7 +753,7 @@ static int submit_coredump(
         if (r < 0)
                 return r;
         if (r == 0) {
-                iovw_put_string_field(iovw, "COREDUMP_FILENAME=", filename);
+                (void) iovw_put_string_field(iovw, "COREDUMP_FILENAME=", filename);
 
         } else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
                 log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
@@ -797,10 +797,10 @@ log:
                 return 0;
         }
 
-        iovw_put_string_field(iovw, "MESSAGE=", core_message);
+        (void) iovw_put_string_field(iovw, "MESSAGE=", core_message);
 
         if (truncated)
-                iovw_put_string_field(iovw, "COREDUMP_TRUNCATED=", "1");
+                (void) iovw_put_string_field(iovw, "COREDUMP_TRUNCATED=", "1");
 
         /* Optionally store the entire coredump in the journal */
         if (arg_storage == COREDUMP_STORAGE_JOURNAL) {
@@ -1078,8 +1078,8 @@ static int gather_pid_metadata_from_argv(struct iovec_wrapper *iovw, Context *co
                 case META_ARGV_SIGNAL:
                         /* For signal, record its pretty name too */
                         if (safe_atoi(argv[i], &signo) >= 0 && SIGNAL_VALID(signo))
-                                iovw_put_string_field(iovw, "COREDUMP_SIGNAL_NAME=SIG",
-                                                      signal_to_string(signo));
+                                (void) iovw_put_string_field(iovw, "COREDUMP_SIGNAL_NAME=SIG",
+                                                             signal_to_string(signo));
                         break;
                 default:
                         break;
@@ -1117,17 +1117,18 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
                 return r;
 
         /* The following are optional but we used them if present */
-        if (get_process_exe(pid, &t) >= 0)
-                iovw_put_string_field_free(iovw, "COREDUMP_EXE=", t);
-        else
+        r = get_process_exe(pid, &t);
+        if (r >= 0)
+                r = iovw_put_string_field_free(iovw, "COREDUMP_EXE=", t);
+        if (r < 0)
                 log_warning_errno(r, "Failed to get EXE, ignoring: %m");
 
         if (cg_pid_get_unit(pid, &t) >= 0)
-                iovw_put_string_field_free(iovw, "COREDUMP_UNIT=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_UNIT=", t);
 
         /* The next are optional */
         if (cg_pid_get_user_unit(pid, &t) >= 0)
-                iovw_put_string_field_free(iovw, "COREDUMP_USER_UNIT=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_USER_UNIT=", t);
 
         if (sd_pid_get_session(pid, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_SESSION=", t);
@@ -1139,55 +1140,55 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
         }
 
         if (sd_pid_get_slice(pid, &t) >= 0)
-                iovw_put_string_field_free(iovw, "COREDUMP_SLICE=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_SLICE=", t);
 
         if (get_process_cmdline(pid, SIZE_MAX, 0, &t) >= 0)
-                iovw_put_string_field_free(iovw, "COREDUMP_CMDLINE=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_CMDLINE=", t);
 
         if (cg_pid_get_path_shifted(pid, NULL, &t) >= 0)
-                iovw_put_string_field_free(iovw, "COREDUMP_CGROUP=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_CGROUP=", t);
 
         if (compose_open_fds(pid, &t) >= 0)
-                iovw_put_string_field_free(iovw, "COREDUMP_OPEN_FDS=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_OPEN_FDS=", t);
 
         p = procfs_file_alloca(pid, "status");
         if (read_full_file(p, &t, NULL) >= 0)
-                iovw_put_string_field_free(iovw, "COREDUMP_PROC_STATUS=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_STATUS=", t);
 
         p = procfs_file_alloca(pid, "maps");
         if (read_full_file(p, &t, NULL) >= 0)
-                iovw_put_string_field_free(iovw, "COREDUMP_PROC_MAPS=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_MAPS=", t);
 
         p = procfs_file_alloca(pid, "limits");
         if (read_full_file(p, &t, NULL) >= 0)
-                iovw_put_string_field_free(iovw, "COREDUMP_PROC_LIMITS=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_LIMITS=", t);
 
         p = procfs_file_alloca(pid, "cgroup");
         if (read_full_file(p, &t, NULL) >=0)
-                iovw_put_string_field_free(iovw, "COREDUMP_PROC_CGROUP=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_CGROUP=", t);
 
         p = procfs_file_alloca(pid, "mountinfo");
         if (read_full_file(p, &t, NULL) >=0)
-                iovw_put_string_field_free(iovw, "COREDUMP_PROC_MOUNTINFO=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_MOUNTINFO=", t);
 
         if (get_process_cwd(pid, &t) >= 0)
-                iovw_put_string_field_free(iovw, "COREDUMP_CWD=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_CWD=", t);
 
         if (get_process_root(pid, &t) >= 0) {
                 bool proc_self_root_is_slash;
 
                 proc_self_root_is_slash = strcmp(t, "/") == 0;
 
-                iovw_put_string_field_free(iovw, "COREDUMP_ROOT=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_ROOT=", t);
 
                 /* If the process' root is "/", then there is a chance it has
                  * mounted own root and hence being containerized. */
                 if (proc_self_root_is_slash && get_process_container_parent_cmdline(pid, &t) > 0)
-                        iovw_put_string_field_free(iovw, "COREDUMP_CONTAINER_CMDLINE=", t);
+                        (void) iovw_put_string_field_free(iovw, "COREDUMP_CONTAINER_CMDLINE=", t);
         }
 
         if (get_process_environ(pid, &t) >= 0)
-                iovw_put_string_field_free(iovw, "COREDUMP_ENVIRON=", t);
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_ENVIRON=", t);
 
         /* we successfully acquired all metadata */
         return save_context(context, iovw);
@@ -1204,8 +1205,8 @@ static int process_kernel(int argc, char* argv[]) {
         if (!iovw)
                 return log_oom();
 
-        iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_COREDUMP_STR);
-        iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
+        (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_COREDUMP_STR);
+        (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         /* Collect all process metadata passed by the kernel through argv[] */
         r = gather_pid_metadata_from_argv(iovw, &context, argc - 1, argv + 1);
@@ -1258,8 +1259,8 @@ static int process_backtrace(int argc, char *argv[]) {
         if (!iovw)
                 return log_oom();
 
-        iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_BACKTRACE_STR);
-        iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
+        (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_BACKTRACE_STR);
+        (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         /* Collect all process metadata from argv[] by making sure to skip the
          * '--backtrace' option */
