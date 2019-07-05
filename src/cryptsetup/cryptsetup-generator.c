@@ -27,8 +27,7 @@
 
 typedef struct crypto_device {
         char *uuid;
-        char *keyfile;
-        char *keydev;
+        char *keyspec;
         char *name;
         char *options;
         bool create;
@@ -150,16 +149,17 @@ static int print_dependencies(FILE *f, const char* device_path) {
 static int create_disk(
                 const char *name,
                 const char *device,
-                const char *keydev,
-                const char *password,
+                const char *keyspec,
                 const char *options) {
 
         _cleanup_free_ char *n = NULL, *d = NULL, *u = NULL, *e = NULL,
-                *filtered = NULL, *u_escaped = NULL, *password_escaped = NULL, *filtered_escaped = NULL, *name_escaped = NULL, *keydev_mount = NULL, *header_path = NULL;
+                *keydev = NULL, *keydev_mount = NULL, *password = NULL, *password_escaped = NULL,
+                *filtered = NULL, *u_escaped = NULL, *filtered_escaped = NULL, *name_escaped = NULL, *header_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
         bool noauto, nofail, tmp, swap, netdev;
         int r, detached_header;
+        char *c;
 
         assert(name);
         assert(device);
@@ -169,6 +169,20 @@ static int create_disk(
         tmp = fstab_test_option(options, "tmp\0");
         swap = fstab_test_option(options, "swap\0");
         netdev = fstab_test_option(options, "_netdev\0");
+
+        c = strrchr(keyspec, ':');
+        if (c) {
+            *c = '\0';
+            password = strndup(keyspec, c-keyspec);
+            keydev = strdup(c + 1);
+            if (!password || !keydev)
+                return log_oom();
+            } else {
+                /* No keydev specified */
+                password = strdup(keyspec);
+                if (!password)
+                    return log_oom();
+        }
 
         detached_header = fstab_filter_options(options, "header\0", NULL, &header_path, NULL);
         if (detached_header < 0)
@@ -203,11 +217,7 @@ static int create_disk(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        if (password) {
-                password_escaped = specifier_escape(password);
-                if (!password_escaped)
-                        return log_oom();
-        }
+
 
         if (keydev && !password)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -235,11 +245,17 @@ static int create_disk(
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate keydev mount unit: %m");
 
-                p = path_join(keydev_mount, password_escaped);
+                p = path_join(keydev_mount, password);
                 if (!p)
                         return log_oom();
 
-                free_and_replace(password_escaped, p);
+                free_and_replace(password, p);
+        }
+
+        if (password) {
+                password_escaped = specifier_escape(password);
+                if (!password_escaped)
+                        return log_oom();
         }
 
         if (!nofail)
@@ -350,8 +366,7 @@ static crypto_device* crypt_device_free(crypto_device *d) {
                 return NULL;
 
         free(d->uuid);
-        free(d->keyfile);
-        free(d->keydev);
+        free(d->keyspec);
         free(d->name);
         free(d->options);
         return mfree(d);
@@ -370,7 +385,7 @@ static crypto_device *get_crypto_device(const char *uuid) {
                         return NULL;
 
                 d->create = false;
-                d->keyfile = d->options = d->name = NULL;
+                d->keyspec = d->options = d->name = NULL;
 
                 d->uuid = strdup(uuid);
                 if (!d->uuid)
@@ -435,9 +450,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "luks.key")) {
                 size_t n;
-                _cleanup_free_ char *keyfile = NULL, *keydev = NULL;
-                char *c;
-                const char *keyspec;
+                char *keyspec;
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -462,24 +475,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!d)
                         return log_oom();
 
-                keyspec = value + n + 1;
-                c = strrchr(keyspec, ':');
-                if (c) {
-                         *c = '\0';
-                        keyfile = strdup(keyspec);
-                        keydev = strdup(c + 1);
+                keyspec = strdup(value + n + 1);
+                if (!keyspec)
+                        return log_oom();
 
-                        if (!keyfile || !keydev)
-                                return log_oom();
-                } else {
-                        /* No keydev specified */
-                        keyfile = strdup(keyspec);
-                        if (!keyfile)
-                                return log_oom();
-                }
+                free_and_replace(d->keyspec, keyspec);
 
-                free_and_replace(d->keyfile, keyfile);
-                free_and_replace(d->keydev, keydev);
         } else if (streq(key, "luks.name")) {
 
                 if (proc_cmdline_value_missing(key, value))
@@ -523,7 +524,7 @@ static int add_crypttab_devices(void) {
         }
 
         for (;;) {
-                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyfile = NULL, *options = NULL;
+                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyspec = NULL, *keyfile = NULL, *keydev = NULL, *options = NULL;
                 crypto_device *d = NULL;
                 char *l, *uuid;
                 int k;
@@ -540,7 +541,7 @@ static int add_crypttab_devices(void) {
                 if (IN_SET(l[0], 0, '#'))
                         continue;
 
-                k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &keyfile, &options);
+                k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &keyspec, &options);
                 if (k < 2 || k > 4) {
                         log_error("Failed to parse /etc/crypttab:%u, ignoring.", crypttab_line);
                         continue;
@@ -559,7 +560,7 @@ static int add_crypttab_devices(void) {
                         continue;
                 }
 
-                r = create_disk(name, device, NULL, keyfile, (d && d->options) ? d->options : options);
+                r = create_disk(name, device, keyspec, (d && d->options) ? d->options : options);
                 if (r < 0)
                         return r;
 
@@ -599,7 +600,7 @@ static int add_proc_cmdline_devices(void) {
                 else
                         options = "timeout=0";
 
-                r = create_disk(d->name, device, d->keydev, d->keyfile ?: arg_default_keyfile, options);
+                r = create_disk(d->name, device, d->keyspec ?: arg_default_keyfile, options);
                 if (r < 0)
                         return r;
         }
