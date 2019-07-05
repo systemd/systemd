@@ -175,12 +175,18 @@ static int device_coldplug(Unit *u) {
 }
 
 static void device_catchup(Unit *u) {
+        Manager *m = u->manager;
         Device *d = DEVICE(u);
 
         assert(d);
 
         /* During the "catchup" phase, the manager is up and running thus the enumerated
          * state will pull new deps if any */
+
+        /* If we can't trust the device enumeration, simply restore the old flag if it was
+         * previously set */
+        if (!m->honor_device_enumeration)
+                d->found |= d->deserialized_found & DEVICE_FOUND_UDEV;
 
         /* Let's update the state with the enumerated state if it's different */
         if (d->found == d->deserialized_found)
@@ -686,7 +692,7 @@ static void device_update_found_one(Device *d, DeviceFound found, DeviceFound ma
         if (n == d->found)
                 return;
 
-        if (MANAGER_IS_RUNNING(m) && (m->honor_device_enumeration || MANAGER_IS_USER(m)))
+        if (MANAGER_IS_RUNNING(m))
                 /* When we are already running, then apply the new mask right-away, and
                  * trigger state changes right-away */
                 device_found_changed(d, d->found, n);
@@ -859,8 +865,17 @@ static void device_enumerate(Manager *m) {
                 goto fail;
         }
 
+        /* At this point we don't really know if udev is running and has populated its DB
+         * because reload of PID1 can happen at anytime especially early during the boot
+         * process. So in order to figure this out, we simply assume that if the DB is
+         * fully populated, we should at least enumerate one device otherwise we consider
+         * that the device enumeration hasn't happened yet hence we shouldn't trust it */
+        m->honor_device_enumeration = false;
+
         FOREACH_DEVICE(e, dev) {
                 const char *sysfs;
+
+                m->honor_device_enumeration = true;
 
                 if (!device_is_ready(dev))
                         continue;
