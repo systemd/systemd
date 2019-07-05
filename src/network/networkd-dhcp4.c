@@ -153,8 +153,8 @@ static int link_set_dhcp_routes(Link *link) {
                 r = route_configure(route, link, dhcp4_route_handler);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set host route: %m");
-
-                link->dhcp4_messages++;
+                if (r > 0)
+                        link->dhcp4_messages++;
         }
 
         r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
@@ -192,8 +192,8 @@ static int link_set_dhcp_routes(Link *link) {
                 r = route_configure(route_gw, link, dhcp4_route_handler);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set host route: %m");
-
-                link->dhcp4_messages++;
+                if (r > 0)
+                        link->dhcp4_messages++;
 
                 r = route_new(&route);
                 if (r < 0)
@@ -209,8 +209,8 @@ static int link_set_dhcp_routes(Link *link) {
                 r = route_configure(route, link, dhcp4_route_handler);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set routes: %m");
-
-                link->dhcp4_messages++;
+                if (r > 0)
+                        link->dhcp4_messages++;
         }
 
         return 0;
