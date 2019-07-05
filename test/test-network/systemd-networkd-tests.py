@@ -2119,6 +2119,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-listen-port.network',
         'dhcp-client-route-metric.network',
         'dhcp-client-route-table.network',
+        'dhcp-client-use-routes-no.network',
         'dhcp-client-vrf.network',
         'dhcp-client-with-ipv4ll-fallback-with-dhcp-server.network',
         'dhcp-client-with-ipv4ll-fallback-without-dhcp-server.network',
@@ -2294,6 +2295,38 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip route show dev veth99')
         print(output)
         self.assertRegex(output, 'metric 24')
+
+    def test_dhcp_client_use_routes_no(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
+                                        'dhcp-client-use-routes-no.network')
+        start_networkd()
+        wait_online(['veth-peer:carrier'])
+        start_dnsmasq(lease_time='2m')
+        wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output('ip address show dev veth99 scope global')
+        print(output)
+        self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+
+        output = check_output('ip route show dev veth99')
+        print(output)
+        self.assertRegex(output, r'192.168.5.0/24 proto kernel scope link src 192.168.5.[0-9]*')
+        self.assertRegex(output, r'192.168.5.0/24 proto static')
+        self.assertRegex(output, r'192.168.6.0/24 proto static')
+        self.assertRegex(output, r'192.168.7.0/24 proto static')
+
+        # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
+        print('Wait for the dynamic address to be renewed')
+        time.sleep(125)
+
+        wait_online(['veth99:routable'])
+
+        output = check_output('ip route show dev veth99')
+        print(output)
+        self.assertRegex(output, r'192.168.5.0/24 proto kernel scope link src 192.168.5.[0-9]*')
+        self.assertRegex(output, r'192.168.5.0/24 proto static')
+        self.assertRegex(output, r'192.168.6.0/24 proto static')
+        self.assertRegex(output, r'192.168.7.0/24 proto static')
 
     def test_dhcp_keep_configuration_dhcp(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-keep-configuration-dhcp.network')
