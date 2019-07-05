@@ -155,12 +155,19 @@ static int device_coldplug(Unit *u) {
 
         assert(d);
         assert(d->state == DEVICE_DEAD);
+        assert(d->found == DEVICE_NOT_FOUND);
 
-        /* First, let's put the deserialized state and found mask into effect, if we have it. */
+        /* During the "coldplug" phase (called after the enumeration and deserialization
+         * ones) no unit state change events are generated, thus the deserialized state
+         * won't pull in new deps */
 
-        if (d->deserialized_state < 0 ||
-            (d->deserialized_state == d->state &&
-             d->deserialized_found == d->found))
+        /* Device appeared while PID1 stopped listening for new kernel events, which
+         * happens while it is reexecuting */
+        if (d->deserialized_state < 0)
+                return 0;
+
+        if (d->deserialized_state == DEVICE_DEAD &&
+            d->deserialized_found == DEVICE_NOT_FOUND)
                 return 0;
 
         d->found = d->deserialized_found;
@@ -173,7 +180,10 @@ static void device_catchup(Unit *u) {
 
         assert(d);
 
-        /* Second, let's update the state with the enumerated state if it's different */
+        /* During the "catchup" phase, the manager is up and running thus the enumerated
+         * state will pull new deps if any */
+
+        /* Let's update the state with the enumerated state if it's different */
         if (d->enumerated_found == d->found)
                 return;
 
