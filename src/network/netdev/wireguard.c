@@ -480,7 +480,7 @@ static int wireguard_decode_key_and_warn(
                 unsigned line,
                 const char *lvalue) {
 
-        _cleanup_free_ void *key = NULL;
+        _cleanup_(erase_and_freep) void *key = NULL;
         size_t len;
         int r;
 
@@ -501,12 +501,10 @@ static int wireguard_decode_key_and_warn(
         if (r < 0)
                 return log_syntax(unit, LOG_ERR, filename, line, r,
                            "Failed to decode wireguard key provided by %s=, ignoring assignment: %m", lvalue);
-        if (len != WG_KEY_LEN) {
-                explicit_bzero_safe(key, len);
+        if (len != WG_KEY_LEN)
                 return log_syntax(unit, LOG_ERR, filename, line, 0,
                            "Wireguard key provided by %s= has invalid length (%zu bytes), ignoring assignment.",
                            lvalue, len);
-        }
 
         memcpy(ret, key, WG_KEY_LEN);
         return 0;
@@ -894,7 +892,7 @@ static void wireguard_done(NetDev *netdev) {
 }
 
 static int wireguard_read_key_file(const char *filename, uint8_t dest[static WG_KEY_LEN]) {
-        _cleanup_free_ char *key = NULL;
+        _cleanup_(erase_and_freep) char *key = NULL;
         size_t key_len;
         int r;
 
@@ -905,17 +903,11 @@ static int wireguard_read_key_file(const char *filename, uint8_t dest[static WG_
         if (r < 0)
                 return r;
 
-        if (key_len != WG_KEY_LEN) {
-                r = -EINVAL;
-                goto finalize;
-        }
+        if (key_len != WG_KEY_LEN)
+                return -EINVAL;
 
         memcpy(dest, key, WG_KEY_LEN);
-        r = 0;
-
-finalize:
-        explicit_bzero_safe(key, key_len);
-        return r;
+        return 0;
 }
 
 static int wireguard_peer_verify(WireguardPeer *peer) {

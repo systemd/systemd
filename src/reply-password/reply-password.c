@@ -35,7 +35,7 @@ static int send_on_socket(int fd, const char *socket_name, const void *packet, s
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_free_ char *packet = NULL;
+        _cleanup_(erase_and_freep) char *packet = NULL;
         _cleanup_close_ int fd = -1;
         size_t length = 0;
         int r;
@@ -93,7 +93,5 @@ int main(int argc, char *argv[]) {
         r = send_on_socket(fd, argv[2], packet, length);
 
 finish:
-        explicit_bzero_safe(packet, length);
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -63,13 +63,16 @@ static int lookup_key(const char *keyname, key_serial_t *ret) {
 }
 
 static int retrieve_key(key_serial_t serial, char ***ret) {
-        _cleanup_free_ char *p = NULL;
-        long m = 100, n;
+        size_t nfinal, m = 100;
         char **l;
+        _cleanup_(erase_and_freep) char *pfinal = NULL;
 
         assert(ret);
 
         for (;;) {
+                _cleanup_(erase_and_freep) char *p = NULL;
+                long n;
+
                 p = new(char, m);
                 if (!p)
                         return -ENOMEM;
@@ -77,25 +80,20 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
                 n = keyctl(KEYCTL_READ, (unsigned long) serial, (unsigned long) p, (unsigned long) m, 0);
                 if (n < 0)
                         return -errno;
-                if (n < m)
+                if ((size_t) n < m) {
+                        nfinal = (size_t) n;
+                        pfinal = TAKE_PTR(p);
                         break;
-
-                explicit_bzero_safe(p, m);
+                }
 
                 if (m > LONG_MAX / 2) /* overflow check */
                         return -ENOMEM;
                 m *= 2;
-                if ((long) (size_t) m != m) /* make sure that this still fits if converted to size_t */
-                        return -ENOMEM;
-
-                free(p);
         }
 
-        l = strv_parse_nulstr(p, n);
+        l = strv_parse_nulstr(pfinal, nfinal);
         if (!l)
                 return -ENOMEM;
-
-        explicit_bzero_safe(p, n);
 
         *ret = l;
         return 0;
@@ -103,7 +101,7 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
 
 static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **passwords) {
         _cleanup_strv_free_erase_ char **l = NULL;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_(erase_and_freep) char *p = NULL;
         key_serial_t serial;
         size_t n;
         int r;
@@ -131,7 +129,6 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
                 return r;
 
         serial = add_key("user", keyname, p, n, KEY_SPEC_USER_KEYRING);
-        explicit_bzero_safe(p, n);
         if (serial == -1)
                 return -errno;
 
