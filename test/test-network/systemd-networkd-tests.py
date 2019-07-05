@@ -1861,6 +1861,8 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         '26-bridge.netdev',
         '26-bridge-slave-interface-1.network',
         '26-bridge-slave-interface-2.network',
+        '26-bridge-vlan-master.network',
+        '26-bridge-vlan-slave.network',
         'bridge99-ignore-carrier-loss.network',
         'bridge99.network']
 
@@ -1876,6 +1878,26 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
         stop_networkd(show_logs=True)
+
+    def test_bridge_vlan(self):
+        copy_unit_to_networkd_unit_path('11-dummy.netdev', '26-bridge-vlan-slave.network',
+                                        '26-bridge.netdev', '26-bridge-vlan-master.network')
+        start_networkd()
+        wait_online(['test1:enslaved', 'bridge99:degraded'])
+
+        output = check_output('bridge vlan show dev test1')
+        print(output)
+        self.assertNotRegex(output, '4063')
+        for i in range(4064, 4095):
+            self.assertRegex(output, f'{i}')
+        self.assertNotRegex(output, '4095')
+
+        output = check_output('bridge vlan show dev bridge99')
+        print(output)
+        self.assertNotRegex(output, '4059')
+        for i in range(4060, 4095):
+            self.assertRegex(output, f'{i}')
+        self.assertNotRegex(output, '4095')
 
     def test_bridge_property(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',

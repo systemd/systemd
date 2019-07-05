@@ -22,6 +22,22 @@ int parse_vlanid(const char *p, uint16_t *ret) {
         return 0;
 }
 
+int parse_vid_range(const char *p, uint16_t *vid, uint16_t *vid_end) {
+        unsigned lower, upper;
+        int r;
+
+        r = parse_range(p, &lower, &upper);
+        if (r < 0)
+                return r;
+
+        if (lower > VLANID_MAX || upper > VLANID_MAX || lower > upper)
+                return -EINVAL;
+
+        *vid = lower;
+        *vid_end = upper;
+        return 0;
+}
+
 int config_parse_default_port_vlanid(
                 const char *unit,
                 const char *filename,
