@@ -1347,7 +1347,7 @@ int job_coldplug(Job *j) {
         if (j->unit->job_timeout != USEC_INFINITY)
                 timeout_time = usec_add(j->begin_usec, j->unit->job_timeout);
 
-        if (j->begin_running_usec > 0 && j->unit->job_running_timeout != USEC_INFINITY)
+        if (timestamp_is_set(j->begin_running_usec))
                 timeout_time = MIN(timeout_time, usec_add(j->begin_running_usec, j->unit->job_running_timeout));
 
         if (timeout_time == USEC_INFINITY)

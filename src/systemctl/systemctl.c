@@ -1228,7 +1228,7 @@ static usec_t calc_next_elapse(dual_timestamp *nw, dual_timestamp *next) {
         assert(nw);
         assert(next);
 
-        if (next->monotonic != USEC_INFINITY && next->monotonic > 0) {
+        if (timestamp_is_set(next->monotonic)) {
                 usec_t converted;
 
                 if (next->monotonic > nw->monotonic)
@@ -1236,7 +1236,7 @@ static usec_t calc_next_elapse(dual_timestamp *nw, dual_timestamp *next) {
                 else
                         converted = nw->realtime - (nw->monotonic - next->monotonic);
 
-                if (next->realtime != USEC_INFINITY && next->realtime > 0)
+                if (timestamp_is_set(next->realtime))
                         next_elapse = MIN(converted, next->realtime);
                 else
                         next_elapse = converted;

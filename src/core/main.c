@@ -1952,7 +1952,7 @@ static int initialize_runtime(
                                 log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
                 }
 
-                if (arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
+                if (timestamp_is_set(arg_runtime_watchdog))
                         watchdog_set_timeout(&arg_runtime_watchdog);
         }
 

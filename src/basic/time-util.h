@@ -81,15 +81,19 @@ triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u)
 #define TRIPLE_TIMESTAMP_HAS_CLOCK(clock)                               \
         IN_SET(clock, CLOCK_REALTIME, CLOCK_REALTIME_ALARM, CLOCK_MONOTONIC, CLOCK_BOOTTIME, CLOCK_BOOTTIME_ALARM)
 
+static inline bool timestamp_is_set(usec_t timestamp) {
+        return timestamp > 0 && timestamp != USEC_INFINITY;
+}
+
 static inline bool dual_timestamp_is_set(const dual_timestamp *ts) {
-        return ((ts->realtime > 0 && ts->realtime != USEC_INFINITY) ||
-                (ts->monotonic > 0 && ts->monotonic != USEC_INFINITY));
+        return timestamp_is_set(ts->realtime) ||
+               timestamp_is_set(ts->monotonic);
 }
 
 static inline bool triple_timestamp_is_set(const triple_timestamp *ts) {
-        return ((ts->realtime > 0 && ts->realtime != USEC_INFINITY) ||
-                (ts->monotonic > 0 && ts->monotonic != USEC_INFINITY) ||
-                (ts->boottime > 0 && ts->boottime != USEC_INFINITY));
+        return timestamp_is_set(ts->realtime) ||
+               timestamp_is_set(ts->monotonic) ||
+               timestamp_is_set(ts->boottime);
 }
 
 usec_t triple_timestamp_by_clock(triple_timestamp *ts, clockid_t clock);
