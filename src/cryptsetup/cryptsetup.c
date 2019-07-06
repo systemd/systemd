@@ -637,6 +637,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
+        crypt_set_log_callback(NULL, cryptsetup_log_glue, NULL);
         umask(0022);
 
         if (streq(argv[1], "attach")) {
