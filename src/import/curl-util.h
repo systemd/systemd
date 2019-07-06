@@ -16,7 +16,6 @@ struct CurlGlue {
         CURLM *curl;
         sd_event_source *timer;
         Hashmap *ios;
-        Hashmap *translate_fds;
 
         void (*on_finished)(CurlGlue *g, CURL *curl, CURLcode code);
         void *userdata;

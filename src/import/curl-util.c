@@ -28,12 +28,10 @@ static void curl_glue_check_finished(CurlGlue *g) {
 
 static int curl_glue_on_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         CurlGlue *g = userdata;
-        int action, k = 0, translated_fd;
+        int action, k = 0;
 
         assert(s);
         assert(g);
-
-        translated_fd = PTR_TO_FD(hashmap_get(g->translate_fds, FD_TO_PTR(fd)));
 
         if (FLAGS_SET(revents, EPOLLIN | EPOLLOUT))
                 action = CURL_POLL_INOUT;
@@ -44,7 +42,7 @@ static int curl_glue_on_io(sd_event_source *s, int fd, uint32_t revents, void *u
         else
                 action = 0;
 
-        if (curl_multi_socket_action(g->curl, translated_fd, action, &k) != CURLM_OK)
+        if (curl_multi_socket_action(g->curl, fd, action, &k) != CURLM_OK)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Failed to propagate IO event.");
 
@@ -53,7 +51,7 @@ static int curl_glue_on_io(sd_event_source *s, int fd, uint32_t revents, void *u
 }
 
 static int curl_glue_socket_callback(CURLM *curl, curl_socket_t s, int action, void *userdata, void *socketp) {
-        sd_event_source *io;
+        sd_event_source *io = socketp;
         CurlGlue *g = userdata;
         uint32_t events = 0;
         int r;
@@ -61,33 +59,17 @@ static int curl_glue_socket_callback(CURLM *curl, curl_socket_t s, int action, v
         assert(curl);
         assert(g);
 
-        io = hashmap_get(g->ios, FD_TO_PTR(s));
-
         if (action == CURL_POLL_REMOVE) {
                 if (io) {
-                        int fd;
-
-                        fd = sd_event_source_get_io_fd(io);
-                        assert(fd >= 0);
-
                         sd_event_source_disable_unref(io);
 
                         hashmap_remove(g->ios, FD_TO_PTR(s));
-                        hashmap_remove(g->translate_fds, FD_TO_PTR(fd));
-
-                        safe_close(fd);
                 }
 
                 return 0;
         }
 
         r = hashmap_ensure_allocated(&g->ios, &trivial_hash_ops);
-        if (r < 0) {
-                log_oom();
-                return -1;
-        }
-
-        r = hashmap_ensure_allocated(&g->translate_fds, &trivial_hash_ops);
         if (r < 0) {
                 log_oom();
                 return -1;
@@ -107,19 +89,10 @@ static int curl_glue_socket_callback(CURLM *curl, curl_socket_t s, int action, v
                 if (sd_event_source_set_enabled(io, SD_EVENT_ON) < 0)
                         return -1;
         } else {
-                _cleanup_close_ int fd = -1;
-
-                /* When curl needs to remove an fd from us it closes
-                 * the fd first, and only then calls into us. This is
-                 * nasty, since we cannot pass the fd on to epoll()
-                 * anymore. Hence, duplicate the fds here, and keep a
-                 * copy for epoll which we control after use. */
-
-                fd = fcntl(s, F_DUPFD_CLOEXEC, 3);
-                if (fd < 0)
+                if (sd_event_add_io(g->event, &io, s, events, curl_glue_on_io, g) < 0)
                         return -1;
 
-                if (sd_event_add_io(g->event, &io, fd, events, curl_glue_on_io, g) < 0)
+                if (curl_multi_assign(g->curl, s, io) != CURLM_OK)
                         return -1;
 
                 (void) sd_event_source_set_description(io, "curl-io");
@@ -130,16 +103,6 @@ static int curl_glue_socket_callback(CURLM *curl, curl_socket_t s, int action, v
                         sd_event_source_unref(io);
                         return -1;
                 }
-
-                r = hashmap_put(g->translate_fds, FD_TO_PTR(fd), FD_TO_PTR(s));
-                if (r < 0) {
-                        log_oom();
-                        hashmap_remove(g->ios, FD_TO_PTR(s));
-                        sd_event_source_unref(io);
-                        return -1;
-                }
-
-                fd = -1;
         }
 
         return 0;
@@ -204,14 +167,6 @@ CurlGlue *curl_glue_unref(CurlGlue *g) {
                 curl_multi_cleanup(g->curl);
 
         while ((io = hashmap_steal_first(g->ios))) {
-                int fd;
-
-                fd = sd_event_source_get_io_fd(io);
-                assert(fd >= 0);
-
-                hashmap_remove(g->translate_fds, FD_TO_PTR(fd));
-
-                safe_close(fd);
                 sd_event_source_unref(io);
         }
 
