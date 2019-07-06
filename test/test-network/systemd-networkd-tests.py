@@ -2187,6 +2187,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-keep-configuration-dhcp-on-stop.network',
         'dhcp-client-keep-configuration-dhcp.network',
         'dhcp-client-listen-port.network',
+        'dhcp-client-reassign-static-routes-ipv4.network',
+        'dhcp-client-reassign-static-routes-ipv6.network',
         'dhcp-client-route-metric.network',
         'dhcp-client-route-table.network',
         'dhcp-client-use-dns-ipv4-and-ra.network',
@@ -2391,9 +2393,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'metric 24')
 
-    def test_dhcp_client_use_routes_no(self):
+    def test_dhcp_client_reassign_static_routes_ipv4(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                        'dhcp-client-use-routes-no.network')
+                                        'dhcp-client-reassign-static-routes-ipv4.network')
         start_networkd()
         wait_online(['veth-peer:carrier'])
         start_dnsmasq(lease_time='2m')
@@ -2410,6 +2412,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'192.168.6.0/24 proto static')
         self.assertRegex(output, r'192.168.7.0/24 proto static')
 
+        stop_dnsmasq(dnsmasq_pid_file)
+        start_dnsmasq(ipv4_range='192.168.5.210,192.168.5.220', lease_time='2m')
+
         # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
         print('Wait for the dynamic address to be renewed')
         time.sleep(125)
@@ -2422,6 +2427,37 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'192.168.5.0/24 proto static')
         self.assertRegex(output, r'192.168.6.0/24 proto static')
         self.assertRegex(output, r'192.168.7.0/24 proto static')
+
+    def test_dhcp_client_reassign_static_routes_ipv6(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
+                                        'dhcp-client-reassign-static-routes-ipv6.network')
+        start_networkd()
+        wait_online(['veth-peer:carrier'])
+        start_dnsmasq(lease_time='2m')
+        wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output('ip address show dev veth99 scope global')
+        print(output)
+        self.assertRegex(output, r'inet6 2600::[0-9a-f]*/128 scope global (?:noprefixroute dynamic|dynamic noprefixroute)')
+
+        output = check_output('ip -6 route show dev veth99')
+        print(output)
+        self.assertRegex(output, r'2600::/64 proto ra metric 1024')
+        self.assertRegex(output, r'2600:0:0:1::/64 proto static metric 1024 pref medium')
+
+        stop_dnsmasq(dnsmasq_pid_file)
+        start_dnsmasq(ipv6_range='2600::30,2600::40', lease_time='2m')
+
+        # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
+        print('Wait for the dynamic address to be renewed')
+        time.sleep(125)
+
+        wait_online(['veth99:routable'])
+
+        output = check_output('ip -6 route show dev veth99')
+        print(output)
+        self.assertRegex(output, r'2600::/64 proto ra metric 1024')
+        self.assertRegex(output, r'2600:0:0:1::/64 proto static metric 1024 pref medium')
 
     def test_dhcp_keep_configuration_dhcp(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-keep-configuration-dhcp.network')
