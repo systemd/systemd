@@ -638,6 +638,10 @@ static int run(int argc, char *argv[]) {
         log_setup_service();
 
         crypt_set_log_callback(NULL, cryptsetup_log_glue, NULL);
+        if (DEBUG_LOGGING)
+                /* libcryptsetup won't even consider debug messages by default */
+                crypt_set_debug_level(CRYPT_DEBUG_ALL);
+
         umask(0022);
 
         if (streq(argv[1], "attach")) {
