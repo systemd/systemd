@@ -413,6 +413,8 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         if (r >= 0)
                 manager_rtnl_process_address(rtnl, m, link->manager);
 
+        link_request_set_routes(link);
+
         return 1;
 }
 

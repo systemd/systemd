@@ -33,6 +33,7 @@ static int ndisc_netlink_route_message_handler(sd_netlink *rtnl, sd_netlink_mess
 
         if (link->ndisc_messages == 0) {
                 link->ndisc_configured = true;
+                link_request_set_routes(link);
                 link_check_ready(link);
         }
 
@@ -55,6 +56,7 @@ static int ndisc_netlink_address_message_handler(sd_netlink *rtnl, sd_netlink_me
 
         if (link->ndisc_messages == 0) {
                 link->ndisc_configured = true;
+                link_request_set_routes(link);
                 link_check_ready(link);
         }
 
