@@ -2007,18 +2007,24 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
 
         output = check_output('bridge -d link show dummy98')
         print(output)
-        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'hairpin_mode'), '1')
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'path_cost'), '400')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'hairpin_mode'), '1')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_fast_leave'), '1')
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'unicast_flood'), '1')
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_flood'), '0')
-        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_fast_leave'), '1')
-        if (os.path.exists('/sys/devices/virtual/net/bridge99/lower_dummy98/brport/neigh_suppress')):
-            self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'neigh_suppress'), '1')
-        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'learning'), '0')
-
         # CONFIG_BRIDGE_IGMP_SNOOPING=y
         if (os.path.exists('/sys/devices/virtual/net/bridge00/lower_dummy98/brport/multicast_to_unicast')):
             self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_to_unicast'), '1')
+        if (os.path.exists('/sys/devices/virtual/net/bridge99/lower_dummy98/brport/neigh_suppress')):
+            self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'neigh_suppress'), '1')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'learning'), '0')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'priority'), '23')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'bpdu_guard'), '1')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'root_block'), '1')
+
+        output = check_output('bridge -d link show test1')
+        print(output)
+        self.assertEqual(read_bridge_port_attr('bridge99', 'test1', 'priority'), '0')
 
         check_output('ip address add 192.168.0.16/24 dev bridge99')
         time.sleep(1)

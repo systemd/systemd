@@ -13,3 +13,6 @@ MulticastFlood = false
 MulticastToUnicast = true
 NeighborSuppression = true
 Learning = false
+Priority = 23
+UseBPDU = true
+AllowPortToBeRoot=true
