@@ -75,8 +75,8 @@ static int route_scope_from_address(const Route *route, const struct in_addr *se
         assert(route);
         assert(self_addr);
 
-        if (in_addr_is_localhost(AF_INET, &route->dst) ||
-            (self_addr->s_addr && route->dst.in.s_addr == self_addr->s_addr))
+        if (in4_addr_is_localhost(&route->dst.in) ||
+            (!in4_addr_is_null(self_addr) && in4_addr_equal(&route->dst.in, self_addr)))
                 return RT_SCOPE_HOST;
         else if (in4_addr_is_null(&route->gw.in))
                 return RT_SCOPE_LINK;
