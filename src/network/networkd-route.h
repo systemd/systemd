@@ -65,6 +65,9 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
 int network_add_ipv4ll_route(Network *network);
 int network_add_default_route_on_device(Network *network);
 
+const char* route_type_to_string(int t) _const_;
+int route_type_from_string(const char *s) _pure_;
+
 CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
 CONFIG_PARSER_PROTOTYPE(config_parse_destination);

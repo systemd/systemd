@@ -12,6 +12,7 @@
 #include "networkd-route.h"
 #include "parse-util.h"
 #include "set.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "sysctl-util.h"
 #include "util.h"
@@ -749,6 +750,17 @@ int network_add_default_route_on_device(Network *network) {
         return 0;
 }
 
+static const char * const route_type_table[__RTN_MAX] = {
+        [RTN_UNICAST]     = "unicast",
+        [RTN_BLACKHOLE]   = "blackhole",
+        [RTN_UNREACHABLE] = "unreachable",
+        [RTN_PROHIBIT]    = "prohibit",
+        [RTN_THROW]       = "throw",
+};
+
+assert_cc(__RTN_MAX <= UCHAR_MAX);
+DEFINE_STRING_TABLE_LOOKUP(route_type, int);
+
 int config_parse_gateway(
                 const char *unit,
                 const char *filename,
@@ -1127,27 +1139,20 @@ int config_parse_route_type(
 
         Network *network = userdata;
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
-        int r;
+        int t, r;
 
         r = route_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return r;
 
-        if (streq(rvalue, "unicast"))
-                n->type = RTN_UNICAST;
-        else if (streq(rvalue, "blackhole"))
-                n->type = RTN_BLACKHOLE;
-        else if (streq(rvalue, "unreachable"))
-                n->type = RTN_UNREACHABLE;
-        else if (streq(rvalue, "prohibit"))
-                n->type = RTN_PROHIBIT;
-        else if (streq(rvalue, "throw"))
-                n->type = RTN_THROW;
-        else {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+        t = route_type_from_string(rvalue);
+        if (t < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
                            "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
+
+        n->type = (unsigned char) t;
 
         TAKE_PTR(n);
         return 0;
