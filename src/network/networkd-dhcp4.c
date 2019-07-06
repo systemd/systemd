@@ -460,8 +460,8 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
                 link_enter_failed(link);
                 return 1;
         }
-
-        manager_rtnl_process_address(rtnl, m, link->manager);
+        if (r >= 0)
+                manager_rtnl_process_address(rtnl, m, link->manager);
 
         r = link_set_dhcp_routes(link);
         if (r < 0) {
