@@ -288,6 +288,12 @@ sensor:modalias:acpi:BMA250*:dmi:*:bvritWORKS.G.WI71C.JGBMRB*:*:svnInsyde:pni71c
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
+# Irbis TW90
+#########################################
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnIRBIS:pnTW90:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
 # iOTA 360
 #########################################
 sensor:modalias:acpi:KIOX000A*:dmi:*svn*iOTA*:*pn*IOTA2210*
