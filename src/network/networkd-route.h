@@ -23,11 +23,13 @@ struct Route {
         unsigned char dst_prefixlen;
         unsigned char src_prefixlen;
         unsigned char scope;
+        bool scope_set;
         unsigned char protocol;  /* RTPROT_* */
         unsigned char type; /* RTN_* */
         unsigned char tos;
         uint32_t priority; /* note that ip(8) calls this 'metric' */
         uint32_t table;
+        bool table_set;
         uint32_t mtu;
         uint32_t initcwnd;
         uint32_t initrwnd;

@@ -719,6 +719,8 @@ int network_add_ipv4ll_route(Network *network) {
         n->family = AF_INET;
         n->dst_prefixlen = 16;
         n->scope = RT_SCOPE_LINK;
+        n->scope_set = true;
+        n->table_set = true;
         n->priority = IPV4LL_ROUTE_METRIC;
         n->protocol = RTPROT_STATIC;
 
@@ -752,10 +754,16 @@ int network_add_default_route_on_device(Network *network) {
 
 static const char * const route_type_table[__RTN_MAX] = {
         [RTN_UNICAST]     = "unicast",
+        [RTN_LOCAL]       = "local",
+        [RTN_BROADCAST]   = "broadcast",
+        [RTN_ANYCAST]     = "anycast",
+        [RTN_MULTICAST]   = "multicast",
         [RTN_BLACKHOLE]   = "blackhole",
         [RTN_UNREACHABLE] = "unreachable",
         [RTN_PROHIBIT]    = "prohibit",
         [RTN_THROW]       = "throw",
+        [RTN_NAT]         = "nat",
+        [RTN_XRESOLVE]    = "xresolve",
 };
 
 assert_cc(__RTN_MAX <= UCHAR_MAX);
@@ -971,6 +979,7 @@ int config_parse_route_scope(
                 return 0;
         }
 
+        n->scope_set = true;
         TAKE_PTR(n);
         return 0;
 }
@@ -1008,6 +1017,7 @@ int config_parse_route_table(
                 return 0;
         }
 
+        n->table_set = true;
         TAKE_PTR(n);
         return 0;
 }
@@ -1369,6 +1379,18 @@ int route_section_verify(Route *route, Network *network) {
                                          "or PreferredSource= field configured. "
                                          "Ignoring [Route] section from line %u.",
                                          route->section->filename, route->section->line);
+        }
+
+        if (route->family != AF_INET6) {
+                if (!route->table_set && IN_SET(route->type, RTN_LOCAL, RTN_BROADCAST, RTN_ANYCAST, RTN_NAT))
+                        route->table = RT_TABLE_LOCAL;
+
+                if (!route->scope_set) {
+                        if (IN_SET(route->type, RTN_LOCAL, RTN_NAT))
+                                route->scope = RT_SCOPE_HOST;
+                        else if (IN_SET(route->type, RTN_BROADCAST, RTN_ANYCAST))
+                                route->scope = RT_SCOPE_LINK;
+                }
         }
 
         if (network->n_static_addresses == 0 &&
