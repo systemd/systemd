@@ -1552,14 +1552,18 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         start_networkd()
         wait_online(['dummy98:routable'])
 
+        print('### ip -6 route show dev dummy98')
         output = check_output('ip -6 route show dev dummy98')
         print(output)
         self.assertRegex(output, '2001:1234:5:8fff:ff:ff:ff:ff proto static')
         self.assertRegex(output, '2001:1234:5:8f63::1 proto kernel')
 
+        print('### ip -6 route show dev dummy98 default')
         output = check_output('ip -6 route show dev dummy98 default')
+        print(output)
         self.assertRegex(output, 'default via 2001:1234:5:8fff:ff:ff:ff:ff proto static metric 1024 pref medium')
 
+        print('### ip -4 route show dev dummy98')
         output = check_output('ip -4 route show dev dummy98')
         print(output)
         self.assertRegex(output, '149.10.124.48/28 proto kernel scope link src 149.10.124.58')
@@ -1567,20 +1571,33 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '169.254.0.0/16 proto static scope link metric 2048')
         self.assertRegex(output, '192.168.1.1 proto static initcwnd 20')
         self.assertRegex(output, '192.168.1.2 proto static initrwnd 30')
+        self.assertRegex(output, 'multicast 149.10.123.4 proto static')
 
+        print('### ip -4 route show dev dummy98 default')
         output = check_output('ip -4 route show dev dummy98 default')
+        print(output)
         self.assertRegex(output, 'default via 149.10.125.65 proto static onlink')
         self.assertRegex(output, 'default via 149.10.124.64 proto static')
         self.assertRegex(output, 'default proto static')
 
+        print('### ip -4 route show table local dev dummy98')
+        output = check_output('ip -4 route show table local dev dummy98')
+        print(output)
+        self.assertRegex(output, 'local 149.10.123.1 proto static scope host')
+        self.assertRegex(output, 'anycast 149.10.123.2 proto static scope link')
+        self.assertRegex(output, 'broadcast 149.10.123.3 proto static scope link')
+
+        print('### ip route show type blackhole')
         output = check_output('ip route show type blackhole')
         print(output)
         self.assertRegex(output, 'blackhole 202.54.1.2 proto static')
 
+        print('### ip route show type unreachable')
         output = check_output('ip route show type unreachable')
         print(output)
         self.assertRegex(output, 'unreachable 202.54.1.3 proto static')
 
+        print('### ip route show type prohibit')
         output = check_output('ip route show type prohibit')
         print(output)
         self.assertRegex(output, 'prohibit 202.54.1.4 proto static')
