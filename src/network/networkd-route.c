@@ -14,6 +14,7 @@
 #include "set.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strxcpyx.h"
 #include "sysctl-util.h"
 #include "util.h"
 
@@ -413,6 +414,28 @@ int route_remove(Route *route, Link *link,
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_DELROUTE message: %m");
 
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL;
+                char scope[ROUTE_SCOPE_STR_MAX], table[ROUTE_TABLE_STR_MAX];
+
+                if (!in_addr_is_null(route->family, &route->dst)) {
+                        (void) in_addr_to_string(route->family, &route->dst, &dst);
+                        (void) asprintf(&dst_prefixlen, "/%u", route->dst_prefixlen);
+                }
+                if (!in_addr_is_null(route->family, &route->src))
+                        (void) in_addr_to_string(route->family, &route->src, &src);
+                if (!in_addr_is_null(route->family, &route->gw))
+                        (void) in_addr_to_string(route->family, &route->gw, &gw);
+                if (!in_addr_is_null(route->family, &route->prefsrc))
+                        (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
+
+                log_link_debug(link, "Removing route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, type: %s",
+                               strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
+                               format_route_scope(route->scope, scope, sizeof(scope)),
+                               format_route_table(route->table, table, sizeof(table)),
+                               strna(route_type_to_string(route->type)));
+        }
+
         if (in_addr_is_null(route->family, &route->gw) == 0) {
                 r = netlink_message_append_in_addr_union(req, RTA_GATEWAY, route->family, &route->gw);
                 if (r < 0)
@@ -514,6 +537,7 @@ int route_configure(
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL;
+                char scope[ROUTE_SCOPE_STR_MAX], table[ROUTE_TABLE_STR_MAX];
 
                 if (!in_addr_is_null(route->family, &route->dst)) {
                         (void) in_addr_to_string(route->family, &route->dst, &dst);
@@ -526,8 +550,11 @@ int route_configure(
                 if (!in_addr_is_null(route->family, &route->prefsrc))
                         (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
 
-                log_link_debug(link, "Configuring route: dst: %s%s, src: %s, gw: %s, prefsrc: %s",
-                               strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc));
+                log_link_debug(link, "Configuring route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, type: %s",
+                               strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
+                               format_route_scope(route->scope, scope, sizeof(scope)),
+                               format_route_table(route->table, table, sizeof(table)),
+                               strna(route_type_to_string(route->type)));
         }
 
         r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
@@ -768,6 +795,50 @@ static const char * const route_type_table[__RTN_MAX] = {
 
 assert_cc(__RTN_MAX <= UCHAR_MAX);
 DEFINE_STRING_TABLE_LOOKUP(route_type, int);
+
+static const char * const route_scope_table[] = {
+        [RT_SCOPE_UNIVERSE] = "global",
+        [RT_SCOPE_SITE]     = "site",
+        [RT_SCOPE_LINK]     = "link",
+        [RT_SCOPE_HOST]     = "host",
+        [RT_SCOPE_NOWHERE]  = "nowhere",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(route_scope, int);
+
+const char *format_route_scope(int scope, char *buf, size_t size) {
+        const char *s;
+        char *p = buf;
+
+        s = route_scope_to_string(scope);
+        if (s)
+                strpcpy(&p, size, s);
+        else
+                strpcpyf(&p, size, "%d", scope);
+
+        return buf;
+}
+
+static const char * const route_table_table[] = {
+        [RT_TABLE_DEFAULT] = "default",
+        [RT_TABLE_MAIN]    = "main",
+        [RT_TABLE_LOCAL]   = "local",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(route_table, int);
+
+const char *format_route_table(int table, char *buf, size_t size) {
+        const char *s;
+        char *p = buf;
+
+        s = route_table_to_string(table);
+        if (s)
+                strpcpy(&p, size, s);
+        else
+                strpcpyf(&p, size, "%d", table);
+
+        return buf;
+}
 
 int config_parse_gateway(
                 const char *unit,

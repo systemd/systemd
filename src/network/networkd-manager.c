@@ -436,6 +436,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *buf_dst = NULL, *buf_dst_prefixlen = NULL,
                         *buf_src = NULL, *buf_gw = NULL, *buf_prefsrc = NULL;
+                char buf_scope[ROUTE_SCOPE_STR_MAX], buf_table[ROUTE_TABLE_STR_MAX];
 
                 if (!in_addr_is_null(family, &dst)) {
                         (void) in_addr_to_string(family, &dst, &buf_dst);
@@ -449,10 +450,13 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                         (void) in_addr_to_string(family, &prefsrc, &buf_prefsrc);
 
                 log_link_debug(link,
-                               "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s",
+                               "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, type: %s",
                                type == RTM_DELROUTE ? "Forgetting" : route ? "Updating remembered" : "Remembering",
                                strna(buf_dst), strempty(buf_dst_prefixlen),
-                               strna(buf_src), strna(buf_gw), strna(buf_prefsrc));
+                               strna(buf_src), strna(buf_gw), strna(buf_prefsrc),
+                               format_route_scope(scope, buf_scope, sizeof buf_scope),
+                               format_route_table(table, buf_table, sizeof buf_table),
+                               strna(route_type_to_string(rt_type)));
         }
 
         switch (type) {

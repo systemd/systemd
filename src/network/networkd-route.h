@@ -2,6 +2,7 @@
 #pragma once
 
 #include "conf-parser.h"
+#include "macro.h"
 
 typedef struct Route Route;
 typedef struct NetworkConfigSection NetworkConfigSection;
@@ -69,6 +70,12 @@ int network_add_default_route_on_device(Network *network);
 
 const char* route_type_to_string(int t) _const_;
 int route_type_from_string(const char *s) _pure_;
+
+#define ROUTE_SCOPE_STR_MAX CONST_MAX(DECIMAL_STR_MAX(int), STRLEN("nowhere") + 1)
+const char *format_route_scope(int scope, char *buf, size_t size);
+
+#define ROUTE_TABLE_STR_MAX CONST_MAX(DECIMAL_STR_MAX(int), STRLEN("default") + 1)
+const char *format_route_table(int table, char *buf, size_t size);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
