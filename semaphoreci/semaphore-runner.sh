@@ -34,7 +34,7 @@ create_container() {
 sed 's/^deb/deb-src/' /etc/apt/sources.list >> /etc/apt/sources.list.d/sources.list
 # wait until online
 while [ -z "\$(ip route list 0/0)" ]; do sleep 1; done
-apt-get -q update
+apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
 apt-get install -y eatmydata
 EOF
