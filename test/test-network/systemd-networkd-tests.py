@@ -112,7 +112,8 @@ def expectedFailureIfEthtoolDoesNotSupportDriver():
     def f(func):
         support = False
         rc = call('ip link add name dummy99 type dummy')
-        if rc == 0:
+        # the test unexpetedly succeeds on KVM with sanitizer CI. Let's disable the test on KVM.
+        if rc == 0 and call('systemd-detect-virt') != 0:
             ret = run('udevadm info -w10s /sys/class/net/dummy99', stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             if ret.returncode == 0 and 'E: ID_NET_DRIVER=dummy' in ret.stdout.rstrip():
                 support = True
