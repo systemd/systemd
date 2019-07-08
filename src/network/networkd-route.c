@@ -804,7 +804,7 @@ static const char * const route_scope_table[] = {
         [RT_SCOPE_NOWHERE]  = "nowhere",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(route_scope, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_scope, int);
 
 const char *format_route_scope(int scope, char *buf, size_t size) {
         const char *s;
@@ -825,7 +825,7 @@ static const char * const route_table_table[] = {
         [RT_TABLE_LOCAL]   = "local",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(route_table, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_table, int);
 
 const char *format_route_table(int table, char *buf, size_t size) {
         const char *s;
@@ -1039,17 +1039,13 @@ int config_parse_route_scope(
         if (r < 0)
                 return r;
 
-        if (streq(rvalue, "host"))
-                n->scope = RT_SCOPE_HOST;
-        else if (streq(rvalue, "link"))
-                n->scope = RT_SCOPE_LINK;
-        else if (streq(rvalue, "global"))
-                n->scope = RT_SCOPE_UNIVERSE;
-        else {
+        r = route_scope_from_string(rvalue);
+        if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Unknown route scope: %s", rvalue);
                 return 0;
         }
 
+        n->scope = r;
         n->scope_set = true;
         TAKE_PTR(n);
         return 0;
@@ -1081,11 +1077,16 @@ int config_parse_route_table(
         if (r < 0)
                 return r;
 
-        r = safe_atou32(rvalue, &n->table);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Could not parse route table number \"%s\", ignoring assignment: %m", rvalue);
-                return 0;
+        r = route_table_from_string(rvalue);
+        if (r >= 0)
+                n->table = r;
+        else {
+                r = safe_atou32(rvalue, &n->table);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Could not parse route table number \"%s\", ignoring assignment: %m", rvalue);
+                        return 0;
+                }
         }
 
         n->table_set = true;
