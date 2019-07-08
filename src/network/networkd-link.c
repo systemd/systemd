@@ -170,9 +170,6 @@ bool link_ipv4ll_enabled(Link *link, AddressFamilyBoolean mask) {
         if (link->network->bond)
                 return false;
 
-        if (link->network->bond)
-                return false;
-
         return link->network->link_local & mask;
 }
 
