@@ -75,7 +75,7 @@ EOF
         cat >>$initdir/etc/fstab <<EOF
 /dev/mapper/varcrypt    /var    ext4    defaults 0 1
 EOF
-    ) || return 1
+    )
 
     ddebug "umount $TESTDIR/root/var"
     umount $TESTDIR/root/var

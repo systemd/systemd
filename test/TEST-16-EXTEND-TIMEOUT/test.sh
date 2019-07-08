@@ -30,7 +30,7 @@ test_setup() {
         cp $BUILD_DIR/src/shared/libsystemd-shared-*.so ${initdir}/usr/lib
 
         setup_testsuite
-    ) || return 1
+    )
     # mask some services that we do not want to run in these tests
     ln -s /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
     ln -s /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service

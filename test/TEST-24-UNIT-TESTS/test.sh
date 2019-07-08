@@ -91,7 +91,7 @@ EOF
         cp testsuite.sh $initdir/
 
         setup_testsuite
-    ) || return 1
+    )
     setup_nspawn_root
 
     # mask some services that we do not want to run in these tests

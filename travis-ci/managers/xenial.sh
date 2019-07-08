@@ -32,6 +32,7 @@ PACKAGES=(cryptsetup-bin
           python3-pyparsing
           python3-setuptools
           qemu-system-x86
+          quota
           strace
           unifont
           util-linux)

@@ -90,7 +90,7 @@ EOF
 
         chmod 0755 $initdir/test-socket-group.sh
         setup_testsuite
-    ) || return 1
+    )
 
     setup_nspawn_root
 

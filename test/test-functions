@@ -659,6 +659,7 @@ install_execs() {
          # some {rc,halt}.local scripts and programs are okay to not exist, the rest should
          # also, plymouth is pulled in by rescue.service, but even there the exit code
          # is ignored; as it's not present on some distros, don't fail if it doesn't exist
+         dinfo "Attempting to install $i"
          inst $i || [ "${i%.local}" != "$i" ] || [ "${i%systemd-update-done}" != "$i" ] || [ "/bin/plymouth" == "$i" ]
      done
     )
@@ -1238,6 +1239,14 @@ find_binary() {
 # Install binary executable, and all shared library dependencies, if any.
 inst_binary() {
     local _bin _target
+
+    # In certain cases we might attempt to install a binary which is already
+    # present in the test image, yet it's missing from the host system.
+    # In such cases, let's check if the binary indeed exists in the image
+    # before doing any other chcecks. If it does, immediately return with
+    # success.
+    [[ $# -eq 1 && -e $initdir/$1 ]] && return 0
+
     _bin=$(find_binary "$1") || return 1
     _target=${2:-$_bin}
     [[ -e $initdir/$_target ]] && return 0
