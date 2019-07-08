@@ -64,7 +64,7 @@ EOF
 
         chmod 0755 $initdir/test-fail-on-restart.sh
         setup_testsuite
-    ) || return 1
+    )
 
     ddebug "umount $TESTDIR/root"
     umount $TESTDIR/root

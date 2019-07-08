@@ -40,7 +40,7 @@ EOF
         cp testsuite.sh $initdir/
 
         setup_testsuite
-    ) || return 1
+    )
 
     ddebug "umount $TESTDIR/root"
     umount $TESTDIR/root

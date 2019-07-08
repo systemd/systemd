@@ -92,7 +92,7 @@ EOF
         dracut_install -o sesearch
         dracut_install runcon
         dracut_install checkmodule semodule semodule_package m4 make /usr/libexec/selinux/hll/pp load_policy sefcontext_compile
-    ) || return 1
+    )
 
     # mask some services that we do not want to run in these tests
     ln -s /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service

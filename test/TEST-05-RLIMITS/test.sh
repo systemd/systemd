@@ -42,7 +42,7 @@ EOF
         cp test-rlimits.sh $initdir/
 
         setup_testsuite
-    ) || return 1
+    )
     setup_nspawn_root
 
     ddebug "umount $TESTDIR/root"

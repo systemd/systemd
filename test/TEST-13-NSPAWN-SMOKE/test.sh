@@ -184,7 +184,7 @@ EOF
 
         chmod 0755 $initdir/test-nspawn.sh
         setup_testsuite
-    ) || return 1
+    )
 
     ddebug "umount $TESTDIR/root"
     umount $TESTDIR/root

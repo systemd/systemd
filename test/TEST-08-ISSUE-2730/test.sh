@@ -60,7 +60,7 @@ ExecStart=/bin/systemctl reload /
 EOF
 
         setup_testsuite
-    ) || return 1
+    )
 
     ln -s /etc/systemd/system/-.mount $initdir/etc/systemd/system/root.mount
     mkdir -p $initdir/etc/systemd/system/local-fs.target.wants

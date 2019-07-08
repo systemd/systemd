@@ -73,7 +73,7 @@ EOF
 chmod +x $initdir/test-machine-id-setup.sh
 
         setup_testsuite
-    ) || return 1
+    )
 
     # mask some services that we do not want to run in these tests
     ln -s /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
