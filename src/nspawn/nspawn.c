@@ -2798,7 +2798,6 @@ static int inner_child(
                 int master_pty_socket,
                 FDSet *fds) {
 
-        _cleanup_close_ int master = -1;
         _cleanup_free_ char *home = NULL;
         char as_uuid[37];
         size_t n_env = 1;
@@ -2931,6 +2930,7 @@ static int inner_child(
         }
 
         if (arg_console_mode != CONSOLE_PIPE) {
+                _cleanup_close_ int master = -1;
                 _cleanup_free_ char *console = NULL;
 
                 /* Allocate a pty and make it available as /dev/console. */
