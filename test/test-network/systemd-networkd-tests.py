@@ -108,23 +108,6 @@ def expectedFailureIfLinkFileFieldIsNotSet():
 
     return f
 
-def expectedFailureIfEthtoolDoesNotSupportDriver():
-    def f(func):
-        support = False
-        rc = call('ip link add name dummy99 type dummy')
-        if rc == 0:
-            ret = run('udevadm info -w10s /sys/class/net/dummy99', stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            if ret.returncode == 0 and 'E: ID_NET_DRIVER=dummy' in ret.stdout.rstrip():
-                support = True
-            call('ip link del dummy99')
-
-        if support:
-            return func
-        else:
-            return unittest.expectedFailure(func)
-
-    return f
-
 def setUpModule():
     os.makedirs(network_unit_file_path, exist_ok=True)
     os.makedirs(networkd_ci_path, exist_ok=True)
@@ -429,23 +412,6 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, r'Link File: (?:/usr)/lib/systemd/network/99-default.link')
         self.assertRegex(output, r'Network File: n/a')
-
-    @expectedFailureIfEthtoolDoesNotSupportDriver()
-    def test_udev_driver(self):
-        copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network',
-                                        '25-veth.netdev', 'netdev-link-local-addressing-yes.network')
-        start_networkd()
-
-        wait_online(['test1:degraded', 'veth99:degraded', 'veth-peer:degraded'])
-
-        output = check_output(*networkctl_cmd, 'status', 'test1', env=env)
-        self.assertRegex(output, 'Driver: dummy')
-
-        output = check_output(*networkctl_cmd, 'status', 'veth99', env=env)
-        self.assertRegex(output, 'Driver: veth')
-
-        output = check_output(*networkctl_cmd, 'status', 'veth-peer', env=env)
-        self.assertRegex(output, 'Driver: veth')
 
     def test_delete_links(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network',
