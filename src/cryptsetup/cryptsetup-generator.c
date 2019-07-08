@@ -157,7 +157,7 @@ static int create_disk(
                 *filtered = NULL, *u_escaped = NULL, *filtered_escaped = NULL, *name_escaped = NULL, *header_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
-        bool noauto, nofail, tmp, swap, netdev;
+        bool noauto, nofail, tmp, swap, netdev, trypassword;
         int r, detached_header;
         char *c;
 
@@ -169,6 +169,7 @@ static int create_disk(
         tmp = fstab_test_option(options, "tmp\0");
         swap = fstab_test_option(options, "swap\0");
         netdev = fstab_test_option(options, "_netdev\0");
+        trypassword = fstab_test_option(options, "trypassword\0");
 
         c = strrchr(keyspec, ':');
         if (c) {
@@ -250,6 +251,11 @@ static int create_disk(
                         return log_oom();
 
                 free_and_replace(password, p);
+
+                fprintf(f, "Wants=%s\n", unit);
+                if (!trypassword)
+                        fprintf(f, "After=%s\n", unit);
+
         }
 
         if (password) {
@@ -263,7 +269,7 @@ static int create_disk(
                         "Before=%s\n",
                         netdev ? "remote-cryptsetup.target" : "cryptsetup.target");
 
-        if (password) {
+        if (password && !keydev) {
                 r = print_dependencies(f, password);
                 if (r < 0)
                         return r;
@@ -330,7 +336,7 @@ static int create_disk(
 
         if (keydev)
                 fprintf(f,
-                        "ExecStartPost=" UMOUNT_PATH " %s\n\n",
+                        "ExecStartPost=-" UMOUNT_PATH " %s\n\n",
                         keydev_mount);
 
         r = fflush_and_check(f);
