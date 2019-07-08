@@ -29,6 +29,7 @@
 #include "netdev/vxcan.h"
 #include "netdev/vxlan.h"
 #include "netdev/wireguard.h"
+#include "netdev/xfrm.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-link.h"
@@ -72,6 +73,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_L2TP] = &l2tptnl_vtable,
         [NETDEV_KIND_MACSEC] = &macsec_vtable,
         [NETDEV_KIND_NLMON] = &nlmon_vtable,
+        [NETDEV_KIND_XFRM] = &xfrm_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -107,6 +109,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_L2TP] = "l2tp",
         [NETDEV_KIND_MACSEC] = "macsec",
         [NETDEV_KIND_NLMON] = "nlmon",
+        [NETDEV_KIND_XFRM] = "xfrm",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -806,6 +809,9 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 break;
         case NETDEV_KIND_ERSPAN:
                 independent = ERSPAN(netdev)->independent;
+                break;
+        case NETDEV_KIND_XFRM:
+                independent = XFRM(netdev)->independent;
                 break;
         default:
                 break;

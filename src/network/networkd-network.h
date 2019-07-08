@@ -69,6 +69,7 @@ struct Network {
         NetDev *bridge;
         NetDev *bond;
         NetDev *vrf;
+        NetDev *xfrm;
         Hashmap *stacked_netdevs;
         char *bridge_name;
         char *bond_name;

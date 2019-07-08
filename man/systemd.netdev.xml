@@ -179,6 +179,9 @@
           <row><entry><varname>fou</varname></entry>
           <entry>Foo-over-UDP tunneling.</entry></row>
 
+          <row><entry><varname>xfrm</varname></entry>
+          <entry>A virtual tunnel interface like vti/vti6 but with several advantages.</entry></row>
+
         </tbody>
       </tgroup>
     </table>
@@ -1849,6 +1852,36 @@
   </refsect1>
 
   <refsect1>
+    <title>[Xfrm] Section Options</title>
+
+    <para>The <literal>[Xfrm]</literal> section accepts the following
+    keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>InterfaceId=</varname></term>
+        <listitem>
+          <para>Sets the ID/key of the xfrm interface which needs to be associated with a SA/policy.
+          Can be decimal or hexadecimal, valid range is 0-0xffffffff, defaults to 0.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Independent=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to <literal>no</literal>, the xfrm interface should have an
+          underlying device which can be used for hardware offloading. Defaults to <literal>no</literal>.
+          See <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for how to configure the underlying device.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>For more detail information see
+      <ulink url="https://lwn.net/Articles/757391">
+        Virtual xfrm interfaces</ulink></para>
+  </refsect1>
+
+  <refsect1>
     <title>[VRF] Section Options</title>
     <para>The <literal>[VRF]</literal> section only applies for
     netdevs of kind <literal>vrf</literal> and accepts the
@@ -2047,6 +2080,16 @@ ListenPort=51820
 PublicKey=RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=
 AllowedIPs=fd31:bf08:57cb::/48,192.168.26.0/24
 Endpoint=wireguard.example.com:51820</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/systemd/network/27-xfrm.netdev</title>
+      <programlisting>[Xfrm]
+Name=xfrm0
+Kind=xfrm
+
+[Xfrm]
+Independent=yes</programlisting>
     </example>
   </refsect1>
 

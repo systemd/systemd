@@ -121,6 +121,7 @@ DNSSEC=
 IPv6HopLimit=
 IPForward=
 IPv6Token=
+Xfrm=
 Description=
 VXLAN=
 L2TP=

@@ -55,6 +55,7 @@ Network.VXLAN,                          config_parse_stacked_netdev,            
 Network.L2TP,                           config_parse_stacked_netdev,                     NETDEV_KIND_L2TP,              offsetof(Network, stacked_netdev_names)
 Network.MACsec,                         config_parse_stacked_netdev,                     NETDEV_KIND_MACSEC,            offsetof(Network, stacked_netdev_names)
 Network.Tunnel,                         config_parse_stacked_netdev,                     _NETDEV_KIND_TUNNEL,           offsetof(Network, stacked_netdev_names)
+Network.Xfrm,                           config_parse_stacked_netdev,                     NETDEV_KIND_XFRM,              offsetof(Network, stacked_netdev_names)
 Network.VRF,                            config_parse_ifname,                             0,                             offsetof(Network, vrf_name)
 Network.DHCP,                           config_parse_dhcp,                               0,                             offsetof(Network, dhcp)
 Network.DHCPServer,                     config_parse_bool,                               0,                             offsetof(Network, dhcp_server)

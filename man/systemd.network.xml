@@ -857,6 +857,14 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>Xfrm=</varname></term>
+        <listitem>
+          <para>The name of the xfrm to create on the link. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This option may be specified more than once.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>KeepConfiguration=</varname></term>
         <listitem>
           <para>Takes a boolean or one of <literal>static</literal>, <literal>dhcp-on-stop</literal>,
@@ -2337,6 +2345,29 @@ Name=enp0s25
 [Network]
 MACVTAP=macvtap-test
 </programlisting>
+    </example>
+
+    <example>
+      <title>A Xfrm interface with physical underlying device.</title>
+
+      <programlisting># /etc/systemd/network/27-xfrm.netdev
+[NetDev]
+Name=xfrm0
+
+[Xfrm]
+InterfaceId=7</programlisting>
+
+      <programlisting># /etc/systemd/network/27-eth0.network
+[Match]
+Name=eth0
+
+[Network]
+Xfrm=xfrm0</programlisting>
+
+      <para>This creates a <literal>xfrm0</literal> interface and binds it to the <literal>eth0</literal> device.
+      This allows hardware based ipsec offloading to the <literal>eth0</literal> nic.
+      If offloading is not needed, xfrm interfaces can be assigned to the <literal>lo</literal> device.
+      </para>
     </example>
   </refsect1>
 

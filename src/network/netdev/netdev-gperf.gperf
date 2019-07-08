@@ -22,6 +22,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "netdev/wireguard.h"
 #include "netdev/fou-tunnel.h"
 #include "netdev/l2tp-tunnel.h"
+#include "netdev/xfrm.h"
 #include "vlan-util.h"
 %}
 struct ConfigPerfItem;
@@ -218,3 +219,5 @@ WireGuardPeer.PublicKey,                  config_parse_wireguard_public_key,    
 WireGuardPeer.PresharedKey,               config_parse_wireguard_preshared_key,      0,                             0
 WireGuardPeer.PresharedKeyFile,           config_parse_wireguard_preshared_key_file, 0,                             0
 WireGuardPeer.PersistentKeepalive,        config_parse_wireguard_keepalive,          0,                             0
+Xfrm.InterfaceId,                         config_parse_uint32,                       0,                             offsetof(Xfrm, if_id)
+Xfrm.Independent,                         config_parse_bool,                         0,                             offsetof(Xfrm, independent)
