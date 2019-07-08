@@ -1238,6 +1238,14 @@ find_binary() {
 # Install binary executable, and all shared library dependencies, if any.
 inst_binary() {
     local _bin _target
+
+    # In certain cases we might attempt to install a binary which is already
+    # present in the test image, yet it's missing from the host system.
+    # In such cases, let's check if the binary indeed exists in the image
+    # before doing any other chcecks. If it does, immediately return with
+    # success.
+    [[ $# -eq 1 && -e $initdir/$1 ]] && return 0
+
     _bin=$(find_binary "$1") || return 1
     _target=${2:-$_bin}
     [[ -e $initdir/$_target ]] && return 0
