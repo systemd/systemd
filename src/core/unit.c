@@ -1791,7 +1791,7 @@ int unit_start(Unit *u) {
          * condition checks, so that we rather return condition check errors (which are usually not
          * considered a true failure) than "not supported" errors (which are considered a failure).
          */
-        if (!unit_supported(u))
+        if (!unit_type_supported(u->type))
                 return -EOPNOTSUPP;
 
         /* Let's make sure that the deps really are in order before we start this. Normally the job engine
@@ -1826,7 +1826,7 @@ bool unit_can_start(Unit *u) {
         if (u->load_state != UNIT_LOADED)
                 return false;
 
-        if (!unit_supported(u))
+        if (!unit_type_supported(u->type))
                 return false;
 
         /* Scope units may be started only once */
@@ -1875,7 +1875,7 @@ int unit_stop(Unit *u) {
 bool unit_can_stop(Unit *u) {
         assert(u);
 
-        if (!unit_supported(u))
+        if (!unit_type_supported(u->type))
                 return false;
 
         if (u->perpetual)
