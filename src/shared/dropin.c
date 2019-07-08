@@ -228,7 +228,7 @@ int unit_file_find_dropin_paths(
                 Set *unit_path_cache,
                 const char *dir_suffix,
                 const char *file_suffix,
-                Set *names,
+                const Set *names,
                 char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL;

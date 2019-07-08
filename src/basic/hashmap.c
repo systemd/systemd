@@ -733,8 +733,8 @@ bool internal_hashmap_iterate(HashmapBase *h, Iterator *i, void **value, const v
         return true;
 }
 
-bool set_iterate(Set *s, Iterator *i, void **value) {
-        return internal_hashmap_iterate(HASHMAP_BASE(s), i, value, NULL);
+bool set_iterate(const Set *s, Iterator *i, void **value) {
+        return internal_hashmap_iterate(HASHMAP_BASE((Set*) s), i, value, NULL);
 }
 
 #define HASHMAP_FOREACH_IDX(idx, h, i) \
