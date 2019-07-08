@@ -840,6 +840,14 @@ const char *format_route_table(int table, char *buf, size_t size) {
         return buf;
 }
 
+static const char * const route_protocol_table[] = {
+        [RTPROT_KERNEL] = "kernel",
+        [RTPROT_BOOT]   = "boot",
+        [RTPROT_STATIC] = "static",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(route_protocol, int);
+
 int config_parse_gateway(
                 const char *unit,
                 const char *filename,
@@ -1188,12 +1196,9 @@ int config_parse_route_protocol(
         if (r < 0)
                 return r;
 
-        if (streq(rvalue, "kernel"))
-                n->protocol = RTPROT_KERNEL;
-        else if (streq(rvalue, "boot"))
-                n->protocol = RTPROT_BOOT;
-        else if (streq(rvalue, "static"))
-                n->protocol = RTPROT_STATIC;
+        r = route_protocol_from_string(rvalue);
+        if (r >= 0)
+                n->protocol = r;
         else {
                 r = safe_atou8(rvalue , &n->protocol);
                 if (r < 0) {
