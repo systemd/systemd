@@ -296,6 +296,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>trypassword</option></term>
+
+        <listitem><para> Fallback to a password prompt, if a keyfile
+        could not be used for decryption.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>tcrypt</option></term>
 
         <listitem><para>Use TrueCrypt encryption mode. When this mode
