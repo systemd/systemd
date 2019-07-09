@@ -764,6 +764,9 @@ int config_parse_ndisc_black_listed_prefix(
                         continue;
                 }
 
+                if (set_contains(network->ndisc_black_listed_prefix, &ip.in6))
+                        continue;
+
                 r = set_ensure_allocated(&network->ndisc_black_listed_prefix, &in6_addr_hash_ops);
                 if (r < 0)
                         return log_oom();
@@ -774,12 +777,8 @@ int config_parse_ndisc_black_listed_prefix(
 
                 r = set_put(network->ndisc_black_listed_prefix, a);
                 if (r < 0) {
-                        if (r == -EEXIST)
-                                log_syntax(unit, LOG_WARNING, filename, line, r,
-                                           "NDISC black listed prefixs is duplicated, ignoring assignment: %s", n);
-                        else
-                                log_syntax(unit, LOG_ERR, filename, line, r,
-                                           "Failed to store NDISC black listed prefix '%s', ignoring assignment: %m", n);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to store NDISC black listed prefix '%s', ignoring assignment: %m", n);
                         continue;
                 }
 
