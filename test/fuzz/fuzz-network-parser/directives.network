@@ -66,6 +66,11 @@ UseTimezone=
 RouteTable=
 BlackList=
 SendRelease=
+[DHCPv6]
+UseNTP=
+UseDNS=
+RapidCommit=
+ForceDHCPv6PDOtherInformation=
 [Route]
 Destination=
 Protocol=
