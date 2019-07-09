@@ -416,7 +416,7 @@ int route_remove(Route *route, Link *link,
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL;
-                char scope[ROUTE_SCOPE_STR_MAX], table[ROUTE_TABLE_STR_MAX];
+                char scope[ROUTE_SCOPE_STR_MAX], table[ROUTE_TABLE_STR_MAX], protocol[ROUTE_PROTOCOL_STR_MAX];
 
                 if (!in_addr_is_null(route->family, &route->dst)) {
                         (void) in_addr_to_string(route->family, &route->dst, &dst);
@@ -429,10 +429,11 @@ int route_remove(Route *route, Link *link,
                 if (!in_addr_is_null(route->family, &route->prefsrc))
                         (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
 
-                log_link_debug(link, "Removing route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, type: %s",
+                log_link_debug(link, "Removing route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
                                strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
                                format_route_scope(route->scope, scope, sizeof(scope)),
                                format_route_table(route->table, table, sizeof(table)),
+                               format_route_protocol(route->protocol, protocol, sizeof(protocol)),
                                strna(route_type_to_string(route->type)));
         }
 
@@ -537,7 +538,7 @@ int route_configure(
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL;
-                char scope[ROUTE_SCOPE_STR_MAX], table[ROUTE_TABLE_STR_MAX];
+                char scope[ROUTE_SCOPE_STR_MAX], table[ROUTE_TABLE_STR_MAX], protocol[ROUTE_PROTOCOL_STR_MAX];
 
                 if (!in_addr_is_null(route->family, &route->dst)) {
                         (void) in_addr_to_string(route->family, &route->dst, &dst);
@@ -550,10 +551,11 @@ int route_configure(
                 if (!in_addr_is_null(route->family, &route->prefsrc))
                         (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
 
-                log_link_debug(link, "Configuring route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, type: %s",
+                log_link_debug(link, "Configuring route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
                                strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
                                format_route_scope(route->scope, scope, sizeof(scope)),
                                format_route_table(route->table, table, sizeof(table)),
+                               format_route_protocol(route->protocol, protocol, sizeof(protocol)),
                                strna(route_type_to_string(route->type)));
         }
 
@@ -846,7 +848,20 @@ static const char * const route_protocol_table[] = {
         [RTPROT_STATIC] = "static",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(route_protocol, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_protocol, int);
+
+const char *format_route_protocol(int protocol, char *buf, size_t size) {
+        const char *s;
+        char *p = buf;
+
+        s = route_protocol_to_string(protocol);
+        if (s)
+                strpcpy(&p, size, s);
+        else
+                strpcpyf(&p, size, "%d", protocol);
+
+        return buf;
+}
 
 int config_parse_gateway(
                 const char *unit,
