@@ -72,6 +72,12 @@ int link_sysctl_ipv6_enabled(Link *link) {
         _cleanup_free_ char *value = NULL;
         int r;
 
+        assert(link);
+        assert(link->ifname);
+
+        if (link->sysctl_ipv6_enabled >= 0)
+                return link->sysctl_ipv6_enabled;
+
         r = sysctl_read_ip_property(AF_INET6, link->ifname, "disable_ipv6", &value);
         if (r < 0)
                 return log_link_warning_errno(link, r,
