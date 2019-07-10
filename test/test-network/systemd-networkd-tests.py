@@ -1376,7 +1376,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         'bond199',
         'dummy98',
         'dummy99',
-        'test1']
+        'gretun97',
+        'test1'
+    ]
 
     units = [
         '11-dummy.netdev',
@@ -1391,8 +1393,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-bond-active-backup-slave.netdev',
         '25-fibrule-invert.network',
         '25-fibrule-port-range.network',
+        '25-gre-tunnel-remote-any.netdev',
         '25-ipv6-address-label-section.network',
         '25-neighbor-section.network',
+        '25-neighbor-ip-dummy.network',
+        '25-neighbor-ip.network',
         '25-link-local-addressing-no.network',
         '25-link-local-addressing-yes.network',
         '25-link-section-unmanaged.network',
@@ -1629,6 +1634,16 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
         self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
+
+    def test_neighbor_gre(self):
+        copy_unit_to_networkd_unit_path('25-neighbor-ip.network', '25-neighbor-ip-dummy.network',
+                                        '12-dummy.netdev', '25-gre-tunnel-remote-any.netdev')
+        start_networkd()
+        wait_online(['dummy98:degraded', 'gretun97:routable'], timeout='40s')
+
+        output = check_output('ip neigh list dev gretun97')
+        print(output)
+        self.assertRegex(output, '10.0.0.22 lladdr 10.65.223.239 PERMANENT')
 
     def test_link_local_addressing(self):
         copy_unit_to_networkd_unit_path('25-link-local-addressing-yes.network', '11-dummy.netdev',
