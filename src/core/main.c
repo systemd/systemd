@@ -144,7 +144,8 @@ static OOMPolicy arg_default_oom_policy;
 static CPUSet arg_cpu_affinity;
 static NUMAPolicy arg_numa_policy;
 
-static int parse_configuration(void);
+static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
+                               const struct rlimit *saved_rlimit_memlock);
 
 _noreturn_ static void freeze_or_exit_or_reboot(void) {
 
@@ -1134,45 +1135,8 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         struct rlimit new_rlimit;
         int r, nr;
 
-        assert(saved_rlimit);
-
-        /* Save the original RLIMIT_NOFILE so that we can reset it later when transitioning from the initrd to the main
-         * systemd or suchlike. */
-        if (getrlimit(RLIMIT_NOFILE, saved_rlimit) < 0)
-                return log_warning_errno(errno, "Reading RLIMIT_NOFILE failed, ignoring: %m");
-
         /* Get the underlying absolute limit the kernel enforces */
         nr = read_nr_open();
-
-        /* Make sure forked processes get limits based on the original kernel setting */
-        if (!arg_default_rlimit[RLIMIT_NOFILE]) {
-                struct rlimit *rl;
-
-                rl = newdup(struct rlimit, saved_rlimit, 1);
-                if (!rl)
-                        return log_oom();
-
-                /* Bump the hard limit for system services to a substantially higher value. The default hard limit
-                 * current kernels set is pretty low (4K), mostly for historical reasons. According to kernel
-                 * developers, the fd handling in recent kernels has been optimized substantially enough, so that we
-                 * can bump the limit now, without paying too high a price in memory or performance. Note however that
-                 * we only bump the hard limit, not the soft limit. That's because select() works the way it works, and
-                 * chokes on fds >= 1024. If we'd bump the soft limit globally, it might accidentally happen to
-                 * unexpecting programs that they get fds higher than what they can process using select(). By only
-                 * bumping the hard limit but leaving the low limit as it is we avoid this pitfall: programs that are
-                 * written by folks aware of the select() problem in mind (and thus use poll()/epoll instead of
-                 * select(), the way everybody should) can explicitly opt into high fds by bumping their soft limit
-                 * beyond 1024, to the hard limit we pass. */
-                if (arg_system)
-                        rl->rlim_max = MIN((rlim_t) nr, MAX(rl->rlim_max, (rlim_t) HIGH_RLIMIT_NOFILE));
-
-                /* If for some reason we were invoked with a soft limit above 1024 (which should never
-                 * happen!, but who knows what we get passed in from pam_limit when invoked as --user
-                 * instance), then lower what we pass on to not confuse our children */
-                rl->rlim_cur = MIN(rl->rlim_cur, (rlim_t) FD_SETSIZE);
-
-                arg_default_rlimit[RLIMIT_NOFILE] = rl;
-        }
 
         /* Calculate the new limits to use for us. Never lower from what we inherited. */
         new_rlimit = (struct rlimit) {
@@ -1200,25 +1164,9 @@ static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
         struct rlimit new_rlimit;
         int r;
 
-        assert(saved_rlimit);
-
         /* BPF_MAP_TYPE_LPM_TRIE bpf maps are charged against RLIMIT_MEMLOCK, even if we have CAP_IPC_LOCK which should
          * normally disable such checks. We need them to implement IPAccessAllow= and IPAccessDeny=, hence let's bump
          * the value high enough for our user. */
-
-        if (getrlimit(RLIMIT_MEMLOCK, saved_rlimit) < 0)
-                return log_warning_errno(errno, "Reading RLIMIT_MEMLOCK failed, ignoring: %m");
-
-        /* Pass the original value down to invoked processes */
-        if (!arg_default_rlimit[RLIMIT_MEMLOCK]) {
-                struct rlimit *rl;
-
-                rl = newdup(struct rlimit, saved_rlimit, 1);
-                if (!rl)
-                        return log_oom();
-
-                arg_default_rlimit[RLIMIT_MEMLOCK] = rl;
-        }
 
         /* Using MAX() on resource limits only is safe if RLIM_INFINITY is > 0. POSIX declares that rlim_t
          * must be unsigned, hence this is a given, but let's make this clear here. */
@@ -1717,6 +1665,8 @@ static void do_reexecute(
 
 static int invoke_main_loop(
                 Manager *m,
+                const struct rlimit *saved_rlimit_nofile,
+                const struct rlimit *saved_rlimit_memlock,
                 bool *ret_reexecute,
                 int *ret_retval,                   /* Return parameters relevant for shutting down */
                 const char **ret_shutdown_verb,    /* … */
@@ -1728,6 +1678,8 @@ static int invoke_main_loop(
         int r;
 
         assert(m);
+        assert(saved_rlimit_nofile);
+        assert(saved_rlimit_memlock);
         assert(ret_reexecute);
         assert(ret_retval);
         assert(ret_shutdown_verb);
@@ -1757,7 +1709,7 @@ static int invoke_main_loop(
                         saved_log_level = m->log_level_overridden ? log_get_max_level() : -1;
                         saved_log_target = m->log_target_overridden ? log_get_target() : _LOG_TARGET_INVALID;
 
-                        (void) parse_configuration();
+                        (void) parse_configuration(saved_rlimit_nofile, saved_rlimit_memlock);
 
                         set_manager_defaults(m);
 
@@ -1907,7 +1859,6 @@ static int initialize_runtime(
                 struct rlimit *saved_rlimit_nofile,
                 struct rlimit *saved_rlimit_memlock,
                 const char **ret_error_message) {
-
         int r;
 
         assert(ret_error_message);
@@ -2048,6 +1999,80 @@ static int do_queue_default_job(
         return 0;
 }
 
+static void save_rlimits(struct rlimit *saved_rlimit_nofile,
+                         struct rlimit *saved_rlimit_memlock) {
+
+        assert(saved_rlimit_nofile);
+        assert(saved_rlimit_memlock);
+
+        if (getrlimit(RLIMIT_NOFILE, saved_rlimit_nofile) < 0)
+                log_warning_errno(errno, "Reading RLIMIT_NOFILE failed, ignoring: %m");
+
+        if (getrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock) < 0)
+                log_warning_errno(errno, "Reading RLIMIT_MEMLOCK failed, ignoring: %m");
+}
+
+static void fallback_rlimit_nofile(const struct rlimit *saved_rlimit_nofile) {
+        struct rlimit *rl;
+
+        if (arg_default_rlimit[RLIMIT_NOFILE])
+                return;
+
+        /* Make sure forked processes get limits based on the original kernel setting */
+
+        rl = newdup(struct rlimit, saved_rlimit_nofile, 1);
+        if (!rl) {
+                log_oom();
+                return;
+        }
+
+        /* Bump the hard limit for system services to a substantially higher value. The default
+         * hard limit current kernels set is pretty low (4K), mostly for historical
+         * reasons. According to kernel developers, the fd handling in recent kernels has been
+         * optimized substantially enough, so that we can bump the limit now, without paying too
+         * high a price in memory or performance. Note however that we only bump the hard limit,
+         * not the soft limit. That's because select() works the way it works, and chokes on fds
+         * >= 1024. If we'd bump the soft limit globally, it might accidentally happen to
+         * unexpecting programs that they get fds higher than what they can process using
+         * select(). By only bumping the hard limit but leaving the low limit as it is we avoid
+         * this pitfall:  programs that are written by folks aware of the select() problem in mind
+         * (and thus use poll()/epoll instead of select(), the way everybody should) can
+         * explicitly opt into high fds by bumping their soft limit beyond 1024, to the hard limit
+         * we pass. */
+        if (arg_system) {
+                int nr;
+
+                /* Get the underlying absolute limit the kernel enforces */
+                nr = read_nr_open();
+
+                rl->rlim_max = MIN((rlim_t) nr, MAX(rl->rlim_max, (rlim_t) HIGH_RLIMIT_NOFILE));
+        }
+
+        /* If for some reason we were invoked with a soft limit above 1024 (which should never
+         * happen!, but who knows what we get passed in from pam_limit when invoked as --user
+         * instance), then lower what we pass on to not confuse our children */
+        rl->rlim_cur = MIN(rl->rlim_cur, (rlim_t) FD_SETSIZE);
+
+        arg_default_rlimit[RLIMIT_NOFILE] = rl;
+}
+
+static void fallback_rlimit_memlock(const struct rlimit *saved_rlimit_memlock) {
+        struct rlimit *rl;
+
+        /* Pass the original value down to invoked processes */
+
+        if (arg_default_rlimit[RLIMIT_MEMLOCK])
+                return;
+
+        rl = newdup(struct rlimit, saved_rlimit_memlock, 1);
+        if (!rl) {
+                log_oom();
+                return;
+        }
+
+        arg_default_rlimit[RLIMIT_MEMLOCK] = rl;
+}
+
 static void reset_arguments(void) {
         /* Frees/resets arg_* variables, with a few exceptions commented below. */
 
@@ -2105,8 +2130,12 @@ static void reset_arguments(void) {
         numa_policy_reset(&arg_numa_policy);
 }
 
-static int parse_configuration(void) {
+static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
+                               const struct rlimit *saved_rlimit_memlock) {
         int r;
+
+        assert(saved_rlimit_nofile);
+        assert(saved_rlimit_memlock);
 
         arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
 
@@ -2123,18 +2152,29 @@ static int parse_configuration(void) {
                         log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
         }
 
+        /* Initialize some default rlimits for services if they haven't been configured */
+        fallback_rlimit_nofile(saved_rlimit_nofile);
+        fallback_rlimit_memlock(saved_rlimit_memlock);
+
         /* Note that this also parses bits from the kernel command line, including "debug". */
         log_parse_environment();
 
         return 0;
 }
 
-static int load_configuration(int argc, char **argv, const char **ret_error_message) {
+static int load_configuration(
+                int argc,
+                char **argv,
+                const struct rlimit *saved_rlimit_nofile,
+                const struct rlimit *saved_rlimit_memlock,
+                const char **ret_error_message) {
         int r;
 
+        assert(saved_rlimit_nofile);
+        assert(saved_rlimit_memlock);
         assert(ret_error_message);
 
-        (void) parse_configuration();
+        (void) parse_configuration(saved_rlimit_nofile, saved_rlimit_memlock);
 
         r = parse_argv(argc, argv);
         if (r < 0) {
@@ -2459,11 +2499,15 @@ int main(int argc, char *argv[]) {
                 }
         }
 
+        /* Save the original RLIMIT_NOFILE/RLIMIT_MEMLOCK so that we can reset it later when
+         * transitioning from the initrd to the main systemd or suchlike. */
+        save_rlimits(&saved_rlimit_nofile, &saved_rlimit_memlock);
+
         /* Reset all signal handlers. */
         (void) reset_all_signal_handlers();
         (void) ignore_signals(SIGNALS_IGNORE, -1);
 
-        r = load_configuration(argc, argv, &error_message);
+        r = load_configuration(argc, argv, &saved_rlimit_nofile, &saved_rlimit_memlock, &error_message);
         if (r < 0)
                 goto finish;
 
@@ -2580,6 +2624,8 @@ int main(int argc, char *argv[]) {
         }
 
         (void) invoke_main_loop(m,
+                                &saved_rlimit_nofile,
+                                &saved_rlimit_memlock,
                                 &reexecute,
                                 &retval,
                                 &shutdown_verb,
