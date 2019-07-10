@@ -2593,7 +2593,7 @@ static int unit_find_paths(
                 _cleanup_set_free_free_ Set *names = NULL;
 
                 if (!cached_name_map) {
-                        r = unit_file_build_name_map(lp, &cached_id_map, &cached_name_map, NULL);
+                        r = unit_file_build_name_map(lp, NULL, &cached_id_map, &cached_name_map, NULL);
                         if (r < 0)
                                 return r;
                 }

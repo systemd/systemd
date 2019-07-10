@@ -152,8 +152,47 @@ static int unit_ids_map_get(
         return -ELOOP;
 }
 
+static bool lookup_paths_mtime_exclude(const LookupPaths *lp, const char *path) {
+        /* Paths that are under our exclusive control. Users shall not alter those directly. */
+
+        return streq_ptr(path, lp->generator) ||
+               streq_ptr(path, lp->generator_early) ||
+               streq_ptr(path, lp->generator_late) ||
+               streq_ptr(path, lp->transient) ||
+               streq_ptr(path, lp->persistent_control) ||
+               streq_ptr(path, lp->runtime_control);
+}
+
+static bool lookup_paths_mtime_good(const LookupPaths *lp, usec_t mtime) {
+        char **dir;
+
+        STRV_FOREACH(dir, (char**) lp->search_path) {
+                struct stat st;
+
+                if (lookup_paths_mtime_exclude(lp, *dir))
+                        continue;
+
+                /* Determine the latest lookup path modification time */
+                if (stat(*dir, &st) < 0) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        log_debug_errno(errno, "Failed to stat %s, ignoring: %m", *dir);
+                        continue;
+                }
+
+                if (timespec_load(&st.st_mtim) > mtime) {
+                        log_debug_errno(errno, "Unit dir %s has changed, need to update cache.", *dir);
+                        return false;
+                }
+        }
+
+        return true;
+}
+
 int unit_file_build_name_map(
                 const LookupPaths *lp,
+                usec_t *cache_mtime,
                 Hashmap **ret_unit_ids_map,
                 Hashmap **ret_unit_names_map,
                 Set **ret_path_cache) {
@@ -171,6 +210,12 @@ int unit_file_build_name_map(
         _cleanup_set_free_free_ Set *paths = NULL;
         char **dir;
         int r;
+        usec_t mtime = 0;
+
+        /* Before doing anything, check if the mtime that was passed is still valid. If
+         * yes, do nothing. If *cache_time == 0, always build the cache. */
+        if (cache_mtime && *cache_mtime > 0 && lookup_paths_mtime_good(lp, *cache_mtime))
+                return 0;
 
         if (ret_path_cache) {
                 paths = set_new(&path_hash_ops);
@@ -181,6 +226,7 @@ int unit_file_build_name_map(
         STRV_FOREACH(dir, (char**) lp->search_path) {
                 struct dirent *de;
                 _cleanup_closedir_ DIR *d = NULL;
+                struct stat st;
 
                 d = opendir(*dir);
                 if (!d) {
@@ -188,6 +234,13 @@ int unit_file_build_name_map(
                                 log_warning_errno(errno, "Failed to open \"%s\", ignoring: %m", *dir);
                         continue;
                 }
+
+                /* Determine the latest lookup path modification time */
+                if (fstat(dirfd(d), &st) < 0)
+                        return log_error_errno(errno, "Failed to fstat %s: %m", *dir);
+
+                if (!lookup_paths_mtime_exclude(lp, *dir))
+                        mtime = MAX(mtime, timespec_load(&st.st_mtim));
 
                 FOREACH_DIRENT(de, d, log_warning_errno(errno, "Failed to read \"%s\", ignoring: %m", *dir)) {
                         char *filename;
@@ -316,12 +369,14 @@ int unit_file_build_name_map(
                                                  basename(dst), src);
         }
 
+        if (cache_mtime)
+                *cache_mtime = mtime;
         *ret_unit_ids_map = TAKE_PTR(ids);
         *ret_unit_names_map = TAKE_PTR(names);
         if (ret_path_cache)
                 *ret_path_cache = TAKE_PTR(paths);
 
-        return 0;
+        return 1;
 }
 
 int unit_file_find_fragment(

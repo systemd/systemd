@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "hashmap.h"
+#include "time-util.h"
 #include "unit-name.h"
 
 typedef enum UnitFileState UnitFileState;
@@ -42,6 +43,7 @@ int unit_validate_alias_symlink_and_warn(const char *filename, const char *targe
 
 int unit_file_build_name_map(
                 const LookupPaths *lp,
+                usec_t *ret_time,
                 Hashmap **ret_unit_ids_map,
                 Hashmap **ret_unit_names_map,
                 Set **ret_path_cache);

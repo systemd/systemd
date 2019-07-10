@@ -31,10 +31,12 @@ static void test_unit_file_build_name_map(void) {
         Iterator i;
         const char *k, *dst;
         char **v;
+        usec_t mtime = 0;
+        int r;
 
         assert_se(lookup_paths_init(&lp, UNIT_FILE_SYSTEM, 0, NULL) >= 0);
 
-        assert_se(unit_file_build_name_map(&lp, &unit_ids, &unit_names, NULL) == 0);
+        assert_se(unit_file_build_name_map(&lp, &mtime, &unit_ids, &unit_names, NULL) == 1);
 
         HASHMAP_FOREACH_KEY(dst, k, unit_ids, i)
                 log_info("ids: %s → %s", k, dst);
@@ -43,6 +45,14 @@ static void test_unit_file_build_name_map(void) {
                 _cleanup_free_ char *j = strv_join(v, ", ");
                 log_info("aliases: %s ← %s", k, j);
         }
+
+        char buf[FORMAT_TIMESTAMP_MAX];
+        log_debug("Last modification time: %s", format_timestamp(buf, sizeof buf, mtime));
+
+        r = unit_file_build_name_map(&lp, &mtime, &unit_ids, &unit_names, NULL);
+        assert_se(IN_SET(r, 0, 1));
+        if (r == 0)
+                log_debug("Cache rebuild skipped based on mtime.");
 }
 
 int main(int argc, char **argv) {

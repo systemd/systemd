@@ -224,6 +224,7 @@ struct Manager {
         Hashmap *unit_id_map;
         Hashmap *unit_name_map;
         Set *unit_path_cache;
+        usec_t unit_cache_mtime;
 
         char **transient_environment;  /* The environment, as determined from config files, kernel cmdline and environment generators */
         char **client_environment;     /* Environment variables created by clients through the bus API */

@@ -1568,7 +1568,7 @@ static int do_unit_files(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "lookup_paths_init() failed: %m");
 
-        r = unit_file_build_name_map(&lp, &unit_ids, &unit_names, NULL);
+        r = unit_file_build_name_map(&lp, NULL, &unit_ids, &unit_names, NULL);
         if (r < 0)
                 return log_error_errno(r, "unit_file_build_name_map() failed: %m");
 

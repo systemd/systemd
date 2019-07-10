@@ -678,6 +678,7 @@ static void manager_free_unit_name_maps(Manager *m) {
         m->unit_id_map = hashmap_free(m->unit_id_map);
         m->unit_name_map = hashmap_free(m->unit_name_map);
         m->unit_path_cache = set_free_free(m->unit_path_cache);
+        m->unit_cache_mtime =  0;
 }
 
 static int manager_setup_run_queue(Manager *m) {
@@ -1625,11 +1626,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         r = lookup_paths_reduce(&m->lookup_paths);
         if (r < 0)
                 log_warning_errno(r, "Failed to reduce unit file paths, ignoring: %m");
-
-        manager_free_unit_name_maps(m);
-        r = unit_file_build_name_map(&m->lookup_paths, &m->unit_id_map, &m->unit_name_map, &m->unit_path_cache);
-        if (r < 0)
-                return log_error_errno(r, "Failed to build name map: %m");
 
         {
                 /* This block is (optionally) done with the reloading counter bumped */
@@ -2847,10 +2843,6 @@ int manager_loop(Manager *m) {
         assert(m);
         assert(m->objective == MANAGER_OK); /* Ensure manager_startup() has been called */
 
-        /* Release the path and unit name caches */
-        manager_free_unit_name_maps(m);
-        // FIXME: once this happens, we cannot load any more units
-
         manager_check_finished(m);
 
         /* There might still be some zombies hanging around from before we were exec()'ed. Let's reap them. */
@@ -3526,10 +3518,8 @@ int manager_reload(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Failed to reduce unit file paths, ignoring: %m");
 
+        /* We flushed out generated files, for which we don't watch mtime, so we should flush the old map. */
         manager_free_unit_name_maps(m);
-        r = unit_file_build_name_map(&m->lookup_paths, &m->unit_id_map, &m->unit_name_map, &m->unit_path_cache);
-        if (r < 0)
-                log_warning_errno(r, "Failed to build name map: %m");
 
         /* First, enumerate what we can from kernel and suchlike */
         manager_enumerate_perpetual(m);
