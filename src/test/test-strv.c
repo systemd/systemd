@@ -227,60 +227,60 @@ static void test_invalid_unquote(const char *quoted) {
 }
 
 static void test_strv_split(void) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
         const char str[] = "one,two,three";
 
         l = strv_split(str, ",");
         assert_se(l);
         assert_se(strv_equal(l, (char**) input_table_multiple));
 
-        strv_free(l);
+        strv_free_erase(l);
 
         l = strv_split("    one    two\t three", WHITESPACE);
         assert_se(l);
         assert_se(strv_equal(l, (char**) input_table_multiple));
 
-        strv_free(l);
+        strv_free_erase(l);
 
         /* Setting NULL for separator is equivalent to WHITESPACE */
         l = strv_split("    one    two\t three", NULL);
         assert_se(l);
         assert_se(strv_equal(l, (char**) input_table_multiple));
 
-        strv_free(l);
+        strv_free_erase(l);
 
         l = strv_split_full("    one    two\t three", NULL, 0);
         assert_se(l);
         assert_se(strv_equal(l, (char**) input_table_multiple));
 
-        strv_free(l);
+        strv_free_erase(l);
 
         l = strv_split_full("    'one'  \"  two\t three \" ' four  five'", NULL, SPLIT_QUOTES);
         assert_se(l);
         assert_se(strv_equal(l, (char**) input_table_quoted));
 
-        strv_free(l);
+        strv_free_erase(l);
 
         /* missing last quote ignores the last element. */
         l = strv_split_full("    'one'  \"  two\t three \" ' four  five'  ' ignored element ", NULL, SPLIT_QUOTES);
         assert_se(l);
         assert_se(strv_equal(l, (char**) input_table_quoted));
 
-        strv_free(l);
+        strv_free_erase(l);
 
         /* missing last quote, but the last element is _not_ ignored with SPLIT_RELAX. */
         l = strv_split_full("    'one'  \"  two\t three \" ' four  five", NULL, SPLIT_QUOTES | SPLIT_RELAX);
         assert_se(l);
         assert_se(strv_equal(l, (char**) input_table_quoted));
 
-        strv_free(l);
+        strv_free_erase(l);
 
         /* missing separator between */
         l = strv_split_full("    'one'  \"  two\t three \"' four  five'", NULL, SPLIT_QUOTES | SPLIT_RELAX);
         assert_se(l);
         assert_se(strv_equal(l, (char**) input_table_quoted));
 
-        strv_free(l);
+        strv_free_erase(l);
 
         l = strv_split_full("    'one'  \"  two\t three \"' four  five", NULL, SPLIT_QUOTES | SPLIT_RELAX);
         assert_se(l);
