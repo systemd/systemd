@@ -28,6 +28,8 @@ const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
 DHCPUseDomains dhcp_use_domains_from_string(const char *s) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_domains);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
 CONFIG_PARSER_PROTOTYPE(config_parse_section_route_table);

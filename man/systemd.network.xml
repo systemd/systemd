@@ -324,8 +324,8 @@
             specified through DHCP is not used for name resolution.
             See option <option>UseDomains=</option> below.</para>
 
-            <para>See the <literal>[DHCP]</literal> section below for further configuration options for the DHCP client
-            support.</para>
+            <para>See the <literal>[DHCPv4]</literal> or <literal>[DHCPv6]</literal> section below for
+            further configuration options for the DHCP client support.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1291,8 +1291,8 @@
   </refsect1>
 
   <refsect1>
-    <title>[DHCP] Section Options</title>
-      <para>The <literal>[DHCP]</literal> section configures the
+    <title>[DHCPv4] Section Options</title>
+      <para>The <literal>[DHCPv4]</literal> section configures the
       DHCPv4 client, if it is enabled with the
       <varname>DHCP=</varname> setting described above:</para>
 
@@ -1539,7 +1539,7 @@
   <refsect1>
     <title>[DHCPv6] Section Options</title>
       <para>The <literal>[DHCPv6]</literal> section configures the DHCPv6 client, if it is enabled with the
-      <varname>DHCPv6=</varname> setting described above:</para>
+      <varname>DHCP=</varname> setting described above, or invoked by the IPv6 Router Advertisement:</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
