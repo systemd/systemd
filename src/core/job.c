@@ -579,7 +579,7 @@ static void job_log_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
         format = job_get_begin_status_message_format(u, t);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        (void) snprintf(buf, sizeof buf, format, unit_description(u));
+        (void) snprintf(buf, sizeof buf, format, unit_status_string(u));
         REENABLE_WARNING;
 
         mid = t == JOB_START ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTING_STR :
@@ -889,7 +889,7 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
         /* Show condition check message if the job did not actually do anything due to failed condition. */
         if (t == JOB_START && result == JOB_DONE && !u->condition_result) {
                 log_struct(LOG_INFO,
-                           "MESSAGE=Condition check resulted in %s being skipped.", unit_description(u),
+                           "MESSAGE=Condition check resulted in %s being skipped.", unit_status_string(u),
                            "JOB_ID=%" PRIu32, job_id,
                            "JOB_TYPE=%s", job_type_to_string(t),
                            "JOB_RESULT=%s", job_result_to_string(result),
@@ -909,7 +909,7 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
          * xsprintf() on purpose here: we are fine with truncation and don't
          * consider that an error. */
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        (void) snprintf(buf, sizeof(buf), format, unit_description(u));
+        (void) snprintf(buf, sizeof(buf), format, unit_status_string(u));
         REENABLE_WARNING;
 
         switch (t) {

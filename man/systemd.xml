@@ -1028,6 +1028,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.status_unit_format=</varname></term>
+
+        <listitem><para>Takes either <option>name</option> or <option>description</option> as the value. If
+        <option>name</option>, the system manager will use unit names in status messages. If specified,
+        overrides the system manager configuration file option <option>StatusUnitFormat=</option>, see
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.log_target=</varname></term>
         <term><varname>systemd.log_level=</varname></term>
         <term><varname>systemd.log_location=</varname></term>

@@ -245,6 +245,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>StatusUnitFormat=</varname></term>
+
+        <listitem><para>Takes either <option>name</option> or <option>description</option> as the value. If
+        <option>name</option>, the system manager will use unit names in status messages, instead of the
+        longer and more informative descriptions set with <varname>Description=</varname>, see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DefaultTimerAccuracySec=</varname></term>
 
         <listitem><para>Sets the default accuracy of timer units. This

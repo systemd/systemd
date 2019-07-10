@@ -32,6 +32,7 @@
 #NoNewPrivileges=no
 #SystemCallArchitectures=
 #TimerSlackNSec=
+#StatusUnitFormat=@STATUS_UNIT_FORMAT_DEFAULT@
 #DefaultTimerAccuracySec=1min
 #DefaultStandardOutput=journal
 #DefaultStandardError=inherit

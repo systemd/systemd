@@ -1067,6 +1067,15 @@ const char *unit_description(Unit *u) {
         return strna(u->id);
 }
 
+const char *unit_status_string(Unit *u) {
+        assert(u);
+
+        if (u->manager->status_unit_format == STATUS_UNIT_FORMAT_NAME && u->id)
+                return u->id;
+
+        return unit_description(u);
+}
+
 static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependencyMask mask, bool *space) {
         const struct {
                 UnitDependencyMask mask;
@@ -1644,7 +1653,7 @@ static bool unit_test_assert(Unit *u) {
 void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) {
         const char *d;
 
-        d = unit_description(u);
+        d = unit_status_string(u);
         if (log_get_show_color())
                 d = strjoina(ANSI_HIGHLIGHT, d, ANSI_NORMAL);
 

@@ -231,7 +231,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
                               "%sA %s job is running for %s (%s / %s)",
                               strempty(job_of_n),
                               job_type_to_string(j->type),
-                              unit_description(j->unit),
+                              unit_status_string(j->unit),
                               time, limit);
 }
 
@@ -733,6 +733,8 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
         *m = (Manager) {
                 .unit_file_scope = scope,
                 .objective = _MANAGER_OBJECTIVE_INVALID,
+
+                .status_unit_format = STATUS_UNIT_FORMAT_DEFAULT,
 
                 .default_timer_accuracy_usec = USEC_PER_MINUTE,
                 .default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT,

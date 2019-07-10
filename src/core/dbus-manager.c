@@ -683,7 +683,7 @@ static int reply_unit_info(sd_bus_message *reply, Unit *u) {
                         unit_path,
                         u->job ? u->job->id : 0,
                         u->job ? job_type_to_string(u->job->type) : "",
-                        job_path ? job_path : "/");
+                        empty_to_root(job_path));
 }
 
 static int method_list_units_by_names(sd_bus_message *message, void *userdata, sd_bus_error *error) {
