@@ -271,7 +271,7 @@ int json_log_internal(JsonVariant *variant, int level, int error, const char *fi
         ({                                                              \
                 int _level = json_dispatch_level(flags), _e = (error);  \
                 (log_get_max_level() >= LOG_PRI(_level))                \
-                        ? json_log_internal(variant, _level, _e, __FILE__, __LINE__, __func__, __VA_ARGS__) \
+                        ? json_log_internal(variant, _level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
         })
 

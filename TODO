@@ -134,9 +134,6 @@ Features:
   sufficient to build a link by prefixing "http://" and suffixing the
   CODE_FILE.
 
-* when outputting log data with journalctl and the log data includes references
-  to configuration files (CONFIG_FILE=), create a clickable link for it.
-
 * Augment MESSAGE_ID with MESSAGE_BASE, in a similar fashion so that we can
   make clickable links from log messages carrying a MESSAGE_ID, that lead to
   some explanatory text online.

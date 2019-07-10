@@ -193,8 +193,8 @@ const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, GPERF_
 #define log_netdev_full(netdev, level, error, ...)                      \
         ({                                                              \
                 const NetDev *_n = (netdev);                            \
-                _n ? log_object_internal(level, error, __FILE__, __LINE__, __func__, "INTERFACE=", _n->ifname, NULL, NULL, ##__VA_ARGS__) : \
-                        log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+                _n ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, "INTERFACE=", _n->ifname, NULL, NULL, ##__VA_ARGS__) : \
+                        log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
 #define log_netdev_debug(netdev, ...)       log_netdev_full(netdev, LOG_DEBUG, 0, ##__VA_ARGS__)

@@ -1726,9 +1726,10 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
+        log_open();
         udev_parse_config_full(&arg_children_max, &arg_exec_delay_usec, &arg_event_timeout_usec, &arg_resolve_name_timing);
         log_parse_environment();
-        log_open();
+        log_open(); /* Done again to update after reading configuration. */
 
         r = parse_argv(argc, argv);
         if (r <= 0)

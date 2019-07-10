@@ -29,6 +29,10 @@ substs.set('PROJECT_VERSION',      meson.project_version())
 # This is to be used instead of meson.source_root(), as the latter will return
 # the wrong result when systemd is being built as a meson subproject
 project_source_root = meson.current_source_dir()
+relative_source_path = run_command('realpath',
+                                   '--relative-to=@0@'.format(meson.current_build_dir()),
+                                   project_source_root).stdout().strip()
+conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')

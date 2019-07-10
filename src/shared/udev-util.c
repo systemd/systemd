@@ -57,25 +57,29 @@ int udev_parse_config_full(
                  * to regulate the code in libudev/ and udev/. */
                 r = log_set_max_level_from_string_realm(LOG_REALM_UDEV, log);
                 if (r < 0)
-                        log_debug_errno(r, "/etc/udev/udev.conf: failed to set udev log level '%s', ignoring: %m", log);
+                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
+                                   "failed to set udev log level '%s', ignoring: %m", log);
         }
 
         if (ret_children_max && children_max) {
                 r = safe_atou(children_max, ret_children_max);
                 if (r < 0)
-                        log_notice_errno(r, "/etc/udev/udev.conf: failed to set parse children_max=%s, ignoring: %m", children_max);
+                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
+                                   "failed to set parse children_max=%s, ignoring: %m", children_max);
         }
 
         if (ret_exec_delay_usec && exec_delay) {
                 r = parse_sec(exec_delay, ret_exec_delay_usec);
                 if (r < 0)
-                        log_notice_errno(r, "/etc/udev/udev.conf: failed to set parse exec_delay=%s, ignoring: %m", exec_delay);
+                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
+                                   "failed to set parse exec_delay=%s, ignoring: %m", exec_delay);
         }
 
         if (ret_event_timeout_usec && event_timeout) {
                 r = parse_sec(event_timeout, ret_event_timeout_usec);
                 if (r < 0)
-                        log_notice_errno(r, "/etc/udev/udev.conf: failed to set parse event_timeout=%s, ignoring: %m", event_timeout);
+                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
+                                   "failed to set parse event_timeout=%s, ignoring: %m", event_timeout);
         }
 
         if (ret_resolve_name_timing && resolve_names) {
@@ -83,7 +87,8 @@ int udev_parse_config_full(
 
                 t = resolve_name_timing_from_string(resolve_names);
                 if (t < 0)
-                        log_notice("/etc/udev/udev.conf: failed to set parse resolve_names=%s, ignoring.", resolve_names);
+                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
+                                   "failed to set parse resolve_names=%s, ignoring.", resolve_names);
                 else
                         *ret_resolve_name_timing = t;
         }
