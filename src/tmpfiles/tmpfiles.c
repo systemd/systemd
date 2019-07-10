@@ -2478,8 +2478,7 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
         /* Also log about this briefly. We do so at LOG_NOTICE level, as we fixed up the situation automatically, hence
          * there's no immediate need for action by the user. However, in the interest of making things less confusing
          * to the user, let's still inform the user that these snippets should really be updated. */
-
-        log_notice("[%s:%u] Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.", fname, line, *path, n);
+        log_syntax(NULL, LOG_NOTICE, fname, line, 0, "Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.", *path, n);
 
         free_and_replace(*path, n);
 
