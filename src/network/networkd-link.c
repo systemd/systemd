@@ -158,14 +158,13 @@ bool link_ipv4ll_enabled(Link *link, AddressFamilyBoolean mask) {
         if (!link->network)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "ip6gre", "ip6tnl", "sit", "vti", "vti6", "can", "vcan", "vxcan", "nlmon"))
+        if (STRPTR_IN_SET(link->kind,
+                          "vrf", "wireguard", "ipip", "gre", "ip6gre","ip6tnl", "sit", "vti",
+                          "vti6", "can", "vcan", "vxcan", "nlmon", "xfrm"))
                 return false;
 
         /* L3 or L3S mode do not support ARP. */
         if (IN_SET(link_get_ipvlan_mode(link), NETDEV_IPVLAN_MODE_L3, NETDEV_IPVLAN_MODE_L3S))
-                return false;
-
-        if (link->network->bond)
                 return false;
 
         if (link->network->bond)

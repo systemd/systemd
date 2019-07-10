@@ -43,6 +43,8 @@ sources = files('''
         netdev/l2tp-tunnel.h
         netdev/macsec.c
         netdev/macsec.h
+        netdev/xfrm.c
+        netdev/xfrm.h
         networkd-address-label.c
         networkd-address-label.h
         networkd-address-pool.c

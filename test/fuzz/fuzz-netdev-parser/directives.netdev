@@ -207,3 +207,6 @@ KeyId=
 Key=
 KeyFile=
 Activate=
+[Xfrm]
+Independent=
+InterfaceId=
