@@ -5,6 +5,7 @@
 
 #include "dm-util.h"
 #include "fd-util.h"
+#include "string-util.h"
 
 int dm_deferred_remove(const char *name) {
 
@@ -25,14 +26,14 @@ int dm_deferred_remove(const char *name) {
         /* Unfortunately, libcryptsetup doesn't provide a proper API for this, hence call the ioctl()
          * directly. */
 
-        if (strlen(name) > sizeof(dm.name)-1)
+        if (strlen(name) >= sizeof(dm.name))
                 return -ENODEV; /* A device with a name longer than this cannot possibly exist */
 
         fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
-        strncpy(dm.name, name, sizeof(dm.name));
+        strncpy_exact(dm.name, name, sizeof(dm.name));
 
         if (ioctl(fd, DM_DEV_REMOVE, &dm))
                 return -errno;
