@@ -93,7 +93,7 @@ int write_drop_in_format(const char *dir, const char *unit, unsigned level,
         return write_drop_in(dir, unit, level, name, p);
 }
 
-static int unit_file_find_dir(
+static int unit_file_add_dir(
                 const char *original_root,
                 const char *path,
                 char ***dirs) {
@@ -102,6 +102,8 @@ static int unit_file_find_dir(
         int r;
 
         assert(path);
+
+        /* This adds [original_root]/path to dirs, if it exists. */
 
         r = chase_symlinks(path, original_root, 0, &chased);
         if (r == -ENOENT) /* Ignore -ENOENT, after all most units won't have a drop-in dir. */
@@ -143,7 +145,7 @@ static int unit_file_find_dirs(
 
         path = strjoina(unit_path, "/", name, suffix);
         if (!unit_path_cache || set_get(unit_path_cache, path)) {
-                r = unit_file_find_dir(original_root, path, dirs);
+                r = unit_file_add_dir(original_root, path, dirs);
                 if (r < 0)
                         return r;
         }
