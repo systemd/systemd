@@ -1016,9 +1016,9 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>MACAddress=</varname></term>
+          <term><varname>LinkLayerAddress=</varname></term>
           <listitem>
-            <para>The hardware address of the neighbor.</para>
+            <para>The link layer address (MAC address or IP address) of the neighbor.</para>
           </listitem>
         </varlistentry>
       </variablelist>

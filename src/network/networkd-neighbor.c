@@ -59,6 +59,7 @@ static int neighbor_new_static(Network *network, const char *filename, unsigned 
         *neighbor = (Neighbor) {
                 .network = network,
                 .family = AF_UNSPEC,
+                .lladdr_type = _NEIGHBOR_LLADDR_INVALID,
         };
 
         LIST_APPEND(neighbors, network->neighbors, neighbor);
@@ -117,8 +118,8 @@ int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_hand
 
         if (neighbor->family == AF_UNSPEC)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Neighbor without Address= configured");
-        if (!neighbor->mac_configured)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Neighbor without MACAddress= configured");
+        if (neighbor->lladdr_type < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Neighbor without LinkLayerAddress= configured");
 
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH,
                                           link->ifindex, neighbor->family);
@@ -133,7 +134,10 @@ int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_hand
         if (r < 0)
                 return log_error_errno(r, "Could not set flags: %m");
 
-        r = sd_netlink_message_append_data(req, NDA_LLADDR, &neighbor->mac, sizeof(neighbor->mac));
+        if (neighbor->lladdr_type == NEIGHBOR_LLADDR_MAC)
+                r = sd_netlink_message_append_data(req, NDA_LLADDR, &neighbor->lladdr.mac, sizeof(neighbor->lladdr.mac));
+        else
+                r = sd_netlink_message_append_data(req, NDA_LLADDR, &neighbor->lladdr.ip.in, sizeof(neighbor->lladdr.ip.in));
         if (r < 0)
                 return log_error_errno(r, "Could not append NDA_LLADDR attribute: %m");
 
@@ -152,16 +156,17 @@ int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_hand
         return 0;
 }
 
-int config_parse_neighbor_address(const char *unit,
-                                  const char *filename,
-                                  unsigned line,
-                                  const char *section,
-                                  unsigned section_line,
-                                  const char *lvalue,
-                                  int ltype,
-                                  const char *rvalue,
-                                  void *data,
-                                  void *userdata) {
+int config_parse_neighbor_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Network *network = userdata;
         _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
@@ -188,16 +193,17 @@ int config_parse_neighbor_address(const char *unit,
         return 0;
 }
 
-int config_parse_neighbor_hwaddr(const char *unit,
-                                 const char *filename,
-                                 unsigned line,
-                                 const char *section,
-                                 unsigned section_line,
-                                 const char *lvalue,
-                                 int ltype,
-                                 const char *rvalue,
-                                 void *data,
-                                 void *userdata) {
+int config_parse_neighbor_lladdr(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Network *network = userdata;
         _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
@@ -213,13 +219,56 @@ int config_parse_neighbor_hwaddr(const char *unit,
         if (r < 0)
                 return r;
 
-        r = ether_addr_from_string(rvalue, &n->mac);
+        r = ether_addr_from_string(rvalue, &n->lladdr.mac);
+        if (r >= 0)
+                n->lladdr_type = NEIGHBOR_LLADDR_MAC;
+        else {
+                r = in_addr_from_string(AF_INET, rvalue, &n->lladdr.ip);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Neighbor LinkLayerAddress= is invalid, ignoring assignment: %s", rvalue);
+                        return 0;
+                }
+                n->lladdr_type = NEIGHBOR_LLADDR_IP;
+        }
+
+        TAKE_PTR(n);
+
+        return 0;
+}
+
+int config_parse_neighbor_hwaddr(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = neighbor_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = ether_addr_from_string(rvalue, &n->lladdr.mac);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Neighbor MACAddress is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Neighbor MACAddress= is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        n->mac_configured = true;
+        n->lladdr_type = NEIGHBOR_LLADDR_MAC;
         TAKE_PTR(n);
 
         return 0;

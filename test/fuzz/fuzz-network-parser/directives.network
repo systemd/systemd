@@ -223,6 +223,7 @@ Managed=
 OtherInformation=
 [Neighbor]
 Address=
+LinkLayerAddress=
 MACAddress=
 [IPv6AddressLabel]
 Label=
