@@ -1620,7 +1620,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2004:da8:1::/64')
 
-    def test_ipv6_neighbor(self):
+    def test_neighbor_section(self):
         copy_unit_to_networkd_unit_path('25-neighbor-section.network', '12-dummy.netdev')
         start_networkd()
         wait_online(['dummy98:degraded'], timeout='40s')
