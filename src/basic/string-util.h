@@ -197,8 +197,6 @@ static inline int free_and_strdup_warn(char **p, const char *s) {
 }
 int free_and_strndup(char **p, const char *s, size_t l);
 
-char *string_erase(char *x);
-
 bool string_is_safe(const char *p) _pure_;
 
 static inline size_t strlen_ptr(const char *s) {

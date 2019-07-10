@@ -90,7 +90,7 @@ Features:
   usefaultd() and make systemd-analyze check for it.
 
 * paranoia: whenever we process passwords, call mlock() on the memory
-  first. i.e. look for all places we use string_erase()/free_and_erasep() and
+  first. i.e. look for all places we use free_and_erasep() and
   augment them with mlock(). Also use MADV_DONTDUMP.
 
 * Move RestrictAddressFamily= to the new cgroup create socket

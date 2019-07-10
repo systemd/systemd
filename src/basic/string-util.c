@@ -1032,16 +1032,6 @@ int free_and_strndup(char **p, const char *s, size_t l) {
         return 1;
 }
 
-char* string_erase(char *x) {
-        if (!x)
-                return NULL;
-
-        /* A delicious drop of snake-oil! To be called on memory where
-         * we stored passphrases or so, after we used them. */
-        explicit_bzero_safe(x, strlen(x));
-        return x;
-}
-
 bool string_is_safe(const char *p) {
         const char *t;
 
