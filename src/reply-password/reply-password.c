@@ -47,7 +47,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Wrong number of arguments.");
 
         if (streq(argv[1], "1")) {
-                _cleanup_string_free_erase_ char *line = NULL;
+                _cleanup_(erase_and_freep) char *line = NULL;
 
                 r = read_line(stdin, LONG_LINE_MAX, &line);
                 if (r < 0)

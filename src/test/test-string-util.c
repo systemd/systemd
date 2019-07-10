@@ -9,29 +9,6 @@
 #include "utf8.h"
 #include "util.h"
 
-static void test_string_erase(void) {
-        char *x;
-
-        x = strdupa("");
-        assert_se(streq(string_erase(x), ""));
-
-        x = strdupa("1");
-        assert_se(streq(string_erase(x), ""));
-
-        x = strdupa("123456789");
-        assert_se(streq(string_erase(x), ""));
-
-        assert_se(x[1] == '\0');
-        assert_se(x[2] == '\0');
-        assert_se(x[3] == '\0');
-        assert_se(x[4] == '\0');
-        assert_se(x[5] == '\0');
-        assert_se(x[6] == '\0');
-        assert_se(x[7] == '\0');
-        assert_se(x[8] == '\0');
-        assert_se(x[9] == '\0');
-}
-
 static void test_free_and_strndup_one(char **t, const char *src, size_t l, const char *expected, bool change) {
         int r;
 
@@ -582,7 +559,6 @@ static void test_memory_startswith_no_case(void) {
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
-        test_string_erase();
         test_free_and_strndup();
         test_ascii_strcasecmp_n();
         test_ascii_strcasecmp_nn();
