@@ -30,6 +30,7 @@
 #include "kbd-util.h"
 #include "locale-util.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "os-util.h"
 #include "parse-util.h"
@@ -68,7 +69,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_locale_messages, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_keymap, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_timezone, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hostname, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_root_password, string_free_erasep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_password, erase_and_freep);
 
 static bool press_any_key(void) {
         char k = 0;

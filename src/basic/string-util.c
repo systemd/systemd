@@ -1042,10 +1042,6 @@ char* string_erase(char *x) {
         return x;
 }
 
-char *string_free_erase(char *s) {
-        return mfree(string_erase(s));
-}
-
 bool string_is_safe(const char *p) {
         const char *t;
 
