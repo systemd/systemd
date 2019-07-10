@@ -238,13 +238,13 @@ finish:
 }
 
 static int send_passwords(const char *socket_name, char **passwords) {
-        _cleanup_free_ char *packet = NULL;
+        _cleanup_(erase_and_freep) char *packet = NULL;
         _cleanup_close_ int socket_fd = -1;
         union sockaddr_union sa = {};
         size_t packet_length = 1;
         char **p, *d;
         ssize_t n;
-        int r, salen;
+        int salen;
 
         assert(socket_name);
 
@@ -266,22 +266,14 @@ static int send_passwords(const char *socket_name, char **passwords) {
                 d = stpcpy(d, *p) + 1;
 
         socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
-        if (socket_fd < 0) {
-                r = log_debug_errno(errno, "socket(): %m");
-                goto finish;
-        }
+        if (socket_fd < 0)
+                return log_debug_errno(errno, "socket(): %m");
 
         n = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, salen);
-        if (n < 0) {
-                r = log_debug_errno(errno, "sendto(): %m");
-                goto finish;
-        }
+        if (n < 0)
+                return log_debug_errno(errno, "sendto(): %m");
 
-        r = (int) n;
-
-finish:
-        explicit_bzero_safe(packet, packet_length);
-        return r;
+        return (int) n;
 }
 
 static int parse_password(const char *filename, char **wall) {

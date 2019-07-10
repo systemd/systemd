@@ -2,6 +2,7 @@
 #pragma once
 
 #include <inttypes.h>
+#include <malloc.h>
 #include <stdbool.h>
 #include <string.h>
 #include <sys/types.h>
@@ -77,6 +78,16 @@ static inline void* explicit_bzero_safe(void *p, size_t l) {
 #else
 void *explicit_bzero_safe(void *p, size_t l);
 #endif
+
+static inline void erase_and_freep(void *p) {
+        void *ptr = *(void**) p;
+
+        if (ptr) {
+                size_t l = malloc_usable_size(ptr);
+                explicit_bzero_safe(ptr, l);
+                free(ptr);
+        }
+}
 
 /* Use with _cleanup_ to erase a single 'char' when leaving scope */
 static inline void erase_char(char *p) {
