@@ -435,20 +435,26 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         assert(t);
 
-        if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_IPIP, NETDEV_KIND_SIT, NETDEV_KIND_GRE, NETDEV_KIND_GRETAP) &&
-            t->family != AF_INET)
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "vti/ipip/sit/gre tunnel without a local/remote IPv4 address configured in %s. Ignoring", filename);
+        if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_IPIP, NETDEV_KIND_SIT, NETDEV_KIND_GRE)) {
+                if (t->family == AF_UNSPEC)
+                        t->family = AF_INET;
+                if (t->family != AF_INET)
+                        return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                      "vti/ipip/sit/gre tunnel without a local/remote IPv4 address configured in %s. Ignoring", filename);
+        }
 
         if (IN_SET(netdev->kind, NETDEV_KIND_GRETAP, NETDEV_KIND_ERSPAN) &&
             (t->family != AF_INET || in_addr_is_null(t->family, &t->remote)))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "gretap/erspan tunnel without a remote IPv4 address configured in %s. Ignoring", filename);
 
-        if (IN_SET(netdev->kind, NETDEV_KIND_VTI6, NETDEV_KIND_IP6TNL, NETDEV_KIND_IP6GRE, NETDEV_KIND_IP6GRETAP) &&
-            t->family != AF_INET6)
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "vti6/ip6tnl/ip6gre tunnel without a local/remote IPv6 address configured in %s. Ignoring", filename);
+        if (IN_SET(netdev->kind, NETDEV_KIND_VTI6, NETDEV_KIND_IP6TNL, NETDEV_KIND_IP6GRE)) {
+                if (t->family == AF_UNSPEC)
+                        t->family = AF_INET6;
+                if (t->family != AF_INET6)
+                        return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                      "vti6/ip6tnl/ip6gre tunnel without a local/remote IPv6 address configured in %s. Ignoring", filename);
+        }
 
         if (netdev->kind == NETDEV_KIND_IP6GRETAP &&
             (t->family != AF_INET6 || in_addr_is_null(t->family, &t->remote)))
