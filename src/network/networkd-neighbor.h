@@ -44,6 +44,8 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(Neighbor, neighbor_free);
 
 int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_handler_t callback);
 
+int neighbor_section_verify(Neighbor *neighbor);
+
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_lladdr);

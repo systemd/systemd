@@ -116,11 +116,6 @@ int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_hand
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        if (neighbor->family == AF_UNSPEC)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Neighbor without Address= configured");
-        if (neighbor->lladdr_type < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Neighbor without LinkLayerAddress= configured");
-
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH,
                                           link->ifindex, neighbor->family);
         if (r < 0)
@@ -152,6 +147,25 @@ int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_hand
 
         link->neighbor_messages++;
         link_ref(link);
+
+        return 0;
+}
+
+int neighbor_section_verify(Neighbor *neighbor) {
+        if (section_is_invalid(neighbor->section))
+                return -EINVAL;
+
+        if (neighbor->family == AF_UNSPEC)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: Neighbor section without Address= configured. "
+                                         "Ignoring [Neighbor] section from line %u.",
+                                         neighbor->section->filename, neighbor->section->line);
+
+        if (neighbor->lladdr_type < 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: Neighbor section without LinkLayerAddress= configured. "
+                                         "Ignoring [Neighbor] section from line %u.",
+                                         neighbor->section->filename, neighbor->section->line);
 
         return 0;
 }

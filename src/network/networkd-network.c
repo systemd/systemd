@@ -269,7 +269,7 @@ int network_verify(Network *network) {
                         fdb_entry_free(fdb);
 
         LIST_FOREACH_SAFE(neighbors, neighbor, neighbor_next, network->neighbors)
-                if (section_is_invalid(neighbor->section))
+                if (neighbor_section_verify(neighbor) < 0)
                         neighbor_free(neighbor);
 
         LIST_FOREACH_SAFE(labels, label, label_next, network->address_labels)
