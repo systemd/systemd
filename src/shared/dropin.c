@@ -24,16 +24,15 @@
 #include "unit-name.h"
 
 int drop_in_file(const char *dir, const char *unit, unsigned level,
-                 const char *name, char **_p, char **_q) {
+                 const char *name, char **ret_p, char **ret_q) {
 
         char prefix[DECIMAL_STR_MAX(unsigned)];
-        _cleanup_free_ char *b = NULL;
-        char *p, *q;
+        _cleanup_free_ char *b = NULL, *p = NULL, *q = NULL;
 
         assert(unit);
         assert(name);
-        assert(_p);
-        assert(_q);
+        assert(ret_p);
+        assert(ret_q);
 
         sprintf(prefix, "%u", level);
 
@@ -45,17 +44,12 @@ int drop_in_file(const char *dir, const char *unit, unsigned level,
                 return -EINVAL;
 
         p = strjoin(dir, "/", unit, ".d");
-        if (!p)
-                return -ENOMEM;
-
         q = strjoin(p, "/", prefix, "-", b, ".conf");
-        if (!q) {
-                free(p);
+        if (!p || !q)
                 return -ENOMEM;
-        }
 
-        *_p = p;
-        *_q = q;
+        *ret_p = TAKE_PTR(p);
+        *ret_q = TAKE_PTR(q);
         return 0;
 }
 
@@ -121,11 +115,9 @@ static int unit_file_find_dir(
         if (r < 0)
                 return log_warning_errno(r, "Failed to canonicalize path '%s': %m", path);
 
-        r = strv_push(dirs, chased);
-        if (r < 0)
+        if (strv_consume(dirs, TAKE_PTR(chased)) < 0)
                 return log_oom();
 
-        chased = NULL;
         return 0;
 }
 
@@ -232,15 +224,15 @@ int unit_file_find_dropin_paths(
                 char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL;
-        char *t, **p;
+        char *name, **p;
         Iterator i;
         int r;
 
         assert(ret);
 
-        SET_FOREACH(t, names, i)
+        SET_FOREACH(name, names, i)
                 STRV_FOREACH(p, lookup_path)
-                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, t, dir_suffix, &dirs);
+                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, name, dir_suffix, &dirs);
 
         if (strv_isempty(dirs)) {
                 *ret = NULL;
