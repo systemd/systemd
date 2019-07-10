@@ -9,6 +9,7 @@
 #include "disk.h"
 #include "graphics.h"
 #include "linux.h"
+#include "loader-features.h"
 #include "measure.h"
 #include "pe.h"
 #include "shim.h"
@@ -2277,11 +2278,12 @@ static VOID config_write_entries_to_variable(Config *config) {
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         static const UINT64 loader_features =
-                (1ULL << 0) | /* I honour the LoaderConfigTimeout variable */
-                (1ULL << 1) | /* I honour the LoaderConfigTimeoutOneShot variable */
-                (1ULL << 2) | /* I honour the LoaderEntryDefault variable */
-                (1ULL << 3) | /* I honour the LoaderEntryOneShot variable */
-                (1ULL << 4) | /* I support boot counting */
+                EFI_LOADER_FEATURE_CONFIG_TIMEOUT |
+                EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT |
+                EFI_LOADER_FEATURE_ENTRY_DEFAULT |
+                EFI_LOADER_FEATURE_ENTRY_ONESHOT |
+                EFI_LOADER_FEATURE_BOOT_COUNTING |
+                EFI_LOADER_FEATURE_XBOOTLDR |
                 0;
 
         _cleanup_freepool_ CHAR16 *infostr = NULL, *typestr = NULL;
