@@ -559,6 +559,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-ip6tnl-tunnel-local-any.netdev',
         '25-ip6tnl-tunnel.netdev',
         '25-ipip-tunnel-independent.netdev',
+        '25-ipip-tunnel-independent-loopback.netdev',
         '25-ipip-tunnel-local-any.netdev',
         '25-ipip-tunnel-remote-any.netdev',
         '25-ipip-tunnel.netdev',
@@ -1126,6 +1127,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     def test_tunnel_independent(self):
         copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent.netdev', 'netdev-link-local-addressing-yes.network')
+        start_networkd()
+
+        wait_online(['ipiptun99:carrier'])
+
+    def test_tunnel_independent_loopback(self):
+        copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent-loopback.netdev', 'netdev-link-local-addressing-yes.network')
         start_networkd()
 
         wait_online(['ipiptun99:carrier'])
