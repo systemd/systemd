@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "memory-util.h"
@@ -95,13 +96,13 @@ static void test_sleep(void) {
 
         log_info("/= running system =/");
         r = can_sleep("suspend");
-        log_info("Suspend configured and possible: %s", r >= 0 ? yes_no(r) : strerror(-r));
+        log_info("Suspend configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
         r = can_sleep("hibernate");
-        log_info("Hibernation configured and possible: %s", r >= 0 ? yes_no(r) : strerror(-r));
+        log_info("Hibernation configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
         r = can_sleep("hybrid-sleep");
-        log_info("Hybrid-sleep configured and possible: %s", r >= 0 ? yes_no(r) : strerror(-r));
+        log_info("Hybrid-sleep configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
         r = can_sleep("suspend-then-hibernate");
-        log_info("Suspend-then-Hibernate configured and possible: %s", r >= 0 ? yes_no(r) : strerror(-r));
+        log_info("Suspend-then-Hibernate configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
 }
 
 int main(int argc, char* argv[]) {

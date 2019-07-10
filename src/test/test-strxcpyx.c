@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <stdio.h>
 #include <string.h>
 
 #include "string-util.h"
@@ -78,12 +79,32 @@ static void test_strscpyl(void) {
         assert_se(space_left == 10);
 }
 
+static void test_sd_event_code_migration(void) {
+        char b[100 * DECIMAL_STR_MAX(unsigned) + 1];
+        char c[100 * DECIMAL_STR_MAX(unsigned) + 1], *p;
+        unsigned i;
+        size_t l;
+        int o;
+
+        for (i = o = 0; i < 100; i++)
+                o += snprintf(&b[o], sizeof(b) - o, "%u ", i);
+
+        p = c;
+        l = sizeof(c);
+        for (i = 0; i < 100; i++)
+                l = strpcpyf(&p, l, "%u ", i);
+
+        assert_se(streq(b, c));
+}
+
 int main(int argc, char *argv[]) {
         test_strpcpy();
         test_strpcpyf();
         test_strpcpyl();
         test_strscpy();
         test_strscpyl();
+
+        test_sd_event_code_migration();
 
         return 0;
 }

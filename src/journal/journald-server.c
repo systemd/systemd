@@ -1061,7 +1061,7 @@ void server_driver_message(Server *s, pid_t object_pid, const char *message_id, 
                 /* We failed to format the message. Emit a warning instead. */
                 char buf[LINE_MAX];
 
-                xsprintf(buf, "MESSAGE=Entry printing failed: %s", strerror(-r));
+                xsprintf(buf, "MESSAGE=Entry printing failed: %s", strerror_safe(r));
 
                 n = 3;
                 iovec[n++] = IOVEC_MAKE_STRING("PRIORITY=4");

@@ -89,7 +89,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                                 break;
                         }
 
-                        r = log_warning_errno(errno, "Failed to add watch on %s: %s", s->path, errno == ENOSPC ? "too many watches" : strerror(-r));
+                        r = log_warning_errno(errno, "Failed to add watch on %s: %s", s->path, errno == ENOSPC ? "too many watches" : strerror_safe(r));
                         if (cut)
                                 *cut = tmp;
                         goto fail;

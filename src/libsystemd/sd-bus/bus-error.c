@@ -577,7 +577,7 @@ const char *bus_error_message(const sd_bus_error *e, int error) {
         if (error < 0)
                 error = -error;
 
-        return strerror(error);
+        return strerror_safe(error);
 }
 
 static bool map_ok(const sd_bus_error_map *map) {
