@@ -3474,7 +3474,7 @@ int link_save(Link *link) {
                                         space = true;
                 }
 
-                if (link->network->dhcp_use_dns && dhcp6_lease) {
+                if (link->network->dhcp6_use_dns && dhcp6_lease) {
                         struct in6_addr *in6_addrs;
 
                         r = sd_dhcp6_lease_get_dns(dhcp6_lease, &in6_addrs);
@@ -3517,7 +3517,7 @@ int link_save(Link *link) {
                                         space = true;
                 }
 
-                if (link->network->dhcp_use_ntp && dhcp6_lease) {
+                if (link->network->dhcp6_use_ntp && dhcp6_lease) {
                         struct in6_addr *in6_addrs;
                         char **hosts;
 

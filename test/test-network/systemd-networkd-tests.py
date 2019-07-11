@@ -23,8 +23,11 @@ dnsmasq_pid_file='/run/networkd-ci/test-test-dnsmasq.pid'
 dnsmasq_log_file='/run/networkd-ci/test-dnsmasq-log-file'
 
 networkd_bin='/usr/lib/systemd/systemd-networkd'
+resolved_bin='/usr/lib/systemd/systemd-resolved'
 wait_online_bin='/usr/lib/systemd/systemd-networkd-wait-online'
 networkctl_bin='/usr/bin/networkctl'
+resolvectl_bin='/usr/bin/resolvectl'
+timedatectl_bin='/usr/bin/timedatectl'
 use_valgrind=False
 enable_debug=True
 env = {}
@@ -134,6 +137,7 @@ def setUpModule():
 
     check_output('systemctl stop systemd-networkd.socket')
     check_output('systemctl stop systemd-networkd.service')
+    check_output('systemctl stop systemd-resolved.service')
 
     drop_in = [
         '[Service]',
@@ -164,19 +168,49 @@ def setUpModule():
     with open('/run/systemd/system/systemd-networkd.service.d/00-override.conf', mode='w') as f:
         f.write('\n'.join(drop_in))
 
+    drop_in = [
+        '[Service]',
+        'Restart=no',
+        'ExecStart=',
+    ]
+    if use_valgrind:
+        drop_in += ['ExecStart=!!valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all ' + resolved_bin]
+    else:
+        drop_in += ['ExecStart=!!' + resolved_bin]
+    if enable_debug:
+        drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
+    if asan_options:
+        drop_in += ['Environment=ASAN_OPTIONS="' + asan_options + '"']
+    if lsan_options:
+        drop_in += ['Environment=LSAN_OPTIONS="' + lsan_options + '"']
+    if ubsan_options:
+        drop_in += ['Environment=UBSAN_OPTIONS="' + ubsan_options + '"']
+    if asan_options or lsan_options or ubsan_options:
+        drop_in += ['SystemCallFilter=']
+    if use_valgrind or asan_options or lsan_options or ubsan_options:
+        drop_in += ['MemoryDenyWriteExecute=no']
+
+    os.makedirs('/run/systemd/system/systemd-resolved.service.d', exist_ok=True)
+    with open('/run/systemd/system/systemd-resolved.service.d/00-override.conf', mode='w') as f:
+        f.write('\n'.join(drop_in))
+
     check_output('systemctl daemon-reload')
     print(check_output('systemctl cat systemd-networkd.service'))
+    print(check_output('systemctl cat systemd-resolved.service'))
+    check_output('systemctl restart systemd-resolved')
 
 def tearDownModule():
     shutil.rmtree(networkd_ci_path)
 
     check_output('systemctl stop systemd-networkd.service')
+    check_output('systemctl stop systemd-resolved.service')
 
     shutil.rmtree('/run/systemd/system/systemd-networkd.service.d')
+    shutil.rmtree('/run/systemd/system/systemd-resolved.service.d')
     check_output('systemctl daemon-reload')
 
     check_output('systemctl start systemd-networkd.socket')
-    check_output('systemctl start systemd-networkd.service')
+    check_output('systemctl start systemd-resolved.service')
 
 def read_link_attr(link, dev, attribute):
     with open(os.path.join(os.path.join(os.path.join('/sys/class/net/', link), dev), attribute)) as f:
@@ -2155,6 +2189,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-listen-port.network',
         'dhcp-client-route-metric.network',
         'dhcp-client-route-table.network',
+        'dhcp-client-use-dns-ipv4-and-ra.network',
+        'dhcp-client-use-dns-ipv4.network',
+        'dhcp-client-use-dns-no.network',
+        'dhcp-client-use-dns-yes.network',
         'dhcp-client-use-routes-no.network',
         'dhcp-client-vrf.network',
         'dhcp-client-with-ipv4ll-fallback-with-dhcp-server.network',
@@ -2676,12 +2714,87 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, f'default via 192.168.5.1 proto dhcp src {address2} metric 1024')
         self.assertRegex(output, f'192.168.5.1 proto dhcp scope link src {address2} metric 1024')
 
+    def test_dhcp_client_use_dns_yes(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-yes.network')
+
+        start_networkd()
+        wait_online(['veth-peer:carrier'])
+        start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1 --dhcp-option=option6:dns-server,[2600::1]')
+        wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # link become 'routable' when at least one protocol provide an valid address.
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+
+        time.sleep(3)
+        output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, '192.168.5.1')
+        self.assertRegex(output, '2600::1')
+
+    def test_dhcp_client_use_dns_no(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-no.network')
+
+        start_networkd()
+        wait_online(['veth-peer:carrier'])
+        start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1 --dhcp-option=option6:dns-server,[2600::1]')
+        wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # link become 'routable' when at least one protocol provide an valid address.
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+
+        time.sleep(3)
+        output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
+        print(output)
+        self.assertNotRegex(output, '192.168.5.1')
+        self.assertNotRegex(output, '2600::1')
+
+    def test_dhcp_client_use_dns_ipv4(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-ipv4.network')
+
+        start_networkd()
+        wait_online(['veth-peer:carrier'])
+        start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1 --dhcp-option=option6:dns-server,[2600::1]')
+        wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # link become 'routable' when at least one protocol provide an valid address.
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+
+        time.sleep(3)
+        output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, '192.168.5.1')
+        self.assertNotRegex(output, '2600::1')
+
+    def test_dhcp_client_use_dns_ipv4_and_ra(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-ipv4-and-ra.network')
+
+        start_networkd()
+        wait_online(['veth-peer:carrier'])
+        start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1 --dhcp-option=option6:dns-server,[2600::1]')
+        wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # link become 'routable' when at least one protocol provide an valid address.
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+
+        time.sleep(3)
+        output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, '192.168.5.1')
+        self.assertRegex(output, '2600::1')
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--build-dir', help='Path to build dir', dest='build_dir')
     parser.add_argument('--networkd', help='Path to systemd-networkd', dest='networkd_bin')
+    parser.add_argument('--resolved', help='Path to systemd-resolved', dest='resolved_bin')
     parser.add_argument('--wait-online', help='Path to systemd-networkd-wait-online', dest='wait_online_bin')
     parser.add_argument('--networkctl', help='Path to networkctl', dest='networkctl_bin')
+    parser.add_argument('--resolvectl', help='Path to resolvectl', dest='resolvectl_bin')
+    parser.add_argument('--timedatectl', help='Path to timedatectl', dest='timedatectl_bin')
     parser.add_argument('--valgrind', help='Enable valgrind', dest='use_valgrind', type=bool, nargs='?', const=True, default=use_valgrind)
     parser.add_argument('--debug', help='Generate debugging logs', dest='enable_debug', type=bool, nargs='?', const=True, default=enable_debug)
     parser.add_argument('--asan-options', help='ASAN options', dest='asan_options')
@@ -2690,18 +2803,27 @@ if __name__ == '__main__':
     ns, args = parser.parse_known_args(namespace=unittest)
 
     if ns.build_dir:
-        if ns.networkd_bin or ns.wait_online_bin or ns.networkctl_bin:
-            print('WARNING: --networkd, --wait-online, or --networkctl options are ignored when --build-dir is specified.')
+        if ns.networkd_bin or ns.resolved_bin or ns.wait_online_bin or ns.networkctl_bin or ns.resolvectl_bin or ns.timedatectl_bin:
+            print('WARNING: --networkd, --resolved, --wait-online, --networkctl, --resolvectl, or --timedatectl options are ignored when --build-dir is specified.')
         networkd_bin = os.path.join(ns.build_dir, 'systemd-networkd')
+        resolved_bin = os.path.join(ns.build_dir, 'systemd-resolved')
         wait_online_bin = os.path.join(ns.build_dir, 'systemd-networkd-wait-online')
         networkctl_bin = os.path.join(ns.build_dir, 'networkctl')
+        resolvectl_bin = os.path.join(ns.build_dir, 'resolvectl')
+        timedatectl_bin = os.path.join(ns.build_dir, 'timedatectl')
     else:
         if ns.networkd_bin:
             networkd_bin = ns.networkd_bin
+        if ns.resolved_bin:
+            resolved_bin = ns.resolved_bin
         if ns.wait_online_bin:
             wait_online_bin = ns.wait_online_bin
         if ns.networkctl_bin:
             networkctl_bin = ns.networkctl_bin
+        if ns.resolvectl_bin:
+            resolvectl_bin = ns.resolvectl_bin
+        if ns.timedatectl_bin:
+            timedatectl_bin = ns.timedatectl_bin
 
     use_valgrind = ns.use_valgrind
     enable_debug = ns.enable_debug
@@ -2711,9 +2833,13 @@ if __name__ == '__main__':
 
     if use_valgrind:
         networkctl_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', networkctl_bin]
+        resolvectl_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', resolvectl_bin]
+        timedatectl_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', timedatectl_bin]
         wait_online_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', wait_online_bin]
     else:
         networkctl_cmd = [networkctl_bin]
+        resolvectl_cmd = [resolvectl_bin]
+        timedatectl_cmd = [timedatectl_bin]
         wait_online_cmd = [wait_online_bin]
 
     if enable_debug:

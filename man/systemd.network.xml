@@ -324,8 +324,8 @@
             specified through DHCP is not used for name resolution.
             See option <option>UseDomains=</option> below.</para>
 
-            <para>See the <literal>[DHCP]</literal> section below for further configuration options for the DHCP client
-            support.</para>
+            <para>See the <literal>[DHCPv4]</literal> or <literal>[DHCPv6]</literal> section below for
+            further configuration options for the DHCP client support.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1299,9 +1299,9 @@
   </refsect1>
 
   <refsect1>
-    <title>[DHCP] Section Options</title>
-      <para>The <literal>[DHCP]</literal> section configures the
-      DHCPv4 and DHCP6 client, if it is enabled with the
+    <title>[DHCPv4] Section Options</title>
+      <para>The <literal>[DHCPv4]</literal> section configures the
+      DHCPv4 client, if it is enabled with the
       <varname>DHCP=</varname> setting described above:</para>
 
       <variablelist class='network-directives'>
@@ -1535,6 +1535,30 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>BlackList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected.</para>
+          </listitem>
+        </varlistentry>
+
+       </variablelist>
+   </refsect1>
+
+  <refsect1>
+    <title>[DHCPv6] Section Options</title>
+      <para>The <literal>[DHCPv6]</literal> section configures the DHCPv6 client, if it is enabled with the
+      <varname>DHCP=</varname> setting described above, or invoked by the IPv6 Router Advertisement:</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>UseDNS=</varname></term>
+          <term><varname>UseNTP=</varname></term>
+          <listitem>
+            <para>As in the <literal>[DHCP]</literal> section.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>RapidCommit=</varname></term>
           <listitem>
             <para>Takes a boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server through
@@ -1563,15 +1587,8 @@
           </listitem>
         </varlistentry>
 
-        <varlistentry>
-          <term><varname>BlackList=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected.</para>
-          </listitem>
-        </varlistentry>
-
       </variablelist>
-    </refsect1>
+  </refsect1>
 
   <refsect1>
     <title>[IPv6AcceptRA] Section Options</title>

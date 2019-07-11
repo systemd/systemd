@@ -361,6 +361,9 @@ int network_load_one(Manager *manager, const char *filename) {
                 .dhcp_use_timezone = false,
                 .rapid_commit = true,
 
+                .dhcp6_use_ntp = true,
+                .dhcp6_use_dns = true,
+
                 .dhcp_server_emit_dns = true,
                 .dhcp_server_emit_ntp = true,
                 .dhcp_server_emit_router = true,
@@ -426,6 +429,7 @@ int network_load_one(Manager *manager, const char *filename) {
                               "Route\0"
                               "DHCP\0"
                               "DHCPv4\0" /* compat */
+                              "DHCPv6\0"
                               "DHCPServer\0"
                               "IPv6AcceptRA\0"
                               "IPv6NDPProxyAddress\0"

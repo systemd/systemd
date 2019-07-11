@@ -102,6 +102,10 @@ struct Network {
         DHCPUseDomains dhcp_use_domains;
         Set *dhcp_black_listed_ip;
 
+        /* DHCPv6 Client support*/
+        bool dhcp6_use_dns;
+        bool dhcp6_use_ntp;
+
         /* DHCP Server Support */
         bool dhcp_server;
         bool dhcp_server_emit_dns;
