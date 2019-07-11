@@ -35,7 +35,7 @@ struct FdbEntry {
         int family;
         uint16_t vlan_id;
 
-        struct ether_addr *mac_addr;
+        struct ether_addr mac_addr;
         union in_addr_union destination_addr;
         NeighborCacheEntryFlags fdb_ntf_flags;
 
