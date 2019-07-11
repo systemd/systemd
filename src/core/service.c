@@ -4067,7 +4067,6 @@ static int service_get_timeout(Unit *u, usec_t *timeout) {
 
 static void service_bus_name_owner_change(
                 Unit *u,
-                const char *name,
                 const char *old_owner,
                 const char *new_owner) {
 
@@ -4075,17 +4074,15 @@ static void service_bus_name_owner_change(
         int r;
 
         assert(s);
-        assert(name);
 
-        assert(streq(s->bus_name, name));
         assert(old_owner || new_owner);
 
         if (old_owner && new_owner)
-                log_unit_debug(u, "D-Bus name %s changed owner from %s to %s", name, old_owner, new_owner);
+                log_unit_debug(u, "D-Bus name %s changed owner from %s to %s", s->bus_name, old_owner, new_owner);
         else if (old_owner)
-                log_unit_debug(u, "D-Bus name %s no longer registered by %s", name, old_owner);
+                log_unit_debug(u, "D-Bus name %s no longer registered by %s", s->bus_name, old_owner);
         else
-                log_unit_debug(u, "D-Bus name %s now registered by %s", name, new_owner);
+                log_unit_debug(u, "D-Bus name %s now registered by %s", s->bus_name, new_owner);
 
         s->bus_name_good = !!new_owner;
 
@@ -4118,11 +4115,11 @@ static void service_bus_name_owner_change(
 
                 /* Try to acquire PID from bus service */
 
-                r = sd_bus_get_name_creds(u->manager->api_bus, name, SD_BUS_CREDS_PID, &creds);
+                r = sd_bus_get_name_creds(u->manager->api_bus, s->bus_name, SD_BUS_CREDS_PID, &creds);
                 if (r >= 0)
                         r = sd_bus_creds_get_pid(creds, &pid);
                 if (r >= 0) {
-                        log_unit_debug(u, "D-Bus name %s is now owned by process " PID_FMT, name, pid);
+                        log_unit_debug(u, "D-Bus name %s is now owned by process " PID_FMT, s->bus_name, pid);
 
                         service_set_main_pid(s, pid);
                         unit_watch_pid(UNIT(s), pid, false);
