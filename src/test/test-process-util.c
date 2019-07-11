@@ -524,14 +524,14 @@ static void test_getpid_measure(void) {
                 (void) getpid();
         q = now(CLOCK_MONOTONIC) - t;
 
-        log_info(" glibc getpid(): %llu/s\n", (unsigned long long) (MEASURE_ITERATIONS*USEC_PER_SEC/q));
+        log_info(" glibc getpid(): %lf µs each\n", (double) q / MEASURE_ITERATIONS);
 
         t = now(CLOCK_MONOTONIC);
         for (i = 0; i < MEASURE_ITERATIONS; i++)
                 (void) getpid_cached();
         q = now(CLOCK_MONOTONIC) - t;
 
-        log_info("getpid_cached(): %llu/s\n", (unsigned long long) (MEASURE_ITERATIONS*USEC_PER_SEC/q));
+        log_info("getpid_cached(): %lf µs each\n", (double) q / MEASURE_ITERATIONS);
 }
 
 static void test_safe_fork(void) {
