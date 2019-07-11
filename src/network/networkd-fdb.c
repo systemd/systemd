@@ -143,7 +143,7 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = sd_netlink_message_append_ether_addr(req, NDA_LLADDR, fdb_entry->mac_addr);
+        r = sd_netlink_message_append_data(req, NDA_LLADDR, fdb_entry->mac_addr, sizeof(struct ether_addr));
         if (r < 0)
                 return rtnl_log_create_error(r);
 

@@ -663,7 +663,7 @@ static const NLTypeSystem rtnl_route_type_system = {
 
 static const NLType rtnl_neigh_types[] = {
         [NDA_DST]               = { .type = NETLINK_TYPE_IN_ADDR },
-        [NDA_LLADDR]            = { .type = NETLINK_TYPE_ETHER_ADDR },
+        [NDA_LLADDR]            = { /* struct ether_addr or struct in_addr */ },
         [NDA_CACHEINFO]         = { .type = NETLINK_TYPE_CACHE_INFO, .size = sizeof(struct nda_cacheinfo) },
         [NDA_PROBES]            = { .type = NETLINK_TYPE_U32 },
         [NDA_VLAN]              = { .type = NETLINK_TYPE_U16 },
