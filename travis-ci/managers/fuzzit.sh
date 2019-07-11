@@ -16,11 +16,11 @@ cd $REPO_ROOT
 export PATH="$HOME/.local/bin/:$PATH"
 
 # We use a subset of https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html#available-checks instead of "undefined"
-# because our fuzzers crash with "pointer-overflow","object-size" and "float-cast-overflow":
+# because our fuzzers crash with "pointer-overflow" and "float-cast-overflow":
 # https://github.com/systemd/systemd/pull/12771#issuecomment-502139157
 # https://github.com/systemd/systemd/pull/12812#issuecomment-502780455
 # TODO: figure out what to do about unsigned-integer-overflow: https://github.com/google/oss-fuzz/issues/910
-export SANITIZER="address -fsanitize=alignment,array-bounds,bool,bounds,builtin,enum,float-divide-by-zero,function,integer-divide-by-zero,nonnull-attribute,null,return,returns-nonnull-attribute,shift,signed-integer-overflow,unreachable,unsigned-integer-overflow,vla-bound,vptr -fno-sanitize-recover=alignment,array-bounds,bool,bounds,builtin,enum,float-divide-by-zero,function,integer-divide-by-zero,nonnull-attribute,null,return,returns-nonnull-attribute,shift,signed-integer-overflow,unreachable,vla-bound,vptr"
+export SANITIZER="address -fsanitize=alignment,array-bounds,bool,bounds,builtin,enum,float-divide-by-zero,function,integer-divide-by-zero,nonnull-attribute,null,object-size,return,returns-nonnull-attribute,shift,signed-integer-overflow,unreachable,unsigned-integer-overflow,vla-bound,vptr -fno-sanitize-recover=alignment,array-bounds,bool,bounds,builtin,enum,float-divide-by-zero,function,integer-divide-by-zero,nonnull-attribute,null,object-size,return,returns-nonnull-attribute,shift,signed-integer-overflow,unreachable,vla-bound,vptr"
 tools/oss-fuzz.sh
 
 FUZZING_TYPE=${1:-sanity}
