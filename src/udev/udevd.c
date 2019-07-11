@@ -1107,9 +1107,20 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
         return 1;
 }
 
+static int synthesize_change_one(sd_device *dev, const char *syspath) {
+        const char *filename;
+        int r;
+
+        filename = strjoina(syspath, "/uevent");
+        log_device_debug(dev, "device is closed, synthesising 'change' on %s", syspath);
+        r = write_string_file(filename, "change", WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to write 'change' to %s: %m", filename);
+        return 0;
+}
+
 static int synthesize_change(sd_device *dev) {
         const char *subsystem, *sysname, *devname, *syspath, *devtype;
-        char filename[PATH_MAX];
         int r;
 
         r = sd_device_get_subsystem(dev, &subsystem);
@@ -1197,9 +1208,7 @@ static int synthesize_change(sd_device *dev) {
                  * We have partitions but re-reading the partition table did not
                  * work, synthesize "change" for the disk and all partitions.
                  */
-                log_debug("Device '%s' is closed, synthesising 'change'", devname);
-                strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
-                write_string_file(filename, "change", WRITE_STRING_FILE_DISABLE_BUFFER);
+                (void) synthesize_change_one(dev, syspath);
 
                 FOREACH_DEVICE(e, d) {
                         const char *t, *n, *s;
@@ -1212,17 +1221,11 @@ static int synthesize_change(sd_device *dev) {
                             sd_device_get_syspath(d, &s) < 0)
                                 continue;
 
-                        log_debug("Device '%s' is closed, synthesising partition '%s' 'change'", devname, n);
-                        strscpyl(filename, sizeof(filename), s, "/uevent", NULL);
-                        write_string_file(filename, "change", WRITE_STRING_FILE_DISABLE_BUFFER);
+                        (void) synthesize_change_one(dev, s);
                 }
 
-                return 0;
-        }
-
-        log_debug("Device %s is closed, synthesising 'change'", devname);
-        strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
-        write_string_file(filename, "change", WRITE_STRING_FILE_DISABLE_BUFFER);
+        } else
+                (void) synthesize_change_one(dev, syspath);
 
         return 0;
 }
