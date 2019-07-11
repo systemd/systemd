@@ -178,37 +178,37 @@ static int ask_password_keyring(const char *keyname, AskPasswordFlags flags, cha
         return retrieve_key(serial, ret);
 }
 
-static void backspace_chars(int ttyfd, size_t p) {
-
+static int backspace_chars(int ttyfd, size_t p) {
         if (ttyfd < 0)
-                return;
+                return 0;
 
-        while (p > 0) {
-                p--;
+        _cleanup_free_ char *buf = malloc_multiply(3, p);
+        if (!buf)
+                return log_oom();
 
-                loop_write(ttyfd, "\b \b", 3, false);
-        }
+        for (size_t i = 0; i < p; i++)
+                memcpy(buf + 3 * i, "\b \b", 3);
+
+        return loop_write(ttyfd, buf, 3*p, false);
 }
 
-static void backspace_string(int ttyfd, const char *str) {
-        size_t m;
-
+static int backspace_string(int ttyfd, const char *str) {
         assert(str);
-
-        if (ttyfd < 0)
-                return;
 
         /* Backspaces through enough characters to entirely undo printing of the specified string. */
 
-        m = utf8_n_codepoints(str);
-        if (m == (size_t) -1)
-                m = strlen(str); /* Not a valid UTF-8 string? If so, let's backspace the number of bytes output. Most
-                                  * likely this happened because we are not in an UTF-8 locale, and in that case that
-                                  * is the correct thing to do. And even if it's not, terminals tend to stop
-                                  * backspacing at the leftmost column, hence backspacing too much should be mostly
-                                  * OK. */
+        if (ttyfd < 0)
+                return 0;
 
-        backspace_chars(ttyfd, m);
+        size_t m = utf8_n_codepoints(str);
+        if (m == (size_t) -1)
+                m = strlen(str); /* Not a valid UTF-8 string? If so, let's backspace the number of bytes
+                                  * output. Most likely this happened because we are not in an UTF-8 locale,
+                                  * and in that case that is the correct thing to do. And even if it's not,
+                                  * terminals tend to stop backspacing at the leftmost column, hence
+                                  * backspacing too much should be mostly OK. */
+
+        return backspace_chars(ttyfd, m);
 }
 
 int ask_password_tty(
@@ -374,7 +374,7 @@ int ask_password_tty(
                 if (c == 21) { /* C-u */
 
                         if (!(flags & ASK_PASSWORD_SILENT))
-                                backspace_string(ttyfd, passphrase);
+                                (void) backspace_string(ttyfd, passphrase);
 
                         explicit_bzero_safe(passphrase, sizeof(passphrase));
                         p = codepoint = 0;
@@ -385,7 +385,7 @@ int ask_password_tty(
                                 size_t q;
 
                                 if (!(flags & ASK_PASSWORD_SILENT))
-                                        backspace_chars(ttyfd, 1);
+                                        (void) backspace_chars(ttyfd, 1);
 
                                 /* Remove a full UTF-8 codepoint from the end. For that, figure out where the
                                  * last one begins */
@@ -423,7 +423,7 @@ int ask_password_tty(
 
                 } else if (c == '\t' && !(flags & ASK_PASSWORD_SILENT)) {
 
-                        backspace_string(ttyfd, passphrase);
+                        (void) backspace_string(ttyfd, passphrase);
                         flags |= ASK_PASSWORD_SILENT;
 
                         /* ... or by pressing TAB at any time. */
