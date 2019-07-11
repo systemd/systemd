@@ -507,6 +507,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--what=</option></term>
+
+        <listitem>
+          <para>Select what type of per-unit resources to remove when the <command>clean</command> command is
+          invoked, see below. Takes one of <constant>configuration</constant>, <constant>state</constant>,
+          <constant>cache</constant>, <constant>logs</constant>, <constant>runtime</constant> to select the
+          type of resource. This option may be specified more than once, in which case all specified resource
+          types are removed. Also accepts the special value <constant>all</constant> as a shortcut for
+          specifiying all five resource types. If this option is not specified defaults to the combination of
+          <constant>cache</constant> and <constant>runtime</constant>, i.e. the two kinds of resources that
+          are generally considered to be redundant and can be reconstructed on next invocation.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-f</option></term>
         <term><option>--force</option></term>
 
@@ -902,6 +917,24 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             unit. Use <option>--kill-who=</option> to select which
             process to kill. Use <option>--signal=</option> to select
             the signal to send.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>clean <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Remove the configuration, state, cache, logs or runtime data of the specified units. Use
+            <option>--what=</option> to select which kind of resource to remove. For service units this may
+            be used to remove the directories configured with <varname>ConfigurationDirectory=</varname>,
+            <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>,
+            <varname>LogsDirectory=</varname> and <varname>RuntimeDirectory=</varname>, see
+            <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details. For timer units this may be used to clear out the persistent timestamp data if
+            <varname>Persistent=</varname> is used and <option>--what=state</option> is selected, see
+            <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+            command only applies to units that use either of these settings. If <option>--what=</option> is
+            not specified, both the cache and runtime data are removed (as these two types of data are
+            generally redundant and reproducible on the next invocation of the unit).</para>
           </listitem>
         </varlistentry>
         <varlistentry>

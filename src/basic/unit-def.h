@@ -40,6 +40,7 @@ typedef enum UnitActiveState {
         UNIT_FAILED,
         UNIT_ACTIVATING,
         UNIT_DEACTIVATING,
+        UNIT_MAINTENANCE,
         _UNIT_ACTIVE_STATE_MAX,
         _UNIT_ACTIVE_STATE_INVALID = -1
 } UnitActiveState;
@@ -116,6 +117,7 @@ typedef enum ServiceState {
         SERVICE_FINAL_SIGKILL,
         SERVICE_FAILED,
         SERVICE_AUTO_RESTART,
+        SERVICE_CLEANING,
         _SERVICE_STATE_MAX,
         _SERVICE_STATE_INVALID = -1
 } ServiceState;

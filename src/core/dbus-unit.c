@@ -52,6 +52,42 @@ static BUS_DEFINE_PROPERTY_GET(property_get_can_isolate, "b", Unit, unit_can_iso
 static BUS_DEFINE_PROPERTY_GET(property_get_need_daemon_reload, "b", Unit, unit_need_daemon_reload);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_strv, "as", 0);
 
+static int property_get_can_clean(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = userdata;
+        ExecCleanMask mask;
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = unit_can_clean(u, &mask);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                if (!FLAGS_SET(mask, 1U << t))
+                        continue;
+
+                r = sd_bus_message_append(reply, "s", exec_resource_type_to_string(t));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int property_get_names(
                 sd_bus *bus,
                 const char *path,
@@ -617,6 +653,74 @@ int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error 
         return sd_bus_reply_method_return(message, NULL);
 }
 
+int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        ExecCleanMask mask = 0;
+        Unit *u = userdata;
+        int r;
+
+        assert(message);
+        assert(u);
+
+        r = mac_selinux_unit_access_check(u, message, "stop", error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(message, 'a', "s");
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                const char *i;
+
+                r = sd_bus_message_read(message, "s", &i);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (streq(i, "all"))
+                        mask |= EXEC_CLEAN_ALL;
+                else {
+                        ExecDirectoryType t;
+
+                        t = exec_resource_type_from_string(i);
+                        if (t < 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid resource type: %s", i);
+
+                        mask |= 1U << t;
+                }
+        }
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        "clean",
+                        CAP_DAC_OVERRIDE,
+                        N_("Authentication is required to delete files and directories associated with '$(unit)'."),
+                        true,
+                        message,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = unit_clean(u, mask);
+        if (r == -EOPNOTSUPP)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit '%s' does not supporting cleaning.", u->id);
+        if (r == -EUNATCH)
+                return sd_bus_error_setf(error, BUS_ERROR_NOTHING_TO_CLEAN, "No matching resources found.");
+        if (r == -EBUSY)
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_BUSY, "Unit is not inactive or has pending job.");
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static int property_get_refs(
                 sd_bus *bus,
                 const char *path,
@@ -701,6 +805,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("CanStop", "b", property_get_can_stop, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CanReload", "b", property_get_can_reload, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CanIsolate", "b", property_get_can_isolate, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CanClean", "as", property_get_can_clean, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Job", "(uo)", property_get_job, offsetof(Unit, job), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StopWhenUnneeded", "b", bus_property_get_bool, offsetof(Unit, stop_when_unneeded), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RefuseManualStart", "b", bus_property_get_bool, offsetof(Unit, refuse_manual_start), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -748,6 +853,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_METHOD("SetProperties", "ba(sv)", NULL, bus_unit_method_set_properties, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Ref", NULL, NULL, bus_unit_method_ref, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Unref", NULL, NULL, bus_unit_method_unref, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Clean", "as", NULL, bus_unit_method_clean, SD_BUS_VTABLE_UNPRIVILEGED),
 
         /* For dependency types we don't support anymore always return an empty array */
         SD_BUS_PROPERTY("RequiresOverridable", "as", property_get_empty_strv, 0, SD_BUS_VTABLE_HIDDEN),

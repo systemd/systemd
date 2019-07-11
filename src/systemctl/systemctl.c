@@ -28,6 +28,7 @@
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
+#include "bus-wait-for-units.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "copy.h"
@@ -162,12 +163,14 @@ static const char *arg_boot_loader_entry = NULL;
 static bool arg_now = false;
 static bool arg_jobs_before = false;
 static bool arg_jobs_after = false;
+static char **arg_clean_what = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_clean_what, strv_freep);
 
 static int daemon_reload(int argc, char *argv[], void* userdata);
 static int trivial_method(int argc, char *argv[], void *userdata);
@@ -2790,158 +2793,6 @@ static const char *verb_to_job_type(const char *verb) {
        return "start";
 }
 
-typedef struct {
-        sd_bus_slot *match;
-        sd_event *event;
-        Set *unit_paths;
-        bool any_failed;
-} WaitContext;
-
-static void wait_context_free(WaitContext *c) {
-        c->match = sd_bus_slot_unref(c->match);
-        c->event = sd_event_unref(c->event);
-        c->unit_paths = set_free_free(c->unit_paths);
-}
-
-static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        const char *path, *interface, *active_state = NULL, *job_path = NULL;
-        WaitContext *c = userdata;
-        bool is_failed;
-        int r;
-
-        /* Called whenever we get a PropertiesChanged signal. Checks if ActiveState changed to inactive/failed.
-         *
-         * Signal parameters: (s interface, a{sv} changed_properties, as invalidated_properties) */
-
-        path = sd_bus_message_get_path(m);
-        if (!set_contains(c->unit_paths, path))
-                return 0;
-
-        r = sd_bus_message_read(m, "s", &interface);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        if (!streq(interface, "org.freedesktop.systemd1.Unit")) /* ActiveState is on the Unit interface */
-                return 0;
-
-        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        for (;;) {
-                const char *s;
-
-                r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "sv");
-                if (r < 0)
-                        return bus_log_parse_error(r);
-                if (r == 0) /* end of array */
-                        break;
-
-                r = sd_bus_message_read(m, "s", &s); /* Property name */
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (streq(s, "ActiveState")) {
-                        r = sd_bus_message_read(m, "v", "s", &active_state);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        if (job_path) /* Found everything we need */
-                                break;
-
-                } else if (streq(s, "Job")) {
-                        uint32_t job_id;
-
-                        r = sd_bus_message_read(m, "v", "(uo)", &job_id, &job_path);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        /* There's still a job pending for this unit, let's ignore this for now, and return right-away. */
-                        if (job_id != 0)
-                                return 0;
-
-                        if (active_state) /* Found everything we need */
-                                break;
-
-                } else {
-                        r = sd_bus_message_skip(m, "v"); /* Other property */
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-                }
-
-                r = sd_bus_message_exit_container(m);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-        }
-
-        /* If this didn't contain the ActiveState property we can't do anything */
-        if (!active_state)
-                return 0;
-
-        is_failed = streq(active_state, "failed");
-        if (streq(active_state, "inactive") || is_failed) {
-                log_debug("%s became %s, dropping from --wait tracking", path, active_state);
-                free(set_remove(c->unit_paths, path));
-                c->any_failed = c->any_failed || is_failed;
-        } else
-                log_debug("ActiveState on %s changed to %s", path, active_state);
-
-        if (set_isempty(c->unit_paths))
-                sd_event_exit(c->event, EXIT_SUCCESS);
-
-        return 0;
-}
-
-static int wait_context_watch(
-                WaitContext *wait_context,
-                sd_bus *bus,
-                const char *name) {
-
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *unit_path = NULL;
-        int r;
-
-        assert(wait_context);
-        assert(name);
-
-        log_debug("Watching for property changes of %s", name);
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "RefUnit",
-                        &error,
-                        NULL,
-                        "s", name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add reference to unit %s: %s", name, bus_error_message(&error, r));
-
-        unit_path = unit_dbus_path_from_name(name);
-        if (!unit_path)
-                return log_oom();
-
-        r = set_ensure_allocated(&wait_context->unit_paths, &string_hash_ops);
-        if (r < 0)
-                return log_oom();
-
-        r = set_put_strdup(wait_context->unit_paths, unit_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add unit path %s to set: %m", unit_path);
-
-        r = sd_bus_match_signal_async(bus,
-                                      &wait_context->match,
-                                      NULL,
-                                      unit_path,
-                                      "org.freedesktop.DBus.Properties",
-                                      "PropertiesChanged",
-                                      on_properties_changed, NULL, wait_context);
-        if (r < 0)
-                return log_error_errno(r, "Failed to request match for PropertiesChanged signal: %m");
-
-        return 0;
-}
-
 static int start_unit_one(
                 sd_bus *bus,
                 const char *method,    /* When using classic per-job bus methods */
@@ -2950,7 +2801,7 @@ static int start_unit_one(
                 const char *mode,
                 sd_bus_error *error,
                 BusWaitForJobs *w,
-                WaitContext *wait_context) {
+                BusWaitForUnits *wu) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *path;
@@ -2961,12 +2812,6 @@ static int start_unit_one(
         assert(name);
         assert(mode);
         assert(error);
-
-        if (wait_context) {
-                r = wait_context_watch(wait_context, bus, name);
-                if (r < 0)
-                        return r;
-        }
 
         log_debug("%s dbus call org.freedesktop.systemd1.Manager %s(%s, %s)",
                   arg_dry_run ? "Would execute" : "Executing",
@@ -3054,6 +2899,12 @@ static int start_unit_one(
                 r = bus_wait_for_jobs_add(w, path);
                 if (r < 0)
                         return log_error_errno(r, "Failed to watch job for %s: %m", name);
+        }
+
+        if (wu) {
+                r = bus_wait_for_units_add_unit(wu, name, BUS_WAIT_FOR_INACTIVE|BUS_WAIT_NO_JOB, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to watch unit %s: %m", name);
         }
 
         return 0;
@@ -3187,8 +3038,8 @@ static const char** make_extra_args(const char *extra_args[static 4]) {
 }
 
 static int start_unit(int argc, char *argv[], void *userdata) {
+        _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *wu = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        _cleanup_(wait_context_free) WaitContext wait_context = {};
         const char *method, *job_type, *mode, *one_name, *suffix = NULL;
         _cleanup_free_ char **stopped_units = NULL; /* Do not use _cleanup_strv_free_ */
         _cleanup_strv_free_ char **names = NULL;
@@ -3276,19 +3127,15 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to enable subscription: %m");
 
-                r = sd_event_default(&wait_context.event);
+                r = bus_wait_for_units_new(bus, &wu);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to allocate event loop: %m");
-
-                r = sd_bus_attach_event(bus, wait_context.event, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to attach bus to event loop: %m");
+                        return log_error_errno(r, "Failed to allocate unit watch context: %m");
         }
 
         STRV_FOREACH(name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = start_unit_one(bus, method, job_type, *name, mode, &error, w, arg_wait ? &wait_context : NULL);
+                r = start_unit_one(bus, method, job_type, *name, mode, &error, w, wu);
                 if (ret == EXIT_SUCCESS && r < 0)
                         ret = translate_bus_error_to_exit_status(r, &error);
 
@@ -3313,11 +3160,11 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                                 (void) check_triggering_units(bus, *name);
         }
 
-        if (ret == EXIT_SUCCESS && arg_wait && !set_isempty(wait_context.unit_paths)) {
-                r = sd_event_loop(wait_context.event);
+        if (arg_wait) {
+                r = bus_wait_for_units_run(wu);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to run event loop: %m");
-                if (wait_context.any_failed)
+                        return log_error_errno(r, "Failed to wait for units: %m");
+                if (r == BUS_WAIT_FAILURE && ret == EXIT_SUCCESS)
                         ret = EXIT_FAILURE;
         }
 
@@ -3949,6 +3796,101 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
         }
 
         return r;
+}
+
+static int clean_unit(int argc, char *argv[], void *userdata) {
+        _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *w = NULL;
+        _cleanup_strv_free_ char **names = NULL;
+        int r, ret = EXIT_SUCCESS;
+        char **name;
+        sd_bus *bus;
+
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
+
+        polkit_agent_open_maybe();
+
+        if (!arg_clean_what) {
+                arg_clean_what = strv_new("cache", "runtime");
+                if (!arg_clean_what)
+                        return log_oom();
+        }
+
+        r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
+        if (r < 0)
+                return log_error_errno(r, "Failed to expand names: %m");
+
+        if (!arg_no_block) {
+                r = bus_wait_for_units_new(bus, &w);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate unit waiter: %m");
+        }
+
+        STRV_FOREACH(name, names) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+
+                if (w) {
+                        /* If we shall wait for the cleaning to complete, let's add a ref on the unit first */
+                        r = sd_bus_call_method(
+                                        bus,
+                                        "org.freedesktop.systemd1",
+                                        "/org/freedesktop/systemd1",
+                                        "org.freedesktop.systemd1.Manager",
+                                        "RefUnit",
+                                        &error,
+                                        NULL,
+                                        "s", *name);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to add reference to unit %s: %s", *name, bus_error_message(&error, r));
+                                if (ret == EXIT_SUCCESS)
+                                        ret = r;
+                                continue;
+                        }
+                }
+
+                r = sd_bus_message_new_method_call(
+                                bus,
+                                &m,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "CleanUnit");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "s", *name);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, arg_clean_what);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_call(bus, m, 0, &error, NULL);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to clean unit %s: %s", *name, bus_error_message(&error, r));
+                        if (ret == EXIT_SUCCESS) {
+                                ret = r;
+                                continue;
+                        }
+                }
+
+                if (w) {
+                        r = bus_wait_for_units_add_unit(w, *name, BUS_WAIT_REFFED|BUS_WAIT_FOR_MAINTENANCE_END, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to watch unit %s: %m", *name);
+                }
+        }
+
+        r = bus_wait_for_units_run(w);
+        if (r < 0)
+                return log_error_errno(r, "Failed to wait for units: %m");
+        if (r == BUS_WAIT_FAILURE)
+                ret = EXIT_FAILURE;
+
+        return ret;
 }
 
 typedef struct ExecStatusInfo {
@@ -7712,6 +7654,7 @@ static int systemctl_help(void) {
                "                      When shutting down or sleeping, ignore inhibitors\n"
                "     --kill-who=WHO   Who to send signal to\n"
                "  -s --signal=SIGNAL  Which signal to send\n"
+               "     --what=RESOURCES Which types of resources to remove\n"
                "     --now            Start or stop unit in addition to enabling or disabling it\n"
                "     --dry-run        Only print what would be done\n"
                "  -q --quiet          Suppress output\n"
@@ -7760,6 +7703,8 @@ static int systemctl_help(void) {
                "                                      if supported, otherwise restart\n"
                "  isolate UNIT                        Start one unit and stop all others\n"
                "  kill UNIT...                        Send signal to processes of a unit\n"
+               "  clean UNIT...                       Clean runtime, cache, state, logs or\n"
+               "                                      or configuration of unit\n"
                "  is-active PATTERN...                Check whether units are active\n"
                "  is-failed PATTERN...                Check whether units are failed\n"
                "  status [PATTERN...|PID...]          Show runtime status of one or more units\n"
@@ -8063,6 +8008,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NOW,
                 ARG_MESSAGE,
                 ARG_WAIT,
+                ARG_WHAT,
         };
 
         static const struct option options[] = {
@@ -8114,6 +8060,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "now",                 no_argument,       NULL, ARG_NOW                 },
                 { "message",             required_argument, NULL, ARG_MESSAGE             },
                 { "show-transaction",    no_argument,       NULL, 'T'                     },
+                { "what",                required_argument, NULL, ARG_WHAT                },
                 {}
         };
 
@@ -8465,6 +8412,38 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 case 'T':
                         arg_show_transaction = true;
                         break;
+
+                case ARG_WHAT: {
+                        const char *p;
+
+                        if (isempty(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--what= requires arguments.");
+
+                        for (p = optarg;;) {
+                                _cleanup_free_ char *k = NULL;
+
+                                r = extract_first_word(&p, &k, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse directory type: %s", optarg);
+                                if (r == 0)
+                                        break;
+
+                                if (streq(k, "help")) {
+                                        puts("runtime\n"
+                                             "state\n"
+                                             "cache\n"
+                                             "logs\n"
+                                             "configuration");
+                                        return 0;
+                                }
+
+                                r = strv_consume(&arg_clean_what, TAKE_PTR(k));
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
+                        break;
+                }
 
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
@@ -8912,6 +8891,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "condrestart",           2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           }, /* For compatibility with RH */
                 { "isolate",               2,        2,        VERB_ONLINE_ONLY, start_unit           },
                 { "kill",                  2,        VERB_ANY, VERB_ONLINE_ONLY, kill_unit            },
+                { "clean",                 2,        VERB_ANY, VERB_ONLINE_ONLY, clean_unit           },
                 { "is-active",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active    },
                 { "check",                 2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active    }, /* deprecated alias of is-active */
                 { "is-failed",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_failed    },

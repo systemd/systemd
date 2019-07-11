@@ -981,6 +981,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         the directories is tied directly to the lifetime of the unit, and it is not necessary to ensure that the
         <filename>tmpfiles.d</filename> configuration is executed before the unit is started.</para>
 
+        <para>To remove any of the directories created by these settings, use the <command>systemctl clean
+        …</command> command on the relevant units, see
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para>
+
         <para>Example: if a system service unit has the following,
         <programlisting>RuntimeDirectory=foo/bar baz</programlisting>
         the service manager creates <filename>/run/foo</filename> (if it does not exist),

@@ -475,6 +475,12 @@ typedef struct UnitVTable {
 
         int (*kill)(Unit *u, KillWho w, int signo, sd_bus_error *error);
 
+        /* Clear out the various runtime/state/cache/logs/configuration data */
+        int (*clean)(Unit *u, ExecCleanMask m);
+
+        /* Return which kind of data can be cleaned */
+        int (*can_clean)(Unit *u, ExecCleanMask *ret);
+
         bool (*can_reload)(Unit *u);
 
         /* Write all data that cannot be restored from other sources
@@ -853,6 +859,9 @@ int unit_success_action_exit_status(Unit *u);
 int unit_failure_action_exit_status(Unit *u);
 
 int unit_test_trigger_loaded(Unit *u);
+
+int unit_clean(Unit *u, ExecCleanMask mask);
+int unit_can_clean(Unit *u, ExecCleanMask *ret_mask);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
