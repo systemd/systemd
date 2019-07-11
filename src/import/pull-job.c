@@ -584,7 +584,7 @@ int pull_job_begin(PullJob *j) {
                 if (!cc)
                         return -ENOMEM;
 
-                hdr = strappend("If-None-Match: ", cc);
+                hdr = strjoin("If-None-Match: ", cc);
                 if (!hdr)
                         return -ENOMEM;
 

@@ -1532,7 +1532,7 @@ static int service_spawn(
                         if (r < 0)
                                 return r;
 
-                        t = strappend("REMOTE_ADDR=", addr);
+                        t = strjoin("REMOTE_ADDR=", addr);
                         if (!t)
                                 return -ENOMEM;
                         our_env[n_env++] = t;

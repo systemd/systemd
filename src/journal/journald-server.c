@@ -737,7 +737,7 @@ static void server_cache_hostname(Server *s) {
         if (!t)
                 return;
 
-        x = strappend("_HOSTNAME=", t);
+        x = strjoin("_HOSTNAME=", t);
         if (!x)
                 return;
 

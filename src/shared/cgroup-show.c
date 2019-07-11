@@ -165,7 +165,7 @@ int show_cgroup_by_path(
                         printf("%s%s%s\n", prefix, special_glyph(SPECIAL_GLYPH_TREE_BRANCH), cg_unescape(basename(last)));
 
                         if (!p1) {
-                                p1 = strappend(prefix, special_glyph(SPECIAL_GLYPH_TREE_VERTICAL));
+                                p1 = strjoin(prefix, special_glyph(SPECIAL_GLYPH_TREE_VERTICAL));
                                 if (!p1)
                                         return -ENOMEM;
                         }
@@ -187,7 +187,7 @@ int show_cgroup_by_path(
                 printf("%s%s%s\n", prefix, special_glyph(SPECIAL_GLYPH_TREE_RIGHT), cg_unescape(basename(last)));
 
                 if (!p2) {
-                        p2 = strappend(prefix, "  ");
+                        p2 = strjoin(prefix, "  ");
                         if (!p2)
                                 return -ENOMEM;
                 }

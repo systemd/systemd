@@ -87,8 +87,8 @@ static char **image_settings_path(Image *image) {
 
         fn = strjoina(image->name, ".nspawn");
 
-        FOREACH_STRING(s, "/etc/systemd/nspawn/", "/run/systemd/nspawn/") {
-                l[i] = strappend(s, fn);
+        FOREACH_STRING(s, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
+                l[i] = path_join(s, fn);
                 if (!l[i])
                         return NULL;
 
@@ -441,7 +441,7 @@ int image_find(ImageClass class, const char *name, Image **ret) {
                         if (errno != ENOENT)
                                 return -errno;
 
-                        raw = strappend(name, ".raw");
+                        raw = strjoin(name, ".raw");
                         if (!raw)
                                 return -ENOMEM;
 

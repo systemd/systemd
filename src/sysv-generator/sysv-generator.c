@@ -642,7 +642,7 @@ static int load_sysv(SysvStub *s) {
         if (description) {
                 char *d;
 
-                d = strappend(s->has_lsb ? "LSB: " : "SYSV: ", description);
+                d = strjoin(s->has_lsb ? "LSB: " : "SYSV: ", description);
                 if (!d)
                         return log_oom();
 

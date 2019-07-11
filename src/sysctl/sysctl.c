@@ -236,7 +236,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (path_startswith(optarg, "/proc/sys"))
                                 p = strdup(optarg);
                         else
-                                p = strappend("/proc/sys/", optarg);
+                                p = path_join("/proc/sys", optarg);
                         if (!p)
                                 return log_oom();
 

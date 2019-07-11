@@ -2182,7 +2182,7 @@ static int dnssec_test_positive_wildcard_nsec(
                         return -EBADMSG;
 
                 /* Replace the label we stripped off with an asterisk */
-                wc = strappend("*.", name);
+                wc = strjoin("*.", name);
                 if (!wc)
                         return -ENOMEM;
 

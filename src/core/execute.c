@@ -1700,7 +1700,7 @@ static int build_environment(
         }
 
         if (home) {
-                x = strappend("HOME=", home);
+                x = strjoin("HOME=", home);
                 if (!x)
                         return -ENOMEM;
 
@@ -1709,19 +1709,19 @@ static int build_environment(
         }
 
         if (username) {
-                x = strappend("LOGNAME=", username);
+                x = strjoin("LOGNAME=", username);
                 if (!x)
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
-                x = strappend("USER=", username);
+                x = strjoin("USER=", username);
                 if (!x)
                         return -ENOMEM;
                 our_env[n_env++] = x;
         }
 
         if (shell) {
-                x = strappend("SHELL=", shell);
+                x = strjoin("SHELL=", shell);
                 if (!x)
                         return -ENOMEM;
 
@@ -1750,7 +1750,7 @@ static int build_environment(
                 if (!term)
                         term = default_term_for_tty(tty_path);
 
-                x = strappend("TERM=", term);
+                x = strjoin("TERM=", term);
                 if (!x)
                         return -ENOMEM;
                 our_env[n_env++] = x;

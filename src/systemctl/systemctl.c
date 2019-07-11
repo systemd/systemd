@@ -6459,7 +6459,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 }
 
                 if (!isempty(arg_root)) {
-                        q = strappend("--root=", arg_root);
+                        q = strjoin("--root=", arg_root);
                         if (!q)
                                 return log_oom();
 

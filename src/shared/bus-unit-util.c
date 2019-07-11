@@ -313,7 +313,7 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
         if (!is_ex_prop && (flags & (EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC))) {
                 /* Upgrade the ExecXYZ= property to ExecXYZEx= for convenience */
                 is_ex_prop = true;
-                upgraded_name = strappend(field, "Ex");
+                upgraded_name = strjoin(field, "Ex");
                 if (!upgraded_name)
                         return log_oom();
         }

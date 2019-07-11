@@ -725,7 +725,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_NETWORK_ZONE: {
                         char *j;
 
-                        j = strappend("vz-", optarg);
+                        j = strjoin("vz-", optarg);
                         if (!j)
                                 return log_oom();
 

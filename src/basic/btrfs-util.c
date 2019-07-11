@@ -1517,12 +1517,7 @@ static int subvol_snapshot_children(
                         if (ioctl(old_fd, BTRFS_IOC_INO_LOOKUP, &ino_args) < 0)
                                 return -errno;
 
-                        /* The kernel returns an empty name if the
-                         * subvolume is in the top-level directory,
-                         * and otherwise appends a slash, so that we
-                         * can just concatenate easily here, without
-                         * adding a slash. */
-                        c = strappend(ino_args.name, p);
+                        c = path_join(ino_args.name, p);
                         if (!c)
                                 return -ENOMEM;
 

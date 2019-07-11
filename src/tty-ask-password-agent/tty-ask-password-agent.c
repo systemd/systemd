@@ -480,7 +480,7 @@ static int show_passwords(void) {
                 if (!startswith(de->d_name, "ask."))
                         continue;
 
-                p = strappend("/run/systemd/ask-password/", de->d_name);
+                p = path_join("/run/systemd/ask-password", de->d_name);
                 if (!p)
                         return log_oom();
 

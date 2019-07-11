@@ -67,7 +67,7 @@ int session_new(Session **ret, Manager *m, const char *id) {
                 .tty_validity = _TTY_VALIDITY_INVALID,
         };
 
-        s->state_file = strappend("/run/systemd/sessions/", id);
+        s->state_file = path_join("/run/systemd/sessions", id);
         if (!s->state_file)
                 return -ENOMEM;
 
@@ -899,7 +899,7 @@ static int get_tty_atime(const char *tty, usec_t *atime) {
         assert(atime);
 
         if (!path_is_absolute(tty)) {
-                p = strappend("/dev/", tty);
+                p = path_join("/dev", tty);
                 if (!p)
                         return -ENOMEM;
 

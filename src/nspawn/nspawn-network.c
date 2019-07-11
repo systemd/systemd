@@ -489,7 +489,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface index: %m");
 
-                n = strappend("mv-", *i);
+                n = strjoin("mv-", *i);
                 if (!n)
                         return log_oom();
 
@@ -564,7 +564,7 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface index: %m");
 
-                n = strappend("iv-", *i);
+                n = strjoin("iv-", *i);
                 if (!n)
                         return log_oom();
 

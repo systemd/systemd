@@ -206,10 +206,6 @@ char *strnappend(const char *s, const char *suffix, size_t b) {
         return r;
 }
 
-char *strappend(const char *s, const char *suffix) {
-        return strnappend(s, suffix, strlen_ptr(suffix));
-}
-
 char *strjoin_real(const char *x, ...) {
         va_list ap;
         size_t l;

@@ -17,6 +17,7 @@
 #include "logind-inhibit.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
@@ -32,7 +33,7 @@ Inhibitor* inhibitor_new(Manager *m, const char* id) {
         if (!i)
                 return NULL;
 
-        i->state_file = strappend("/run/systemd/inhibit/", id);
+        i->state_file = path_join("/run/systemd/inhibit", id);
         if (!i->state_file)
                 return mfree(i);
 
