@@ -1,0 +1,10 @@
+[Match]
+Name=gretun97
+
+[Network]
+IPv6AcceptRA=no
+Address=10.0.0.21
+
+[Neighbor]
+Address=10.0.0.22
+LinkLayerAddress=10.65.223.239

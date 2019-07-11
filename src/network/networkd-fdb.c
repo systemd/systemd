@@ -39,7 +39,6 @@ static int fdb_entry_new_static(
 
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
-        _cleanup_free_ struct ether_addr *mac_addr = NULL;
         int r;
 
         assert(network);
@@ -63,11 +62,6 @@ static int fdb_entry_new_static(
         if (network->n_static_fdb_entries >= STATIC_FDB_ENTRIES_PER_NETWORK_MAX)
                 return -E2BIG;
 
-        /* allocate space for MAC address. */
-        mac_addr = new0(struct ether_addr, 1);
-        if (!mac_addr)
-                return -ENOMEM;
-
         /* allocate space for and FDB entry. */
         fdb_entry = new(FdbEntry, 1);
         if (!fdb_entry)
@@ -76,7 +70,6 @@ static int fdb_entry_new_static(
         /* init FDB structure. */
         *fdb_entry = (FdbEntry) {
                 .network = network,
-                .mac_addr = TAKE_PTR(mac_addr),
                 .vni = VXLAN_VID_MAX + 1,
                 .fdb_ntf_flags = NEIGHBOR_CACHE_ENTRY_FLAGS_SELF,
         };
@@ -143,7 +136,7 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = sd_netlink_message_append_ether_addr(req, NDA_LLADDR, fdb_entry->mac_addr);
+        r = sd_netlink_message_append_data(req, NDA_LLADDR, &fdb_entry->mac_addr, sizeof(fdb_entry->mac_addr));
         if (r < 0)
                 return rtnl_log_create_error(r);
 
@@ -192,7 +185,6 @@ void fdb_entry_free(FdbEntry *fdb_entry) {
         }
 
         network_config_section_free(fdb_entry->section);
-        free(fdb_entry->mac_addr);
         free(fdb_entry);
 }
 
@@ -223,17 +215,9 @@ int config_parse_fdb_hwaddr(
         if (r < 0)
                 return log_oom();
 
-        /* read in the MAC address for the FDB table. */
-        r = sscanf(rvalue, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-                   &fdb_entry->mac_addr->ether_addr_octet[0],
-                   &fdb_entry->mac_addr->ether_addr_octet[1],
-                   &fdb_entry->mac_addr->ether_addr_octet[2],
-                   &fdb_entry->mac_addr->ether_addr_octet[3],
-                   &fdb_entry->mac_addr->ether_addr_octet[4],
-                   &fdb_entry->mac_addr->ether_addr_octet[5]);
-
-        if (r != ETHER_ADDR_LEN) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring assignment: %s", rvalue);
+        r = ether_addr_from_string(rvalue, &fdb_entry->mac_addr);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Not a valid MAC address, ignoring assignment: %s", rvalue);
                 return 0;
         }
 

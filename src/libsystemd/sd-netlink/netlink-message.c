@@ -611,7 +611,7 @@ int sd_netlink_message_read(sd_netlink_message *m, unsigned short type, size_t s
         if (data)
                 memcpy(data, attr_data, size);
 
-        return 0;
+        return r;
 }
 
 int sd_netlink_message_read_string(sd_netlink_message *m, unsigned short type, const char **data) {

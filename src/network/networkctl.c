@@ -519,7 +519,7 @@ static int get_gateway_description(
                 if (!in_addr_equal(fam, &gw, gateway))
                         continue;
 
-                r = sd_netlink_message_read_ether_addr(m, NDA_LLADDR, &mac);
+                r = sd_netlink_message_read(m, NDA_LLADDR, sizeof(mac), &mac);
                 if (r < 0)
                         continue;
 
