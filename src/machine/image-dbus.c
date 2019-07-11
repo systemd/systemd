@@ -458,7 +458,7 @@ char *image_bus_path(const char *name) {
         if (!e)
                 return NULL;
 
-        return strappend("/org/freedesktop/machine1/image/", e);
+        return strjoin("/org/freedesktop/machine1/image/", e);
 }
 
 int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {

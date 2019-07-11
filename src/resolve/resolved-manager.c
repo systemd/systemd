@@ -1500,7 +1500,7 @@ void manager_cleanup_saved_user(Manager *m) {
                 continue;
 
         rm:
-                p = strappend("/run/systemd/resolve/netif/", de->d_name);
+                p = path_join("/run/systemd/resolve/netif", de->d_name);
                 if (!p) {
                         log_oom();
                         return;

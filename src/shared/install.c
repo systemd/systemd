@@ -2308,7 +2308,7 @@ int unit_file_revert(
                                         has_vendor = true;
                         }
 
-                        dropin = strappend(path, ".d");
+                        dropin = strjoin(path, ".d");
                         if (!dropin)
                                 return -ENOMEM;
 

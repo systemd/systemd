@@ -396,7 +396,7 @@ static int save_external_coredump(
                 _cleanup_free_ char *fn_compressed = NULL, *tmp_compressed = NULL;
                 _cleanup_close_ int fd_compressed = -1;
 
-                fn_compressed = strappend(fn, COMPRESSED_EXT);
+                fn_compressed = strjoin(fn, COMPRESSED_EXT);
                 if (!fn_compressed) {
                         log_oom();
                         goto uncompressed;

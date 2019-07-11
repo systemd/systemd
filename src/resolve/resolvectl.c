@@ -1281,7 +1281,7 @@ static int read_domain_one(sd_bus_message *m, bool with_ifindex, char **ret) {
         }
 
         if (route_only)
-                str = strappend("~", domain);
+                str = strjoin("~", domain);
         else
                 str = strdup(domain);
         if (!str)

@@ -108,7 +108,6 @@ const char* split(const char **state, size_t *l, const char *separator, SplitFla
 #define _FOREACH_WORD(word, length, s, separator, flags, state)         \
         for ((state) = (s), (word) = split(&(state), &(length), (separator), (flags)); (word); (word) = split(&(state), &(length), (separator), (flags)))
 
-char *strappend(const char *s, const char *suffix);
 char *strnappend(const char *s, const char *suffix, size_t length);
 
 char *strjoin_real(const char *x, ...) _sentinel_;

@@ -1924,7 +1924,7 @@ char *cg_escape(const char *p) {
         }
 
         if (need_prefix)
-                return strappend("_", p);
+                return strjoin("_", p);
 
         return strdup(p);
 }

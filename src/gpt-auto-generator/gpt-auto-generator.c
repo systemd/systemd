@@ -132,7 +132,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, bool requir
         if (device) {
                 char *ret;
 
-                ret = strappend("/dev/mapper/", id);
+                ret = path_join("/dev/mapper", id);
                 if (!ret)
                         return log_oom();
 

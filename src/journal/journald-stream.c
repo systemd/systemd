@@ -294,7 +294,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
         }
 
         if (s->identifier) {
-                syslog_identifier = strappend("SYSLOG_IDENTIFIER=", s->identifier);
+                syslog_identifier = strjoin("SYSLOG_IDENTIFIER=", s->identifier);
                 if (syslog_identifier)
                         iovec[n++] = IOVEC_MAKE_STRING(syslog_identifier);
         }
@@ -311,7 +311,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
                 iovec[n++] = IOVEC_MAKE_STRING(c);
         }
 
-        message = strappend("MESSAGE=", p);
+        message = strjoin("MESSAGE=", p);
         if (message)
                 iovec[n++] = IOVEC_MAKE_STRING(message);
 
@@ -649,7 +649,7 @@ static int stdout_stream_load(StdoutStream *stream, const char *fname) {
         assert(fname);
 
         if (!stream->state_file) {
-                stream->state_file = strappend("/run/systemd/journal/streams/", fname);
+                stream->state_file = path_join("/run/systemd/journal/streams", fname);
                 if (!stream->state_file)
                         return log_oom();
         }

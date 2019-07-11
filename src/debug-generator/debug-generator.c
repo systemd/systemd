@@ -131,7 +131,7 @@ static int generate_wants_symlinks(void) {
                 if (!p)
                         return log_oom();
 
-                f = strappend(SYSTEM_DATA_UNIT_PATH "/", *u);
+                f = path_join(SYSTEM_DATA_UNIT_PATH, *u);
                 if (!f)
                         return log_oom();
 

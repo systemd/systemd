@@ -990,7 +990,7 @@ int bus_message_print_all_properties(
                                 return log_oom();
                 }
 
-                name_with_equal = strappend(name, "=");
+                name_with_equal = strjoin(name, "=");
                 if (!name_with_equal)
                         return log_oom();
 

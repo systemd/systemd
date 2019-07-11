@@ -1383,7 +1383,7 @@ char *machine_bus_path(Machine *m) {
         if (!e)
                 return NULL;
 
-        return strappend("/org/freedesktop/machine1/machine/", e);
+        return strjoin("/org/freedesktop/machine1/machine/", e);
 }
 
 int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {

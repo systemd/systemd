@@ -146,7 +146,7 @@ static int timer_setup_persistent(Timer *t) {
                 if (r < 0)
                         return r;
 
-                t->stamp_path = strappend("/var/lib/systemd/timers/stamp-", UNIT(t)->id);
+                t->stamp_path = strjoin("/var/lib/systemd/timers/stamp-", UNIT(t)->id);
         } else {
                 const char *e;
 

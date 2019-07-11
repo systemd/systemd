@@ -233,7 +233,7 @@ int strv_extend_strv_concat(char ***a, char **b, const char *suffix) {
         STRV_FOREACH(s, b) {
                 char *v;
 
-                v = strappend(*s, suffix);
+                v = strjoin(*s, suffix);
                 if (!v)
                         return -ENOMEM;
 

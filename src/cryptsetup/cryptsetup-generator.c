@@ -583,12 +583,12 @@ static int add_proc_cmdline_devices(void) {
                         continue;
 
                 if (!d->name) {
-                        d->name = strappend("luks-", d->uuid);
+                        d->name = strjoin("luks-", d->uuid);
                         if (!d->name)
                                 return log_oom();
                 }
 
-                device = strappend("UUID=", d->uuid);
+                device = strjoin("UUID=", d->uuid);
                 if (!device)
                         return log_oom();
 

@@ -151,7 +151,7 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
                         _cleanup_free_ char *p;
                         const char *n;
 
-                        p = strappend(*s, "=");
+                        p = strjoin(*s, "=");
                         if (!p)
                                 return log_oom();
 
@@ -226,7 +226,7 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
                         if (!names)
                                 return log_oom();
 
-                        e = strappend("LISTEN_FDNAMES=", names);
+                        e = strjoin("LISTEN_FDNAMES=", names);
                         if (!e)
                                 return log_oom();
 

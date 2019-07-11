@@ -402,7 +402,7 @@ int unit_name_path_escape(const char *f, char **ret) {
 }
 
 int unit_name_path_unescape(const char *f, char **ret) {
-        char *s;
+        _cleanup_free_ char *s = NULL;
         int r;
 
         assert(f);
@@ -415,34 +415,27 @@ int unit_name_path_unescape(const char *f, char **ret) {
                 if (!s)
                         return -ENOMEM;
         } else {
-                char *w;
+                _cleanup_free_ char *w = NULL;
 
                 r = unit_name_unescape(f, &w);
                 if (r < 0)
                         return r;
 
                 /* Don't accept trailing or leading slashes */
-                if (startswith(w, "/") || endswith(w, "/")) {
-                        free(w);
+                if (startswith(w, "/") || endswith(w, "/"))
                         return -EINVAL;
-                }
 
                 /* Prefix a slash again */
-                s = strappend("/", w);
-                free(w);
+                s = strjoin("/", w);
                 if (!s)
                         return -ENOMEM;
 
-                if (!path_is_normalized(s)) {
-                        free(s);
+                if (!path_is_normalized(s))
                         return -EINVAL;
-                }
         }
 
         if (ret)
-                *ret = s;
-        else
-                free(s);
+                *ret = TAKE_PTR(s);
 
         return 0;
 }
@@ -519,7 +512,7 @@ int unit_name_from_path(const char *path, const char *suffix, char **ret) {
         if (r < 0)
                 return r;
 
-        s = strappend(p, suffix);
+        s = strjoin(p, suffix);
         if (!s)
                 return -ENOMEM;
 
@@ -719,7 +712,7 @@ int slice_build_subslice(const char *slice, const char *name, char **ret) {
                 return -EINVAL;
 
         if (streq(slice, SPECIAL_ROOT_SLICE))
-                subslice = strappend(name, ".slice");
+                subslice = strjoin(name, ".slice");
         else {
                 char *e;
 

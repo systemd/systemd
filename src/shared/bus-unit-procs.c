@@ -241,7 +241,7 @@ static int dump_processes(
 
                         special = special_glyph(more ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE);
 
-                        pp = strappend(prefix, special);
+                        pp = strjoin(prefix, special);
                         if (!pp)
                                 return -ENOMEM;
 

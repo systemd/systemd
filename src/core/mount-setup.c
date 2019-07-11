@@ -332,7 +332,7 @@ int mount_cgroup_controllers(void) {
                 if (!options)
                         options = TAKE_PTR(controller);
 
-                where = strappend("/sys/fs/cgroup/", options);
+                where = path_join("/sys/fs/cgroup", options);
                 if (!where)
                         return log_oom();
 

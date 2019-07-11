@@ -353,7 +353,7 @@ int vconsole_write_data(Context *c) {
                 _cleanup_free_ char *s = NULL;
                 char **u;
 
-                s = strappend("KEYMAP=", c->vc_keymap);
+                s = strjoin("KEYMAP=", c->vc_keymap);
                 if (!s)
                         return -ENOMEM;
 
@@ -370,7 +370,7 @@ int vconsole_write_data(Context *c) {
                 _cleanup_free_ char *s = NULL;
                 char **u;
 
-                s = strappend("KEYMAP_TOGGLE=", c->vc_keymap_toggle);
+                s = strjoin("KEYMAP_TOGGLE=", c->vc_keymap_toggle);
                 if (!s)
                         return -ENOMEM;
 

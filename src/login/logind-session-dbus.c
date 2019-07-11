@@ -634,7 +634,7 @@ char *session_bus_path(Session *s) {
         if (!t)
                 return NULL;
 
-        return strappend("/org/freedesktop/login1/session/", t);
+        return strjoin("/org/freedesktop/login1/session/", t);
 }
 
 int session_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {

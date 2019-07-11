@@ -44,7 +44,7 @@ static int delete_rule(const char *rule) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Rule file name '%s' is not valid, refusing.", x + 1);
 
-        fn = strappend("/proc/sys/fs/binfmt_misc/", x+1);
+        fn = path_join("/proc/sys/fs/binfmt_misc", x+1);
         if (!fn)
                 return log_oom();
 

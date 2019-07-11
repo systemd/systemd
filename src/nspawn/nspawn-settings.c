@@ -505,7 +505,7 @@ int config_parse_network_zone(
         assert(lvalue);
         assert(rvalue);
 
-        j = strappend("vz-", rvalue);
+        j = strjoin("vz-", rvalue);
         if (!ifname_valid(j)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid network zone name, ignoring: %s", rvalue);
                 return 0;

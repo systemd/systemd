@@ -257,7 +257,7 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value) {
         char *x;
 
-        x = strappend(field, value);
+        x = strjoin(field, value);
         if (x)
                 iovec[(*n_iovec)++] = IOVEC_MAKE_STRING(x);
         return x;
@@ -312,7 +312,7 @@ int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const c
         _cleanup_free_ char *x = NULL;
         int r;
 
-        x = strappend(field, value);
+        x = strjoin(field, value);
         if (!x)
                 return log_oom();
 

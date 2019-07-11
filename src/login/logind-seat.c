@@ -19,6 +19,7 @@
 #include "logind-session-dbus.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -44,7 +45,7 @@ int seat_new(Seat** ret, Manager *m, const char *id) {
                 .manager = m,
         };
 
-        s->state_file = strappend("/run/systemd/seats/", id);
+        s->state_file = path_join("/run/systemd/seats", id);
         if (!s->state_file)
                 return -ENOMEM;
 

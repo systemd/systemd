@@ -166,7 +166,7 @@ static int run(int argc, char* argv[]) {
                 our_env[i++] = (char*) "READY=1";
 
         if (arg_status) {
-                status = strappend("STATUS=", arg_status);
+                status = strjoin("STATUS=", arg_status);
                 if (!status)
                         return log_oom();
 

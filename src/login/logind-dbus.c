@@ -1322,7 +1322,7 @@ static int trigger_device(Manager *m, sd_device *d) {
                 if (r < 0)
                         return r;
 
-                t = strappend(p, "/uevent");
+                t = path_join(p, "uevent");
                 if (!t)
                         return -ENOMEM;
 

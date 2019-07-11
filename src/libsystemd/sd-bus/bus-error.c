@@ -180,7 +180,7 @@ static int errno_to_bus_error_name_new(int error, char **ret) {
         if (!name)
                 return 0;
 
-        n = strappend("System.Error.", name);
+        n = strjoin("System.Error.", name);
         if (!n)
                 return -ENOMEM;
 

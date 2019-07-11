@@ -250,22 +250,6 @@ static void test_strrep(void) {
         assert_se(streq(zero, ""));
 }
 
-static void test_strappend(void) {
-        _cleanup_free_ char *t1, *t2, *t3, *t4;
-
-        t1 = strappend(NULL, NULL);
-        assert_se(streq(t1, ""));
-
-        t2 = strappend(NULL, "suf");
-        assert_se(streq(t2, "suf"));
-
-        t3 = strappend("pre", NULL);
-        assert_se(streq(t3, "pre"));
-
-        t4 = strappend("pre", "suf");
-        assert_se(streq(t4, "presuf"));
-}
-
 static void test_string_has_cc(void) {
         assert_se(string_has_cc("abc\1", NULL));
         assert_se(string_has_cc("abc\x7f", NULL));
@@ -568,7 +552,6 @@ int main(int argc, char *argv[]) {
         test_strextend();
         test_strextend_with_separator();
         test_strrep();
-        test_strappend();
         test_string_has_cc();
         test_ascii_strlower();
         test_strshorten();

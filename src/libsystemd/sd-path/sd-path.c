@@ -83,7 +83,7 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
         if (r < 0)
                 return r;
 
-        fn = strappend(c, "/user-dirs.dirs");
+        fn = path_join(c, "user-dirs.dirs");
         if (!fn)
                 return -ENOMEM;
 
@@ -141,7 +141,7 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
                         if (r < 0)
                                 return r;
 
-                        cc = strappend(h, p+5);
+                        cc = path_join(h, p+5);
                         if (!cc)
                                 return -ENOMEM;
 
@@ -179,7 +179,7 @@ fallback:
                 if (r < 0)
                         return r;
 
-                cc = strappend(h, "/Desktop");
+                cc = path_join(h, "Desktop");
                 if (!cc)
                         return -ENOMEM;
 

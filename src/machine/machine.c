@@ -21,6 +21,7 @@
 #include "machine.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
 #include "special.h"
@@ -52,7 +53,7 @@ Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
                 goto fail;
 
         if (class != MACHINE_HOST) {
-                m->state_file = strappend("/run/systemd/machines/", m->name);
+                m->state_file = path_join("/run/systemd/machines", m->name);
                 if (!m->state_file)
                         goto fail;
         }

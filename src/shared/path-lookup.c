@@ -32,7 +32,7 @@ int xdg_user_runtime_dir(char **ret, const char *suffix) {
         if (!e)
                 return -ENXIO;
 
-        j = strappend(e, suffix);
+        j = strjoin(e, suffix);
         if (!j)
                 return -ENOMEM;
 
@@ -49,7 +49,7 @@ int xdg_user_config_dir(char **ret, const char *suffix) {
 
         e = getenv("XDG_CONFIG_HOME");
         if (e)
-                j = strappend(e, suffix);
+                j = strjoin(e, suffix);
         else {
                 _cleanup_free_ char *home = NULL;
 
@@ -81,7 +81,7 @@ int xdg_user_data_dir(char **ret, const char *suffix) {
 
         e = getenv("XDG_DATA_HOME");
         if (e)
-                j = strappend(e, suffix);
+                j = strjoin(e, suffix);
         else {
                 _cleanup_free_ char *home = NULL;
 
@@ -270,15 +270,15 @@ static int acquire_generator_dirs(
                 prefix = strjoina(e, "/systemd");
         }
 
-        x = strappend(prefix, "/generator");
+        x = path_join(prefix, "generator");
         if (!x)
                 return -ENOMEM;
 
-        y = strappend(prefix, "/generator.early");
+        y = path_join(prefix, "generator.early");
         if (!y)
                 return -ENOMEM;
 
-        z = strappend(prefix, "/generator.late");
+        z = path_join(prefix, "generator.late");
         if (!z)
                 return -ENOMEM;
 
