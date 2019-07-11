@@ -46,8 +46,8 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
         assert(t);
         assert(t->family == AF_INET);
 
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
+        if (link || t->assign_to_loopback) {
+                r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
         }
@@ -138,8 +138,8 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
         assert(t);
         assert(t->family == AF_INET);
 
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
+        if (link || t->assign_to_loopback) {
+                r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
         }
@@ -242,8 +242,8 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
         assert(t->family == AF_INET6);
         assert(m);
 
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
+        if (link || t->assign_to_loopback) {
+                r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
         }
@@ -290,8 +290,8 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
         assert((netdev->kind == NETDEV_KIND_VTI && t->family == AF_INET) ||
                (netdev->kind == NETDEV_KIND_VTI6 && t->family == AF_INET6));
 
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
+        if (link || t->assign_to_loopback) {
+                r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_LINK attribute: %m");
         }
@@ -332,8 +332,8 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         assert(t);
         assert(t->family == AF_INET6);
 
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
+        if (link || t->assign_to_loopback) {
+                r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
         }

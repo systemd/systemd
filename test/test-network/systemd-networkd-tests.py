@@ -461,7 +461,11 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
-    links =[
+    links_remove_earlier = [
+        'xfrm99',
+    ]
+
+    links = [
         '6rdtun99',
         'bond99',
         'bridge99',
@@ -515,7 +519,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'vxcan99',
         'vxlan99',
         'wg98',
-        'wg99']
+        'wg99',
+    ]
 
     units = [
         '10-dropin-test.netdev',
@@ -559,6 +564,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-ip6tnl-tunnel-local-any.netdev',
         '25-ip6tnl-tunnel.netdev',
         '25-ipip-tunnel-independent.netdev',
+        '25-ipip-tunnel-independent-loopback.netdev',
         '25-ipip-tunnel-local-any.netdev',
         '25-ipip-tunnel-remote-any.netdev',
         '25-ipip-tunnel.netdev',
@@ -594,6 +600,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-wireguard-private-key.txt',
         '25-wireguard.netdev',
         '25-wireguard.network',
+        '25-xfrm.netdev',
+        '25-xfrm-independent.netdev',
         '6rd.network',
         'erspan.network',
         'gre.network',
@@ -614,7 +622,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'vti6.network',
         'vti.network',
         'vxlan-test1.network',
-        'vxlan.network']
+        'vxlan.network',
+        'xfrm.network',
+    ]
 
     fou_ports = [
         '55555',
@@ -622,11 +632,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     def setUp(self):
         remove_fou_ports(self.fou_ports)
+        remove_links(self.links_remove_earlier)
         remove_links(self.links)
         stop_networkd(show_logs=False)
 
     def tearDown(self):
         remove_fou_ports(self.fou_ports)
+        remove_links(self.links_remove_earlier)
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
         stop_networkd(show_logs=True)
@@ -1129,6 +1141,30 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         start_networkd()
 
         wait_online(['ipiptun99:carrier'])
+
+    def test_tunnel_independent_loopback(self):
+        copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent-loopback.netdev', 'netdev-link-local-addressing-yes.network')
+        start_networkd()
+
+        wait_online(['ipiptun99:carrier'])
+
+    @expectedFailureIfModuleIsNotAvailable('xfrm_interface')
+    def test_xfrm(self):
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'xfrm.network',
+                                        '25-xfrm.netdev', 'netdev-link-local-addressing-yes.network')
+        start_networkd()
+
+        wait_online(['xfrm99:degraded', 'dummy98:degraded'])
+
+        output = check_output('ip link show dev xfrm99')
+        print(output)
+
+    @expectedFailureIfModuleIsNotAvailable('xfrm_interface')
+    def test_xfrm_independent(self):
+        copy_unit_to_networkd_unit_path('25-xfrm-independent.netdev', 'netdev-link-local-addressing-yes.network')
+        start_networkd()
+
+        wait_online(['xfrm99:degraded'])
 
     @expectedFailureIfModuleIsNotAvailable('fou')
     def test_fou(self):

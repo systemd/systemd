@@ -1216,6 +1216,13 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>AssignToLoopback=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to <literal>yes</literal>, the loopback interface <literal>lo</literal>
+          is used as the underlying device of the tunnel interface. Defaults to <literal>no</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>AllowLocalRemote=</varname></term>
         <listitem>
           <para>Takes a boolean. When true allows tunnel traffic on <varname>ip6tnl</varname> devices where the remote endpoint is a local host address.

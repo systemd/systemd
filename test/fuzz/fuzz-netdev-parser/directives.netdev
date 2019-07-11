@@ -66,6 +66,7 @@ AllowLocalRemote=
 Local=
 TOS=
 Independent=
+AssignToLoopback=
 Key=
 InputKey=
 Encapsulation=

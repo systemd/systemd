@@ -51,6 +51,7 @@ typedef struct Tunnel {
         bool copy_dscp;
         bool independent;
         bool fou_tunnel;
+        bool assign_to_loopback;
 
         uint16_t encap_src_port;
         uint16_t fou_destination_port;
