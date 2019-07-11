@@ -2597,7 +2597,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
 
         case CREATE_SYMLINK:
                 if (!i.argument) {
-                        i.argument = strappend("/usr/share/factory/", i.path);
+                        i.argument = path_join("/usr/share/factory/", i.path);
                         if (!i.argument)
                                 return log_oom();
                 }
