@@ -215,17 +215,9 @@ int config_parse_fdb_hwaddr(
         if (r < 0)
                 return log_oom();
 
-        /* read in the MAC address for the FDB table. */
-        r = sscanf(rvalue, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-                   &fdb_entry->mac_addr.ether_addr_octet[0],
-                   &fdb_entry->mac_addr.ether_addr_octet[1],
-                   &fdb_entry->mac_addr.ether_addr_octet[2],
-                   &fdb_entry->mac_addr.ether_addr_octet[3],
-                   &fdb_entry->mac_addr.ether_addr_octet[4],
-                   &fdb_entry->mac_addr.ether_addr_octet[5]);
-
-        if (r != ETHER_ADDR_LEN) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring assignment: %s", rvalue);
+        r = ether_addr_from_string(rvalue, &fdb_entry->mac_addr);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Not a valid MAC address, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
