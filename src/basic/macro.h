@@ -462,7 +462,8 @@ static inline int __coverity_check__(int condition) {
                  * type for the array, in the hope that checkers such as ubsan don't complain that the initializers for \
                  * the array are not representable by the base type. Ideally we'd use typeof(x) as base type, but that  \
                  * doesn't work, as we want to use this on bitfields and gcc refuses typeof() on bitfields.) */         \
-                assert_cc((sizeof((long double[]){__VA_ARGS__})/sizeof(long double)) <= 20); \
+                static const long double __assert_in_set[] _unused_ = { __VA_ARGS__ }; \
+                assert_cc(ELEMENTSOF(__assert_in_set) <= 20); \
                 switch(x) {                     \
                 FOR_EACH_MAKE_CASE(__VA_ARGS__) \
                         _found = true;          \
