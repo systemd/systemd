@@ -2625,7 +2625,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 } else if (arg_root) {
                         char *p;
 
-                        p = prefix_root(arg_root, i.argument);
+                        p = path_join(arg_root, i.argument);
                         if (!p)
                                 return log_oom();
                         free_and_replace(i.argument, p);
