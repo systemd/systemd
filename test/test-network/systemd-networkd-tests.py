@@ -483,6 +483,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'gretun99',
         'ip6gretap98',
         'ip6gretap99',
+        'ip6gretun96',
         'ip6gretun97',
         'ip6gretun98',
         'ip6gretun99',
@@ -513,6 +514,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'vti6tun97',
         'vti6tun98',
         'vti6tun99',
+        'vtitun96',
         'vtitun97',
         'vtitun98',
         'vtitun99',
@@ -552,17 +554,21 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-geneve.netdev',
         '25-gretap-tunnel-local-any.netdev',
         '25-gretap-tunnel.netdev',
+        '25-gre-tunnel-any-any.netdev',
         '25-gre-tunnel-local-any.netdev',
         '25-gre-tunnel-remote-any.netdev',
         '25-gre-tunnel.netdev',
         '25-ip6gretap-tunnel-local-any.netdev',
         '25-ip6gretap-tunnel.netdev',
+        '25-ip6gre-tunnel-any-any.netdev',
         '25-ip6gre-tunnel-local-any.netdev',
         '25-ip6gre-tunnel-remote-any.netdev',
         '25-ip6gre-tunnel.netdev',
-        '25-ip6tnl-tunnel-remote-any.netdev',
+        '25-ip6tnl-tunnel-any-any.netdev',
         '25-ip6tnl-tunnel-local-any.netdev',
+        '25-ip6tnl-tunnel-remote-any.netdev',
         '25-ip6tnl-tunnel.netdev',
+        '25-ipip-tunnel-any-any.netdev',
         '25-ipip-tunnel-independent.netdev',
         '25-ipip-tunnel-independent-loopback.netdev',
         '25-ipip-tunnel-local-any.netdev',
@@ -575,6 +581,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-macsec.netdev',
         '25-macsec.network',
         '25-nlmon.netdev',
+        '25-sit-tunnel-any-any.netdev',
         '25-sit-tunnel-local-any.netdev',
         '25-sit-tunnel-remote-any.netdev',
         '25-sit-tunnel.netdev',
@@ -586,9 +593,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-vcan.netdev',
         '25-veth.netdev',
         '25-vrf.netdev',
+        '25-vti6-tunnel-any-any.netdev',
         '25-vti6-tunnel-local-any.netdev',
         '25-vti6-tunnel-remote-any.netdev',
         '25-vti6-tunnel.netdev',
+        '25-vti-tunnel-any-any.netdev',
         '25-vti-tunnel-local-any.netdev',
         '25-vti-tunnel-remote-any.netdev',
         '25-vti-tunnel.netdev',
@@ -916,9 +925,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ipip.network',
                                         '25-ipip-tunnel.netdev', '25-tunnel.network',
                                         '25-ipip-tunnel-local-any.netdev', '25-tunnel-local-any.network',
-                                        '25-ipip-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
+                                        '25-ipip-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
+                                        '25-ipip-tunnel-any-any.netdev', '25-tunnel-any-any.network')
         start_networkd()
-        wait_online(['ipiptun99:routable', 'ipiptun98:routable', 'ipiptun97:routable', 'dummy98:degraded'])
+        wait_online(['ipiptun99:routable', 'ipiptun98:routable', 'ipiptun97:routable', 'ipiptun96:routable', 'dummy98:degraded'])
 
         output = check_output('ip -d link show ipiptun99')
         print(output)
@@ -929,14 +939,18 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -d link show ipiptun97')
         print(output)
         self.assertRegex(output, 'ipip (?:ipip |)remote any local 192.168.223.238 dev dummy98')
+        output = check_output('ip -d link show ipiptun96')
+        print(output)
+        self.assertRegex(output, 'ipip (?:ipip |)remote any local any dev dummy98')
 
     def test_gre_tunnel(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'gretun.network',
                                         '25-gre-tunnel.netdev', '25-tunnel.network',
                                         '25-gre-tunnel-local-any.netdev', '25-tunnel-local-any.network',
-                                        '25-gre-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
+                                        '25-gre-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
+                                        '25-gre-tunnel-any-any.netdev', '25-tunnel-any-any.network')
         start_networkd()
-        wait_online(['gretun99:routable', 'gretun98:routable', 'gretun97:routable', 'dummy98:degraded'])
+        wait_online(['gretun99:routable', 'gretun98:routable', 'gretun97:routable', 'gretun96:routable', 'dummy98:degraded'])
 
         output = check_output('ip -d link show gretun99')
         print(output)
@@ -959,12 +973,20 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'okey 0.0.0.105')
         self.assertNotRegex(output, 'iseq')
         self.assertNotRegex(output, 'oseq')
+        output = check_output('ip -d link show gretun96')
+        print(output)
+        self.assertRegex(output, 'gre remote any local any dev dummy98')
+        self.assertRegex(output, 'ikey 0.0.0.106')
+        self.assertRegex(output, 'okey 0.0.0.106')
+        self.assertNotRegex(output, 'iseq')
+        self.assertNotRegex(output, 'oseq')
 
     def test_ip6gre_tunnel(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ip6gretun.network',
                                         '25-ip6gre-tunnel.netdev', '25-tunnel.network',
                                         '25-ip6gre-tunnel-local-any.netdev', '25-tunnel-local-any.network',
-                                        '25-ip6gre-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
+                                        '25-ip6gre-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
+                                        '25-ip6gre-tunnel-any-any.netdev', '25-tunnel-any-any.network')
         start_networkd(5)
 
         # Old kernels seem not to support IPv6LL address on ip6gre tunnel, So please do not use wait_online() here.
@@ -973,6 +995,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.check_link_exists('ip6gretun99')
         self.check_link_exists('ip6gretun98')
         self.check_link_exists('ip6gretun97')
+        self.check_link_exists('ip6gretun96')
 
         output = check_output('ip -d link show ip6gretun99')
         print(output)
@@ -983,6 +1006,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -d link show ip6gretun97')
         print(output)
         self.assertRegex(output, 'ip6gre remote any local 2a00:ffde:4567:edde::4987 dev dummy98')
+        output = check_output('ip -d link show ip6gretun96')
+        print(output)
+        self.assertRegex(output, 'ip6gre remote any local any dev dummy98')
 
     def test_gretap_tunnel(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'gretap.network',
@@ -1024,9 +1050,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'vti.network',
                                         '25-vti-tunnel.netdev', '25-tunnel.network',
                                         '25-vti-tunnel-local-any.netdev', '25-tunnel-local-any.network',
-                                        '25-vti-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
+                                        '25-vti-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
+                                        '25-vti-tunnel-any-any.netdev', '25-tunnel-any-any.network')
         start_networkd()
-        wait_online(['vtitun99:routable', 'vtitun98:routable', 'vtitun97:routable', 'dummy98:degraded'])
+        wait_online(['vtitun99:routable', 'vtitun98:routable', 'vtitun97:routable', 'vtitun96:routable', 'dummy98:degraded'])
 
         output = check_output('ip -d link show vtitun99')
         print(output)
@@ -1037,6 +1064,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -d link show vtitun97')
         print(output)
         self.assertRegex(output, 'vti remote any local 10.65.223.238 dev dummy98')
+        output = check_output('ip -d link show vtitun96')
+        print(output)
+        self.assertRegex(output, 'vti remote any local any dev dummy98')
 
     def test_vti6_tunnel(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'vti6.network',
@@ -1078,9 +1108,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'sit.network',
                                         '25-sit-tunnel.netdev', '25-tunnel.network',
                                         '25-sit-tunnel-local-any.netdev', '25-tunnel-local-any.network',
-                                        '25-sit-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
+                                        '25-sit-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
+                                        '25-sit-tunnel-any-any.netdev', '25-tunnel-any-any.network')
         start_networkd()
-        wait_online(['sittun99:routable', 'sittun98:routable', 'sittun97:routable', 'dummy98:degraded'])
+        wait_online(['sittun99:routable', 'sittun98:routable', 'sittun97:routable', 'sittun96:routable', 'dummy98:degraded'])
 
         output = check_output('ip -d link show sittun99')
         print(output)
@@ -1091,6 +1122,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -d link show sittun97')
         print(output)
         self.assertRegex(output, "sit (?:ip6ip |)remote any local 10.65.223.238 dev dummy98")
+        output = check_output('ip -d link show sittun96')
+        print(output)
+        self.assertRegex(output, "sit (?:ip6ip |)remote any local any dev dummy98")
 
     def test_isatap_tunnel(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'isatap.network',
