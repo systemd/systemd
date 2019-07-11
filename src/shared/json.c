@@ -279,7 +279,8 @@ static int json_variant_new(JsonVariant **ret, JsonVariantType type, size_t spac
 
         assert_return(ret, -EINVAL);
 
-        v = malloc0(offsetof(JsonVariant, value) + space);
+        v = malloc0(MAX(sizeof(JsonVariant),
+                        offsetof(JsonVariant, value) + space));
         if (!v)
                 return -ENOMEM;
 
@@ -1664,7 +1665,8 @@ static int json_variant_copy(JsonVariant **nv, JsonVariant *v) {
         default:
                 /* Everything else copy by reference */
 
-                c = malloc0(offsetof(JsonVariant, reference) + sizeof(JsonVariant*));
+                c = malloc0(MAX(sizeof(JsonVariant),
+                                offsetof(JsonVariant, reference) + sizeof(JsonVariant*)));
                 if (!c)
                         return -ENOMEM;
 
@@ -1677,7 +1679,8 @@ static int json_variant_copy(JsonVariant **nv, JsonVariant *v) {
                 return 0;
         }
 
-        c = malloc0(offsetof(JsonVariant, value) + k);
+        c = malloc0(MAX(sizeof(JsonVariant),
+                        offsetof(JsonVariant, value) + k));
         if (!c)
                 return -ENOMEM;
 
