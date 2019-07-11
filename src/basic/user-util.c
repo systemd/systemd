@@ -15,6 +15,7 @@
 #include <utmp.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -213,7 +214,7 @@ int get_user_creds(
                 p = getpwnam(*username);
         }
         if (!p) {
-                r = errno > 0 ? -errno : -ESRCH;
+                r = errno_or_else(ESRCH);
 
                 /* If the user requested that we only synthesize as fallback, do so now */
                 if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS)) {
@@ -307,7 +308,7 @@ int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags) {
         }
 
         if (!g)
-                return errno > 0 ? -errno : -ESRCH;
+                return errno_or_else(ESRCH);
 
         if (gid) {
                 if (!gid_is_valid(g->gr_gid))
@@ -492,7 +493,7 @@ int get_home_dir(char **_h) {
         errno = 0;
         p = getpwuid(u);
         if (!p)
-                return errno > 0 ? -errno : -ESRCH;
+                return errno_or_else(ESRCH);
 
         if (!path_is_valid(p->pw_dir) ||
             !path_is_absolute(p->pw_dir))
@@ -549,7 +550,7 @@ int get_shell(char **_s) {
         errno = 0;
         p = getpwuid(u);
         if (!p)
-                return errno > 0 ? -errno : -ESRCH;
+                return errno_or_else(ESRCH);
 
         if (!path_is_valid(p->pw_shell) ||
             !path_is_absolute(p->pw_shell))
@@ -770,7 +771,7 @@ int putpwent_sane(const struct passwd *pw, FILE *stream) {
 
         errno = 0;
         if (putpwent(pw, stream) != 0)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         return 0;
 }
@@ -781,7 +782,7 @@ int putspent_sane(const struct spwd *sp, FILE *stream) {
 
         errno = 0;
         if (putspent(sp, stream) != 0)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         return 0;
 }
@@ -792,7 +793,7 @@ int putgrent_sane(const struct group *gr, FILE *stream) {
 
         errno = 0;
         if (putgrent(gr, stream) != 0)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         return 0;
 }
@@ -804,7 +805,7 @@ int putsgent_sane(const struct sgrp *sg, FILE *stream) {
 
         errno = 0;
         if (putsgent(sg, stream) != 0)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         return 0;
 }
@@ -819,7 +820,7 @@ int fgetpwent_sane(FILE *stream, struct passwd **pw) {
         errno = 0;
         p = fgetpwent(stream);
         if (!p && errno != ENOENT)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         *pw = p;
         return !!p;
@@ -834,7 +835,7 @@ int fgetspent_sane(FILE *stream, struct spwd **sp) {
         errno = 0;
         s = fgetspent(stream);
         if (!s && errno != ENOENT)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         *sp = s;
         return !!s;
@@ -849,7 +850,7 @@ int fgetgrent_sane(FILE *stream, struct group **gr) {
         errno = 0;
         g = fgetgrent(stream);
         if (!g && errno != ENOENT)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         *gr = g;
         return !!g;
@@ -865,7 +866,7 @@ int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
         errno = 0;
         s = fgetsgent(stream);
         if (!s && errno != ENOENT)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         *sg = s;
         return !!s;

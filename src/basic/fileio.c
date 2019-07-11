@@ -298,7 +298,7 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         errno = 0;
         k = fread(buf, 1, l + accept_extra_nl + 1, f);
         if (ferror(f))
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         if (k != l && k != l + accept_extra_nl)
                 return 0;
@@ -382,7 +382,7 @@ int read_full_stream_full(
                         l += k;
 
                 if (ferror(f)) {
-                        r = errno > 0 ? -errno : -EIO;
+                        r = errno_or_else(EIO);
                         goto finalize;
                 }
 
@@ -661,7 +661,7 @@ int fflush_and_check(FILE *f) {
         fflush(f);
 
         if (ferror(f))
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         return 0;
 }
@@ -888,7 +888,7 @@ int safe_fgetc(FILE *f, char *ret) {
         k = fgetc(f);
         if (k == EOF) {
                 if (ferror(f))
-                        return errno > 0 ? -errno : -EIO;
+                        return errno_or_else(EIO);
 
                 if (ret)
                         *ret = 0;

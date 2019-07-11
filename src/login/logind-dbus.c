@@ -1242,7 +1242,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         errno = 0;
         pw = getpwuid(uid);
         if (!pw)
-                return errno > 0 ? -errno : -ENOENT;
+                return errno_or_else(ENOENT);
 
         r = bus_verify_polkit_async(
                         message,
