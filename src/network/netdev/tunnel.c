@@ -44,7 +44,6 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
 
         assert(m);
         assert(t);
-        assert(t->family == AF_INET);
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -136,7 +135,6 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
         }
 
         assert(t);
-        assert(t->family == AF_INET);
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -239,7 +237,6 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
                 t = IP6GRETAP(netdev);
 
         assert(t);
-        assert(t->family == AF_INET6);
         assert(m);
 
         if (link || t->assign_to_loopback) {
@@ -287,8 +284,6 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
                 t = VTI6(netdev);
 
         assert(t);
-        assert((netdev->kind == NETDEV_KIND_VTI && t->family == AF_INET) ||
-               (netdev->kind == NETDEV_KIND_VTI6 && t->family == AF_INET6));
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -330,7 +325,6 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         assert(netdev);
         assert(m);
         assert(t);
-        assert(t->family == AF_INET6);
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -435,26 +429,20 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         assert(t);
 
-        if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_IPIP, NETDEV_KIND_SIT, NETDEV_KIND_GRE)) {
-                if (t->family == AF_UNSPEC)
-                        t->family = AF_INET;
-                if (t->family != AF_INET)
-                        return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                                      "vti/ipip/sit/gre tunnel without a local/remote IPv4 address configured in %s. Ignoring", filename);
-        }
+        if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_IPIP, NETDEV_KIND_SIT, NETDEV_KIND_GRE) &&
+            !IN_SET(t->family, AF_UNSPEC, AF_INET))
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "vti/ipip/sit/gre tunnel without a local/remote IPv4 address configured in %s. Ignoring", filename);
 
         if (IN_SET(netdev->kind, NETDEV_KIND_GRETAP, NETDEV_KIND_ERSPAN) &&
             (t->family != AF_INET || in_addr_is_null(t->family, &t->remote)))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "gretap/erspan tunnel without a remote IPv4 address configured in %s. Ignoring", filename);
 
-        if (IN_SET(netdev->kind, NETDEV_KIND_VTI6, NETDEV_KIND_IP6TNL, NETDEV_KIND_IP6GRE)) {
-                if (t->family == AF_UNSPEC)
-                        t->family = AF_INET6;
-                if (t->family != AF_INET6)
-                        return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                                      "vti6/ip6tnl/ip6gre tunnel without a local/remote IPv6 address configured in %s. Ignoring", filename);
-        }
+        if ((IN_SET(netdev->kind, NETDEV_KIND_VTI6, NETDEV_KIND_IP6TNL) && t->family != AF_INET6) ||
+            (netdev->kind == NETDEV_KIND_IP6GRE && !IN_SET(t->family, AF_UNSPEC, AF_INET6)))
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "vti6/ip6tnl/ip6gre tunnel without a local/remote IPv6 address configured in %s. Ignoring", filename);
 
         if (netdev->kind == NETDEV_KIND_IP6GRETAP &&
             (t->family != AF_INET6 || in_addr_is_null(t->family, &t->remote)))
@@ -472,6 +460,10 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         if (netdev->kind == NETDEV_KIND_ERSPAN && (t->erspan_index >= (1 << 20) || t->erspan_index == 0))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Invalid erspan index %d. Ignoring", t->erspan_index);
+
+        /* netlink_message_append_in_addr_union() is used for vti/vti6. So, t->family cannot be AF_UNSPEC. */
+        if (netdev->kind == NETDEV_KIND_VTI)
+                t->family = AF_INET;
 
         return 0;
 }
