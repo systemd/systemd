@@ -1,0 +1,7 @@
+[NetDev]
+Name=sittun96
+Kind=sit
+
+[Tunnel]
+Local=any
+Remote=any
