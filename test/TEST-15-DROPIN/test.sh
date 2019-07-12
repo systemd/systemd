@@ -25,8 +25,4 @@ test_setup() {
     setup_nspawn_root
 }
 
-test_cleanup() {
-    return 0
-}
-
 do_test "$@"

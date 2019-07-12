@@ -6,9 +6,7 @@ TEST_NO_QEMU=1
 . $TEST_BASE_DIR/test-functions
 
 test_setup() {
-    create_empty_image
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
+    create_empty_image_rootdir
 
     # Create what will eventually be our root filesystem onto an overlay
     (
@@ -46,9 +44,6 @@ EOF
         setup_testsuite
     )
     setup_nspawn_root
-
-    ddebug "umount $TESTDIR/root"
-    umount $TESTDIR/root
 }
 
 do_test "$@"

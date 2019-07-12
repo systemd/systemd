@@ -557,6 +557,13 @@ EOF
     fi
 }
 
+create_empty_image_rootdir() {
+    create_empty_image
+    mkdir -p $TESTDIR/root
+    mount ${LOOPDEV}p1 $TESTDIR/root
+    TEST_SETUP_CLEANUP_ROOTDIR=1
+}
+
 check_asan_reports() {
     local ret=0
     local root="$1"
@@ -1685,11 +1692,33 @@ setup_suse() {
     inst_simple "/usr/lib/systemd/system/haveged.service"
 }
 
+_test_setup_cleanup() {
+    # only umount if create_empty_image_rootdir() was called to mount it
+    if [[ $TEST_SETUP_CLEANUP_ROOTDIR ]]; then
+        ddebug "umount $TESTDIR/root"
+        umount $TESTDIR/root
+    fi
+}
+
+# can be overridden in specific test
+test_setup_cleanup() {
+    _test_setup_cleanup
+}
+
+_test_cleanup() {
+    if mountpoint $TESTDIR/root; then
+        ddebug "umount $TESTDIR/root"
+        umount $TESTDIR/root
+    fi
+    if [[ $LOOPDEV && -b $LOOPDEV ]]; then
+        ddebug "losetup -d $LOOPDEV"
+        losetup -d $LOOPDEV
+    fi
+}
+
 # can be overridden in specific test
 test_cleanup() {
-    umount $TESTDIR/root 2>/dev/null || true
-    [[ $LOOPDEV ]] && losetup -d $LOOPDEV || true
-    return 0
+    _test_cleanup
 }
 
 test_run() {
@@ -1753,6 +1782,7 @@ do_test() {
             --setup)
                 echo "TEST SETUP: $TEST_DESCRIPTION"
                 test_setup
+                test_setup_cleanup
                 ;;
             --clean)
                 echo "TEST CLEANUP: $TEST_DESCRIPTION"
@@ -1764,7 +1794,9 @@ do_test() {
                 ret=0
                 echo -n "TEST: $TEST_DESCRIPTION ";
                 (
-                    test_setup && test_run
+                    test_setup
+                    test_setup_cleanup
+                    test_run
                     ret=$?
                     test_cleanup
                     rm -fr "$TESTDIR"

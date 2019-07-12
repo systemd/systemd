@@ -8,8 +8,6 @@ TEST_NO_QEMU=1
 
 test_setup() {
     create_empty_image
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
 
     # Create what will eventually be our root filesystem onto an overlay
     (
@@ -39,13 +37,6 @@ test_setup() {
     ln -s /dev/null $initdir/etc/systemd/system/systemd-resolved.service
 
     setup_nspawn_root
-
-    ddebug "umount $TESTDIR/root"
-    umount $TESTDIR/root
-}
-
-test_cleanup() {
-    return 0
 }
 
 do_test "$@"
