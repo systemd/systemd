@@ -219,25 +219,46 @@ static int prompt_locale(void) {
         if (r < 0)
                 return log_error_errno(r, "Cannot query locales list: %m");
 
-        print_welcome();
+        if (strv_isempty(locales))
+                log_debug("No locales found, skipping locale selection.");
+        else if (strv_length(locales) == 1) {
 
-        printf("\nAvailable Locales:\n\n");
-        r = show_menu(locales, 3, 22, 60);
-        if (r < 0)
-                return r;
+                if (streq(locales[0], SYSTEMD_DEFAULT_LOCALE))
+                        log_debug("Only installed locale is default locale anyway, not setting locale explicitly.");
+                else {
+                        log_debug("Only a single locale available (%s), selecting it as default.", locales[0]);
 
-        putchar('\n');
+                        arg_locale = strdup(locales[0]);
+                        if (!arg_locale)
+                                return log_oom();
 
-        r = prompt_loop("Please enter system locale name or number", locales, locale_is_valid, &arg_locale);
-        if (r < 0)
-                return r;
+                        /* Not setting arg_locale_message here, since it defaults to LANG anyway */
+                }
+        } else {
+                print_welcome();
 
-        if (isempty(arg_locale))
-                return 0;
+                printf("\nAvailable Locales:\n\n");
+                r = show_menu(locales, 3, 22, 60);
+                if (r < 0)
+                        return r;
 
-        r = prompt_loop("Please enter system message locale name or number", locales, locale_is_valid, &arg_locale_messages);
-        if (r < 0)
-                return r;
+                putchar('\n');
+
+                r = prompt_loop("Please enter system locale name or number", locales, locale_is_valid, &arg_locale);
+                if (r < 0)
+                        return r;
+
+                if (isempty(arg_locale))
+                        return 0;
+
+                r = prompt_loop("Please enter system message locale name or number", locales, locale_is_valid, &arg_locale_messages);
+                if (r < 0)
+                        return r;
+
+                /* Suppress the messages setting if it's the same as the main locale anyway */
+                if (streq_ptr(arg_locale, arg_locale_messages))
+                        arg_locale_messages = mfree(arg_locale_messages);
+        }
 
         return 0;
 }
