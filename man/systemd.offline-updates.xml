@@ -133,7 +133,7 @@
       <listitem>
         <para>The update service should declare <varname>DefaultDependencies=no</varname>,
         <varname>Requires=sysinit.target</varname>, <varname>After=sysinit.target</varname>,
-        <varname>After=system-update-pre.target</varname>
+        <varname>After=system-update-pre.target</varname>, <varname>Before=system-update.target</varname>
         and explicitly pull in any other services it requires.</para>
       </listitem>
 
