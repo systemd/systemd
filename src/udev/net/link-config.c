@@ -244,12 +244,12 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
                 if (net_match_config(link->match_mac, link->match_path, link->match_driver,
                                      link->match_type, link->match_name, link->match_property,
                                      device, NULL, NULL)) {
-                        if (link->match_name) {
+                        if (link->match_name && !strv_contains(link->match_name, "*")) {
                                 unsigned name_assign_type = NET_NAME_UNKNOWN;
 
                                 (void) link_unsigned_attribute(device, "name_assign_type", &name_assign_type);
 
-                                if (name_assign_type == NET_NAME_ENUM && !strv_contains(link->match_name, "*")) {
+                                if (name_assign_type == NET_NAME_ENUM) {
                                         log_device_warning(device, "Config file %s applies to device based on potentially unpredictable interface name",
                                                            link->filename);
                                         *ret = link;
