@@ -303,13 +303,14 @@
       <varlistentry>
         <term><varname>WakeSystem=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, an elapsing
-        timer will cause the system to resume from suspend, should it
-        be suspended and if the system supports this. Note that this
-        option will only make sure the system resumes on the
-        appropriate times, it will not take care of suspending it
-        again after any work that is to be done is finished. Defaults
-        to <varname>false</varname>.</para></listitem>
+        <listitem><para>Takes a boolean argument. If true, an elapsing timer will cause the system to resume
+        from suspend, should it be suspended and if the system supports this. Note that this option will only
+        make sure the system resumes on the appropriate times, it will not take care of suspending it again
+        after any work that is to be done is finished. Defaults to
+        <varname>false</varname>.</para>
+
+        <para>Note that this functionality requires privileges and is thus generally only available in the
+        system service manager.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -191,11 +191,17 @@
             main process of the service. systemd will proceed with starting follow-up units as soon as the parent
             process exits.</para></listitem>
 
-            <listitem><para>Behavior of <option>oneshot</option> is similar to <option>simple</option>; however, the
-            service manager will consider the unit started after the main process exits. It will then start follow-up
-            units. <varname>RemainAfterExit=</varname> is particularly useful for this type of
-            service. <varname>Type=</varname><option>oneshot</option> is the implied default if neither
-            <varname>Type=</varname> nor <varname>ExecStart=</varname> are specified.</para></listitem>
+            <listitem><para>Behavior of <option>oneshot</option> is similar to <option>simple</option>;
+            however, the service manager will consider the unit up after the main process exits. It will then
+            start follow-up units. <varname>RemainAfterExit=</varname> is particularly useful for this type
+            of service. <varname>Type=</varname><option>oneshot</option> is the implied default if neither
+            <varname>Type=</varname> nor <varname>ExecStart=</varname> are specified. Note that if this
+            option is used without <varname>RemainAfterExit=</varname> the service will never enter
+            <literal>active</literal> unit state, but directly transition from <literal>activating</literal>
+            to <literal>deactivating</literal> or <literal>dead</literal> since no process is configured that
+            shall run continously. In particular this means that after a service of this type ran (and which
+            has <varname>RemainAfterExit=</varname> not set) it will not show up as started afterwards, but
+            as dead.</para></listitem>
 
             <listitem><para>Behavior of <option>dbus</option> is similar to <option>simple</option>; however, it is
             expected that the service acquires a name on the D-Bus bus, as configured by

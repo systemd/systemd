@@ -178,7 +178,13 @@ multi-user.target reached after 47.820s in userspace
       initialization of one service might be slow simply because it waits for the initialization of another
       service to complete.  Also note: <command>systemd-analyze blame</command> doesn't display results for
       services with <varname>Type=simple</varname>, because systemd considers such services to be started
-      immediately, hence no measurement of the initialization delays can be done.</para>
+      immediately, hence no measurement of the initialization delays can be done. Also note that this command
+      only shows the time units took for starting up, it does not show how long unit jobs spent in the
+      execution queue. In particular it shows the time units spent in <literal>activating</literal> state,
+      which is not defined for units such as device units that transition directly from
+      <literal>inactive</literal> to <literal>active</literal>. This command hence gives an impression of the
+      performance of program code, but cannot accurately reflect latency introduced by waiting for
+      hardware and similar events.</para>
 
       <example>
         <title><command>Show which units took the most time during boot</command></title>
@@ -202,7 +208,12 @@ multi-user.target reached after 47.820s in userspace
       <replaceable>UNIT</replaceable>s or for the default target otherwise). The time after the unit is
       active or started is printed after the "@" character. The time the unit takes to start is printed after
       the "+" character. Note that the output might be misleading as the initialization of services might
-      depend on socket activation and because of the parallel execution of units.</para>
+      depend on socket activation and because of the parallel execution of units. Also, similar to the
+      <command>blame</command> command, this only takes into account the time units spent in
+      <literal>activating</literal> state, and hence does not cover units that never went through an
+      <literal>activating</literal> state (such as device units that transition directly from
+      <literal>inactive</literal> to <literal>active</literal>). Moreover it does not show information on
+      jobs (and in particular not jobs that timed out).</para>
 
       <example>
         <title><command>systemd-analyze time</command></title>

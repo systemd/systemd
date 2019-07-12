@@ -1091,18 +1091,22 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             next reboot. The syntax of the property assignment follows
             closely the syntax of assignments in unit files.</para>
 
-            <para>Example: <command>systemctl set-property foobar.service CPUShares=777</command></para>
+            <para>Example: <command>systemctl set-property foobar.service CPUWeight=200</command></para>
 
             <para>If the specified unit appears to be inactive, the
             changes will be only stored on disk as described
             previously hence they will be effective when the unit will
             be started.</para>
 
-            <para>Note that this command allows changing multiple
-            properties at the same time, which is preferable over
-            setting them individually. Like with unit file configuration
-            settings, assigning an empty list will reset the property.
-            </para>
+            <para>Note that this command allows changing multiple properties at the same time, which is
+            preferable over setting them individually.</para>
+
+            <para>Example: <command>systemctl set-property foobar.service CPUWeight=200 MemoryMax=2G IPAccounting=yes</command></para>
+
+            <para>Like with unit file configuration settings, assigning an empty setting usually resets a
+            property to its defaults.</para>
+
+            <para>Example: <command>systemctl set-property avahi-daemon.service IPAddressDeny=</command></para>
           </listitem>
         </varlistentry>
 
