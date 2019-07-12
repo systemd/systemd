@@ -37,7 +37,7 @@ struct Manager {
         ResolveSupport mdns_support;
         DnssecMode dnssec_mode;
         DnsOverTlsMode dns_over_tls_mode;
-        bool enable_cache;
+        DnsCacheMode enable_cache;
         DnsStubListenerMode dns_stub_listener_mode;
 
 #if ENABLE_DNS_OVER_TLS
