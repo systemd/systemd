@@ -1676,9 +1676,8 @@ int cg_path_get_user_unit(const char *path, char **ret) {
         if (!t)
                 return -ENXIO;
 
-        /* And from here on it looks pretty much the same as for a
-         * system unit, hence let's use the same parser from here
-         * on. */
+        /* And from here on it looks pretty much the same as for a system unit, hence let's use the same
+         * parser. */
         return cg_path_get_unit(t, ret);
 }
 
