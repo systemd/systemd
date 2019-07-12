@@ -87,20 +87,31 @@ static bool press_any_key(void) {
 }
 
 static void print_welcome(void) {
-        _cleanup_free_ char *pretty_name = NULL;
+        _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
         static bool done = false;
+        const char *pn;
         int r;
 
         if (done)
                 return;
 
-        r = parse_os_release(arg_root, "PRETTY_NAME", &pretty_name, NULL);
+        r = parse_os_release(
+                        arg_root,
+                        "PRETTY_NAME", &pretty_name,
+                        "ANSI_COLOR", &ansi_color,
+                        NULL);
         if (r < 0)
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to read os-release file, ignoring: %m");
 
-        printf("\nWelcome to your new installation of %s!\nPlease configure a few basic system settings:\n\n",
-               isempty(pretty_name) ? "Linux" : pretty_name);
+        pn = isempty(pretty_name) ? "Linux" : pretty_name;
+
+        if (colors_enabled())
+                printf("\nWelcome to your new installation of \x1B[%sm%s\x1B[0m!\n", ansi_color, pn);
+        else
+                printf("\nWelcome to your new installation of %s!\n", pn);
+
+        printf("\nPlease configure your system!\n\n");
 
         press_any_key();
 
