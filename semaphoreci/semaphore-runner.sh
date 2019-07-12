@@ -8,9 +8,7 @@ RELEASE=${RELEASE:-buster}
 BRANCH=${BRANCH:-experimental}
 ARCH=${ARCH:-amd64}
 CONTAINER=${RELEASE}-${ARCH}
-MAX_CACHE_AGE=604800  # one week
 CACHE_DIR=${SEMAPHORE_CACHE_DIR:=/tmp}
-CACHE="${CACHE_DIR}/${CONTAINER}.img.tar.gz"
 AUTOPKGTEST_DIR="${CACHE_DIR}/autopkgtest"
 # semaphore cannot expose these, but useful for interactive/local runs
 ARTIFACTS_DIR=/tmp/artifacts
@@ -37,11 +35,9 @@ while [ -z "\$(ip route list 0/0)" ]; do sleep 1; done
 apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
 apt-get install -y eatmydata
+apt-get purge --auto-remove -y unattended-upgrades
 EOF
     sudo lxc-stop -n $CONTAINER
-
-    # cache it
-    sudo tar cpzf "$CACHE" /var/lib/lxc/$CONTAINER
 }
 
 for phase in "${PHASES[@]}"; do
@@ -58,12 +54,7 @@ for phase in "${PHASES[@]}"; do
 
             [ -d $AUTOPKGTEST_DIR ] || git clone --quiet --depth=1 https://salsa.debian.org/ci-team/autopkgtest.git "$AUTOPKGTEST_DIR"
 
-            # use cached container image, unless older than a week
-            if [ -e "$CACHE" ] && [ $(( $(date +%s) - $(stat -c %Y "$CACHE") )) -le $MAX_CACHE_AGE ]; then
-                sudo tar -C / -xpzf "$CACHE"
-            else
-                create_container
-            fi
+            create_container
         ;;
         RUN)
             # add current debian/ packaging
@@ -98,8 +89,7 @@ EOF
             # now build the package and run the tests
             rm -rf "$ARTIFACTS_DIR"
             # autopkgtest exits with 2 for "some tests skipped", accept that
-            $AUTOPKGTEST_DIR/runner/autopkgtest --apt-upgrade \
-                                                --env DEB_BUILD_OPTIONS=noudeb \
+            $AUTOPKGTEST_DIR/runner/autopkgtest --env DEB_BUILD_OPTIONS=noudeb \
                                                 --env TEST_UPSTREAM=1 ../systemd_*.dsc \
                                                 -o "$ARTIFACTS_DIR" \
                                                 -- lxc -s $CONTAINER \
