@@ -417,7 +417,7 @@ struct Manager {
         unsigned sigchldgen;
         unsigned notifygen;
 
-        bool honor_device_enumeration;
+        bool trust_device_enumeration;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {

@@ -185,7 +185,7 @@ static void device_catchup(Unit *u) {
 
         /* If we can't trust the device enumeration, simply restore the old flag if it was
          * previously set */
-        if (!m->honor_device_enumeration)
+        if (!m->trust_device_enumeration)
                 d->found |= d->deserialized_found & DEVICE_FOUND_UDEV;
 
         /* Let's update the state with the enumerated state if it's different */
@@ -870,12 +870,12 @@ static void device_enumerate(Manager *m) {
          * process. So in order to figure this out, we simply assume that if the DB is
          * fully populated, we should at least enumerate one device otherwise we consider
          * that the device enumeration hasn't happened yet hence we shouldn't trust it */
-        m->honor_device_enumeration = false;
+        m->trust_device_enumeration = false;
 
         FOREACH_DEVICE(e, dev) {
                 const char *sysfs;
 
-                m->honor_device_enumeration = true;
+                m->trust_device_enumeration = true;
 
                 if (!device_is_ready(dev))
                         continue;
