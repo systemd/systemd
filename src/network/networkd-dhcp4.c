@@ -75,8 +75,8 @@ static int route_scope_from_address(const Route *route, const struct in_addr *se
         assert(route);
         assert(self_addr);
 
-        if (in_addr_is_localhost(AF_INET, &route->dst) ||
-            (self_addr->s_addr && route->dst.in.s_addr == self_addr->s_addr))
+        if (in4_addr_is_localhost(&route->dst.in) ||
+            (!in4_addr_is_null(self_addr) && in4_addr_equal(&route->dst.in, self_addr)))
                 return RT_SCOPE_HOST;
         else if (in4_addr_is_null(&route->gw.in))
                 return RT_SCOPE_LINK;
@@ -153,8 +153,8 @@ static int link_set_dhcp_routes(Link *link) {
                 r = route_configure(route, link, dhcp4_route_handler);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set host route: %m");
-
-                link->dhcp4_messages++;
+                if (r > 0)
+                        link->dhcp4_messages++;
         }
 
         r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
@@ -192,8 +192,8 @@ static int link_set_dhcp_routes(Link *link) {
                 r = route_configure(route_gw, link, dhcp4_route_handler);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set host route: %m");
-
-                link->dhcp4_messages++;
+                if (r > 0)
+                        link->dhcp4_messages++;
 
                 r = route_new(&route);
                 if (r < 0)
@@ -209,8 +209,8 @@ static int link_set_dhcp_routes(Link *link) {
                 r = route_configure(route, link, dhcp4_route_handler);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set routes: %m");
-
-                link->dhcp4_messages++;
+                if (r > 0)
+                        link->dhcp4_messages++;
         }
 
         return 0;
@@ -460,8 +460,8 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
                 link_enter_failed(link);
                 return 1;
         }
-
-        manager_rtnl_process_address(rtnl, m, link->manager);
+        if (r >= 0)
+                manager_rtnl_process_address(rtnl, m, link->manager);
 
         r = link_set_dhcp_routes(link);
         if (r < 0) {

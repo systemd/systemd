@@ -408,9 +408,12 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
                 log_link_error_errno(link, r, "Could not set DHCPv6 address: %m");
 
                 link_enter_failed(link);
-
-        } else if (r >= 0)
+                return 1;
+        }
+        if (r >= 0)
                 manager_rtnl_process_address(rtnl, m, link->manager);
+
+        link_request_set_routes(link);
 
         return 1;
 }

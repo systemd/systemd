@@ -92,12 +92,19 @@ int in_addr_is_localhost(int family, const union in_addr_union *u) {
         return -EAFNOSUPPORT;
 }
 
+bool in4_addr_equal(const struct in_addr *a, const struct in_addr *b) {
+        assert(a);
+        assert(b);
+
+        return a->s_addr == b->s_addr;
+}
+
 int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_union *b) {
         assert(a);
         assert(b);
 
         if (family == AF_INET)
-                return a->in.s_addr == b->in.s_addr;
+                return in4_addr_equal(&a->in, &b->in);
 
         if (family == AF_INET6)
                 return
