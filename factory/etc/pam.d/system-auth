@@ -1,5 +1,8 @@
 # This file is part of systemd.
 
+# You really want to adjust this to your local distribution. If you use this
+# unmodified you are not building systems safely and securely.
+
 auth     sufficient pam_unix.so nullok try_first_pass
 auth     required   pam_deny.so
 
