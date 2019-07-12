@@ -29,6 +29,7 @@ static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata);
 static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask);
+static void device_found_changed(Device *d, DeviceFound previous, DeviceFound now);
 
 static void device_unset_sysfs(Device *d) {
         Hashmap *devices;
@@ -155,7 +156,6 @@ static int device_coldplug(Unit *u) {
 
         assert(d);
         assert(d->state == DEVICE_DEAD);
-        assert(d->found == DEVICE_NOT_FOUND);
 
         /* During the "coldplug" phase (called after the enumeration and deserialization
          * ones) no unit state change events are generated, thus the deserialized state
@@ -170,7 +170,6 @@ static int device_coldplug(Unit *u) {
             d->deserialized_found == DEVICE_NOT_FOUND)
                 return 0;
 
-        d->found = d->deserialized_found;
         device_set_state(d, d->deserialized_state);
         return 0;
 }
@@ -184,10 +183,10 @@ static void device_catchup(Unit *u) {
          * state will pull new deps if any */
 
         /* Let's update the state with the enumerated state if it's different */
-        if (d->enumerated_found == d->found)
+        if (d->found == d->deserialized_found)
                 return;
 
-        device_update_found_one(d, d->enumerated_found, DEVICE_FOUND_MASK);
+        device_found_changed(d, d->deserialized_found, d->found);
 }
 
 static const struct {
@@ -676,30 +675,23 @@ static void device_found_changed(Device *d, DeviceFound previous, DeviceFound no
 }
 
 static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
+        DeviceFound n;
         Manager *m;
 
         assert(d);
 
         m = UNIT(d)->manager;
 
-        if (MANAGER_IS_RUNNING(m) && (m->honor_device_enumeration || MANAGER_IS_USER(m))) {
-                DeviceFound n, previous;
+        n = (d->found & ~mask) | (found & mask);
+        if (n == d->found)
+                return;
 
-                /* When we are already running, then apply the new mask right-away, and trigger state changes
-                 * right-away */
+        if (MANAGER_IS_RUNNING(m) && (m->honor_device_enumeration || MANAGER_IS_USER(m)))
+                /* When we are already running, then apply the new mask right-away, and
+                 * trigger state changes right-away */
+                device_found_changed(d, d->found, n);
 
-                n = (d->found & ~mask) | (found & mask);
-                if (n == d->found)
-                        return;
-
-                previous = d->found;
-                d->found = n;
-
-                device_found_changed(d, previous, n);
-        } else
-                /* We aren't running yet, let's apply the new mask to the shadow variable instead, which we'll apply as
-                 * soon as we catch-up with the state. */
-                d->enumerated_found = (d->enumerated_found & ~mask) | (found & mask);
+        d->found = n;
 }
 
 static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFound found, DeviceFound mask) {

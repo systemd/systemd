@@ -27,7 +27,7 @@ struct Device {
         LIST_FIELDS(struct Device, same_sysfs);
 
         DeviceState state, deserialized_state;
-        DeviceFound found, deserialized_found, enumerated_found;
+        DeviceFound found, deserialized_found;
 
         bool bind_mounts;
 
