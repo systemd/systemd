@@ -1706,14 +1706,20 @@ test_setup_cleanup() {
 }
 
 _test_cleanup() {
-    if mountpoint $TESTDIR/root; then
-        ddebug "umount $TESTDIR/root"
-        umount $TESTDIR/root
-    fi
-    if [[ $LOOPDEV && -b $LOOPDEV ]]; then
-        ddebug "losetup -d $LOOPDEV"
-        losetup -d $LOOPDEV
-    fi
+    # (post-test) cleanup should always ignore failure and cleanup as much as possible
+    (
+        set +e
+        if mountpoint $TESTDIR/root; then
+            ddebug "umount $TESTDIR/root"
+            umount $TESTDIR/root
+        fi
+        if [[ $LOOPDEV && -b $LOOPDEV ]]; then
+            ddebug "losetup -d $LOOPDEV"
+            losetup -d $LOOPDEV
+        fi
+        rm -fr "$TESTDIR"
+        rm -f "$STATEFILE"
+    ) || true
 }
 
 # can be overridden in specific test
@@ -1787,22 +1793,16 @@ do_test() {
             --clean)
                 echo "TEST CLEANUP: $TEST_DESCRIPTION"
                 test_cleanup
-                rm -fr "$TESTDIR"
-                rm -f "$STATEFILE"
                 ;;
             --all)
                 ret=0
-                echo -n "TEST: $TEST_DESCRIPTION ";
+                echo -n "TEST: $TEST_DESCRIPTION "
                 (
                     test_setup
                     test_setup_cleanup
                     test_run
-                    ret=$?
-                    test_cleanup
-                    rm -fr "$TESTDIR"
-                    rm -f "$STATEFILE"
-                    exit $ret
                 ) </dev/null >"$TESTLOG" 2>&1 || ret=$?
+                test_cleanup
                 if [ $ret -eq 0 ]; then
                     rm "$TESTLOG"
                     echo "[OK]"

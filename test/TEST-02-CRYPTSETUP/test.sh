@@ -83,7 +83,8 @@ cleanup_root_var() {
 }
 
 test_cleanup() {
-    cleanup_root_var
+    # ignore errors, so cleanup can continue
+    cleanup_root_var || true
     _test_cleanup
 }
 
