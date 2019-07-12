@@ -78,27 +78,30 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
 }
 
 static void log_children_no_yet_killed(Set *pids) {
-        void *p;
-        Iterator i;
         _cleanup_free_ char *lst_child = NULL;
+        Iterator i;
+        void *p;
 
         SET_FOREACH(p, pids, i) {
                 _cleanup_free_ char *s = NULL;
 
-                if (get_process_comm(PTR_TO_PID(p), &s) == 0) {
-                        if (!strextend(&lst_child, ", ", s, NULL))
-                                break;
+                if (get_process_comm(PTR_TO_PID(p), &s) < 0)
+                        (void) asprintf(&s, PID_FMT, PTR_TO_PID(p));
+
+                if (!strextend(&lst_child, ", ", s, NULL)) {
+                        log_oom();
+                        return;
                 }
         }
 
-        if (!isempty(lst_child))
-                log_notice("Waiting for process:%s", lst_child + 1);
+        if (isempty(lst_child))
+                return;
+
+        log_warning("Waiting for process: %s", lst_child + 2);
 }
 
 static int wait_for_children(Set *pids, sigset_t *mask, usec_t timeout) {
-        usec_t until;
-        usec_t date_log_child;
-        usec_t n;
+        usec_t until, date_log_child, n;
 
         assert(mask);
 
