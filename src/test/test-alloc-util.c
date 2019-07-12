@@ -56,20 +56,20 @@ static void test_GREEDY_REALLOC(void) {
 }
 
 static void test_memdup_multiply_and_greedy_realloc(void) {
-        int org[] = {1, 2, 3};
+        static const int org[] = { 1, 2, 3 };
         _cleanup_free_ int *dup;
         int *p;
         size_t i, allocated = 3;
 
-        dup = (int*) memdup_suffix0_multiply(org, sizeof(int), 3);
+        dup = memdup_suffix0_multiply(org, sizeof(int), 3);
         assert_se(dup);
         assert_se(dup[0] == 1);
         assert_se(dup[1] == 2);
         assert_se(dup[2] == 3);
-        assert_se(*(uint8_t*) (dup + 3) == (uint8_t) 0);
+        assert_se(((uint8_t*) dup)[sizeof(int) * 3] == 0);
         free(dup);
 
-        dup = (int*) memdup_multiply(org, sizeof(int), 3);
+        dup = memdup_multiply(org, sizeof(int), 3);
         assert_se(dup);
         assert_se(dup[0] == 1);
         assert_se(dup[1] == 2);
