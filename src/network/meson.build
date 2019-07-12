@@ -114,6 +114,12 @@ systemd_networkd_wait_online_sources = files('''
 
 networkctl_sources = files('networkctl.c')
 
+network_generator_sources = files('''
+        generator/main.c
+        generator/network-generator.c
+        generator/network-generator.h
+'''.split())
+
 network_include_dir = include_directories('.')
 
 if conf.get('ENABLE_NETWORKD') == 1

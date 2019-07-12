@@ -2710,6 +2710,14 @@ if conf.get('ENABLE_NETWORKD') == 1
                    install : true,
                    install_dir : rootbindir)
         public_programs += exe
+
+        executable('systemd-network-generator',
+                   network_generator_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
 endif
 
 executable('systemd-sulogin-shell',
