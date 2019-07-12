@@ -3,3 +3,6 @@ Name=test1
 
 [Network]
 Bridge=bridge99
+
+[Bridge]
+Priority=0

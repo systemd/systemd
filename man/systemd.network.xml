@@ -1086,8 +1086,9 @@
         <varlistentry>
           <term><varname>Table=</varname></term>
           <listitem>
-            <para>Specifies the routing table identifier to lookup if the rule
-            selector matches. The table identifier for a route (a number between 1 and 4294967295).</para>
+            <para>Specifies the routing table identifier to lookup if the rule selector matches. Takes
+            one of <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>,
+            or a number between 1 and 4294967295. Defaults to <literal>main</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1232,7 +1233,11 @@
         <varlistentry>
           <term><varname>Type=</varname></term>
           <listitem>
-            <para>Specifies the type for the route. If <literal>unicast</literal>, a regular route is defined, i.e. a
+            <para>Specifies the type for the route. Takes one of <literal>unicast</literal>,
+            <literal>local</literal>, <literal>broadcast</literal>, <literal>anycast</literal>,
+            <literal>multicast</literal>, <literal>blackhole</literal>, <literal>unreachable</literal>,
+            <literal>prohibit</literal>, <literal>throw</literal>, <literal>nat</literal>, and
+            <literal>xresolve</literal>. If <literal>unicast</literal>, a regular route is defined, i.e. a
             route indicating the path to take to a destination network address. If <literal>blackhole</literal>, packets
             to the defined route are discarded silently. If <literal>unreachable</literal>, packets to the defined route
             are discarded and the ICMP message "Host Unreachable" is generated. If <literal>prohibit</literal>, packets

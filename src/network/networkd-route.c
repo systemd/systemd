@@ -12,7 +12,9 @@
 #include "networkd-route.h"
 #include "parse-util.h"
 #include "set.h"
+#include "string-table.h"
 #include "string-util.h"
+#include "strxcpyx.h"
 #include "sysctl-util.h"
 #include "util.h"
 
@@ -412,6 +414,29 @@ int route_remove(Route *route, Link *link,
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_DELROUTE message: %m");
 
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL;
+                char scope[ROUTE_SCOPE_STR_MAX], table[ROUTE_TABLE_STR_MAX], protocol[ROUTE_PROTOCOL_STR_MAX];
+
+                if (!in_addr_is_null(route->family, &route->dst)) {
+                        (void) in_addr_to_string(route->family, &route->dst, &dst);
+                        (void) asprintf(&dst_prefixlen, "/%u", route->dst_prefixlen);
+                }
+                if (!in_addr_is_null(route->family, &route->src))
+                        (void) in_addr_to_string(route->family, &route->src, &src);
+                if (!in_addr_is_null(route->family, &route->gw))
+                        (void) in_addr_to_string(route->family, &route->gw, &gw);
+                if (!in_addr_is_null(route->family, &route->prefsrc))
+                        (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
+
+                log_link_debug(link, "Removing route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
+                               strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
+                               format_route_scope(route->scope, scope, sizeof(scope)),
+                               format_route_table(route->table, table, sizeof(table)),
+                               format_route_protocol(route->protocol, protocol, sizeof(protocol)),
+                               strna(route_type_to_string(route->type)));
+        }
+
         if (in_addr_is_null(route->family, &route->gw) == 0) {
                 r = netlink_message_append_in_addr_union(req, RTA_GATEWAY, route->family, &route->gw);
                 if (r < 0)
@@ -513,6 +538,7 @@ int route_configure(
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL;
+                char scope[ROUTE_SCOPE_STR_MAX], table[ROUTE_TABLE_STR_MAX], protocol[ROUTE_PROTOCOL_STR_MAX];
 
                 if (!in_addr_is_null(route->family, &route->dst)) {
                         (void) in_addr_to_string(route->family, &route->dst, &dst);
@@ -525,8 +551,12 @@ int route_configure(
                 if (!in_addr_is_null(route->family, &route->prefsrc))
                         (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
 
-                log_link_debug(link, "Configuring route: dst: %s%s, src: %s, gw: %s, prefsrc: %s",
-                               strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc));
+                log_link_debug(link, "Configuring route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
+                               strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
+                               format_route_scope(route->scope, scope, sizeof(scope)),
+                               format_route_table(route->table, table, sizeof(table)),
+                               format_route_protocol(route->protocol, protocol, sizeof(protocol)),
+                               strna(route_type_to_string(route->type)));
         }
 
         r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
@@ -718,6 +748,8 @@ int network_add_ipv4ll_route(Network *network) {
         n->family = AF_INET;
         n->dst_prefixlen = 16;
         n->scope = RT_SCOPE_LINK;
+        n->scope_set = true;
+        n->table_set = true;
         n->priority = IPV4LL_ROUTE_METRIC;
         n->protocol = RTPROT_STATIC;
 
@@ -747,6 +779,88 @@ int network_add_default_route_on_device(Network *network) {
 
         TAKE_PTR(n);
         return 0;
+}
+
+static const char * const route_type_table[__RTN_MAX] = {
+        [RTN_UNICAST]     = "unicast",
+        [RTN_LOCAL]       = "local",
+        [RTN_BROADCAST]   = "broadcast",
+        [RTN_ANYCAST]     = "anycast",
+        [RTN_MULTICAST]   = "multicast",
+        [RTN_BLACKHOLE]   = "blackhole",
+        [RTN_UNREACHABLE] = "unreachable",
+        [RTN_PROHIBIT]    = "prohibit",
+        [RTN_THROW]       = "throw",
+        [RTN_NAT]         = "nat",
+        [RTN_XRESOLVE]    = "xresolve",
+};
+
+assert_cc(__RTN_MAX <= UCHAR_MAX);
+DEFINE_STRING_TABLE_LOOKUP(route_type, int);
+
+static const char * const route_scope_table[] = {
+        [RT_SCOPE_UNIVERSE] = "global",
+        [RT_SCOPE_SITE]     = "site",
+        [RT_SCOPE_LINK]     = "link",
+        [RT_SCOPE_HOST]     = "host",
+        [RT_SCOPE_NOWHERE]  = "nowhere",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_scope, int);
+
+const char *format_route_scope(int scope, char *buf, size_t size) {
+        const char *s;
+        char *p = buf;
+
+        s = route_scope_to_string(scope);
+        if (s)
+                strpcpy(&p, size, s);
+        else
+                strpcpyf(&p, size, "%d", scope);
+
+        return buf;
+}
+
+static const char * const route_table_table[] = {
+        [RT_TABLE_DEFAULT] = "default",
+        [RT_TABLE_MAIN]    = "main",
+        [RT_TABLE_LOCAL]   = "local",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_table, int);
+
+const char *format_route_table(int table, char *buf, size_t size) {
+        const char *s;
+        char *p = buf;
+
+        s = route_table_to_string(table);
+        if (s)
+                strpcpy(&p, size, s);
+        else
+                strpcpyf(&p, size, "%d", table);
+
+        return buf;
+}
+
+static const char * const route_protocol_table[] = {
+        [RTPROT_KERNEL] = "kernel",
+        [RTPROT_BOOT]   = "boot",
+        [RTPROT_STATIC] = "static",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_protocol, int);
+
+const char *format_route_protocol(int protocol, char *buf, size_t size) {
+        const char *s;
+        char *p = buf;
+
+        s = route_protocol_to_string(protocol);
+        if (s)
+                strpcpy(&p, size, s);
+        else
+                strpcpyf(&p, size, "%d", protocol);
+
+        return buf;
 }
 
 int config_parse_gateway(
@@ -948,17 +1062,14 @@ int config_parse_route_scope(
         if (r < 0)
                 return r;
 
-        if (streq(rvalue, "host"))
-                n->scope = RT_SCOPE_HOST;
-        else if (streq(rvalue, "link"))
-                n->scope = RT_SCOPE_LINK;
-        else if (streq(rvalue, "global"))
-                n->scope = RT_SCOPE_UNIVERSE;
-        else {
+        r = route_scope_from_string(rvalue);
+        if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Unknown route scope: %s", rvalue);
                 return 0;
         }
 
+        n->scope = r;
+        n->scope_set = true;
         TAKE_PTR(n);
         return 0;
 }
@@ -989,13 +1100,19 @@ int config_parse_route_table(
         if (r < 0)
                 return r;
 
-        r = safe_atou32(rvalue, &n->table);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Could not parse route table number \"%s\", ignoring assignment: %m", rvalue);
-                return 0;
+        r = route_table_from_string(rvalue);
+        if (r >= 0)
+                n->table = r;
+        else {
+                r = safe_atou32(rvalue, &n->table);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Could not parse route table number \"%s\", ignoring assignment: %m", rvalue);
+                        return 0;
+                }
         }
 
+        n->table_set = true;
         TAKE_PTR(n);
         return 0;
 }
@@ -1094,12 +1211,9 @@ int config_parse_route_protocol(
         if (r < 0)
                 return r;
 
-        if (streq(rvalue, "kernel"))
-                n->protocol = RTPROT_KERNEL;
-        else if (streq(rvalue, "boot"))
-                n->protocol = RTPROT_BOOT;
-        else if (streq(rvalue, "static"))
-                n->protocol = RTPROT_STATIC;
+        r = route_protocol_from_string(rvalue);
+        if (r >= 0)
+                n->protocol = r;
         else {
                 r = safe_atou8(rvalue , &n->protocol);
                 if (r < 0) {
@@ -1127,27 +1241,20 @@ int config_parse_route_type(
 
         Network *network = userdata;
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
-        int r;
+        int t, r;
 
         r = route_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return r;
 
-        if (streq(rvalue, "unicast"))
-                n->type = RTN_UNICAST;
-        else if (streq(rvalue, "blackhole"))
-                n->type = RTN_BLACKHOLE;
-        else if (streq(rvalue, "unreachable"))
-                n->type = RTN_UNREACHABLE;
-        else if (streq(rvalue, "prohibit"))
-                n->type = RTN_PROHIBIT;
-        else if (streq(rvalue, "throw"))
-                n->type = RTN_THROW;
-        else {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+        t = route_type_from_string(rvalue);
+        if (t < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
                            "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
+
+        n->type = (unsigned char) t;
 
         TAKE_PTR(n);
         return 0;
@@ -1364,6 +1471,18 @@ int route_section_verify(Route *route, Network *network) {
                                          "or PreferredSource= field configured. "
                                          "Ignoring [Route] section from line %u.",
                                          route->section->filename, route->section->line);
+        }
+
+        if (route->family != AF_INET6) {
+                if (!route->table_set && IN_SET(route->type, RTN_LOCAL, RTN_BROADCAST, RTN_ANYCAST, RTN_NAT))
+                        route->table = RT_TABLE_LOCAL;
+
+                if (!route->scope_set) {
+                        if (IN_SET(route->type, RTN_LOCAL, RTN_NAT))
+                                route->scope = RT_SCOPE_HOST;
+                        else if (IN_SET(route->type, RTN_BROADCAST, RTN_ANYCAST))
+                                route->scope = RT_SCOPE_LINK;
+                }
         }
 
         if (network->n_static_addresses == 0 &&
