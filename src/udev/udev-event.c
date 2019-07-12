@@ -156,6 +156,7 @@ static int get_subst_type(const char **str, bool strict, FormatSubstitutionType 
         assert(str);
         assert(*str);
         assert(ret_type);
+        assert(ret_attr);
 
         if (*p == '$') {
                 p++;

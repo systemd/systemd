@@ -1464,6 +1464,8 @@ static int attr_subst_subdir(char attr[static UTIL_PATH_SIZE]) {
         const char *tail;
         size_t len, size;
 
+        assert(attr);
+
         tail = strstr(attr, "/*/");
         if (!tail)
             return 0;

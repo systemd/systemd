@@ -1699,7 +1699,7 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
         return 0;
 }
 
-int setup_netns(int netns_storage_socket[static 2]) {
+int setup_netns(const int netns_storage_socket[static 2]) {
         _cleanup_close_ int netns = -1;
         int r, q;
 
@@ -1762,7 +1762,7 @@ fail:
         return r;
 }
 
-int open_netns_path(int netns_storage_socket[static 2], const char *path) {
+int open_netns_path(const int netns_storage_socket[static 2], const char *path) {
         _cleanup_close_ int netns = -1;
         int q, r;
 

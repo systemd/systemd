@@ -455,12 +455,13 @@ static int setup_input(
                 const ExecContext *context,
                 const ExecParameters *params,
                 int socket_fd,
-                int named_iofds[3]) {
+                const int named_iofds[static 3]) {
 
         ExecInput i;
 
         assert(context);
         assert(params);
+        assert(named_iofds);
 
         if (params->stdin_fd >= 0) {
                 if (dup2(params->stdin_fd, STDIN_FILENO) < 0)
@@ -570,7 +571,7 @@ static int setup_output(
                 const ExecParameters *params,
                 int fileno,
                 int socket_fd,
-                int named_iofds[3],
+                const int named_iofds[static 3],
                 const char *ident,
                 uid_t uid,
                 gid_t gid,
@@ -2721,9 +2722,7 @@ out:
 static void append_socket_pair(int *array, size_t *n, const int pair[static 2]) {
         assert(array);
         assert(n);
-
-        if (!pair)
-                return;
+        assert(pair);
 
         if (pair[0] >= 0)
                 array[(*n)++] = pair[0];
@@ -2914,7 +2913,7 @@ static int exec_child(
                 ExecRuntime *runtime,
                 DynamicCreds *dcreds,
                 int socket_fd,
-                int named_iofds[3],
+                const int named_iofds[static 3],
                 int *fds,
                 size_t n_socket_fds,
                 size_t n_storage_fds,
@@ -3782,7 +3781,7 @@ static int exec_child(
 }
 
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l);
-static int exec_context_named_iofds(const ExecContext *c, const ExecParameters *p, int named_iofds[3]);
+static int exec_context_named_iofds(const ExecContext *c, const ExecParameters *p, int named_iofds[static 3]);
 
 int exec_spawn(Unit *unit,
                ExecCommand *command,
@@ -4110,13 +4109,18 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index) {
         }
 }
 
-static int exec_context_named_iofds(const ExecContext *c, const ExecParameters *p, int named_iofds[static 3]) {
+static int exec_context_named_iofds(
+                const ExecContext *c,
+                const ExecParameters *p,
+                int named_iofds[static 3]) {
+
         size_t i, targets;
         const char* stdio_fdname[3];
         size_t n_fds;
 
         assert(c);
         assert(p);
+        assert(named_iofds);
 
         targets = (c->std_input == EXEC_INPUT_NAMED_FD) +
                   (c->std_output == EXEC_OUTPUT_NAMED_FD) +

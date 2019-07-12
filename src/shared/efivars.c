@@ -660,6 +660,8 @@ int efi_set_boot_order(uint16_t *order, size_t n) {
 static int boot_id_hex(const char s[static 4]) {
         int id = 0, i;
 
+        assert(s);
+
         for (i = 0; i < 4; i++)
                 if (s[i] >= '0' && s[i] <= '9')
                         id |= (s[i] - '0') << (3 - i) * 4;

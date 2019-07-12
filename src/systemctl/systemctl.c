@@ -3021,6 +3021,8 @@ static enum action verb_to_action(const char *verb) {
 static const char** make_extra_args(const char *extra_args[static 4]) {
         size_t n = 0;
 
+        assert(extra_args);
+
         if (arg_scope != UNIT_FILE_SYSTEM)
                 extra_args[n++] = "--user";
 
