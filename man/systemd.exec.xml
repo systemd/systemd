@@ -226,7 +226,12 @@
         specified user and group must have been created statically in the user database no later than the moment the
         service is started, for example using the
         <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> facility, which
-        is applied at boot or package install time.</para></listitem>
+        is applied at boot or package install time.</para>
+
+        <para>If the <varname>User=</varname> setting is used the supplementary group list is initialized
+        from the specified user's default group list, as defined in the system's user and group
+        database. Additional groups may be configured through the <varname>SupplementaryGroups=</varname>
+        setting (see below).</para></listitem>
       </varlistentry>
 
       <varlistentry>
