@@ -295,13 +295,11 @@ static void bump_sysctl_printk_log_level(int min_level) {
 }
 
 int main(int argc, char *argv[]) {
-        bool need_umount, need_swapoff, need_loop_detach, need_dm_detach;
-        bool in_container, use_watchdog = false, can_initrd;
+        bool need_umount, need_swapoff, need_loop_detach, need_dm_detach, in_container, use_watchdog = false, can_initrd;
         _cleanup_free_ char *cgroup = NULL;
-        char *arguments[3];
+        char *arguments[3], *watchdog_device;
         int cmd, r, umount_log_level = LOG_INFO;
         static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
-        char *watchdog_device;
 
         /* The log target defaults to console, but the original systemd process will pass its log target in through a
          * command line argument, which will override this default. Also, ensure we'll never log to the journal or
