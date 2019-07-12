@@ -258,7 +258,7 @@ static void sync_with_progress(void) {
 
 static int read_current_sysctl_printk_log_level(void) {
         _cleanup_free_ char *sysctl_printk_vals = NULL, *sysctl_printk_curr = NULL;
-        unsigned current_lvl = 0;
+        int current_lvl;
         const char *p;
         int r;
 
@@ -268,13 +268,14 @@ static int read_current_sysctl_printk_log_level(void) {
 
         p = sysctl_printk_vals;
         r = extract_first_word(&p, &sysctl_printk_curr, NULL, 0);
-        if (r > 0)
-                r = safe_atou(sysctl_printk_curr, &current_lvl);
-        else if (r == 0)
-                r = -EINVAL;
-
         if (r < 0)
-                return log_debug_errno(r, "Unexpected sysctl kernel.printk content: %s", sysctl_printk_vals);
+                return log_debug_errno(r, "Failed to split out kernel printk priority: %m");
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Short read while reading kernel.printk sysctl");
+
+        r = safe_atoi(sysctl_printk_curr, &current_lvl);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse kernel.printk sysctl: %s", sysctl_printk_vals);
 
         return current_lvl;
 }
