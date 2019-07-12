@@ -281,16 +281,17 @@ static int read_current_sysctl_printk_log_level(void) {
 }
 
 static void bump_sysctl_printk_log_level(int min_level) {
+        int current_lvl, r;
+
         /* Set the logging level to be able to see messages with log level smaller or equal to min_level */
 
-        int current_lvl = read_current_sysctl_printk_log_level();
-        if (current_lvl >= 0 && current_lvl <= min_level) {
-                char buf[DECIMAL_STR_MAX(int)];
-                xsprintf(buf, "%d", min_level + 1);
-                int r = sysctl_write("kernel/printk", buf);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to bump kernel.printk to %s: %m", buf);
-        }
+        current_lvl = read_current_sysctl_printk_log_level();
+        if (current_lvl < 0 || current_lvl >= min_level + 1)
+                return;
+
+        r = sysctl_writef("kernel/printk", "%i", min_level + 1);
+        if (r < 0)
+                log_debug_errno(r, "Failed to bump kernel.printk to %i: %m", min_level + 1);
 }
 
 int main(int argc, char *argv[]) {
