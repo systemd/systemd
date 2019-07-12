@@ -725,9 +725,16 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
         return ret;
 }
 
-static void advance_offsets(ssize_t diff, size_t offsets[static 2], size_t shift[static 2], size_t size) {
+static void advance_offsets(
+                ssize_t diff,
+                size_t offsets[2], /* note: we can't use [static 2] here, since this may be NULL */
+                size_t shift[static 2],
+                size_t size) {
+
         if (!offsets)
                 return;
+
+        assert(shift);
 
         if ((size_t) diff < offsets[0])
                 shift[0] += size;
@@ -844,8 +851,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
         fclose(f);
 
-        free(*ibuf);
-        *ibuf = obuf;
+        free_and_replace(*ibuf, obuf);
 
         if (_isz)
                 *_isz = osz;
@@ -855,7 +861,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 highlight[1] += shift[1];
         }
 
-        return obuf;
+        return *ibuf;
 }
 
 char *strextend_with_separator(char **x, const char *separator, ...) {
