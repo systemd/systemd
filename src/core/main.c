@@ -1072,25 +1072,15 @@ static void bump_file_max_and_nr_open(void) {
          * hard) the only ones that really matter. */
 
 #if BUMP_PROC_SYS_FS_FILE_MAX || BUMP_PROC_SYS_FS_NR_OPEN
-        _cleanup_free_ char *t = NULL;
         int r;
 #endif
 
 #if BUMP_PROC_SYS_FS_FILE_MAX
         /* The maximum the kernel allows for this since 5.2 is LONG_MAX, use that. (Previously thing where
          * different but the operation would fail silently.) */
-        if (asprintf(&t, "%li\n", LONG_MAX) < 0) {
-                log_oom();
-                return;
-        }
-
-        r = sysctl_write("fs/file-max", t);
+        r = sysctl_writef("fs/file-max", "%li\n", LONG_MAX);
         if (r < 0)
                 log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r, "Failed to bump fs.file-max, ignoring: %m");
-#endif
-
-#if BUMP_PROC_SYS_FS_FILE_MAX && BUMP_PROC_SYS_FS_NR_OPEN
-        t = mfree(t);
 #endif
 
 #if BUMP_PROC_SYS_FS_NR_OPEN
@@ -1122,13 +1112,7 @@ static void bump_file_max_and_nr_open(void) {
                         break;
                 }
 
-                if (asprintf(&t, "%i\n", v) < 0) {
-                        log_oom();
-                        return;
-                }
-
-                r = sysctl_write("fs/nr_open", t);
-                t = mfree(t);
+                r = sysctl_writef("fs/nr_open", "%i\n", v);
                 if (r == -EINVAL) {
                         log_debug("Couldn't write fs.nr_open as %i, halving it.", v);
                         v /= 2;
