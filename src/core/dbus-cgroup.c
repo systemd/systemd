@@ -10,6 +10,7 @@
 #include "cgroup.h"
 #include "dbus-cgroup.h"
 #include "dbus-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "limits-util.h"
@@ -1492,7 +1493,7 @@ int bus_cgroup_set_property(
 
                                 errno = 0;
                                 if (!inet_ntop(item->family, &item->address, buffer, sizeof(buffer)))
-                                        return errno > 0 ? -errno : -EINVAL;
+                                        return errno_or_else(EINVAL);
 
                                 fprintf(f, "%s=%s/%u\n", name, buffer, item->prefixlen);
                         }

@@ -11,6 +11,7 @@
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -625,7 +626,7 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
         errno = 0;
         n = fread(&success, 1, sizeof(success), f);
         if (n != sizeof(success))
-                return ret < 0 ? ret : (errno != 0 ? -errno : -EIO);
+                return ret < 0 ? ret : errno_or_else(EIO);
 
         if (ret < 0) {
                 _cleanup_free_ char *name = NULL;
@@ -669,7 +670,7 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
                 errno = 0;
                 n = fread(&size, 1, sizeof(size), f);
                 if (n != sizeof(size))
-                        return errno != 0 ? -errno : -EIO;
+                        return errno_or_else(EIO);
 
                 r = sd_bus_message_append(reply, "(st)", name, size);
                 if (r < 0)
@@ -914,8 +915,8 @@ static int method_map_from_machine_user(sd_bus_message *message, void *userdata,
                 if (k < 0 && feof(f))
                         break;
                 if (k != 3) {
-                        if (ferror(f) && errno > 0)
-                                return -errno;
+                        if (ferror(f))
+                                return errno_or_else(EIO);
 
                         return -EIO;
                 }
@@ -972,8 +973,8 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
                         if (k < 0 && feof(f))
                                 break;
                         if (k != 3) {
-                                if (ferror(f) && errno > 0)
-                                        return -errno;
+                                if (ferror(f))
+                                        return errno_or_else(EIO);
 
                                 return -EIO;
                         }
@@ -1036,8 +1037,8 @@ static int method_map_from_machine_group(sd_bus_message *message, void *groupdat
                 if (k < 0 && feof(f))
                         break;
                 if (k != 3) {
-                        if (ferror(f) && errno > 0)
-                                return -errno;
+                        if (ferror(f))
+                                return errno_or_else(EIO);
 
                         return -EIO;
                 }
@@ -1094,8 +1095,8 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
                         if (k < 0 && feof(f))
                                 break;
                         if (k != 3) {
-                                if (ferror(f) && errno > 0)
-                                        return -errno;
+                                if (ferror(f))
+                                        return errno_or_else(EIO);
 
                                 return -EIO;
                         }

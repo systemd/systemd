@@ -60,7 +60,7 @@ int probe_filesystem(const char *node, char **ret_fstype) {
         errno = 0;
         b = blkid_new_probe_from_filename(node);
         if (!b)
-                return -errno ?: -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         blkid_probe_enable_superblocks(b, 1);
         blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
@@ -76,7 +76,7 @@ int probe_filesystem(const char *node, char **ret_fstype) {
                 return -EUCLEAN;
         }
         if (r != 0)
-                return -errno ?: -EIO;
+                return errno_or_else(EIO);
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
 
@@ -333,7 +333,7 @@ int dissect_image(
         errno = 0;
         r = blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
-                return -errno ?: -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         if ((flags & DISSECT_IMAGE_GPT_ONLY) == 0) {
                 /* Look for file system superblocks, unless we only shall look for GPT partition tables */
@@ -349,7 +349,7 @@ int dissect_image(
         if (IN_SET(r, -2, 1))
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to identify any partition table.");
         if (r != 0)
-                return -errno ?: -EIO;
+                return errno_or_else(EIO);
 
         m = new0(DissectedImage, 1);
         if (!m)
@@ -415,7 +415,7 @@ int dissect_image(
         errno = 0;
         pl = blkid_probe_get_partitions(b);
         if (!pl)
-                return -errno ?: -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         r = loop_wait_for_partitions_to_appear(fd, d, blkid_partlist_numof_partitions(pl), flags, &e);
         if (r < 0)

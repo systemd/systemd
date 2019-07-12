@@ -999,12 +999,8 @@ static int get_supplementary_groups(const ExecContext *c, const char *user,
          */
         errno = 0;
         ngroups_max = (int) sysconf(_SC_NGROUPS_MAX);
-        if (ngroups_max <= 0) {
-                if (errno > 0)
-                        return -errno;
-                else
-                        return -EOPNOTSUPP; /* For all other values */
-        }
+        if (ngroups_max <= 0)
+                return errno_or_else(EOPNOTSUPP);
 
         l_gids = new(gid_t, ngroups_max);
         if (!l_gids)

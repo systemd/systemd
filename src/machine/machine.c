@@ -11,6 +11,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "env-file.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -620,7 +621,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
         if (k != 3) {
                 if (ferror(f))
-                        return -errno;
+                        return errno_or_else(EIO);
 
                 return -EBADMSG;
         }
@@ -651,7 +652,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         k = fscanf(f, GID_FMT " " GID_FMT " " GID_FMT "\n", &gid_base, &gid_shift, &gid_range);
         if (k != 3) {
                 if (ferror(f))
-                        return -errno;
+                        return errno_or_else(EIO);
 
                 return -EBADMSG;
         }

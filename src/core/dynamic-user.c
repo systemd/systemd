@@ -494,7 +494,7 @@ static int dynamic_user_realize(
                 errno = 0;
                 p = getpwuid(num);
                 if (!p)
-                        return errno > 0 ? -errno : -ESRCH;
+                        return errno_or_else(ESRCH);
 
                 gid = p->pw_gid;
         }

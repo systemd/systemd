@@ -17,6 +17,7 @@
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "limits-util.h"
 #include "logind.h"
@@ -191,7 +192,7 @@ int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user) {
         errno = 0;
         p = getpwuid(uid);
         if (!p)
-                return errno > 0 ? -errno : -ENOENT;
+                return errno_or_else(ENOENT);
 
         return manager_add_user(m, uid, p->pw_gid, p->pw_name, p->pw_dir, _user);
 }

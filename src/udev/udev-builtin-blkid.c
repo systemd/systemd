@@ -20,6 +20,7 @@
 #include "blkid-util.h"
 #include "device-util.h"
 #include "efivars.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "gpt.h"
 #include "parse-util.h"
@@ -113,7 +114,7 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
         errno = 0;
         pl = blkid_probe_get_partitions(pr);
         if (!pl)
-                return -errno ?: -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         nvals = blkid_partlist_numof_partitions(pl);
         for (i = 0; i < nvals; i++) {

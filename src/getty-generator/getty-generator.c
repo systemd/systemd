@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
@@ -94,7 +95,7 @@ static int verify_tty(const char *name) {
 
         errno = 0;
         if (isatty(fd) <= 0)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         return 0;
 }
