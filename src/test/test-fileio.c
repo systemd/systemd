@@ -427,7 +427,7 @@ static void test_write_string_file(void) {
 static void test_write_string_file_no_create(void) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-write_string_file_no_create-XXXXXX";
         _cleanup_close_ int fd;
-        char buf[64] = {0};
+        char buf[64] = {};
 
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
@@ -435,7 +435,7 @@ static void test_write_string_file_no_create(void) {
         assert_se(write_string_file("/a/file/which/does/not/exists/i/guess", "boohoo", 0) < 0);
         assert_se(write_string_file(fn, "boohoo", 0) == 0);
 
-        assert_se(read(fd, buf, sizeof(buf)) == STRLEN("boohoo\n"));
+        assert_se(read(fd, buf, sizeof buf) == (ssize_t) strlen("boohoo\n"));
         assert_se(streq(buf, "boohoo\n"));
 }
 

@@ -139,7 +139,7 @@ static void test_auto_erase_memory(void) {
         assert_se(p1 = new(uint8_t, 1024));
         assert_se(p2 = new(uint8_t, 1024));
 
-        genuine_random_bytes(p1, 1024, RANDOM_BLOCK);
+        assert_se(genuine_random_bytes(p1, 1024, RANDOM_BLOCK) == 0);
 
         /* before we exit the scope, do something with this data, so that the compiler won't optimize this away */
         memcpy(p2, p1, 1024);
