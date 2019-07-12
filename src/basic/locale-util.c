@@ -211,6 +211,25 @@ int get_locales(char ***ret) {
         if (!l)
                 return -ENOMEM;
 
+        r = getenv_bool("SYSTEMD_LIST_NON_UTF8_LOCALES");
+        if (r == -ENXIO || r == 0) {
+                char **a, **b;
+
+                /* Filter out non-UTF-8 locales, because it's 2019, by default */
+                for (a = b = l; *a; a++) {
+
+                        if (endswith(*a, "UTF-8") ||
+                            strstr(*a, ".UTF-8@"))
+                                *(b++) = *a;
+                        else
+                                free(*a);
+                }
+
+                *b = NULL;
+
+        } else if (r < 0)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_LIST_NON_UTF8_LOCALES as boolean");
+
         strv_sort(l);
 
         *ret = TAKE_PTR(l);
