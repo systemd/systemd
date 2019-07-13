@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2019-03-26 15:29+0000\n"
-"PO-Revision-Date: 2019-03-26 17:28+0100\n"
+"POT-Creation-Date: 2019-07-11 15:28+0000\n"
+"PO-Revision-Date: 2019-07-13 14:42+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -687,25 +687,25 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
 "czasu przez sieć."
 
-#: src/core/dbus-unit.c:325
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:326
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby zatrzymać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:327
+#: src/core/dbus-unit.c:355
 msgid "Authentication is required to reload '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie wczytać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:328 src/core/dbus-unit.c:329
+#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
 msgid "Authentication is required to restart '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:434
+#: src/core/dbus-unit.c:529
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -713,16 +713,24 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby wysłać sygnał uniksowy do procesów "
 "jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:465
+#: src/core/dbus-unit.c:560
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby przywrócić stan „failed” (niepowodzenia) "
 "jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:498
+#: src/core/dbus-unit.c:593
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić właściwości jednostki „$(unit)”."
+
+#: src/core/dbus-unit.c:702
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby usunąć pliki i katalogi powiązane "
+"z jednostką „$(unit)”."
 
 #~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 #~ msgstr ""
