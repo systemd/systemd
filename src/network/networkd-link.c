@@ -859,7 +859,6 @@ static int link_request_set_routing_policy_rule(Link *link) {
         assert(link);
         assert(link->network);
 
-        link_set_state(link, LINK_STATE_CONFIGURING);
         link->routing_policy_rules_configured = false;
 
         LIST_FOREACH(rules, rule, link->network->rules) {
@@ -884,8 +883,10 @@ static int link_request_set_routing_policy_rule(Link *link) {
         if (link->routing_policy_rule_messages == 0) {
                 link->routing_policy_rules_configured = true;
                 link_check_ready(link);
-        } else
+        } else {
                 log_link_debug(link, "Setting routing policy rules");
+                link_set_state(link, LINK_STATE_CONFIGURING);
+        }
 
         return 0;
 }
@@ -931,7 +932,6 @@ int link_request_set_routes(Link *link) {
         assert(link->address_messages == 0);
         assert(link->state != _LINK_STATE_INVALID);
 
-        link_set_state(link, LINK_STATE_CONFIGURING);
         link->static_routes_configured = false;
 
         r = link_request_set_routing_policy_rule(link);
@@ -958,8 +958,10 @@ int link_request_set_routes(Link *link) {
         if (link->route_messages == 0) {
                 link->static_routes_configured = true;
                 link_check_ready(link);
-        } else
+        } else {
                 log_link_debug(link, "Setting routes");
+                link_set_state(link, LINK_STATE_CONFIGURING);
+        }
 
         return 0;
 }
@@ -1033,7 +1035,6 @@ static int link_request_set_neighbors(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
-        link_set_state(link, LINK_STATE_CONFIGURING);
         link->neighbors_configured = false;
 
         LIST_FOREACH(neighbors, neighbor, link->network->neighbors) {
@@ -1048,8 +1049,10 @@ static int link_request_set_neighbors(Link *link) {
         if (link->neighbor_messages == 0) {
                 link->neighbors_configured = true;
                 link_check_ready(link);
-        } else
+        } else {
                 log_link_debug(link, "Setting neighbors");
+                link_set_state(link, LINK_STATE_CONFIGURING);
+        }
 
         return 0;
 }
@@ -1107,8 +1110,6 @@ static int link_request_set_addresses(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
-        link_set_state(link, LINK_STATE_CONFIGURING);
-
         /* Reset all *_configured flags we are configuring. */
         link->addresses_configured = false;
         link->addresses_ready = false;
@@ -1164,8 +1165,10 @@ static int link_request_set_addresses(Link *link) {
         if (link->address_messages == 0) {
                 link->addresses_configured = true;
                 link_check_ready(link);
-        } else
+        } else {
                 log_link_debug(link, "Setting addresses");
+                link_set_state(link, LINK_STATE_CONFIGURING);
+        }
 
         return 0;
 }
@@ -2009,6 +2012,7 @@ static int link_joined(Link *link) {
         if (!link_has_carrier(link) && !link->network->configure_without_carrier)
                 return 0;
 
+        link_set_state(link, LINK_STATE_CONFIGURING);
         return link_request_set_addresses(link);
 }
 
@@ -3117,6 +3121,7 @@ static int link_carrier_gained(Link *link) {
                         return r;
                 }
 
+                link_set_state(link, LINK_STATE_CONFIGURING);
                 r = link_request_set_addresses(link);
                 if (r < 0)
                         return r;
