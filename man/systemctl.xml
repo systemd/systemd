@@ -810,6 +810,9 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             pattern. In addition, in case of instantiated units, systemd is often unaware of the instance name until
             the instance has been started. Therefore, using glob patterns with <command>start</command> has limited
             usefulness. Also, secondary alias names of units are not considered.</para>
+
+            <para>Also note that starting multiple units in a single <command>systemctl</command> command are not
+            handled in a single transaction. Please see the "Parameter Syntax" section below for details.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -818,6 +821,9 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           <listitem>
             <para>Stop (deactivate) one or more units specified on the
             command line.</para>
+
+            <para>Note that stopping multiple units in a single <command>systemctl</command> command are not
+            handled in a single transaction. Please see the "Parameter Syntax" section below for details.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -855,6 +861,9 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             no jobs are pending anymore. If it is intended that the file descriptor store is flushed out, too, during a
             restart operation an explicit <command>systemctl stop</command> command followed by <command>systemctl
             start</command> should be issued.</para>
+
+            <para>Also note that restarting multiple units in a single <command>systemctl</command> command are not
+            handled in a single transaction. Please see the "Parameter Syntax" section below for details.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -2023,6 +2032,20 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       <programlisting># systemctl enable foo.service</programlisting>
       or
       <programlisting># systemctl link /path/to/foo.service</programlisting>
+      </para>
+
+      <para>For the use of operating multiple units, please note that the units are operated independently instead of
+      operated in a single transaction. For example, we have 2 service units: <filename>first.service</filename> and
+      <filename>second.service</filename>, and <varname>After=first.service</varname> is configured in
+      <filename>second.service</filename> while no requirement dependencies are specified between them. Then
+      <programlisting># systemctl start second first</programlisting>
+      is equivalent to
+      <programlisting># systemctl start second &amp;&amp; systemctl start first</programlisting>
+      in respect to ordering. In other words, <command>systemctl</command> will start
+      <filename>second.service</filename> immediately without knowing <filename>first.service</filename> is also going
+      to be started. Then <command>systemctl</command> will start <filename>first.service</filename>. Since
+      <filename>second.service</filename> is already running/activating, there's nothing the <varname>After=</varname>
+      dependency could affect.
       </para>
     </refsect2>
 
