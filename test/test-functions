@@ -642,7 +642,7 @@ strip_binaries() {
     ddebug "Strip binaries"
     find "$initdir" -executable -not -path '*/lib/modules/*.ko' -type f | \
         xargs strip --strip-unneeded |& \
-        grep -v 'file format not recognized' | \
+        grep -vi 'file format not recognized' | \
         ddebug
 }
 
