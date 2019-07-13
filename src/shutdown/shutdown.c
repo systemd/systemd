@@ -258,7 +258,7 @@ static void sync_with_progress(void) {
 
 static int read_current_sysctl_printk_log_level(void) {
         _cleanup_free_ char *sysctl_printk_vals = NULL, *sysctl_printk_curr = NULL;
-        unsigned current_lvl = 0;
+        int current_lvl;
         const char *p;
         int r;
 
@@ -268,38 +268,38 @@ static int read_current_sysctl_printk_log_level(void) {
 
         p = sysctl_printk_vals;
         r = extract_first_word(&p, &sysctl_printk_curr, NULL, 0);
-        if (r > 0)
-                r = safe_atou(sysctl_printk_curr, &current_lvl);
-        else if (r == 0)
-                r = -EINVAL;
-
         if (r < 0)
-                return log_debug_errno(r, "Unexpected sysctl kernel.printk content: %s", sysctl_printk_vals);
+                return log_debug_errno(r, "Failed to split out kernel printk priority: %m");
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Short read while reading kernel.printk sysctl");
+
+        r = safe_atoi(sysctl_printk_curr, &current_lvl);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse kernel.printk sysctl: %s", sysctl_printk_vals);
 
         return current_lvl;
 }
 
 static void bump_sysctl_printk_log_level(int min_level) {
+        int current_lvl, r;
+
         /* Set the logging level to be able to see messages with log level smaller or equal to min_level */
 
-        int current_lvl = read_current_sysctl_printk_log_level();
-        if (current_lvl >= 0 && current_lvl <= min_level) {
-                char buf[DECIMAL_STR_MAX(int)];
-                xsprintf(buf, "%d", min_level + 1);
-                int r = sysctl_write("kernel/printk", buf);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to bump kernel.printk to %s: %m", buf);
-        }
+        current_lvl = read_current_sysctl_printk_log_level();
+        if (current_lvl < 0 || current_lvl >= min_level + 1)
+                return;
+
+        r = sysctl_writef("kernel/printk", "%i", min_level + 1);
+        if (r < 0)
+                log_debug_errno(r, "Failed to bump kernel.printk to %i: %m", min_level + 1);
 }
 
 int main(int argc, char *argv[]) {
-        bool need_umount, need_swapoff, need_loop_detach, need_dm_detach;
-        bool in_container, use_watchdog = false, can_initrd;
+        bool need_umount, need_swapoff, need_loop_detach, need_dm_detach, in_container, use_watchdog = false, can_initrd;
         _cleanup_free_ char *cgroup = NULL;
-        char *arguments[3];
+        char *arguments[3], *watchdog_device;
         int cmd, r, umount_log_level = LOG_INFO;
         static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
-        char *watchdog_device;
 
         /* The log target defaults to console, but the original systemd process will pass its log target in through a
          * command line argument, which will override this default. Also, ensure we'll never log to the journal or
@@ -342,15 +342,17 @@ int main(int argc, char *argv[]) {
         (void) cg_get_root_path(&cgroup);
         in_container = detect_container() > 0;
 
-        /* If the logging messages are going to KMSG, and if we are not running from a container,
-         * then try to update the sysctl kernel.printk current value in order to see "info" messages;
-         * This current log level is not updated if already big enough.
+        /* If the logging messages are going to KMSG, and if we are not running from a container, then try to
+         * update the sysctl kernel.printk current value in order to see "info" messages; This current log
+         * level is not updated if already big enough.
          */
-        if (!in_container && IN_SET(log_get_target(), LOG_TARGET_AUTO,
-                                                      LOG_TARGET_JOURNAL_OR_KMSG,
-                                                      LOG_TARGET_SYSLOG_OR_KMSG,
-                                                      LOG_TARGET_KMSG))
-                bump_sysctl_printk_log_level(LOG_INFO);
+        if (!in_container &&
+            IN_SET(log_get_target(),
+                   LOG_TARGET_AUTO,
+                   LOG_TARGET_JOURNAL_OR_KMSG,
+                   LOG_TARGET_SYSLOG_OR_KMSG,
+                   LOG_TARGET_KMSG))
+                bump_sysctl_printk_log_level(LOG_WARNING);
 
         use_watchdog = getenv("WATCHDOG_USEC");
         watchdog_device = getenv("WATCHDOG_DEVICE");
