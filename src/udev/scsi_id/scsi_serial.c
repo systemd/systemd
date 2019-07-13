@@ -400,6 +400,9 @@ static int append_vendor_model(
                 const struct scsi_id_device *dev_scsi,
                 char buf[static VENDOR_LENGTH + MODEL_LENGTH]) {
 
+        assert(dev_scsi);
+        assert(buf);
+
         if (strnlen(dev_scsi->vendor, VENDOR_LENGTH) != VENDOR_LENGTH)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: bad vendor string \"%s\"",
