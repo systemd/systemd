@@ -385,7 +385,6 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
                 if (!t)
                         return log_oom();
 
-
                 ts = strv_split_newlines(t);
                 if (!ts)
                         return log_oom();
@@ -393,7 +392,6 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
                 t2 = strv_join(ts, "\n              ");
                 if (!t2)
                         return log_oom();
-
 
                 printf("      options: %s\n", t2);
         }

@@ -431,7 +431,6 @@ static int output_short(
         if (priority_len == 1 && *priority >= '0' && *priority <= '7')
                 p = *priority - '0';
 
-
         audit = streq_ptr(transport, "audit");
 
         if (mode == OUTPUT_SHORT_MONOTONIC)

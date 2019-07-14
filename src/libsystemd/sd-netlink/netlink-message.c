@@ -402,7 +402,6 @@ int sd_netlink_message_append_sockaddr_in6(sd_netlink_message *m, unsigned short
         return netlink_message_append_sockaddr_union(m, type, (const union sockaddr_union *) data);
 }
 
-
 int sd_netlink_message_append_ether_addr(sd_netlink_message *m, unsigned short type, const struct ether_addr *data) {
         int r;
 

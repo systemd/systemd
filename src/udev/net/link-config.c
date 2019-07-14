@@ -385,7 +385,6 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (r < 0)
                 return log_device_warning_errno(device, r, "Could not find ifindex: %m");
 
-
         (void) link_unsigned_attribute(device, "name_assign_type", &name_type);
 
         if (IN_SET(name_type, NET_NAME_USER, NET_NAME_RENAMED)

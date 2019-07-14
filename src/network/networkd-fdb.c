@@ -349,7 +349,6 @@ int config_parse_fdb_vxlan_vni(
         return 0;
 }
 
-
 int config_parse_fdb_ntf_flags(
                 const char *unit,
                 const char *filename,

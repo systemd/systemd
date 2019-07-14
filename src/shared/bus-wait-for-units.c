@@ -366,7 +366,6 @@ int bus_wait_for_units_add_unit(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add reference to unit %s: %m", unit);
 
-
                 item->flags |= BUS_WAIT_REFFED;
         }
 

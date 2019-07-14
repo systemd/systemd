@@ -31,7 +31,6 @@
 
 #define RULES_DIRS (const char* const*) CONF_PATHS_STRV("udev/rules.d")
 
-
 typedef enum {
         OP_MATCH,        /* == */
         OP_NOMATCH,      /* != */
@@ -175,7 +174,6 @@ struct UdevRules {
         UdevRuleFile *current_file;
         LIST_HEAD(UdevRuleFile, rule_files);
 };
-
 
 /*** Logging helpers ***/
 

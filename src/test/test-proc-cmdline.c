@@ -170,7 +170,6 @@ static void test_proc_cmdline_get_key_many(void) {
                                             "doubleticks", &value6,
                                             "zummm", &value7) == 5);
 
-
         assert_se(streq_ptr(value1, "quux"));
         assert_se(!value2);
         assert_se(streq_ptr(value3, "tuet"));

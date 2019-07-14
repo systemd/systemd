@@ -890,7 +890,6 @@ int bus_message_new_synthetic_error(
         return 0;
 }
 
-
 _public_ sd_bus_message* sd_bus_message_ref(sd_bus_message *m) {
         if (!m)
                 return NULL;
