@@ -54,7 +54,6 @@ int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret);
 #define SD_ID128_MAKE(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15) \
         ((const sd_id128_t) SD_ID128_ARRAY(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15))
 
-
 /* Note that SD_ID128_FORMAT_VAL will evaluate the passed argument 16
  * times. It is hence not a good idea to call this macro with an
  * expensive function as parameter or an expression with side

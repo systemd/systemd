@@ -4673,7 +4673,6 @@ static int map_conditions(sd_bus *bus, const char *member, sd_bus_message *m, sd
                 if (!c->name || !c->param)
                         return -ENOMEM;
 
-
                 LIST_PREPEND(conditions, i->conditions, TAKE_PTR(c));
         }
         if (r < 0)

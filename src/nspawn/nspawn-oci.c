@@ -273,7 +273,6 @@ static int oci_rlimits(const char *name, JsonVariant *v, JsonDispatchFlags flags
                         {}
                 };
 
-
                 r = json_dispatch(e, table, oci_unexpected, flags, &data);
                 if (r < 0)
                         return r;

@@ -309,7 +309,6 @@ static int bus_socket_set_transient_property(
                                                       &s->exec_command[ci],
                                                       message, flags, error);
 
-
         if (streq(name, "Symlinks")) {
                 _cleanup_strv_free_ char **l = NULL;
                 char **p;

@@ -182,7 +182,6 @@ static inline NetDevCreateType netdev_get_create_type(NetDev *netdev) {
         return NETDEV_VTABLE(netdev)->create_type;
 }
 
-
 CONFIG_PARSER_PROTOTYPE(config_parse_netdev_kind);
 
 /* gperf */

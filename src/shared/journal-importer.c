@@ -23,7 +23,6 @@ enum {
         IMPORTER_STATE_EOF,         /* done */
 };
 
-
 void journal_importer_cleanup(JournalImporter *imp) {
         if (imp->fd >= 0 && !imp->passive_fd) {
                 log_debug("Closing %s (fd=%d)", imp->name ?: "importer", imp->fd);

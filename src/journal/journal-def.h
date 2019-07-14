@@ -101,7 +101,6 @@ struct EntryObject EntryObject__contents;
 struct EntryObject__packed EntryObject__contents _packed_;
 assert_cc(sizeof(struct EntryObject) == sizeof(struct EntryObject__packed));
 
-
 struct HashItem {
         le64_t head_hash_offset;
         le64_t tail_hash_offset;

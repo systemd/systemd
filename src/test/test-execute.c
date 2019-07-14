@@ -747,7 +747,6 @@ static int run_tests(UnitFileScope scope, const test_entry tests[], char **patte
         return 0;
 }
 
-
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_free_ char *test_execute_path = NULL;

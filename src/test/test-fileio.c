@@ -629,7 +629,6 @@ static void test_tempfn(void) {
 static const char chars[] =
         "Aąę„”\n루\377";
 
-
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wtype-limits"
 

@@ -1874,7 +1874,6 @@ fail:
         return r;
 }
 
-
 void varlink_detach_event(Varlink *v) {
         if (!v)
                 return;

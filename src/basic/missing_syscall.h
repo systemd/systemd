@@ -470,7 +470,6 @@ static inline long missing_set_mempolicy(int mode, const unsigned long *nodemask
 #  define set_mempolicy missing_set_mempolicy
 #endif
 
-
 #if !HAVE_GET_MEMPOLICY
 static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
                            unsigned long maxnode, void *addr,

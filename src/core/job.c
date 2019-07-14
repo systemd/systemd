@@ -1554,7 +1554,6 @@ int job_get_after(Job *j, Job*** ret) {
                 list[n++] = other->job;
         }
 
-
         HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i) {
                 if (!other->job)
                         continue;
