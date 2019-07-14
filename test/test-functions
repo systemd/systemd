@@ -486,8 +486,7 @@ install_fsck() {
 
 install_dmevent() {
     instmods dm_crypt =crypto
-    type -P dmeventd >/dev/null && dracut_install dmeventd
-    inst_libdir_file "libdevmapper-event.so*"
+    inst_binary dmeventd
     if [[ "$LOOKS_LIKE_DEBIAN" ]]; then
         # dmsetup installs 55-dm and 60-persistent-storage-dm on Debian/Ubuntu
         # and since buster/bionic 95-dm-notify.rules
@@ -1651,32 +1650,6 @@ instmods() {
     _ret=$?
     set +o pipefail
     return $_ret
-}
-
-# inst_libdir_file [-n <pattern>] <file> [<file>...]
-# Install a <file> located on a lib directory to the initramfs image
-# -n <pattern> install non-matching files
-inst_libdir_file() {
-    if [[ "$1" == "-n" ]]; then
-        local _pattern=$1
-        shift 2
-        for _dir in $libdirs; do
-            for _i in "$@"; do
-                for _f in "$_dir"/$_i; do
-                    [[ "$_i" =~ $_pattern ]] || continue
-                    [[ -e "$_i" ]] && dracut_install "$_i"
-                done
-            done
-        done
-    else
-        for _dir in $libdirs; do
-            for _i in "$@"; do
-                for _f in "$_dir"/$_i; do
-                    [[ -e "$_f" ]] && dracut_install "$_f"
-                done
-            done
-        done
-    fi
 }
 
 setup_suse() {
