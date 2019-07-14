@@ -408,8 +408,11 @@ static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, 
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
+        if (r < 0 && r != -EEXIST) {
                 log_link_warning_errno(link, r, "Could not add routing policy rule: %m");
+                link_enter_failed(link);
+                return 1;
+        }
 
         if (link->routing_policy_rule_messages == 0) {
                 log_link_debug(link, "Routing policy rule configured");

@@ -67,6 +67,7 @@ static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
         if (r < 0 && r != -EEXIST) {
                 log_link_error_errno(link, r, "could not set ipv4ll route: %m");
                 link_enter_failed(link);
+                return 1;
         }
 
         link->ipv4ll_route = true;
@@ -103,8 +104,9 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         if (r < 0 && r != -EEXIST) {
                 log_link_error_errno(link, r, "could not set ipv4ll address: %m");
                 link_enter_failed(link);
+                return 1;
         } else if (r >= 0)
-                manager_rtnl_process_address(rtnl, m, link->manager);
+                (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
         link->ipv4ll_address = true;
 
