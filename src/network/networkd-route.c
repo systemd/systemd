@@ -848,13 +848,38 @@ static const char * const route_protocol_table[] = {
         [RTPROT_STATIC] = "static",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_protocol, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(route_protocol, int);
+
+static const char * const route_protocol_full_table[] = {
+        [RTPROT_REDIRECT] = "redirect",
+        [RTPROT_KERNEL]   = "kernel",
+        [RTPROT_BOOT]     = "boot",
+        [RTPROT_STATIC]   = "static",
+        [RTPROT_GATED]    = "gated",
+        [RTPROT_RA]       = "ra",
+        [RTPROT_MRT]      = "mrt",
+        [RTPROT_ZEBRA]    = "zebra",
+        [RTPROT_BIRD]     = "bird",
+        [RTPROT_DNROUTED] = "dnrouted",
+        [RTPROT_XORP]     = "xorp",
+        [RTPROT_NTK]      = "ntk",
+        [RTPROT_DHCP]     = "dhcp",
+        [RTPROT_MROUTED]  = "mrouted",
+        [RTPROT_BABEL]    = "babel",
+        [RTPROT_BGP]      = "bgp",
+        [RTPROT_ISIS]     = "isis",
+        [RTPROT_OSPF]     = "ospf",
+        [RTPROT_RIP]      = "rip",
+        [RTPROT_EIGRP]    = "eigrp",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(route_protocol_full, int);
 
 const char *format_route_protocol(int protocol, char *buf, size_t size) {
         const char *s;
         char *p = buf;
 
-        s = route_protocol_to_string(protocol);
+        s = route_protocol_full_to_string(protocol);
         if (s)
                 strpcpy(&p, size, s);
         else
