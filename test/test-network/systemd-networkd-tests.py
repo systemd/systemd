@@ -2233,6 +2233,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-use-dns-ipv4.network',
         'dhcp-client-use-dns-no.network',
         'dhcp-client-use-dns-yes.network',
+        'dhcp-client-use-domains.network',
         'dhcp-client-use-routes-no.network',
         'dhcp-client-vrf.network',
         'dhcp-client-with-ipv4ll-fallback-with-dhcp-server.network',
@@ -2241,6 +2242,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client.network',
         'dhcp-server-veth-peer.network',
         'dhcp-v4-server-veth-peer.network',
+        'dhcp-client-use-domains.network',
         'static.network']
 
     def setUp(self):
@@ -2859,6 +2861,23 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '192.168.5.1')
         self.assertRegex(output, '2600::1')
+
+    def test_dhcp_client_use_domains(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-domains.network')
+
+        start_networkd()
+        wait_online(['veth-peer:carrier'])
+        start_dnsmasq('--dhcp-option=option:domain-search,example.com')
+        wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output(*networkctl_cmd, 'status', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, 'Search Domains: example.com')
+
+        time.sleep(3)
+        output = check_output(*resolvectl_cmd, 'domain', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, 'example.com')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
