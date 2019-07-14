@@ -1587,7 +1587,7 @@ instmods() {
                     | instmods
                 else
                     ( [[ "$_mpargs" ]] && echo $_mpargs
-                      find "$KERNEL_MODS" -path "*/${_mod#=}/*" -printf '%f\n' ) \
+                      find "$KERNEL_MODS" -path "*/${_mod#=}/*" -type f -printf '%f\n' ) \
                     | instmods
                 fi
                 ;;
