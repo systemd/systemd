@@ -119,7 +119,7 @@ CHANGES WITH 243 in spe:
           policy.
 
         * PID 1 will now listen to Out-Of-Memory (OOM) events the kernel
-          generates when processes it manages a reaching their memory limits,
+          generates when processes it manages are reaching their memory limits,
           and will place their units in a special state, and optionally kill or
           stop the whole unit.
 
@@ -200,7 +200,7 @@ CHANGES WITH 243 in spe:
           seperately in the [DHCPv4] and [DHCPv6] sections.
 
         * systemd-networkd's VXLAN support gained a new option
-          GenericProtocolExtension= for enabling XVLAN Generic Protocol
+          GenericProtocolExtension= for enabling VXLAN Generic Protocol
           Extension support, as well as IPDoNotFragment= for setting the IP
           "Don't fragment" bit on outgoing packets. A similar option has been
           added to the GENEVE support.
@@ -259,7 +259,7 @@ CHANGES WITH 243 in spe:
           devices securely with strict requirements on session
           membership. Desktop environments may use this to generically make
           brightness changes to such devices without shipping private SUID
-          binaries for that purpose.
+          binaries or specific udev rules for that purpose.
 
         * "udevadm info" gained a --wait-for-initialization switch to wait for
           a device to be initialized.
