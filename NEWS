@@ -35,13 +35,17 @@ CHANGES WITH 243 in spe:
           are harder to type, but we believe the change from 5 digit PIDs to 7
           digit PIDs is not too hampering for usability.
 
-        * MemoryLow and MemoryMin gained hierarchy-aware counterparts,
-          DefaultMemoryLow and DefaultMemoryMin, which can be used to
+        * MemoryLow= and MemoryMin= gained hierarchy-aware counterparts,
+          DefaultMemoryLow= and DefaultMemoryMin=, which can be used to
           hierarchically set default memory protection values for a particular
           subtree of the unit hierarchy.
 
         * Memory protection directives can now take a value of zero, allowing
           explicit opting out of a default value propagated by an ancestor.
+
+        * A new setting DisableControllers= has been added that may be used to
+          explicitly disable one or more cgroups controllers for a unit and all
+          its children.
 
         * systemd now defaults to the "unified" cgroup hierarchy setup during
           build-time, i.e. -Ddefault-hierarchy=unified is now the build-time
@@ -73,23 +77,23 @@ CHANGES WITH 243 in spe:
         * libidn2 is used by default if both libidn2 and libidn are installed.
           Please use -Dlibidn=true when libidn is favorable.
 
-        * The D-Bus "wire format" for CPUAffinity attribute is changed on
+        * The D-Bus "wire format" of the CPUAffinity= attribute is changed on
           big-endian machines. Before, bytes were written and read in native
           machine order as exposed by the native libc __cpu_mask interface.
           Now, little-endian order is always used (CPUs 0–7 are described by
           bits 0–7 in byte 0, CPUs 8–15 are described by byte 1, and so on).
           This change fixes D-Bus calls that cross endianness boundary.
 
-          The presentation format used for CPUAffinity by systemctl show and
-          systemd-analyze dump is changed to present CPU indices instead of the
-          raw __cpu_mask bitmask. For example, CPUAffinity=0-1 would be shown
-          as CPUAffinity=03000000000000000000000000000… (on little-endian) or
-          CPUAffinity=00000000000000300000000000000… (on 64-bit big-endian),
-          and is now shown as CPUAffinity=0-1, matching the input format. The
-          maximum integer that will be printed in new format is 8191 (four
-          digits), while the old format always used a very long number (with
-          the length varying by architecture), so they can be unambiguously
-          distinguished.
+          The presentation format used for CPUAffinity= by "systemctl show" and
+          "systemd-analyze dump" is changed to present CPU indices instead of
+          the raw __cpu_mask bitmask. For example, CPUAffinity=0-1 would be
+          shown as CPUAffinity=03000000000000000000000000000… (on
+          little-endian) or CPUAffinity=00000000000000300000000000000… (on
+          64-bit big-endian), and is now shown as CPUAffinity=0-1, matching the
+          input format. The maximum integer that will be printed in the new
+          format is 8191 (four digits), while the old format always used a very
+          long number (with the length varying by architecture), so they can be
+          unambiguously distinguished.
 
         * /usr/sbin/halt.local is no longer supported. Implementation in
           distributions was inconsistent and it seems this functionality was
@@ -113,6 +117,179 @@ CHANGES WITH 243 in spe:
           overridden on per-service basis. Related setting NUMAMask= is used to
           specify NUMA node mask that should be associated with the selected
           policy.
+
+        * PID 1 will now listen to Out-Of-Memory (OOM) events the kernel
+          generates when processes it manages a reaching their memory limits,
+          and will place their units in a special state, and optionally kill or
+          stop the whole unit.
+
+        * The service manager will now expose bus properties for the IO
+          resources used by units. This information is also shown in "systemctl
+          status" now (for services that have IOAccounting=yes set). Moreover,
+          the IO accounting data is included in the resource log message
+          generated whenever a unit stops.
+
+        * units may now configure an explicit time-out to apply to when killed
+          with SIGABRT, for example when a service watchdog is hit. Previously,
+          the regular TimeoutStopSec= time-out was applied in this case too —
+          now a separate time-out may be set using TimeoutAbortSec=.
+
+        * Services may now send a special WATCHDOG=trigger message with
+          sd_notify() to trigger an immediate "watchdog missed" event, and thus
+          request service take down. This is useful both for testing watchdog
+          handling, but also for defining error paths in services, that shall
+          be handled the same way as watchdog events.
+
+        * There are two new per-unit settings IPIngressFilterPath= and
+          IPEgressFilterPath= which allow configuration of a BPF program
+          (usually by specifying a path to a program uploaded to /sys/fs/bpf/)
+          to apply to the IP packet ingress/egress path of all processes of a
+          unit. This is useful to allow running systemd services with BPF
+          programs set up externally.
+
+        * systemctl gained a new "clean" verb for removing the state, cache,
+          runtime or logs directories of a service while it is terminated. The
+          new verb may also be used to remove the state maintained on disk for
+          timer units that have Persistent= configured.
+
+        * During the last phase of shutdown systemd will now automatically
+          increase the log level configured in the "kernel.printk" sysctl so
+          that any relevant loggable events happening during late shutdown are
+          made visible. Previously, loggable events happening so late during
+          shutdown were generally lost if the "kernel.printk" sysctl was set to
+          high thresholds, as regular logging daemons are terminated at that
+          time and thus nothing is written to disk.
+
+        * If processes terminated during the last phase of shutdown do not exit
+          quickly systemd will now show their names after a short time, to make
+          debugging easier. After a longer time-out they are forcibly killed,
+          as before.
+
+        * journalctl (and the other tools that display logs) will now highlight
+          warnings in yellow (previously, both LOG_NOTICE and LOG_WARNING where
+          shown in bright bold, now only LOG_NOTICE is). Moreover, audit logs
+          are now shown in blue color, to separate them visually from regular
+          logs. References to configuration files are now turned into clickable
+          links on terminals that support that.
+
+        * systemd-journald will now stop logging to /var/log/journal during
+          shutdown when /var/ is on a separate mount, so that it can be
+          unmounted safely during shutdown.
+
+        * systemd-resolved gained support for a new 'strict' DNS-over-TLS mode.
+
+        * The predictable naming scheme for network devices now supports
+          generating predictable names for "netdevsim" devices.
+
+        * systemd-networkd now supports MACsec, nlmon, IPVTAP and Xfrm
+          interfaces natively.
+
+        * systemd-networkd's bridge FDB support now allows configuration of a
+          destination address for each entry (Destination=), as well as the
+          VXLAN VNI (VNI=), as well as an option to declare what an entry is
+          associated with (AssociatedWith=).
+
+        * systemd-networkd's DHCPv4 support now understands a new MaxAttempts=
+          option for configuring the maximum number of attempts to request a
+          DHCP lease. It also learnt a new BlackList= option for blacklisting
+          DHCP servers (a similar setting has also been added to the IPv6 RA
+          client), as well as a SendRelease= option for configuring whether to
+          send a DHCP RELEASE message when terminating.
+
+        * systemd-networkd's DHCPv4 and DHCPv6 stacks can now be configured
+          seperately in the [DHCPv4] and [DHCPv6] sections.
+
+        * systemd-networkd's VXLAN support gained a new option
+          GenericProtocolExtension= for enabling XVLAN Generic Protocol
+          Extension support, as well as IPDoNotFragment= for setting the IP
+          "Don't fragment" bit on outgoing packets. A similar option has been
+          added to the GENEVE support.
+
+        * In systemd-networkd's [Route] section you may now configure
+          FastOpenNoCookie= for configuring per-route TCP fast-open support, as
+          well as TTLPropagate= for configuring Label Switched Path (LSP) TTL
+          propagation. The Type= setting now supports local, broadcast,
+          anycast, multicast, any, xresolve routes, too.
+
+        * systemd-networkd's [Network] section learnt a new option
+          DefaultRouteOnDevice= for automatically configuring a default route
+          onto the network device.
+
+        * systemd-networkd's bridging support gained two new options ProxyARP=
+          and ProxyARPWifi= for configuring proxy ARP behaviour as well as
+          MulticastRouter= for configureing multicast routing behaviour.
+
+        * systemd-networkd's FooOverUDP support gained the ability to configure
+          local and peer IP addresses via Local= and Peer=. A new option
+          PeerPort= may be used to configure the peer's IP port.
+
+        * systemd-networkd's TUN support gained a new setting VnetHeader= for
+          tweaking Generic Segment Offload support.
+
+        * networkctl gained a new "delete" command for removing virtual network
+          devices, as well as a new "--stats" switch for showing device
+          statistics.
+
+        * systemd-networkd's .network and .link files gained a new Property=
+          setting in the [Match] section, to match against devices with
+          specific udev properties.
+
+        * systemd-networkd's tunnel support gained a new option
+          AssignToLoopback= for selecting whether to use the loopback device
+          "lo" as underlying device.
+
+        * systemd-networkd's MACAddress= setting in the [Network] section has
+          been renamed to LinkLayerAddress=, and it now allows configuration of
+          IP addresses, too.
+
+        * The CriticalConnection= setting in .network files is now deprecated,
+          and replaced by a new KeepConfiguration= setting which allows more
+          detailed configuration of the IP configuration to keep in place.
+
+        * systemd-analyze gained a new "timestamp" verb for parsing and
+          converting timestamps. It's similar to the existing "systemd-analyze
+          calendar" command which does the same for recurring calendar
+          events. It also gained a new "condition" verb for parsing and testing
+          ConditionXYZ= expressions.
+
+        * systemd-logind now exposes a per-session SetBrightness() bus call,
+          which may be used to securely change the brightness of a kernel
+          brightness device, if it belongs to the session's seat. By using this
+          call unprivileged clients can make changes to "backlight" and "leds"
+          devices securely with strict requirements on session
+          membership. Desktop environments may use this to generically make
+          brightness changes to such devices without shipping private SUID
+          binaries for that purpose.
+
+        * "udevadm info" gained a --wait-for-initialization switch to wait for
+          a device to be initialized.
+
+        * systemd-hibernate-resume-generator will now look for resumeflags= on
+          the kernel command line, which is similar to rootflags= and may be
+          used to configure device timeouts for waiting for the hibernation
+          device to show up.
+
+        * sd-event learnt a new API call sd_event_source_disable_unref() for
+          disabling and unref'ing an event source in a single function. A
+          related call sd_event_source_disable_unrefp() has been added for use
+          with GCC's cleanup extension.
+
+        * The sd-id128.h public API gained a new definition
+          SD_ID128_UUID_FORMAT_STR for formatting a 128bit ID in UUID format
+          with printf().
+
+        * "busctl introspect" gained a new switch --xml-interface for dumping
+          XML introspection data unmodified.
+
+        * PID 1 may now show the unit name instead of the unit description
+          string in its status output during boot. This may be configured in
+          the StatusUnitFormat= setting in /etc/systemd/system.conf or the
+          kernel command line option systemd.status_unit_format=.
+
+        * The systemd.debug_shell kernel command line option now optionally
+          takes a tty name to spawn the debug shell on, which allows selecting
+          a different tty than the built-in default.
+
           …
 
 CHANGES WITH 242:
