@@ -26,8 +26,6 @@ test_setup() {
 
         cp extend_timeout_test_service.sh ${initdir}/
         cp assess.sh ${initdir}/
-        cp $BUILD_DIR/systemd-notify ${initdir}/bin
-        cp $BUILD_DIR/src/shared/libsystemd-shared-*.so ${initdir}/usr/lib
 
         setup_testsuite
     )
