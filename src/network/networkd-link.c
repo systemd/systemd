@@ -3557,14 +3557,16 @@ int link_save(Link *link) {
                         fputs_with_space(f, p, NULL, &space);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) {
-                        NDiscDNSSL *dd;
-
                         if (dhcp_domainname)
                                 fputs_with_space(f, dhcp_domainname, NULL, &space);
                         if (dhcp_domains)
                                 fputstrv(f, dhcp_domains, NULL, &space);
                         if (dhcp6_domains)
                                 fputstrv(f, dhcp6_domains, NULL, &space);
+                }
+
+                if (link->network->ipv6_accept_ra_use_domains == DHCP_USE_DOMAINS_YES) {
+                        NDiscDNSSL *dd;
 
                         SET_FOREACH(dd, link->ndisc_dnssl, i)
                                 fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
@@ -3578,14 +3580,16 @@ int link_save(Link *link) {
                         fputs_with_space(f, p, NULL, &space);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE) {
-                        NDiscDNSSL *dd;
-
                         if (dhcp_domainname)
                                 fputs_with_space(f, dhcp_domainname, NULL, &space);
                         if (dhcp_domains)
                                 fputstrv(f, dhcp_domains, NULL, &space);
                         if (dhcp6_domains)
                                 fputstrv(f, dhcp6_domains, NULL, &space);
+                }
+
+                if (link->network->ipv6_accept_ra_use_domains == DHCP_USE_DOMAINS_ROUTE) {
+                        NDiscDNSSL *dd;
 
                         SET_FOREACH(dd, link->ndisc_dnssl, i)
                                 fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
