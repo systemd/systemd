@@ -27,6 +27,40 @@
 #include "strv.h"
 #include "utf8.h"
 
+static char *normalize_locale(const char *name) {
+        const char *e;
+
+        /* Locale names are weird: glibc has some magic rules when looking for the charset name on disk: it
+         * lowercases everything, and removes most special chars. This means the official .UTF-8 suffix
+         * becomes .utf8 when looking things up on disk. When enumerating locales, let's do the reverse
+         * operation, and go back to ".UTF-8" which appears to be the more commonly accepted name. We only do
+         * that for UTF-8 however, since it's kinda the only charset that matters. */
+
+        e = endswith(name, ".utf8");
+        if (e) {
+                _cleanup_free_ char *prefix = NULL;
+
+                prefix = strndup(name, e - name);
+                if (!prefix)
+                        return NULL;
+
+                return strjoin(prefix, ".UTF-8");
+        }
+
+        e = strstr(name, ".utf8@");
+        if (e) {
+                _cleanup_free_ char *prefix = NULL;
+
+                prefix = strndup(name, e - name);
+                if (!prefix)
+                        return NULL;
+
+                return strjoin(prefix, ".UTF-8@", e + 6);
+        }
+
+        return strdup(name);
+}
+
 static int add_locales_from_archive(Set *locales) {
         /* Stolen from glibc... */
 
@@ -107,7 +141,7 @@ static int add_locales_from_archive(Set *locales) {
                 if (!utf8_is_valid((char*) p + e[i].name_offset))
                         continue;
 
-                z = strdup((char*) p + e[i].name_offset);
+                z = normalize_locale((char*) p + e[i].name_offset);
                 if (!z) {
                         r = -ENOMEM;
                         goto finish;
@@ -144,7 +178,7 @@ static int add_locales_from_libdir (Set *locales) {
                 if (entry->d_type != DT_DIR)
                         continue;
 
-                z = strdup(entry->d_name);
+                z = normalize_locale(entry->d_name);
                 if (!z)
                         return -ENOMEM;
 
@@ -176,6 +210,25 @@ int get_locales(char ***ret) {
         l = set_get_strv(locales);
         if (!l)
                 return -ENOMEM;
+
+        r = getenv_bool("SYSTEMD_LIST_NON_UTF8_LOCALES");
+        if (r == -ENXIO || r == 0) {
+                char **a, **b;
+
+                /* Filter out non-UTF-8 locales, because it's 2019, by default */
+                for (a = b = l; *a; a++) {
+
+                        if (endswith(*a, "UTF-8") ||
+                            strstr(*a, ".UTF-8@"))
+                                *(b++) = *a;
+                        else
+                                free(*a);
+                }
+
+                *b = NULL;
+
+        } else if (r < 0)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_LIST_NON_UTF8_LOCALES as boolean");
 
         strv_sort(l);
 
