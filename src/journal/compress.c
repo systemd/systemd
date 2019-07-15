@@ -26,6 +26,7 @@
 #include "sparse-endian.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "unaligned.h"
 #include "util.h"
 
 #if HAVE_LZ4
@@ -187,8 +188,8 @@ int decompress_blob_lz4(const void *src, uint64_t src_size,
         if (src_size <= 8)
                 return -EBADMSG;
 
-        size = le64toh( *(le64_t*)src );
-        if (size < 0 || (unsigned) size != le64toh(*(le64_t*)src))
+        size = le64toh(unaligned_read_ne64(src));
+        if (size < 0 || (unsigned) size != le64toh(unaligned_read_ne64(src)))
                 return -EFBIG;
         if ((size_t) size > *dst_alloc_size) {
                 out = realloc(*dst, size);
