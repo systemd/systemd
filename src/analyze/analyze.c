@@ -1859,11 +1859,13 @@ static int test_timestamp_one(const char *p) {
         if (r < 0)
                 return r;
 
-        r = table_add_cell_stringf(table, &cell, "@%"PRI_USEC"%s%0*"PRI_USEC"",
-                                   usec / USEC_PER_SEC,
-                                   usec % USEC_PER_SEC ? "." : "",
-                                   usec % USEC_PER_SEC ? 6 : 0,
-                                   usec % USEC_PER_SEC);
+        if (usec % USEC_PER_SEC == 0)
+                r = table_add_cell_stringf(table, &cell, "@%"PRI_USEC,
+                                           usec / USEC_PER_SEC);
+        else
+                r = table_add_cell_stringf(table, &cell, "@%"PRI_USEC".%06"PRI_USEC"",
+                                           usec / USEC_PER_SEC,
+                                           usec % USEC_PER_SEC);
         if (r < 0)
                 return r;
 
