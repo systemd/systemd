@@ -23,6 +23,17 @@ typedef struct SleepConfig {
 void free_sleep_config(SleepConfig *sc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(SleepConfig*, free_sleep_config);
 
+/* entry in /proc/swaps */
+typedef struct SwapEntry {
+        char *device;
+        char *type;
+        size_t size;
+        size_t used;
+        int priority;
+} SwapEntry;
+
+void free_swap_entry(SwapEntry *se);
+
 int sleep_settings(const char *verb, const SleepConfig *sleep_config, bool *ret_allow, char ***ret_modes, char ***ret_states);
 
 int read_fiemap(int fd, struct fiemap **ret);

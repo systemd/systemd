@@ -164,10 +164,12 @@ int can_sleep_disk(char **types) {
 }
 
 #define HIBERNATION_SWAP_THRESHOLD 0.98
+#define MAX_SWAP_ENTRIES 32
 
 int find_hibernate_location(char **device, char **type, size_t *size, size_t *used) {
         _cleanup_fclose_ FILE *f;
-        unsigned i;
+        SwapEntry *swaps[MAX_SWAP_ENTRIES];
+        unsigned i, s, swap_count;
 
         f = fopen("/proc/swaps", "re");
         if (!f) {
@@ -178,56 +180,72 @@ int find_hibernate_location(char **device, char **type, size_t *size, size_t *us
 
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
 
-        // TODO: sort swaps in priority order rather than using first successful option
         for (i = 1;; i++) {
-                _cleanup_free_ char *dev_field = NULL, *type_field = NULL;
-                size_t size_field, used_field;
+                SwapEntry *swap;
                 int k;
+
+                swap = new0(SwapEntry, 1);
 
                 k = fscanf(f,
                            "%ms "   /* device/file */
                            "%ms "   /* type of swap */
                            "%zu "   /* swap size */
                            "%zu "   /* used */
-                           "%*i\n", /* priority */
-                           &dev_field, &type_field, &size_field, &used_field);
+                           "%i\n",  /* priority */
+                           &swap->device, &swap->type, &swap->size, &swap->used, &swap->priority);
                 if (k == EOF)
                         break;
-                if (k != 4) {
+                if (k != 5) {
                         log_warning("Failed to parse /proc/swaps:%u", i);
                         continue;
                 }
 
-                if (streq(type_field, "file")) {
+                if (streq(swap->type, "file")) {
 
-                        if (endswith(dev_field, "\\040(deleted)")) {
-                                log_warning("Ignoring deleted swap file '%s'.", dev_field);
+                        if (endswith(swap->device, "\\040(deleted)")) {
+                                log_warning("Ignoring deleted swap file '%s'.", swap->device);
                                 continue;
                         }
 
-                } else if (streq(type_field, "partition")) {
+                } else if (streq(swap->type, "partition")) {
                         const char *fn;
 
-                        fn = path_startswith(dev_field, "/dev/");
+                        fn = path_startswith(swap->device, "/dev/");
                         if (fn && startswith(fn, "zram")) {
-                                log_debug("Ignoring compressed RAM swap device '%s'.", dev_field);
+                                log_debug("Ignoring compressed RAM swap device '%s'.", swap->device);
                                 continue;
                         }
                 }
 
-                if (device)
-                        *device = TAKE_PTR(dev_field);
-                if (type)
-                        *type = TAKE_PTR(type_field);
-                if (size)
-                        *size = size_field;
-                if (used)
-                        *used = used_field;
-                return 0;
+                /* insert swap into array in priority order */
+                s = swap_count;
+                while ((s > 0) && (swap->priority > swaps[swap_count-1]->priority)) {
+                        swaps[s] = swaps[s-1];
+                        s--;
+                }
+
+                swaps[s] = swap;
+                swap_count++;
         }
 
-        return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS),
-                               "No swap partitions were found.");
+        if (swap_count == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS), "No swap partitions were found.");
+
+        /* use the swap entry with the highest priority */
+        if (device)
+                *device = TAKE_PTR(swaps[0]->device);
+        if (type)
+                *type = TAKE_PTR(swaps[0]->type);
+        if (size)
+                *size = swaps[0]->size;
+        if (used)
+                *used = swaps[0]->used;
+
+        /* cleanup the swap entries */
+        for (i = 0; i < swap_count; i++)
+                free_swap_entry(swaps[i]);
+
+        return 0;
 }
 
 static bool enough_swap_for_hibernation(void) {
@@ -457,4 +475,14 @@ void free_sleep_config(SleepConfig *sc) {
         strv_free(sc->hybrid_states);
 
         free(sc);
+}
+
+void free_swap_entry(SwapEntry *se) {
+        if (!se)
+                return;
+
+        free(se->device);
+        free(se->type);
+
+        free(se);
 }
