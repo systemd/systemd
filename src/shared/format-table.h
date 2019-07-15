@@ -14,6 +14,7 @@ typedef enum TableDataType {
         TABLE_BOOLEAN,
         TABLE_TIMESTAMP,
         TABLE_TIMESPAN,
+        TABLE_TIMESPAN_MSEC,
         TABLE_SIZE,
         TABLE_BPS,
         TABLE_INT,
