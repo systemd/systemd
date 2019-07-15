@@ -1721,9 +1721,10 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
         char **input_timespan;
 
         STRV_FOREACH(input_timespan, strv_skip(argv, 1)) {
+                _cleanup_(table_unrefp) Table *table = NULL;
+                usec_t output_usecs;
+                TableCell *cell;
                 int r;
-                usec_t usec_magnitude = 1, output_usecs;
-                char ft_buf[FORMAT_TIMESPAN_MAX];
 
                 r = parse_time(*input_timespan, &output_usecs, USEC_PER_SEC);
                 if (r < 0) {
@@ -1732,12 +1733,57 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
                         return r;
                 }
 
-                printf("Original: %s\n", *input_timespan);
-                printf("      %ss: %" PRIu64 "\n", special_glyph(SPECIAL_GLYPH_MU), output_usecs);
-                printf("   Human: %s%s%s\n",
-                       ansi_highlight(),
-                       format_timespan(ft_buf, sizeof(ft_buf), output_usecs, usec_magnitude),
-                       ansi_normal());
+                table = table_new("NAME", "VALUE");
+                if (!table)
+                        return log_oom();
+
+                table_set_header(table, false);
+
+                assert_se(cell = table_get_cell(table, 0, 0));
+                r = table_set_ellipsize_percent(table, cell, 100);
+                if (r < 0)
+                        return r;
+
+                r = table_set_align_percent(table, cell, 100);
+                if (r < 0)
+                        return r;
+
+                assert_se(cell = table_get_cell(table, 0, 1));
+                r = table_set_ellipsize_percent(table, cell, 100);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_STRING, "Original:");
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_STRING, *input_timespan);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell_stringf(table, NULL, "%ss:", special_glyph(SPECIAL_GLYPH_MU));
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_UINT64, &output_usecs);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_STRING, "Human:");
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, &cell, TABLE_TIMESPAN, &output_usecs);
+                if (r < 0)
+                        return r;
+
+                r = table_set_color(table, cell, ansi_highlight());
+                if (r < 0)
+                        return r;
+
+                r = table_print(table, NULL);
+                if (r < 0)
+                        return r;
 
                 if (input_timespan[1])
                         putchar('\n');
