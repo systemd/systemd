@@ -26,6 +26,7 @@
 #include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "glob-util.h"
 #include "hashmap.h"
 #include "locale-util.h"
@@ -202,10 +203,6 @@ static int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char 
                 return log_error_errno(r, "Failed to get unit property %s: %s", property, bus_error_message(&error, r));
 
         return 0;
-}
-
-static int compare_unit_time(const struct unit_times *a, const struct unit_times *b) {
-        return CMP(b->time, a->time);
 }
 
 static int compare_unit_start(const struct unit_times *a, const struct unit_times *b) {
@@ -1070,7 +1067,9 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
 static int analyze_blame(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(unit_times_freep) struct unit_times *times = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
         struct unit_times *u;
+        TableCell *cell;
         int n, r;
 
         r = acquire_bus(&bus, NULL);
@@ -1081,18 +1080,50 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
         if (n <= 0)
                 return n;
 
-        typesafe_qsort(times, n, compare_unit_time);
+        table = table_new("TIME", "UNIT");
+        if (!table)
+                return log_oom();
+
+        table_set_header(table, false);
+
+        assert_se(cell = table_get_cell(table, 0, 0));
+        r = table_set_ellipsize_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        r = table_set_align_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        assert_se(cell = table_get_cell(table, 0, 1));
+        r = table_set_ellipsize_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        r = table_set_sort(table, 0, SIZE_MAX);
+        if (r < 0)
+                return r;
+
+        r = table_set_reverse(table, 0, true);
+        if (r < 0)
+                return r;
+
+        for (u = times; u->has_data; u++) {
+                if (u->time <= 0)
+                        continue;
+
+                r = table_add_cell(table, NULL, TABLE_TIMESPAN_MSEC, &u->time);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_STRING, u->name);
+                if (r < 0)
+                        return r;
+        }
 
         (void) pager_open(arg_pager_flags);
 
-        for (u = times; u->has_data; u++) {
-                char ts[FORMAT_TIMESPAN_MAX];
-
-                if (u->time > 0)
-                        printf("%16s %s\n", format_timespan(ts, sizeof(ts), u->time, USEC_PER_MSEC), u->name);
-        }
-
-        return 0;
+        return table_print(table, NULL);
 }
 
 static int analyze_time(int argc, char *argv[], void *userdata) {
