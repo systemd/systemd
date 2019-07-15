@@ -1793,8 +1793,9 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
 }
 
 static int test_timestamp_one(const char *p) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        TableCell *cell;
         usec_t usec;
-        char buf[FORMAT_TIMESTAMP_MAX];
         int r;
 
         r = parse_timestamp(p, &usec);
@@ -1804,24 +1805,77 @@ static int test_timestamp_one(const char *p) {
                 return r;
         }
 
-        printf("  Original form: %s\n", p);
-        printf("Normalized form: %s%s%s\n",
-               ansi_highlight_blue(),
-               format_timestamp(buf, sizeof buf, usec),
-               ansi_normal());
+        table = table_new("NAME", "VALUE");
+        if (!table)
+                return log_oom();
 
-        if (!in_utc_timezone())
-                printf("       (in UTC): %s\n", format_timestamp_utc(buf, sizeof buf, usec));
+        table_set_header(table, false);
 
-        printf("   UNIX seconds: @%"PRI_USEC"%s%0*"PRI_USEC"\n",
-               usec / USEC_PER_SEC,
-               usec % USEC_PER_SEC ? "." : "",
-               usec % USEC_PER_SEC ? 6 : 0,
-               usec % USEC_PER_SEC);
+        assert_se(cell = table_get_cell(table, 0, 0));
+        r = table_set_ellipsize_percent(table, cell, 100);
+        if (r < 0)
+                return r;
 
-        printf("       From now: %s\n", format_timestamp_relative(buf, sizeof buf, usec));
+        r = table_set_align_percent(table, cell, 100);
+        if (r < 0)
+                return r;
 
-        return 0;
+        assert_se(cell = table_get_cell(table, 0, 1));
+        r = table_set_ellipsize_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "Original form:");
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_STRING, p);
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "Normalized form:");
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, &cell, TABLE_TIMESTAMP, &usec);
+        if (r < 0)
+                return r;
+
+        r = table_set_color(table, cell, ansi_highlight_blue());
+        if (r < 0)
+                return r;
+
+        if (!in_utc_timezone()) {
+                r = table_add_cell(table, NULL, TABLE_STRING, "(in UTC):");
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, &cell, TABLE_TIMESTAMP_UTC, &usec);
+                if (r < 0)
+                        return r;
+        }
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "UNIX seconds:");
+        if (r < 0)
+                return r;
+
+        r = table_add_cell_stringf(table, &cell, "@%"PRI_USEC"%s%0*"PRI_USEC"",
+                                   usec / USEC_PER_SEC,
+                                   usec % USEC_PER_SEC ? "." : "",
+                                   usec % USEC_PER_SEC ? 6 : 0,
+                                   usec % USEC_PER_SEC);
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "From now:");
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, &cell, TABLE_TIMESTAMP_RELATIVE, &usec);
+        if (r < 0)
+                return r;
+
+        return table_print(table, NULL);
 }
 
 static int test_timestamp(int argc, char *argv[], void *userdata) {
