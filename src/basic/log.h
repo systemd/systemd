@@ -59,9 +59,12 @@ void log_show_color(bool b);
 bool log_get_show_color(void) _pure_;
 void log_show_location(bool b);
 bool log_get_show_location(void) _pure_;
+void log_show_time(bool b);
+bool log_get_show_time(void) _pure_;
 
 int log_show_color_from_string(const char *e);
 int log_show_location_from_string(const char *e);
+int log_show_time_from_string(const char *e);
 
 LogTarget log_get_target(void) _pure_;
 int log_get_max_level_realm(LogRealm realm) _pure_;

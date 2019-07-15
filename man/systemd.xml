@@ -635,6 +635,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>$SYSTEMD_LOG_TIME</varname></term>
+        <listitem><para>Controls whether systemd prefixes log
+        messages with the current time. This can be overridden with
+        <option>--log-time=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>$XDG_CONFIG_HOME</varname></term>
         <term><varname>$XDG_CONFIG_DIRS</varname></term>
         <term><varname>$XDG_DATA_HOME</varname></term>
@@ -826,14 +833,17 @@
         <term><varname>systemd.log_level=</varname></term>
         <term><varname>systemd.log_location</varname></term>
         <term><varname>systemd.log_target=</varname></term>
+        <term><varname>systemd.log_time</varname></term>
 
         <listitem><para>Controls log output, with the same effect as the
         <varname>$SYSTEMD_LOG_COLOR</varname>,
         <varname>$SYSTEMD_LOG_LEVEL</varname>,
         <varname>$SYSTEMD_LOG_LOCATION</varname>,
-        <varname>$SYSTEMD_LOG_TARGET</varname>, environment variables described above.
-        <varname>systemd.log_color</varname> and <varname>systemd.log_location</varname> can be
-        specified without an argument, with the same effect as a positive boolean.</para></listitem>
+        <varname>$SYSTEMD_LOG_TARGET</varname>,
+        <varname>$SYSTEMD_LOG_TIME</varname>, environment variables described above.
+        <varname>systemd.log_color</varname>, <varname>systemd.log_location</varname>, and
+        <varname>systemd.log_time</varname> can be specified without an argument, with the
+        same effect as a positive boolean.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1151,6 +1161,13 @@
           <term><option>--log-target=</option></term>
 
           <listitem><para>Set log target. See <varname>systemd.log_target</varname> above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--log-time=</option></term>
+
+          <listitem><para>Prefix messages with timestamp. See <varname>systemd.log_time</varname> above.
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>

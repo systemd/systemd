@@ -16,6 +16,7 @@
 #LogTarget=journal-or-kmsg
 #LogColor=yes
 #LogLocation=no
+#LogTime=no
 #DumpCore=yes
 #ShowStatus=yes
 #CrashChangeVT=no
