@@ -329,6 +329,8 @@ int inhibitor_create_fifo(Inhibitor *i) {
                 r = sd_event_source_set_priority(i->event_source, SD_EVENT_PRIORITY_IDLE-10);
                 if (r < 0)
                         return r;
+
+                (void) sd_event_source_set_description(i->event_source, "inhibitor-ref");
         }
 
         /* Open writing side */
