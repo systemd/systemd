@@ -27,7 +27,7 @@ int sleep_settings(const char *verb, const SleepConfig *sleep_config, bool *ret_
 
 int read_fiemap(int fd, struct fiemap **ret);
 int parse_sleep_config(SleepConfig **sleep_config);
-int find_hibernate_location(char **device, char **type, size_t *size, size_t *used);
+int find_hibernate_location(char **device, char **type, uint64_t *size, uint64_t *used);
 
 int can_sleep(const char *verb);
 int can_sleep_disk(char **types);

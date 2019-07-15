@@ -626,8 +626,6 @@ Features:
 * transient units:
   - add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
 
-* Automatically configure swap partition to use for hibernation by looking for largest swap partition on the root disk?
-
 * when we detect low battery and no AC on boot, show pretty splash and refuse boot
 
 * libsystemd-journal, libsystemd-login, libudev: add calls to easily attach these objects to sd-event event loops

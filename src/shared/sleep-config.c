@@ -165,8 +165,30 @@ int can_sleep_disk(char **types) {
 
 #define HIBERNATION_SWAP_THRESHOLD 0.98
 
-int find_hibernate_location(char **device, char **type, size_t *size, size_t *used) {
+/* entry in /proc/swaps */
+typedef struct SwapEntry {
+        char *device;
+        char *type;
+        uint64_t size;
+        uint64_t used;
+        int priority;
+} SwapEntry;
+
+static SwapEntry* swap_entry_free(SwapEntry *se) {
+        if (!se)
+                return NULL;
+
+        free(se->device);
+        free(se->type);
+
+        return mfree(se);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(SwapEntry*, swap_entry_free);
+
+int find_hibernate_location(char **device, char **type, uint64_t *size, uint64_t *used) {
         _cleanup_fclose_ FILE *f;
+        _cleanup_(swap_entry_freep) SwapEntry *selected_swap = NULL;
         unsigned i;
 
         f = fopen("/proc/swaps", "re");
@@ -178,62 +200,76 @@ int find_hibernate_location(char **device, char **type, size_t *size, size_t *us
 
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
 
-        // TODO: sort swaps in priority order rather than using first successful option
         for (i = 1;; i++) {
-                _cleanup_free_ char *dev_field = NULL, *type_field = NULL;
-                size_t size_field, used_field;
+                _cleanup_(swap_entry_freep) SwapEntry *swap = NULL;
                 int k;
 
+                swap = new0(SwapEntry, 1);
+                if (!swap)
+                        return log_oom();
+
                 k = fscanf(f,
-                           "%ms "   /* device/file */
-                           "%ms "   /* type of swap */
-                           "%zu "   /* swap size */
-                           "%zu "   /* used */
-                           "%*i\n", /* priority */
-                           &dev_field, &type_field, &size_field, &used_field);
+                           "%ms "       /* device/file */
+                           "%ms "       /* type of swap */
+                           "%" PRIu64   /* swap size */
+                           "%" PRIu64   /* used */
+                           "%i\n",      /* priority */
+                           &swap->device, &swap->type, &swap->size, &swap->used, &swap->priority);
                 if (k == EOF)
                         break;
-                if (k != 4) {
+                if (k != 5) {
                         log_warning("Failed to parse /proc/swaps:%u", i);
                         continue;
                 }
 
-                if (streq(type_field, "file")) {
+                if (streq(swap->type, "file")) {
 
-                        if (endswith(dev_field, "\\040(deleted)")) {
-                                log_warning("Ignoring deleted swap file '%s'.", dev_field);
+                        if (endswith(swap->device, "\\040(deleted)")) {
+                                log_warning("Ignoring deleted swap file '%s'.", swap->device);
                                 continue;
                         }
 
-                } else if (streq(type_field, "partition")) {
+                } else if (streq(swap->type, "partition")) {
                         const char *fn;
 
-                        fn = path_startswith(dev_field, "/dev/");
+                        fn = path_startswith(swap->device, "/dev/");
                         if (fn && startswith(fn, "zram")) {
-                                log_debug("Ignoring compressed RAM swap device '%s'.", dev_field);
+                                log_debug("Ignoring compressed RAM swap device '%s'.", swap->device);
                                 continue;
                         }
                 }
 
-                if (device)
-                        *device = TAKE_PTR(dev_field);
-                if (type)
-                        *type = TAKE_PTR(type_field);
-                if (size)
-                        *size = size_field;
-                if (used)
-                        *used = used_field;
-                return 0;
+                /* prefer highest priority or swap with most remaining space when same priority */
+                if (!selected_swap || swap->priority > selected_swap->priority
+                    || ((swap->priority == selected_swap->priority)
+                        && (swap->size - swap->used) > (selected_swap->size - selected_swap->used))) {
+                        selected_swap = swap_entry_free(selected_swap);
+                        selected_swap = TAKE_PTR(swap);
+                }
         }
 
-        return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS),
-                               "No swap partitions were found.");
+        if (!selected_swap)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS), "No swap partitions or files were found.");
+
+        /* use the swap entry with the highest priority */
+        if (device)
+                *device = TAKE_PTR(selected_swap->device);
+        if (type)
+                *type = TAKE_PTR(selected_swap->type);
+        if (size)
+                *size = selected_swap->size;
+        if (used)
+                *used = selected_swap->used;
+
+        log_debug("Highest priority swap entry found %s: %i", selected_swap->device, selected_swap->priority);
+
+        return 0;
 }
 
 static bool enough_swap_for_hibernation(void) {
         _cleanup_free_ char *active = NULL;
         unsigned long long act = 0;
-        size_t size = 0, used = 0;
+        uint64_t size = 0, used = 0;
         int r;
 
         if (getenv_bool("SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK") > 0)
@@ -256,7 +292,7 @@ static bool enough_swap_for_hibernation(void) {
         }
 
         r = act <= (size - used) * HIBERNATION_SWAP_THRESHOLD;
-        log_debug("%s swap for hibernation, Active(anon)=%llu kB, size=%zu kB, used=%zu kB, threshold=%.2g%%",
+        log_debug("%s swap for hibernation, Active(anon)=%llu kB, size=%" PRIu64 " kB, used=%" PRIu64 " kB, threshold=%.2g%%",
                   r ? "Enough" : "Not enough", act, size, used, 100*HIBERNATION_SWAP_THRESHOLD);
 
         return r;
