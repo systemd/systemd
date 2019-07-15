@@ -1796,7 +1796,9 @@ static int test_timestamp(int argc, char *argv[], void *userdata) {
 
 static int test_calendar_one(usec_t n, const char *p) {
         _cleanup_(calendar_spec_freep) CalendarSpec *spec = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *t = NULL;
+        TableCell *cell;
         int r;
 
         r = calendar_spec_from_string(p, &spec);
@@ -1810,30 +1812,80 @@ static int test_calendar_one(usec_t n, const char *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to format calendar specification '%s': %m", p);
 
-        if (!streq(t, p))
-                printf("  Original form: %s\n", p);
+        table = table_new("NAME", "VALUE");
+        if (!table)
+                return log_oom();
 
-        printf("Normalized form: %s\n", t);
+        table_set_header(table, false);
+
+        assert_se(cell = table_get_cell(table, 0, 0));
+        r = table_set_ellipsize_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        r = table_set_align_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        assert_se(cell = table_get_cell(table, 0, 1));
+        r = table_set_ellipsize_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        if (!streq(t, p)) {
+                r = table_add_cell(table, NULL, TABLE_STRING, "Original form:");
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_STRING, p);
+                if (r < 0)
+                        return r;
+        }
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "Normalized form:");
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_STRING, t);
+        if (r < 0)
+                return r;
 
         for (unsigned i = 0; i < arg_iterations; i++) {
-                char buffer[CONST_MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESTAMP_RELATIVE_MAX)];
                 usec_t next;
 
                 r = calendar_spec_next_usec(spec, n, &next);
                 if (r == -ENOENT) {
-                        if (i == 0)
-                                printf("    Next elapse: %snever%s\n", ansi_highlight_yellow(), ansi_normal());
-                        return 0;
+                        if (i == 0) {
+                                r = table_add_cell(table, NULL, TABLE_STRING, "Next elapse:");
+                                if (r < 0)
+                                        return r;
+
+                                r = table_add_cell(table, &cell, TABLE_STRING, "never");
+                                if (r < 0)
+                                        return r;
+
+                                r = table_set_color(table, cell, ansi_highlight_yellow());
+                                if (r < 0)
+                                        return r;
+                        }
+                        break;
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine next elapse for '%s': %m", p);
 
-                if (i == 0)
-                        printf("    Next elapse: %s%s%s\n",
-                               ansi_highlight_blue(),
-                               format_timestamp(buffer, sizeof(buffer), next),
-                               ansi_normal());
-                else {
+                if (i == 0) {
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Next elapse:");
+                        if (r < 0)
+                                return r;
+
+                        r = table_add_cell(table, &cell, TABLE_TIMESTAMP, &next);
+                        if (r < 0)
+                                return r;
+
+                        r = table_set_color(table, cell, ansi_highlight_blue());
+                        if (r < 0)
+                                return r;
+                } else {
                         int k = DECIMAL_STR_WIDTH(i + 1);
 
                         if (k < 8)
@@ -1841,20 +1893,41 @@ static int test_calendar_one(usec_t n, const char *p) {
                         else
                                 k = 0;
 
-                        printf("%*sIter. #%u: %s%s%s\n",
-                               k, "", i+1,
-                               ansi_highlight_blue(), format_timestamp(buffer, sizeof(buffer), next), ansi_normal());
+                        r = table_add_cell_stringf(table, NULL, "Iter. #%u:", i+1);
+                        if (r < 0)
+                                return r;
+
+                        r = table_add_cell(table, &cell, TABLE_TIMESTAMP, &next);
+                        if (r < 0)
+                                return r;
+
+                        r = table_set_color(table, cell, ansi_highlight_blue());
+                        if (r < 0)
+                                return r;
                 }
 
-                if (!in_utc_timezone())
-                        printf("       (in UTC): %s\n", format_timestamp_utc(buffer, sizeof(buffer), next));
+                if (!in_utc_timezone()) {
+                        r = table_add_cell(table, NULL, TABLE_STRING, "(in UTC):");
+                        if (r < 0)
+                                return r;
 
-                printf("       From now: %s\n", format_timestamp_relative(buffer, sizeof(buffer), next));
+                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_UTC, &next);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = table_add_cell(table, NULL, TABLE_STRING, "From now:");
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE, &next);
+                if (r < 0)
+                        return r;
 
                 n = next;
         }
 
-        return 0;
+        return table_print(table, NULL);
 }
 
 static int test_calendar(int argc, char *argv[], void *userdata) {
