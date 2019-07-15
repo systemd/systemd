@@ -387,8 +387,11 @@ int unit_show_processes(
                         break;
 
                 r = add_process(cgroups, path, pid, name);
-                if (r < 0)
+                if (r == -ENOMEM)
                         goto finish;
+                if (r < 0)
+                        log_warning_errno(r, "Invalid process description in GetUnitProcesses reply: cgroup=\"%s\" pid="PID_FMT" command=\"%s\", ignoring: %m",
+                                          path, pid, name);
         }
 
         r = sd_bus_message_exit_container(reply);
