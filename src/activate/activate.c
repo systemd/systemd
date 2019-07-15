@@ -69,13 +69,13 @@ static int open_sockets(int *epoll_fd, bool accept) {
 
         /* Close logging and all other descriptors */
         if (arg_listen) {
-                int except[3 + n];
+                int except[(size_t)(SD_LISTEN_FDS_START + n)];
 
                 for (fd = 0; fd < SD_LISTEN_FDS_START + n; fd++)
                         except[fd] = fd;
 
                 log_close();
-                r = close_all_fds(except, 3 + n);
+                r = close_all_fds(except, SD_LISTEN_FDS_START + n);
                 if (r < 0)
                         return log_error_errno(r, "Failed to close all file descriptors: %m");
         }
