@@ -1502,35 +1502,15 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         if (color)
                                 (void) table_set_color(details_table, cell, color);
 
-                        r = table_add_cell(details_table, &cell, TABLE_STRING, a->id);
+                        r = table_add_many(details_table,
+                                           TABLE_STRING, a->id, TABLE_SET_URL, a->url,
+                                           TABLE_STRING, description,
+                                           TABLE_UINT64, a->weight, TABLE_SET_ALIGN_PERCENT, 100,
+                                           TABLE_UINT64, badness, TABLE_SET_ALIGN_PERCENT, 100,
+                                           TABLE_UINT64, a->range, TABLE_SET_ALIGN_PERCENT, 100,
+                                           TABLE_EMPTY, TABLE_SET_ALIGN_PERCENT, 100);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        if (a->url)
-                                (void) table_set_url(details_table, cell, a->url);
-
-                        r = table_add_cell(details_table, NULL, TABLE_STRING, description);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-
-                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &a->weight);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        (void) table_set_align_percent(details_table, cell, 100);
-
-                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &badness);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        (void) table_set_align_percent(details_table, cell, 100);
-
-                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &a->range);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        (void) table_set_align_percent(details_table, cell, 100);
-
-                        r = table_add_cell(details_table, &cell, TABLE_EMPTY, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        (void) table_set_align_percent(details_table, cell, 100);
+                                return log_error_errno(r, "Failed to add cells to table: %m");
                 }
         }
 
