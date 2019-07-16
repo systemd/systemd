@@ -267,13 +267,7 @@ def remove_unit_from_networkd_path(units):
             if (os.path.exists(os.path.join(network_unit_file_path, unit + '.d'))):
                 shutil.rmtree(os.path.join(network_unit_file_path, unit + '.d'))
 
-def warn_about_firewalld():
-    rc = call('systemctl -q is-active firewalld.service')
-    if rc == 0:
-        print('\nWARNING: firewalld.service is active. The test may fail.')
-
 def start_dnsmasq(additional_options='', ipv4_range='192.168.5.10,192.168.5.200', ipv6_range='2600::10,2600::20', lease_time='1h'):
-    warn_about_firewalld()
     dnsmasq_command = f'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5 --port=0 ' + additional_options
     check_output(dnsmasq_command)
 
@@ -2265,7 +2259,6 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_ipv6_prefix_delegation(self):
-        warn_about_firewalld()
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
@@ -2294,7 +2287,6 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_dhcp_server(self):
-        warn_about_firewalld()
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
@@ -2307,7 +2299,6 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'NTP: 192.168.5.1')
 
     def test_emit_router_timezone(self):
-        warn_about_firewalld()
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client-timezone-router.network', 'dhcp-server-timezone-router.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
