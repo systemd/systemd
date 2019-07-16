@@ -164,7 +164,7 @@ static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned perc
         return 0;
 }
 
-static int prompt_loop(const char *text, char **l, bool (*is_valid)(const char *name), char **ret) {
+static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*is_valid)(const char *name), char **ret) {
         int r;
 
         assert(text);
@@ -175,7 +175,8 @@ static int prompt_loop(const char *text, char **l, bool (*is_valid)(const char *
                 _cleanup_free_ char *p = NULL;
                 unsigned u;
 
-                r = ask_string(&p, "%s %s (empty to skip): ", special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text);
+                r = ask_string(&p, "%s %s (empty to skip, \"list\" to list options): ",
+                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user: %m");
 
@@ -183,6 +184,15 @@ static int prompt_loop(const char *text, char **l, bool (*is_valid)(const char *
                         log_warning("No data entered, skipping.");
                         return 0;
                 }
+
+                if (streq(p, "list")) {
+                        r = show_menu(l, 3, 22, percentage);
+                        if (r < 0)
+                                return r;
+
+                        putchar('\n');
+                        continue;
+                };
 
                 r = safe_atou(p, &u);
                 if (r >= 0) {
@@ -239,21 +249,16 @@ static int prompt_locale(void) {
         } else {
                 print_welcome();
 
-                printf("\nAvailable Locales:\n\n");
-                r = show_menu(locales, 3, 22, 60);
-                if (r < 0)
-                        return r;
-
-                putchar('\n');
-
-                r = prompt_loop("Please enter system locale name or number", locales, locale_is_valid, &arg_locale);
+                r = prompt_loop("Please enter system locale name or number",
+                                locales, 60, locale_is_valid, &arg_locale);
                 if (r < 0)
                         return r;
 
                 if (isempty(arg_locale))
                         return 0;
 
-                r = prompt_loop("Please enter system message locale name or number", locales, locale_is_valid, &arg_locale_messages);
+                r = prompt_loop("Please enter system message locale name or number",
+                                locales, 60, locale_is_valid, &arg_locale_messages);
                 if (r < 0)
                         return r;
 
@@ -329,15 +334,8 @@ static int prompt_keymap(void) {
 
         print_welcome();
 
-        printf("\nAvailable keymaps:\n\n");
-        r = show_menu(kmaps, 3, 22, 60);
-        if (r < 0)
-                return r;
-
-        putchar('\n');
-
         return prompt_loop("Please enter system keymap name or number",
-                           kmaps, keymap_is_valid, &arg_keymap);
+                           kmaps, 60, keymap_is_valid, &arg_keymap);
 }
 
 static int process_keymap(void) {
@@ -405,14 +403,8 @@ static int prompt_timezone(void) {
 
         print_welcome();
 
-        printf("\nAvailable Time Zones:\n\n");
-        r = show_menu(zones, 3, 22, 30);
-        if (r < 0)
-                return r;
-
-        putchar('\n');
-
-        r = prompt_loop("Please enter timezone name or number", zones, timezone_is_valid_log_error, &arg_timezone);
+        r = prompt_loop("Please enter timezone name or number",
+                        zones, 30, timezone_is_valid_log_error, &arg_timezone);
         if (r < 0)
                 return r;
 
