@@ -4548,7 +4548,8 @@ static void print_status_info(
 
                         show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix, c, extra, k, get_output_flags());
                 } else if (r < 0)
-                        log_warning_errno(r, "Failed to dump process list for '%s', ignoring: %s", i->id, bus_error_message(&error, r));
+                        log_warning_errno(r, "Failed to dump process list for '%s', ignoring: %s",
+                                          i->id, bus_error_message(&error, r));
         }
 
         if (i->id && arg_transport == BUS_TRANSPORT_LOCAL)

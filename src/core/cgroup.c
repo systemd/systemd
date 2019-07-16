@@ -2490,7 +2490,7 @@ static int unit_watch_pids_in_path(Unit *u, const char *path) {
                 while ((r = cg_read_subgroup(d, &fn)) > 0) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = path_join(path, fn);
+                        p = path_join(empty_to_root(path), fn);
                         free(fn);
 
                         if (!p)
