@@ -324,7 +324,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        table = table_new("IDX", "LINK", "TYPE", "OPERATIONAL", "SETUP");
+        table = table_new("idx", "link", "type", "operational", "setup");
         if (!table)
                 return log_oom();
 
@@ -658,7 +658,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
         if (r < 0)
                 return r;
 
-        table = table_new("Label", "Prefix/Prefixlen");
+        table = table_new("label", "prefix/prefixlen");
         if (!table)
                 return -ENOMEM;
 
@@ -972,7 +972,7 @@ static int link_status_one(
         (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
         (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
 
-        table = table_new("DOT", "KEY", "VALUE");
+        table = table_new("dot", "key", "value");
         if (!table)
                 return -ENOMEM;
 
@@ -1274,7 +1274,7 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         (void) sd_network_get_operational_state(&operational_state);
         operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
-        table = table_new("DOT", "KEY", "VALUE");
+        table = table_new("dot", "key", "value");
         if (!table)
                 return -ENOMEM;
 
@@ -1439,12 +1439,12 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        table = table_new("LINK",
-                          "CHASSIS ID",
-                          "SYSTEM NAME",
-                          "CAPS",
-                          "PORT ID",
-                          "PORT DESCRIPTION");
+        table = table_new("link",
+                          "chassis id",
+                          "system name",
+                          "caps",
+                          "port id",
+                          "port description");
         if (!table)
                 return -ENOMEM;
 
