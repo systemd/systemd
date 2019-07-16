@@ -34,6 +34,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
+        assert_se(setenv("SYSTEMD_COLORS", "0", 1) >= 0);
         assert_se(setenv("COLUMNS", "40", 1) >= 0);
 
         assert_se(t = table_new("one", "two", "three"));
