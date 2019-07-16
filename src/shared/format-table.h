@@ -25,6 +25,18 @@ typedef enum TableDataType {
         TABLE_PERCENT,
         TABLE_IFINDEX,
         _TABLE_DATA_TYPE_MAX,
+
+        /* The following are not really data types, but commands for table_add_cell_many() to make changes to
+         * a cell just added. */
+        TABLE_SET_MINIMUM_WIDTH,
+        TABLE_SET_MAXIMUM_WIDTH,
+        TABLE_SET_WEIGHT,
+        TABLE_SET_ALIGN_PERCENT,
+        TABLE_SET_ELLIPSIZE_PERCENT,
+        TABLE_SET_COLOR,
+        TABLE_SET_URL,
+        TABLE_SET_UPPERCASE,
+
         _TABLE_DATA_TYPE_INVALID = -1,
 } TableDataType;
 
