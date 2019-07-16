@@ -934,6 +934,11 @@ int link_request_set_routes(Link *link) {
 
         link->static_routes_configured = false;
 
+        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
+                /* During configuring addresses, the link lost its carrier. As networkd is dropping
+                 * the addresses now, let's not configure the routes either. */
+                return 0;
+
         r = link_request_set_routing_policy_rule(link);
         if (r < 0)
                 return r;

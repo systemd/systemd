@@ -103,6 +103,11 @@ static int link_set_dhcp_routes(Link *link) {
         if (!link->network->dhcp_use_routes)
                 return 0;
 
+        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
+                /* During configuring addresses, the link lost its carrier. As networkd is dropping
+                 * the addresses now, let's not configure the routes either. */
+                return 0;
+
         table = link_get_dhcp_route_table(link);
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
