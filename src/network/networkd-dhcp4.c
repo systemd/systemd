@@ -17,6 +17,7 @@
 
 static int dhcp_remove_routes(Link *link, sd_dhcp_lease *lease, const struct in_addr *address, bool remove_all);
 static int dhcp_remove_router(Link *link, sd_dhcp_lease *lease, const struct in_addr *address, bool remove_all);
+static int dhcp_remove_dns_routes(Link *link, sd_dhcp_lease *lease, const struct in_addr *address, bool remove_all);
 static int dhcp_remove_address(Link *link, sd_dhcp_lease *lease, const struct in_addr *address);
 
 void dhcp4_release_old_lease(Link *link) {
@@ -34,6 +35,7 @@ void dhcp4_release_old_lease(Link *link) {
 
         (void) dhcp_remove_routes(link, link->dhcp_lease_old, &address_old, false);
         (void) dhcp_remove_router(link, link->dhcp_lease_old, &address_old, false);
+        (void) dhcp_remove_dns_routes(link, link->dhcp_lease_old, &address_old, false);
 
         if (!in4_addr_equal(&address_old, &address))
                 (void) dhcp_remove_address(link, link->dhcp_lease_old, &address_old);
@@ -104,6 +106,52 @@ static int dhcp_route_configure(Route **route, Link *link) {
                 return r;
 
         TAKE_PTR(*route);
+        return 0;
+}
+
+static int link_set_dns_routes(Link *link, const struct in_addr *address) {
+        const struct in_addr *dns;
+        uint32_t table;
+        int i, n, r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+        assert(link->network);
+
+        if (!link->network->dhcp_use_dns)
+                return 0;
+
+        n = sd_dhcp_lease_get_dns(link->dhcp_lease, &dns);
+        if (IN_SET(n, 0, -ENODATA))
+                return 0;
+        if (n < 0)
+                return log_link_warning_errno(link, n, "DHCP error: could not get DNS servers: %m");
+
+        table = link_get_dhcp_route_table(link);
+
+        for (i = 0; i < n; i ++) {
+                _cleanup_(route_freep) Route *route = NULL;
+
+                r = route_new(&route);
+                if (r < 0)
+                        return log_link_error_errno(link, r,  "Could not allocate route: %m");
+
+                /* Set routes to DNS servers. */
+
+                route->family = AF_INET;
+                route->dst.in = dns[i];
+                route->dst_prefixlen = 32;
+                route->prefsrc.in = *address;
+                route->scope = RT_SCOPE_LINK;
+                route->protocol = RTPROT_DHCP;
+                route->priority = link->network->dhcp_route_metric;
+                route->table = table;
+
+                r = dhcp_route_configure(&route, link);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not set route to DNS server: %m");
+        }
+
         return 0;
 }
 
@@ -245,7 +293,7 @@ static int link_set_dhcp_routes(Link *link) {
                         return log_link_error_errno(link, r, "Could not set router: %m");
         }
 
-        return 0;
+        return link_set_dns_routes(link, &address);
 }
 
 static int dhcp_remove_routes(Link *link, sd_dhcp_lease *lease, const struct in_addr *address, bool remove_all) {
@@ -351,6 +399,51 @@ static int dhcp_remove_router(Link *link, sd_dhcp_lease *lease, const struct in_
         return 0;
 }
 
+static int dhcp_remove_dns_routes(Link *link, sd_dhcp_lease *lease, const struct in_addr *address, bool remove_all) {
+        const struct in_addr *dns;
+        uint32_t table;
+        int i, n, r;
+
+        assert(link);
+        assert(lease);
+        assert(link->network);
+
+        if (!link->network->dhcp_use_dns)
+                return 0;
+
+        n = sd_dhcp_lease_get_dns(lease, &dns);
+        if (IN_SET(n, 0, -ENODATA))
+                return 0;
+        if (n < 0)
+                return log_link_warning_errno(link, n, "DHCP error: could not get DNS servers: %m");
+
+        table = link_get_dhcp_route_table(link);
+
+        for (i = 0; i < n; i ++) {
+                _cleanup_(route_freep) Route *route = NULL;
+
+                r = route_new(&route);
+                if (r < 0)
+                        return log_link_error_errno(link, r,  "Could not allocate route: %m");
+
+                route->family = AF_INET;
+                route->dst.in = dns[i];
+                route->dst_prefixlen = 32;
+                route->prefsrc.in = *address;
+                route->scope = RT_SCOPE_LINK;
+                route->protocol = RTPROT_DHCP;
+                route->priority = link->network->dhcp_route_metric;
+                route->table = table;
+
+                if (!remove_all && set_contains(link->dhcp_routes, route))
+                        continue;
+
+                (void) route_remove(route, link, NULL);
+        }
+
+        return 0;
+}
+
 static int dhcp_remove_address(Link *link, sd_dhcp_lease *lease, const struct in_addr *address) {
         _cleanup_(address_freep) Address *a = NULL;
         struct in_addr netmask;
@@ -440,6 +533,7 @@ static int dhcp_lease_lost(Link *link) {
         (void) sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         (void) dhcp_remove_routes(link, link->dhcp_lease, &address, true);
         (void) dhcp_remove_router(link, link->dhcp_lease, &address, true);
+        (void) dhcp_remove_dns_routes(link, link->dhcp_lease, &address, true);
         (void) dhcp_remove_address(link, link->dhcp_lease, &address);
         (void) dhcp_reset_mtu(link);
         (void) dhcp_reset_hostname(link);
