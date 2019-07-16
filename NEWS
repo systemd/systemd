@@ -238,7 +238,7 @@ CHANGES WITH 243 in spe:
           AssignToLoopback= for selecting whether to use the loopback device
           "lo" as underlying device.
 
-        * systemd-networkd's MACAddress= setting in the [Network] section has
+        * systemd-networkd's MACAddress= setting in the [Neighbor] section has
           been renamed to LinkLayerAddress=, and it now allows configuration of
           IP addresses, too.
 
