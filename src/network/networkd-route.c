@@ -207,6 +207,103 @@ static int route_compare_func(const Route *a, const Route *b) {
 
 DEFINE_PRIVATE_HASH_OPS(route_hash_ops, Route, route_hash_func, route_compare_func);
 
+static void route_full_hash_func(const Route *route, struct siphash *state) {
+        assert(route);
+
+        siphash24_compress(&route->family, sizeof(route->family), state);
+
+        switch (route->family) {
+        case AF_INET:
+        case AF_INET6:
+                siphash24_compress(&route->gw, FAMILY_ADDRESS_SIZE(route->family), state);
+                siphash24_compress(&route->dst, FAMILY_ADDRESS_SIZE(route->family), state);
+                siphash24_compress(&route->dst_prefixlen, sizeof(route->dst_prefixlen), state);
+                siphash24_compress(&route->src, FAMILY_ADDRESS_SIZE(route->family), state);
+                siphash24_compress(&route->src_prefixlen, sizeof(route->src_prefixlen), state);
+                siphash24_compress(&route->prefsrc, FAMILY_ADDRESS_SIZE(route->family), state);
+
+                siphash24_compress(&route->tos, sizeof(route->tos), state);
+                siphash24_compress(&route->priority, sizeof(route->priority), state);
+                siphash24_compress(&route->table, sizeof(route->table), state);
+                siphash24_compress(&route->protocol, sizeof(route->protocol), state);
+                siphash24_compress(&route->scope, sizeof(route->scope), state);
+                siphash24_compress(&route->type, sizeof(route->type), state);
+
+                break;
+        default:
+                /* treat any other address family as AF_UNSPEC */
+                break;
+        }
+}
+
+static int route_full_compare_func(const Route *a, const Route *b) {
+        int r;
+
+        r = CMP(a->family, b->family);
+        if (r != 0)
+                return r;
+
+        switch (a->family) {
+        case AF_INET:
+        case AF_INET6:
+                r = CMP(a->dst_prefixlen, b->dst_prefixlen);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->src_prefixlen, b->src_prefixlen);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->tos, b->tos);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->priority, b->priority);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->table, b->table);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->protocol, b->protocol);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->scope, b->scope);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->type, b->type);
+                if (r != 0)
+                        return r;
+
+                r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+
+                r = memcmp(&a->dst, &b->dst, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+
+                r = memcmp(&a->src, &b->src, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+
+                return memcmp(&a->prefsrc, &b->prefsrc, FAMILY_ADDRESS_SIZE(a->family));
+        default:
+                /* treat any other address family as AF_UNSPEC */
+                return 0;
+        }
+}
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                route_full_hash_ops,
+                Route,
+                route_full_hash_func,
+                route_full_compare_func,
+                route_free);
+
 bool route_equal(Route *r1, Route *r2) {
         if (r1 == r2)
                 return true;
