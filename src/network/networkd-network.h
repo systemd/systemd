@@ -91,6 +91,7 @@ struct Network {
         bool dhcp_broadcast;
         int dhcp_critical;
         bool dhcp_use_dns;
+        bool dhcp_routes_to_dns;
         bool dhcp_use_ntp;
         bool dhcp_use_mtu;
         bool dhcp_use_routes;

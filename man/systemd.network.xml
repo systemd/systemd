@@ -1323,6 +1323,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>RoutesToDNS=</varname></term>
+          <listitem>
+            <para>When true, the routes to the DNS servers received from the DHCP server will be
+            configured. When <varname>UseDNS=</varname> is disabled, this setting is ignored.
+            Defaults to <literal>false</literal></para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>UseNTP=</varname></term>
           <listitem>
             <para>When true (the default), the NTP servers received

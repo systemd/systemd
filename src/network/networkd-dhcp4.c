@@ -118,7 +118,8 @@ static int link_set_dns_routes(Link *link, const struct in_addr *address) {
         assert(link->dhcp_lease);
         assert(link->network);
 
-        if (!link->network->dhcp_use_dns)
+        if (!link->network->dhcp_use_dns ||
+            !link->network->dhcp_routes_to_dns)
                 return 0;
 
         n = sd_dhcp_lease_get_dns(link->dhcp_lease, &dns);
@@ -408,7 +409,8 @@ static int dhcp_remove_dns_routes(Link *link, sd_dhcp_lease *lease, const struct
         assert(lease);
         assert(link->network);
 
-        if (!link->network->dhcp_use_dns)
+        if (!link->network->dhcp_use_dns ||
+            !link->network->dhcp_routes_to_dns)
                 return 0;
 
         n = sd_dhcp_lease_get_dns(lease, &dns);
