@@ -26,6 +26,7 @@
 #include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "glob-util.h"
 #include "hashmap.h"
 #include "locale-util.h"
@@ -202,10 +203,6 @@ static int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char 
                 return log_error_errno(r, "Failed to get unit property %s: %s", property, bus_error_message(&error, r));
 
         return 0;
-}
-
-static int compare_unit_time(const struct unit_times *a, const struct unit_times *b) {
-        return CMP(b->time, a->time);
 }
 
 static int compare_unit_start(const struct unit_times *a, const struct unit_times *b) {
@@ -1070,7 +1067,9 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
 static int analyze_blame(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(unit_times_freep) struct unit_times *times = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
         struct unit_times *u;
+        TableCell *cell;
         int n, r;
 
         r = acquire_bus(&bus, NULL);
@@ -1081,18 +1080,50 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
         if (n <= 0)
                 return n;
 
-        typesafe_qsort(times, n, compare_unit_time);
+        table = table_new("TIME", "UNIT");
+        if (!table)
+                return log_oom();
+
+        table_set_header(table, false);
+
+        assert_se(cell = table_get_cell(table, 0, 0));
+        r = table_set_ellipsize_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        r = table_set_align_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        assert_se(cell = table_get_cell(table, 0, 1));
+        r = table_set_ellipsize_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        r = table_set_sort(table, 0, SIZE_MAX);
+        if (r < 0)
+                return r;
+
+        r = table_set_reverse(table, 0, true);
+        if (r < 0)
+                return r;
+
+        for (u = times; u->has_data; u++) {
+                if (u->time <= 0)
+                        continue;
+
+                r = table_add_cell(table, NULL, TABLE_TIMESPAN_MSEC, &u->time);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_STRING, u->name);
+                if (r < 0)
+                        return r;
+        }
 
         (void) pager_open(arg_pager_flags);
 
-        for (u = times; u->has_data; u++) {
-                char ts[FORMAT_TIMESPAN_MAX];
-
-                if (u->time > 0)
-                        printf("%16s %s\n", format_timespan(ts, sizeof(ts), u->time, USEC_PER_MSEC), u->name);
-        }
-
-        return 0;
+        return table_print(table, NULL);
 }
 
 static int analyze_time(int argc, char *argv[], void *userdata) {
@@ -1690,9 +1721,10 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
         char **input_timespan;
 
         STRV_FOREACH(input_timespan, strv_skip(argv, 1)) {
+                _cleanup_(table_unrefp) Table *table = NULL;
+                usec_t output_usecs;
+                TableCell *cell;
                 int r;
-                usec_t usec_magnitude = 1, output_usecs;
-                char ft_buf[FORMAT_TIMESPAN_MAX];
 
                 r = parse_time(*input_timespan, &output_usecs, USEC_PER_SEC);
                 if (r < 0) {
@@ -1701,12 +1733,57 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
                         return r;
                 }
 
-                printf("Original: %s\n", *input_timespan);
-                printf("      %ss: %" PRIu64 "\n", special_glyph(SPECIAL_GLYPH_MU), output_usecs);
-                printf("   Human: %s%s%s\n",
-                       ansi_highlight(),
-                       format_timespan(ft_buf, sizeof(ft_buf), output_usecs, usec_magnitude),
-                       ansi_normal());
+                table = table_new("NAME", "VALUE");
+                if (!table)
+                        return log_oom();
+
+                table_set_header(table, false);
+
+                assert_se(cell = table_get_cell(table, 0, 0));
+                r = table_set_ellipsize_percent(table, cell, 100);
+                if (r < 0)
+                        return r;
+
+                r = table_set_align_percent(table, cell, 100);
+                if (r < 0)
+                        return r;
+
+                assert_se(cell = table_get_cell(table, 0, 1));
+                r = table_set_ellipsize_percent(table, cell, 100);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_STRING, "Original:");
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_STRING, *input_timespan);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell_stringf(table, NULL, "%ss:", special_glyph(SPECIAL_GLYPH_MU));
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_UINT64, &output_usecs);
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_STRING, "Human:");
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, &cell, TABLE_TIMESPAN, &output_usecs);
+                if (r < 0)
+                        return r;
+
+                r = table_set_color(table, cell, ansi_highlight());
+                if (r < 0)
+                        return r;
+
+                r = table_print(table, NULL);
+                if (r < 0)
+                        return r;
 
                 if (input_timespan[1])
                         putchar('\n');
@@ -1716,8 +1793,9 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
 }
 
 static int test_timestamp_one(const char *p) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        TableCell *cell;
         usec_t usec;
-        char buf[FORMAT_TIMESTAMP_MAX];
         int r;
 
         r = parse_timestamp(p, &usec);
@@ -1727,24 +1805,77 @@ static int test_timestamp_one(const char *p) {
                 return r;
         }
 
-        printf("  Original form: %s\n", p);
-        printf("Normalized form: %s%s%s\n",
-               ansi_highlight_blue(),
-               format_timestamp(buf, sizeof buf, usec),
-               ansi_normal());
+        table = table_new("NAME", "VALUE");
+        if (!table)
+                return log_oom();
 
-        if (!in_utc_timezone())
-                printf("       (in UTC): %s\n", format_timestamp_utc(buf, sizeof buf, usec));
+        table_set_header(table, false);
 
-        printf("   UNIX seconds: @%"PRI_USEC"%s%0*"PRI_USEC"\n",
-               usec / USEC_PER_SEC,
-               usec % USEC_PER_SEC ? "." : "",
-               usec % USEC_PER_SEC ? 6 : 0,
-               usec % USEC_PER_SEC);
+        assert_se(cell = table_get_cell(table, 0, 0));
+        r = table_set_ellipsize_percent(table, cell, 100);
+        if (r < 0)
+                return r;
 
-        printf("       From now: %s\n", format_timestamp_relative(buf, sizeof buf, usec));
+        r = table_set_align_percent(table, cell, 100);
+        if (r < 0)
+                return r;
 
-        return 0;
+        assert_se(cell = table_get_cell(table, 0, 1));
+        r = table_set_ellipsize_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "Original form:");
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_STRING, p);
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "Normalized form:");
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, &cell, TABLE_TIMESTAMP, &usec);
+        if (r < 0)
+                return r;
+
+        r = table_set_color(table, cell, ansi_highlight_blue());
+        if (r < 0)
+                return r;
+
+        if (!in_utc_timezone()) {
+                r = table_add_cell(table, NULL, TABLE_STRING, "(in UTC):");
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, &cell, TABLE_TIMESTAMP_UTC, &usec);
+                if (r < 0)
+                        return r;
+        }
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "UNIX seconds:");
+        if (r < 0)
+                return r;
+
+        r = table_add_cell_stringf(table, &cell, "@%"PRI_USEC"%s%0*"PRI_USEC"",
+                                   usec / USEC_PER_SEC,
+                                   usec % USEC_PER_SEC ? "." : "",
+                                   usec % USEC_PER_SEC ? 6 : 0,
+                                   usec % USEC_PER_SEC);
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "From now:");
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, &cell, TABLE_TIMESTAMP_RELATIVE, &usec);
+        if (r < 0)
+                return r;
+
+        return table_print(table, NULL);
 }
 
 static int test_timestamp(int argc, char *argv[], void *userdata) {
@@ -1765,7 +1896,9 @@ static int test_timestamp(int argc, char *argv[], void *userdata) {
 
 static int test_calendar_one(usec_t n, const char *p) {
         _cleanup_(calendar_spec_freep) CalendarSpec *spec = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *t = NULL;
+        TableCell *cell;
         int r;
 
         r = calendar_spec_from_string(p, &spec);
@@ -1779,30 +1912,80 @@ static int test_calendar_one(usec_t n, const char *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to format calendar specification '%s': %m", p);
 
-        if (!streq(t, p))
-                printf("  Original form: %s\n", p);
+        table = table_new("NAME", "VALUE");
+        if (!table)
+                return log_oom();
 
-        printf("Normalized form: %s\n", t);
+        table_set_header(table, false);
+
+        assert_se(cell = table_get_cell(table, 0, 0));
+        r = table_set_ellipsize_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        r = table_set_align_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        assert_se(cell = table_get_cell(table, 0, 1));
+        r = table_set_ellipsize_percent(table, cell, 100);
+        if (r < 0)
+                return r;
+
+        if (!streq(t, p)) {
+                r = table_add_cell(table, NULL, TABLE_STRING, "Original form:");
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_STRING, p);
+                if (r < 0)
+                        return r;
+        }
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "Normalized form:");
+        if (r < 0)
+                return r;
+
+        r = table_add_cell(table, NULL, TABLE_STRING, t);
+        if (r < 0)
+                return r;
 
         for (unsigned i = 0; i < arg_iterations; i++) {
-                char buffer[CONST_MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESTAMP_RELATIVE_MAX)];
                 usec_t next;
 
                 r = calendar_spec_next_usec(spec, n, &next);
                 if (r == -ENOENT) {
-                        if (i == 0)
-                                printf("    Next elapse: %snever%s\n", ansi_highlight_yellow(), ansi_normal());
-                        return 0;
+                        if (i == 0) {
+                                r = table_add_cell(table, NULL, TABLE_STRING, "Next elapse:");
+                                if (r < 0)
+                                        return r;
+
+                                r = table_add_cell(table, &cell, TABLE_STRING, "never");
+                                if (r < 0)
+                                        return r;
+
+                                r = table_set_color(table, cell, ansi_highlight_yellow());
+                                if (r < 0)
+                                        return r;
+                        }
+                        break;
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine next elapse for '%s': %m", p);
 
-                if (i == 0)
-                        printf("    Next elapse: %s%s%s\n",
-                               ansi_highlight_blue(),
-                               format_timestamp(buffer, sizeof(buffer), next),
-                               ansi_normal());
-                else {
+                if (i == 0) {
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Next elapse:");
+                        if (r < 0)
+                                return r;
+
+                        r = table_add_cell(table, &cell, TABLE_TIMESTAMP, &next);
+                        if (r < 0)
+                                return r;
+
+                        r = table_set_color(table, cell, ansi_highlight_blue());
+                        if (r < 0)
+                                return r;
+                } else {
                         int k = DECIMAL_STR_WIDTH(i + 1);
 
                         if (k < 8)
@@ -1810,20 +1993,41 @@ static int test_calendar_one(usec_t n, const char *p) {
                         else
                                 k = 0;
 
-                        printf("%*sIter. #%u: %s%s%s\n",
-                               k, "", i+1,
-                               ansi_highlight_blue(), format_timestamp(buffer, sizeof(buffer), next), ansi_normal());
+                        r = table_add_cell_stringf(table, NULL, "Iter. #%u:", i+1);
+                        if (r < 0)
+                                return r;
+
+                        r = table_add_cell(table, &cell, TABLE_TIMESTAMP, &next);
+                        if (r < 0)
+                                return r;
+
+                        r = table_set_color(table, cell, ansi_highlight_blue());
+                        if (r < 0)
+                                return r;
                 }
 
-                if (!in_utc_timezone())
-                        printf("       (in UTC): %s\n", format_timestamp_utc(buffer, sizeof(buffer), next));
+                if (!in_utc_timezone()) {
+                        r = table_add_cell(table, NULL, TABLE_STRING, "(in UTC):");
+                        if (r < 0)
+                                return r;
 
-                printf("       From now: %s\n", format_timestamp_relative(buffer, sizeof(buffer), next));
+                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_UTC, &next);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = table_add_cell(table, NULL, TABLE_STRING, "From now:");
+                if (r < 0)
+                        return r;
+
+                r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE, &next);
+                if (r < 0)
+                        return r;
 
                 n = next;
         }
 
-        return 0;
+        return table_print(table, NULL);
 }
 
 static int test_calendar(int argc, char *argv[], void *userdata) {

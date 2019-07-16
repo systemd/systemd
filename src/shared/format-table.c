@@ -230,7 +230,10 @@ static size_t table_data_size(TableDataType type, const void *data) {
                 return sizeof(bool);
 
         case TABLE_TIMESTAMP:
+        case TABLE_TIMESTAMP_UTC:
+        case TABLE_TIMESTAMP_RELATIVE:
         case TABLE_TIMESPAN:
+        case TABLE_TIMESPAN_MSEC:
                 return sizeof(usec_t);
 
         case TABLE_SIZE:
@@ -719,7 +722,10 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_TIMESTAMP:
+                case TABLE_TIMESTAMP_UTC:
+                case TABLE_TIMESTAMP_RELATIVE:
                 case TABLE_TIMESPAN:
+                case TABLE_TIMESPAN_MSEC:
                         buffer.usec = va_arg(ap, usec_t);
                         data = &buffer.usec;
                         break;
@@ -882,9 +888,12 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                         return 0;
 
                 case TABLE_TIMESTAMP:
+                case TABLE_TIMESTAMP_UTC:
+                case TABLE_TIMESTAMP_RELATIVE:
                         return CMP(a->timestamp, b->timestamp);
 
                 case TABLE_TIMESPAN:
+                case TABLE_TIMESPAN_MSEC:
                         return CMP(a->timespan, b->timespan);
 
                 case TABLE_SIZE:
@@ -985,28 +994,39 @@ static const char *table_data_format(TableData *d) {
         case TABLE_BOOLEAN:
                 return yes_no(d->boolean);
 
-        case TABLE_TIMESTAMP: {
+        case TABLE_TIMESTAMP:
+        case TABLE_TIMESTAMP_UTC:
+        case TABLE_TIMESTAMP_RELATIVE: {
                 _cleanup_free_ char *p;
+                char *ret;
 
                 p = new(char, FORMAT_TIMESTAMP_MAX);
                 if (!p)
                         return NULL;
 
-                if (!format_timestamp(p, FORMAT_TIMESTAMP_MAX, d->timestamp))
+                if (d->type == TABLE_TIMESTAMP)
+                        ret = format_timestamp(p, FORMAT_TIMESTAMP_MAX, d->timestamp);
+                else if (d->type == TABLE_TIMESTAMP_UTC)
+                        ret = format_timestamp_utc(p, FORMAT_TIMESTAMP_MAX, d->timestamp);
+                else
+                        ret = format_timestamp_relative(p, FORMAT_TIMESTAMP_MAX, d->timestamp);
+                if (!ret)
                         return "n/a";
 
                 d->formatted = TAKE_PTR(p);
                 break;
         }
 
-        case TABLE_TIMESPAN: {
+        case TABLE_TIMESPAN:
+        case TABLE_TIMESPAN_MSEC: {
                 _cleanup_free_ char *p;
 
                 p = new(char, FORMAT_TIMESPAN_MAX);
                 if (!p)
                         return NULL;
 
-                if (!format_timespan(p, FORMAT_TIMESPAN_MAX, d->timespan, 0))
+                if (!format_timespan(p, FORMAT_TIMESPAN_MAX, d->timespan,
+                                     d->type == TABLE_TIMESPAN ? 0 : USEC_PER_MSEC))
                         return "n/a";
 
                 d->formatted = TAKE_PTR(p);
@@ -1632,12 +1652,15 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 return json_variant_new_boolean(ret, d->boolean);
 
         case TABLE_TIMESTAMP:
+        case TABLE_TIMESTAMP_UTC:
+        case TABLE_TIMESTAMP_RELATIVE:
                 if (d->timestamp == USEC_INFINITY)
                         return json_variant_new_null(ret);
 
                 return json_variant_new_unsigned(ret, d->timestamp);
 
         case TABLE_TIMESPAN:
+        case TABLE_TIMESPAN_MSEC:
                 if (d->timespan == USEC_INFINITY)
                         return json_variant_new_null(ret);
 
