@@ -186,21 +186,15 @@ static int prompt_loop(const char *text, char **l, bool (*is_valid)(const char *
 
                 r = safe_atou(p, &u);
                 if (r >= 0) {
-                        char *c;
-
                         if (u <= 0 || u > strv_length(l)) {
                                 log_error("Specified entry number out of range.");
                                 continue;
                         }
 
                         log_info("Selected '%s'.", l[u-1]);
-
-                        c = strdup(l[u-1]);
-                        if (!c)
+                        if (free_and_strdup(ret, l[u-1]) < 0)
                                 return log_oom();
 
-                        free(*ret);
-                        *ret = c;
                         return 0;
                 }
 
@@ -209,10 +203,7 @@ static int prompt_loop(const char *text, char **l, bool (*is_valid)(const char *
                         continue;
                 }
 
-                free(*ret);
-                *ret = p;
-                p = 0;
-                return 0;
+                return free_and_replace(*ret, p);
         }
 }
 
