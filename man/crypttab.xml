@@ -152,6 +152,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>keyfile-timeout=</option></term>
+
+        <listitem><para> Specifies the timeout for the device on
+        which the key file resides and falls back to a password if
+        it could not be mounted. See
+        <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for key files on external devices.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>luks</option></term>
 
         <listitem><para>Force LUKS mode. When this mode is used, the
@@ -438,7 +449,8 @@
       <programlisting>luks       UUID=2505567a-9e27-4efe-a4d5-15ad146c258b
 swap       /dev/sda7       /dev/urandom       swap
 truecrypt  /dev/sda2       /etc/container_password  tcrypt
-hidden     /mnt/tc_hidden  /dev/null    tcrypt-hidden,tcrypt-keyfile=/etc/keyfile</programlisting>
+hidden     /mnt/tc_hidden  /dev/null    tcrypt-hidden,tcrypt-keyfile=/etc/keyfile
+external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s</programlisting>
     </example>
   </refsect1>
 
