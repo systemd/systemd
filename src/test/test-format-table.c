@@ -34,6 +34,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
+        assert_se(setenv("SYSTEMD_COLORS", "0", 1) >= 0);
         assert_se(setenv("COLUMNS", "40", 1) >= 0);
 
         assert_se(t = table_new("one", "two", "three"));
@@ -48,6 +49,7 @@ int main(int argc, char *argv[]) {
         assert_se(table_add_many(t,
                                  TABLE_STRING, "a long field",
                                  TABLE_STRING, "yyy",
+                                 TABLE_SET_UPPERCASE, 1,
                                  TABLE_BOOLEAN, false) >= 0);
 
         assert_se(table_format(t, &formatted) >= 0);
@@ -56,7 +58,7 @@ int main(int argc, char *argv[]) {
         assert_se(streq(formatted,
                         "ONE          TWO THREE\n"
                         "xxx          yyy   yes\n"
-                        "a long field yyy    no\n"));
+                        "a long field YYY    no\n"));
 
         formatted = mfree(formatted);
 
@@ -68,7 +70,7 @@ int main(int argc, char *argv[]) {
         assert_se(streq(formatted,
                         "ONE                TWO             THREE\n"
                         "xxx                yyy               yes\n"
-                        "a long field       yyy                no\n"));
+                        "a long field       YYY                no\n"));
 
         formatted = mfree(formatted);
 
@@ -79,7 +81,7 @@ int main(int argc, char *argv[]) {
         assert_se(streq(formatted,
                         "ONE TWO THR…\n"
                         "xxx yyy  yes\n"
-                        "a … yyy   no\n"));
+                        "a … YYY   no\n"));
 
         formatted = mfree(formatted);
 
@@ -113,7 +115,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(streq(formatted,
                         "ONE          TWO THREE\n"
-                        "a long field yyy    no\n"
+                        "a long field YYY    no\n"
                         "xxx          yyy   yes\n"));
 
         formatted = mfree(formatted);
@@ -139,7 +141,7 @@ int main(int argc, char *argv[]) {
         printf("%s\n", formatted);
 
         assert_se(streq(formatted,
-                        "a long field yyy    no\n"
+                        "a long field YYY    no\n"
                         "fäää         zzz    no\n"
                         "fäää         uuu   yes\n"
                         "xxx          yyy   yes\n"

@@ -28,6 +28,18 @@ typedef enum TableDataType {
         TABLE_PERCENT,
         TABLE_IFINDEX,
         _TABLE_DATA_TYPE_MAX,
+
+        /* The following are not really data types, but commands for table_add_cell_many() to make changes to
+         * a cell just added. */
+        TABLE_SET_MINIMUM_WIDTH,
+        TABLE_SET_MAXIMUM_WIDTH,
+        TABLE_SET_WEIGHT,
+        TABLE_SET_ALIGN_PERCENT,
+        TABLE_SET_ELLIPSIZE_PERCENT,
+        TABLE_SET_COLOR,
+        TABLE_SET_URL,
+        TABLE_SET_UPPERCASE,
+
         _TABLE_DATA_TYPE_INVALID = -1,
 } TableDataType;
 
@@ -55,7 +67,7 @@ int table_set_weight(Table *t, TableCell *cell, unsigned weight);
 int table_set_align_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_ellipsize_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_color(Table *t, TableCell *cell, const char *color);
-int table_set_url(Table *t, TableCell *cell, const char *color);
+int table_set_url(Table *t, TableCell *cell, const char *url);
 int table_set_uppercase(Table *t, TableCell *cell, bool b);
 
 int table_update(Table *t, TableCell *cell, TableDataType type, const void *data);

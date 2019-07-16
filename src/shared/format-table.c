@@ -681,6 +681,7 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
 int table_add_many_internal(Table *t, TableDataType first_type, ...) {
         TableDataType type;
         va_list ap;
+        TableCell *last_cell = NULL;
         int r;
 
         assert(t);
@@ -776,6 +777,55 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         data = &buffer.ifindex;
                         break;
 
+                case TABLE_SET_MINIMUM_WIDTH: {
+                        size_t w = va_arg(ap, size_t);
+
+                        r = table_set_minimum_width(t, last_cell, w);
+                        break;
+                }
+
+                case TABLE_SET_MAXIMUM_WIDTH: {
+                        size_t w = va_arg(ap, size_t);
+                        r = table_set_maximum_width(t, last_cell, w);
+                        break;
+                }
+
+                case TABLE_SET_WEIGHT: {
+                        unsigned w = va_arg(ap, unsigned);
+                        r = table_set_weight(t, last_cell, w);
+                        break;
+                }
+
+                case TABLE_SET_ALIGN_PERCENT: {
+                        unsigned p = va_arg(ap, unsigned);
+                        r = table_set_align_percent(t, last_cell, p);
+                        break;
+                }
+
+                case TABLE_SET_ELLIPSIZE_PERCENT: {
+                        unsigned p = va_arg(ap, unsigned);
+                        r = table_set_ellipsize_percent(t, last_cell, p);
+                        break;
+                }
+
+                case TABLE_SET_COLOR: {
+                        const char *c = va_arg(ap, const char*);
+                        r = table_set_color(t, last_cell, c);
+                        break;
+                }
+
+                case TABLE_SET_URL: {
+                        const char *u = va_arg(ap, const char*);
+                        r = table_set_url(t, last_cell, u);
+                        break;
+                }
+
+                case TABLE_SET_UPPERCASE: {
+                        int u = va_arg(ap, int);
+                        r = table_set_uppercase(t, last_cell, u);
+                        break;
+                }
+
                 case _TABLE_DATA_TYPE_MAX:
                         /* Used as end marker */
                         va_end(ap);
@@ -785,7 +835,9 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         assert_not_reached("Uh? Unexpected data type.");
                 }
 
-                r = table_add_cell(t, NULL, type, data);
+                if (type < _TABLE_DATA_TYPE_MAX)
+                        r = table_add_cell(t, &last_cell, type, data);
+
                 if (r < 0) {
                         va_end(ap);
                         return r;
