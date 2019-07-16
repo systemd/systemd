@@ -77,11 +77,34 @@ int umount_recursive(const char *prefix, int flags) {
         return n;
 }
 
-static int get_mount_flags(const char *path, unsigned long *flags) {
-        struct statvfs buf;
+/* Get the mount flags for the mountpoint at "path" from "table" */
+static int get_mount_flags(const char *path, unsigned long *flags, struct libmnt_table *table) {
+        struct statvfs buf = {};
+        struct libmnt_fs *fs = NULL;
+        const char *opts = NULL;
+        int r = 0;
 
+        fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
+        if (fs == NULL) {
+                log_warning("Could not find '%s' in mount table", path);
+                goto fallback;
+        }
+
+        opts = mnt_fs_get_vfs_options(fs);
+        r = mnt_optstr_get_flags(opts, flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+        if (r != 0) {
+                log_warning_errno(r, "Could not get flags for '%s': %m", path);
+                goto fallback;
+        }
+
+        /* relatime is default and trying to set it in an unprivileged container causes EPERM */
+        *flags &= ~MS_RELATIME;
+        return 0;
+
+fallback:
         if (statvfs(path, &buf) < 0)
                 return -errno;
+
         *flags = buf.f_flag;
         return 0;
 }
@@ -214,7 +237,7 @@ int bind_remount_recursive_with_mountinfo(
                                 return -errno;
 
                         orig_flags = 0;
-                        (void) get_mount_flags(cleaned, &orig_flags);
+                        (void) get_mount_flags(cleaned, &orig_flags, table);
                         orig_flags &= ~MS_RDONLY;
 
                         if (mount(NULL, cleaned, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
@@ -256,7 +279,7 @@ int bind_remount_recursive_with_mountinfo(
 
                         /* Try to reuse the original flag set */
                         orig_flags = 0;
-                        (void) get_mount_flags(x, &orig_flags);
+                        (void) get_mount_flags(x, &orig_flags, table);
                         orig_flags &= ~MS_RDONLY;
 
                         if (mount(NULL, x, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
