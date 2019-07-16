@@ -137,6 +137,38 @@ const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
+static int timer_add_one_monotonic_spec(
+                Timer *t,
+                const char *name,
+                TimerBase base,
+                UnitWriteFlags flags,
+                usec_t usec,
+                sd_bus_error *error) {
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                char ts[FORMAT_TIMESPAN_MAX];
+                TimerValue *v;
+
+                unit_write_settingf(UNIT(t), flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                    "%s=%s",
+                                    timer_base_to_string(base),
+                                    format_timespan(ts, sizeof ts, usec, USEC_PER_MSEC));
+
+                v = new(TimerValue, 1);
+                if (!v)
+                        return -ENOMEM;
+
+                *v = (TimerValue) {
+                        .base = base,
+                        .value = usec,
+                };
+
+                LIST_PREPEND(value, t->values, v);
+        }
+
+        return 1;
+}
+
 static int timer_add_one_calendar_spec(
                 Timer *t,
                 const char *name,
@@ -217,7 +249,7 @@ static int bus_timer_set_transient_property(
 
         if (streq(name, "TimersMonotonic")) {
                 const char *base_name;
-                usec_t usec = 0;
+                usec_t usec;
                 bool empty = true;
 
                 r = sd_bus_message_enter_container(message, 'a', "(st)");
@@ -229,26 +261,12 @@ static int bus_timer_set_transient_property(
 
                         b = timer_base_from_string(base_name);
                         if (b < 0 || b == TIMER_CALENDAR)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid timer base: %s", base_name);
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Invalid timer base: %s", base_name);
 
-                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                char ts[FORMAT_TIMESPAN_MAX];
-                                TimerValue *v;
-
-                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", base_name,
-                                                    format_timespan(ts, sizeof(ts), usec, USEC_PER_MSEC));
-
-                                v = new(TimerValue, 1);
-                                if (!v)
-                                        return -ENOMEM;
-
-                                *v = (TimerValue) {
-                                        .base = b,
-                                        .value = usec,
-                                };
-
-                                LIST_PREPEND(value, t->values, v);
-                        }
+                        r = timer_add_one_monotonic_spec(t, name, b, flags, usec, error);
+                        if (r < 0)
+                                return r;
 
                         empty = false;
                 }
@@ -309,9 +327,8 @@ static int bus_timer_set_transient_property(
                        "OnUnitActiveSec",
                        "OnUnitInactiveSec")) {
 
-                TimerValue *v;
-                TimerBase b = _TIMER_BASE_INVALID;
-                usec_t usec = 0;
+                TimerBase b;
+                usec_t usec;
 
                 log_notice("Client is using obsolete %s= transient property, please use TimersMonotonic= instead.", name);
 
@@ -323,25 +340,7 @@ static int bus_timer_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        char time[FORMAT_TIMESPAN_MAX];
-
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name,
-                                            format_timespan(time, sizeof(time), usec, USEC_PER_MSEC));
-
-                        v = new(TimerValue, 1);
-                        if (!v)
-                                return -ENOMEM;
-
-                        *v = (TimerValue) {
-                                .base = b,
-                                .value = usec,
-                        };
-
-                        LIST_PREPEND(value, t->values, v);
-                }
-
-                return 1;
+                return timer_add_one_monotonic_spec(t, name, b, flags, usec, error);
 
         } else if (streq(name, "OnCalendar")) {
 
