@@ -15,12 +15,12 @@
 #include "string-util.h"
 #include "sysctl-util.h"
 
-static int dhcp_remove_routes(Link *link, sd_dhcp_lease *lease, sd_dhcp_lease *new_lease, struct in_addr *address);
-static int dhcp_remove_router(Link *link, sd_dhcp_lease *lease, struct in_addr *address);
-static int dhcp_remove_address(Link *link, sd_dhcp_lease *lease, struct in_addr *address);
+static int dhcp_remove_routes(Link *link, sd_dhcp_lease *lease, const struct in_addr *address, bool remove_all);
+static int dhcp_remove_router(Link *link, sd_dhcp_lease *lease, const struct in_addr *address, bool remove_all);
+static int dhcp_remove_address(Link *link, sd_dhcp_lease *lease, const struct in_addr *address);
 
 void dhcp4_release_old_lease(Link *link) {
-        union in_addr_union address = IN_ADDR_NULL, address_old = IN_ADDR_NULL;
+        struct in_addr address = {}, address_old = {};
 
         assert(link);
 
@@ -29,15 +29,14 @@ void dhcp4_release_old_lease(Link *link) {
 
         assert(link->dhcp_lease);
 
-        (void) sd_dhcp_lease_get_address(link->dhcp_lease_old, &address_old.in);
-        (void) sd_dhcp_lease_get_address(link->dhcp_lease, &address.in);
+        (void) sd_dhcp_lease_get_address(link->dhcp_lease_old, &address_old);
+        (void) sd_dhcp_lease_get_address(link->dhcp_lease, &address);
 
-        (void) dhcp_remove_routes(link, link->dhcp_lease_old, link->dhcp_lease, &address_old.in);
+        (void) dhcp_remove_routes(link, link->dhcp_lease_old, &address_old, false);
+        (void) dhcp_remove_router(link, link->dhcp_lease_old, &address_old, false);
 
-        if (!in_addr_equal(AF_INET, &address_old, &address)) {
-                (void) dhcp_remove_router(link, link->dhcp_lease_old, &address_old.in);
-                (void) dhcp_remove_address(link, link->dhcp_lease_old, &address_old.in);
-        }
+        if (!in4_addr_equal(&address_old, &address))
+                (void) dhcp_remove_address(link, link->dhcp_lease_old, &address_old);
 
         link->dhcp_lease_old = sd_dhcp_lease_unref(link->dhcp_lease_old);
         link_dirty(link);
@@ -84,6 +83,30 @@ static int route_scope_from_address(const Route *route, const struct in_addr *se
                 return RT_SCOPE_UNIVERSE;
 }
 
+static int dhcp_route_configure(Route **route, Link *link) {
+        int r;
+
+        assert(route);
+        assert(*route);
+        assert(link);
+
+        if (set_contains(link->dhcp_routes, *route))
+                return 0;
+
+        r = route_configure(*route, link, dhcp4_route_handler);
+        if (r <= 0)
+                return r;
+
+        link->dhcp4_messages++;
+
+        r = set_put(link->dhcp_routes, *route);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(*route);
+        return 0;
+}
+
 static int link_set_dhcp_routes(Link *link) {
         _cleanup_free_ sd_dhcp_route **static_routes = NULL;
         bool classless_route = false, static_route = false;
@@ -107,6 +130,13 @@ static int link_set_dhcp_routes(Link *link) {
                 /* During configuring addresses, the link lost its carrier. As networkd is dropping
                  * the addresses now, let's not configure the routes either. */
                 return 0;
+
+        r = set_ensure_allocated(&link->dhcp_routes, &route_full_hash_ops);
+        if (r < 0)
+                return log_oom();
+
+        /* Clear old entries in case the set was already allocated */
+        set_clear(link->dhcp_routes);
 
         table = link_get_dhcp_route_table(link);
 
@@ -155,11 +185,12 @@ static int link_set_dhcp_routes(Link *link) {
                 if (IN_SET(route->scope, RT_SCOPE_LINK, RT_SCOPE_UNIVERSE))
                         route->prefsrc.in = address;
 
-                r = route_configure(route, link, dhcp4_route_handler);
+                if (set_contains(link->dhcp_routes, route))
+                        continue;
+
+                r = dhcp_route_configure(&route, link);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set host route: %m");
-                if (r > 0)
-                        link->dhcp4_messages++;
+                        return log_link_error_errno(link, r, "Could not set route: %m");
         }
 
         r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
@@ -194,11 +225,9 @@ static int link_set_dhcp_routes(Link *link) {
                 route_gw->priority = link->network->dhcp_route_metric;
                 route_gw->table = table;
 
-                r = route_configure(route_gw, link, dhcp4_route_handler);
+                r = dhcp_route_configure(&route_gw, link);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set host route: %m");
-                if (r > 0)
-                        link->dhcp4_messages++;
 
                 r = route_new(&route);
                 if (r < 0)
@@ -211,42 +240,18 @@ static int link_set_dhcp_routes(Link *link) {
                 route->priority = link->network->dhcp_route_metric;
                 route->table = table;
 
-                r = route_configure(route, link, dhcp4_route_handler);
+                r = dhcp_route_configure(&route, link);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set routes: %m");
-                if (r > 0)
-                        link->dhcp4_messages++;
+                        return log_link_error_errno(link, r, "Could not set router: %m");
         }
 
         return 0;
 }
 
-static bool route_present_in_routes(const Route *route, sd_dhcp_route **routes, unsigned n_routes) {
-        assert(n_routes == 0 || routes);
-
-        for (unsigned j = 0; j < n_routes; j++) {
-                union in_addr_union a;
-                unsigned char l;
-
-                assert_se(sd_dhcp_route_get_gateway(routes[j], &a.in) >= 0);
-                if (!in_addr_equal(AF_INET, &a, &route->gw))
-                        continue;
-                assert_se(sd_dhcp_route_get_destination(routes[j], &a.in) >= 0);
-                if (!in_addr_equal(AF_INET, &a, &route->dst))
-                        continue;
-                assert_se(sd_dhcp_route_get_destination_prefix_length(routes[j], &l) >= 0);
-                if (l != route->dst_prefixlen)
-                        continue;
-                return true;
-        }
-
-        return false;
-}
-
-static int dhcp_remove_routes(Link *link, sd_dhcp_lease *lease, sd_dhcp_lease *new_lease, struct in_addr *address) {
-        _cleanup_free_ sd_dhcp_route **routes = NULL, **new_routes = NULL;
+static int dhcp_remove_routes(Link *link, sd_dhcp_lease *lease, const struct in_addr *address, bool remove_all) {
+        _cleanup_free_ sd_dhcp_route **routes = NULL;
         uint32_t table;
-        int m = 0, n, i, r;
+        int n, i, r;
 
         assert(link);
         assert(address);
@@ -259,14 +264,6 @@ static int dhcp_remove_routes(Link *link, sd_dhcp_lease *lease, sd_dhcp_lease *n
                 return 0;
         else if (n < 0)
                 return log_link_error_errno(link, n, "DHCP error: Failed to get routes: %m");
-
-        if (new_lease) {
-                m = sd_dhcp_lease_get_routes(new_lease, &new_routes);
-                if (m == -ENODATA)
-                        m = 0;
-                else if (m < 0)
-                        return log_link_error_errno(link, m, "DHCP error: Failed to get routes: %m");
-        }
 
         table = link_get_dhcp_route_table(link);
 
@@ -287,7 +284,7 @@ static int dhcp_remove_routes(Link *link, sd_dhcp_lease *lease, sd_dhcp_lease *n
                 if (IN_SET(route->scope, RT_SCOPE_LINK, RT_SCOPE_UNIVERSE))
                         route->prefsrc.in = *address;
 
-                if (route_present_in_routes(route, new_routes, m))
+                if (!remove_all && set_contains(link->dhcp_routes, route))
                         continue;
 
                 (void) route_remove(route, link, NULL);
@@ -296,7 +293,7 @@ static int dhcp_remove_routes(Link *link, sd_dhcp_lease *lease, sd_dhcp_lease *n
         return n;
 }
 
-static int dhcp_remove_router(Link *link, sd_dhcp_lease *lease, struct in_addr *address) {
+static int dhcp_remove_router(Link *link, sd_dhcp_lease *lease, const struct in_addr *address, bool remove_all) {
         _cleanup_(route_freep) Route *route_gw = NULL, *route = NULL;
         const struct in_addr *router;
         uint32_t table;
@@ -334,7 +331,8 @@ static int dhcp_remove_router(Link *link, sd_dhcp_lease *lease, struct in_addr *
         route_gw->priority = link->network->dhcp_route_metric;
         route_gw->table = table;
 
-        (void) route_remove(route_gw, link, NULL);
+        if (remove_all || !set_contains(link->dhcp_routes, route_gw))
+                (void) route_remove(route_gw, link, NULL);
 
         r = route_new(&route);
         if (r < 0)
@@ -347,12 +345,13 @@ static int dhcp_remove_router(Link *link, sd_dhcp_lease *lease, struct in_addr *
         route->priority = link->network->dhcp_route_metric;
         route->table = table;
 
-        (void) route_remove(route, link, NULL);
+        if (remove_all || !set_contains(link->dhcp_routes, route))
+                (void) route_remove(route, link, NULL);
 
         return 0;
 }
 
-static int dhcp_remove_address(Link *link, sd_dhcp_lease *lease, struct in_addr *address) {
+static int dhcp_remove_address(Link *link, sd_dhcp_lease *lease, const struct in_addr *address) {
         _cleanup_(address_freep) Address *a = NULL;
         struct in_addr netmask;
         int r;
@@ -439,8 +438,8 @@ static int dhcp_lease_lost(Link *link) {
         link->dhcp4_configured = false;
 
         (void) sd_dhcp_lease_get_address(link->dhcp_lease, &address);
-        (void) dhcp_remove_routes(link, link->dhcp_lease, NULL, &address);
-        (void) dhcp_remove_router(link, link->dhcp_lease, &address);
+        (void) dhcp_remove_routes(link, link->dhcp_lease, &address, true);
+        (void) dhcp_remove_router(link, link->dhcp_lease, &address, true);
         (void) dhcp_remove_address(link, link->dhcp_lease, &address);
         (void) dhcp_reset_mtu(link);
         (void) dhcp_reset_hostname(link);
