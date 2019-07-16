@@ -49,8 +49,7 @@ static int add_epoll(int epoll_fd, int fd) {
 
 static int open_sockets(int *epoll_fd, bool accept) {
         char **address;
-        int n, fd, r;
-        int count = 0;
+        int n, fd, r, count = 0;
 
         n = sd_listen_fds(true);
         if (n < 0)
@@ -69,13 +68,18 @@ static int open_sockets(int *epoll_fd, bool accept) {
 
         /* Close logging and all other descriptors */
         if (arg_listen) {
-                int except[3 + n];
+                _cleanup_free_ int *except = NULL;
+                int i;
 
-                for (fd = 0; fd < SD_LISTEN_FDS_START + n; fd++)
-                        except[fd] = fd;
+                except = new(int, n);
+                if (!except)
+                        return log_oom();
+
+                for (i = 0; i < n; i++)
+                        except[i] = SD_LISTEN_FDS_START + i;
 
                 log_close();
-                r = close_all_fds(except, 3 + n);
+                r = close_all_fds(except, n);
                 if (r < 0)
                         return log_error_errno(r, "Failed to close all file descriptors: %m");
         }
