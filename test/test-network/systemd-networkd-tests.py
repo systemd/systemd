@@ -35,6 +35,8 @@ asan_options=None
 lsan_options=None
 ubsan_options=None
 
+running_units = []
+
 def check_output(*command, **kwargs):
     # This replaces both check_output and check_call (output can be ignored)
     command = command[0].split() + list(command[1:])
@@ -112,15 +114,18 @@ def expectedFailureIfLinkFileFieldIsNotSet():
     return f
 
 def setUpModule():
+    global running_units
+
     os.makedirs(network_unit_file_path, exist_ok=True)
     os.makedirs(networkd_ci_path, exist_ok=True)
 
     shutil.rmtree(networkd_ci_path)
     copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conf'), networkd_ci_path)
 
-    check_output('systemctl stop systemd-networkd.socket')
-    check_output('systemctl stop systemd-networkd.service')
-    check_output('systemctl stop systemd-resolved.service')
+    for u in ['systemd-networkd.socket', 'systemd-networkd.service', 'systemd-resolved.service', 'firewalld.service']:
+        if call(f'systemctl is-active --quiet {u}') == 0:
+            check_output(f'systemctl stop {u}')
+            running_units.append(u)
 
     drop_in = [
         '[Service]',
@@ -183,17 +188,19 @@ def setUpModule():
     check_output('systemctl restart systemd-resolved')
 
 def tearDownModule():
+    global running_units
+
     shutil.rmtree(networkd_ci_path)
 
-    check_output('systemctl stop systemd-networkd.service')
-    check_output('systemctl stop systemd-resolved.service')
+    for u in ['systemd-networkd.service', 'systemd-resolved.service']:
+        check_output(f'systemctl stop {u}')
 
     shutil.rmtree('/run/systemd/system/systemd-networkd.service.d')
     shutil.rmtree('/run/systemd/system/systemd-resolved.service.d')
     check_output('systemctl daemon-reload')
 
-    check_output('systemctl start systemd-networkd.socket')
-    check_output('systemctl start systemd-resolved.service')
+    for u in running_units:
+        check_output(f'systemctl start {u}')
 
 def read_link_attr(link, dev, attribute):
     with open(os.path.join(os.path.join(os.path.join('/sys/class/net/', link), dev), attribute)) as f:
