@@ -56,6 +56,4 @@ make -C test/TEST-01-BASIC clean setup run NSPAWN_TIMEOUT=600 TEST_NO_QEMU=yes N
 # Now that we're more or less sure that ASan isn't going to crash systemd and cause a kernel panic
 # let's also run the test with QEMU to cover udevd, sysctl and everything else that isn't run
 # in containers.
-
-# This should be turned on once `journalctl --flush` isn't flaky any more
-#make -C test/TEST-01-BASIC clean setup run QEMU_TIMEOUT=900 TEST_NO_NSPAWN=yes
+make -C test/TEST-01-BASIC clean setup run QEMU_TIMEOUT=900 TEST_NO_NSPAWN=yes
