@@ -47,8 +47,6 @@ static int add_cgroup(Hashmap *cgroups, const char *path, bool is_const, struct 
                         return -EINVAL;
 
                 pp = strndupa(path, e - path);
-                if (!pp)
-                        return -ENOMEM;
 
                 r = add_cgroup(cgroups, pp, false, &parent);
                 if (r < 0)
