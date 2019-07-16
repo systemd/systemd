@@ -459,9 +459,8 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
                 log_link_error_errno(link, r, "Could not set DHCPv4 address: %m");
                 link_enter_failed(link);
                 return 1;
-        }
-        if (r >= 0)
-                manager_rtnl_process_address(rtnl, m, link->manager);
+        } else if (r >= 0)
+                (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
         r = link_set_dhcp_routes(link);
         if (r < 0) {
@@ -470,7 +469,11 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         }
 
         /* Add back static routes since kernel removes while DHCPv4 address is removed from when lease expires */
-        link_request_set_routes(link);
+        r = link_request_set_routes(link);
+        if (r < 0) {
+                link_enter_failed(link);
+                return 1;
+        }
 
         if (link->dhcp4_messages == 0) {
                 link->dhcp4_configured = true;

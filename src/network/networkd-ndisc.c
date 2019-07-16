@@ -27,13 +27,23 @@ static int ndisc_netlink_route_message_handler(sd_netlink *rtnl, sd_netlink_mess
 
         link->ndisc_messages--;
 
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
+        if (r < 0 && r != -EEXIST) {
                 log_link_error_errno(link, r, "Could not set NDisc route or address: %m");
+                link_enter_failed(link);
+                return 1;
+        }
 
         if (link->ndisc_messages == 0) {
                 link->ndisc_configured = true;
-                link_request_set_routes(link);
+                r = link_request_set_routes(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return 1;
+                }
                 link_check_ready(link);
         }
 
@@ -48,15 +58,24 @@ static int ndisc_netlink_address_message_handler(sd_netlink *rtnl, sd_netlink_me
 
         link->ndisc_messages--;
 
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
+        if (r < 0 && r != -EEXIST) {
                 log_link_error_errno(link, r, "Could not set NDisc route or address: %m");
-        else if (r >= 0)
-                manager_rtnl_process_address(rtnl, m, link->manager);
+                link_enter_failed(link);
+                return 1;
+        } else if (r >= 0)
+                (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
         if (link->ndisc_messages == 0) {
                 link->ndisc_configured = true;
-                link_request_set_routes(link);
+                r = link_request_set_routes(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return 1;
+                }
                 link_check_ready(link);
         }
 

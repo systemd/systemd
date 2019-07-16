@@ -1,0 +1,6 @@
+[Match]
+Name=l2tp-ses*
+
+[Network]
+IPv6AcceptRA=no
+LinkLocalAddressing=yes

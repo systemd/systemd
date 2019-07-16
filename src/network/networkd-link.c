@@ -870,11 +870,8 @@ static int link_request_set_routing_policy_rule(Link *link) {
                 }
 
                 r = routing_policy_rule_configure(rule, link, NULL);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not set routing policy rules: %m");
-                        link_enter_failed(link);
-                        return r;
-                }
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not set routing policy rules: %m");
                 if (r > 0)
                         link->routing_policy_rule_messages++;
         }
@@ -905,8 +902,11 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
+        if (r < 0 && r != -EEXIST) {
                 log_link_warning_errno(link, r, "Could not set route: %m");
+                link_enter_failed(link);
+                return 1;
+        }
 
         if (link->route_messages == 0) {
                 log_link_debug(link, "Routes set");
@@ -946,11 +946,8 @@ int link_request_set_routes(Link *link) {
                                 continue;
 
                         r = route_configure(rt, link, route_handler);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Could not set routes: %m");
-                                link_enter_failed(link);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not set routes: %m");
                         if (r > 0)
                                 link->route_messages++;
                 }
@@ -969,6 +966,7 @@ int link_request_set_routes(Link *link) {
 void link_check_ready(Link *link) {
         Address *a;
         Iterator i;
+        int r;
 
         assert(link);
 
@@ -990,7 +988,9 @@ void link_check_ready(Link *link) {
 
         if (!link->addresses_ready) {
                 link->addresses_ready = true;
-                link_request_set_routes(link);
+                r = link_request_set_routes(link);
+                if (r < 0)
+                        link_enter_failed(link);
                 return;
         }
 
@@ -1039,11 +1039,8 @@ static int link_request_set_neighbors(Link *link) {
 
         LIST_FOREACH(neighbors, neighbor, link->network->neighbors) {
                 r = neighbor_configure(neighbor, link, NULL);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not set neighbor: %m");
-                        link_enter_failed(link);
-                        return r;
-                }
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not set neighbor: %m");
         }
 
         if (link->neighbor_messages == 0) {
@@ -1074,10 +1071,12 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
+        if (r < 0 && r != -EEXIST) {
                 log_link_warning_errno(link, r, "could not set address: %m");
-        else if (r >= 0)
-                manager_rtnl_process_address(rtnl, m, link->manager);
+                link_enter_failed(link);
+                return 1;
+        } else if (r >= 0)
+                (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
         if (link->address_messages == 0) {
                 log_link_debug(link, "Addresses set");
@@ -1131,22 +1130,16 @@ static int link_request_set_addresses(Link *link) {
                 update = address_get(link, ad->family, &ad->in_addr, ad->prefixlen, NULL) > 0;
 
                 r = address_configure(ad, link, address_handler, update);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not set addresses: %m");
-                        link_enter_failed(link);
-                        return r;
-                }
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not set addresses: %m");
                 if (r > 0)
                         link->address_messages++;
         }
 
         LIST_FOREACH(labels, label, link->network->address_labels) {
                 r = address_label_configure(label, link, NULL, false);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not set address label: %m");
-                        link_enter_failed(link);
-                        return r;
-                }
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not set address label: %m");
 
                 link->address_label_messages++;
         }
@@ -1155,10 +1148,8 @@ static int link_request_set_addresses(Link *link) {
            start it */
         if (link_dhcp4_server_enabled(link) && (link->flags & IFF_UP)) {
                 r = dhcp4_server_configure(link);
-                if (r < 0) {
-                        link_enter_failed(link);
+                if (r < 0)
                         return r;
-                }
                 log_link_debug(link, "Offering DHCPv4 leases");
         }
 
@@ -1211,15 +1202,16 @@ static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Could not set MTU: %m");
-                return 1;
+        if (r < 0)
+                log_link_warning_errno(link, r, "Could not set MTU, ignoring: %m");
+        else
+                log_link_debug(link, "Setting MTU done.");
+
+        if (link->state == LINK_STATE_INITIALIZED) {
+                r = link_configure_after_setting_mtu(link);
+                if (r < 0)
+                        link_enter_failed(link);
         }
-
-        log_link_debug(link, "Setting MTU done.");
-
-        if (link->state == LINK_STATE_INITIALIZED)
-                (void) link_configure_after_setting_mtu(link);
 
         return 1;
 }
@@ -1327,7 +1319,7 @@ static int set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_warning_errno(link, r, "Could not set link flags: %m");
+                log_link_warning_errno(link, r, "Could not set link flags, ignoring: %m");
 
         return 1;
 }
@@ -1494,7 +1486,7 @@ static int link_address_genmode_handler(sd_netlink *rtnl, sd_netlink_message *m,
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_warning_errno(link, r, "Could not set address genmode for interface: %m");
+                log_link_warning_errno(link, r, "Could not set address genmode for interface, ignoring: %m");
 
         return 1;
 }
@@ -2033,11 +2025,14 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
                 log_link_error_errno(link, r, "Could not join netdev: %m");
                 link_enter_failed(link);
                 return 1;
-        } else
-                log_link_debug(link, "Joined netdev");
+        }
+
+        log_link_debug(link, "Joined netdev");
 
         if (link->enslaving == 0) {
-                link_joined(link);
+                r = link_joined(link);
+                if (r < 0)
+                        link_enter_failed(link);
         }
 
         return 1;
@@ -2642,7 +2637,7 @@ configure:
         while ((link = set_steal_first(manager->links_requesting_uuid))) {
                 r = link_configure(link);
                 if (r < 0)
-                        log_link_error_errno(link, r, "Failed to configure link: %m");
+                        link_enter_failed(link);
         }
 
         manager->links_requesting_uuid = set_free(manager->links_requesting_uuid);
@@ -2787,7 +2782,11 @@ static int link_initialized_and_synced(Link *link) {
 }
 
 static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        (void) link_initialized_and_synced(link);
+        int r;
+
+        r = link_initialized_and_synced(link);
+        if (r < 0)
+                link_enter_failed(link);
         return 1;
 }
 

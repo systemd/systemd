@@ -95,7 +95,8 @@ static int neighbor_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link)
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_link_warning_errno(link, r, "Could not set neighbor: %m");
+                /* Neighbor may not exist yet. So, do not enter failed state here. */
+                log_link_warning_errno(link, r, "Could not set neighbor, ignoring: %m");
 
         if (link->neighbor_messages == 0) {
                 log_link_debug(link, "Neighbors set");
