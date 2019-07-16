@@ -1121,11 +1121,6 @@ static void service_set_state(Service *s, ServiceState state) {
         if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
                 service_stop_watchdog(s);
 
-        /* For the inactive states unit_notify() will trim the cgroup,
-         * but for exit we have to do that ourselves... */
-        if (state == SERVICE_EXITED && !MANAGER_IS_RELOADING(UNIT(s)->manager))
-                unit_prune_cgroup(UNIT(s));
-
         if (old_state != state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
 
