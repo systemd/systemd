@@ -31,8 +31,7 @@ static int add_cgroup(Hashmap *cgroups, const char *path, bool is_const, struct 
         assert(cgroups);
         assert(ret);
 
-        if (empty_or_root(path))
-                path = "/";
+        path = empty_to_root(path);
 
         cg = hashmap_get(cgroups, path);
         if (cg) {
@@ -150,8 +149,7 @@ static int dump_processes(
 
         assert(prefix);
 
-        if (empty_or_root(cgroup_path))
-                cgroup_path = "/";
+        cgroup_path = empty_to_root(cgroup_path);
 
         cg = hashmap_get(cgroups, cgroup_path);
         if (!cg)
