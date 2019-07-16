@@ -52,7 +52,7 @@ int table_set_weight(Table *t, TableCell *cell, unsigned weight);
 int table_set_align_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_ellipsize_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_color(Table *t, TableCell *cell, const char *color);
-int table_set_url(Table *t, TableCell *cell, const char *color);
+int table_set_url(Table *t, TableCell *cell, const char *url);
 int table_set_uppercase(Table *t, TableCell *cell, bool b);
 
 int table_update(Table *t, TableCell *cell, TableDataType type, const void *data);
