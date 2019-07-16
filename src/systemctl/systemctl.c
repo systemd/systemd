@@ -5033,11 +5033,13 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(stt)", &base, &v, &next_elapse)) > 0) {
-                                char timespan1[FORMAT_TIMESPAN_MAX], timespan2[FORMAT_TIMESPAN_MAX];
+                                char timespan1[FORMAT_TIMESPAN_MAX] = "n/a", timespan2[FORMAT_TIMESPAN_MAX] = "n/a";
 
-                                bus_print_property_valuef(name, expected_value, value, "{ %s=%s ; next_elapse=%s }", base,
-                                                          format_timespan(timespan1, sizeof(timespan1), v, 0),
-                                                          format_timespan(timespan2, sizeof(timespan2), next_elapse, 0));
+                                (void) format_timespan(timespan1, sizeof timespan1, v, 0);
+                                (void) format_timespan(timespan2, sizeof timespan2, next_elapse, 0);
+
+                                bus_print_property_valuef(name, expected_value, value,
+                                                          "{ %s=%s ; next_elapse=%s }", base, timespan1, timespan2);
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -5057,10 +5059,11 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(sst)", &base, &spec, &next_elapse)) > 0) {
-                                char timestamp[FORMAT_TIMESTAMP_MAX];
+                                char timestamp[FORMAT_TIMESTAMP_MAX] = "n/a";
 
-                                bus_print_property_valuef(name, expected_value, value, "{ %s=%s ; next_elapse=%s }", base, spec,
-                                                          format_timestamp(timestamp, sizeof(timestamp), next_elapse));
+                                (void) format_timestamp(timestamp, sizeof(timestamp), next_elapse);
+                                bus_print_property_valuef(name, expected_value, value,
+                                                          "{ %s=%s ; next_elapse=%s }", base, spec, timestamp);
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);

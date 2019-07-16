@@ -383,11 +383,11 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ON_CALENDAR: {
                         _cleanup_(calendar_spec_freep) CalendarSpec *cs = NULL;
 
-                        /* Let's make sure the given calendar event is not in the past */
                         r = calendar_spec_from_string(optarg, &cs);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse calendar event specification: %m");
 
+                        /* Let's make sure the given calendar event is not in the past */
                         r = calendar_spec_next_usec(cs, now(CLOCK_REALTIME), NULL);
                         if (r == -ENOENT)
                                 /* The calendar event is in the past — let's warn about this, but install it

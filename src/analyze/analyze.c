@@ -1080,7 +1080,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
         if (n <= 0)
                 return n;
 
-        table = table_new("TIME", "UNIT");
+        table = table_new("time", "unit");
         if (!table)
                 return log_oom();
 
@@ -1733,7 +1733,7 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
                         return r;
                 }
 
-                table = table_new("NAME", "VALUE");
+                table = table_new("name", "value");
                 if (!table)
                         return log_oom();
 
@@ -1805,7 +1805,7 @@ static int test_timestamp_one(const char *p) {
                 return r;
         }
 
-        table = table_new("NAME", "VALUE");
+        table = table_new("name", "value");
         if (!table)
                 return log_oom();
 
@@ -1859,11 +1859,13 @@ static int test_timestamp_one(const char *p) {
         if (r < 0)
                 return r;
 
-        r = table_add_cell_stringf(table, &cell, "@%"PRI_USEC"%s%0*"PRI_USEC"",
-                                   usec / USEC_PER_SEC,
-                                   usec % USEC_PER_SEC ? "." : "",
-                                   usec % USEC_PER_SEC ? 6 : 0,
-                                   usec % USEC_PER_SEC);
+        if (usec % USEC_PER_SEC == 0)
+                r = table_add_cell_stringf(table, &cell, "@%"PRI_USEC,
+                                           usec / USEC_PER_SEC);
+        else
+                r = table_add_cell_stringf(table, &cell, "@%"PRI_USEC".%06"PRI_USEC"",
+                                           usec / USEC_PER_SEC,
+                                           usec % USEC_PER_SEC);
         if (r < 0)
                 return r;
 
@@ -1912,7 +1914,7 @@ static int test_calendar_one(usec_t n, const char *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to format calendar specification '%s': %m", p);
 
-        table = table_new("NAME", "VALUE");
+        table = table_new("name", "value");
         if (!table)
                 return log_oom();
 
