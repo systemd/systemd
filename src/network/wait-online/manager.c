@@ -98,7 +98,7 @@ bool manager_configured(Manager *m) {
          * and at least one link to gain a carrier */
         HASHMAP_FOREACH(l, m->links, i) {
                 if (manager_ignore_link(m, l)) {
-                        log_link_info(l, "link is ignored");
+                        log_link_debug(l, "link is ignored");
                         continue;
                 }
 
