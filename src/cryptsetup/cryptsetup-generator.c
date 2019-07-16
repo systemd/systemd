@@ -369,9 +369,6 @@ static crypto_device *get_crypto_device(const char *uuid) {
                 if (!d)
                         return NULL;
 
-                d->create = false;
-                d->keyfile = d->options = d->name = NULL;
-
                 d->uuid = strdup(uuid);
                 if (!d->uuid)
                         return mfree(d);
