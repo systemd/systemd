@@ -137,6 +137,42 @@ const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
+static int timer_add_one_calendar_spec(
+                Timer *t,
+                const char *name,
+                TimerBase base,
+                UnitWriteFlags flags,
+                const char *str,
+                sd_bus_error *error) {
+
+        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+        int r;
+
+        r = calendar_spec_from_string(str, &c);
+        if (r == -EINVAL)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid calendar spec");
+        if (r < 0)
+                return r;
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                unit_write_settingf(UNIT(t), flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                    "%s=%s", timer_base_to_string(base), str);
+
+                TimerValue *v = new(TimerValue, 1);
+                if (!v)
+                        return -ENOMEM;
+
+                *v = (TimerValue) {
+                        .base = base,
+                        .calendar_spec = c,
+                };
+
+                LIST_PREPEND(value, t->values, v);
+        }
+
+        return 1;
+};
+
 static int bus_timer_set_transient_property(
                 Timer *t,
                 const char *name,
@@ -239,35 +275,16 @@ static int bus_timer_set_transient_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(ss)", &base_name, &str)) > 0) {
-                        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
                         TimerBase b;
 
                         b = timer_base_from_string(base_name);
                         if (b != TIMER_CALENDAR)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid timer base: %s", base_name);
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Invalid timer base: %s", base_name);
 
-                        r = calendar_spec_from_string(str, &c);
-                        if (r == -EINVAL)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid calendar spec: %s", str);
+                        r = timer_add_one_calendar_spec(t, name, b, flags, str, error);
                         if (r < 0)
                                 return r;
-
-                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                TimerValue *v;
-
-                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", base_name, str);
-
-                                v = new(TimerValue, 1);
-                                if (!v)
-                                        return -ENOMEM;
-
-                                *v = (TimerValue) {
-                                        .base = b,
-                                        .calendar_spec = TAKE_PTR(c),
-                                };
-
-                                LIST_PREPEND(value, t->values, v);
-                        }
 
                         empty = false;
                 }
@@ -328,8 +345,6 @@ static int bus_timer_set_transient_property(
 
         } else if (streq(name, "OnCalendar")) {
 
-                TimerValue *v;
-                _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
                 const char *str;
 
                 log_notice("Client is using obsolete %s= transient property, please use TimersCalendar= instead.", name);
@@ -338,28 +353,7 @@ static int bus_timer_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        r = calendar_spec_from_string(str, &c);
-                        if (r == -EINVAL)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid calendar spec");
-                        if (r < 0)
-                                return r;
-
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, str);
-
-                        v = new(TimerValue, 1);
-                        if (!v)
-                                return -ENOMEM;
-
-                        *v = (TimerValue) {
-                                .base = TIMER_CALENDAR,
-                                .calendar_spec = TAKE_PTR(c),
-                        };
-
-                        LIST_PREPEND(value, t->values, v);
-                }
-
-                return 1;
+                return timer_add_one_calendar_spec(t, name, TIMER_CALENDAR, flags, str, error);
         }
 
         return 0;
