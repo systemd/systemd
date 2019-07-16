@@ -114,6 +114,12 @@ systemd_networkd_wait_online_sources = files('''
 
 networkctl_sources = files('networkctl.c')
 
+network_generator_sources = files('''
+        generator/main.c
+        generator/network-generator.c
+        generator/network-generator.h
+'''.split())
+
 network_include_dir = include_directories('.')
 
 if conf.get('ENABLE_NETWORKD') == 1
@@ -209,5 +215,11 @@ if conf.get('ENABLE_NETWORKD') == 1
      [threads],
      '', '', [],
      [network_include_dir] + libudev_core_includes],
+
+    [['src/network/generator/test-network-generator.c',
+      'src/network/generator/network-generator.c',
+      'src/network/generator/network-generator.h'],
+     [libshared],
+     []],
   ]
 endif
