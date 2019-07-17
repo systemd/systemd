@@ -436,10 +436,8 @@ static int dhcp6_address_change(
 
         addr->family = AF_INET6;
         addr->in_addr.in6 = *ip6_addr;
-
         addr->flags = IFA_F_NOPREFIXROUTE;
         addr->prefixlen = 128;
-
         addr->cinfo.ifa_prefered = lifetime_preferred;
         addr->cinfo.ifa_valid = lifetime_valid;
 
