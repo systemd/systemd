@@ -776,7 +776,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, funlockfile);
 int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
         size_t n = 0, allocated = 0, count = 0;
         _cleanup_free_ char *buffer = NULL;
-        int r;
+        int r, tty = -1;
 
         assert(f);
 
@@ -849,6 +849,17 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
                         }
 
                         count++;
+
+                        if (eol != EOL_NONE) {
+                                /* If we are on a tty, we can't wait for more input. But we expect only
+                                 * \n as the single EOL marker, so there is no need to wait. We check
+                                 * this condition last to avoid isatty() check if not necessary. */
+
+                                if (tty < 0)
+                                        tty = isatty(fileno(f));
+                                if (tty > 0)
+                                        break;
+                        }
 
                         if (eol != EOL_NONE) {
                                 previous_eol |= eol;
