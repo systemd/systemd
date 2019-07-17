@@ -3310,7 +3310,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                               "Control process exited, code=%s status=%i",
                               sigchld_code_to_string(code), status);
 
-                if (s->result == SERVICE_SUCCESS)
+                if (s->state != SERVICE_RELOAD && s->result == SERVICE_SUCCESS)
                         s->result = f;
 
                 if (s->control_command &&
