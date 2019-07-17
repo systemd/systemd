@@ -1282,7 +1282,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_RLIMIT: {
                         const char *eq;
-                        char *name;
+                        _cleanup_free_ char *name = NULL;
                         int rl;
 
                         if (streq(optarg, "help")) {
