@@ -305,9 +305,7 @@ static int retrieve(const void *data,
         if (!v)
                 return log_oom();
 
-        free(*var);
-        *var = v;
-
+        free_and_replace(*var, v);
         return 1;
 }
 
