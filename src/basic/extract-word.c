@@ -28,6 +28,8 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 
         assert(p);
         assert(ret);
+        /* Those two don't make sense together. */
+        assert(!FLAGS_SET(flags, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE));
 
         /* Bail early if called after last value or with no input */
         if (!*p)
