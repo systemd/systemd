@@ -4663,19 +4663,19 @@ static int initialize_rlimits(void) {
 }
 
 static int run(int argc, char *argv[]) {
+        bool secondary = false, remove_directory = false, remove_image = false,
+                veth_created = false, remove_tmprootdir = false;
         _cleanup_close_ int master = -1;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, n_fd_passed, ret = EXIT_SUCCESS;
         char veth_name[IFNAMSIZ] = "";
-        bool secondary = false, remove_directory = false, remove_image = false;
-        pid_t pid = 0;
         union in_addr_union exposed = {};
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
-        bool veth_created = false, remove_tmprootdir = false;
         char tmprootdir[] = "/tmp/nspawn-root-XXXXXX";
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        pid_t pid = 0;
 
         log_parse_environment();
         log_open();
@@ -4753,12 +4753,9 @@ static int run(int argc, char *argv[]) {
                         if (r < 0)
                                 goto finish;
 
-                        /* If the specified path is a mount point we
-                         * generate the new snapshot immediately
-                         * inside it under a random name. However if
-                         * the specified is not a mount point we
-                         * create the new snapshot in the parent
-                         * directory, just next to it. */
+                        /* If the specified path is a mount point we generate the new snapshot immediately
+                         * inside it under a random name. However if the specified is not a mount point we
+                         * create the new snapshot in the parent directory, just next to it. */
                         r = path_is_mount_point(arg_directory, NULL, 0);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to determine whether directory %s is mount point: %m", arg_directory);
@@ -4779,21 +4776,27 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = btrfs_subvol_snapshot(arg_directory, np,
-                                                  (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
-                                                  BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                                  BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                                  BTRFS_SNAPSHOT_RECURSIVE |
-                                                  BTRFS_SNAPSHOT_QUOTA);
+                        {
+                                BLOCK_SIGNALS(SIGINT);
+                                r = btrfs_subvol_snapshot(arg_directory, np,
+                                                          (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                                          BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                                          BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                                          BTRFS_SNAPSHOT_RECURSIVE |
+                                                          BTRFS_SNAPSHOT_QUOTA |
+                                                          BTRFS_SNAPSHOT_SIGINT);
+                        }
+                        if (r == -EINTR) {
+                                log_error_errno(r, "Interrupted while copying file system tree to %s, removed again.", np);
+                                goto finish;
+                        }
                         if (r < 0) {
                                 log_error_errno(r, "Failed to create snapshot %s from %s: %m", np, arg_directory);
                                 goto finish;
                         }
 
                         free_and_replace(arg_directory, np);
-
                         remove_directory = true;
-
                 } else {
                         r = chase_symlinks_and_update(&arg_directory, arg_template ? CHASE_NONEXISTENT : 0);
                         if (r < 0)
@@ -4814,17 +4817,24 @@ static int run(int argc, char *argv[]) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = btrfs_subvol_snapshot(arg_template, arg_directory,
-                                                          (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
-                                                          BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                                          BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                                          BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
-                                                          BTRFS_SNAPSHOT_RECURSIVE |
-                                                          BTRFS_SNAPSHOT_QUOTA);
+                                {
+                                        BLOCK_SIGNALS(SIGINT);
+                                        r = btrfs_subvol_snapshot(arg_template, arg_directory,
+                                                                  (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                                                  BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                                                  BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                                                  BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
+                                                                  BTRFS_SNAPSHOT_RECURSIVE |
+                                                                  BTRFS_SNAPSHOT_QUOTA |
+                                                                  BTRFS_SNAPSHOT_SIGINT);
+                                }
                                 if (r == -EEXIST)
                                         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
                                                  "Directory %s already exists, not populating from template %s.", arg_directory, arg_template);
-                                else if (r < 0) {
+                                else if (r == -EINTR) {
+                                        log_error_errno(r, "Interrupted while copying file system tree to %s, removed again.", arg_directory);
+                                        goto finish;
+                                } else if (r < 0) {
                                         log_error_errno(r, "Couldn't create snapshot %s from %s: %m", arg_directory, arg_template);
                                         goto finish;
                                 } else
@@ -4886,14 +4896,20 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = copy_file(arg_image, np, O_EXCL, arg_read_only ? 0400 : 0600, FS_NOCOW_FL, FS_NOCOW_FL, COPY_REFLINK|COPY_CRTIME);
+                        {
+                                BLOCK_SIGNALS(SIGINT);
+                                r = copy_file(arg_image, np, O_EXCL, arg_read_only ? 0400 : 0600, FS_NOCOW_FL, FS_NOCOW_FL, COPY_REFLINK|COPY_CRTIME|COPY_SIGINT);
+                        }
+                        if (r == -EINTR) {
+                                log_error_errno(r, "Interrupted while copying image file to %s, removed again.", np);
+                                goto finish;
+                        }
                         if (r < 0) {
                                 r = log_error_errno(r, "Failed to copy image file: %m");
                                 goto finish;
                         }
 
                         free_and_replace(arg_image, np);
-
                         remove_image = true;
                 } else {
                         r = image_path_lock(arg_image, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
