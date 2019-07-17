@@ -305,7 +305,7 @@ _public_ const char* sd_bus_track_first(sd_bus_track *track) {
         track->modified = false;
         track->iterator = ITERATOR_FIRST;
 
-        hashmap_iterate(track->names, &track->iterator, NULL, (const void**) &n);
+        (void) hashmap_iterate(track->names, &track->iterator, NULL, (const void**) &n);
         return n;
 }
 
@@ -318,7 +318,7 @@ _public_ const char* sd_bus_track_next(sd_bus_track *track) {
         if (track->modified)
                 return NULL;
 
-        hashmap_iterate(track->names, &track->iterator, NULL, (const void**) &n);
+        (void) hashmap_iterate(track->names, &track->iterator, NULL, (const void**) &n);
         return n;
 }
 
