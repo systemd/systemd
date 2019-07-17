@@ -8,9 +8,7 @@ QEMU_TIMEOUT=180
 FSTYPE=ext4
 
 test_setup() {
-    create_empty_image
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
+    create_empty_image_rootdir
 
     # Create what will eventually be our root filesystem onto an overlay
     (
@@ -72,9 +70,6 @@ EOF
     ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.service
     ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
     ln -s /dev/null $initdir/etc/systemd/system/systemd-resolved.service
-
-    ddebug "umount $TESTDIR/root"
-    umount $TESTDIR/root
 }
 
 do_test "$@"

@@ -6,9 +6,7 @@ TEST_NO_NSPAWN=1
 . $TEST_BASE_DIR/test-functions
 
 test_setup() {
-    create_empty_image
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
+    create_empty_image_rootdir
 
     (
         LOG_LEVEL=5
@@ -50,9 +48,6 @@ EOF
 
         setup_testsuite
     )
-
-    ddebug "umount $TESTDIR/root"
-    umount $TESTDIR/root
 }
 
 do_test "$@"

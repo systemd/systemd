@@ -8,9 +8,7 @@ QEMU_TIMEOUT=180
 UNIFIED_CGROUP_HIERARCHY=yes
 
 test_setup() {
-    create_empty_image
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
+    create_empty_image_rootdir
 
     (
         LOG_LEVEL=5
@@ -41,9 +39,6 @@ EOF
 
         setup_testsuite
     )
-
-    ddebug "umount $TESTDIR/root"
-    umount $TESTDIR/root
 }
 
 do_test "$@"

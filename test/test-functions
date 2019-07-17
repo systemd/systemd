@@ -556,6 +556,13 @@ EOF
     fi
 }
 
+create_empty_image_rootdir() {
+    create_empty_image
+    mkdir -p $TESTDIR/root
+    mount ${LOOPDEV}p1 $TESTDIR/root
+    TEST_SETUP_CLEANUP_ROOTDIR=1
+}
+
 check_asan_reports() {
     local ret=0
     local root="$1"
@@ -634,7 +641,7 @@ strip_binaries() {
     ddebug "Strip binaries"
     find "$initdir" -executable -not -path '*/lib/modules/*.ko' -type f | \
         xargs strip --strip-unneeded |& \
-        grep -v 'file format not recognized' | \
+        grep -vi 'file format not recognized' | \
         ddebug
 }
 
@@ -1579,7 +1586,7 @@ instmods() {
                     | instmods
                 else
                     ( [[ "$_mpargs" ]] && echo $_mpargs
-                      find "$KERNEL_MODS" -path "*/${_mod#=}/*" -printf '%f\n' ) \
+                      find "$KERNEL_MODS" -path "*/${_mod#=}/*" -type f -printf '%f\n' ) \
                     | instmods
                 fi
                 ;;
@@ -1658,11 +1665,39 @@ setup_suse() {
     inst_simple "/usr/lib/systemd/system/haveged.service"
 }
 
+_test_setup_cleanup() {
+    # only umount if create_empty_image_rootdir() was called to mount it
+    if [[ $TEST_SETUP_CLEANUP_ROOTDIR ]]; then
+        ddebug "umount $TESTDIR/root"
+        umount $TESTDIR/root
+    fi
+}
+
+# can be overridden in specific test
+test_setup_cleanup() {
+    _test_setup_cleanup
+}
+
+_test_cleanup() {
+    # (post-test) cleanup should always ignore failure and cleanup as much as possible
+    (
+        set +e
+        if mountpoint $TESTDIR/root; then
+            ddebug "umount $TESTDIR/root"
+            umount $TESTDIR/root
+        fi
+        if [[ $LOOPDEV && -b $LOOPDEV ]]; then
+            ddebug "losetup -d $LOOPDEV"
+            losetup -d $LOOPDEV
+        fi
+        rm -fr "$TESTDIR"
+        rm -f "$STATEFILE"
+    ) || true
+}
+
 # can be overridden in specific test
 test_cleanup() {
-    umount $TESTDIR/root 2>/dev/null || true
-    [[ $LOOPDEV ]] && losetup -d $LOOPDEV || true
-    return 0
+    _test_cleanup
 }
 
 test_run() {
@@ -1726,24 +1761,21 @@ do_test() {
             --setup)
                 echo "TEST SETUP: $TEST_DESCRIPTION"
                 test_setup
+                test_setup_cleanup
                 ;;
             --clean)
                 echo "TEST CLEANUP: $TEST_DESCRIPTION"
                 test_cleanup
-                rm -fr "$TESTDIR"
-                rm -f "$STATEFILE"
                 ;;
             --all)
                 ret=0
-                echo -n "TEST: $TEST_DESCRIPTION ";
+                echo -n "TEST: $TEST_DESCRIPTION "
                 (
-                    test_setup && test_run
-                    ret=$?
-                    test_cleanup
-                    rm -fr "$TESTDIR"
-                    rm -f "$STATEFILE"
-                    exit $ret
+                    test_setup
+                    test_setup_cleanup
+                    test_run
                 ) </dev/null >"$TESTLOG" 2>&1 || ret=$?
+                test_cleanup
                 if [ $ret -eq 0 ]; then
                     rm "$TESTLOG"
                     echo "[OK]"
