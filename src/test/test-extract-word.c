@@ -83,6 +83,30 @@ static void test_extract_first_word(void) {
         free(t);
         assert_se(isempty(p));
 
+        p = original = "KEY=val \"KEY2=val with space\" \"KEY3=val with \\\"quotation\\\"\"";
+        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNQUOTE) == 1);
+        assert_se(streq(t, "KEY=val"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNQUOTE) == 1);
+        assert_se(streq(t, "KEY2=val with space"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNQUOTE) == 1);
+        assert_se(streq(t, "KEY3=val with \"quotation\""));
+        free(t);
+        assert_se(isempty(p));
+
+        p = original = "KEY=val \"KEY2=val space\" \"KEY3=val with \\\"quotation\\\"\"";
+        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_RETAIN_ESCAPE) == 1);
+        assert_se(streq(t, "KEY=val"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_RETAIN_ESCAPE) == 1);
+        assert_se(streq(t, "\"KEY2=val"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_RETAIN_ESCAPE) == 1);
+        assert_se(streq(t, "space\""));
+        free(t);
+        assert_se(startswith(p, "\"KEY3="));
+
         p = original = "\'fooo";
         assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNQUOTE) == -EINVAL);
         assert_se(p == original + 5);

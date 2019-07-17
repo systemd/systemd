@@ -1540,7 +1540,6 @@ int device_properties_prepare(sd_device *device) {
 
 _public_ const char *sd_device_get_property_first(sd_device *device, const char **_value) {
         const char *key;
-        const char *value;
         int r;
 
         assert_return(device, NULL);
@@ -1552,16 +1551,12 @@ _public_ const char *sd_device_get_property_first(sd_device *device, const char 
         device->properties_iterator_generation = device->properties_generation;
         device->properties_iterator = ITERATOR_FIRST;
 
-        ordered_hashmap_iterate(device->properties, &device->properties_iterator, (void**)&value, (const void**)&key);
-
-        if (_value)
-                *_value = value;
+        (void) ordered_hashmap_iterate(device->properties, &device->properties_iterator, (void**)_value, (const void**)&key);
         return key;
 }
 
 _public_ const char *sd_device_get_property_next(sd_device *device, const char **_value) {
         const char *key;
-        const char *value;
         int r;
 
         assert_return(device, NULL);
@@ -1573,10 +1568,7 @@ _public_ const char *sd_device_get_property_next(sd_device *device, const char *
         if (device->properties_iterator_generation != device->properties_generation)
                 return NULL;
 
-        ordered_hashmap_iterate(device->properties, &device->properties_iterator, (void**)&value, (const void**)&key);
-
-        if (_value)
-                *_value = value;
+        (void) ordered_hashmap_iterate(device->properties, &device->properties_iterator, (void**)_value, (const void**)&key);
         return key;
 }
 

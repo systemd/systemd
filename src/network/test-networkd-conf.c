@@ -233,7 +233,14 @@ static void test_config_parse_match_strv(void) {
         assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", 0,
                                           "KEY=val \"KEY2=val with space\" \"KEY3=val with \\\"quotation\\\"\"", &names, NULL) == 0);
 
-        strv_equal(names, STRV_MAKE("!hoge", "!hogehoge", "!foo", "!baz", "KEY=val", "KEY2=val with space", "KEY3=val with \"quotation\""));
+        assert_se(strv_equal(names,
+                             STRV_MAKE("!hoge",
+                                       "!hogehoge",
+                                       "!foo",
+                                       "!baz",
+                                       "KEY=val",
+                                       "KEY2=val with space",
+                                       "KEY3=val with \"quotation\"")));
 }
 
 int main(int argc, char **argv) {

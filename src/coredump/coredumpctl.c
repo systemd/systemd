@@ -305,9 +305,7 @@ static int retrieve(const void *data,
         if (!v)
                 return log_oom();
 
-        free(*var);
-        *var = v;
-
+        free_and_replace(*var, v);
         return 1;
 }
 
@@ -740,9 +738,22 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
 
         /* Look for a coredump on disk first. */
         r = sd_journal_get_data(j, "COREDUMP_FILENAME", (const void**) &data, &len);
-        if (r == 0)
-                retrieve(data, len, "COREDUMP_FILENAME", &filename);
-        else {
+        if (r == 0) {
+                r = retrieve(data, len, "COREDUMP_FILENAME", &filename);
+                if (r < 0)
+                        return r;
+                assert(r > 0);
+
+                if (access(filename, R_OK) < 0)
+                        return log_error_errno(errno, "File \"%s\" is not readable: %m", filename);
+
+                if (path && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
+                        *path = TAKE_PTR(filename);
+
+                        return 0;
+                }
+
+        } else {
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to retrieve COREDUMP_FILENAME field: %m");
                 /* Check that we can have a COREDUMP field. We still haven't set a high
@@ -754,17 +765,6 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         return log_error_errno(r, "Coredump entry has no core attached (neither internally in the journal nor externally on disk).");
                 if (r < 0)
                         return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
-        }
-
-        if (filename) {
-                if (access(filename, R_OK) < 0)
-                        return log_error_errno(errno, "File \"%s\" is not readable: %m", filename);
-
-                if (path && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
-                        *path = TAKE_PTR(filename);
-
-                        return 0;
-                }
         }
 
         if (path) {

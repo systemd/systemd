@@ -526,71 +526,57 @@ int terminal_vhangup(const char *name) {
 }
 
 int vt_disallocate(const char *name) {
-        _cleanup_close_ int fd = -1;
-        const char *e, *n;
-        unsigned u;
+        const char *e;
         int r;
 
         /* Deallocate the VT if possible. If not possible
          * (i.e. because it is the active one), at least clear it
-         * entirely (including the scrollback buffer) */
+         * entirely (including the scrollback buffer). */
 
         e = path_startswith(name, "/dev/");
         if (!e)
                 return -EINVAL;
 
-        if (!tty_is_vc(name)) {
-                /* So this is not a VT. I guess we cannot deallocate
-                 * it then. But let's at least clear the screen */
+        if (tty_is_vc(name)) {
+                _cleanup_close_ int fd = -1;
+                unsigned u;
+                const char *n;
 
-                fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                n = startswith(e, "tty");
+                if (!n)
+                        return -EINVAL;
+
+                r = safe_atou(n, &u);
+                if (r < 0)
+                        return r;
+
+                if (u <= 0)
+                        return -EINVAL;
+
+                /* Try to deallocate */
+                fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0)
                         return fd;
 
-                loop_write(fd,
-                           "\033[r"    /* clear scrolling region */
-                           "\033[H"    /* move home */
-                           "\033[2J",  /* clear screen */
-                           10, false);
-                return 0;
+                r = ioctl(fd, VT_DISALLOCATE, u);
+                if (r >= 0)
+                        return 0;
+                if (errno != EBUSY)
+                        return -errno;
         }
 
-        n = startswith(e, "tty");
-        if (!n)
-                return -EINVAL;
+        /* So this is not a VT (in which case we cannot deallocate it),
+         * or we failed to deallocate. Let's at least clear the screen. */
 
-        r = safe_atou(n, &u);
-        if (r < 0)
-                return r;
+        _cleanup_close_ int fd2 = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd2 < 0)
+                return fd2;
 
-        if (u <= 0)
-                return -EINVAL;
-
-        /* Try to deallocate */
-        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
-        if (fd < 0)
-                return fd;
-
-        r = ioctl(fd, VT_DISALLOCATE, u);
-        fd = safe_close(fd);
-
-        if (r >= 0)
-                return 0;
-
-        if (errno != EBUSY)
-                return -errno;
-
-        /* Couldn't deallocate, so let's clear it fully with
-         * scrollback */
-        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
-                return fd;
-
-        loop_write(fd,
-                   "\033[r"   /* clear scrolling region */
-                   "\033[H"   /* move home */
-                   "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
-                   10, false);
+        (void) loop_write(fd2,
+                          "\033[r"   /* clear scrolling region */
+                          "\033[H"   /* move home */
+                          "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
+                          10, false);
         return 0;
 }
 
