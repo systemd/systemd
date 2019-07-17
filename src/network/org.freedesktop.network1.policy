@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?> <!--*-nxml-*-->
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+        "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1+
+
+  This file is part of systemd.
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+-->
+
+<policyconfig>
+
+        <vendor>The systemd Project</vendor>
+        <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
+
+        <action id="org.freedesktop.network1.set-ntp-servers">
+                <description gettext-domain="systemd">Set NTP servers</description>
+                <message gettext-domain="systemd">Authentication is required to set NTP servers.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-network</annotate>
+        </action>
+
+        <action id="org.freedesktop.network1.set-dns-servers">
+                <description gettext-domain="systemd">Set DNS servers</description>
+                <message gettext-domain="systemd">Authentication is required to set DNS servers.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-network</annotate>
+        </action>
+
+        <action id="org.freedesktop.network1.set-domains">
+                <description gettext-domain="systemd">Set domains</description>
+                <message gettext-domain="systemd">Authentication is required to set domains.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-network</annotate>
+        </action>
+
+        <action id="org.freedesktop.network1.set-default-route">
+                <description gettext-domain="systemd">Set default route</description>
+                <message gettext-domain="systemd">Authentication is required to set default route.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-network</annotate>
+        </action>
+
+        <action id="org.freedesktop.network1.set-llmnr">
+                <description gettext-domain="systemd">Enable/disable LLMNR</description>
+                <message gettext-domain="systemd">Authentication is required to enable or disable LLMNR.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-network</annotate>
+        </action>
+
+        <action id="org.freedesktop.network1.set-mdns">
+                <description gettext-domain="systemd">Enable/disable multicast DNS</description>
+                <message gettext-domain="systemd">Authentication is required to enable or disable multicast DNS.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-network</annotate>
+        </action>
+
+        <action id="org.freedesktop.network1.set-dns-over-tls">
+                <description gettext-domain="systemd">Enable/disable DNS over TLS</description>
+                <message gettext-domain="systemd">Authentication is required to enable or disable DNS over TLS.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-network</annotate>
+        </action>
+
+        <action id="org.freedesktop.network1.set-dnssec">
+                <description gettext-domain="systemd">Enable/disable DNSSEC</description>
+                <message gettext-domain="systemd">Authentication is required to enable or disable DNSSEC.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-network</annotate>
+        </action>
+
+        <action id="org.freedesktop.network1.set-dnssec-negative-trust-anchors">
+                <description gettext-domain="systemd">Set DNSSEC Negative Trust Anchors</description>
+                <message gettext-domain="systemd">Authentication is required to set DNSSEC Negative Trust Anchros.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-network</annotate>
+        </action>
+
+        <action id="org.freedesktop.network1.revert-ntp">
+                <description gettext-domain="systemd">Revert NTP settings</description>
+                <message gettext-domain="systemd">Authentication is required to revert NTP settings.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-network</annotate>
+        </action>
+
+        <action id="org.freedesktop.network1.revert-dns">
+                <description gettext-domain="systemd">Revert DNS settings</description>
+                <message gettext-domain="systemd">Authentication is required to revert DNS settings.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-network</annotate>
+        </action>
+
+</policyconfig>

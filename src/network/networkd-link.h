@@ -18,6 +18,8 @@
 #include "log-link.h"
 #include "network-util.h"
 #include "networkd-util.h"
+#include "ordered-set.h"
+#include "resolve-util.h"
 #include "set.h"
 
 typedef enum LinkState {
@@ -130,6 +132,20 @@ typedef struct Link {
         bool stats_updated;
 
         int sysctl_ipv6_enabled;
+
+        /* All kinds of DNS configuration */
+        struct in_addr_data *dns;
+        unsigned n_dns;
+        OrderedSet *search_domains, *route_domains;
+
+        int dns_default_route;
+        ResolveSupport llmnr;
+        ResolveSupport mdns;
+        DnssecMode dnssec_mode;
+        DnsOverTlsMode dns_over_tls_mode;
+        Set *dnssec_negative_trust_anchors;
+
+        char **ntp;
 } Link;
 
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
@@ -137,6 +153,8 @@ typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, 
 DUID *link_get_duid(Link *link);
 int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
 
+void link_ntp_settings_clear(Link *link);
+void link_dns_settings_clear(Link *link);
 Link *link_unref(Link *link);
 Link *link_ref(Link *link);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);

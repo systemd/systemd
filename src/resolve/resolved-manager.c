@@ -14,6 +14,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "bus-util.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
@@ -699,6 +700,8 @@ Manager *manager_free(Manager *m) {
         manager_llmnr_stop(m);
         manager_mdns_stop(m);
         manager_dns_stub_stop(m);
+
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
 
         sd_bus_flush_close_unref(m->bus);
 

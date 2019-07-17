@@ -23,6 +23,7 @@
 #include "network-internal.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link-bus.h"
+#include "networkd-manager-bus.h"
 #include "networkd-manager.h"
 #include "networkd-network-bus.h"
 #include "networkd-speed-meter.h"
@@ -1163,15 +1164,15 @@ static int manager_save(Manager *m) {
                 if (r < 0)
                         return r;
 
-                r = ordered_set_put_strdupv(ntp, link->network->ntp);
+                r = ordered_set_put_strdupv(ntp, link->ntp ?: link->network->ntp);
                 if (r < 0)
                         return r;
 
-                r = ordered_set_put_string_set(search_domains, link->network->search_domains);
+                r = ordered_set_put_string_set(search_domains, link->search_domains ?: link->network->search_domains);
                 if (r < 0)
                         return r;
 
-                r = ordered_set_put_string_set(route_domains, link->network->route_domains);
+                r = ordered_set_put_string_set(route_domains, link->route_domains ?: link->network->route_domains);
                 if (r < 0)
                         return r;
 
@@ -1432,6 +1433,7 @@ void manager_free(Manager *m) {
 
         sd_device_monitor_unref(m->device_monitor);
 
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
         sd_bus_flush_close_unref(m->bus);
 
         free(m->dynamic_timezone);

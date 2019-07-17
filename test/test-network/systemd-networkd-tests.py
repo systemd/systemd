@@ -35,6 +35,8 @@ asan_options=None
 lsan_options=None
 ubsan_options=None
 
+running_units = []
+
 def check_output(*command, **kwargs):
     # This replaces both check_output and check_call (output can be ignored)
     command = command[0].split() + list(command[1:])
@@ -112,15 +114,18 @@ def expectedFailureIfLinkFileFieldIsNotSet():
     return f
 
 def setUpModule():
+    global running_units
+
     os.makedirs(network_unit_file_path, exist_ok=True)
     os.makedirs(networkd_ci_path, exist_ok=True)
 
     shutil.rmtree(networkd_ci_path)
     copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conf'), networkd_ci_path)
 
-    check_output('systemctl stop systemd-networkd.socket')
-    check_output('systemctl stop systemd-networkd.service')
-    check_output('systemctl stop systemd-resolved.service')
+    for u in ['systemd-networkd.socket', 'systemd-networkd.service', 'systemd-resolved.service', 'firewalld.service']:
+        if call(f'systemctl is-active --quiet {u}') == 0:
+            check_output(f'systemctl stop {u}')
+            running_units.append(u)
 
     drop_in = [
         '[Service]',
@@ -183,17 +188,19 @@ def setUpModule():
     check_output('systemctl restart systemd-resolved')
 
 def tearDownModule():
+    global running_units
+
     shutil.rmtree(networkd_ci_path)
 
-    check_output('systemctl stop systemd-networkd.service')
-    check_output('systemctl stop systemd-resolved.service')
+    for u in ['systemd-networkd.service', 'systemd-resolved.service']:
+        check_output(f'systemctl stop {u}')
 
     shutil.rmtree('/run/systemd/system/systemd-networkd.service.d')
     shutil.rmtree('/run/systemd/system/systemd-resolved.service.d')
     check_output('systemctl daemon-reload')
 
-    check_output('systemctl start systemd-networkd.socket')
-    check_output('systemctl start systemd-resolved.service')
+    for u in running_units:
+        check_output(f'systemctl start {u}')
 
 def read_link_attr(link, dev, attribute):
     with open(os.path.join(os.path.join(os.path.join('/sys/class/net/', link), dev), attribute)) as f:
@@ -260,13 +267,7 @@ def remove_unit_from_networkd_path(units):
             if (os.path.exists(os.path.join(network_unit_file_path, unit + '.d'))):
                 shutil.rmtree(os.path.join(network_unit_file_path, unit + '.d'))
 
-def warn_about_firewalld():
-    rc = call('systemctl -q is-active firewalld.service')
-    if rc == 0:
-        print('\nWARNING: firewalld.service is active. The test may fail.')
-
 def start_dnsmasq(additional_options='', ipv4_range='192.168.5.10,192.168.5.200', ipv6_range='2600::10,2600::20', lease_time='1h'):
-    warn_about_firewalld()
     dnsmasq_command = f'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5 --port=0 ' + additional_options
     check_output(dnsmasq_command)
 
@@ -1864,6 +1865,98 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 10.1.2.3/16 scope global dummy98')
         self.assertNotRegex(output, 'inet 10.2.3.4/16 scope global dynamic dummy98')
 
+class NetworkdStateFileTests(unittest.TestCase, Utilities):
+    links = [
+        'dummy98',
+    ]
+
+    units = [
+        '12-dummy.netdev',
+        'state-file-tests.network',
+    ]
+
+    def setUp(self):
+        remove_links(self.links)
+        stop_networkd(show_logs=False)
+
+    def tearDown(self):
+        remove_links(self.links)
+        remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
+
+    def test_state_file(self):
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'state-file-tests.network')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output(*networkctl_cmd, '--no-legend', 'list', 'dummy98', env=env)
+        print(output)
+        ifindex = output.split()[0]
+
+        path = os.path.join('/run/systemd/netif/links/', ifindex)
+        self.assertTrue(os.path.exists(path))
+        time.sleep(2)
+
+        with open(path) as f:
+            data = f.read()
+            self.assertRegex(data, r'ADMIN_STATE=configured')
+            self.assertRegex(data, r'OPER_STATE=routable')
+            self.assertRegex(data, r'REQUIRED_FOR_ONLINE=yes')
+            self.assertRegex(data, r'REQUIRED_OPER_STATE_FOR_ONLINE=routable')
+            self.assertRegex(data, r'NETWORK_FILE=/run/systemd/network/state-file-tests.network')
+            self.assertRegex(data, r'DNS=10.10.10.10 10.10.10.11')
+            self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
+            self.assertRegex(data, r'DOMAINS=hogehoge')
+            self.assertRegex(data, r'ROUTE_DOMAINS=foofoo')
+            self.assertRegex(data, r'LLMNR=no')
+            self.assertRegex(data, r'MDNS=yes')
+            self.assertRegex(data, r'DNSSEC=no')
+            self.assertRegex(data, r'ADDRESSES=192.168.(?:10.10|12.12)/24 192.168.(?:12.12|10.10)/24')
+
+        check_output(*resolvectl_cmd, 'dns', 'dummy98', '10.10.10.12', '10.10.10.13', env=env)
+        check_output(*resolvectl_cmd, 'domain', 'dummy98', 'hogehogehoge', '~foofoofoo', env=env)
+        check_output(*resolvectl_cmd, 'llmnr', 'dummy98', 'yes', env=env)
+        check_output(*resolvectl_cmd, 'mdns', 'dummy98', 'no', env=env)
+        check_output(*resolvectl_cmd, 'dnssec', 'dummy98', 'yes', env=env)
+        check_output(*timedatectl_cmd, 'ntp-servers', 'dummy98', '2.fedora.pool.ntp.org', '3.fedora.pool.ntp.org', env=env)
+        time.sleep(2)
+
+        with open(path) as f:
+            data = f.read()
+            self.assertRegex(data, r'DNS=10.10.10.12 10.10.10.13')
+            self.assertRegex(data, r'NTP=2.fedora.pool.ntp.org 3.fedora.pool.ntp.org')
+            self.assertRegex(data, r'DOMAINS=hogehogehoge')
+            self.assertRegex(data, r'ROUTE_DOMAINS=foofoofoo')
+            self.assertRegex(data, r'LLMNR=yes')
+            self.assertRegex(data, r'MDNS=no')
+            self.assertRegex(data, r'DNSSEC=yes')
+
+        check_output(*timedatectl_cmd, 'revert', 'dummy98', env=env)
+        time.sleep(2)
+
+        with open(path) as f:
+            data = f.read()
+            self.assertRegex(data, r'DNS=10.10.10.12 10.10.10.13')
+            self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
+            self.assertRegex(data, r'DOMAINS=hogehogehoge')
+            self.assertRegex(data, r'ROUTE_DOMAINS=foofoofoo')
+            self.assertRegex(data, r'LLMNR=yes')
+            self.assertRegex(data, r'MDNS=no')
+            self.assertRegex(data, r'DNSSEC=yes')
+
+        check_output(*resolvectl_cmd, 'revert', 'dummy98', env=env)
+        time.sleep(2)
+
+        with open(path) as f:
+            data = f.read()
+            self.assertRegex(data, r'DNS=10.10.10.10 10.10.10.11')
+            self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
+            self.assertRegex(data, r'DOMAINS=hogehoge')
+            self.assertRegex(data, r'ROUTE_DOMAINS=foofoo')
+            self.assertRegex(data, r'LLMNR=no')
+            self.assertRegex(data, r'MDNS=yes')
+            self.assertRegex(data, r'DNSSEC=no')
+
 class NetworkdBondTests(unittest.TestCase, Utilities):
     links = [
         'bond199',
@@ -2166,7 +2259,6 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_ipv6_prefix_delegation(self):
-        warn_about_firewalld()
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
@@ -2195,7 +2287,6 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_dhcp_server(self):
-        warn_about_firewalld()
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
@@ -2208,7 +2299,6 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'NTP: 192.168.5.1')
 
     def test_emit_router_timezone(self):
-        warn_about_firewalld()
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client-timezone-router.network', 'dhcp-server-timezone-router.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])

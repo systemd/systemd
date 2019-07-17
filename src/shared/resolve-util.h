@@ -2,7 +2,11 @@
 #pragma once
 
 #include "conf-parser.h"
+#include "in-addr-util.h"
 #include "macro.h"
+
+/* 127.0.0.53 in native endian */
+#define INADDR_DNS_STUB ((in_addr_t) 0x7f000035U)
 
 typedef enum ResolveSupport ResolveSupport;
 typedef enum DnssecMode DnssecMode;
@@ -61,3 +65,5 @@ DnssecMode dnssec_mode_from_string(const char *s) _pure_;
 
 const char* dns_over_tls_mode_to_string(DnsOverTlsMode p) _const_;
 DnsOverTlsMode dns_over_tls_mode_from_string(const char *s) _pure_;
+
+bool dns_server_address_valid(int family, const union in_addr_union *sa);

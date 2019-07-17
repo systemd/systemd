@@ -227,6 +227,20 @@
           <para>By default, empty properties are suppressed. Use <option>--all</option> to show those too.
           To select specific properties to show, use <option>--property=</option>.</para></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><command>ntp-servers <replaceable>INTERFACE</replaceable> <replaceable>SERVER</replaceable>…</command></term>
+
+          <listitem><para>Set the interface specific NTP servers. This command can be used only when the
+          interface is managed by <command>systemd-networkd</command>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>revert <replaceable>INTERFACE</replaceable></command></term>
+
+          <listitem><para>Revert the interface specific NTP servers. This command can be used only when
+          the interface is managed by <command>systemd-networkd</command>.</para></listitem>
+        </varlistentry>
       </variablelist>
 
     </refsect2>

@@ -25,6 +25,7 @@ struct Manager {
         sd_resolve *resolve;
         sd_bus *bus;
         sd_device_monitor *device_monitor;
+        Hashmap *polkit_registry;
 
         bool enumerating:1;
         bool dirty:1;
@@ -65,8 +66,6 @@ struct Manager {
         usec_t speed_meter_usec_old;
 };
 
-extern const sd_bus_vtable manager_vtable[];
-
 int manager_new(Manager **ret);
 void manager_free(Manager *m);
 
@@ -85,7 +84,6 @@ int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, vo
 int manager_rtnl_process_route(sd_netlink *nl, sd_netlink_message *message, void *userdata);
 int manager_rtnl_process_rule(sd_netlink *nl, sd_netlink_message *message, void *userdata);
 
-int manager_send_changed_strv(Manager *m, char **properties);
 void manager_dirty(Manager *m);
 
 int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found);
