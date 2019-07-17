@@ -344,9 +344,7 @@ static inline int __coverity_check__(int condition) {
 #endif
 
 #define assert_not_reached(t)                                           \
-        do {                                                            \
-                log_assert_failed_unreachable(t, PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__); \
-        } while (false)
+        log_assert_failed_unreachable(t, PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__)
 
 #if defined(static_assert)
 #define assert_cc(expr)                                                 \
