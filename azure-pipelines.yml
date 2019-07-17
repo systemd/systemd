@@ -13,15 +13,3 @@ jobs:
       set -e
       ./travis-ci/managers/fuzzbuzz.sh
     displayName: 'This is where it gets darker'
-
-- job: ASan_UBSan
-  displayName: ASan_UBSan
-
-  pool:
-    vmImage: 'ubuntu-latest'
-
-  steps:
-  - script: |
-      set -e
-      sudo ./travis-ci/managers/xenial.sh
-    displayName: 'This is where it gets darker'
