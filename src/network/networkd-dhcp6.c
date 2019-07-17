@@ -497,6 +497,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                 (void) dhcp6_lease_pd_prefix_lost(client, link);
                 (void) dhcp6_prefix_remove_all(link->manager, link);
 
+                link_dirty(link);
                 link->dhcp6_configured = false;
                 break;
 
@@ -519,6 +520,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                         return;
                 }
 
+                link_dirty(link);
                 link->dhcp6_configured = true;
                 break;
 
