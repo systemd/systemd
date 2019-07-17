@@ -1,5 +1,5 @@
-bin:x:1:1::/:/sbin/nologin
-daemon:x:2:2::/:/sbin/nologin
-mail:x:8:12::/var/spool/mail:/sbin/nologin
-ftp:x:14:11::/srv/ftp:/sbin/nologin
-http:x:33:33::/srv/http:/sbin/nologin
+bin:x:1:1::/:NOLOGIN
+daemon:x:2:2::/:NOLOGIN
+mail:x:8:12::/var/spool/mail:NOLOGIN
+ftp:x:14:11::/srv/ftp:NOLOGIN
+http:x:33:33::/srv/http:NOLOGIN

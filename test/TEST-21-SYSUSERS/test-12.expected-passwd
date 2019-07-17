@@ -1,2 +1,2 @@
 root:x:0:0:root:/root:/bin/bash
-systemd-coredump:x:1:1:systemd Core Dumper:/:/sbin/nologin
+systemd-coredump:x:1:1:systemd Core Dumper:/:NOLOGIN

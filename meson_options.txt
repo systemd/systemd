@@ -41,6 +41,7 @@ option('mount-path', type : 'string', description : 'path to mount')
 option('umount-path', type : 'string', description : 'path to umount')
 option('loadkeys-path', type : 'string', description : 'path to loadkeys')
 option('setfont-path', type : 'string', description : 'path to setfont')
+option('nologin-path', type : 'string', description : 'path to nologin')
 
 option('debug-shell', type : 'string', value : '/bin/sh',
        description : 'path to debug shell binary')

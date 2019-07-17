@@ -558,6 +558,7 @@ progs = [['quotaon',    '/usr/sbin/quotaon'    ],
          ['umount',     '/usr/bin/umount',     'UMOUNT_PATH'],
          ['loadkeys',   '/usr/bin/loadkeys',   'KBD_LOADKEYS'],
          ['setfont',    '/usr/bin/setfont',    'KBD_SETFONT'],
+         ['nologin',    '/usr/sbin/nologin',   ],
         ]
 foreach prog : progs
         path = get_option(prog[0] + '-path')
