@@ -405,21 +405,10 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                if (link->rtnl_extended_attrs) {
-                        log_link_warning(link, "Could not set extended netlink attributes, reverting to fallback mechanism");
-
-                        link->rtnl_extended_attrs = false;
-                        dhcp6_lease_address_acquired(link->dhcp6_client, link);
-
-                        return 1;
-                }
-
                 log_link_error_errno(link, r, "Could not set DHCPv6 address: %m");
-
                 link_enter_failed(link);
                 return 1;
-        }
-        if (r >= 0)
+        } else if (r >= 0)
                 (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
         r = link_request_set_routes(link);
@@ -447,10 +436,8 @@ static int dhcp6_address_change(
 
         addr->family = AF_INET6;
         addr->in_addr.in6 = *ip6_addr;
-
         addr->flags = IFA_F_NOPREFIXROUTE;
         addr->prefixlen = 128;
-
         addr->cinfo.ifa_prefered = lifetime_preferred;
         addr->cinfo.ifa_valid = lifetime_valid;
 
@@ -510,6 +497,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                 (void) dhcp6_lease_pd_prefix_lost(client, link);
                 (void) dhcp6_prefix_remove_all(link->manager, link);
 
+                link_dirty(link);
                 link->dhcp6_configured = false;
                 break;
 
@@ -532,6 +520,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                         return;
                 }
 
+                link_dirty(link);
                 link->dhcp6_configured = true;
                 break;
 

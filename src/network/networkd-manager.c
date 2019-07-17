@@ -1395,7 +1395,7 @@ void manager_free(Manager *m) {
 
         while ((a = hashmap_first_key(m->dhcp6_prefixes)))
                 (void) dhcp6_prefix_remove(m, a);
-        hashmap_free(m->dhcp6_prefixes);
+        m->dhcp6_prefixes = hashmap_free(m->dhcp6_prefixes);
 
         while ((link = hashmap_steal_first(m->links))) {
                 if (link->dhcp6_client)

@@ -2905,7 +2905,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
         self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
-        time.sleep(10)
+        time.sleep(3)
         output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
         print(output)
         self.assertRegex(output, '192.168.5.1')
@@ -2923,7 +2923,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
         self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
-        time.sleep(10)
+        time.sleep(3)
         output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
         print(output)
         self.assertNotRegex(output, '192.168.5.1')
@@ -2941,7 +2941,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
         self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
-        time.sleep(10)
+        time.sleep(3)
         output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
         print(output)
         self.assertRegex(output, '192.168.5.1')
@@ -2959,7 +2959,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
         self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
-        time.sleep(10)
+        time.sleep(3)
         output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
         print(output)
         self.assertRegex(output, '192.168.5.1')

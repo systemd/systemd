@@ -1559,7 +1559,7 @@
           <term><varname>UseDNS=</varname></term>
           <term><varname>UseNTP=</varname></term>
           <listitem>
-            <para>As in the <literal>[DHCP]</literal> section.</para>
+            <para>As in the <literal>[DHCPv4]</literal> section.</para>
           </listitem>
         </varlistentry>
 
