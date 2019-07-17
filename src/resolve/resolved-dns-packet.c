@@ -17,7 +17,7 @@
 
 #define EDNS0_OPT_DO (1<<15)
 
-assert_cc(DNS_PACKET_SIZE_START > DNS_PACKET_HEADER_SIZE)
+assert_cc(DNS_PACKET_SIZE_START > DNS_PACKET_HEADER_SIZE);
 
 typedef struct DnsPacketRewinder {
         DnsPacket *packet;

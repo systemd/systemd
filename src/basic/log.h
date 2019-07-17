@@ -73,7 +73,7 @@ int log_get_max_level_realm(LogRealm realm) _pure_;
  * for the application itself.
  */
 
-assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1)
+assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
 #define PROJECT_FILE (__FILE__ + STRLEN(RELATIVE_SOURCE_PATH) + 1)
 
 int log_open(void);

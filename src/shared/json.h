@@ -241,10 +241,10 @@ int json_dispatch_unsigned(const char *name, JsonVariant *variant, JsonDispatchF
 int json_dispatch_uint32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_int32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 
-assert_cc(sizeof(uintmax_t) == sizeof(uint64_t))
+assert_cc(sizeof(uintmax_t) == sizeof(uint64_t));
 #define json_dispatch_uint64 json_dispatch_unsigned
 
-assert_cc(sizeof(intmax_t) == sizeof(int64_t))
+assert_cc(sizeof(intmax_t) == sizeof(int64_t));
 #define json_dispatch_int64 json_dispatch_integer
 
 static inline int json_dispatch_level(JsonDispatchFlags flags) {
