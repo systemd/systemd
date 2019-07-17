@@ -189,7 +189,7 @@ int set_oom_score_adjust(int value);
 #error "Unknown pid_t size"
 #endif
 
-assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX)
+assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
 
 /* Like TAKE_PTR() but for child PIDs, resetting them to 0 */
 #define TAKE_PID(pid)                           \
