@@ -15,13 +15,6 @@ typedef struct Neighbor Neighbor;
 #include "networkd-network.h"
 #include "networkd-util.h"
 
-typedef enum {
-        NEIGHBOR_LLADDR_MAC,
-        NEIGHBOR_LLADDR_IP,
-        _NEIGHBOR_LLADDR_MAX,
-        _NEIGHBOR_LLADDR_INVALID = -1,
-} NeighborLLAddressType;
-
 struct Neighbor {
         Network *network;
         Link *link;
@@ -33,7 +26,7 @@ struct Neighbor {
                 struct ether_addr mac;
                 union in_addr_union ip;
         } lladdr;
-        NeighborLLAddressType lladdr_type;
+        size_t lladdr_size;
 
         LIST_FIELDS(Neighbor, neighbors);
 };
