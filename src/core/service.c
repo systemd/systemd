@@ -3524,7 +3524,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 service_exec_command_to_string(s->control_command_id),
                                 code, status);
 
-                if (s->result == SERVICE_SUCCESS)
+                if (s->state != SERVICE_RELOAD && s->result == SERVICE_SUCCESS)
                         s->result = f;
 
                 if (s->control_command &&
