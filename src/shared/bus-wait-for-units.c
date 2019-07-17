@@ -190,7 +190,7 @@ static void wait_for_item_check_ready(WaitForItem *item) {
         BusWaitForUnits *d;
 
         assert(item);
-        assert(d = item->parent);
+        assert_se(d = item->parent);
 
         if (FLAGS_SET(item->flags, BUS_WAIT_FOR_MAINTENANCE_END)) {
 
