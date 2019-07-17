@@ -672,7 +672,7 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                 return;
 
         /* Caching disabled? */
-        if (!t->scope->manager->enable_cache)
+        if (t->scope->manager->enable_cache == DNS_CACHE_MODE_NO)
                 return;
 
         /* We never cache if this packet is from the local host, under
@@ -683,6 +683,7 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                 return;
 
         dns_cache_put(&t->scope->cache,
+                      t->scope->manager->enable_cache,
                       t->key,
                       t->answer_rcode,
                       t->answer,

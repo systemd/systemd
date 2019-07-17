@@ -621,6 +621,7 @@ static bool rr_eligible(DnsResourceRecord *rr) {
 
 int dns_cache_put(
                 DnsCache *c,
+                DnsCacheMode cache_mode,
                 DnsResourceKey *key,
                 int rcode,
                 DnsAnswer *answer,
@@ -726,6 +727,13 @@ int dns_cache_put(
                  * signed */
                 if (authenticated && (flags & DNS_ANSWER_AUTHENTICATED) == 0)
                         return 0;
+        }
+
+        if (cache_mode == DNS_CACHE_MODE_NO_NEGATIVE) {
+                char key_str[DNS_RESOURCE_KEY_STRING_MAX];
+                log_debug("Not caching negative entry for: %s, cache mode set to no-negative",
+                        dns_resource_key_to_string(key, key_str, sizeof key_str));
+                return 0;
         }
 
         r = dns_cache_put_negative(

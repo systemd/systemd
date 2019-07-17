@@ -178,6 +178,13 @@ CHANGES WITH 243 in spe:
 
         * systemd-resolved gained support for a new 'strict' DNS-over-TLS mode.
 
+        * systemd-resolved "Cache=" configuration option in resolved.conf has been extended
+          to also accept the 'no-negative' value. Previously,
+          only a boolean option was allowed (yes/no), having yes as the default.
+          If this option is set to 'no-negative', negative answers are skipped
+          from being cached while keeping the same cache heuristics for positive answers.
+          The default remains as "yes" (i. e. caching is enabled).
+
         * The predictable naming scheme for network devices now supports
           generating predictable names for "netdevsim" devices.
 
