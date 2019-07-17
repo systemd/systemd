@@ -605,7 +605,6 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .n_ref = 1,
                 .manager = manager,
                 .state = LINK_STATE_PENDING,
-                .rtnl_extended_attrs = true,
                 .ifindex = ifindex,
                 .iftype = iftype,
                 .sysctl_ipv6_enabled = -1,

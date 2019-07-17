@@ -405,21 +405,10 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                if (link->rtnl_extended_attrs) {
-                        log_link_warning(link, "Could not set extended netlink attributes, reverting to fallback mechanism");
-
-                        link->rtnl_extended_attrs = false;
-                        dhcp6_lease_address_acquired(link->dhcp6_client, link);
-
-                        return 1;
-                }
-
                 log_link_error_errno(link, r, "Could not set DHCPv6 address: %m");
-
                 link_enter_failed(link);
                 return 1;
-        }
-        if (r >= 0)
+        } else if (r >= 0)
                 (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
         r = link_request_set_routes(link);

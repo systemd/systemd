@@ -113,7 +113,6 @@ typedef struct Link {
         sd_radv *radv;
 
         sd_dhcp6_client *dhcp6_client;
-        bool rtnl_extended_attrs;
 
         /* This is about LLDP reception */
         sd_lldp *lldp;
