@@ -2092,13 +2092,9 @@ static int oci_hook_timeout(const char *name, JsonVariant *v, JsonDispatchFlags 
         uintmax_t k;
 
         k = json_variant_unsigned(v);
-        if (k == 0)
-                return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                "Hook timeout cannot be zero.");
-
-        if (k > (UINT64_MAX-1/USEC_PER_SEC))
-                return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                "Hook timeout too large.");
+        if (k == 0 || k > (UINT64_MAX-1)/USEC_PER_SEC)
+                return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
+                                "Hook timeout value out of range.");
 
         *u = k * USEC_PER_SEC;
         return 0;
