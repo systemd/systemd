@@ -115,7 +115,6 @@ struct Job {
         Unit *unit;
 
         LIST_FIELDS(Job, transaction);
-        LIST_FIELDS(Job, run_queue);
         LIST_FIELDS(Job, dbus_queue);
         LIST_FIELDS(Job, gc_queue);
 
@@ -146,6 +145,8 @@ struct Job {
         char **deserialized_clients;
 
         JobResult result;
+
+        unsigned run_queue_idx;
 
         bool installed:1;
         bool in_run_queue:1;

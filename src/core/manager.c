@@ -814,6 +814,10 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
         if (r < 0)
                 return r;
 
+        r = prioq_ensure_allocated(&m->run_queue, compare_job_priority);
+        if (r < 0)
+                return r;
+
         r = manager_setup_prefix(m);
         if (r < 0)
                 return r;
@@ -1274,7 +1278,7 @@ static void manager_clear_jobs_and_units(Manager *m) {
         manager_dispatch_cleanup_queue(m);
 
         assert(!m->load_queue);
-        assert(!m->run_queue);
+        assert(prioq_isempty(m->run_queue));
         assert(!m->dbus_unit_queue);
         assert(!m->dbus_job_queue);
         assert(!m->cleanup_queue);
@@ -1322,6 +1326,8 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->jobs);
         hashmap_free(m->watch_pids);
         hashmap_free(m->watch_bus);
+
+        prioq_free(m->run_queue);
 
         set_free(m->startup_units);
         set_free(m->failed_units);
@@ -2164,7 +2170,7 @@ static int manager_dispatch_run_queue(sd_event_source *source, void *userdata) {
         assert(source);
         assert(m);
 
-        while ((j = m->run_queue)) {
+        while ((j = prioq_peek(m->run_queue))) {
                 assert(j->installed);
                 assert(j->in_run_queue);
 

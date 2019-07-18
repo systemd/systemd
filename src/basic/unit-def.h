@@ -5,14 +5,17 @@
 
 #include "macro.h"
 
+/* The enum order is used to order unit jobs in the job queue
+ * when other criteria (cpu weight, nice level) are identical.
+ * In this case service units have the hightest priority. */
 typedef enum UnitType {
         UNIT_SERVICE = 0,
+        UNIT_MOUNT,
+        UNIT_SWAP,
         UNIT_SOCKET,
         UNIT_TARGET,
         UNIT_DEVICE,
-        UNIT_MOUNT,
         UNIT_AUTOMOUNT,
-        UNIT_SWAP,
         UNIT_TIMER,
         UNIT_PATH,
         UNIT_SLICE,
