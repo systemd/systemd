@@ -158,14 +158,14 @@ EOF
     systemctl show -p Names,Requires bar@0
     systemctl show -p Names,Requires bar-alias@0
     check_ok bar@0 Names bar@0
-    check_ko bar@0 Names bar-alias@0
+    check_ok bar@0 Names bar-alias@0
 
     check_ok bar@0 After bar-template-after.device
 
     check_ok bar@0 Requires bar-0-requires.device
-    check_ko bar@0 Requires bar-alias-0-requires.device
+    check_ok bar@0 Requires bar-alias-0-requires.device
     check_ok bar@0 Requires bar-template-requires.device
-    check_ko bar@0 Requires bar-alias-template-requires.device
+    check_ok bar@0 Requires bar-alias-template-requires.device
     check_ko bar@0 Requires yup-template-requires.device
 
     check_ok bar-alias@0 After bar-template-after.device
@@ -181,15 +181,15 @@ EOF
     systemctl show -p Names,Requires bar@1
     systemctl show -p Names,Requires bar-alias@1
     check_ok bar@1 Names bar@1
-    check_ko bar@1 Names bar-alias@1
+    check_ok bar@1 Names bar-alias@1
 
     check_ok bar@1 After bar-template-after.device
 
     check_ok bar@1 Requires bar-1-requires.device
-    check_ko bar@1 Requires bar-alias-1-requires.device
+    check_ok bar@1 Requires bar-alias-1-requires.device
     check_ok bar@1 Requires bar-template-requires.device
     # See https://github.com/systemd/systemd/pull/13119#discussion_r308145418
-    check_ko bar@1 Requires bar-alias-template-requires.device
+    check_ok bar@1 Requires bar-alias-template-requires.device
     check_ko bar@1 Requires yup-template-requires.device
     check_ko bar@1 Requires yup-1-requires.device
 
@@ -241,14 +241,14 @@ EOF
     check_ko bar@3 Requires yup-template-requires.device
     check_ko bar@3 Requires yup-3-requires.device
 
-    check_ok bar-alias@3 After bar-template-after.device
+    check_ko bar-alias@3 After bar-template-after.device
 
-    check_ok bar-alias@3 Requires bar-3-requires.device
+    check_ko bar-alias@3 Requires bar-3-requires.device
     check_ok bar-alias@3 Requires bar-alias-3-requires.device
-    check_ok bar-alias@3 Requires bar-template-requires.device
+    check_ko bar-alias@3 Requires bar-template-requires.device
     check_ok bar-alias@3 Requires bar-alias-template-requires.device
-    check_ko bar-alias@3 Requires yup-template-requires.device
-    check_ko bar-alias@3 Requires yup-3-requires.device
+    check_ok bar-alias@3 Requires yup-template-requires.device
+    check_ok bar-alias@3 Requires yup-3-requires.device
 
     clear_services foo {bar,yup,bar-alias}@{,1,2,3}
 }
@@ -267,14 +267,7 @@ test_alias_dropins () {
     rm /etc/systemd/system/b1.service
     clear_services a b
 
-    # A weird behavior: the dependencies for 'a' may vary. It can be
-    # changed by loading an alias...
-    #
-    # [1] 'a1' is loaded and then "renamed" into 'a'. 'a1' is therefore
-    # part of the names set so all its specific dropins are loaded.
-    #
-    # [2] 'a' is already loaded. 'a1' is simply only merged into 'a' so
-    # none of its dropins are loaded ('y' is missing from the deps).
+    # Check that dependencies don't vary.
     echo "*** test 2"
     create_services a x y
     mkdir -p /etc/systemd/system/a1.service.wants/
@@ -285,7 +278,7 @@ test_alias_dropins () {
     check_ok a1 Wants y.service
     systemctl start a
     check_ok a1 Wants x.service # see [2]
-    check_ko a1 Wants y.service
+    check_ok a1 Wants y.service
     systemctl stop a x y
     rm /etc/systemd/system/a1.service
 

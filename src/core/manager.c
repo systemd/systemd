@@ -674,6 +674,12 @@ static int manager_setup_prefix(Manager *m) {
         return 0;
 }
 
+static void manager_free_unit_name_maps(Manager *m) {
+        m->unit_id_map = hashmap_free(m->unit_id_map);
+        m->unit_name_map = hashmap_free(m->unit_name_map);
+        m->unit_path_cache = set_free_free(m->unit_path_cache);
+}
+
 static int manager_setup_run_queue(Manager *m) {
         int r;
 
@@ -1357,7 +1363,7 @@ Manager* manager_free(Manager *m) {
         strv_free(m->client_environment);
 
         hashmap_free(m->cgroup_unit);
-        set_free_free(m->unit_path_cache);
+        manager_free_unit_name_maps(m);
 
         free(m->switch_root);
         free(m->switch_root_init);
@@ -1459,56 +1465,6 @@ static void manager_catchup(Manager *m) {
 
                 unit_catchup(u);
         }
-}
-
-static void manager_build_unit_path_cache(Manager *m) {
-        char **i;
-        int r;
-
-        assert(m);
-
-        set_free_free(m->unit_path_cache);
-
-        m->unit_path_cache = set_new(&path_hash_ops);
-        if (!m->unit_path_cache) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        /* This simply builds a list of files we know exist, so that
-         * we don't always have to go to disk */
-
-        STRV_FOREACH(i, m->lookup_paths.search_path) {
-                _cleanup_closedir_ DIR *d = NULL;
-                struct dirent *de;
-
-                d = opendir(*i);
-                if (!d) {
-                        if (errno != ENOENT)
-                                log_warning_errno(errno, "Failed to open directory %s, ignoring: %m", *i);
-                        continue;
-                }
-
-                FOREACH_DIRENT(de, d, r = -errno; goto fail) {
-                        char *p;
-
-                        p = path_join(*i, de->d_name);
-                        if (!p) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        r = set_consume(m->unit_path_cache, p);
-                        if (r < 0)
-                                goto fail;
-                }
-        }
-
-        return;
-
-fail:
-        log_warning_errno(r, "Failed to build unit path cache, proceeding without: %m");
-        m->unit_path_cache = set_free_free(m->unit_path_cache);
 }
 
 static void manager_distribute_fds(Manager *m, FDSet *fds) {
@@ -1670,7 +1626,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 log_warning_errno(r, "Failed to reduce unit file paths, ignoring: %m");
 
-        manager_build_unit_path_cache(m);
+        manager_free_unit_name_maps(m);
+        r = unit_file_build_name_map(&m->lookup_paths, &m->unit_id_map, &m->unit_name_map, &m->unit_path_cache);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build name map: %m");
 
         {
                 /* This block is (optionally) done with the reloading counter bumped */
@@ -2888,8 +2847,9 @@ int manager_loop(Manager *m) {
         assert(m);
         assert(m->objective == MANAGER_OK); /* Ensure manager_startup() has been called */
 
-        /* Release the path cache */
-        m->unit_path_cache = set_free_free(m->unit_path_cache);
+        /* Release the path and unit name caches */
+        manager_free_unit_name_maps(m);
+        // FIXME: once this happens, we cannot load any more units
 
         manager_check_finished(m);
 
@@ -3566,7 +3526,10 @@ int manager_reload(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Failed to reduce unit file paths, ignoring: %m");
 
-        manager_build_unit_path_cache(m);
+        manager_free_unit_name_maps(m);
+        r = unit_file_build_name_map(&m->lookup_paths, &m->unit_id_map, &m->unit_name_map, &m->unit_path_cache);
+        if (r < 0)
+                log_warning_errno(r, "Failed to build name map: %m");
 
         /* First, enumerate what we can from kernel and suchlike */
         manager_enumerate_perpetual(m);

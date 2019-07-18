@@ -33,6 +33,7 @@
 #include "cgroup-util.h"
 #include "copy.h"
 #include "cpu-set-util.h"
+#include "dirent-util.h"
 #include "dropin.h"
 #include "efivars.h"
 #include "env-util.h"
@@ -165,12 +166,18 @@ static bool arg_jobs_before = false;
 static bool arg_jobs_after = false;
 static char **arg_clean_what = NULL;
 
+/* This is a global cache that will be constructed on first use. */
+static Hashmap *cached_id_map = NULL;
+static Hashmap *cached_name_map = NULL;
+
 STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_clean_what, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(cached_id_map, hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(cached_name_map, hashmap_freep);
 
 static int daemon_reload(int argc, char *argv[], void* userdata);
 static int trivial_method(int argc, char *argv[], void *userdata);
@@ -2582,38 +2589,24 @@ static int unit_find_paths(
                                 return log_error_errno(r, "Failed to get DropInPaths: %s", bus_error_message(&error, r));
                 }
         } else {
-                _cleanup_set_free_ Set *names = NULL;
-                _cleanup_free_ char *template = NULL;
+                const char *_path;
+                _cleanup_set_free_free_ Set *names = NULL;
 
-                names = set_new(NULL);
-                if (!names)
-                        return log_oom();
+                if (!cached_name_map) {
+                        r = unit_file_build_name_map(lp, &cached_id_map, &cached_name_map, NULL);
+                        if (r < 0)
+                                return r;
+                }
 
-                r = unit_find_template_path(unit_name, lp, &path, &template);
+                r = unit_file_find_fragment(cached_id_map, cached_name_map, unit_name, &_path, &names);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        if (null_or_empty_path(path))
-                                /* The template is masked. Let's cut the process short. */
-                                return -ERFKILL;
 
-                        /* We found the unit file. If we followed symlinks, this name might be
-                         * different then the unit_name with started with. Look for dropins matching
-                         * that "final" name. */
-                        r = set_put(names, basename(path));
-                } else if (!template)
-                        /* No unit file, let's look for dropins matching the original name.
-                         * systemd has fairly complicated rules (based on unit type and provenience),
-                         * which units are allowed not to have the main unit file. We err on the
-                         * side of including too many files, and always try to load dropins. */
-                        r = set_put(names, unit_name);
-                else
-                        /* The cases where we allow a unit to exist without the main file are
-                         * never valid for templates. Don't try to load dropins in this case. */
-                        goto not_found;
-
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add unit name: %m");
+                if (_path) {
+                        path = strdup(_path);
+                        if (!path)
+                                return log_oom();
+                }
 
                 if (ret_dropin_paths) {
                         r = unit_file_find_dropin_paths(arg_root, lp->search_path, NULL,

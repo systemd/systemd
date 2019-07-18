@@ -24,10 +24,32 @@ static void test_unit_validate_alias_symlink_and_warn(void) {
         assert_se(unit_validate_alias_symlink_and_warn("/path/a.slice", "/other/b.slice") == -EINVAL);
 }
 
+static void test_unit_file_build_name_map(void) {
+        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_hashmap_free_ Hashmap *unit_ids = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_names = NULL;
+        Iterator i;
+        const char *k, *dst;
+        char **v;
+
+        assert_se(lookup_paths_init(&lp, UNIT_FILE_SYSTEM, 0, NULL) >= 0);
+
+        assert_se(unit_file_build_name_map(&lp, &unit_ids, &unit_names, NULL) == 0);
+
+        HASHMAP_FOREACH_KEY(dst, k, unit_ids, i)
+                log_info("ids: %s → %s", k, dst);
+
+        HASHMAP_FOREACH_KEY(v, k, unit_names, i) {
+                _cleanup_free_ char *j = strv_join(v, ", ");
+                log_info("aliases: %s ← %s", k, j);
+        }
+}
+
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
         test_unit_validate_alias_symlink_and_warn();
+        test_unit_file_build_name_map();
 
         return 0;
 }

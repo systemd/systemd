@@ -221,6 +221,8 @@ struct Manager {
 
         UnitFileScope unit_file_scope;
         LookupPaths lookup_paths;
+        Hashmap *unit_id_map;
+        Hashmap *unit_name_map;
         Set *unit_path_cache;
 
         char **transient_environment;  /* The environment, as determined from config files, kernel cmdline and environment generators */
