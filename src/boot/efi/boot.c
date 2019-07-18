@@ -2314,7 +2314,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err)) {
-                Print(L"Error getting a LoadedImageProtocol handle: %r ", err);
+                Print(L"Error getting a LoadedImageProtocol handle: %r", err);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 return err;
         }
