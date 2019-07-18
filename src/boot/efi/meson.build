@@ -8,6 +8,7 @@ efi_headers = files('''
         linux.h
         measure.h
         pe.h
+        random-seed.h
         sha256.h
         shim.h
         splash.h
@@ -26,6 +27,7 @@ systemd_boot_sources = '''
         boot.c
         console.c
         crc32.c
+        random-seed.c
         sha256.c
         shim.c
 '''.split()
