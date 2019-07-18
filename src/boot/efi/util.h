@@ -66,3 +66,5 @@ const EFI_GUID loader_guid;
                 (ptr) = NULL;                   \
                 _ptr_;                          \
         })
+
+EFI_STATUS log_oom(void);
