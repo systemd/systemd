@@ -239,7 +239,6 @@ static int parse_line(
         }
 
         if (sections && !*section) {
-
                 if (!(flags & CONFIG_PARSE_RELAXED) && !*section_ignored)
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Assignment outside of section. Ignoring.");
 
@@ -247,10 +246,9 @@ static int parse_line(
         }
 
         e = strchr(l, '=');
-        if (!e) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Missing '='.");
-                return -EINVAL;
-        }
+        if (!e)
+                return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                  "Missing '=', ignoring line.");
 
         *e = 0;
         e++;
