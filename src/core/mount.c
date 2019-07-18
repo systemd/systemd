@@ -233,7 +233,7 @@ _pure_ static MountParameters* get_mount_parameters(Mount *m) {
         return get_mount_parameters_fragment(m);
 }
 
-static int update_parameters_proc_self_mount_info(
+static int update_parameters_proc_self_mountinfo(
                 Mount *m,
                 const char *what,
                 const char *options,
@@ -1485,7 +1485,7 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
-        r = update_parameters_proc_self_mount_info(MOUNT(u), what, options, fstype);
+        r = update_parameters_proc_self_mountinfo(MOUNT(u), what, options, fstype);
         if (r < 0)
                 return r;
 
@@ -1523,7 +1523,7 @@ static int mount_setup_existing_unit(
                         return -ENOMEM;
         }
 
-        r = update_parameters_proc_self_mount_info(MOUNT(u), what, options, fstype);
+        r = update_parameters_proc_self_mountinfo(MOUNT(u), what, options, fstype);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1834,7 +1834,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                         }
 
                         mount->from_proc_self_mountinfo = false;
-                        assert_se(update_parameters_proc_self_mount_info(mount, NULL, NULL, NULL) >= 0);
+                        assert_se(update_parameters_proc_self_mountinfo(mount, NULL, NULL, NULL) >= 0);
 
                         switch (mount->state) {
 
