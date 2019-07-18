@@ -249,6 +249,9 @@ static int parse_line(
         if (!e)
                 return log_syntax(unit, LOG_WARNING, filename, line, 0,
                                   "Missing '=', ignoring line.");
+        if (e == l)
+                return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                  "Missing key name before '=', ignoring line.");
 
         *e = 0;
         e++;
