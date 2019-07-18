@@ -627,6 +627,11 @@ tests += [
          [],
          []],
 
+        [['src/test/test-chase-symlinks.c'],
+         [],
+         [],
+         '', 'manual'],
+
         [['src/test/test-path.c',
           'src/test/test-helper.c'],
          [libcore,
