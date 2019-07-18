@@ -98,8 +98,8 @@ MACHINE CLASS     SERVICE        OS     VERSION ADDRESSES
 rawhide container systemd-nspawn fedora 30      169.254.40.164 fe80::94aa:3aff:fe7b:d4b9
 
 $ getent passwd vu-rawhide-0 vu-rawhide-81
-vu-rawhide-0:*:20119552:65534:vu-rawhide-0:/:/sbin/nologin
-vu-rawhide-81:*:20119633:65534:vu-rawhide-81:/:/sbin/nologin
+vu-rawhide-0:*:20119552:65534:vu-rawhide-0:/:/usr/sbin/nologin
+vu-rawhide-81:*:20119633:65534:vu-rawhide-81:/:/usr/sbin/nologin
 
 $ getent group vg-rawhide-0 vg-rawhide-81
 vg-rawhide-0:*:20119552:

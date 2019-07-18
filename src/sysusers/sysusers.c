@@ -361,7 +361,7 @@ static int rename_and_apply_smack(const char *temp_path, const char *dest_path) 
 }
 
 static const char* default_shell(uid_t uid) {
-        return uid == 0 ? "/bin/sh" : "/sbin/nologin";
+        return uid == 0 ? "/bin/sh" : NOLOGIN;
 }
 
 static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char **tmpfile_path) {

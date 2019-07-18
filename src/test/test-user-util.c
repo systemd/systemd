@@ -219,8 +219,8 @@ int main(int argc, char *argv[]) {
 
         test_get_user_creds_one("root", "root", 0, 0, "/root", "/bin/sh");
         test_get_user_creds_one("0", "root", 0, 0, "/root", "/bin/sh");
-        test_get_user_creds_one(NOBODY_USER_NAME, NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", "/sbin/nologin");
-        test_get_user_creds_one("65534", NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", "/sbin/nologin");
+        test_get_user_creds_one(NOBODY_USER_NAME, NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", NOLOGIN);
+        test_get_user_creds_one("65534", NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", NOLOGIN);
 
         test_get_group_creds_one("root", "root", 0);
         test_get_group_creds_one("0", "root", 0);
