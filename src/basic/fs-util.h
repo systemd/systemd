@@ -81,8 +81,9 @@ enum {
         CHASE_OPEN        = 1 << 4, /* Return an O_PATH object to the final component */
         CHASE_TRAIL_SLASH = 1 << 5, /* Any trailing slash will be preserved */
         CHASE_STEP        = 1 << 6, /* Just execute a single step of the normalization */
-        CHASE_NOFOLLOW    = 1 << 7, /* Only valid with CHASE_OPEN: when the path's right-most component refers to symlink,
-                                     * return O_PATH fd of the symlink, rather than following it. */
+        CHASE_NOFOLLOW    = 1 << 7, /* Do not follow the path's right-most compontent. With CHASE_OPEN, when
+                                     * the path's right-most component refers to symlink, return O_PATH fd of
+                                     * the symlink. */
         CHASE_WARN        = 1 << 8, /* Emit an appropriate warning when an error is encountered */
 };
 
