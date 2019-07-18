@@ -289,6 +289,14 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <listitem><para>Deletes virtual netdevs. Takes interface name or index number.</para></listitem>
       </varlistentry>
 
+       <varlistentry>
+        <term>
+          <command>renew</command>
+        </term>
+        <listitem><para>Renew dynamic configurations e.g. addresses received from DHCP server.
+        Takes interface name or index number.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

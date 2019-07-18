@@ -38,7 +38,7 @@ _networkctl() {
 
     local -A VERBS=(
         [STANDALONE]='label'
-        [LINKS]='status list lldp delete'
+        [LINKS]='status list lldp delete renew'
     )
 
     _init_completion || return
