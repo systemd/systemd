@@ -1396,7 +1396,7 @@ static int become_shutdown(
 
         assert(pos < ELEMENTSOF(command_line));
 
-        if (streq(shutdown_verb, "reboot") &&
+        if (STR_IN_SET(shutdown_verb, "reboot", "kexec") &&
             arg_shutdown_watchdog > 0 &&
             arg_shutdown_watchdog != USEC_INFINITY) {
 
