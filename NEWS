@@ -297,6 +297,12 @@ CHANGES WITH 243 in spe:
           takes a tty name to spawn the debug shell on, which allows selecting
           a different tty than the built-in default.
 
+        * Service units gained a new ExecCondition= setting which will run
+          before ExecStartPre= and either continue execution of the unit (for
+          clean exit codes), stop execution without marking the unit failed
+          (for exit codes 1 through 254), or stop execution and fail the unit
+          (for exit code 255 or cases of abnormal termination).
+
           …
 
 CHANGES WITH 242:

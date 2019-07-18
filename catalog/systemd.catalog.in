@@ -364,7 +364,8 @@ Subject: Unit skipped
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-The unit @UNIT@ was skipped and has entered the 'dead' state with result '@UNIT_RESULT@'.
+The unit @UNIT@ was skipped due to an ExecCondition= command failure, and has
+entered the 'dead' state with result '@UNIT_RESULT@'.
 
 -- d9b373ed55a64feb8242e02dbe79a49c
 Subject: Unit failed
