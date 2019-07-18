@@ -3531,19 +3531,19 @@ int compare_job_priority(const void *a, const void *b) {
         uint64_t weight_x, weight_y;
         int ret;
 
+        if ((ret = CMP(x->unit->type, y->unit->type)) != 0)
+                return -ret;
+
         weight_x = unit_get_cpu_weight(x->unit);
         weight_y = unit_get_cpu_weight(y->unit);
 
-        if ((ret = CMP(weight_y, weight_x)) != 0)
-                return ret;
+        if ((ret = CMP(weight_x, weight_y)) != 0)
+                return -ret;
 
         nice_x = unit_get_nice(x->unit);
         nice_y = unit_get_nice(y->unit);
 
         if ((ret = CMP(nice_x, nice_y)) != 0)
-                return ret;
-
-        if ((ret = CMP(x->unit->type, y->unit->type)) != 0)
                 return ret;
 
         return strcmp(x->unit->id, y->unit->id);
