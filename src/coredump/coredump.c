@@ -67,25 +67,30 @@
 assert_cc(JOURNAL_SIZE_MAX <= DATA_SIZE_MAX);
 
 enum {
-        /* We use these as array indexes for our process metadata cache.
+        /* We use these as array indexes for either accessing the process metadata passed by
+         * the kernel via argv[] our the process metadata cached in meta[].
          *
-         * The first indices of the cache stores the same metadata as the ones passed by
-         * the kernel via argv[], ie the strings array passed by the kernel according to
-         * our pattern defined in /proc/sys/kernel/core_pattern (see man:core(5)). */
+         * Indices prefixed with META_ARGV_* can be interchangibly used with argv[] or with
+         * meta[] whereas those prefixed with META_* (ie with ARGV_) can only be used with
+         * meta[]. */
 
-        META_ARGV_PID,          /* %P: as seen in the initial pid namespace */
-        META_ARGV_UID,          /* %u: as seen in the initial user namespace */
-        META_ARGV_GID,          /* %g: as seen in the initial user namespace */
-        META_ARGV_SIGNAL,       /* %s: number of signal causing dump */
-        META_ARGV_TIMESTAMP,    /* %t: time of dump, expressed as seconds since the Epoch */
-        META_ARGV_RLIMIT,       /* %c: core file size soft resource limit */
-        META_ARGV_HOSTNAME,     /* %h: hostname */
+        /* META_ARGV_* indices match the indices of the strings array passed by the kernel
+         * according to our pattern * defined in /proc/sys/kernel/core_pattern (see
+         * man:core(5)). */
+
+        _META_START = 1,
+
+        META_ARGV_PID = _META_START,  /* %P: as seen in the initial pid namespace */
+        META_ARGV_UID,                /* %u: as seen in the initial user namespace */
+        META_ARGV_GID,                /* %g: as seen in the initial user namespace */
+        META_ARGV_SIGNAL,             /* %s: number of signal causing dump */
+        META_ARGV_TIMESTAMP,          /* %t: time of dump, expressed as seconds since the Epoch */
+        META_ARGV_RLIMIT,             /* %c: core file size soft resource limit */
+        META_ARGV_HOSTNAME,           /* %h: hostname */
         _META_ARGV_MAX,
 
-        /* The following indexes are cached for a couple of special fields we use (and
-         * thereby need to be retrieved quickly) for naming coredump files, and attaching
-         * xattrs. Unlike the previous ones they are retrieved from the runtime
-         * environment. */
+        /* The following fields are cached since they're used for naming coredump files, and
+         * attaching xattrs. Unlike the previous ones they are retrieved from /proc. */
 
         META_COMM = _META_ARGV_MAX,
         _META_MANDATORY_MAX,
@@ -833,14 +838,14 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
 
         assert(context);
         assert(iovw);
-        assert(iovw->count >= _META_ARGV_MAX);
+        assert(iovw->count >= _META_ARGV_MAX - 1);
 
         /* The context does not allocate any memory on its own */
 
         for (n = 0; n < iovw->count; n++) {
                 struct iovec *iovec = iovw->iovec + n;
 
-                for (i = 0; i < ELEMENTSOF(meta_field_names); i++) {
+                for (i = _META_START; i < _META_MAX; i++) {
                         char *p;
 
                         /* Note that these strings are NUL terminated, because we made sure that a
@@ -966,7 +971,7 @@ static int process_socket(int fd) {
                 goto finish;
 
         /* Make sure we received at least all fields we need. */
-        for (i = 0; i < _META_MANDATORY_MAX; i++)
+        for (i = _META_START; i < _META_MANDATORY_MAX; i++)
                 if (!context.meta[i]) {
                         r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                             "A mandatory argument (%i) has not been sent, aborting.",
@@ -1058,9 +1063,9 @@ static int gather_pid_metadata_from_argv(struct iovec_wrapper *iovw, Context *co
         if (argc < _META_ARGV_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Not enough arguments passed by the kernel (%i, expected %i).",
-                                       argc, _META_ARGV_MAX);
+                                       argc - 1, _META_ARGV_MAX - 1);
 
-        for (i = 0; i < _META_ARGV_MAX; i++) {
+        for (i = _META_START; i < _META_ARGV_MAX; i++) {
 
                 t = argv[i];
 
@@ -1208,7 +1213,7 @@ static int process_kernel(int argc, char* argv[]) {
         (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         /* Collect all process metadata passed by the kernel through argv[] */
-        r = gather_pid_metadata_from_argv(iovw, &context, argc - 1, argv + 1);
+        r = gather_pid_metadata_from_argv(iovw, &context, argc, argv);
         if (r < 0)
                 goto finish;
 
@@ -1261,9 +1266,8 @@ static int process_backtrace(int argc, char *argv[]) {
         (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_BACKTRACE_STR);
         (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
-        /* Collect all process metadata from argv[] by making sure to skip the
-         * '--backtrace' option */
-        r = gather_pid_metadata_from_argv(iovw, &context, argc - 2, argv + 2);
+        /* Collect all process metadata passed via argv[] */
+        r = gather_pid_metadata_from_argv(iovw, &context, argc, argv);
         if (r < 0)
                 goto finish;
 
@@ -1340,10 +1344,17 @@ static int run(int argc, char *argv[]) {
         /* If we got an fd passed, we are running in coredumpd mode. Otherwise we
          * are invoked from the kernel as coredump handler. */
         if (r == 0) {
-                if (streq_ptr(argv[1], "--backtrace"))
+                if (streq_ptr(argv[1], "--backtrace")) {
+                        int i;
+
+                        /* Drop --backtrace from the argument list */
+                        for (i = 1; i < argc; i++)
+                                argv[i] = argv[i + 1];
+                        argc--;
+
                         return process_backtrace(argc, argv);
-                else
-                        return process_kernel(argc, argv);
+                }
+                return process_kernel(argc, argv);
         } else if (r == 1)
                 return process_socket(SD_LISTEN_FDS_START);
 
