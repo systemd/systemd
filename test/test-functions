@@ -4,9 +4,9 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 
-LOOKS_LIKE_DEBIAN=$(source /etc/os-release && [[ "$ID" = "debian" || " $ID_LIKE " = *" debian "* ]] && echo yes || true)
-LOOKS_LIKE_ARCH=$(source /etc/os-release && [[ "$ID" = "arch" || " $ID_LIKE " = *" arch "* ]] && echo yes || true)
-LOOKS_LIKE_SUSE=$(source /etc/os-release && [[ " $ID_LIKE " = *" suse "* ]] && echo yes || true)
+LOOKS_LIKE_DEBIAN=$(source /etc/os-release && [[ "$ID" = "debian" || " $ID_LIKE " = *" debian "* ]] && echo yes || :)
+LOOKS_LIKE_ARCH=$(source /etc/os-release && [[ "$ID" = "arch" || " $ID_LIKE " = *" arch "* ]] && echo yes || :)
+LOOKS_LIKE_SUSE=$(source /etc/os-release && [[ " $ID_LIKE " = *" suse "* ]] && echo yes || :)
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-infinity}"
@@ -577,7 +577,7 @@ check_asan_reports() {
         journald_report=$(find "$root" -name "systemd-journald.*san.log*" -exec cat {} \;)
         if [[ ! -z "$journald_report" ]]; then
             printf "%s\n" "$journald_report"
-            cat "$root/systemd-journald.out" || true
+            cat "$root/systemd-journald.out" || :
             ret=$(($ret+1))
         fi
 
@@ -701,15 +701,15 @@ install_ld_so_conf() {
 }
 
 install_config_files() {
-    inst /etc/sysconfig/init || true
+    inst /etc/sysconfig/init || :
     inst /etc/passwd
     inst /etc/shadow
     inst /etc/login.defs
     inst /etc/group
     inst /etc/shells
     inst /etc/nsswitch.conf
-    inst /etc/pam.conf || true
-    inst /etc/securetty || true
+    inst /etc/pam.conf || :
+    inst /etc/securetty || :
     inst /etc/os-release
     inst /etc/localtime
     # we want an empty environment
@@ -1692,7 +1692,7 @@ _test_cleanup() {
         fi
         rm -fr "$TESTDIR"
         rm -f "$STATEFILE"
-    ) || true
+    ) || :
 }
 
 # can be overridden in specific test
