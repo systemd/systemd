@@ -21,10 +21,12 @@ bool net_match_config(Set *match_mac,
                       char * const *match_name,
                       char * const *match_property,
                       char * const *match_ssid,
+                      Set *match_bssid,
                       sd_device *device,
                       const struct ether_addr *dev_mac,
                       const char *dev_name,
-                      const char *ssid);
+                      const char *ssid,
+                      const struct ether_addr *bssid);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_net_condition);
 CONFIG_PARSER_PROTOTYPE(config_parse_hwaddr);

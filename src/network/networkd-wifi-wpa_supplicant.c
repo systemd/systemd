@@ -195,6 +195,133 @@ static int wpa_supplicant_get_network_handler(sd_bus_message *m, void *userdata,
         return 0;
 }
 
+static int wpa_supplicant_get_bssid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        const sd_bus_error *e;
+        Link *link = userdata;
+        int r;
+
+        assert(m);
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        e = sd_bus_message_get_error(m);
+        if (e) {
+                log_link_full(link,
+                              sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.UnknownMethod") ? LOG_DEBUG : LOG_ERR,
+                              sd_bus_error_get_errno(e),
+                              "Failed to get current wifi properties: %s",
+                              e->message);
+                return 0;
+        }
+
+        r = bus_message_read_ether_addr(m, true, &link->bssid);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        log_link_info(link, "Connected to BSSID %s", strna(ether_ntoa(&link->bssid)));
+
+        (void) link_reconfigure(link);
+        return 0;
+}
+
+static int wpa_supplicant_get_bssid(Link *link) {
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+        int r;
+
+        assert(link);
+        assert(link->wpa_supplicant_bss_path);
+
+        r = sd_bus_call_method_async(
+                        link->manager->bus,
+                        &slot,
+                        "fi.w1.wpa_supplicant1",
+                        link->wpa_supplicant_bss_path,
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        wpa_supplicant_get_bssid_handler,
+                        link,
+                        "ss",
+                        "fi.w1.wpa_supplicant1.BSS",
+                        "BSSID");
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get wifi BSSID: %m");
+
+        assert_se(sd_bus_slot_set_destroy_callback(slot, (sd_bus_destroy_t) link_netlink_destroy_callback) >= 0);
+        assert_se(sd_bus_slot_set_floating(slot, true) >= 0);
+        link_ref(link);
+
+        return 0;
+}
+
+static int on_wpa_supplicant_bss_properties_changed(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
+        Link *link = userdata;
+
+        assert(message);
+        assert(link);
+
+        (void) wpa_supplicant_get_bssid(link);
+        return 0;
+}
+
+static int wpa_supplicant_get_bss_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        const sd_bus_error *e;
+        Link *link = userdata;
+        const char *path;
+        int r;
+
+        assert(m);
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        e = sd_bus_message_get_error(m);
+        if (e) {
+                log_link_full(link,
+                              sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.NoReply") ? LOG_DEBUG : LOG_ERR,
+                              sd_bus_error_get_errno(e),
+                              "Failed to get current wifi network: %s",
+                              e->message);
+                return 0;
+        }
+
+        r = sd_bus_message_read(m, "v", "o", &path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (streq_ptr(path, "/")) {
+                /* When no connection is established, wpa_supplicant returns "/". */
+                link->wpa_supplicant_bss_path = mfree(link->wpa_supplicant_bss_path);
+                link->wpa_supplicant_bss_slot = sd_bus_slot_unref(link->wpa_supplicant_bss_slot);
+                return 0;
+        }
+
+        if (streq_ptr(link->wpa_supplicant_bss_path, path))
+                return 0;
+
+        r = free_and_strdup(&link->wpa_supplicant_bss_path, path);
+        if (r < 0)
+                return log_oom();
+
+        link->wpa_supplicant_bss_slot = sd_bus_slot_unref(link->wpa_supplicant_bss_slot);
+
+        r = sd_bus_match_signal_async(
+                        link->manager->bus,
+                        &link->wpa_supplicant_bss_slot,
+                        "fi.w1.wpa_supplicant1",
+                        path,
+                        "fi.w1.wpa_supplicant1.BSS",
+                        "PropertiesChanged",
+                        on_wpa_supplicant_bss_properties_changed, NULL, link);
+        if (r < 0)
+                log_link_error_errno(link, r, "Failed to install match signal for wifi network: %m");
+
+        (void) wpa_supplicant_get_bssid(link);
+        return 0;
+}
+
 static int wpa_supplicant_get_network(Link *link) {
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
         int r;
@@ -216,6 +343,27 @@ static int wpa_supplicant_get_network(Link *link) {
                         "CurrentNetwork");
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get wifi network: %m");;
+
+        assert_se(sd_bus_slot_set_destroy_callback(slot, (sd_bus_destroy_t) link_netlink_destroy_callback) >= 0);
+        assert_se(sd_bus_slot_set_floating(slot, true) >= 0);
+        link_ref(link);
+
+        slot = sd_bus_slot_unref(slot);
+
+        r = sd_bus_call_method_async(
+                        link->manager->bus,
+                        &slot,
+                        "fi.w1.wpa_supplicant1",
+                        link->wpa_supplicant_interface_path,
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        wpa_supplicant_get_bss_handler,
+                        link,
+                        "ss",
+                        "fi.w1.wpa_supplicant1.Interface",
+                        "CurrentBSS");
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get wifi BSS: %m");;
 
         assert_se(sd_bus_slot_set_destroy_callback(slot, (sd_bus_destroy_t) link_netlink_destroy_callback) >= 0);
         assert_se(sd_bus_slot_set_floating(slot, true) >= 0);

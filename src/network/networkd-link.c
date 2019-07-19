@@ -731,9 +731,11 @@ static Link *link_free(Link *link) {
 
         sd_bus_slot_unref(link->wpa_supplicant_interface_slot);
         sd_bus_slot_unref(link->wpa_supplicant_network_slot);
+        sd_bus_slot_unref(link->wpa_supplicant_bss_slot);
         sd_bus_slot_unref(link->iwd_slot);
         free(link->wpa_supplicant_interface_path);
         free(link->wpa_supplicant_network_path);
+        free(link->wpa_supplicant_bss_path);
         free(link->iwd_path);
         free(link->iwd_station_network_path);
         free(link->ssid);
@@ -2768,7 +2770,7 @@ int link_reconfigure(Link *link) {
         int r;
 
         r = network_get(link->manager, link->sd_device, link->ifname,
-                        &link->mac, link->ssid, &network);
+                        &link->mac, link->ssid, &link->bssid, &network);
         if (r == -ENOENT) {
                 link_enter_unmanaged(link);
                 return 0;
@@ -2866,7 +2868,7 @@ static int link_initialized_and_synced(Link *link) {
                         return r;
 
                 r = network_get(link->manager, link->sd_device, link->ifname,
-                                &link->mac, link->ssid, &network);
+                                &link->mac, link->ssid, &link->bssid, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
                         return 0;

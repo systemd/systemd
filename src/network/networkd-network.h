@@ -63,6 +63,7 @@ struct Network {
         char **match_name;
         char **match_property;
         char **match_ssid;
+        Set *match_bssid;
         LIST_HEAD(Condition, conditions);
 
         char *description;
@@ -266,7 +267,8 @@ int network_load_one(Manager *manager, const char *filename);
 int network_verify(Network *network);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
-int network_get(Manager *manager, sd_device *device, const char *ifname, const struct ether_addr *mac, const char *ssid, Network **ret);
+int network_get(Manager *manager, sd_device *device, const char *ifname, const struct ether_addr *mac,
+                const char *ssid, const struct ether_addr *bssid, Network **ret);
 int network_apply(Network *network, Link *link);
 void network_apply_anonymize_if_set(Network *network);
 

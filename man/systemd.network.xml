@@ -164,6 +164,18 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>BSSID=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of hardware addresses of currently connected accesspoint
+            (BSSID). Use full colon-, hyphen- or dot-delimited hexadecimal. See the example in the
+            above <varname>MACAddress=</varname> setting. This option may appear more than one, in
+            which case the lists are merged. If the empty string is assigned to this option, the list
+            of hardware addresses defined prior to this is reset. Note that this option works only when
+            <command>wpa_supplicant</command> is used for configuring wireless network. Otherwise,
+            the test may fail.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Host=</varname></term>
           <listitem>
             <para>Matches against the hostname or machine ID of the host. See

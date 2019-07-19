@@ -2,6 +2,7 @@
 #pragma once
 
 #include <endian.h>
+#include <net/ethernet.h>
 
 #include "sd-bus.h"
 #include "sd-device.h"
@@ -58,12 +59,15 @@ typedef struct Link {
         /* wlan */
         sd_bus_slot *wpa_supplicant_interface_slot;
         sd_bus_slot *wpa_supplicant_network_slot;
+        sd_bus_slot *wpa_supplicant_bss_slot;
         char *wpa_supplicant_interface_path;
         char *wpa_supplicant_network_path;
+        char *wpa_supplicant_bss_path;
         sd_bus_slot *iwd_slot;
         char *iwd_path;
         char *iwd_station_network_path;
         char *ssid;
+        struct ether_addr bssid;
 
         unsigned flags;
         uint8_t kernel_operstate;
