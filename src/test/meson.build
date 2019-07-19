@@ -148,7 +148,7 @@ tests += [
           libmount,
           libblkid]],
 
-        [['src/test/test-unit-file.c',
+        [['src/test/test-load-fragment.c',
           'src/test/test-helper.c'],
          [libcore,
           libshared],
@@ -604,6 +604,10 @@ tests += [
          [threads]],
 
         [['src/test/test-cgroup-util.c'],
+         [],
+         []],
+
+        [['src/test/test-env-file.c'],
          [],
          []],
 

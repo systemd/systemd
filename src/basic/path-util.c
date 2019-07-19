@@ -207,6 +207,18 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
         return 0;
 }
 
+char* path_startswith_strv(const char *p, char **set) {
+        char **s, *t;
+
+        STRV_FOREACH(s, set) {
+                t = path_startswith(p, *s);
+                if (t)
+                        return t;
+        }
+
+        return NULL;
+}
+
 int path_strv_make_absolute_cwd(char **l) {
         char **s;
         int r;
@@ -380,6 +392,52 @@ char *path_simplify(char *path, bool kill_dots) {
 
         *t = 0;
         return path;
+}
+
+int path_simplify_and_warn(
+                char *path,
+                unsigned flag,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *lvalue) {
+
+        bool fatal = flag & PATH_CHECK_FATAL;
+
+        assert(!FLAGS_SET(flag, PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE));
+
+        if (!utf8_is_valid(path))
+                return log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, path);
+
+        if (flag & (PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE)) {
+                bool absolute;
+
+                absolute = path_is_absolute(path);
+
+                if (!absolute && (flag & PATH_CHECK_ABSOLUTE))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "%s= path is not absolute%s: %s",
+                                          lvalue, fatal ? "" : ", ignoring", path);
+
+                if (absolute && (flag & PATH_CHECK_RELATIVE))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "%s= path is absolute%s: %s",
+                                          lvalue, fatal ? "" : ", ignoring", path);
+        }
+
+        path_simplify(path, true);
+
+        if (!path_is_valid(path))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "%s= path has invalid length (%zu bytes)%s.",
+                                  lvalue, strlen(path), fatal ? "" : ", ignoring");
+
+        if (!path_is_normalized(path))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "%s= path is not normalized%s: %s",
+                                  lvalue, fatal ? "" : ", ignoring", path);
+
+        return 0;
 }
 
 char* path_startswith(const char *path, const char *prefix) {
@@ -1057,50 +1115,4 @@ bool empty_or_root(const char *root) {
                 return true;
 
         return root[strspn(root, "/")] == 0;
-}
-
-int path_simplify_and_warn(
-                char *path,
-                unsigned flag,
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *lvalue) {
-
-        bool fatal = flag & PATH_CHECK_FATAL;
-
-        assert(!FLAGS_SET(flag, PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE));
-
-        if (!utf8_is_valid(path))
-                return log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, path);
-
-        if (flag & (PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE)) {
-                bool absolute;
-
-                absolute = path_is_absolute(path);
-
-                if (!absolute && (flag & PATH_CHECK_ABSOLUTE))
-                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
-                                          "%s= path is not absolute%s: %s",
-                                          lvalue, fatal ? "" : ", ignoring", path);
-
-                if (absolute && (flag & PATH_CHECK_RELATIVE))
-                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
-                                          "%s= path is absolute%s: %s",
-                                          lvalue, fatal ? "" : ", ignoring", path);
-        }
-
-        path_simplify(path, true);
-
-        if (!path_is_valid(path))
-                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
-                                  "%s= path has invalid length (%zu bytes)%s.",
-                                  lvalue, strlen(path), fatal ? "" : ", ignoring");
-
-        if (!path_is_normalized(path))
-                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
-                                  "%s= path is not normalized%s: %s",
-                                  lvalue, fatal ? "" : ", ignoring", path);
-
-        return 0;
 }

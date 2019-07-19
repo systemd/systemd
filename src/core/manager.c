@@ -46,6 +46,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
+#include "install.h"
 #include "label.h"
 #include "locale-setup.h"
 #include "log.h"

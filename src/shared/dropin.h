@@ -21,19 +21,5 @@ int unit_file_find_dropin_paths(
                 Set *unit_path_cache,
                 const char *dir_suffix,
                 const char *file_suffix,
-                Set *names,
+                const Set *names,
                 char ***paths);
-
-static inline int unit_file_find_dropin_conf_paths(
-                const char *original_root,
-                char **lookup_path,
-                Set *unit_path_cache,
-                Set *names,
-                char ***paths) {
-
-        return unit_file_find_dropin_paths(original_root,
-                                           lookup_path,
-                                           unit_path_cache,
-                                           ".d", ".conf",
-                                           names, paths);
-}

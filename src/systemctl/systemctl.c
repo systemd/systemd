@@ -1639,20 +1639,20 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **ret = NULL;
-        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *dbus_path = NULL;
         int i, r;
 
         assert(bus);
         assert(name);
         assert(deps);
 
-        path = unit_dbus_path_from_name(name);
-        if (!path)
+        dbus_path = unit_dbus_path_from_name(name);
+        if (!dbus_path)
                 return log_oom();
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.systemd1",
-                                   path,
+                                   dbus_path,
                                    map[arg_dependency],
                                    BUS_MAP_STRDUP,
                                    &error,
@@ -2532,16 +2532,16 @@ static int unit_find_paths(
             !install_client_side() &&
             !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *load_state = NULL, *unit = NULL;
+                _cleanup_free_ char *load_state = NULL, *dbus_path = NULL;
 
-                unit = unit_dbus_path_from_name(unit_name);
-                if (!unit)
+                dbus_path = unit_dbus_path_from_name(unit_name);
+                if (!dbus_path)
                         return log_oom();
 
                 r = sd_bus_get_property_string(
                                 bus,
                                 "org.freedesktop.systemd1",
-                                unit,
+                                dbus_path,
                                 "org.freedesktop.systemd1.Unit",
                                 "LoadState",
                                 &error,
@@ -2561,7 +2561,7 @@ static int unit_find_paths(
                 r = sd_bus_get_property_string(
                                 bus,
                                 "org.freedesktop.systemd1",
-                                unit,
+                                dbus_path,
                                 "org.freedesktop.systemd1.Unit",
                                 "FragmentPath",
                                 &error,
@@ -2573,7 +2573,7 @@ static int unit_find_paths(
                         r = sd_bus_get_property_strv(
                                         bus,
                                         "org.freedesktop.systemd1",
-                                        unit,
+                                        dbus_path,
                                         "org.freedesktop.systemd1.Unit",
                                         "DropInPaths",
                                         &error,
@@ -2616,19 +2616,21 @@ static int unit_find_paths(
                         return log_error_errno(r, "Failed to add unit name: %m");
 
                 if (ret_dropin_paths) {
-                        r = unit_file_find_dropin_conf_paths(arg_root, lp->search_path, NULL, names, &dropins);
+                        r = unit_file_find_dropin_paths(arg_root, lp->search_path, NULL,
+                                                        ".d", ".conf",
+                                                        names, &dropins);
                         if (r < 0)
                                 return r;
                 }
         }
 
+        if (isempty(path)) {
+                *ret_fragment_path = NULL;
                 r = 0;
-
-        if (!isempty(path)) {
+        } else {
                 *ret_fragment_path = TAKE_PTR(path);
                 r = 1;
-        } else
-                *ret_fragment_path = NULL;
+        }
 
         if (ret_dropin_paths) {
                 if (!strv_isempty(dropins)) {
@@ -2647,21 +2649,21 @@ static int unit_find_paths(
 
 static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *active_state) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *buf = NULL, *path = NULL;
+        _cleanup_free_ char *buf = NULL, *dbus_path = NULL;
         UnitActiveState state;
         int r;
 
         assert(name);
         assert(active_state);
 
-        path = unit_dbus_path_from_name(name);
-        if (!path)
+        dbus_path = unit_dbus_path_from_name(name);
+        if (!dbus_path)
                 return log_oom();
 
         r = sd_bus_get_property_string(
                         bus,
                         "org.freedesktop.systemd1",
-                        path,
+                        dbus_path,
                         "org.freedesktop.systemd1.Unit",
                         "ActiveState",
                         &error,
@@ -2704,7 +2706,7 @@ static int unit_is_masked(sd_bus *bus, LookupPaths *lp, const char *name) {
 
 static int check_triggering_units(sd_bus *bus, const char *name) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *n = NULL, *path = NULL, *load_state = NULL;
+        _cleanup_free_ char *n = NULL, *dbus_path = NULL, *load_state = NULL;
         _cleanup_strv_free_ char **triggered_by = NULL;
         bool print_warning_label = true;
         UnitActiveState active_state;
@@ -2722,14 +2724,14 @@ static int check_triggering_units(sd_bus *bus, const char *name) {
         if (streq(load_state, "masked"))
                 return 0;
 
-        path = unit_dbus_path_from_name(n);
-        if (!path)
+        dbus_path = unit_dbus_path_from_name(n);
+        if (!dbus_path)
                 return log_oom();
 
         r = sd_bus_get_property_strv(
                         bus,
                         "org.freedesktop.systemd1",
-                        path,
+                        dbus_path,
                         "org.freedesktop.systemd1.Unit",
                         "TriggeredBy",
                         &error,

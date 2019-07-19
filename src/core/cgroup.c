@@ -279,7 +279,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->memory_limit,
                 prefix, c->tasks_max,
                 prefix, cgroup_device_policy_to_string(c->device_policy),
-                prefix, strnull(disable_controllers_str),
+                prefix, strempty(disable_controllers_str),
                 prefix, yes_no(c->delegate));
 
         if (c->delegate) {

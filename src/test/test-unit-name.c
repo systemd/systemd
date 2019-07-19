@@ -430,29 +430,31 @@ static void test_unit_name_to_instance(void) {
         int r;
 
         r = unit_name_to_instance("foo@bar.service", &instance);
-        assert_se(r >= 0);
+        assert_se(r == UNIT_NAME_INSTANCE);
         assert_se(streq(instance, "bar"));
         free(instance);
 
         r = unit_name_to_instance("foo@.service", &instance);
-        assert_se(r >= 0);
+        assert_se(r == UNIT_NAME_TEMPLATE);
         assert_se(streq(instance, ""));
         free(instance);
 
         r = unit_name_to_instance("fo0-stUff_b@b.service", &instance);
-        assert_se(r >= 0);
+        assert_se(r == UNIT_NAME_INSTANCE);
         assert_se(streq(instance, "b"));
         free(instance);
 
         r = unit_name_to_instance("foo.service", &instance);
-        assert_se(r == 0);
+        assert_se(r == UNIT_NAME_PLAIN);
         assert_se(!instance);
 
         r = unit_name_to_instance("fooj@unk", &instance);
         assert_se(r < 0);
+        assert_se(!instance);
 
         r = unit_name_to_instance("foo@", &instance);
         assert_se(r < 0);
+        assert_se(!instance);
 }
 
 static void test_unit_name_escape(void) {

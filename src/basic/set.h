@@ -28,13 +28,13 @@ int internal_set_ensure_allocated(Set **s, const struct hash_ops *hash_ops HASHM
 int set_put(Set *s, const void *key);
 /* no set_update */
 /* no set_replace */
-static inline void *set_get(Set *s, void *key) {
-        return internal_hashmap_get(HASHMAP_BASE(s), key);
+static inline void *set_get(const Set *s, void *key) {
+        return internal_hashmap_get(HASHMAP_BASE((Set *) s), key);
 }
 /* no set_get2 */
 
-static inline bool set_contains(Set *s, const void *key) {
-        return internal_hashmap_contains(HASHMAP_BASE(s), key);
+static inline bool set_contains(const Set *s, const void *key) {
+        return internal_hashmap_contains(HASHMAP_BASE((Set *) s), key);
 }
 
 static inline void *set_remove(Set *s, const void *key) {
@@ -59,19 +59,19 @@ static inline int set_move_one(Set *s, Set *other, const void *key) {
         return internal_hashmap_move_one(HASHMAP_BASE(s), HASHMAP_BASE(other), key);
 }
 
-static inline unsigned set_size(Set *s) {
-        return internal_hashmap_size(HASHMAP_BASE(s));
+static inline unsigned set_size(const Set *s) {
+        return internal_hashmap_size(HASHMAP_BASE((Set *) s));
 }
 
-static inline bool set_isempty(Set *s) {
+static inline bool set_isempty(const Set *s) {
         return set_size(s) == 0;
 }
 
-static inline unsigned set_buckets(Set *s) {
-        return internal_hashmap_buckets(HASHMAP_BASE(s));
+static inline unsigned set_buckets(const Set *s) {
+        return internal_hashmap_buckets(HASHMAP_BASE((Set *) s));
 }
 
-bool set_iterate(Set *s, Iterator *i, void **value);
+bool set_iterate(const Set *s, Iterator *i, void **value);
 
 static inline void set_clear(Set *s) {
         internal_hashmap_clear(HASHMAP_BASE(s), NULL, NULL);

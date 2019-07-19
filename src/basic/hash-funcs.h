@@ -76,6 +76,7 @@ struct hash_ops {
 void string_hash_func(const char *p, struct siphash *state);
 #define string_compare_func strcmp
 extern const struct hash_ops string_hash_ops;
+extern const struct hash_ops string_hash_ops_free_free;
 
 void path_hash_func(const char *p, struct siphash *state);
 int path_compare_func(const char *a, const char *b) _pure_;

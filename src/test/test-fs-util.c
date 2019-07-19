@@ -795,11 +795,11 @@ int main(int argc, char *argv[]) {
 
         arg_test_dir = argv[1];
 
-        test_unlink_noerrno();
-        test_get_files_in_directory();
-        test_readlink_and_make_absolute();
-        test_var_tmp();
         test_chase_symlinks();
+        test_unlink_noerrno();
+        test_readlink_and_make_absolute();
+        test_get_files_in_directory();
+        test_var_tmp();
         test_dot_or_dot_dot();
         test_access_fd();
         test_touch_file();

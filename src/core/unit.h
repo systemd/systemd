@@ -8,10 +8,9 @@
 #include "bpf-program.h"
 #include "condition.h"
 #include "emergency-action.h"
-#include "install.h"
 #include "list.h"
 #include "set.h"
-#include "unit-name.h"
+#include "unit-file.h"
 #include "cgroup.h"
 
 typedef struct UnitRef UnitRef;
@@ -799,10 +798,6 @@ bool unit_is_unneeded(Unit *u);
 
 pid_t unit_control_pid(Unit *u);
 pid_t unit_main_pid(Unit *u);
-
-static inline bool unit_supported(Unit *u) {
-        return unit_type_supported(u->type);
-}
 
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_noncanonical(Unit *u, const char* where);

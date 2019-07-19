@@ -7,6 +7,7 @@
 #include "bus-util.h"
 #include "manager.h"
 #include "rm-rf.h"
+#include "strv.h"
 #include "test-helper.h"
 #include "tests.h"
 #include "service.h"

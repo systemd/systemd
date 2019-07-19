@@ -10,6 +10,9 @@ void string_hash_func(const char *p, struct siphash *state) {
 }
 
 DEFINE_HASH_OPS(string_hash_ops, char, string_hash_func, string_compare_func);
+DEFINE_HASH_OPS_FULL(string_hash_ops_free_free,
+                     char, string_hash_func, string_compare_func, free,
+                     char, free);
 
 void path_hash_func(const char *q, struct siphash *state) {
         size_t n;

@@ -6,9 +6,10 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "dbus-unit.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "transaction.h"
-#include "dbus-unit.h"
 
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);
 
