@@ -128,6 +128,7 @@
       <varlistentry>
         <term><varname>RuntimeWatchdogSec=</varname></term>
         <term><varname>ShutdownWatchdogSec=</varname></term>
+        <term><varname>KExecWatchdogSec=</varname></term>
 
         <listitem><para>Configure the hardware watchdog at runtime and at reboot. Takes a timeout value in seconds (or
         in other time units if suffixed with <literal>ms</literal>, <literal>min</literal>, <literal>h</literal>,
@@ -149,7 +150,13 @@
         phase of system shutdown, configure <varname>JobTimeoutSec=</varname> and <varname>JobTimeoutAction=</varname>
         in the <literal>[Unit]</literal> section of the <filename>shutdown.target</filename> unit. By default
         <varname>RuntimeWatchdogSec=</varname> defaults to 0 (off), and <varname>ShutdownWatchdogSec=</varname> to
-        10min. These settings have no effect if a hardware watchdog is not available.</para></listitem>
+        10min. <varname>KExecWatchdogSec=</varname> may be used to additionally enable the watchdog when kexec
+        is being executed rather than when rebooting. Note that if the kernel does not reset the watchdog on kexec (depending
+        on the specific hardware and/or driver), in this case the watchdog might not get disabled after kexec succeeds
+        and thus the system might get rebooted, unless <varname>RuntimeWatchdogSec=</varname> is also enabled at the same time.
+        For this reason it is recommended to enable <varname>KExecWatchdogSec=</varname> only if
+        <varname>RuntimeWatchdogSec=</varname> is also enabled.
+        These settings have no effect if a hardware watchdog is not available.</para></listitem>
       </varlistentry>
 
       <varlistentry>

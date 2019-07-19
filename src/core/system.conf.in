@@ -27,6 +27,7 @@
 #NUMAMask=
 #RuntimeWatchdogSec=0
 #ShutdownWatchdogSec=10min
+#KExecWatchdogSec=0
 #WatchdogDevice=
 #CapabilityBoundingSet=
 #NoNewPrivileges=no

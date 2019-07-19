@@ -703,6 +703,7 @@ LogTarget=
 RuntimeWatchdogSec=
 ShowStatus=
 ShutdownWatchdogSec=
+KExecWatchdogSec=
 SuspendMode=
 SuspendState=
 SystemCallArchitectures=

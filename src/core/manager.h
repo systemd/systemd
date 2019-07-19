@@ -229,6 +229,7 @@ struct Manager {
 
         usec_t runtime_watchdog;
         usec_t shutdown_watchdog;
+        usec_t kexec_watchdog;
 
         dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
 
