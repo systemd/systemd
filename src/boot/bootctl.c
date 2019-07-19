@@ -603,6 +603,7 @@ static int create_esp_subdirs(const char *esp_path) {
 }
 
 static int copy_one_file(const char *esp_path, const char *name, bool force) {
+        const char *e;
         char *p, *q;
         int r;
 
@@ -610,13 +611,13 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
         q = strjoina(esp_path, "/EFI/systemd/", name);
         r = copy_file_with_version_check(p, q, force);
 
-        if (startswith(name, "systemd-boot")) {
+        e = startswith(name, "systemd-boot");
+        if (e) {
                 int k;
                 char *v;
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
-                v = strjoina(esp_path, "/EFI/BOOT/BOOT",
-                             name + STRLEN("systemd-boot"));
+                v = strjoina(esp_path, "/EFI/BOOT/BOOT", e);
                 ascii_strupper(strrchr(v, '/') + 1);
 
                 k = copy_file_with_version_check(p, v, force);
