@@ -135,6 +135,8 @@ in_units = [
          'sysinit.target.wants/'],
         ['systemd-bless-boot.service',           'ENABLE_EFI HAVE_BLKID'],
         ['systemd-boot-check-no-failures.service', ''],
+        ['systemd-boot-system-token.service',    'ENABLE_EFI',
+         'sysinit.target.wants/'],
         ['systemd-coredump@.service',            'ENABLE_COREDUMP'],
         ['systemd-pstore.service',               'ENABLE_PSTORE'],
         ['systemd-firstboot.service',            'ENABLE_FIRSTBOOT',

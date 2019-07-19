@@ -1,0 +1,34 @@
+#  SPDX-License-Identifier: LGPL-2.1+
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Store a System Token in an EFI Variable
+Documentation=man:systemd-boot-system-token.service(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=local-fs.target systemd-random-seed.service
+Before=shutdown.target
+
+# Don't run this in a VM environment, because there EFI variables are not
+# actually stored in NVRAM, independent of regular storage.
+ConditionVirtualization=no
+
+# Only run this if the boot loader can support random seed initialization.
+ConditionPathExists=/sys/firmware/efi/efivars/LoaderFeatures-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+
+# Only run this if there is no system token defined yet, or …
+ConditionPathExists=|!/sys/firmware/efi/efivars/LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+
+# … if the boot loader didn't pass the OS a random seed (and thus probably was missing the random seed file)
+ConditionPathExists=|!/sys/firmware/efi/efivars/LoaderRandomSeed-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@bindir@/bootctl random-seed
