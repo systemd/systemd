@@ -1249,6 +1249,22 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         printf("          ESP: n/a\n");
                 printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
                 printf("\n");
+
+                printf("Random Seed:\n");
+                printf(" Passed to OS: %s\n", yes_no(access("/sys/firmware/efi/efivars/LoaderRandomSeed-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f", F_OK) >= 0));
+                printf(" System Token: %s\n", access("/sys/firmware/efi/efivars/LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f", F_OK) >= 0 ? "set" : "not set");
+
+                if (arg_esp_path) {
+                        _cleanup_free_ char *p = NULL;
+
+                        p = path_join(arg_esp_path, "/loader/random-seed");
+                        if (!p)
+                                return log_oom();
+
+                        printf("       Exists: %s\n", yes_no(access(p, F_OK) >= 0));
+                }
+
+                printf("\n");
         } else
                 printf("System:\n    Not booted with EFI\n\n");
 
