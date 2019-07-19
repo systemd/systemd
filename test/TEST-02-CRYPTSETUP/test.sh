@@ -84,7 +84,7 @@ cleanup_root_var() {
 
 test_cleanup() {
     # ignore errors, so cleanup can continue
-    cleanup_root_var || true
+    cleanup_root_var || :
     _test_cleanup
 }
 
