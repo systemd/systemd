@@ -25,8 +25,10 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "io-util.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "random-util.h"
 #include "siphash24.h"
 #include "time-util.h"
@@ -388,4 +390,27 @@ void random_bytes(void *p, size_t n) {
 
         /* If for some reason some user made /dev/urandom unavailable to us, or the kernel has no entropy, use a PRNG instead. */
         pseudo_random_bytes(p, n);
+}
+
+size_t random_pool_size(void) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        /* Read pool size, if possible */
+        r = read_one_line_file("/proc/sys/kernel/random/poolsize", &s);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read pool size from kernel: %m");
+        else {
+                unsigned sz;
+
+                r = safe_atou(s, &sz);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse pool size: %s", s);
+                else
+                        /* poolsize is in bits on 2.6, but we want bytes */
+                        return CLAMP(sz / 8, RANDOM_POOL_SIZE_MIN, RANDOM_POOL_SIZE_MAX);
+        }
+
+        /* Use the minimum as default, if we can't retrieve the correct value */
+        return RANDOM_POOL_SIZE_MIN;
 }

@@ -15,20 +15,17 @@
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "random-util.h"
 #include "string-util.h"
 #include "util.h"
-
-#define POOL_SIZE_MIN 512
-#define POOL_SIZE_MAX (10*1024*1024)
 
 static int run(int argc, char *argv[]) {
         _cleanup_close_ int seed_fd = -1, random_fd = -1;
         bool read_seed_file, write_seed_file;
         _cleanup_free_ void* buf = NULL;
-        size_t buf_size = 0;
+        size_t buf_size;
         struct stat st;
         ssize_t k;
-        FILE *f;
         int r;
 
         log_setup_service();
@@ -39,18 +36,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        /* Read pool size, if possible */
-        f = fopen("/proc/sys/kernel/random/poolsize", "re");
-        if (f) {
-                if (fscanf(f, "%zu", &buf_size) > 0)
-                        /* poolsize is in bits on 2.6, but we want bytes */
-                        buf_size /= 8;
-
-                fclose(f);
-        }
-
-        if (buf_size < POOL_SIZE_MIN)
-                buf_size = POOL_SIZE_MIN;
+        buf_size = random_pool_size();
 
         r = mkdir_parents(RANDOM_SEED, 0755);
         if (r < 0)
@@ -113,7 +99,7 @@ static int run(int argc, char *argv[]) {
 
         /* If the seed file is larger than what we expect, then honour the existing size and save/restore as much as it says */
         if ((uint64_t) st.st_size > buf_size)
-                buf_size = MIN(st.st_size, POOL_SIZE_MAX);
+                buf_size = MIN(st.st_size, RANDOM_POOL_SIZE_MAX);
 
         buf = malloc(buf_size);
         if (!buf)
