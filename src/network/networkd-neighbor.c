@@ -59,7 +59,6 @@ static int neighbor_new_static(Network *network, const char *filename, unsigned 
         *neighbor = (Neighbor) {
                 .network = network,
                 .family = AF_UNSPEC,
-                .lladdr_type = _NEIGHBOR_LLADDR_INVALID,
         };
 
         LIST_APPEND(neighbors, network->neighbors, neighbor);
@@ -130,10 +129,7 @@ int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_hand
         if (r < 0)
                 return log_error_errno(r, "Could not set flags: %m");
 
-        if (neighbor->lladdr_type == NEIGHBOR_LLADDR_MAC)
-                r = sd_netlink_message_append_data(req, NDA_LLADDR, &neighbor->lladdr.mac, sizeof(neighbor->lladdr.mac));
-        else
-                r = sd_netlink_message_append_data(req, NDA_LLADDR, &neighbor->lladdr.ip.in, sizeof(neighbor->lladdr.ip.in));
+        r = sd_netlink_message_append_data(req, NDA_LLADDR, &neighbor->lladdr, neighbor->lladdr_size);
         if (r < 0)
                 return log_error_errno(r, "Could not append NDA_LLADDR attribute: %m");
 
@@ -162,7 +158,7 @@ int neighbor_section_verify(Neighbor *neighbor) {
                                          "Ignoring [Neighbor] section from line %u.",
                                          neighbor->section->filename, neighbor->section->line);
 
-        if (neighbor->lladdr_type < 0)
+        if (neighbor->lladdr_size == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Neighbor section without LinkLayerAddress= configured. "
                                          "Ignoring [Neighbor] section from line %u.",
@@ -222,7 +218,7 @@ int config_parse_neighbor_lladdr(
 
         Network *network = userdata;
         _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
-        int r;
+        int family, r;
 
         assert(filename);
         assert(section);
@@ -236,14 +232,16 @@ int config_parse_neighbor_lladdr(
 
         r = ether_addr_from_string(rvalue, &n->lladdr.mac);
         if (r >= 0)
-                n->lladdr_type = NEIGHBOR_LLADDR_MAC;
+                n->lladdr_size = sizeof(n->lladdr.mac);
         else {
-                r = in_addr_from_string(AF_INET, rvalue, &n->lladdr.ip);
+                r = in_addr_from_string_auto(rvalue, &family, &n->lladdr.ip);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Neighbor LinkLayerAddress= is invalid, ignoring assignment: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Neighbor LinkLayerAddress= is invalid, ignoring assignment: %s",
+                                   rvalue);
                         return 0;
                 }
-                n->lladdr_type = NEIGHBOR_LLADDR_IP;
+                n->lladdr_size = family == AF_INET ? sizeof(n->lladdr.ip.in) : sizeof(n->lladdr.ip.in6);
         }
 
         TAKE_PTR(n);
@@ -279,11 +277,12 @@ int config_parse_neighbor_hwaddr(
 
         r = ether_addr_from_string(rvalue, &n->lladdr.mac);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Neighbor MACAddress= is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Neighbor MACAddress= is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        n->lladdr_type = NEIGHBOR_LLADDR_MAC;
+        n->lladdr_size = sizeof(n->lladdr.mac);
         TAKE_PTR(n);
 
         return 0;

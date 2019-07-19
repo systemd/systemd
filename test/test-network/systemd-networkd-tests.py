@@ -1388,6 +1388,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         'dummy98',
         'dummy99',
         'gretun97',
+        'ip6gretun97',
         'test1'
     ]
 
@@ -1405,8 +1406,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-fibrule-invert.network',
         '25-fibrule-port-range.network',
         '25-gre-tunnel-remote-any.netdev',
+        '25-ip6gre-tunnel-remote-any.netdev',
         '25-ipv6-address-label-section.network',
         '25-neighbor-section.network',
+        '25-neighbor-ipv6.network',
         '25-neighbor-ip-dummy.network',
         '25-neighbor-ip.network',
         '25-link-local-addressing-no.network',
@@ -1667,14 +1670,18 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
 
     def test_neighbor_gre(self):
-        copy_unit_to_networkd_unit_path('25-neighbor-ip.network', '25-neighbor-ip-dummy.network',
-                                        '12-dummy.netdev', '25-gre-tunnel-remote-any.netdev')
+        copy_unit_to_networkd_unit_path('25-neighbor-ip.network', '25-neighbor-ipv6.network', '25-neighbor-ip-dummy.network',
+                                        '12-dummy.netdev', '25-gre-tunnel-remote-any.netdev', '25-ip6gre-tunnel-remote-any.netdev')
         start_networkd()
-        self.wait_online(['dummy98:degraded', 'gretun97:routable'], timeout='40s')
+        self.wait_online(['dummy98:degraded', 'gretun97:routable', 'ip6gretun97:routable'], timeout='40s')
 
         output = check_output('ip neigh list dev gretun97')
         print(output)
         self.assertRegex(output, '10.0.0.22 lladdr 10.65.223.239 PERMANENT')
+
+        output = check_output('ip neigh list dev ip6gretun97')
+        print(output)
+        self.assertRegex(output, '2001:db8:0:f102::17 lladdr 2a:?00:ff:?de:45:?67:ed:?de:[0:]*:49:?88 PERMANENT')
 
     def test_link_local_addressing(self):
         copy_unit_to_networkd_unit_path('25-link-local-addressing-yes.network', '11-dummy.netdev',
