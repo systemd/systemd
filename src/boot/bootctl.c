@@ -651,7 +651,7 @@ static int install_binaries(const char *esp_path, bool force) {
         return r;
 }
 
-static bool same_entry(uint16_t id, const sd_id128_t uuid, const char *path) {
+static bool same_entry(uint16_t id, sd_id128_t uuid, const char *path) {
         _cleanup_free_ char *opath = NULL;
         sd_id128_t ouuid;
         int r;
