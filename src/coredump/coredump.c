@@ -81,18 +81,22 @@ enum {
         _META_START = 1,
 
         META_ARGV_PID = _META_START,  /* %P: as seen in the initial pid namespace */
-        META_ARGV_UID,                /* %u: as seen in the initial user namespace */
-        META_ARGV_GID,                /* %g: as seen in the initial user namespace */
+        META_ARGV_UID_IGNORED,        /* %u: as seen in the initial user namespace */
+        META_ARGV_GID_IGNORED,        /* %g: as seen in the initial user namespace */
         META_ARGV_SIGNAL,             /* %s: number of signal causing dump */
         META_ARGV_TIMESTAMP,          /* %t: time of dump, expressed as seconds since the Epoch */
         META_ARGV_RLIMIT,             /* %c: core file size soft resource limit */
         META_ARGV_HOSTNAME,           /* %h: hostname */
+
         _META_ARGV_MAX,
 
         /* The following fields are cached since they're used for naming coredump files, and
          * attaching xattrs. Unlike the previous ones they are retrieved from /proc. */
 
         META_COMM = _META_ARGV_MAX,
+        META_UID,
+        META_GID,
+
         _META_MANDATORY_MAX,
 
         /* The rest are similar to the previous ones except that we won't fail if one of
@@ -100,18 +104,19 @@ enum {
 
         META_EXE = _META_MANDATORY_MAX,
         META_UNIT,
+
         _META_MAX
 };
 
 static const char * const meta_field_names[_META_MAX] = {
         [META_ARGV_PID]          = "COREDUMP_PID=",
-        [META_ARGV_UID]          = "COREDUMP_UID=",
-        [META_ARGV_GID]          = "COREDUMP_GID=",
         [META_ARGV_SIGNAL]       = "COREDUMP_SIGNAL=",
         [META_ARGV_TIMESTAMP]    = "COREDUMP_TIMESTAMP=",
         [META_ARGV_RLIMIT]       = "COREDUMP_RLIMIT=",
         [META_ARGV_HOSTNAME]     = "COREDUMP_HOSTNAME=",
         [META_COMM]              = "COREDUMP_COMM=",
+        [META_UID]               = "COREDUMP_UID=",
+        [META_GID]               = "COREDUMP_GID=",
         [META_EXE]               = "COREDUMP_EXE=",
         [META_UNIT]              = "COREDUMP_UNIT=",
 };
@@ -222,13 +227,13 @@ static int fix_xattr(int fd, const Context *context) {
 
         static const char * const xattrs[_META_MAX] = {
                 [META_ARGV_PID]          = "user.coredump.pid",
-                [META_ARGV_UID]          = "user.coredump.uid",
-                [META_ARGV_GID]          = "user.coredump.gid",
                 [META_ARGV_SIGNAL]       = "user.coredump.signal",
                 [META_ARGV_TIMESTAMP]    = "user.coredump.timestamp",
                 [META_ARGV_RLIMIT]       = "user.coredump.rlimit",
                 [META_ARGV_HOSTNAME]     = "user.coredump.hostname",
                 [META_COMM]              = "user.coredump.comm",
+                [META_UID]               = "user.coredump.uid",
+                [META_GID]               = "user.coredump.gid",
                 [META_EXE]               = "user.coredump.exe",
         };
 
@@ -317,7 +322,7 @@ static int make_filename(const Context *context, char **ret) {
         if (!c)
                 return -ENOMEM;
 
-        u = filename_escape(context->meta[META_ARGV_UID]);
+        u = filename_escape(context->meta[META_UID]);
         if (!u)
                 return -ENOMEM;
 
@@ -776,7 +781,7 @@ static int submit_coredump(
 log:
         core_message = strjoina("Process ", context->meta[META_ARGV_PID],
                                 " (", context->meta[META_COMM], ") of user ",
-                                context->meta[META_ARGV_UID], " dumped core.",
+                                context->meta[META_UID], " dumped core.",
                                 context->is_journald && filename ? "\nCoredump diverted to " : NULL,
                                 context->is_journald && filename ? filename : NULL);
 
@@ -859,23 +864,18 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PID \"%s\": %m", context->meta[META_ARGV_PID]);
 
-        /* Check for the presence of uid and gid */
-        if (!context->meta[META_ARGV_UID])
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to find the UID of crashing process");
+        /* Cache uid and gid */
+        if (context->meta[META_UID]) {
+                r = parse_uid(context->meta[META_UID], &context->uid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse UID: %m");
+        }
 
-        if (!context->meta[META_ARGV_GID])
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to find the GID of crashing process");
-
-        r = parse_uid(context->meta[META_ARGV_UID], &context->uid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse UID: %m");
-
-        r = parse_gid(context->meta[META_ARGV_GID], &context->gid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse gid: %m");
-
+        if (context->meta[META_GID]) {
+                r = parse_gid(context->meta[META_GID], &context->gid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse GID: %m");
+        }
 
         unit = context->meta[META_UNIT];
         context->is_pid1 = streq(context->meta[META_ARGV_PID], "1") || streq_ptr(unit, SPECIAL_INIT_SCOPE);
@@ -1077,6 +1077,14 @@ static int gather_pid_metadata_from_argv(struct iovec_wrapper *iovw, Context *co
                 t = argv[i];
 
                 switch (i) {
+                case META_ARGV_UID_IGNORED:
+                        log_debug("Ignoring UID passed by the kernel, we'll read it from /proc");
+                        continue;
+
+                case META_ARGV_GID_IGNORED:
+                        log_debug("Ignoring GID passed by the kernel, we'll read it from /proc");
+                        continue;
+
                 case META_ARGV_TIMESTAMP:
                         /* The journal fields contain the timestamp padded with six
                          * zeroes, so that the kernel-supplied 1s granularity timestamps
@@ -1107,7 +1115,8 @@ static int gather_pid_metadata_from_argv(struct iovec_wrapper *iovw, Context *co
 }
 
 static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
-        uid_t owner_uid;
+        uid_t uid, owner_uid;
+        gid_t gid;
         pid_t pid;
         char *t;
         const char *p;
@@ -1118,12 +1127,36 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
 
         pid = context->pid;
 
-        /* The following is mandatory */
+        /* The following are mandatory */
         r = get_process_comm(pid, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to get COMM: %m");
 
         r = iovw_put_string_field_free(iovw, "COREDUMP_COMM=", t);
+        if (r < 0)
+                return r;
+
+        r = get_process_uid(pid, &uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get UID: %m");
+
+        r = asprintf(&t, UID_FMT, uid);
+        if (r < 0)
+                 return -ENOMEM;
+
+        r = iovw_put_string_field_free(iovw, "COREDUMP_UID=", t);
+        if (r < 0)
+                return r;
+
+        r = get_process_gid(pid, &gid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get GID: %m");
+
+        r = asprintf(&t, GID_FMT, gid);
+        if (r < 0)
+                 return -ENOMEM;
+
+        r = iovw_put_string_field_free(iovw, "COREDUMP_GID=", t);
         if (r < 0)
                 return r;
 
@@ -1299,7 +1332,7 @@ static int process_backtrace(int argc, char *argv[]) {
 
                 message = strjoina("Process ", context.meta[META_ARGV_PID],
                                   " (", context.meta[META_COMM], ")"
-                                  " of user ", context.meta[META_ARGV_UID],
+                                  " of user ", context.meta[META_UID],
                                   " failed with ", context.meta[META_ARGV_SIGNAL]);
 
                 r = iovw_put_string_field(iovw, "MESSAGE=", message);
