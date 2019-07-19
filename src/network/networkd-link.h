@@ -83,6 +83,7 @@ typedef struct Link {
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease, *dhcp_lease_old;
+        Set *dhcp_routes;
         char *lease_file;
         uint32_t original_mtu;
         unsigned dhcp4_messages;

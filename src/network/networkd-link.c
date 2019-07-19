@@ -703,6 +703,7 @@ static Link *link_free(Link *link) {
         sd_dhcp_server_unref(link->dhcp_server);
         sd_dhcp_client_unref(link->dhcp_client);
         sd_dhcp_lease_unref(link->dhcp_lease);
+        set_free(link->dhcp_routes);
 
         link_lldp_emit_stop(link);
 

@@ -2391,13 +2391,47 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
-        start_dnsmasq()
+        start_dnsmasq(additional_options='--dhcp-option=option:dns-server,192.168.5.6,192.168.5.7', lease_time='2m')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = check_output(*networkctl_cmd, 'status', 'veth99', env=env)
         print(output)
         self.assertNotRegex(output, '2600::')
         self.assertRegex(output, '192.168.5')
+        self.assertRegex(output, '192.168.5.6')
+        self.assertRegex(output, '192.168.5.7')
+
+        # checking routes to DNS servers
+        output = check_output('ip route show dev veth99')
+        print(output)
+        self.assertRegex(output, r'192.168.5.1 proto dhcp scope link src 192.168.5.181 metric 1024')
+        self.assertRegex(output, r'192.168.5.6 proto dhcp scope link src 192.168.5.181 metric 1024')
+        self.assertRegex(output, r'192.168.5.7 proto dhcp scope link src 192.168.5.181 metric 1024')
+
+        stop_dnsmasq(dnsmasq_pid_file)
+        start_dnsmasq(additional_options='--dhcp-option=option:dns-server,192.168.5.1,192.168.5.7,192.168.5.8', lease_time='2m')
+
+        # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
+        print('Wait for the dynamic address to be renewed')
+        time.sleep(125)
+
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output(*networkctl_cmd, 'status', 'veth99', env=env)
+        print(output)
+        self.assertNotRegex(output, '2600::')
+        self.assertRegex(output, '192.168.5')
+        self.assertNotRegex(output, '192.168.5.6')
+        self.assertRegex(output, '192.168.5.7')
+        self.assertRegex(output, '192.168.5.8')
+
+        # checking routes to DNS servers
+        output = check_output('ip route show dev veth99')
+        print(output)
+        self.assertNotRegex(output, r'192.168.5.6')
+        self.assertRegex(output, r'192.168.5.1 proto dhcp scope link src 192.168.5.181 metric 1024')
+        self.assertRegex(output, r'192.168.5.7 proto dhcp scope link src 192.168.5.181 metric 1024')
+        self.assertRegex(output, r'192.168.5.8 proto dhcp scope link src 192.168.5.181 metric 1024')
 
     def test_dhcp_client_ipv4_ipv6(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network',

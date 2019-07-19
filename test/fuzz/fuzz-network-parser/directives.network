@@ -69,6 +69,7 @@ SendRelease=
 MaxAttempts=
 [DHCPv4]
 UseDNS=
+RoutesToDNS=
 UseDomains=
 UseRoutes=
 IAID=
