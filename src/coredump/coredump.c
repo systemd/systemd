@@ -119,6 +119,8 @@ static const char * const meta_field_names[_META_MAX] = {
 typedef struct Context {
         const char *meta[_META_MAX];
         pid_t pid;
+        uid_t uid;
+        gid_t gid;
         bool is_pid1;
         bool is_journald;
 } Context;
@@ -262,8 +264,7 @@ static int fix_permissions(
                 int fd,
                 const char *filename,
                 const char *target,
-                const Context *context,
-                uid_t uid) {
+                const Context *context) {
 
         int r;
 
@@ -273,7 +274,7 @@ static int fix_permissions(
 
         /* Ignore errors on these */
         (void) fchmod(fd, 0640);
-        (void) fix_acl(fd, uid);
+        (void) fix_acl(fd, context->uid);
         (void) fix_xattr(fd, context);
 
         if (fsync(fd) < 0)
@@ -357,7 +358,6 @@ static int save_external_coredump(
         _cleanup_close_ int fd = -1;
         uint64_t rlimit, process_limit, max_size;
         struct stat st;
-        uid_t uid;
         int r;
 
         assert(context);
@@ -365,10 +365,6 @@ static int save_external_coredump(
         assert(ret_node_fd);
         assert(ret_data_fd);
         assert(ret_size);
-
-        r = parse_uid(context->meta[META_ARGV_UID], &uid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse UID: %m");
 
         r = safe_atou64(context->meta[META_ARGV_RLIMIT], &rlimit);
         if (r < 0)
@@ -450,7 +446,7 @@ static int save_external_coredump(
                         goto fail_compressed;
                 }
 
-                r = fix_permissions(fd_compressed, tmp_compressed, fn_compressed, context, uid);
+                r = fix_permissions(fd_compressed, tmp_compressed, fn_compressed, context);
                 if (r < 0)
                         goto fail_compressed;
 
@@ -473,7 +469,7 @@ static int save_external_coredump(
 uncompressed:
 #endif
 
-        r = fix_permissions(fd, tmp, fn, context, uid);
+        r = fix_permissions(fd, tmp, fn, context);
         if (r < 0)
                 goto fail;
 
@@ -698,13 +694,9 @@ static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
 }
 
 static int change_uid_gid(const Context *context) {
-        uid_t uid;
-        gid_t gid;
+        uid_t uid = context->uid;
+        gid_t gid = context->gid;
         int r;
-
-        r = parse_uid(context->meta[META_ARGV_UID], &uid);
-        if (r < 0)
-                return r;
 
         if (uid <= SYSTEM_UID_MAX) {
                 const char *user = "systemd-coredump";
@@ -714,10 +706,6 @@ static int change_uid_gid(const Context *context) {
                         log_warning_errno(r, "Cannot resolve %s user. Proceeding to dump core as root: %m", user);
                         uid = gid = 0;
                 }
-        } else {
-                r = parse_gid(context->meta[META_ARGV_GID], &gid);
-                if (r < 0)
-                        return r;
         }
 
         return drop_privileges(uid, gid, 0);
@@ -862,6 +850,7 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
                 }
         }
 
+        /* Check for the presence of pid and nspid */
         if (!context->meta[META_ARGV_PID])
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Failed to find the PID of crashing process");
@@ -869,6 +858,24 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
         r = parse_pid(context->meta[META_ARGV_PID], &context->pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PID \"%s\": %m", context->meta[META_ARGV_PID]);
+
+        /* Check for the presence of uid and gid */
+        if (!context->meta[META_ARGV_UID])
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to find the UID of crashing process");
+
+        if (!context->meta[META_ARGV_GID])
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to find the GID of crashing process");
+
+        r = parse_uid(context->meta[META_ARGV_UID], &context->uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse UID: %m");
+
+        r = parse_gid(context->meta[META_ARGV_GID], &context->gid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse gid: %m");
+
 
         unit = context->meta[META_UNIT];
         context->is_pid1 = streq(context->meta[META_ARGV_PID], "1") || streq_ptr(unit, SPECIAL_INIT_SCOPE);
