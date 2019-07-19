@@ -2427,6 +2427,11 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                                 }
 
+                                /* Let's open the log backend a second time, in case the first time didn't
+                                 * work. Quite possibly we have mounted /dev just now, so /dev/kmsg became
+                                 * available, and it previously wasn't. */
+                                log_open();
+
                                 r = initialize_security(
                                                 &loaded_policy,
                                                 &security_start_timestamp,
