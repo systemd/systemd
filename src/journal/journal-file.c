@@ -3185,7 +3185,6 @@ int journal_file_open(
         JournalFile *f;
         void *h;
         int r;
-        char bytes[FORMAT_BYTES_MAX];
 
         assert(ret);
         assert(fd >= 0 || fname);
@@ -3221,9 +3220,23 @@ int journal_file_open(
 #endif
         };
 
-        log_debug("Journal effective settings seal=%s compress=%s compress_threshold_bytes=%s",
-                  yes_no(f->seal), yes_no(JOURNAL_FILE_COMPRESS(f)),
-                  format_bytes(bytes, sizeof(bytes), f->compress_threshold_bytes));
+        if (DEBUG_LOGGING) {
+                static int last_seal = -1, last_compress = -1;
+                static uint64_t last_bytes = UINT64_MAX;
+                char bytes[FORMAT_BYTES_MAX];
+
+                if (last_seal != f->seal ||
+                    last_compress != JOURNAL_FILE_COMPRESS(f) ||
+                    last_bytes != f->compress_threshold_bytes) {
+
+                        log_debug("Journal effective settings seal=%s compress=%s compress_threshold_bytes=%s",
+                                  yes_no(f->seal), yes_no(JOURNAL_FILE_COMPRESS(f)),
+                                  format_bytes(bytes, sizeof bytes, f->compress_threshold_bytes));
+                        last_seal = f->seal;
+                        last_compress = JOURNAL_FILE_COMPRESS(f);
+                        last_bytes = f->compress_threshold_bytes;
+                }
+        }
 
         if (mmap_cache)
                 f->mmap = mmap_cache_ref(mmap_cache);
