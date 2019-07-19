@@ -32,9 +32,10 @@
 #include "clock-util.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
-#include "dbus.h"
 #include "dbus-manager.h"
+#include "dbus.h"
 #include "def.h"
+#include "efi-random.h"
 #include "emergency-action.h"
 #include "env-util.h"
 #include "exit-status.h"
@@ -2511,6 +2512,9 @@ int main(int argc, char *argv[]) {
                         error_message = "Failed to mount API filesystems";
                         goto finish;
                 }
+
+                /* The efivarfs is now mounted, let's read the random seed off it */
+                (void) efi_take_random_seed();
         }
 
         /* Save the original RLIMIT_NOFILE/RLIMIT_MEMLOCK so that we can reset it later when
