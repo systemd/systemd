@@ -1296,6 +1296,37 @@ int bus_map_all_properties(
         return r;
 }
 
+int bus_message_read_ether_addr(sd_bus_message *m, bool enter_container, struct ether_addr *ret) {
+        const void *data;
+        size_t sz;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        if (enter_container) {
+                r = sd_bus_message_enter_container(m, 'v', "ay");
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_read_array(m, 'y', &data, &sz);
+        if (r < 0)
+                return r;
+
+        if (enter_container) {
+                r = sd_bus_message_exit_container(m);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+
+        if (sz != sizeof(struct ether_addr))
+                return -EINVAL;
+
+        memcpy(ret, data, sizeof(struct ether_addr));
+        return 0;
+}
+
 int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **ret) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
