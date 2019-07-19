@@ -1038,7 +1038,9 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
 
                         if (EFI_ERROR(parse_boolean(value, &on)))
                                 continue;
+
                         config->editor = on;
+                        continue;
                 }
 
                 if (strcmpa((CHAR8 *)"auto-entries", key) == 0) {
@@ -1046,7 +1048,9 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
 
                         if (EFI_ERROR(parse_boolean(value, &on)))
                                 continue;
+
                         config->auto_entries = on;
+                        continue;
                 }
 
                 if (strcmpa((CHAR8 *)"auto-firmware", key) == 0) {
@@ -1054,7 +1058,9 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
 
                         if (EFI_ERROR(parse_boolean(value, &on)))
                                 continue;
+
                         config->auto_firmware = on;
+                        continue;
                 }
 
                 if (strcmpa((CHAR8 *)"console-mode", key) == 0) {
