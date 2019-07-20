@@ -407,6 +407,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 .arp = -1,
                 .multicast = -1,
                 .allmulticast = -1,
+                .dynamic = -1,
                 .ipv6_accept_ra_use_dns = true,
                 .ipv6_accept_ra_use_autonomous_prefix = true,
                 .ipv6_accept_ra_use_onlink_prefix = true,

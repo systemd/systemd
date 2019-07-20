@@ -259,6 +259,12 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>Dynamic=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, the kernel drops all the addresses when the interface goes down.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>Unmanaged=</varname></term>
         <listitem>
           <para>Takes a boolean. When <literal>yes</literal>, no attempts are

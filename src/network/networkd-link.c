@@ -1375,7 +1375,7 @@ static int link_set_flags(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (link->network->arp < 0 && link->network->multicast < 0 && link->network->allmulticast < 0)
+        if (link->network->arp < 0 && link->network->multicast < 0 && link->network->allmulticast < 0 && link->network->dynamic < 0)
                 return 0;
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
@@ -1395,6 +1395,11 @@ static int link_set_flags(Link *link) {
         if (link->network->allmulticast >= 0) {
                 ifi_change |= IFF_ALLMULTI;
                 SET_FLAG(ifi_flags, IFF_ALLMULTI, link->network->allmulticast);
+        }
+
+        if (link->network->dynamic >= 0) {
+                ifi_change |= IFF_DYNAMIC;
+                SET_FLAG(ifi_flags, IFF_DYNAMIC, link->network->dynamic);
         }
 
         r = sd_rtnl_message_link_set_flags(req, ifi_flags, ifi_change);

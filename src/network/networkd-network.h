@@ -199,6 +199,7 @@ struct Network {
         int arp;
         int multicast;
         int allmulticast;
+        int dynamic;
         bool unmanaged;
         bool configure_without_carrier;
         bool ignore_carrier_loss;

@@ -29,6 +29,7 @@ MACAddress=
 RequiredForOnline=
 ARP=
 AllMulticast=
+Dynamic=
 Unmanaged=
 MTUBytes=
 Multicast=
