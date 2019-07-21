@@ -23,6 +23,7 @@
 #include "time-dst.h"
 #include "util.h"
 #include "verbs.h"
+#include "virt.h"
 
 static PagerFlags arg_pager_flags = 0;
 static bool arg_ask_password = true;
@@ -64,6 +65,7 @@ static const char *jump_str(int delta_minutes, char *s, size_t size) {
 
 static void print_status_info(const StatusInfo *i) {
         const char *old_tz = NULL, *tz;
+        const char *on, *off, *synced_on = "", *synced_off = "", *rtc_local_on = "", *rtc_local_off = "";
         bool have_time = false, is_dstc = false;
         char a[LINE_MAX];
         struct tm tm;
@@ -93,15 +95,20 @@ static void print_status_info(const StatusInfo *i) {
         } else
                 log_warning("Could not get time from timedated and not operating locally, ignoring.");
 
+        on = ansi_highlight_blue();
+        off = ansi_normal();
+
         if (have_time) {
                 n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm));
-                printf("               Local time: %s\n", n > 0 ? a : "n/a");
+                printf("               Local time: %s%s%s\n",
+                       on, n > 0 ? a : "n/a", off);
 
                 n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm));
-                printf("           Universal time: %s\n", n > 0 ? a : "n/a");
+                printf("           Universal time: %s%s%s\n",
+                       on, n > 0 ? a : "n/a", off);
         } else {
-                printf("               Local time: %s\n", "n/a");
-                printf("           Universal time: %s\n", "n/a");
+                printf("               Local time: %sn/a%s\n", on, off);
+                printf("           Universal time: %sn/a%s\n", on, off);
         }
 
         if (i->rtc_time > 0) {
@@ -126,14 +133,24 @@ static void print_status_info(const StatusInfo *i) {
         else
                 tzset();
 
+        if (!i->ntp_synced && detect_virtualization() == 0) {
+                synced_on = ansi_highlight_red();
+                synced_off = ansi_normal();
+        }
+
+        if (i->rtc_local) {
+                rtc_local_on = ansi_highlight_red();
+                rtc_local_off = ansi_normal();
+        }
+
         printf("                Time zone: %s (%s)\n"
-               "System clock synchronized: %s\n"
+               "System clock synchronized: %s%s%s\n"
                "              NTP service: %s\n"
-               "          RTC in local TZ: %s\n",
+               "          RTC in local TZ: %s%s%s\n",
                strna(i->timezone), have_time && n > 0 ? a : "n/a",
-               yes_no(i->ntp_synced),
+               synced_on, yes_no(i->ntp_synced), synced_off,
                i->ntp_capable ? (i->ntp_active ? "active" : "inactive") : "n/a",
-               yes_no(i->rtc_local));
+               rtc_local_on, yes_no(i->rtc_local), rtc_local_off);
 
         if (have_time) {
                 char b[LINE_MAX], s[32];
