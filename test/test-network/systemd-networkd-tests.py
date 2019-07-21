@@ -478,7 +478,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
                                         '25-veth.netdev', 'netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        wait_online(['test1:degraded', 'veth99:degraded', 'veth-peer:degraded'])
+        self.wait_online(['test1:degraded', 'veth99:degraded', 'veth-peer:degraded'])
 
         output = check_output(*networkctl_cmd, 'status', 'test1', env=env)
         self.assertRegex(output, 'Driver: dummy')
