@@ -15,7 +15,9 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "clock-util.h"
+#include "conf-files.h"
 #include "def.h"
+#include "fd-util.h"
 #include "fileio-label.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -35,6 +37,8 @@
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
+
+#define UNIT_LIST_DIRS (const char* const*) CONF_PATHS_STRV("systemd/ntp-units.d")
 
 typedef struct UnitStatusInfo {
         char *name;
@@ -117,20 +121,17 @@ static int context_add_ntp_service(Context *c, const char *s) {
         return 0;
 }
 
-static int context_parse_ntp_services(Context *c) {
+static int context_parse_ntp_services_from_environment(Context *c) {
         const char *env, *p;
         int r;
 
         assert(c);
 
         env = getenv("SYSTEMD_TIMEDATED_NTP_SERVICES");
-        if (!env) {
-                r = context_add_ntp_service(c, "systemd-timesyncd.service");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to add NTP service \"systemd-timesyncd.service\", ignoring: %m");
-
+        if (!env)
                 return 0;
-        }
+
+        log_debug("Using list of ntp services from environment variable $SYSTEMD_TIMEDATED_NTP_SERVICES.");
 
         for (p = env;;) {
                 _cleanup_free_ char *word = NULL;
@@ -150,7 +151,62 @@ static int context_parse_ntp_services(Context *c) {
                         log_warning_errno(r, "Failed to add NTP service \"%s\", ignoring: %m", word);
         }
 
-        return 0;
+        return 1;
+}
+
+static int context_parse_ntp_services_from_disk(Context *c) {
+        _cleanup_strv_free_ char **files = NULL;
+        char **f;
+        int r;
+
+        r = conf_files_list_strv(&files, ".list", NULL, CONF_FILES_FILTER_MASKED, UNIT_LIST_DIRS);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate .list files: %m");
+
+        STRV_FOREACH(f, files) {
+                _cleanup_fclose_ FILE *file = NULL;
+
+                log_debug("Reading file '%s'", *f);
+
+                r = fopen_unlocked(*f, "re", &file);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to open %s, ignoring: %m", *f);
+                        continue;
+                }
+
+                for (;;) {
+                        _cleanup_free_ char *line = NULL;
+                        const char *word;
+
+                        r = read_line(file, LINE_MAX, &line);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to read %s, ignoring: %m", *f);
+                                continue;
+                        }
+                        if (r == 0)
+                                break;
+
+                        word = strstrip(line);
+                        if (isempty(word) || startswith("#", word))
+                                continue;
+
+                        r = context_add_ntp_service(c, word);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to add NTP service \"%s\", ignoring: %m", word);
+                }
+        }
+
+        return 1;
+}
+
+static int context_parse_ntp_services(Context *c) {
+        int r;
+
+        r = context_parse_ntp_services_from_environment(c);
+        if (r != 0)
+                return r;
+
+        return context_parse_ntp_services_from_disk(c);
 }
 
 static int context_ntp_service_is_active(Context *c) {
