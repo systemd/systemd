@@ -85,6 +85,11 @@ static int route_scope_from_address(const Route *route, const struct in_addr *se
                 return RT_SCOPE_UNIVERSE;
 }
 
+static bool link_noprefixroute(Link *link) {
+        return link->network->dhcp_route_table_set &&
+                link->network->dhcp_route_table != RT_TABLE_MAIN;
+}
+
 static int dhcp_route_configure(Route **route, Link *link) {
         int r;
 
@@ -192,6 +197,31 @@ static int link_set_dhcp_routes(Link *link) {
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
+
+        if (link_noprefixroute(link)) {
+                _cleanup_(route_freep) Route *prefix_route = NULL;
+                struct in_addr netmask;
+
+                r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP error: No netmask: %m");
+
+                r = route_new(&prefix_route);
+                if (r < 0)
+                        return log_link_error_errno(link, r,  "Could not allocate route: %m");
+
+                prefix_route->family = AF_INET;
+                prefix_route->dst.in.s_addr = address.s_addr & netmask.s_addr;
+                prefix_route->dst_prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
+                prefix_route->prefsrc.in = address;
+                prefix_route->scope = RT_SCOPE_LINK;
+                prefix_route->protocol = RTPROT_DHCP;
+                prefix_route->table = table;
+
+                r = dhcp_route_configure(&prefix_route, link);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not set prefix route: %m");
+        }
 
         n = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes);
         if (n == -ENODATA)
@@ -443,6 +473,30 @@ static int dhcp_remove_dns_routes(Link *link, sd_dhcp_lease *lease, const struct
                 (void) route_remove(route, link, NULL);
         }
 
+        if (link_noprefixroute(link)) {
+                _cleanup_(route_freep) Route *prefix_route = NULL;
+                struct in_addr netmask;
+
+                r = route_new(&prefix_route);
+                if (r < 0)
+                        return log_link_error_errno(link, r,  "Could not allocate route: %m");
+
+                r = sd_dhcp_lease_get_netmask(lease, &netmask);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP error: No netmask: %m");
+
+                prefix_route->family = AF_INET;
+                prefix_route->dst.in.s_addr = address->s_addr & netmask.s_addr;
+                prefix_route->dst_prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
+                prefix_route->prefsrc.in = *address;
+                prefix_route->scope = RT_SCOPE_LINK;
+                prefix_route->protocol = RTPROT_DHCP;
+                prefix_route->table = table;
+
+                if (remove_all || !set_contains(link->dhcp_routes, prefix_route))
+                        (void) route_remove(prefix_route, link, NULL);
+        }
+
         return 0;
 }
 
@@ -610,6 +664,7 @@ static int dhcp4_update_address(Link *link,
         addr->cinfo.ifa_valid = lifetime;
         addr->prefixlen = prefixlen;
         addr->broadcast.s_addr = address->s_addr | ~netmask->s_addr;
+        addr->prefix_route = link_noprefixroute(link);
 
         /* allow reusing an existing address and simply update its lifetime
          * in case it already exists */
