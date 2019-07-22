@@ -15,6 +15,7 @@ ConditionVirtualization=!container
 DefaultDependencies=no
 After=systemd-remount-fs.service systemd-sysusers.service
 Before=time-set.target sysinit.target shutdown.target
+Conflicts=chronyd.service ntpd.service
 Conflicts=shutdown.target
 Wants=time-set.target time-sync.target
 
