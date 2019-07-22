@@ -117,10 +117,8 @@ static int compare_pstore_entries(const void *_a, const void *_b) {
 
 static int move_file(PStoreEntry *pe, const char *subdir) {
         _cleanup_free_ char *ifd_path = NULL, *ofd_path = NULL;
-        _cleanup_free_ void *field = NULL;
+        const char *suffix, *message;
         struct iovec iovec[2];
-        const char *suffix;
-        size_t field_size;
         int n_iovec = 0, r;
 
         if (pe->handled)
@@ -136,15 +134,20 @@ static int move_file(PStoreEntry *pe, const char *subdir) {
 
         /* Always log to the journal */
         suffix = arg_storage == PSTORE_STORAGE_EXTERNAL ? strjoina(" moved to ", ofd_path) : (char *)".";
-        field = strjoina("MESSAGE=PStore ", pe->dirent.d_name, suffix);
-        iovec[n_iovec++] = IOVEC_MAKE_STRING(field);
+        message = strjoina("MESSAGE=PStore ", pe->dirent.d_name, suffix);
+        iovec[n_iovec++] = IOVEC_MAKE_STRING(message);
 
-        field_size = strlen("FILE=") + pe->content_size;
-        field = malloc(field_size);
-        if (!field)
-                return log_oom();
-        memcpy(stpcpy(field, "FILE="), pe->content, pe->content_size);
-        iovec[n_iovec++] = IOVEC_MAKE(field, field_size);
+        if (pe->content_size > 0) {
+                _cleanup_free_ void *field = NULL;
+                size_t field_size;
+
+                field_size = strlen("FILE=") + pe->content_size;
+                field = malloc(field_size);
+                if (!field)
+                        return log_oom();
+                memcpy(stpcpy(field, "FILE="), pe->content, pe->content_size);
+                iovec[n_iovec++] = IOVEC_MAKE(field, field_size);
+        }
 
         r = sd_journal_sendv(iovec, n_iovec);
         if (r < 0)
