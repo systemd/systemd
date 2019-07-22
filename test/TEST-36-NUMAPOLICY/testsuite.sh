@@ -34,6 +34,8 @@ journalCursorFile="jounalCursorFile"
 
 startStrace() {
     coproc strace -qq -p 1 -o $straceLog -e set_mempolicy -s 1024 $1
+    # Wait for strace to properly "initialize"
+    sleep $sleepAfterStart
 }
 
 stopStrace() {
