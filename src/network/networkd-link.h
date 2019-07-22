@@ -87,6 +87,8 @@ typedef struct Link {
         char *lease_file;
         uint32_t original_mtu;
         unsigned dhcp4_messages;
+        bool dhcp4_route_failed:1;
+        bool dhcp4_route_retrying:1;
         bool dhcp4_configured:1;
         bool dhcp6_configured:1;
 

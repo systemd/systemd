@@ -64,6 +64,8 @@ struct Manager {
         usec_t speed_meter_interval_usec;
         usec_t speed_meter_usec_new;
         usec_t speed_meter_usec_old;
+
+        bool dhcp4_prefix_root_cannot_set_table;
 };
 
 int manager_new(Manager **ret);
