@@ -143,7 +143,10 @@
         OS and a new seed to store in the ESP from the combination of both. The random seed passed to the OS
         is credited to the kernel's entropy pool by the system manager during early boot, and permits
         userspace to boot up with an entropy pool fully initialized very early on. Also see
-        <citerefentry><refentrytitle>systemd-boot-system-token.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd-boot-system-token.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <para>See <ulink url="https://systemd.io/RANDOM_SEEDS">Random Seeds</ulink> for further
+        information.</para></listitem>
       </varlistentry>
 
       <varlistentry>

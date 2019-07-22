@@ -167,7 +167,10 @@
         not set. This mode is useful in environments where protection against OS image reuse is not a
         concern, and the random seed shall be used even with no further setup in place. User <command>bootctl
         random-seed</command> to initialize both the random seed file in the ESP and the system token EFI
-        variable.</para></listitem>
+        variable.</para>
+
+        <para>See <ulink url="https://systemd.io/RANDOM_SEEDS">Random Seeds</ulink> for further
+        information.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

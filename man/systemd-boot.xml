@@ -401,7 +401,10 @@
         "golden" OS image — i.e. containing the same random seed file in the ESP — will still pass a
         different random seed to the OS. It is made sure the random seed stored in the ESP is fully
         overwritten before the OS is booted, to ensure different random seed data is used between subsequent
-        boots.</para></listitem>
+        boots.</para>
+
+        <para>See <ulink url="https://systemd.io/RANDOM_SEEDS">Random Seeds</ulink> for
+        further information.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -58,6 +58,9 @@
     safety precaution crediting entropy is thus disabled by default. It is recommended to remove the random
     seed from OS images intended for replication on multiple systems, in which case it is safe to enable
     entropy crediting, see below.</para>
+
+    <para>See <ulink url="https://systemd.io/RANDOM_SEEDS">Random Seeds</ulink> for further
+    information.</para>
   </refsect1>
 
   <refsect1>
