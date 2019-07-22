@@ -359,6 +359,10 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
+        if (argc > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program takes no arguments.");
+
         /* Ignore all parse errors */
         (void) parse_config();
 
