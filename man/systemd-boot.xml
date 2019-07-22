@@ -28,13 +28,14 @@
     manager. It provides a graphical menu to select the entry to boot and an editor for the kernel command
     line. <command>systemd-boot</command> supports systems with UEFI firmware only.</para>
 
-    <para>systemd-boot loads boot entry information from the EFI system partition (ESP), usually mounted at
-    <filename>/efi/</filename>, <filename>/boot/</filename>, or <filename>/boot/efi/</filename> during OS
-    runtime, as well as from the Extended Boot Loader partition if it exists (usually mounted to
-    <filename>/boot/</filename>). Configuration file fragments, kernels, initrds and other EFI images to boot
-    generally need to reside on the ESP or the Extended Boot Loader partition. Linux kernels must be built
-    with <option>CONFIG_EFI_STUB</option> to be able to be directly executed as an EFI image. During boot
-    systemd-boot automatically assembles a list of boot entries from the following sources:</para>
+    <para><command>systemd-boot</command> loads boot entry information from the EFI system partition (ESP),
+    usually mounted at <filename>/efi/</filename>, <filename>/boot/</filename>, or
+    <filename>/boot/efi/</filename> during OS runtime, as well as from the Extended Boot Loader partition if
+    it exists (usually mounted to <filename>/boot/</filename>). Configuration file fragments, kernels,
+    initrds and other EFI images to boot generally need to reside on the ESP or the Extended Boot Loader
+    partition. Linux kernels must be built with <option>CONFIG_EFI_STUB</option> to be able to be directly
+    executed as an EFI image. During boot <command>systemd-boot</command> automatically assembles a list of
+    boot entries from the following sources:</para>
 
     <itemizedlist>
       <listitem><para>Boot entries defined with <ulink
@@ -57,17 +58,50 @@
       <listitem><para>A reboot into the UEFI firmware setup option, if supported by the firmware</para></listitem>
     </itemizedlist>
 
-    <para><citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    may be used to copy kernel images onto the ESP or the Extended Boot Loader Partition and to generate
-    description files compliant with the Boot Loader
-    Specification. <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <para><command>systemd-boot</command> supports the following features:</para>
+
+    <itemizedlist>
+      <listitem><para>Basic boot manager configuration changes (such as timeout
+      configuration, default boot entry selection, …) may be made directly from the boot loader UI at
+      boot-time, as well as during system runtime with EFI variables.</para></listitem>
+
+      <listitem><para>The boot manager integrates with the <command>systemctl</command> command to implement
+      features such as <command>systemctl reboot --boot-loader-entry=…</command> (for rebooting into a
+      specific boot menu entry, i.e. "reboot into Windows") and <command>systemctl reboot
+      --boot-loader-menu=…</command> (for rebooting into the boot loader menu), by implementing the <ulink
+      url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>. See
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+      details.</para></listitem>
+
+      <listitem><para>An EFI variable set by the boot loader informs the OS about the ESP partition used
+      during boot. This is then used to automatically mount the correct ESP partition to
+      <filename>/efi/</filename> or <filename>/boot/</filename> during OS runtime. See
+      <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      for details.</para></listitem>
+
+      <listitem><para>The boot manager provides information about the boot time spent in UEFI firmware using
+      the <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>. This
+      information can be displayed using
+      <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+      </para></listitem>
+
+      <listitem><para>The boot manager implements boot counting and automatic fallback to older, working boot
+      entries on failure. See <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot
+      Assessment</ulink>.</para></listitem>
+
+      <listitem><para>The boot manager optionally reads a random seed from the ESP partition, combines it
+      with a 'system token' stored in a persistant EFI variable and derives a random seed to use by the OS as
+      entropy pool initializaton, providing a full entropy pool during early boot.</para></listitem>
+    </itemizedlist>
+
+    <para><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     may be used from a running system to locate the ESP and the Extended Boot Loader Partition, list
     available entries, and install <command>systemd-boot</command> itself.</para>
 
-    <para>systemd-boot will provide information about the time spent in UEFI firmware using the <ulink
-    url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>. This information can be displayed
-    using <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-    </para>
+    <para><citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    may be used to copy kernel images onto the ESP or the Extended Boot Loader Partition and to generate
+    description files compliant with the Boot Loader
+    Specification.</para>
   </refsect1>
 
   <refsect1>
@@ -238,7 +272,9 @@
     Loader Specification</ulink> are read from <filename>/loader/entries/</filename> on the ESP and the
     Extended Boot Loader partition. Unified kernel boot entries following the <ulink
     url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> are read from
-    <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader partition.</para>
+    <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader partition. Optionally, a random
+    seed for early boot entropy pool provisioning is stored in <filename>/loader/random-seed</filename> in
+    the ESP.</para>
   </refsect1>
 
   <refsect1>
@@ -346,10 +382,39 @@
 
         <listitem><para>Information about the time spent in various parts of the boot loader. Set by the boot
         loader. Use <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        to view this data. These variables are defined by the <ulink
-        url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>.</para></listitem>
+        to view this data. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderRandomSeed</varname></term>
+
+        <listitem><para>A binary random seed <command>systemd-boot</command> may optionally pass to the
+        OS. This is a volatile EFI variable that is hashed at boot from the combination of a random seed
+        stored in the ESP (in <filename>/loader/random-seed</filename>) and a "system token" persistently
+        stored in the EFI variable <varname>LoaderSystemToken</varname> (see below). During early OS boot the
+        system manager reads this variable and passes it to the OS kernel's random pool, crediting the full
+        entropy it contains. This is an efficient way to ensure the system starts up with a fully initialized
+        kernel random pool — as early as the initial RAM disk phase. <command>systemd-boot</command> reads
+        the random seed from the ESP, combines it with the "system token", and both derives a new random seed
+        to update in-place the seed stored in the ESP, and the random seed to pass to the OS from it via
+        SHA256 hashing in counter mode. This ensures that different physical systems that boot the same
+        "golden" OS image — i.e. containing the same random seed file in the ESP — will still pass a
+        different random seed to the OS. It is made sure the random seed stored in the ESP is fully
+        overwritten before the OS is booted, to ensure different random seed data is used between subsequent
+        boots.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderSystemToken</varname></term>
+
+        <listitem><para>A binary random data field, that is used for generating the random see to pass to the
+        OS (see above). Note that this random data is generally only generated once, during OS installation,
+        and is then never updated again.</para></listitem>
       </varlistentry>
     </variablelist>
+
+    <para>Many of these variables are defined by the <ulink
+    url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>.</para>
   </refsect1>
 
   <refsect1>
@@ -413,6 +478,7 @@
       <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-boot-system-token.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>,
       <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>

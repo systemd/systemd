@@ -45,15 +45,15 @@
       <varlistentry>
         <term><option>--esp-path=</option></term>
         <listitem><para>Path to the EFI System Partition (ESP). If not specified, <filename>/efi/</filename>,
-        <filename>/boot/</filename>, and <filename>/boot/efi</filename> are checked in turn.  It is recommended to mount
-        the ESP to <filename>/efi/</filename>, if possible.</para></listitem>
+        <filename>/boot/</filename>, and <filename>/boot/efi/</filename> are checked in turn.  It is
+        recommended to mount the ESP to <filename>/efi/</filename>, if possible.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--boot-path=</option></term>
         <listitem><para>Path to the Extended Boot Loader partition, as defined in the <ulink
         url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>. If not
-        specified, <filename>/boot/</filename> are checked.  It is recommended to mount the Extended Boot
+        specified, <filename>/boot/</filename> is checked.  It is recommended to mount the Extended Boot
         Loader partition to <filename>/boot/</filename>, if possible.</para></listitem>
       </varlistentry>
 
@@ -125,6 +125,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>random-seed</option></term>
+
+        <listitem><para>Generates a random seed and stores it in the EFI System Partition, for use by the
+        <command>systemd-boot</command> boot loader. Also, generates a random 'system token' and stores it
+        persistently as an EFI variable, if one has not been set before. If the boot loader finds the random
+        seed in the ESP and the system token in the EFI variable it will derive a random seed to pass to the
+        OS and a new seed to store in the ESP from the combination of both. The random seed passed to the OS
+        is credited to the kernel's entropy pool by the system manager during early boot, and permits
+        userspace to boot up with an entropy pool fully initialized very early on. Also see
+        <citerefentry><refentrytitle>systemd-boot-system-token.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>list</option></term>
 
         <listitem><para>Shows all available boot loader entries implementing the <ulink
@@ -165,7 +178,8 @@
     <para>
       <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>,
-      <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>
+      <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>,
+      <citerefentry><refentrytitle>systemd-boot-system-token.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>
