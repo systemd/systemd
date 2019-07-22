@@ -116,14 +116,12 @@ static int compare_pstore_entries(const void *_a, const void *_b) {
 }
 
 static int move_file(PStoreEntry *pe, const char *subdir) {
-        _cleanup_free_ char *ifd_path = NULL;
-        _cleanup_free_ char *ofd_path = NULL;
-        int r = 0;
-        struct iovec iovec[2] = {};
-        int n_iovec = 0;
+        _cleanup_free_ char *ifd_path = NULL, *ofd_path = NULL;
         _cleanup_free_ void *field = NULL;
-        const char *suffix = NULL;
+        struct iovec iovec[2];
+        const char *suffix;
         size_t field_size;
+        int n_iovec = 0, r;
 
         if (pe->handled)
                 return 0;
@@ -205,10 +203,9 @@ static int write_dmesg(const char *dmesg, size_t size, const char *id) {
 
 static void process_dmesg_files(PStoreList *list) {
         /* Move files, reconstruct dmesg.txt */
-        PStoreEntry *pe;
-        _cleanup_free_ char *dmesg = NULL;
+        _cleanup_free_ char *dmesg = NULL, *dmesg_id = NULL;
         size_t dmesg_size = 0;
-        _cleanup_free_ char *dmesg_id = NULL;
+        PStoreEntry *pe;
 
         /* Handle each dmesg file: files processed in reverse
          * order so as to properly reconstruct original dmesg */
