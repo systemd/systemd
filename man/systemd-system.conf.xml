@@ -127,7 +127,7 @@
 
       <varlistentry>
         <term><varname>RuntimeWatchdogSec=</varname></term>
-        <term><varname>ShutdownWatchdogSec=</varname></term>
+        <term><varname>RebootWatchdogSec=</varname></term>
         <term><varname>KExecWatchdogSec=</varname></term>
 
         <listitem><para>Configure the hardware watchdog at runtime and at reboot. Takes a timeout value in seconds (or
@@ -139,9 +139,9 @@
         system manager will ensure to contact it at least once in half the specified timeout interval. This feature
         requires a hardware watchdog device to be present, as it is commonly the case in embedded and server
         systems. Not all hardware watchdogs allow configuration of all possible reboot timeout values, in which case
-        the closest available timeout is picked. <varname>ShutdownWatchdogSec=</varname> may be used to configure the
+        the closest available timeout is picked. <varname>RebootWatchdogSec=</varname> may be used to configure the
         hardware watchdog when the system is asked to reboot. It works as a safety net to ensure that the reboot takes
-        place even if a clean reboot attempt times out. Note that the <varname>ShutdownWatchdogSec=</varname> timeout
+        place even if a clean reboot attempt times out. Note that the <varname>RebootWatchdogSec=</varname> timeout
         applies only to the second phase of the reboot, i.e. after all regular services are already terminated, and
         after the system and service manager process (PID 1) got replaced by the <filename>systemd-shutdown</filename>
         binary, see system <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -149,7 +149,7 @@
         and hence <varname>RuntimeWatchdogSec=</varname> is still honoured. In order to define a timeout on this first
         phase of system shutdown, configure <varname>JobTimeoutSec=</varname> and <varname>JobTimeoutAction=</varname>
         in the <literal>[Unit]</literal> section of the <filename>shutdown.target</filename> unit. By default
-        <varname>RuntimeWatchdogSec=</varname> defaults to 0 (off), and <varname>ShutdownWatchdogSec=</varname> to
+        <varname>RuntimeWatchdogSec=</varname> defaults to 0 (off), and <varname>RebootWatchdogSec=</varname> to
         10min. <varname>KExecWatchdogSec=</varname> may be used to additionally enable the watchdog when kexec
         is being executed rather than when rebooting. Note that if the kernel does not reset the watchdog on kexec (depending
         on the specific hardware and/or driver), in this case the watchdog might not get disabled after kexec succeeds

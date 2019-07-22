@@ -702,6 +702,7 @@ LogLocation=
 LogTarget=
 RuntimeWatchdogSec=
 ShowStatus=
+RebootWatchdogSec=
 ShutdownWatchdogSec=
 KExecWatchdogSec=
 SuspendMode=

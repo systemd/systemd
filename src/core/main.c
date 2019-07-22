@@ -121,7 +121,7 @@ static bool arg_default_timeout_abort_set;
 static usec_t arg_default_start_limit_interval;
 static unsigned arg_default_start_limit_burst;
 static usec_t arg_runtime_watchdog;
-static usec_t arg_shutdown_watchdog;
+static usec_t arg_reboot_watchdog;
 static usec_t arg_kexec_watchdog;
 static char *arg_early_core_pattern;
 static char *arg_watchdog_device;
@@ -555,7 +555,8 @@ static int parse_config_file(void) {
                 { "Manager", "NUMAMask",                     config_parse_numa_mask,          0, &arg_numa_policy                       },
                 { "Manager", "JoinControllers",              config_parse_warn_compat,        DISABLED_CONFIGURATION, NULL              },
                 { "Manager", "RuntimeWatchdogSec",           config_parse_sec,                0, &arg_runtime_watchdog                  },
-                { "Manager", "ShutdownWatchdogSec",          config_parse_sec,                0, &arg_shutdown_watchdog                 },
+                { "Manager", "RebootWatchdogSec",            config_parse_sec,                0, &arg_reboot_watchdog                   },
+                { "Manager", "ShutdownWatchdogSec",          config_parse_sec,                0, &arg_reboot_watchdog                   }, /* obsolete alias */
                 { "Manager", "KExecWatchdogSec",             config_parse_sec,                0, &arg_kexec_watchdog                    },
                 { "Manager", "WatchdogDevice",               config_parse_path,               0, &arg_watchdog_device                   },
                 { "Manager", "CapabilityBoundingSet",        config_parse_capability_set,     0, &arg_capability_bounding_set           },
@@ -675,7 +676,7 @@ static void set_manager_settings(Manager *m) {
         m->confirm_spawn = arg_confirm_spawn;
         m->service_watchdogs = arg_service_watchdogs;
         m->runtime_watchdog = arg_runtime_watchdog;
-        m->shutdown_watchdog = arg_shutdown_watchdog;
+        m->reboot_watchdog = arg_reboot_watchdog;
         m->kexec_watchdog = arg_kexec_watchdog;
         m->cad_burst_action = arg_cad_burst_action;
 
@@ -1401,7 +1402,7 @@ static int become_shutdown(
         assert(pos < ELEMENTSOF(command_line));
 
         if (streq(shutdown_verb, "reboot"))
-                watchdog_timer = arg_shutdown_watchdog;
+                watchdog_timer = arg_reboot_watchdog;
         else if (streq(shutdown_verb, "kexec"))
                 watchdog_timer = arg_kexec_watchdog;
 
@@ -2106,7 +2107,7 @@ static void reset_arguments(void) {
         arg_default_start_limit_interval = DEFAULT_START_LIMIT_INTERVAL;
         arg_default_start_limit_burst = DEFAULT_START_LIMIT_BURST;
         arg_runtime_watchdog = 0;
-        arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
+        arg_reboot_watchdog = 10 * USEC_PER_MINUTE;
         arg_kexec_watchdog = 0;
         arg_early_core_pattern = NULL;
         arg_watchdog_device = NULL;
@@ -2646,7 +2647,7 @@ finish:
         pager_close();
 
         if (m) {
-                arg_shutdown_watchdog = m->shutdown_watchdog;
+                arg_reboot_watchdog = m->reboot_watchdog;
                 arg_kexec_watchdog = m->kexec_watchdog;
                 m = manager_free(m);
         }
