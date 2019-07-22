@@ -357,7 +357,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(pstore_entries_reset) PStoreList list = {};
         int r;
 
-        log_open();
+        log_setup_service();
 
         /* Ignore all parse errors */
         (void) parse_config();
