@@ -46,11 +46,11 @@ static int run(int argc, char *argv[]) {
          * new data, to make sure the next boot gets seeded differently. */
 
         if (streq(argv[1], "load")) {
-                int open_rw_error;
 
                 seed_fd = open(RANDOM_SEED, O_RDWR|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
-                open_rw_error = -errno;
                 if (seed_fd < 0) {
+                        int open_rw_error = -errno;
+
                         write_seed_file = false;
 
                         seed_fd = open(RANDOM_SEED, O_RDONLY|O_CLOEXEC|O_NOCTTY);
