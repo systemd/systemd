@@ -28,6 +28,11 @@ wait_online_bin='/usr/lib/systemd/systemd-networkd-wait-online'
 networkctl_bin='/usr/bin/networkctl'
 resolvectl_bin='/usr/bin/resolvectl'
 timedatectl_bin='/usr/bin/timedatectl'
+udevadm_bin='/usr/bin/udevadm'
+
+# This variable is used in decorators, thus it needs to be a global one
+udevadm_cmd = [udevadm_bin]
+
 use_valgrind=False
 enable_debug=True
 env = {}
@@ -101,7 +106,7 @@ def expectedFailureIfLinkFileFieldIsNotSet():
         support = False
         rc = call('ip link add name dummy99 type dummy')
         if rc == 0:
-            ret = run('udevadm info -w10s /sys/class/net/dummy99', stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            ret = run(*udevadm_cmd, 'info -w10s /sys/class/net/dummy99', stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             if ret.returncode == 0 and 'E: ID_NET_LINK_FILE=' in ret.stdout.rstrip():
                 support = True
             call('ip link del dummy99')
@@ -118,7 +123,7 @@ def expectedFailureIfEthtoolDoesNotSupportDriver():
         support = False
         rc = call('ip link add name dummy99 type dummy')
         if rc == 0:
-            ret = run('udevadm info -w10s /sys/class/net/dummy99', stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            ret = run(*udevadm_cmd, 'info -w10s /sys/class/net/dummy99', stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             if ret.returncode == 0 and 'E: ID_NET_DRIVER=dummy' in ret.stdout.rstrip():
                 support = True
             call('ip link del dummy99')
@@ -3205,6 +3210,7 @@ if __name__ == '__main__':
     parser.add_argument('--networkctl', help='Path to networkctl', dest='networkctl_bin')
     parser.add_argument('--resolvectl', help='Path to resolvectl', dest='resolvectl_bin')
     parser.add_argument('--timedatectl', help='Path to timedatectl', dest='timedatectl_bin')
+    parser.add_argument('--udevadm', help='Path to udevadm', dest='udevadm_bin')
     parser.add_argument('--valgrind', help='Enable valgrind', dest='use_valgrind', type=bool, nargs='?', const=True, default=use_valgrind)
     parser.add_argument('--debug', help='Generate debugging logs', dest='enable_debug', type=bool, nargs='?', const=True, default=enable_debug)
     parser.add_argument('--asan-options', help='ASAN options', dest='asan_options')
@@ -3214,13 +3220,14 @@ if __name__ == '__main__':
 
     if ns.build_dir:
         if ns.networkd_bin or ns.resolved_bin or ns.wait_online_bin or ns.networkctl_bin or ns.resolvectl_bin or ns.timedatectl_bin:
-            print('WARNING: --networkd, --resolved, --wait-online, --networkctl, --resolvectl, or --timedatectl options are ignored when --build-dir is specified.')
+            print('WARNING: --networkd, --resolved, --wait-online, --networkctl, --resolvectl, --timedatectl, or --udevadm options are ignored when --build-dir is specified.')
         networkd_bin = os.path.join(ns.build_dir, 'systemd-networkd')
         resolved_bin = os.path.join(ns.build_dir, 'systemd-resolved')
         wait_online_bin = os.path.join(ns.build_dir, 'systemd-networkd-wait-online')
         networkctl_bin = os.path.join(ns.build_dir, 'networkctl')
         resolvectl_bin = os.path.join(ns.build_dir, 'resolvectl')
         timedatectl_bin = os.path.join(ns.build_dir, 'timedatectl')
+        udevadm_bin = os.path.join(ns.build_dir, 'udevadm')
     else:
         if ns.networkd_bin:
             networkd_bin = ns.networkd_bin
@@ -3234,6 +3241,8 @@ if __name__ == '__main__':
             resolvectl_bin = ns.resolvectl_bin
         if ns.timedatectl_bin:
             timedatectl_bin = ns.timedatectl_bin
+        if ns.udevadm_bin:
+            udevadm_bin = ns.udevadm_bin
 
     use_valgrind = ns.use_valgrind
     enable_debug = ns.enable_debug
@@ -3245,11 +3254,13 @@ if __name__ == '__main__':
         networkctl_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', networkctl_bin]
         resolvectl_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', resolvectl_bin]
         timedatectl_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', timedatectl_bin]
+        udevadm_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', udevadm_bin]
         wait_online_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', wait_online_bin]
     else:
         networkctl_cmd = [networkctl_bin]
         resolvectl_cmd = [resolvectl_bin]
         timedatectl_cmd = [timedatectl_bin]
+        udevadm_cmd = [udevadm_bin]
         wait_online_cmd = [wait_online_bin]
 
     if enable_debug:
