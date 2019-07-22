@@ -1051,6 +1051,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     update            Update systemd-boot in the ESP and EFI variables\n"
                "     remove            Remove systemd-boot from the ESP and EFI variables\n"
                "     random-seed       Initialize random seed in ESP and EFI variables\n"
+               "     is-installed      Test whether systemd-boot is installed in the ESP\n"
                "\nBoot Loader Entries Commands:\n"
                "     list              List boot loader entries\n"
                "     set-default ID    Set default boot loader entry\n"
@@ -1602,6 +1603,44 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+static int verb_is_installed(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        r = acquire_esp(false, NULL, NULL, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        /* Tests whether systemd-boot is installed. It's not obvious what to use as check here: we could
+         * check EFI variables, we could check what binary /EFI/BOOT/BOOT*.EFI points to, or whether the
+         * loader entries directory exists. Here we opted to check whether /EFI/systemd/ is non-empty, which
+         * should be a suitable and very minimal check for a number of reasons:
+         *
+         *  → The check is architecture independent (i.e. we check if any systemd-boot loader is installed, not a
+         *    specific one.)
+         *
+         *  → It doesn't assume we are the only boot loader (i.e doesn't check if we own the main
+         *    /EFI/BOOT/BOOT*.EFI fallback binary.
+         *
+         *  → It specifically checks for systemd-boot, not for other boot loaders (which a check for
+         *    /boot/loader/entries would do). */
+
+        p = path_join(arg_esp_path, "/EFI/systemd/");
+        if (!p)
+                return log_oom();
+
+        r = dir_is_empty(p);
+        if (r > 0 || r == -ENOENT) {
+                puts("no");
+                return EXIT_FAILURE;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to detect whether systemd-boot is installed: %m");
+
+        puts("yes");
+        return EXIT_SUCCESS;
+}
+
 static int verb_set_default(int argc, char *argv[], void *userdata) {
         const char *name;
         int r;
@@ -1667,15 +1706,16 @@ static int verb_random_seed(int argc, char *argv[], void *userdata) {
 
 static int bootctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",        VERB_ANY, VERB_ANY, 0,            help             },
-                { "status",      VERB_ANY, 1,        VERB_DEFAULT, verb_status      },
-                { "install",     VERB_ANY, 1,        0,            verb_install     },
-                { "update",      VERB_ANY, 1,        0,            verb_install     },
-                { "remove",      VERB_ANY, 1,        0,            verb_remove      },
-                { "random-seed", VERB_ANY, 1,        0,            verb_random_seed },
-                { "list",        VERB_ANY, 1,        0,            verb_list        },
-                { "set-default", 2,        2,        0,            verb_set_default },
-                { "set-oneshot", 2,        2,        0,            verb_set_default },
+                { "help",         VERB_ANY, VERB_ANY, 0,            help              },
+                { "status",       VERB_ANY, 1,        VERB_DEFAULT, verb_status       },
+                { "install",      VERB_ANY, 1,        0,            verb_install      },
+                { "update",       VERB_ANY, 1,        0,            verb_install      },
+                { "remove",       VERB_ANY, 1,        0,            verb_remove       },
+                { "random-seed",  VERB_ANY, 1,        0,            verb_random_seed  },
+                { "is-installed", VERB_ANY, 1,        0,            verb_is_installed },
+                { "list",         VERB_ANY, 1,        0,            verb_list         },
+                { "set-default",  2,        2,        0,            verb_set_default  },
+                { "set-oneshot",  2,        2,        0,            verb_set_default  },
                 {}
         };
 

@@ -138,6 +138,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>is-installed</option></term>
+
+        <listitem><para>Checks whether <command>systemd-boot</command> is installed in the ESP. Note that a
+        single ESP might host multiple boot loaders; this hence checks whether
+        <command>systemd-boot</command> is one (of possibly many) installed boot loaders — and neither
+        whether it is the default nor whether it is registered in any EFI variables.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>list</option></term>
 
         <listitem><para>Shows all available boot loader entries implementing the <ulink
