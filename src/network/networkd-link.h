@@ -87,8 +87,8 @@ typedef struct Link {
         char *lease_file;
         uint32_t original_mtu;
         unsigned dhcp4_messages;
-        bool dhcp4_configured;
-        bool dhcp6_configured;
+        bool dhcp4_configured:1;
+        bool dhcp6_configured:1;
 
         unsigned ndisc_messages;
         bool ndisc_configured;
@@ -97,11 +97,10 @@ typedef struct Link {
         bool ipv4ll_address:1;
         bool ipv4ll_route:1;
 
-        bool neighbors_configured;
-
-        bool static_routes_configured;
-        bool routing_policy_rules_configured;
-        bool setting_mtu;
+        bool neighbors_configured:1;
+        bool static_routes_configured:1;
+        bool routing_policy_rules_configured:1;
+        bool setting_mtu:1;
 
         LIST_HEAD(Address, pool_addresses);
 
