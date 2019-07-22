@@ -67,13 +67,8 @@ static int run(int argc, char *argv[]) {
                         write_seed_file = true;
 
                 random_fd = open("/dev/urandom", O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
-                if (random_fd < 0) {
-                        write_seed_file = false;
-
-                        random_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY, 0600);
-                        if (random_fd < 0)
-                                return log_error_errno(errno, "Failed to open /dev/urandom: %m");
-                }
+                if (random_fd < 0)
+                        return log_error_errno(errno, "Failed to open /dev/urandom: %m");
 
                 read_seed_file = true;
 
