@@ -116,14 +116,10 @@ static int compare_pstore_entries(const void *_a, const void *_b) {
 }
 
 static int move_file(PStoreEntry *pe, const char *subdir) {
-        _cleanup_free_ char *ifd_path = NULL;
-        _cleanup_free_ char *ofd_path = NULL;
-        int r = 0;
-        struct iovec iovec[2] = {};
-        int n_iovec = 0;
-        _cleanup_free_ void *field = NULL;
-        const char *suffix = NULL;
-        size_t field_size;
+        _cleanup_free_ char *ifd_path = NULL, *ofd_path = NULL;
+        const char *suffix, *message;
+        struct iovec iovec[2];
+        int n_iovec = 0, r;
 
         if (pe->handled)
                 return 0;
@@ -138,15 +134,20 @@ static int move_file(PStoreEntry *pe, const char *subdir) {
 
         /* Always log to the journal */
         suffix = arg_storage == PSTORE_STORAGE_EXTERNAL ? strjoina(" moved to ", ofd_path) : (char *)".";
-        field = strjoina("MESSAGE=PStore ", pe->dirent.d_name, suffix);
-        iovec[n_iovec++] = IOVEC_MAKE_STRING(field);
+        message = strjoina("MESSAGE=PStore ", pe->dirent.d_name, suffix);
+        iovec[n_iovec++] = IOVEC_MAKE_STRING(message);
 
-        field_size = strlen("FILE=") + pe->content_size;
-        field = malloc(field_size);
-        if (!field)
-                return log_oom();
-        memcpy(stpcpy(field, "FILE="), pe->content, pe->content_size);
-        iovec[n_iovec++] = IOVEC_MAKE(field, field_size);
+        if (pe->content_size > 0) {
+                _cleanup_free_ void *field = NULL;
+                size_t field_size;
+
+                field_size = strlen("FILE=") + pe->content_size;
+                field = malloc(field_size);
+                if (!field)
+                        return log_oom();
+                memcpy(stpcpy(field, "FILE="), pe->content, pe->content_size);
+                iovec[n_iovec++] = IOVEC_MAKE(field, field_size);
+        }
 
         r = sd_journal_sendv(iovec, n_iovec);
         if (r < 0)
@@ -172,16 +173,14 @@ static int move_file(PStoreEntry *pe, const char *subdir) {
 }
 
 static int write_dmesg(const char *dmesg, size_t size, const char *id) {
-        _cleanup_(unlink_and_freep) char *ofd_path = NULL;
-        _cleanup_free_ char *tmp_path = NULL;
+        _cleanup_(unlink_and_freep) char *tmp_path = NULL;
+        _cleanup_free_ char *ofd_path = NULL;
         _cleanup_close_ int ofd = -1;
         ssize_t wr;
         int r;
 
         if (isempty(dmesg) || size == 0)
                 return 0;
-
-        /* log_info("Record ID %s", id); */
 
         ofd_path = path_join(arg_archivedir, id, "dmesg.txt");
         if (!ofd_path)
@@ -198,17 +197,16 @@ static int write_dmesg(const char *dmesg, size_t size, const char *id) {
         r = link_tmpfile(ofd, tmp_path, ofd_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to write temporary file %s: %m", ofd_path);
-        ofd_path = mfree(ofd_path);
+        tmp_path = mfree(tmp_path);
 
         return 0;
 }
 
 static void process_dmesg_files(PStoreList *list) {
         /* Move files, reconstruct dmesg.txt */
-        PStoreEntry *pe;
-        _cleanup_free_ char *dmesg = NULL;
+        _cleanup_free_ char *dmesg = NULL, *dmesg_id = NULL;
         size_t dmesg_size = 0;
-        _cleanup_free_ char *dmesg_id = NULL;
+        PStoreEntry *pe;
 
         /* Handle each dmesg file: files processed in reverse
          * order so as to properly reconstruct original dmesg */
@@ -317,7 +315,7 @@ static void process_dmesg_files(PStoreList *list) {
 static int list_files(PStoreList *list, const char *sourcepath) {
         _cleanup_(closedirp) DIR *dirp = NULL;
         struct dirent *de;
-        int r = 0;
+        int r;
 
         dirp = opendir(sourcepath);
         if (!dirp)
@@ -336,7 +334,7 @@ static int list_files(PStoreList *list, const char *sourcepath) {
                 /* Now read contents of pstore file */
                 r = read_full_file(ifd_path, &buf, &buf_size);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to read file %s: %m", ifd_path);
+                        log_warning_errno(r, "Failed to read file %s, skipping: %m", ifd_path);
                         continue;
                 }
 
@@ -352,14 +350,14 @@ static int list_files(PStoreList *list, const char *sourcepath) {
                 };
         }
 
-        return r;
+        return 0;
 }
 
 static int run(int argc, char *argv[]) {
         _cleanup_(pstore_entries_reset) PStoreList list = {};
         int r;
 
-        log_open();
+        log_setup_service();
 
         /* Ignore all parse errors */
         (void) parse_config();
