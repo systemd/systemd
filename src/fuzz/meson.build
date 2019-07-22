@@ -10,6 +10,10 @@ fuzzers += [
           libshared],
          []],
 
+        [['src/fuzz/fuzz-dst.c'],
+         [libshared],
+         []],
+
         [['src/fuzz/fuzz-dns-packet.c',
           dns_type_headers],
          [libsystemd_resolve_core,
