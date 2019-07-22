@@ -157,6 +157,7 @@ systemdstatedir = join_paths(localstatedir, 'lib/systemd')
 catalogstatedir = join_paths(systemdstatedir, 'catalog')
 randomseeddir = join_paths(localstatedir, 'lib/systemd')
 profiledir = join_paths(rootlibexecdir, 'portable', 'profile')
+ntpservicelistdir = join_paths(rootprefixdir, 'lib/systemd/ntp-units.d')
 
 docdir = get_option('docdir')
 if docdir == ''
