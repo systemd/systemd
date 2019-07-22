@@ -206,7 +206,7 @@ static int run(int argc, char *argv[]) {
                                 r = k;
                 }
 
-                k = conf_files_list_nulstr(&files, ".conf", NULL, 0, conf_file_dirs);
+                k = conf_files_list_nulstr(&files, ".conf", NULL, CONF_FILES_FILTER_MASKED, conf_file_dirs);
                 if (k < 0) {
                         log_error_errno(k, "Failed to enumerate modules-load.d files: %m");
                         if (r == 0)
