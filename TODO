@@ -23,7 +23,14 @@ Features:
   that are linked to these places instead of copied. After all they are
   constant vendor data.
 
-* seed: check if first-boot and then don't do anything
+* maybe add kernel cmdline params: 1) to force first-boot mode + 2) to force
+  random seed crediting
+
+* nspawn: on cgroupsv1 issue cgroup empty handler process based on host events,
+  so that we make cgroup agent logic safe
+
+* nspawn/machined: add API to invoke binary in container, then use that as
+  fallback in "machinectl shell"
 
 * logind: rework pam_logind to also do a bus call in case of invocation from
   user@.service, which returns the XDG_RUNTIME_DIR value, and make this
