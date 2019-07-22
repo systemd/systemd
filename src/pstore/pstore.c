@@ -170,8 +170,8 @@ static int move_file(PStoreEntry *pe, const char *subdir) {
 }
 
 static int write_dmesg(const char *dmesg, size_t size, const char *id) {
-        _cleanup_(unlink_and_freep) char *ofd_path = NULL;
-        _cleanup_free_ char *tmp_path = NULL;
+        _cleanup_(unlink_and_freep) char *tmp_path = NULL;
+        _cleanup_free_ char *ofd_path = NULL;
         _cleanup_close_ int ofd = -1;
         ssize_t wr;
         int r;
@@ -194,7 +194,7 @@ static int write_dmesg(const char *dmesg, size_t size, const char *id) {
         r = link_tmpfile(ofd, tmp_path, ofd_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to write temporary file %s: %m", ofd_path);
-        ofd_path = mfree(ofd_path);
+        tmp_path = mfree(tmp_path);
 
         return 0;
 }
