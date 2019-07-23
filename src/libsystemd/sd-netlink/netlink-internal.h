@@ -116,8 +116,6 @@ struct netlink_container {
 struct sd_netlink_message {
         unsigned n_ref;
 
-        sd_netlink *rtnl;
-
         int protocol;
 
         struct nlmsghdr *hdr;
