@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
+
 #include <linux/genetlink.h>
 
 #include "sd-netlink.h"
