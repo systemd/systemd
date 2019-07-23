@@ -175,7 +175,7 @@ int local_gateways(sd_netlink *context, int ifindex, int af, struct local_addres
         for (m = reply; m; m = sd_netlink_message_next(m)) {
                 struct local_address *a;
                 uint16_t type;
-                unsigned char dst_len, src_len;
+                unsigned char dst_len, src_len, table;
                 uint32_t ifi;
                 int family;
 
@@ -200,6 +200,12 @@ int local_gateways(sd_netlink *context, int ifindex, int af, struct local_addres
                 if (r < 0)
                         return r;
                 if (src_len != 0)
+                        continue;
+
+                r = sd_rtnl_message_route_get_table(m, &table);
+                if (r < 0)
+                        return r;
+                if (table != RT_TABLE_MAIN)
                         continue;
 
                 r = sd_netlink_message_read_u32(m, RTA_OIF, &ifi);
