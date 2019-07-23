@@ -31,13 +31,15 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
            buses and their queued messages. See sd-bus.
          */
 
-        m = new0(sd_netlink_message, 1);
+        m = new(sd_netlink_message, 1);
         if (!m)
                 return -ENOMEM;
 
-        m->n_ref = 1;
-        m->protocol = rtnl->protocol;
-        m->sealed = false;
+        *m = (sd_netlink_message) {
+                .n_ref = 1,
+                .protocol = rtnl->protocol,
+                .sealed = false,
+        };
 
         *ret = m;
 
