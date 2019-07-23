@@ -143,6 +143,16 @@ fail:
         return log_error_errno(r, "Failed to save inhibit data %s: %m", i->state_file);
 }
 
+static int bus_manager_send_inhibited_change(Inhibitor *i) {
+        const char *property;
+
+        assert(i);
+
+        property = i->mode == INHIBIT_BLOCK ? "BlockInhibited" : "DelayInhibited";
+
+        return manager_send_changed(i->manager, property, NULL);
+}
+
 int inhibitor_start(Inhibitor *i) {
         assert(i);
 
@@ -156,11 +166,11 @@ int inhibitor_start(Inhibitor *i) {
                   i->pid, i->uid,
                   inhibit_mode_to_string(i->mode));
 
-        inhibitor_save(i);
-
         i->started = true;
 
-        manager_send_changed(i->manager, i->mode == INHIBIT_BLOCK ? "BlockInhibited" : "DelayInhibited", NULL);
+        inhibitor_save(i);
+
+        bus_manager_send_inhibited_change(i);
 
         return 0;
 }
@@ -179,7 +189,7 @@ int inhibitor_stop(Inhibitor *i) {
 
         i->started = false;
 
-        manager_send_changed(i->manager, i->mode == INHIBIT_BLOCK ? "BlockInhibited" : "DelayInhibited", NULL);
+        bus_manager_send_inhibited_change(i);
 
         return 0;
 }
