@@ -1693,6 +1693,11 @@ evdev:input:b0003v046Dp4002*
  KEYBOARD_LED_NUMLOCK=0
  KEYBOARD_LED_CAPSLOCK=0
 
+# PFU Limited HHKB Professional JP
+evdev:input:b0003v04FEp000D*
+ KEYBOARD_LED_NUMLOCK=0
+ KEYBOARD_LED_CAPSLOCK=0
+
 # Lenovo ThinkPad T430s
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT430s
  KEYBOARD_LED_CAPSLOCK=0
