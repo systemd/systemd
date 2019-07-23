@@ -474,12 +474,6 @@ static int manager_enumerate_sessions(Manager *m) {
                 if (!dirent_is_file(de))
                         continue;
 
-                if (!session_id_valid(de->d_name)) {
-                        log_warning("Invalid session file name '%s', ignoring.", de->d_name);
-                        r = -EINVAL;
-                        continue;
-                }
-
                 k = manager_add_session(m, de->d_name, &s);
                 if (k < 0) {
                         r = log_warning_errno(k, "Failed to add session by file name %s, ignoring: %m", de->d_name);
