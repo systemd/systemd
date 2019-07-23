@@ -197,26 +197,22 @@ int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user) {
         return manager_add_user(m, uid, p->pw_gid, p->pw_name, p->pw_dir, _user);
 }
 
-int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor) {
+int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret) {
         Inhibitor *i;
+        int r;
 
         assert(m);
         assert(id);
 
         i = hashmap_get(m->inhibitors, id);
-        if (i) {
-                if (_inhibitor)
-                        *_inhibitor = i;
-
-                return 0;
+        if (!i) {
+                r = inhibitor_new(&i, m, id);
+                if (r < 0)
+                        return r;
         }
 
-        i = inhibitor_new(m, id);
-        if (!i)
-                return -ENOMEM;
-
-        if (_inhibitor)
-                *_inhibitor = i;
+        if (ret)
+                *ret = i;
 
         return 0;
 }

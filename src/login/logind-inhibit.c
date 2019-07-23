@@ -24,48 +24,59 @@
 #include "user-util.h"
 #include "util.h"
 
-Inhibitor* inhibitor_new(Manager *m, const char* id) {
-        Inhibitor *i;
+int inhibitor_new(Inhibitor **ret, Manager *m, const char* id) {
+        _cleanup_(inhibitor_freep) Inhibitor *i = NULL;
+        int r;
 
+        assert(ret);
         assert(m);
+        assert(id);
 
-        i = new0(Inhibitor, 1);
+        i = new(Inhibitor, 1);
         if (!i)
-                return NULL;
+                return -ENOMEM;
+
+        *i = (Inhibitor) {
+                .manager = m,
+                .what = _INHIBIT_WHAT_INVALID,
+                .mode = _INHIBIT_MODE_INVALID,
+                .uid = UID_INVALID,
+                .fifo_fd = -1,
+        };
 
         i->state_file = path_join("/run/systemd/inhibit", id);
         if (!i->state_file)
-                return mfree(i);
+                return -ENOMEM;
 
         i->id = basename(i->state_file);
 
-        if (hashmap_put(m->inhibitors, i->id, i) < 0) {
-                free(i->state_file);
-                return mfree(i);
-        }
+        r = hashmap_put(m->inhibitors, i->id, i);
+        if (r < 0)
+                return r;
 
-        i->manager = m;
-        i->fifo_fd = -1;
-
-        return i;
+        *ret = TAKE_PTR(i);
+        return 0;
 }
 
-void inhibitor_free(Inhibitor *i) {
-        assert(i);
+Inhibitor* inhibitor_free(Inhibitor *i) {
 
-        hashmap_remove(i->manager->inhibitors, i->id);
-
-        inhibitor_remove_fifo(i);
+        if (!i)
+                return NULL;
 
         free(i->who);
         free(i->why);
 
-        if (i->state_file) {
-                (void) unlink(i->state_file);
-                free(i->state_file);
-        }
+        sd_event_source_unref(i->event_source);
+        safe_close(i->fifo_fd);
 
-        free(i);
+        /* Note that we don't remove neither the state file nor the fifo path here, since we want both to
+         * survive daemon restarts */
+        free(i->state_file);
+        free(i->fifo_path);
+
+        hashmap_remove(i->manager->inhibitors, i->id);
+
+        return mfree(i);
 }
 
 int inhibitor_save(Inhibitor *i) {
@@ -183,6 +194,8 @@ int inhibitor_stop(Inhibitor *i) {
                           strna(i->who), strna(i->why),
                           i->pid, i->uid,
                           inhibit_mode_to_string(i->mode));
+
+        inhibitor_remove_fifo(i);
 
         if (i->state_file)
                 (void) unlink(i->state_file);

@@ -48,8 +48,10 @@ struct Inhibitor {
         int fifo_fd;
 };
 
-Inhibitor* inhibitor_new(Manager *m, const char *id);
-void inhibitor_free(Inhibitor *i);
+int inhibitor_new(Inhibitor **ret, Manager *m, const char* id);
+Inhibitor* inhibitor_free(Inhibitor *i);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Inhibitor*, inhibitor_free);
 
 int inhibitor_save(Inhibitor *i);
 int inhibitor_load(Inhibitor *i);
