@@ -1145,8 +1145,15 @@ static int manager_startup(Manager *m) {
         HASHMAP_FOREACH(session, m->sessions, i)
                 (void) session_start(session, NULL, NULL);
 
-        HASHMAP_FOREACH(inhibitor, m->inhibitors, i)
-                inhibitor_start(inhibitor);
+        HASHMAP_FOREACH(inhibitor, m->inhibitors, i) {
+                (void) inhibitor_start(inhibitor);
+
+                /* Let's see if the inhibitor is dead now, then remove it */
+                if (inhibitor_is_orphan(inhibitor)) {
+                        inhibitor_stop(inhibitor);
+                        inhibitor_free(inhibitor);
+                }
+        }
 
         HASHMAP_FOREACH(button, m->buttons, i)
                 button_check_switches(button);

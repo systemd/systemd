@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "io-util.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
 #include "mkdir.h"
@@ -348,6 +349,24 @@ static void inhibitor_remove_fifo(Inhibitor *i) {
                 (void) unlink(i->fifo_path);
                 i->fifo_path = mfree(i->fifo_path);
         }
+}
+
+bool inhibitor_is_orphan(Inhibitor *i) {
+        assert(i);
+
+        if (!i->started)
+                return true;
+
+        if (!i->fifo_path)
+                return true;
+
+        if (i->fifo_fd < 0)
+                return true;
+
+        if (pipe_eof(i->fifo_fd) != 0)
+                return true;
+
+        return false;
 }
 
 InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm) {
