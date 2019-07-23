@@ -70,18 +70,29 @@ static int verify_vc_allocation_byfd(int fd) {
         return verify_vc_allocation(vcs.v_active);
 }
 
-static int toggle_utf8(const char *name, int fd, bool utf8) {
+static int verify_vc_kbmode(int fd) {
+        int curr_mode;
+
+        /*
+         * Make sure we only adjust consoles in K_XLATE or K_UNICODE mode.
+         * Otherwise we would (likely) interfere with X11's processing of the
+         * key events.
+         *
+         * http://lists.freedesktop.org/archives/systemd-devel/2013-February/008573.html
+         */
+
+        if (ioctl(fd, KDGKBMODE, &curr_mode) < 0)
+                return -errno;
+
+        return IN_SET(curr_mode, K_XLATE, K_UNICODE) ? 0 : -EBUSY;
+}
+
+static int toggle_utf8_vc(const char *name, int fd, bool utf8) {
         int r;
         struct termios tc = {};
 
         assert(name);
-
-        r = vt_verify_kbmode(fd);
-        if (r == -EBUSY) {
-                log_warning_errno(r, "Virtual console %s is not in K_XLATE or K_UNICODE: %m", name);
-                return 0;
-        } else if (r < 0)
-                return log_warning_errno(r, "Failed to verify kbdmode on %s: %m", name);
+        assert(fd >= 0);
 
         r = ioctl(fd, KDSKBMODE, utf8 ? K_UNICODE : K_XLATE);
         if (r < 0)
@@ -280,10 +291,10 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                         continue;
                 }
 
-                if (vt_verify_kbmode(fd_d) < 0)
+                if (verify_vc_kbmode(fd_d) < 0)
                         continue;
 
-                toggle_utf8(ttyname, fd_d, utf8);
+                (void) toggle_utf8_vc(ttyname, fd_d, utf8);
 
                 if (cfo.op != KD_FONT_OP_SET)
                         continue;
@@ -355,7 +366,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
                                 err = -fd;
                         continue;
                 }
-                r = vt_verify_kbmode(fd);
+                r = verify_vc_kbmode(fd);
                 if (r < 0) {
                         if (!err)
                                 err = -r;
@@ -388,7 +399,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
         if (r < 0)
                 return log_error_errno(r, "Virtual console %s is not allocated: %m", src_vc);
 
-        r = vt_verify_kbmode(fd);
+        r = verify_vc_kbmode(fd);
         if (r < 0)
                 return log_error_errno(r, "Virtual console %s is not in K_XLATE or K_UNICODE: %m", src_vc);
 
@@ -448,7 +459,7 @@ int main(int argc, char **argv) {
                 log_warning_errno(r, "Failed to read /proc/cmdline: %m");
 
         (void) toggle_utf8_sysfs(utf8);
-        (void) toggle_utf8(vc, fd, utf8);
+        (void) toggle_utf8_vc(vc, fd, utf8);
 
         r = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap);
         keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) == 0;
