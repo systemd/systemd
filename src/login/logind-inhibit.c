@@ -218,7 +218,7 @@ int inhibitor_load(Inhibitor *i) {
                            "MODE", &mode,
                            "FIFO", &i->fifo_path);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to read %s: %m", i->state_file);
 
         w = what ? inhibit_what_from_string(what) : 0;
         if (w >= 0)
@@ -231,19 +231,19 @@ int inhibitor_load(Inhibitor *i) {
         if (uid) {
                 r = parse_uid(uid, &i->uid);
                 if (r < 0)
-                        return r;
+                        log_debug_errno(r, "Failed to parse UID of inhibitor: %s", uid);
         }
 
         if (pid) {
                 r = parse_pid(pid, &i->pid);
                 if (r < 0)
-                        return r;
+                        log_debug_errno(r, "Failed to parse PID of inhibitor: %s", pid);
         }
 
         if (who) {
                 r = cunescape(who, 0, &cc);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 free(i->who);
                 i->who = cc;
@@ -252,17 +252,19 @@ int inhibitor_load(Inhibitor *i) {
         if (why) {
                 r = cunescape(why, 0, &cc);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 free(i->why);
                 i->why = cc;
         }
 
         if (i->fifo_path) {
-                int fd;
+                _cleanup_close_ int fd = -1;
 
+                /* Let's re-open the FIFO on both sides, and close the writing side right away */
                 fd = inhibitor_create_fifo(i);
-                safe_close(fd);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to reopen FIFO: %m");
         }
 
         return 0;
