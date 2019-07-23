@@ -686,6 +686,18 @@
           TTYs and all ALSA sound devices,
           respectively. <literal>char-cpu/*</literal> is a specifier
           matching all CPU related device groups.</para>
+
+          <para>Note that whitelists defined this way should only reference device groups which are
+          resolvable at the time the unit is started. Any device groups not resolvable then are not added to
+          the device whitelist. In order to work around this limitation, consider extending service units
+          with an <command>ExecStartPre=/sbin/modprobe…</command> line that loads the necessary
+          kernel module implementing the device group if missing. Example: <programlisting>…
+[Service]
+ExecStartPre=-/sbin/modprobe -abq loop
+DeviceAllow=block-loop
+DeviceAllow=/dev/loop-control
+…</programlisting></para>
+
         </listitem>
       </varlistentry>
 
