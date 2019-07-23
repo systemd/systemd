@@ -36,6 +36,7 @@ typedef struct sd_netlink_slot sd_netlink_slot;
 
 typedef enum sd_gen_family {
         SD_GENL_ERROR,
+        SD_GENL_DONE,
         SD_GENL_ID_CTRL,
         SD_GENL_WIREGUARD,
         SD_GENL_FOU,

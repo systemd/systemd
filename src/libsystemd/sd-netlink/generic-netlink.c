@@ -144,6 +144,8 @@ int nlmsg_type_to_genl_family(sd_netlink *nl, uint16_t type, sd_genl_family *ret
 
         if (type == NLMSG_ERROR)
                 *ret = SD_GENL_ERROR;
+        else if (type == NLMSG_DONE)
+                *ret = SD_GENL_DONE;
         else if (type == GENL_ID_CTRL)
                 *ret = SD_GENL_ID_CTRL;
         else {

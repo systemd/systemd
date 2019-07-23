@@ -991,7 +991,7 @@ static const NLTypeSystem genl_macsec_device_type_system = {
 static const NLType genl_families[] = {
         [SD_GENL_ID_CTRL]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_id_ctrl_type_system },
         [SD_GENL_WIREGUARD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system },
-        [SD_GENL_FOU]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_cmds_type_system},
+        [SD_GENL_FOU]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_cmds_type_system },
         [SD_GENL_L2TP]      = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_tunnel_session_type_system },
         [SD_GENL_MACSEC]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_device_type_system },
 };
@@ -1004,6 +1004,7 @@ const NLTypeSystem genl_family_type_system_root = {
 
 static const NLType genl_types[] = {
         [SD_GENL_ERROR]   = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = sizeof(struct nlmsgerr) },
+        [SD_GENL_DONE]    = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system },
         [SD_GENL_ID_CTRL] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_get_family_type_system, .size = sizeof(struct genlmsghdr) },
 };
 
