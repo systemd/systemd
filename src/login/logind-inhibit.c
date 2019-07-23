@@ -83,7 +83,7 @@ int inhibitor_save(Inhibitor *i) {
         if (r < 0)
                 goto fail;
 
-        fchmod(fileno(f), 0644);
+        (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
