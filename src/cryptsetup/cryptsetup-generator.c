@@ -307,10 +307,14 @@ static int create_disk(
                         "ExecStartPost=/sbin/mke2fs '/dev/mapper/%s'\n",
                         name_escaped);
 
-        if (swap)
+        if (swap) {
                 fprintf(f,
                         "ExecStartPost=/sbin/mkswap '/dev/mapper/%s'\n",
                         name_escaped);
+                fprintf(f,
+                        "ExecStartPost=/sbin/udevadm trigger '/dev/mapper/%s'\n",
+                        name_escaped);
+        }
 
         if (keydev)
                 fprintf(f,
