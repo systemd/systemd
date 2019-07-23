@@ -32,6 +32,8 @@ if conf.get('ENABLE_TIMESYNCD') == 1
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.timesync1.service',
                      install_dir : dbussystemservicedir)
+        install_data('80-systemd-timesync.list',
+                     install_dir : ntpservicelistdir)
 endif
 
 ############################################################
