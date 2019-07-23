@@ -24,6 +24,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* We should probably replace /var/log/README, /etc/rc.d/README with symlinks
+  that are linked to these places instead of copied. After all they are
+  constant vendor data.
+
 * seed: check if first-boot and then don't do anything
 
 * logind: rework pam_logind to also do a bus call in case of invocation from
