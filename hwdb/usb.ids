@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2019.03.20
-# Date:    2019-03-20 20:34:05
+# Version: 2019.05.08
+# Date:    2019-05-08 20:34:05
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -38,6 +38,8 @@
 	181b  Venom Arcade Joystick
 	1843  Mayflash GameCube Controller Adapter
 	1844  Mayflash GameCube Controller
+0080  Assmann Electronic GmbH
+	a001  Digitus DA-71114 SATA
 0085  Boeye Technology Co., Ltd.
 	0600  eBook Reader
 0105  Trust International B.V.
@@ -478,6 +480,7 @@
 	3517  LaserJet 3390
 	3602  PhotoSmart 1315
 	3611  PSC 2410 PhotoSmart
+	3612  Officejet Pro 8000 A809
 	3617  Color LaserJet 2605
 	3711  PSC 2500
 	3717  EWS UPD
@@ -661,7 +664,9 @@
 	9207  HD-4110 Webcam
 	9302  PhotoSmart R930 series
 	9402  PhotoSmart R837
+	942a  LaserJet Pro M12a
 	9502  PhotoSmart R840 series
+	952a  LaserJet Pro M12w
 	9602  PhotoSmart M730 series
 	9702  PhotoSmart R740 series
 	9802  PhotoSmart Mz60 series
@@ -786,6 +791,7 @@
 	8070  7 Port Hub
 	8140  Vehicle Explorer Interface
 	8210  MGTimer - MGCC (Vic) Timing System
+	8348  FT232BM [SIENNA Serial Interface]
 	8370  7 Port Hub
 	8371  PS/2 Keyboard And Mouse
 	8372  FT8U100AX Serial Port
@@ -1159,6 +1165,7 @@
 040c  VTech Computers, Ltd
 040d  VIA Technologies, Inc.
 	3184  VNT VT6656 USB-802.11 Wireless LAN Adapter
+	340f  Audinst HUD-mx2
 	6205  USB 2.0 Card Reader
 040e  MCCI
 040f  Echo Speech Corp.
@@ -1509,6 +1516,7 @@
 	03a4  C5 (Storage mode)
 	03c0  C7-00 (Mass storage mode)
 	03c1  C7-00 (Media transfer mode)
+	03c2  Sim
 	03cd  C7-00 (Nokia Suite mode)
 	03d1  N950
 	0400  7600 Phone Parent
@@ -1925,6 +1933,7 @@
 	b326  Gamepad GP XID
 	b351  F16 MFD 1
 	b352  F16 MFD 2
+	b365  UbiSoft UbiConnect
 	b603  force feedback Wheel
 	b605  force feedback Racing Wheel
 	b651  Ferrari GT Rumble Force Wheel
@@ -4374,6 +4383,8 @@
 	6506  CY4603
 	650a  CY4613
 	6560  CY7C65640 USB-2.0 "TetraHub"
+	6570  Unprogrammed CY7C65632/34 hub HX2VL
+	6572  Unprogrammed CY7C65642 hub
 	6830  CY7C68300A EZ-USB AT2 USB 2.0 to ATA/ATAPI
 	6831  Storage Adapter ISD-300LP (CY)
 	7417  Wireless PC Lock/Ultra Mouse
@@ -5459,6 +5470,7 @@
 	b5ce  Integrated Camera
 	b5cf  Integrated IR Camera
 	b5db  HP Webcam
+	b604  Integrated Camera (1280x720@30)
 04f3  Elan Microelectronics Corp.
 	000a  Touchscreen
 	0103  ActiveJet K-2024 Multimedia Keyboard
@@ -6363,6 +6375,7 @@
 	dccf  Sound Vision Stream Driver
 0547  Anchor Chips, Inc.
 	0001  ICSI Bluetooth Device
+	0080  I3SYSTEM HYUNY
 	1002  Python2 WDM Encoder
 	1006  Hantek DSO-2100 UF
 	2131  AN2131 EZUSB Microcontroller
@@ -6963,9 +6976,27 @@
 	0079  Laser mouse M-D21DL
 	007b  Laser mouse M-D20DR
 	007c  Laser Bluetooth mouse M-BT5BL
+	007e  Option mouse M-M8UR
+	007f  Option mouse M-M9UR
+	0081  Option mouse M-DY6DR
+	0082  Laser mouse M-D22DR
+	0088  Micro Grast2 Bit M-BG3DL
+	0089  Micro Grast2 Pop M-PG3DL
+	008c  M-NE3DL Mouse
+	008d  ORIME M-NE4DR
+	008f  M-BT8BL Bluetooth Mouse
+	0092  Wireless BlueLED Mouse (M-BL2DB)
+	009c  IR Mouse M-IR02DR
+	009d  IR Mouse M-IR03DR
+	009f  BlueLED Mouse M-HS1DB
+	00a1  IR Mouse M-IR05DR
+	00a4  Blue LED Mouse M-BL06DB
+	00a5  M-NV1BR Bluetooth Mouse
+	00a7  Blue LED Mouse M-BL08DB
 	2003  JC-U3613M
 	2004  JC-U3613M
 	200c  LD-USB/TX
+	2012  JC-U4013S Gamepad
 	4002  Laneed 100Mbps Ethernet LD-USB/TX [pegasus]
 	4005  LD-USBL/TX
 	400b  LD-USB/TX
@@ -18617,8 +18648,9 @@
 	2004  Sony 1.3MP 1/3" ICX445 IIDC video camera [Chameleon]
 1e17  Mirion Technologies Dosimetry Services Division
 	0001  instadose dosimeter
-1e1d  Lumension Security
+1e1d  Kanguru Solutions
 	0165  Secure Pen drive
+	1101  FlashBlu Flash Drive
 1e1f  INVIA
 1e29  Festo AG & Co. KG
 	0101  CPX Adapter
@@ -19408,6 +19440,8 @@
 2fb2  Fujitsu, Ltd
 3016  Boundary Devices, LLC
 	0001  Nitrogen Bootloader
+30a4  Blues Wireless
+	0001  Notecard
 30ee  Fujitsu Connected Technologies Limited
 	1001  F-01L
 3125  Eagletron
