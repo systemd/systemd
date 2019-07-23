@@ -53,14 +53,12 @@ Inhibitor* inhibitor_free(Inhibitor *i);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Inhibitor*, inhibitor_free);
 
-int inhibitor_save(Inhibitor *i);
 int inhibitor_load(Inhibitor *i);
 
 int inhibitor_start(Inhibitor *i);
-int inhibitor_stop(Inhibitor *i);
+void inhibitor_stop(Inhibitor *i);
 
 int inhibitor_create_fifo(Inhibitor *i);
-void inhibitor_remove_fifo(Inhibitor *i);
 
 InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm);
 bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since, bool ignore_inactive, bool ignore_uid, uid_t uid, Inhibitor **offending);

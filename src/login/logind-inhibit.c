@@ -24,6 +24,8 @@
 #include "user-util.h"
 #include "util.h"
 
+static void inhibitor_remove_fifo(Inhibitor *i);
+
 int inhibitor_new(Inhibitor **ret, Manager *m, const char* id) {
         _cleanup_(inhibitor_freep) Inhibitor *i = NULL;
         int r;
@@ -79,7 +81,7 @@ Inhibitor* inhibitor_free(Inhibitor *i) {
         return mfree(i);
 }
 
-int inhibitor_save(Inhibitor *i) {
+static int inhibitor_save(Inhibitor *i) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -186,7 +188,7 @@ int inhibitor_start(Inhibitor *i) {
         return 0;
 }
 
-int inhibitor_stop(Inhibitor *i) {
+void inhibitor_stop(Inhibitor *i) {
         assert(i);
 
         if (i->started)
@@ -203,8 +205,6 @@ int inhibitor_stop(Inhibitor *i) {
         i->started = false;
 
         bus_manager_send_inhibited_change(i);
-
-        return 0;
 }
 
 int inhibitor_load(Inhibitor *i) {
@@ -338,7 +338,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
         return r;
 }
 
-void inhibitor_remove_fifo(Inhibitor *i) {
+static void inhibitor_remove_fifo(Inhibitor *i) {
         assert(i);
 
         i->event_source = sd_event_source_unref(i->event_source);
