@@ -5,7 +5,7 @@ CHANGES WITH 243 in spe:
         * Previously, filters defined with SystemCallFilter= would have the
           effect that an calling an offending system call would terminate the
           calling thread. This behaviour never made much sense, since killing
-          individual threads of unexpecting processes is likely to create more
+          individual threads of unsuspecting processes is likely to create more
           problems than it solves. With this release the default action changed
           from killing the thread to killing the whole process. For this to
           work correctly both a kernel version (>= 4.14) and a libseccomp
@@ -112,8 +112,8 @@ CHANGES WITH 243 in spe:
           interfaces should really be matched.
 
         * A new setting NUMAPolicy= may be used to set process memory
-          allocation policy. Setting can be specified in system.conf and
-          hence will set the default policy for PID1. Default policy can be
+          allocation policy. Setting can be specified in system.conf and hence
+          will set the default policy for PID1. Default policy can be
           overridden on per-service basis. Related setting NUMAMask= is used to
           specify NUMA node mask that should be associated with the selected
           policy.
@@ -178,12 +178,13 @@ CHANGES WITH 243 in spe:
 
         * systemd-resolved gained support for a new 'strict' DNS-over-TLS mode.
 
-        * systemd-resolved "Cache=" configuration option in resolved.conf has been extended
-          to also accept the 'no-negative' value. Previously,
-          only a boolean option was allowed (yes/no), having yes as the default.
-          If this option is set to 'no-negative', negative answers are skipped
-          from being cached while keeping the same cache heuristics for positive answers.
-          The default remains as "yes" (i. e. caching is enabled).
+        * systemd-resolved "Cache=" configuration option in resolved.conf has
+          been extended to also accept the 'no-negative' value. Previously,
+          only a boolean option was allowed (yes/no), having yes as the
+          default.  If this option is set to 'no-negative', negative answers
+          are skipped from being cached while keeping the same cache heuristics
+          for positive answers.  The default remains as "yes" (i. e. caching is
+          enabled).
 
         * The predictable naming scheme for network devices now supports
           generating predictable names for "netdevsim" devices.
@@ -204,7 +205,15 @@ CHANGES WITH 243 in spe:
           send a DHCP RELEASE message when terminating.
 
         * systemd-networkd's DHCPv4 and DHCPv6 stacks can now be configured
-          seperately in the [DHCPv4] and [DHCPv6] sections.
+          separately in the [DHCPv4] and [DHCPv6] sections.
+
+        * systemd-networkd's DHCP support will now optionally create an
+          implicit host route to the DNS server specified in the DHCP lease, in
+          addition to the routes listed explicitly in the lease. This should
+          ensure that in multi-homed systems DNS traffic leaves the systems on
+          the interface that acquired the DNS server information even if other
+          routes such as default routes exist. This behaviour may be turned on
+          with the new RoutesToDNS= option.
 
         * systemd-networkd's VXLAN support gained a new option
           GenericProtocolExtension= for enabling VXLAN Generic Protocol
@@ -224,7 +233,7 @@ CHANGES WITH 243 in spe:
 
         * systemd-networkd's bridging support gained two new options ProxyARP=
           and ProxyARPWifi= for configuring proxy ARP behaviour as well as
-          MulticastRouter= for configureing multicast routing behaviour.
+          MulticastRouter= for configuring multicast routing behaviour.
 
         * systemd-networkd's FooOverUDP support gained the ability to configure
           local and peer IP addresses via Local= and Peer=. A new option
@@ -248,6 +257,10 @@ CHANGES WITH 243 in spe:
         * systemd-networkd's MACAddress= setting in the [Neighbor] section has
           been renamed to LinkLayerAddress=, and it now allows configuration of
           IP addresses, too.
+
+        * A new tool systemd-network-generator has been added that may generate
+          .network, .netdev and .link files from IP configuration specified on
+          the kernel command line, compatible with the format Dracut expects.
 
         * The CriticalConnection= setting in .network files is now deprecated,
           and replaced by a new KeepConfiguration= setting which allows more
@@ -303,7 +316,40 @@ CHANGES WITH 243 in spe:
           (for exit codes 1 through 254), or stop execution and fail the unit
           (for exit code 255 or cases of abnormal termination).
 
-          …
+        * A new service systemd-pstore.service has been added that pulls data
+          from from /sys/fs/pstore/ and saves it to /var/lib/pstore for later
+          review.
+
+        * timedatectl gained new verbs for configuring per-interface NTP
+          service configuration for systemd-timesyncd.
+
+        * "localectl list-locales" won't list non-UTF-8 locales anymore. It's
+          2019. (You can set non-UTF-8 locales though, if you know there name.)
+
+        Contributions from: Aaron Barany, Adrian Bunk, Alan Jenkins, Andrej
+        Valek, Anita Zhang, Arian van Putten, Balint Reczey, Ben Boeckel,
+        Benjamin Robin, camoz, Chen Qi, Chris Chiu, Chris Down, Connor Reeder,
+        Daniele Medri, Dan Streetman, Dave Reisner, Dave Ross, David Art, David
+        Tardon, Dominick Grift, Donald Buczek, Douglas Christman, Eric
+        DeVolder, Evgeny Vereshchagin, Feldwor, Felix Riemann, Florian
+        Dollinger, Franck Bui, Frantisek Sumsal, Franz Pletz, Hans de Goede,
+        Insun Pyo, Ivan Shapovalov, Iwan Timmer, Jack, Jakob Unterwurzacher,
+        Jan Klötzke, Jan Pokorný, Jan Synacek, Jeka Pats, Jérémy Rosen, Jiri
+        Pirko, Joe Lin, Joerg Behrmann, Joe Richey, Jóhann B. Guðmundsson,
+        Johannes Schmitz, Jonathan Rouleau, Jorge Niedbalski, Kai Lüke, Karel
+        Zak, Kashyap Chamarthy, Krayushkin Konstantin, Lennart Poettering,
+        Lubomir Rintel, Luca Boccassi, Luís Ferreira, Marc-André Lureau, Markus
+        Felten, Martin Pitt, Michael Biebl, Michael Olbrich, Michael Prokop,
+        Michael Stapelberg, Michael Zhivich, Michal Koutný, Michal Sekletar,
+        Mike Gilbert, Milan Broz, mpe85, Oliver Harley, pan93412, Paul Menzel,
+        pEJipE, Peter A. Bigot, Philip Withnall, Piotr Drąg, Rafael Fontenelle,
+        Roberto Santalla, root, RussianNeuroMancer, Sebastian Jennen, Simon
+        Schricker, Susant Sahani, Thadeu Lima de Souza Cascardo, Theo
+        Ouzhinski, Thomas Weißschuh, Tomas Mraz, Topi Miettinen, ven, Wieland
+        Hoffmann, Xi Ruoyao, Yuri Chornoivan, Yu Watanabe, Zach Smith, Zbigniew
+        Jędrzejewski-Szmek, Zhang Xianwei
+
+        – Somewhere, SOME-TI-ME
 
 CHANGES WITH 242:
 
