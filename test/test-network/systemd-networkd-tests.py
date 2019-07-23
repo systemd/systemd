@@ -2163,6 +2163,12 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '192.168.0.16/24')
 
+        # for issue #6088
+        print('### ip -6 route list table all dev bridge99')
+        output = check_output('ip -6 route list table all dev bridge99')
+        print(output)
+        self.assertRegex(output, 'ff00::/8 table local metric 256 pref medium')
+
         self.assertEqual(call('ip link del test1'), 0)
         time.sleep(3)
 
@@ -2178,6 +2184,11 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'NO-CARRIER')
         self.assertNotRegex(output, '192.168.0.15/24')
         self.assertNotRegex(output, '192.168.0.16/24')
+
+        print('### ip -6 route list table all dev bridge99')
+        output = check_output('ip -6 route list table all dev bridge99')
+        print(output)
+        self.assertRegex(output, 'ff00::/8 table local metric 256 (?:linkdown |)pref medium')
 
     def test_bridge_ignore_carrier_loss(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',

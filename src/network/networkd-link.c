@@ -2416,6 +2416,15 @@ static int link_drop_foreign_config(Link *link) {
                 if (route->protocol == RTPROT_KERNEL)
                         continue;
 
+                /* do not touch multicast route added by kernel */
+                /* FIXME: Why the kernel adds this route with protocol RTPROT_BOOT??? We need to investigate that.
+                 * https://tools.ietf.org/html/rfc4862#section-5.4 may explain why. */
+                if (route->protocol == RTPROT_BOOT &&
+                    route->family == AF_INET6 &&
+                    route->dst_prefixlen == 8 &&
+                    in_addr_equal(AF_INET6, &route->dst, &(union in_addr_union) { .in6 = {{{ 0xff,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }}} }))
+                        continue;
+
                 if (route->protocol == RTPROT_STATIC &&
                     FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
                         continue;
