@@ -245,8 +245,7 @@ int inhibitor_load(Inhibitor *i) {
                 if (r < 0)
                         return log_oom();
 
-                free(i->who);
-                i->who = cc;
+                free_and_replace(i->who, cc);
         }
 
         if (why) {
@@ -254,8 +253,7 @@ int inhibitor_load(Inhibitor *i) {
                 if (r < 0)
                         return log_oom();
 
-                free(i->why);
-                i->why = cc;
+                free_and_replace(i->why, cc);
         }
 
         if (i->fifo_path) {
