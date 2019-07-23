@@ -4358,6 +4358,11 @@ static void print_status_info(
                 if (p->code == 0)
                         continue;
 
+                /* Don't print ExecXYZEx= properties here since it will appear as a
+                 * duplicate of the non-Ex= variant. */
+                if (endswith(p->name, "Ex"))
+                        continue;
+
                 argv = strv_join(p->argv, " ");
                 printf("  Process: "PID_FMT" %s=%s ", p->pid, p->name, strna(argv));
 
