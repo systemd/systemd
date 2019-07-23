@@ -20,3 +20,4 @@ C /etc/nsswitch.conf - - - -
 m4_ifdef(`HAVE_PAM',
 C /etc/pam.d - - - -
 )m4_dnl
+C /etc/issue - - - -
