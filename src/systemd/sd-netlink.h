@@ -42,6 +42,7 @@ typedef enum sd_gen_family {
         SD_GENL_FOU,
         SD_GENL_L2TP,
         SD_GENL_MACSEC,
+        SD_GENL_NL80211,
 } sd_genl_family;
 
 /* callback */
