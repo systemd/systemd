@@ -49,15 +49,12 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
 int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const NLType *nl_type;
-        const NLTypeSystem *type_system_root;
         size_t size;
         int r;
 
         assert_return(rtnl, -EINVAL);
 
-        type_system_root = type_system_get_root(rtnl->protocol);
-
-        r = type_system_get_type(type_system_root, &nl_type, type);
+        r = type_system_root_get_type(rtnl, &nl_type, type);
         if (r < 0)
                 return r;
 
@@ -1025,21 +1022,19 @@ int sd_netlink_message_get_errno(sd_netlink_message *m) {
         return err->error;
 }
 
-int sd_netlink_message_rewind(sd_netlink_message *m) {
+int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl) {
         const NLType *nl_type;
-        const NLTypeSystem *type_system_root;
         uint16_t type;
         size_t size;
         unsigned i;
         int r;
 
         assert_return(m, -EINVAL);
+        assert_return(genl || m->protocol != NETLINK_GENERIC, -EINVAL);
 
         /* don't allow appending to message once parsed */
         if (!m->sealed)
                 rtnl_message_seal(m);
-
-        type_system_root = type_system_get_root(m->protocol);
 
         for (i = 1; i <= m->n_containers; i++)
                 m->containers[i].attributes = mfree(m->containers[i].attributes);
@@ -1052,7 +1047,7 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
 
         assert(m->hdr);
 
-        r = type_system_get_type(type_system_root, &nl_type, m->hdr->nlmsg_type);
+        r = type_system_root_get_type(genl, &nl_type, m->hdr->nlmsg_type);
         if (r < 0)
                 return r;
 

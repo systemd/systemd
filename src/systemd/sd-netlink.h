@@ -35,6 +35,7 @@ typedef struct sd_netlink_message sd_netlink_message;
 typedef struct sd_netlink_slot sd_netlink_slot;
 
 typedef enum sd_gen_family {
+        SD_GENL_ERROR,
         SD_GENL_ID_CTRL,
         SD_GENL_WIREGUARD,
         SD_GENL_FOU,
@@ -111,7 +112,7 @@ int sd_netlink_message_exit_container(sd_netlink_message *m);
 int sd_netlink_message_open_array(sd_netlink_message *m, uint16_t type);
 int sd_netlink_message_cancel_array(sd_netlink_message *m);
 
-int sd_netlink_message_rewind(sd_netlink_message *m);
+int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl);
 
 sd_netlink_message *sd_netlink_message_next(sd_netlink_message *m);
 
