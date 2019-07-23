@@ -29,7 +29,7 @@ struct Inhibitor {
 
         sd_event_source *event_source;
 
-        char *id;
+        const char *id;
         char *state_file;
 
         bool started;
