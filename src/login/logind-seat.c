@@ -191,13 +191,13 @@ int seat_preallocate_vts(Seat *s) {
         assert(s);
         assert(s->manager);
 
-        log_debug("Preallocating VTs...");
-
         if (s->manager->n_autovts <= 0)
                 return 0;
 
         if (!seat_has_vts(s))
                 return 0;
+
+        log_debug("Preallocating VTs...");
 
         for (i = 1; i <= s->manager->n_autovts; i++) {
                 int q;
