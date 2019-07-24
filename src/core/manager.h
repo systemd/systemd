@@ -228,7 +228,8 @@ struct Manager {
         char **client_environment;     /* Environment variables created by clients through the bus API */
 
         usec_t runtime_watchdog;
-        usec_t shutdown_watchdog;
+        usec_t reboot_watchdog;
+        usec_t kexec_watchdog;
 
         dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
 
