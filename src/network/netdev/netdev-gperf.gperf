@@ -207,6 +207,7 @@ Bridge.MulticastQuerier,                  config_parse_tristate,                
 Bridge.MulticastSnooping,                 config_parse_tristate,                     0,                             offsetof(Bridge, mcast_snooping)
 Bridge.VLANFiltering,                     config_parse_tristate,                     0,                             offsetof(Bridge, vlan_filtering)
 Bridge.STP,                               config_parse_tristate,                     0,                             offsetof(Bridge, stp)
+Bridge.IGMPVersion,                       config_parse_uint8,                        0,                             offsetof(Bridge, igmp_version)
 VRF.TableId,                              config_parse_uint32,                       0,                             offsetof(Vrf, table) /* deprecated */
 VRF.Table,                                config_parse_uint32,                       0,                             offsetof(Vrf, table)
 WireGuard.FirewallMark,                   config_parse_unsigned,                     0,                             offsetof(Wireguard, fwmark)
