@@ -2954,7 +2954,7 @@ static int link_initialized_and_synced(Link *link) {
                 return r;
 
         if (!link->network) {
-                r = wifi_get_ssid(link);
+                r = wifi_get_info(link);
                 if (r < 0)
                         return r;
 
@@ -3333,7 +3333,7 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
-        r = wifi_get_ssid(link);
+        r = wifi_get_info(link);
         if (r < 0)
                 return r;
         if (r > 0) {

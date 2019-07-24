@@ -57,6 +57,7 @@ typedef struct Link {
 
         /* wlan */
         char *ssid;
+        struct ether_addr bssid;
 
         unsigned flags;
         uint8_t kernel_operstate;

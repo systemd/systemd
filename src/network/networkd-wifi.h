@@ -5,4 +5,4 @@
 
 typedef struct Link Link;
 
-int wifi_get_ssid(Link *link);
+int wifi_get_info(Link *link);
