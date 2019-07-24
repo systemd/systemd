@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <net/if.h>
+#include <net/if_arp.h>
 #include <unistd.h>
 
 #include "fd-util.h"
