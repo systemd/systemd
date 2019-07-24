@@ -4,6 +4,7 @@
 #include "networkd-network.h"
 #include "parse-util.h"
 #include "string-table.h"
+#include "strv.h"
 
 int config_parse_dhcp(
                 const char* unit,
@@ -151,7 +152,7 @@ int config_parse_section_route_table(
                 return 0;
         }
 
-        if (streq_ptr(section, "DHCP")) {
+        if (STRPTR_IN_SET(section, "DHCP", "DHCPv4")) {
                 network->dhcp_route_table = rt;
                 network->dhcp_route_table_set = true;
         } else { /* section is IPv6AcceptRA */
