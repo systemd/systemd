@@ -29,7 +29,7 @@ struct Inhibitor {
 
         sd_event_source *event_source;
 
-        char *id;
+        const char *id;
         char *state_file;
 
         bool started;
@@ -48,17 +48,19 @@ struct Inhibitor {
         int fifo_fd;
 };
 
-Inhibitor* inhibitor_new(Manager *m, const char *id);
-void inhibitor_free(Inhibitor *i);
+int inhibitor_new(Inhibitor **ret, Manager *m, const char* id);
+Inhibitor* inhibitor_free(Inhibitor *i);
 
-int inhibitor_save(Inhibitor *i);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Inhibitor*, inhibitor_free);
+
 int inhibitor_load(Inhibitor *i);
 
 int inhibitor_start(Inhibitor *i);
-int inhibitor_stop(Inhibitor *i);
+void inhibitor_stop(Inhibitor *i);
 
 int inhibitor_create_fifo(Inhibitor *i);
-void inhibitor_remove_fifo(Inhibitor *i);
+
+bool inhibitor_is_orphan(Inhibitor *i);
 
 InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm);
 bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since, bool ignore_inactive, bool ignore_uid, uid_t uid, Inhibitor **offending);

@@ -96,8 +96,6 @@ Session* session_free(Session *s) {
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 
-        session_remove_fifo(s);
-
         session_drop_controller(s);
 
         while ((sd = hashmap_first(s->devices)))
@@ -145,7 +143,13 @@ Session* session_free(Session *s) {
 
         hashmap_remove(s->manager->sessions, s->id);
 
+        sd_event_source_unref(s->fifo_event_source);
+        safe_close(s->fifo_fd);
+
+        /* Note that we remove neither the state file nor the fifo path here, since we want both to survive
+         * daemon restarts */
         free(s->state_file);
+        free(s->fifo_path);
 
         return mfree(s);
 }
@@ -1181,7 +1185,7 @@ static int session_open_vt(Session *s) {
 
 int session_prepare_vt(Session *s) {
         int vt, r;
-        struct vt_mode mode = { 0 };
+        struct vt_mode mode = {};
 
         if (s->vtnr < 1)
                 return 0;

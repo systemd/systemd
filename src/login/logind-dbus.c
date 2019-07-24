@@ -3288,7 +3288,9 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                 goto fail;
         }
 
-        inhibitor_start(i);
+        r = inhibitor_start(i);
+        if (r < 0)
+                goto fail;
 
         return sd_bus_reply_method_return(message, "h", fifo_fd);
 

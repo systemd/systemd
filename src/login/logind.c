@@ -295,10 +295,8 @@ static int manager_enumerate_linger_users(Manager *m) {
                         continue;
 
                 k = manager_add_user_by_name(m, de->d_name, NULL);
-                if (k < 0) {
-                        log_notice_errno(k, "Couldn't add lingering user %s: %m", de->d_name);
-                        r = k;
-                }
+                if (k < 0)
+                        r = log_warning_errno(k, "Couldn't add lingering user %s, ignoring: %m", de->d_name);
         }
 
         return r;
@@ -331,9 +329,7 @@ static int manager_enumerate_users(Manager *m) {
 
                 k = manager_add_user_by_name(m, de->d_name, &u);
                 if (k < 0) {
-                        log_error_errno(k, "Failed to add user by file name %s: %m", de->d_name);
-
-                        r = k;
+                        r = log_warning_errno(k, "Failed to add user by file name %s, ignoring: %m", de->d_name);
                         continue;
                 }
 
@@ -478,16 +474,9 @@ static int manager_enumerate_sessions(Manager *m) {
                 if (!dirent_is_file(de))
                         continue;
 
-                if (!session_id_valid(de->d_name)) {
-                        log_warning("Invalid session file name '%s', ignoring.", de->d_name);
-                        r = -EINVAL;
-                        continue;
-                }
-
                 k = manager_add_session(m, de->d_name, &s);
                 if (k < 0) {
-                        log_error_errno(k, "Failed to add session by file name %s: %m", de->d_name);
-                        r = k;
+                        r = log_warning_errno(k, "Failed to add session by file name %s, ignoring: %m", de->d_name);
                         continue;
                 }
 
@@ -529,8 +518,7 @@ static int manager_enumerate_inhibitors(Manager *m) {
 
                 k = manager_add_inhibitor(m, de->d_name, &i);
                 if (k < 0) {
-                        log_notice_errno(k, "Couldn't add inhibitor %s: %m", de->d_name);
-                        r = k;
+                        r = log_warning_errno(k, "Couldn't add inhibitor %s, ignoring: %m", de->d_name);
                         continue;
                 }
 
@@ -1157,8 +1145,15 @@ static int manager_startup(Manager *m) {
         HASHMAP_FOREACH(session, m->sessions, i)
                 (void) session_start(session, NULL, NULL);
 
-        HASHMAP_FOREACH(inhibitor, m->inhibitors, i)
-                inhibitor_start(inhibitor);
+        HASHMAP_FOREACH(inhibitor, m->inhibitors, i) {
+                (void) inhibitor_start(inhibitor);
+
+                /* Let's see if the inhibitor is dead now, then remove it */
+                if (inhibitor_is_orphan(inhibitor)) {
+                        inhibitor_stop(inhibitor);
+                        inhibitor_free(inhibitor);
+                }
+        }
 
         HASHMAP_FOREACH(button, m->buttons, i)
                 button_check_switches(button);

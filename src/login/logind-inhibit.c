@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "io-util.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
 #include "mkdir.h"
@@ -24,51 +25,64 @@
 #include "user-util.h"
 #include "util.h"
 
-Inhibitor* inhibitor_new(Manager *m, const char* id) {
-        Inhibitor *i;
+static void inhibitor_remove_fifo(Inhibitor *i);
 
+int inhibitor_new(Inhibitor **ret, Manager *m, const char* id) {
+        _cleanup_(inhibitor_freep) Inhibitor *i = NULL;
+        int r;
+
+        assert(ret);
         assert(m);
+        assert(id);
 
-        i = new0(Inhibitor, 1);
+        i = new(Inhibitor, 1);
         if (!i)
-                return NULL;
+                return -ENOMEM;
+
+        *i = (Inhibitor) {
+                .manager = m,
+                .what = _INHIBIT_WHAT_INVALID,
+                .mode = _INHIBIT_MODE_INVALID,
+                .uid = UID_INVALID,
+                .fifo_fd = -1,
+        };
 
         i->state_file = path_join("/run/systemd/inhibit", id);
         if (!i->state_file)
-                return mfree(i);
+                return -ENOMEM;
 
         i->id = basename(i->state_file);
 
-        if (hashmap_put(m->inhibitors, i->id, i) < 0) {
-                free(i->state_file);
-                return mfree(i);
-        }
+        r = hashmap_put(m->inhibitors, i->id, i);
+        if (r < 0)
+                return r;
 
-        i->manager = m;
-        i->fifo_fd = -1;
-
-        return i;
+        *ret = TAKE_PTR(i);
+        return 0;
 }
 
-void inhibitor_free(Inhibitor *i) {
-        assert(i);
+Inhibitor* inhibitor_free(Inhibitor *i) {
 
-        hashmap_remove(i->manager->inhibitors, i->id);
-
-        inhibitor_remove_fifo(i);
+        if (!i)
+                return NULL;
 
         free(i->who);
         free(i->why);
 
-        if (i->state_file) {
-                (void) unlink(i->state_file);
-                free(i->state_file);
-        }
+        sd_event_source_unref(i->event_source);
+        safe_close(i->fifo_fd);
 
-        free(i);
+        /* Note that we don't remove neither the state file nor the fifo path here, since we want both to
+         * survive daemon restarts */
+        free(i->state_file);
+        free(i->fifo_path);
+
+        hashmap_remove(i->manager->inhibitors, i->id);
+
+        return mfree(i);
 }
 
-int inhibitor_save(Inhibitor *i) {
+static int inhibitor_save(Inhibitor *i) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -83,7 +97,7 @@ int inhibitor_save(Inhibitor *i) {
         if (r < 0)
                 goto fail;
 
-        fchmod(fileno(f), 0644);
+        (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -143,6 +157,16 @@ fail:
         return log_error_errno(r, "Failed to save inhibit data %s: %m", i->state_file);
 }
 
+static int bus_manager_send_inhibited_change(Inhibitor *i) {
+        const char *property;
+
+        assert(i);
+
+        property = i->mode == INHIBIT_BLOCK ? "BlockInhibited" : "DelayInhibited";
+
+        return manager_send_changed(i->manager, property, NULL);
+}
+
 int inhibitor_start(Inhibitor *i) {
         assert(i);
 
@@ -156,16 +180,16 @@ int inhibitor_start(Inhibitor *i) {
                   i->pid, i->uid,
                   inhibit_mode_to_string(i->mode));
 
-        inhibitor_save(i);
-
         i->started = true;
 
-        manager_send_changed(i->manager, i->mode == INHIBIT_BLOCK ? "BlockInhibited" : "DelayInhibited", NULL);
+        inhibitor_save(i);
+
+        bus_manager_send_inhibited_change(i);
 
         return 0;
 }
 
-int inhibitor_stop(Inhibitor *i) {
+void inhibitor_stop(Inhibitor *i) {
         assert(i);
 
         if (i->started)
@@ -174,14 +198,14 @@ int inhibitor_stop(Inhibitor *i) {
                           i->pid, i->uid,
                           inhibit_mode_to_string(i->mode));
 
+        inhibitor_remove_fifo(i);
+
         if (i->state_file)
                 (void) unlink(i->state_file);
 
         i->started = false;
 
-        manager_send_changed(i->manager, i->mode == INHIBIT_BLOCK ? "BlockInhibited" : "DelayInhibited", NULL);
-
-        return 0;
+        bus_manager_send_inhibited_change(i);
 }
 
 int inhibitor_load(Inhibitor *i) {
@@ -208,7 +232,7 @@ int inhibitor_load(Inhibitor *i) {
                            "MODE", &mode,
                            "FIFO", &i->fifo_path);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to read %s: %m", i->state_file);
 
         w = what ? inhibit_what_from_string(what) : 0;
         if (w >= 0)
@@ -221,38 +245,38 @@ int inhibitor_load(Inhibitor *i) {
         if (uid) {
                 r = parse_uid(uid, &i->uid);
                 if (r < 0)
-                        return r;
+                        log_debug_errno(r, "Failed to parse UID of inhibitor: %s", uid);
         }
 
         if (pid) {
                 r = parse_pid(pid, &i->pid);
                 if (r < 0)
-                        return r;
+                        log_debug_errno(r, "Failed to parse PID of inhibitor: %s", pid);
         }
 
         if (who) {
                 r = cunescape(who, 0, &cc);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
-                free(i->who);
-                i->who = cc;
+                free_and_replace(i->who, cc);
         }
 
         if (why) {
                 r = cunescape(why, 0, &cc);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
-                free(i->why);
-                i->why = cc;
+                free_and_replace(i->why, cc);
         }
 
         if (i->fifo_path) {
-                int fd;
+                _cleanup_close_ int fd = -1;
 
+                /* Let's re-open the FIFO on both sides, and close the writing side right away */
                 fd = inhibitor_create_fifo(i);
-                safe_close(fd);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to reopen FIFO: %m");
         }
 
         return 0;
@@ -315,7 +339,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
         return r;
 }
 
-void inhibitor_remove_fifo(Inhibitor *i) {
+static void inhibitor_remove_fifo(Inhibitor *i) {
         assert(i);
 
         i->event_source = sd_event_source_unref(i->event_source);
@@ -325,6 +349,24 @@ void inhibitor_remove_fifo(Inhibitor *i) {
                 (void) unlink(i->fifo_path);
                 i->fifo_path = mfree(i->fifo_path);
         }
+}
+
+bool inhibitor_is_orphan(Inhibitor *i) {
+        assert(i);
+
+        if (!i->started)
+                return true;
+
+        if (!i->fifo_path)
+                return true;
+
+        if (i->fifo_fd < 0)
+                return true;
+
+        if (pipe_eof(i->fifo_fd) != 0)
+                return true;
+
+        return false;
 }
 
 InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm) {
