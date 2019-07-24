@@ -49,13 +49,13 @@ touchpad:bluetooth:*
 touchpad:usb:v05acp030e:*
 touchpad:usb:v05acp0265:*
  ID_INPUT_TOUCHPAD_INTEGRATION=external
- 
+
 ###########################################################
 # Logitech
 ###########################################################
 touchpad:usb:v046d*
  ID_INPUT_TOUCHPAD_INTEGRATION=external
- 
+
 ###########################################################
 # Wacom
 ###########################################################
