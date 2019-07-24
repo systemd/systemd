@@ -754,6 +754,10 @@ tests += [
         [['src/test/test-sd-hwdb.c'],
          [],
          []],
+
+        [['src/test/test-local-addresses.c'],
+         [],
+         []],
 ]
 
 ############################################################
@@ -961,10 +965,6 @@ tests += [
          []],
 
         [['src/libsystemd/sd-netlink/test-netlink.c'],
-         [],
-         []],
-
-        [['src/libsystemd/sd-netlink/test-local-addresses.c'],
          [],
          []],
 

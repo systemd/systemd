@@ -109,6 +109,8 @@ shared_sources = files('''
         linux/bpf_insn.h
         linux/dm-ioctl.h
         linux/ethtool.h
+        local-addresses.c
+        local-addresses.h
         lockfile-util.c
         lockfile-util.h
         log-link.h
@@ -170,8 +172,8 @@ shared_sources = files('''
         udev-util.h
         uid-range.c
         uid-range.h
-        unit-file.h
         unit-file.c
+        unit-file.h
         utmp-wtmp.h
         varlink.c
         varlink.h
