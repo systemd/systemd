@@ -415,6 +415,8 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 #      define __NR_pkey_mprotect 394
 #    elif defined __powerpc__
 #      define __NR_pkey_mprotect 386
+#    elif defined __s390__
+#      define __NR_pkey_mprotect 384
 #    elif defined _MIPS_SIM
 #      if _MIPS_SIM == _MIPS_SIM_ABI32
 #        define __NR_pkey_mprotect 4363
