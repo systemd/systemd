@@ -2,11 +2,14 @@ systemd System and Service Manager
 
 CHANGES WITH 243 in spe:
 
-        * Enable unprivileged programs, neither setuid nor having file
-          capabilities, to send ICMP Echo requests by turning on the
-          net.ipv4.ping_group_range parameter of the Linux kernel for all
-          groups. If this is not desirable, then it can be disabled by setting
-          the parameter to "1 0".
+        * This release enables unprivileged programs (i.e. requiring neither
+          setuid nor file capabilities) to send ICMP Echo (i.e. ping) requests
+          by turning on the net.ipv4.ping_group_range sysctl of the Linux
+          kernel for the whole UNIX group range, i.e. all processes. This
+          change should be reasonably safe, as the kernel support for it was
+          specifically implemented to allow safe access to ICMP Echo for
+          processes lacking any privileges. If this is not desirable, it can be
+          disabled again by setting the parameter to "1 0".
 
         * Previously, filters defined with SystemCallFilter= would have the
           effect that an calling an offending system call would terminate the
@@ -312,6 +315,19 @@ CHANGES WITH 243 in spe:
           the StatusUnitFormat= setting in /etc/systemd/system.conf or the
           kernel command line option systemd.status_unit_format=.
 
+        * PID 1 now understands a new option KExecWatchdogSec= in
+          /etc/systemd/system.conf. It allows configuration of a watchdog
+          timeout to write to a hardware watchdog device on kexec-based
+          reboots. Previously this functionality was only available for regular
+          reboots. This option defaults to off, since it depends on drivers and
+          software setup whether the watchdog is correctly reset again after
+          the kexec completed, and thus for the general case not clear if safe
+          (since it might cause unwanted watchdog reboots after the kexec
+          completed otherwise). Moreover, the old ShutdownWatchdogSec= setting
+          has been renamed to RebootWatchdogSec= to more clearly communicate
+          what it is about. The old name of the setting is still accepted for
+          compatibility.
+
         * The systemd.debug_shell kernel command line option now optionally
           takes a tty name to spawn the debug shell on, which allows selecting
           a different tty than the built-in default.
@@ -333,21 +349,22 @@ CHANGES WITH 243 in spe:
           2019. (You can set non-UTF-8 locales though, if you know there name.)
 
         Contributions from: Aaron Barany, Adrian Bunk, Alan Jenkins, Andrej
-        Valek, Anita Zhang, Arian van Putten, Balint Reczey, Ben Boeckel,
-        Benjamin Robin, camoz, Chen Qi, Chris Chiu, Chris Down, Connor Reeder,
-        Daniele Medri, Dan Streetman, Dave Reisner, Dave Ross, David Art, David
-        Tardon, Dominick Grift, Donald Buczek, Douglas Christman, Eric
-        DeVolder, Evgeny Vereshchagin, Feldwor, Felix Riemann, Florian
-        Dollinger, Franck Bui, Frantisek Sumsal, Franz Pletz, Hans de Goede,
-        Insun Pyo, Ivan Shapovalov, Iwan Timmer, Jack, Jakob Unterwurzacher,
-        Jan Klötzke, Jan Pokorný, Jan Synacek, Jeka Pats, Jérémy Rosen, Jiri
-        Pirko, Joe Lin, Joerg Behrmann, Joe Richey, Jóhann B. Guðmundsson,
-        Johannes Schmitz, Jonathan Rouleau, Jorge Niedbalski, Kai Lüke, Karel
-        Zak, Kashyap Chamarthy, Krayushkin Konstantin, Lennart Poettering,
-        Lubomir Rintel, Luca Boccassi, Luís Ferreira, Marc-André Lureau, Markus
-        Felten, Martin Pitt, Michael Biebl, Michael Olbrich, Michael Prokop,
-        Michael Stapelberg, Michael Zhivich, Michal Koutný, Michal Sekletar,
-        Mike Gilbert, Milan Broz, mpe85, Oliver Harley, pan93412, Paul Menzel,
+        Valek, Anita Zhang, Arian van Putten, Balint Reczey, Bastien Nocera,
+        Ben Boeckel, Benjamin Robin, camoz, Chen Qi, Chris Chiu, Chris Down,
+        Christian Kellner, Connor Reeder, Daniele Medri, Dan Streetman, Dave
+        Reisner, Dave Ross, David Art, David Tardon, Debarshi Ray, Dominick
+        Grift, Donald Buczek, Douglas Christman, Eric DeVolder, Evgeny
+        Vereshchagin, Feldwor, Felix Riemann, Florian Dollinger, Franck Bui,
+        Frantisek Sumsal, Franz Pletz, Hans de Goede, Insun Pyo, Ivan
+        Shapovalov, Iwan Timmer, Jack, Jakob Unterwurzacher, Jan Klötzke, Jan
+        Pokorný, Jan Synacek, Jeka Pats, Jérémy Rosen, Jiri Pirko, Joe Lin,
+        Joerg Behrmann, Joe Richey, Jóhann B. Guðmundsson, Johannes Schmitz,
+        Jonathan Rouleau, Jorge Niedbalski, Kai Lüke, Karel Zak, Kashyap
+        Chamarthy, Krayushkin Konstantin, Lennart Poettering, Lubomir Rintel,
+        Luca Boccassi, Luís Ferreira, Marc-André Lureau, Markus Felten, Martin
+        Pitt, Michael Biebl, Michael Olbrich, Michael Prokop, Michael
+        Stapelberg, Michael Zhivich, Michal Koutný, Michal Sekletar, Mike
+        Gilbert, Milan Broz, mpe85, Oliver Harley, pan93412, Paul Menzel,
         pEJipE, Peter A. Bigot, Philip Withnall, Piotr Drąg, Rafael Fontenelle,
         Roberto Santalla, root, RussianNeuroMancer, Sebastian Jennen, Simon
         Schricker, Susant Sahani, Thadeu Lima de Souza Cascardo, Theo
