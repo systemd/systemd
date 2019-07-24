@@ -242,8 +242,8 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
 
         LIST_FOREACH(links, link, ctx->links) {
                 if (net_match_config(link->match_mac, link->match_path, link->match_driver,
-                                     link->match_type, link->match_name, link->match_property, NULL,
-                                     device, NULL, NULL, NULL)) {
+                                     link->match_type, link->match_name, link->match_property, NULL, NULL,
+                                     device, NULL, NULL, NULL, NULL)) {
                         if (link->match_name && !strv_contains(link->match_name, "*")) {
                                 unsigned name_assign_type = NET_NAME_UNKNOWN;
 
