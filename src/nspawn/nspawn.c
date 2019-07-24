@@ -4740,8 +4740,12 @@ static int run(int argc, char *argv[]) {
         if (arg_directory) {
                 assert(!arg_image);
 
-                if (path_equal(arg_directory, "/") && !arg_ephemeral) {
-                        log_error("Spawning container on root directory is not supported. Consider using --ephemeral.");
+                /* Safety precaution: let's not allow running images from the live host OS image, as long as
+                 * /var from the host will propagate into container dynamically (because bad things happen if
+                 * two systems write to the same /var). Let's allow it for the special cases where /var is
+                 * either copied (i.e. --ephemeral) or replaced (i.e. --volatile=yes|state). */
+                if (path_equal(arg_directory, "/") && !(arg_ephemeral || IN_SET(arg_volatile_mode, VOLATILE_YES, VOLATILE_STATE))) {
+                        log_error("Spawning container on root directory is not supported. Consider using --ephemeral, --volatile=yes or --volatile=state.");
                         r = -EINVAL;
                         goto finish;
                 }
