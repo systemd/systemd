@@ -204,6 +204,7 @@ int sd_rtnl_message_routing_policy_rule_get_flags(sd_netlink_message *m, unsigne
 /* genl */
 int sd_genl_socket_open(sd_netlink **nl);
 int sd_genl_message_new(sd_netlink *nl, sd_genl_family family, uint8_t cmd, sd_netlink_message **m);
+int sd_genl_message_get_family(sd_netlink *nl, sd_netlink_message *m, sd_genl_family *family);
 
 /* slot */
 sd_netlink_slot *sd_netlink_slot_ref(sd_netlink_slot *nl);

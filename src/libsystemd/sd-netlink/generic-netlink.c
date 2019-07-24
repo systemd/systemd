@@ -158,3 +158,19 @@ int nlmsg_type_to_genl_family(sd_netlink *nl, uint16_t type, sd_genl_family *ret
 
         return 0;
 }
+
+int sd_genl_message_get_family(sd_netlink *nl, sd_netlink_message *m, sd_genl_family *family) {
+        uint16_t type;
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(nl, -EINVAL);
+        assert_return(nl->protocol == NETLINK_GENERIC, -EINVAL);
+        assert_return(family, -EINVAL);
+
+        r = sd_netlink_message_get_type(m, &type);
+        if (r < 0)
+                return r;
+
+        return nlmsg_type_to_genl_family(nl, type, family);
+}
