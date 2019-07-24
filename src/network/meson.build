@@ -103,6 +103,8 @@ sources = files('''
         networkd-speed-meter.h
         networkd-util.c
         networkd-util.h
+        networkd-wifi.c
+        networkd-wifi.h
 '''.split())
 
 systemd_networkd_sources = files('networkd.c')

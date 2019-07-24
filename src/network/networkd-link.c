@@ -33,6 +33,7 @@
 #include "networkd-neighbor.h"
 #include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"
+#include "networkd-wifi.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -712,6 +713,7 @@ static Link *link_free(Link *link) {
 
         free(link->ifname);
         free(link->kind);
+        free(link->ssid);
 
         (void) unlink(link->state_file);
         free(link->state_file);
@@ -2863,7 +2865,7 @@ int link_reconfigure(Link *link) {
                 return 0;
 
         r = network_get(link->manager, link->sd_device, link->ifname,
-                        &link->mac, &network);
+                        &link->mac, link->ssid, &network);
         if (r == -ENOENT) {
                 link_enter_unmanaged(link);
                 return 0;
@@ -2952,8 +2954,12 @@ static int link_initialized_and_synced(Link *link) {
                 return r;
 
         if (!link->network) {
+                r = wifi_get_ssid(link);
+                if (r < 0)
+                        return r;
+
                 r = network_get(link->manager, link->sd_device, link->ifname,
-                                &link->mac, &network);
+                                &link->mac, link->ssid, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
                         return 0;
@@ -3326,6 +3332,15 @@ static int link_carrier_gained(Link *link) {
         int r;
 
         assert(link);
+
+        r = wifi_get_ssid(link);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                r = link_reconfigure(link);
+                if (r < 0)
+                        return r;
+        }
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
                 r = link_acquire_conf(link);

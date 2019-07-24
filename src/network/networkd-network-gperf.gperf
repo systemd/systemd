@@ -29,6 +29,7 @@ Match.MACAddress,                       config_parse_hwaddrs,                   
 Match.Path,                             config_parse_match_strv,                         0,                             offsetof(Network, match_path)
 Match.Driver,                           config_parse_match_strv,                         0,                             offsetof(Network, match_driver)
 Match.Type,                             config_parse_match_strv,                         0,                             offsetof(Network, match_type)
+Match.SSID,                             config_parse_match_strv,                         0,                             offsetof(Network, match_ssid)
 Match.Name,                             config_parse_match_ifnames,                      0,                             offsetof(Network, match_name)
 Match.Property,                         config_parse_match_property,                     0,                             offsetof(Network, match_property)
 Match.Host,                             config_parse_net_condition,                      CONDITION_HOST,                offsetof(Network, conditions)
