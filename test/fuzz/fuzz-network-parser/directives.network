@@ -64,9 +64,6 @@ ClientIdentifier=
 ListenPort=
 UseTimezone=
 RouteTable=
-BlackList=
-SendRelease=
-MaxAttempts=
 [DHCPv4]
 UseDNS=
 RoutesToDNS=
