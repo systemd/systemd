@@ -106,6 +106,7 @@ static void setup_state_to_color(const char *state, const char **on, const char 
 
 typedef struct LinkInfo {
         char name[IFNAMSIZ+1];
+        char netdev_kind[64];
         int ifindex;
         unsigned short iftype;
         struct ether_addr mac_address;
@@ -122,6 +123,15 @@ typedef struct LinkInfo {
 
         uint64_t tx_bitrate;
         uint64_t rx_bitrate;
+
+        /* bridge info */
+        uint32_t forward_delay;
+        uint32_t hello_time;
+        uint32_t max_age;
+        uint32_t ageing_time;
+        uint32_t stp_state;
+        uint16_t priority;
+        uint8_t mcast_igmp_version;
 
         /* ethtool info */
         int autonegotiation;
@@ -142,10 +152,48 @@ static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
         return CMP(a->ifindex, b->ifindex);
 }
 
+static int decode_bridge_link(sd_netlink_message *m, LinkInfo *info) {
+        const char *received_kind;
+        int r;
+
+        assert(m);
+        assert(info);
+
+        r = sd_netlink_message_enter_container(m, IFLA_LINKINFO);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_read_string(m, IFLA_INFO_KIND, &received_kind);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_enter_container(m, IFLA_INFO_DATA);
+        if (r < 0)
+                return r;
+
+        if (!streq(received_kind, "bridge"))
+                return -EINVAL;
+
+        (void) sd_netlink_message_read_u32(m, IFLA_BR_FORWARD_DELAY, &info->forward_delay);
+        (void) sd_netlink_message_read_u32(m, IFLA_BR_HELLO_TIME, &info->hello_time);
+        (void) sd_netlink_message_read_u32(m, IFLA_BR_MAX_AGE, &info->max_age);
+        (void) sd_netlink_message_read_u32(m, IFLA_BR_AGEING_TIME, &info->ageing_time);
+        (void) sd_netlink_message_read_u32(m, IFLA_BR_STP_STATE, &info->stp_state);
+        (void) sd_netlink_message_read_u16(m, IFLA_BR_PRIORITY, &info->priority);
+        (void) sd_netlink_message_read_u8(m, IFLA_BR_MCAST_IGMP_VERSION, &info->mcast_igmp_version);
+
+        strncpy(info->netdev_kind, received_kind, IFNAMSIZ);
+
+        (void) sd_netlink_message_exit_container(m);
+        (void) sd_netlink_message_exit_container(m);
+
+        return 0;
+}
+
 static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
         const char *name;
-        uint16_t type;
         int ifindex, r;
+        uint16_t type;
 
         assert(m);
         assert(info);
@@ -201,6 +249,9 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
                 info->has_stats64 = true;
         else if (sd_netlink_message_read(m, IFLA_STATS, sizeof info->stats, &info->stats) >= 0)
                 info->has_stats = true;
+
+        /* fill kind info */
+        (void) decode_bridge_link(m, info);
 
         return 1;
 }
@@ -1128,6 +1179,91 @@ static int link_status_one(
                                            info->min_mtu > 0 || info->max_mtu > 0 ? ")" : "");
                 if (r < 0)
                         return r;
+        }
+
+        if (streq_ptr(info->netdev_kind, "bridge")) {
+                if (info->forward_delay) {
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Forward Delay:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell_stringf(table, NULL, "%" PRIu32, info->forward_delay);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (info->hello_time) {
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Hello Time:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell_stringf(table, NULL, "%" PRIu32, info->hello_time);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (info->max_age) {
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Max Age:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell_stringf(table, NULL, "%" PRIu32, info->max_age);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (info->ageing_time) {
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Ageing Time:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell_stringf(table, NULL, "%" PRIu32, info->ageing_time);
+                        if (r < 0)
+                                return r;
+                }
+                if (info->priority) {
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Priority:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell_stringf(table, NULL, "%" PRIu16, info->priority);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (info->stp_state) {
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "STP State:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell_stringf(table, NULL, "%" PRIu32, info->stp_state);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (info->mcast_igmp_version) {
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Multicast IGMP version:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell_stringf(table, NULL, "%" PRIu8, info->mcast_igmp_version);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (info->has_bitrates) {
