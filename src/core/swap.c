@@ -683,9 +683,15 @@ static void swap_enter_active(Swap *s, SwapResult f) {
 static void swap_enter_dead_or_active(Swap *s, SwapResult f) {
         assert(s);
 
-        if (s->from_proc_swaps)
+        if (s->from_proc_swaps) {
+                Swap *other;
+
                 swap_enter_active(s, f);
-        else
+
+                LIST_FOREACH_OTHERS(same_devnode, other, s)
+                        if (UNIT(other)->job)
+                                swap_enter_dead_or_active(other, f);
+        } else
                 swap_enter_dead(s, f);
 }
 
