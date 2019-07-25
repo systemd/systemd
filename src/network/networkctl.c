@@ -104,8 +104,23 @@ static void setup_state_to_color(const char *state, const char **on, const char 
                 *on = *off = "";
 }
 
+typedef struct VxLanInfo {
+        uint32_t vni;
+        uint32_t link;
+
+        int local_family;
+        int group_family;
+
+        union in_addr_union local;
+        union in_addr_union group;
+
+        uint16_t dest_port;
+
+} VxLanInfo;
+
 typedef struct LinkInfo {
         char name[IFNAMSIZ+1];
+        char netdev_kind[64];
         int ifindex;
         unsigned short iftype;
         struct ether_addr mac_address;
@@ -122,6 +137,9 @@ typedef struct LinkInfo {
 
         uint64_t tx_bitrate;
         uint64_t rx_bitrate;
+
+        /* vxlan info */
+        VxLanInfo vxlan_info;
 
         /* ethtool info */
         int autonegotiation;
@@ -142,10 +160,62 @@ static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
         return CMP(a->ifindex, b->ifindex);
 }
 
+static int decode_vxlan_link(sd_netlink_message *m, LinkInfo *info) {
+        const char *received_kind;
+        int r;
+
+        assert(m);
+        assert(info);
+
+        r = sd_netlink_message_enter_container(m, IFLA_LINKINFO);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_read_string(m, IFLA_INFO_KIND, &received_kind);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_enter_container(m, IFLA_INFO_DATA);
+        if (r < 0)
+                return r;
+
+        if (!streq(received_kind, "vxlan"))
+                return -EINVAL;
+
+        (void) sd_netlink_message_read_u32(m, IFLA_VXLAN_ID, &info->vxlan_info.vni);
+
+        r = sd_netlink_message_read_in_addr(m, IFLA_VXLAN_GROUP, &info->vxlan_info.group.in);
+        if (r >= 0)
+                info->vxlan_info.group_family = AF_INET;
+        else {
+                r = sd_netlink_message_read_in6_addr(m, IFLA_VXLAN_GROUP6, &info->vxlan_info.group.in6);
+                if (r >= 0)
+                        info->vxlan_info.group_family = AF_INET6;
+        }
+        r = sd_netlink_message_read_in_addr(m, IFLA_VXLAN_LOCAL, &info->vxlan_info.local.in);
+        if (r >= 0)
+                info->vxlan_info.local_family = AF_INET;
+        else {
+                r = sd_netlink_message_read_in6_addr(m, IFLA_VXLAN_LOCAL6, &info->vxlan_info.local.in6);
+                if (r >= 0)
+                        info->vxlan_info.local_family = AF_INET6;
+        }
+
+        (void) sd_netlink_message_read_u32(m, IFLA_VXLAN_LINK, &info->vxlan_info.link);
+        (void) sd_netlink_message_read_u16(m, IFLA_VXLAN_PORT, &info->vxlan_info.dest_port);
+
+        strncpy(info->netdev_kind, received_kind, IFNAMSIZ);
+
+        (void) sd_netlink_message_exit_container(m);
+        (void) sd_netlink_message_exit_container(m);
+
+        return 0;
+}
+
 static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
         const char *name;
-        uint16_t type;
         int ifindex, r;
+        uint16_t type;
 
         assert(m);
         assert(info);
@@ -201,6 +271,9 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
                 info->has_stats64 = true;
         else if (sd_netlink_message_read(m, IFLA_STATS, sizeof info->stats, &info->stats) >= 0)
                 info->has_stats = true;
+
+        /* fill kind info */
+        (void) decode_vxlan_link(m, info);
 
         return 1;
 }
@@ -1128,6 +1201,80 @@ static int link_status_one(
                                            info->min_mtu > 0 || info->max_mtu > 0 ? ")" : "");
                 if (r < 0)
                         return r;
+        }
+
+        if (streq_ptr(info->netdev_kind, "vxlan")) {
+                if (info->vxlan_info.vni) {
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "VNI:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell_stringf(table, NULL, "%" PRIu32, info->vxlan_info.vni);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (IN_SET(info->vxlan_info.group_family, AF_INET, AF_INET6)) {
+                        _cleanup_free_ char *pretty = NULL;
+
+                        r = in_addr_to_string(info->vxlan_info.group_family, &info->vxlan_info.group, &pretty);
+                        if (r >= 0) {
+                                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                                if (r < 0)
+                                        return r;
+                                r = table_add_cell(table, NULL, TABLE_STRING, "Group:");
+                                if (r < 0)
+                                        return r;
+                                r = table_add_cell_stringf(table, NULL, "%s", pretty);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                if (IN_SET(info->vxlan_info.local_family, AF_INET, AF_INET6)) {
+                        _cleanup_free_ char *pretty = NULL;
+
+                        r = in_addr_to_string(info->vxlan_info.local_family, &info->vxlan_info.local, &pretty);
+                        if (r >= 0) {
+                                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                                if (r < 0)
+                                        return r;
+                                r = table_add_cell(table, NULL, TABLE_STRING, "Local:");
+                                if (r < 0)
+                                        return r;
+                                r = table_add_cell_stringf(table, NULL, "%s", pretty);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                if (info->vxlan_info.dest_port > 0) {
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                        return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Destination port:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell_stringf(table, NULL, "%" PRIu32, ntohs(info->vxlan_info.dest_port));
+                        if (r < 0)
+                                return r;
+                }
+
+                if (info->vxlan_info.link > 0) {
+                        char ifname[IF_NAMESIZE + 1];
+
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                        return r;
+                        r = table_add_cell(table, NULL, TABLE_STRING, "Device:");
+                        if (r < 0)
+                                return r;
+                        r = table_add_cell_stringf(table, NULL, "%s", format_ifname(info->vxlan_info.link, ifname));
+                        if (r < 0)
+                                 return r;
+                }
         }
 
         if (info->has_bitrates) {
