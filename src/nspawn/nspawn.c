@@ -4774,7 +4774,9 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = image_path_lock(np, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
+                        /* We take an exclusive lock on this image, since it's our private, ephemeral copy
+                         * only owned by us and noone else. */
+                        r = image_path_lock(np, LOCK_EX|LOCK_NB, &tree_global_lock, &tree_local_lock);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to lock %s: %m", np);
                                 goto finish;
@@ -4894,7 +4896,8 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = image_path_lock(np, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
+                        /* Always take an exclusive lock on our own ephemeral copy. */
+                        r = image_path_lock(np, LOCK_EX|LOCK_NB, &tree_global_lock, &tree_local_lock);
                         if (r < 0) {
                                 r = log_error_errno(r, "Failed to create image lock: %m");
                                 goto finish;
