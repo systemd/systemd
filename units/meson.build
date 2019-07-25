@@ -119,6 +119,7 @@ in_units = [
         ['debug-shell.service',                  ''],
         ['emergency.service',                    ''],
         ['initrd-cleanup.service',               ''],
+        ['initrd-network-generator.service',     'ENABLE_NETWORKD'],
         ['initrd-parse-etc.service',             ''],
         ['initrd-switch-root.service',           ''],
         ['initrd-udevadm-cleanup-db.service',    ''],
