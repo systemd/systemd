@@ -4018,7 +4018,7 @@ static int load_settings(void) {
                         p = file_in_same_dir(arg_image, fn);
                         if (!p)
                                 return log_oom();
-                } else if (arg_directory) {
+                } else if (arg_directory && !path_equal(arg_directory, "/")) {
                         p = file_in_same_dir(arg_directory, fn);
                         if (!p)
                                 return log_oom();
