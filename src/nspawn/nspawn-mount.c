@@ -681,13 +681,54 @@ int mount_all(const char *dest,
         return 0;
 }
 
+static int parse_mount_bind_options(const char *options, unsigned long *mount_flags, char **mount_opts) {
+        const char *p = options;
+        unsigned long flags = *mount_flags;
+        char *opts = NULL;
+        int r;
+
+        assert(options);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, ",", 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract mount option: %m");
+                if (r == 0)
+                        break;
+
+                if (streq(word, "rbind"))
+                        flags |= MS_REC;
+                else if (streq(word, "norbind"))
+                        flags &= ~MS_REC;
+                else {
+                        log_error("Invalid bind mount option: %s", word);
+                        return -EINVAL;
+                }
+        }
+
+        *mount_flags = flags;
+        /* in the future mount_opts will hold string options for mount(2) */
+        *mount_opts = opts;
+
+        return 0;
+}
+
 static int mount_bind(const char *dest, CustomMount *m) {
-        _cleanup_free_ char *where = NULL;
+        _cleanup_free_ char *mount_opts = NULL, *where = NULL;
+        unsigned long mount_flags = MS_BIND | MS_REC;
         struct stat source_st, dest_st;
         int r;
 
         assert(dest);
         assert(m);
+
+        if (m->options) {
+                r = parse_mount_bind_options(m->options, &mount_flags, &mount_opts);
+                if (r < 0)
+                        return r;
+        }
 
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
@@ -727,7 +768,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
                         return log_error_errno(r, "Failed to create mount point %s: %m", where);
         }
 
-        r = mount_verbose(LOG_ERR, m->source, where, NULL, MS_BIND | MS_REC, m->options);
+        r = mount_verbose(LOG_ERR, m->source, where, NULL, mount_flags, mount_opts);
         if (r < 0)
                 return r;
 

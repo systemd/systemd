@@ -83,6 +83,17 @@ function check_bind_tmp_path {
     systemd-nspawn --register=no -D "$_root" --bind=/tmp/bind /bin/sh -c 'test -e /tmp/bind'
 }
 
+function check_norbind {
+    # https://github.com/systemd/systemd/issues/13170
+    local _root="/var/lib/machines/norbind-path"
+    mkdir -p /tmp/binddir/subdir
+    echo -n "outer" > /tmp/binddir/subdir/file
+    mount -t tmpfs tmpfs /tmp/binddir/subdir
+    echo -n "inner" > /tmp/binddir/subdir/file
+    /create-busybox-container "$_root"
+    systemd-nspawn --register=no -D "$_root" --bind=/tmp/binddir:/mnt:norbind /bin/sh -c 'CONTENT=$(cat /mnt/subdir/file); if [[ $CONTENT != "outer" ]]; then echo "*** unexpected content: $CONTENT"; return 1; fi'
+}
+
 function check_notification_socket {
     # https://github.com/systemd/systemd/issues/4944
     local _cmd='echo a | $(busybox which nc) -U -u -w 1 /run/systemd/nspawn/notify'
@@ -167,6 +178,8 @@ function run {
 }
 
 check_bind_tmp_path
+
+check_norbind
 
 check_notification_socket
 
