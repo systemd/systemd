@@ -2,15 +2,6 @@ systemd System and Service Manager
 
 CHANGES WITH 243 in spe:
 
-        * This release enables unprivileged programs (i.e. requiring neither
-          setuid nor file capabilities) to send ICMP Echo (i.e. ping) requests
-          by turning on the net.ipv4.ping_group_range sysctl of the Linux
-          kernel for the whole UNIX group range, i.e. all processes. This
-          change should be reasonably safe, as the kernel support for it was
-          specifically implemented to allow safe access to ICMP Echo for
-          processes lacking any privileges. If this is not desirable, it can be
-          disabled again by setting the parameter to "1 0".
-
         * Previously, filters defined with SystemCallFilter= would have the
           effect that an calling an offending system call would terminate the
           calling thread. This behaviour never made much sense, since killing
