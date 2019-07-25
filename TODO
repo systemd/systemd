@@ -24,6 +24,20 @@ Janitorial Clean-ups:
 
 Features:
 
+* add an explicit "vertical" mode to format-table, so that "systemctl
+  status"-like outputs (i.e. with a series of field names left and values
+  right) become genuine first class citizens, and we gain automatic, sane JSON
+  output for them.
+
+* dissector: invoke fsck on the file systems we encounter, after all ext4 is
+  still pretty popular (and we mount the ESP too with it after all, which is
+  fat)
+
+* systemd-firstboot: teach it dissector magic, so that you can point it to some
+  disk image and it will just set everything in it all behind the scenes.
+
+* systemd-firstboot: add --force mode that replaces existing configuration.
+
 * We should probably replace /var/log/README, /etc/rc.d/README with symlinks
   that are linked to these places instead of copied. After all they are
   constant vendor data.
