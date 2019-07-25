@@ -3264,8 +3264,24 @@ static int outer_child(
                          "Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
         }
 
-        if (!dissected_image) {
-                /* Turn directory into bind mount */
+        if (path_equal(directory, "/")) {
+                /* If the directory we shall boot is the host, let's operate on a bind mount at a different
+                 * place, so that we can make changes to its mount structure (for example, to implement
+                 * --volatile=) without this interfering with our ability to access files such as
+                 * /etc/localtime to copy into the container. Note that we use a fixed place for this
+                 * (instead of a temporary directory, since we are living in our own mount namspace here
+                 * already, and thus don't need to be afraid of colliding with anyone else's mounts).*/
+                (void) mkdir_p("/run/systemd/nspawn-root", 0755);
+
+                r = mount_verbose(LOG_ERR, "/", "/run/systemd/nspawn-root", NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
+                        return r;
+
+                directory = "/run/systemd/nspawn-root";
+
+        } else if (!dissected_image) {
+                /* Turn directory into bind mount (we need that so that we can move the bind mount to root
+                 * later on). */
                 r = mount_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
                 if (r < 0)
                         return r;
