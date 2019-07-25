@@ -4,7 +4,10 @@ Name=veth99
 [Network]
 DHCP=yes
 
-[DHCP]
+[DHCPv4]
+UseDNS=yes
+
+[DHCPv6]
 UseDNS=yes
 
 [IPv6AcceptRA]

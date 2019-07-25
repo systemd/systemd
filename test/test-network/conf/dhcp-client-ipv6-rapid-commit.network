@@ -4,5 +4,5 @@ Name=veth99
 [Network]
 DHCP=ipv6
 
-[DHCP]
+[DHCPv6]
 RapidCommit=false

@@ -6,5 +6,5 @@ DHCP=ipv4
 LinkLocalAddressing=fallback
 IPv6AcceptRA=no
 
-[DHCP]
+[DHCPv4]
 MaxAttempts=1

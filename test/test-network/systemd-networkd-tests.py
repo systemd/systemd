@@ -2538,10 +2538,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         start_dnsmasq('--dhcp-alternate-port=67,5555')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        # link become 'routable' when at least one protocol provide an valid address.
-        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
-        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
-
         output = check_output('ip -4 address show dev veth99')
         print(output)
         self.assertRegex(output, '192.168.5.* dynamic')
