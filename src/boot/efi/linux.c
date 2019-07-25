@@ -45,7 +45,7 @@ EFI_STATUS linux_exec(EFI_HANDLE *image,
 
         boot_params = (struct boot_params *) 0xFFFFFFFF;
         err = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData,
-                                EFI_SIZE_TO_PAGES(0x4000), (UINTN *) &boot_params);
+                                EFI_SIZE_TO_PAGES(0x4000), (EFI_PHYSICAL_ADDRESS*) &boot_params);
         if (EFI_ERROR(err))
                 return err;
 
