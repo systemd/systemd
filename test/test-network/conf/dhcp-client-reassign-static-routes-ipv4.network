@@ -14,5 +14,5 @@ Destination=192.168.6.0/24
 [Route]
 Destination=192.168.7.0/24
 
-[DHCP]
+[DHCPv4]
 UseRoutes=no
