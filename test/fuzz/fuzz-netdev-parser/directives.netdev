@@ -45,6 +45,7 @@ AgeingTimeSec=
 Priority=
 GroupForwardMask=
 VLANFiltering=
+IGMPVersion=
 [VRF]
 TableId=
 Table=

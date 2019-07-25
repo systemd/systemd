@@ -17,6 +17,7 @@ typedef struct Bridge {
         uint16_t priority;
         uint16_t group_fwd_mask;
         uint16_t default_pvid;
+        uint8_t igmp_version;
 
         usec_t forward_delay;
         usec_t hello_time;
@@ -42,3 +43,4 @@ const char* multicast_router_to_string(MulticastRouter i) _const_;
 MulticastRouter multicast_router_from_string(const char *s) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_multicast_router);
+CONFIG_PARSER_PROTOTYPE(config_parse_bridge_igmp_version);

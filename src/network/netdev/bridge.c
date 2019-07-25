@@ -133,6 +133,12 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_STP_STATE attribute: %m");
         }
 
+        if (b->igmp_version > 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BR_MCAST_IGMP_VERSION, b->igmp_version);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_MCAST_IGMP_VERSION attribute: %m");
+        }
+
         r = sd_netlink_message_close_container(req);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
@@ -285,6 +291,50 @@ int link_set_bridge(Link *link) {
         link_ref(link);
 
         return r;
+}
+
+int config_parse_bridge_igmp_version(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Bridge *b = userdata;
+        uint8_t u;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                b->igmp_version = 0; /* 0 means unset. */
+                return 0;
+        }
+
+        r = safe_atou8(rvalue, &u);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse bridge IGMP version number '%s', ignoring assignment: %m",
+                           rvalue);
+                return 0;
+        }
+        if (!IN_SET(u, 2, 3)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Invalid bridge IGMP version number '%s', ignoring assignment.", rvalue);
+                return 0;
+        }
+
+        b->igmp_version = u;
+
+        return 0;
 }
 
 static void bridge_init(NetDev *n) {
