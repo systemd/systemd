@@ -3,9 +3,9 @@
 
 #include <inttypes.h>
 #include <linux/netlink.h>
+#include <linux/if_ether.h>
 #include <linux/if_infiniband.h>
 #include <linux/if_packet.h>
-#include <netinet/ether.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>

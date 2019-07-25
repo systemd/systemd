@@ -19,7 +19,6 @@
 
 #include <inttypes.h>
 #include <net/ethernet.h>
-#include <netinet/ether.h>
 #include <netinet/in.h>
 #include <linux/neighbour.h>
 #include <linux/rtnetlink.h>
