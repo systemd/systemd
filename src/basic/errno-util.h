@@ -31,7 +31,7 @@ static inline int negative_errno(void) {
         return -errno;
 }
 
-static inline char *strerror_safe(int error) {
+static inline const char *strerror_safe(int error) {
         /* 'safe' here does NOT mean thread safety. */
         return strerror(abs(error));
 }
