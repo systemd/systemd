@@ -348,6 +348,9 @@ CHANGES WITH 243 in spe:
         * "localectl list-locales" won't list non-UTF-8 locales anymore. It's
           2019. (You can set non-UTF-8 locales though, if you know there name.)
 
+        * If variable assignments in sysctl.d/ files are prefixed with "-" any
+          failures to apply them are now ignored.
+
         Contributions from: Aaron Barany, Adrian Bunk, Alan Jenkins, Andrej
         Valek, Anita Zhang, Arian van Putten, Balint Reczey, Bastien Nocera,
         Ben Boeckel, Benjamin Robin, camoz, Chen Qi, Chris Chiu, Chris Down,
