@@ -59,6 +59,10 @@
     <filename>/proc/sys/net/ipv4/conf/enp3s0.200/forwarding</filename>.
     </para>
 
+    <para>If a variable assignment is prefixed with a single <literal>-</literal> character, any attempts to
+    set it that fail will be ignored (though are logged). Moreover, any access permission errors, and
+    attempts to write variables not defined on the local system are ignored (and logged) too.</para>
+
     <para>The settings configured with <filename>sysctl.d</filename>
     files will be applied early on boot. The network
     interface-specific options will also be applied individually for
