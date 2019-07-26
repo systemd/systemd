@@ -246,6 +246,10 @@ CHANGES WITH 243 in spe:
           devices, as well as a new "--stats" switch for showing device
           statistics.
 
+        * networkd.conf gained a new setting SpeedMeter= and
+          SpeedMeterIntervalSec=, to measure bitrate of network interfaces. The
+          measured speed may be shown by 'networkctl status'.
+
         * systemd-networkd's .network and .link files gained a new Property=
           setting in the [Match] section, to match against devices with
           specific udev properties.
