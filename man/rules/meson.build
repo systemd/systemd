@@ -655,6 +655,7 @@ manpages = [
  ['systemd-bless-boot-generator', '8', [], 'ENABLE_EFI'],
  ['systemd-bless-boot.service', '8', [], 'ENABLE_EFI'],
  ['systemd-boot-check-no-failures.service', '8', [], ''],
+ ['systemd-boot-system-token.service', '8', [], 'ENABLE_EFI'],
  ['systemd-boot', '7', ['sd-boot'], 'ENABLE_EFI'],
  ['systemd-cat', '1', [], ''],
  ['systemd-cgls', '1', [], ''],

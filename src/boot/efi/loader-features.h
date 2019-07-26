@@ -11,3 +11,4 @@
 #define EFI_LOADER_FEATURE_ENTRY_ONESHOT           (UINT64_C(1) << 3)
 #define EFI_LOADER_FEATURE_BOOT_COUNTING           (UINT64_C(1) << 4)
 #define EFI_LOADER_FEATURE_XBOOTLDR                (UINT64_C(1) << 5)
+#define EFI_LOADER_FEATURE_RANDOM_SEED             (UINT64_C(1) << 6)

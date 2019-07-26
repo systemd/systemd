@@ -1298,6 +1298,17 @@ int fsync_directory_of_file(int fd) {
         return 0;
 }
 
+int fsync_full(int fd) {
+        int r, q;
+
+        /* Sync both the file and the directory */
+
+        r = fsync(fd) < 0 ? -errno : 0;
+        q = fsync_directory_of_file(fd);
+
+        return r < 0 ? r : q;
+}
+
 int fsync_path_at(int at_fd, const char *path) {
         _cleanup_close_ int opened_fd = -1;
         int fd;

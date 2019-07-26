@@ -70,6 +70,28 @@ variables. All EFI variables use the vendor UUID
   * `1 << 2` → The boot loader honours `LoaderEntryDefault` when set.
   * `1 << 3` → The boot loader honours `LoaderEntryOneShot` when set.
   * `1 << 4` → The boot loader supports boot counting as described in [Automatic Boot Assessment](https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT).
+  * `1 << 5` → The boot loader supports looking for boot menu entries in the Extended Boot Loader Partition.
+  * `1 << 6` → The boot loader spports passing a random seed to the OS.
+
+* The EFI variable `LoaderRandomSeed` contains a binary random seed if set. It
+  is set by the boot loader to pass an entropy seed read from the ESP partition
+  to the OS. The system manager then credits this seed to the kernel's entropy
+  pool. It is the responsibility of the boot loader to ensure the quality and
+  integrity of the random seed.
+
+* The EFI variable `LoaderSystemToken` contains binary random data,
+  persistently set by the OS installer. Boot loaders that support passing
+  random seeds to the OS should use this data and combine it with the random
+  seed file read from the ESP. By combining this random data with the random
+  seed read off the disk before generating a seed to pass to the OS and a new
+  seed to store in the ESP the boot loader can protect itself from situations
+  where "golden" OS images that include a random seed are replicated and used
+  on multiple systems. Since the EFI variable storage is usually independent
+  (i.e. in physical NVRAM) of the ESP file system storage, and only the latter
+  is part of "golden" OS images, this ensures that different systems still come
+  up with different random seeds. Note that the `LoaderSystemToken` is
+  generally only written once, by the OS installer, and is usually not touched
+  after that.
 
 If `LoaderTimeInitUSec` and `LoaderTimeExecUSec` are set, `systemd-analyze`
 will include them in its boot-time analysis.  If `LoaderDevicePartUUID` is set,
@@ -77,7 +99,9 @@ systemd will mount the ESP that was used for the boot to `/boot`, but only if
 that directory is empty, and only if no other file systems are mounted
 there. The `systemctl reboot --boot-loader-entry=…` and `systemctl reboot
 --boot-loader-menu=…` commands rely on the `LoaderFeatures` ,
-`LoaderConfigTimeoutOneShot`, `LoaderEntries`, `LoaderEntryOneShot` variables.
+`LoaderConfigTimeoutOneShot`, `LoaderEntries`, `LoaderEntryOneShot`
+variables. `LoaderRandomSeed` is read by PID during early boot and credited to
+the kernel's random pool.
 
 ## Boot Loader Entry Identifiers
 

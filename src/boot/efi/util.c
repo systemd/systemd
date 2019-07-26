@@ -309,8 +309,8 @@ CHAR8 *strchra(CHAR8 *s, CHAR8 c) {
         return NULL;
 }
 
-EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size) {
-        EFI_FILE_HANDLE handle;
+EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **ret, UINTN *ret_size) {
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
         _cleanup_freepool_ CHAR8 *buf = NULL;
         EFI_STATUS err;
 
@@ -322,6 +322,9 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
                 _cleanup_freepool_ EFI_FILE_INFO *info;
 
                 info = LibFileInfo(handle);
+                if (!info)
+                        return EFI_OUT_OF_RESOURCES;
+
                 size = info->FileSize+1;
         }
 
@@ -332,15 +335,24 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
         }
 
         buf = AllocatePool(size + 1);
+        if (!buf)
+                return EFI_OUT_OF_RESOURCES;
+
         err = uefi_call_wrapper(handle->Read, 3, handle, &size, buf);
-        if (!EFI_ERROR(err)) {
-                buf[size] = '\0';
-                *content = buf;
-                buf = NULL;
-                if (content_size)
-                        *content_size = size;
-        }
-        uefi_call_wrapper(handle->Close, 1, handle);
+        if (EFI_ERROR(err))
+                return err;
+
+        buf[size] = '\0';
+
+        *ret = TAKE_PTR(buf);
+        if (ret_size)
+                *ret_size = size;
 
         return err;
+}
+
+EFI_STATUS log_oom(void) {
+        Print(L"Out of memory.");
+        (void) uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+        return EFI_OUT_OF_RESOURCES;
 }

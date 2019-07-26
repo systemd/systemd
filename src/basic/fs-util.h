@@ -114,6 +114,7 @@ void unlink_tempfilep(char (*p)[]);
 int unlinkat_deallocate(int fd, const char *name, int flags);
 
 int fsync_directory_of_file(int fd);
+int fsync_full(int fd);
 int fsync_path_at(int at_fd, const char *path);
 
 int syncfs_path(int atfd, const char *path);

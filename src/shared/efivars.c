@@ -207,24 +207,31 @@ char* efi_variable_path(sd_id128_t vendor, const char *name) {
 int efi_get_variable(
                 sd_id128_t vendor,
                 const char *name,
-                uint32_t *attribute,
-                void **value,
-                size_t *size) {
+                uint32_t *ret_attribute,
+                void **ret_value,
+                size_t *ret_size) {
 
         _cleanup_close_ int fd = -1;
         _cleanup_free_ char *p = NULL;
+        _cleanup_free_ void *buf = NULL;
+        struct stat st;
         uint32_t a;
         ssize_t n;
-        struct stat st;
-        _cleanup_free_ void *buf = NULL;
 
         assert(name);
-        assert(value);
-        assert(size);
 
         p = efi_variable_path(vendor, name);
         if (!p)
                 return -ENOMEM;
+
+        if (!ret_value && !ret_size && !ret_attribute) {
+                /* If caller is not interested in anything, just check if the variable exists and is readable
+                 * to us. */
+                if (access(p, R_OK) < 0)
+                        return -errno;
+
+                return 0;
+        }
 
         fd = open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
@@ -237,31 +244,41 @@ int efi_get_variable(
         if (st.st_size > 4*1024*1024 + 4)
                 return -E2BIG;
 
-        n = read(fd, &a, sizeof(a));
-        if (n < 0)
-                return -errno;
-        if (n != sizeof(a))
-                return -EIO;
+        if (ret_value || ret_attribute) {
+                n = read(fd, &a, sizeof(a));
+                if (n < 0)
+                        return -errno;
+                if (n != sizeof(a))
+                        return -EIO;
+        }
 
-        buf = malloc(st.st_size - 4 + 2);
-        if (!buf)
-                return -ENOMEM;
+        if (ret_value) {
+                buf = malloc(st.st_size - 4 + 2);
+                if (!buf)
+                        return -ENOMEM;
 
-        n = read(fd, buf, (size_t) st.st_size - 4);
-        if (n < 0)
-                return -errno;
-        if (n != (ssize_t) st.st_size - 4)
-                return -EIO;
+                n = read(fd, buf, (size_t) st.st_size - 4);
+                if (n < 0)
+                        return -errno;
+                if (n != st.st_size - 4)
+                        return -EIO;
 
-        /* Always NUL terminate (2 bytes, to protect UTF-16) */
-        ((char*) buf)[st.st_size - 4] = 0;
-        ((char*) buf)[st.st_size - 4 + 1] = 0;
+                /* Always NUL terminate (2 bytes, to protect UTF-16) */
+                ((char*) buf)[st.st_size - 4] = 0;
+                ((char*) buf)[st.st_size - 4 + 1] = 0;
+        }
 
-        *value = TAKE_PTR(buf);
-        *size = (size_t) st.st_size - 4;
+        /* Note that efivarfs interestingly doesn't require ftruncate() to update an existing EFI variable
+         * with a smaller value. */
 
-        if (attribute)
-                *attribute = a;
+        if (ret_attribute)
+                *ret_attribute = a;
+
+        if (ret_value)
+                *ret_value = TAKE_PTR(buf);
+
+        if (ret_size)
+                *ret_size = (size_t) st.st_size - 4;
 
         return 0;
 }
