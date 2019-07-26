@@ -74,14 +74,16 @@ union inotify_event_buffer {
 int inotify_add_watch_fd(int fd, int what, uint32_t mask);
 
 enum {
-        CHASE_PREFIX_ROOT = 1 << 0, /* If set, the specified path will be prefixed by the specified root before beginning the iteration */
-        CHASE_NONEXISTENT = 1 << 1, /* If set, it's OK if the path doesn't actually exist. */
-        CHASE_NO_AUTOFS   = 1 << 2, /* If set, return -EREMOTE if autofs mount point found */
-        CHASE_SAFE        = 1 << 3, /* If set, return EPERM if we ever traverse from unprivileged to privileged files or directories */
-        CHASE_OPEN        = 1 << 4, /* If set, return an O_PATH object to the final component */
-        CHASE_TRAIL_SLASH = 1 << 5, /* If set, any trailing slash will be preserved */
-        CHASE_STEP        = 1 << 6, /* If set, just execute a single step of the normalization */
-        CHASE_NOFOLLOW    = 1 << 7, /* Only valid with CHASE_OPEN: when the path's right-most component refers to symlink return O_PATH fd of the symlink, rather than following it. */
+        CHASE_PREFIX_ROOT = 1 << 0, /* The specified path will be prefixed by the specified root before beginning the iteration */
+        CHASE_NONEXISTENT = 1 << 1, /* It's OK if the path doesn't actually exist. */
+        CHASE_NO_AUTOFS   = 1 << 2, /* Return -EREMOTE if autofs mount point found */
+        CHASE_SAFE        = 1 << 3, /* Return EPERM if we ever traverse from unprivileged to privileged files or directories */
+        CHASE_OPEN        = 1 << 4, /* Return an O_PATH object to the final component */
+        CHASE_TRAIL_SLASH = 1 << 5, /* Any trailing slash will be preserved */
+        CHASE_STEP        = 1 << 6, /* Just execute a single step of the normalization */
+        CHASE_NOFOLLOW    = 1 << 7, /* Do not follow the path's right-most compontent. With CHASE_OPEN, when
+                                     * the path's right-most component refers to symlink, return O_PATH fd of
+                                     * the symlink. */
         CHASE_WARN        = 1 << 8, /* Emit an appropriate warning when an error is encountered */
 };
 

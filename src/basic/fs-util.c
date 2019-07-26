@@ -732,7 +732,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * process. On each iteration, we move one component from "todo" to "done", processing it's special meaning
          * each time. The "todo" path always starts with at least one slash, the "done" path always ends in no
          * slash. We always keep an O_PATH fd to the component we are currently processing, thus keeping lookup races
-         * at a minimum.
+         * to a minimum.
          *
          * Suggested usage: whenever you want to canonicalize a path, use this function. Pass the absolute path you got
          * as-is: fully qualified and relative to your host's root. Optionally, specify the root parameter to tell this
@@ -742,9 +742,9 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * There are three ways to invoke this function:
          *
          * 1. Without CHASE_STEP or CHASE_OPEN: in this case the path is resolved and the normalized path is returned
-         *    in `ret`. The return value is < 0 on error. If CHASE_NONEXISTENT is also set 0 is returned if the file
-         *    doesn't exist, > 0 otherwise. If CHASE_NONEXISTENT is not set >= 0 is returned if the destination was
-         *    found, -ENOENT if it doesn't.
+         *    in `ret`. The return value is < 0 on error. If CHASE_NONEXISTENT is also set, 0 is returned if the file
+         *    doesn't exist, > 0 otherwise. If CHASE_NONEXISTENT is not set, >= 0 is returned if the destination was
+         *    found, -ENOENT if it wasn't.
          *
          * 2. With CHASE_OPEN: in this case the destination is opened after chasing it as O_PATH and this file
          *    descriptor is returned as return value. This is useful to open files relative to some root
@@ -760,13 +760,13 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          *
          * 4. With CHASE_SAFE: in this case the path must not contain unsafe transitions, i.e. transitions from
          *    unprivileged to privileged files or directories. In such cases the return value is -ENOLINK. If
-         *    CHASE_WARN is also set a warning describing the unsafe transition is emitted.
+         *    CHASE_WARN is also set, a warning describing the unsafe transition is emitted.
          *
-         * 5. With CHASE_NO_AUTOFS: in this case if an autofs mount point is encountered, the path normalization is
-         *    aborted and -EREMOTE is returned. If CHASE_WARN is also set a warning showing the path of the mount point
-         *    is emitted.
+         * 5. With CHASE_NO_AUTOFS: in this case if an autofs mount point is encountered, path normalization
+         *    is aborted and -EREMOTE is returned. If CHASE_WARN is also set, a warning showing the path of
+         *    the mount point is emitted.
          *
-         * */
+         */
 
         /* A root directory of "/" or "" is identical to none */
         if (empty_or_root(original_root))
