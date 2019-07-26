@@ -242,7 +242,9 @@ CHANGES WITH 243 in spe:
 
         * systemd-networkd's bridging support gained two new options ProxyARP=
           and ProxyARPWifi= for configuring proxy ARP behaviour as well as
-          MulticastRouter= for configuring multicast routing behaviour.
+          MulticastRouter= for configuring multicast routing behaviour. A new
+          option MulticastIGMPVersion= may be used to change bridge's multicast
+          Internet Group Management Protocol (IGMP) version.
 
         * systemd-networkd's FooOverUDP support gained the ability to configure
           local and peer IP addresses via Local= and Peer=. A new option
