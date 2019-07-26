@@ -413,7 +413,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>IGMPVersion=</varname></term>
+        <term><varname>MulticastIGMPVersion=</varname></term>
         <listitem>
           <para>Allows to change bridge's multicast Internet Group Management Protocol (IGMP) version.
           Takes an interger 2 or 3. When unset, the kernel's default will be used.
