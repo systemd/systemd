@@ -322,13 +322,13 @@ int config_parse_bridge_igmp_version(
         r = safe_atou8(rvalue, &u);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse bridge IGMP version number '%s', ignoring assignment: %m",
+                           "Failed to parse bridge's multicast IGMP version number '%s', ignoring assignment: %m",
                            rvalue);
                 return 0;
         }
         if (!IN_SET(u, 2, 3)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Invalid bridge IGMP version number '%s', ignoring assignment.", rvalue);
+                           "Invalid bridge's multicast IGMP version number '%s', ignoring assignment.", rvalue);
                 return 0;
         }
 
