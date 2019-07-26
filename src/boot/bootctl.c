@@ -1361,7 +1361,7 @@ static int install_random_seed(const char *esp) {
 
         r = genuine_random_bytes(buffer, sz, RANDOM_BLOCK);
         if (r < 0)
-                return log_error_errno(r, "Faile to acquire random seed: %m");
+                return log_error_errno(r, "Failed to acquire random seed: %m");
 
         r = tempfn_random(path, "bootctl", &tmp);
         if (r < 0)
@@ -1384,7 +1384,7 @@ static int install_random_seed(const char *esp) {
 
         tmp = mfree(tmp);
 
-        log_info("Successfully written random seed file %s with %zu bytes.", path, sz);
+        log_info("Random seed file %s successfully written (%zu bytes).", path, sz);
 
         if (!arg_touch_variables)
                 return 0;
