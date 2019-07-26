@@ -279,10 +279,10 @@ static int run(int argc, char *argv[]) {
         if (!sysctl_options)
                 return log_oom();
 
-        r = 0;
-
         if (argc > optind) {
                 int i;
+
+                r = 0;
 
                 for (i = optind; i < argc; i++) {
                         k = parse_file(sysctl_options, argv[i], false);
