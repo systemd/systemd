@@ -1,29 +1,13 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Kay Sievers
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-timesyncd.service" conditional='ENABLE_TIMESYNCD'>
 
   <refentryinfo>
     <title>systemd-timesyncd.service</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Kay</firstname>
-        <surname>Sievers</surname>
-        <email>kay@vrfy.org</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

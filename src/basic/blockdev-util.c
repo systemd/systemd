@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <sys/stat.h>
 #include <sys/statfs.h>
@@ -15,15 +10,19 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "stat-util.h"
 
 int block_get_whole_disk(dev_t d, dev_t *ret) {
         char p[SYS_BLOCK_PATH_MAX("/partition")];
         _cleanup_free_ char *s = NULL;
-        unsigned n, m;
+        dev_t devt;
         int r;
 
         assert(ret);
+
+        if (major(d) == 0)
+                return -ENODEV;
 
         /* If it has a queue this is good enough for us */
         xsprintf_sys_block_path(p, "/queue", d);
@@ -35,7 +34,7 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         /* If it is a partition find the originating device */
         xsprintf_sys_block_path(p, "/partition", d);
         if (access(p, F_OK) < 0)
-                return -ENOENT;
+                return -errno;
 
         /* Get parent dev_t */
         xsprintf_sys_block_path(p, "/../dev", d);
@@ -43,17 +42,17 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         if (r < 0)
                 return r;
 
-        r = sscanf(s, "%u:%u", &m, &n);
-        if (r != 2)
-                return -EINVAL;
+        r = parse_dev(s, &devt);
+        if (r < 0)
+                return r;
 
         /* Only return this if it is really good enough for us. */
-        xsprintf_sys_block_path(p, "/queue", makedev(m, n));
+        xsprintf_sys_block_path(p, "/queue", devt);
         if (access(p, F_OK) < 0)
-                return -ENOENT;
+                return -errno;
 
-        *ret = makedev(m, n);
-        return 0;
+        *ret = devt;
+        return 1;
 }
 
 int get_block_device(const char *path, dev_t *dev) {
@@ -63,7 +62,7 @@ int get_block_device(const char *path, dev_t *dev) {
         assert(path);
         assert(dev);
 
-        /* Get's the block device directly backing a file system. If
+        /* Gets the block device directly backing a file system. If
          * the block device is encrypted, returns the device mapper
          * block device. */
 
@@ -90,8 +89,8 @@ int block_get_originating(dev_t dt, dev_t *ret) {
         _cleanup_free_ char *t = NULL;
         char p[SYS_BLOCK_PATH_MAX("/slaves")];
         struct dirent *de, *found = NULL;
-        unsigned maj, min;
         const char *q;
+        dev_t devt;
         int r;
 
         /* For the specified block device tries to chase it through the layers, in case LUKS-style DM stacking is used,
@@ -119,11 +118,11 @@ int block_get_originating(dev_t dt, dev_t *ret) {
                          * setups, however, only if both partitions are on the same physical device. Hence, let's
                          * verify this. */
 
-                        u = strjoin(p, "/", de->d_name, "/../dev");
+                        u = path_join(p, de->d_name, "../dev");
                         if (!u)
                                 return -ENOMEM;
 
-                        v = strjoin(p, "/", found->d_name, "/../dev");
+                        v = path_join(p, found->d_name, "../dev");
                         if (!v)
                                 return -ENOMEM;
 
@@ -153,13 +152,14 @@ int block_get_originating(dev_t dt, dev_t *ret) {
         if (r < 0)
                 return r;
 
-        if (sscanf(t, "%u:%u", &maj, &min) != 2)
+        r = parse_dev(t, &devt);
+        if (r < 0)
                 return -EINVAL;
 
-        if (maj == 0)
+        if (major(devt) == 0)
                 return -ENOENT;
 
-        *ret = makedev(maj, min);
+        *ret = devt;
         return 1;
 }
 

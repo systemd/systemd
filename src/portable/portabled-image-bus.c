@@ -1,5 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-label.h"
@@ -8,6 +13,7 @@
 #include "fileio.h"
 #include "io-util.h"
 #include "machine-image.h"
+#include "missing_capability.h"
 #include "portable.h"
 #include "portabled-bus.h"
 #include "portabled-image-bus.h"
@@ -72,7 +78,7 @@ static int append_fd(sd_bus_message *m, PortableMetadata *d) {
         assert(d);
         assert(d->fd >= 0);
 
-        f = fdopen(d->fd, "re");
+        f = fdopen(d->fd, "r");
         if (!f)
                 return -errno;
 
@@ -93,7 +99,7 @@ int bus_image_common_get_metadata(
                 sd_bus_error *error) {
 
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_(portable_metadata_hashmap_unrefp) Hashmap *unit_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ PortableMetadata **sorted = NULL;
         _cleanup_strv_free_ char **matches = NULL;
@@ -522,7 +528,7 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_PROPERTY("UsageExclusive", "t", NULL, offsetof(Image, usage_exclusive), 0),
         SD_BUS_PROPERTY("LimitExclusive", "t", NULL, offsetof(Image, limit_exclusive), 0),
         SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_image_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetMedatadata", "as", "saya{say}", bus_image_method_get_metadata, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetMetadata", "as", "saya{say}", bus_image_method_get_metadata, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetState", NULL, "s", bus_image_method_get_state, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Attach", "assbs", "a(sss)", bus_image_method_attach, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Detach", "b", "a(sss)", bus_image_method_detach, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -636,6 +642,10 @@ int bus_image_acquire(
 
                 r = image_from_path(name_or_path, &loaded);
         }
+        if (r == -EMEDIUMTYPE) {
+                sd_bus_error_setf(error, BUS_ERROR_BAD_PORTABLE_IMAGE_TYPE, "Typ of image '%s' not recognized; supported image types are directories/btrfs subvolumes, block devices, and raw disk image files with suffix '.raw'.", name_or_path);
+                return r;
+        }
         if (r < 0)
                 return r;
 
@@ -689,7 +699,7 @@ not_found:
 }
 
 int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_strv_free_ char **l = NULL;
         size_t n_allocated = 0, n = 0;
         Manager *m = userdata;
@@ -701,7 +711,7 @@ int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, cha
         assert(path);
         assert(nodes);
 
-        images = hashmap_new(&string_hash_ops);
+        images = hashmap_new(&image_hash_ops);
         if (!images)
                 return -ENOMEM;
 

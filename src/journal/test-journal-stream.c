@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -11,12 +6,14 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "chattr-util.h"
 #include "journal-file.h"
 #include "journal-internal.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "rm-rf.h"
+#include "tests.h"
 #include "util.h"
 
 #define N_ENTRIES 200
@@ -63,7 +60,7 @@ static void verify_contents(sd_journal *j, unsigned skip) {
 
 int main(int argc, char *argv[]) {
         JournalFile *one, *two, *three;
-        char t[] = "/tmp/journal-stream-XXXXXX";
+        char t[] = "/var/tmp/journal-stream-XXXXXX";
         unsigned i;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         char *z;
@@ -73,12 +70,13 @@ int main(int argc, char *argv[]) {
 
         /* journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("/etc/machine-id not found");
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
+        (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 
         assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &one) == 0);
         assert_se(journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &two) == 0);

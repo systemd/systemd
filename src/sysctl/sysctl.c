@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <getopt.h>
@@ -12,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "conf-files.h"
 #include "def.h"
@@ -19,35 +16,85 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "log.h"
+#include "main-func.h"
+#include "pager.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
-#include "terminal-util.h"
-#include "util.h"
 
 static char **arg_prefixes = NULL;
 static bool arg_cat_config = false;
+static PagerFlags arg_pager_flags = 0;
+
+STATIC_DESTRUCTOR_REGISTER(arg_prefixes, strv_freep);
+
+typedef struct Option {
+        char *key;
+        char *value;
+        bool ignore_failure;
+} Option;
+
+static Option *option_free(Option *o) {
+        if (!o)
+                return NULL;
+
+        free(o->key);
+        free(o->value);
+
+        return mfree(o);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Option*, option_free);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(option_hash_ops, char, string_hash_func, string_compare_func, Option, option_free);
+
+static Option *option_new(
+                const char *key,
+                const char *value,
+                bool ignore_failure) {
+
+        _cleanup_(option_freep) Option *o = NULL;
+
+        assert(key);
+        assert(value);
+
+        o = new(Option, 1);
+        if (!o)
+                return NULL;
+
+        *o = (Option) {
+                .key = strdup(key),
+                .value = strdup(value),
+                .ignore_failure = ignore_failure,
+        };
+
+        if (!o->key || !o->value)
+                return NULL;
+
+        return TAKE_PTR(o);
+}
 
 static int apply_all(OrderedHashmap *sysctl_options) {
-        char *property, *value;
+        Option *option;
         Iterator i;
         int r = 0;
 
-        ORDERED_HASHMAP_FOREACH_KEY(value, property, sysctl_options, i) {
+        ORDERED_HASHMAP_FOREACH(option, sysctl_options, i) {
                 int k;
 
-                k = sysctl_write(property, value);
+                k = sysctl_write(option->key, option->value);
                 if (k < 0) {
-                        /* If the sysctl is not available in the kernel or we are running with reduced privileges and
-                         * cannot write it, then log about the issue at LOG_NOTICE level, and proceed without
-                         * failing. (EROFS is treated as a permission problem here, since that's how container managers
-                         * usually protected their sysctls.) In all other cases log an error and make the tool fail. */
+                        /* If the sysctl is not available in the kernel or we are running with reduced
+                         * privileges and cannot write it, then log about the issue at LOG_NOTICE level, and
+                         * proceed without failing. (EROFS is treated as a permission problem here, since
+                         * that's how container managers usually protected their sysctls.) In all other cases
+                         * log an error and make the tool fail. */
 
-                        if (IN_SET(k, -EPERM, -EACCES, -EROFS, -ENOENT))
-                                log_notice_errno(k, "Couldn't write '%s' to '%s', ignoring: %m", value, property);
+                        if (IN_SET(k, -EPERM, -EACCES, -EROFS, -ENOENT) || option->ignore_failure)
+                                log_notice_errno(k, "Couldn't write '%s' to '%s', ignoring: %m", option->value, option->key);
                         else {
-                                log_error_errno(k, "Couldn't write '%s' to '%s': %m", value, property);
+                                log_error_errno(k, "Couldn't write '%s' to '%s': %m", option->value, option->key);
                                 if (r == 0)
                                         r = k;
                         }
@@ -93,9 +140,11 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
 
         log_debug("Parsing %s", path);
         for (;;) {
-                char *p, *value, *new_value, *property, *existing;
+                _cleanup_(option_freep) Option *new_option = NULL;
                 _cleanup_free_ char *l = NULL;
-                void *v;
+                bool ignore_failure;
+                Option *existing;
+                char *p, *value;
                 int k;
 
                 k = read_line(f, LONG_LINE_MAX, &l);
@@ -115,8 +164,7 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
 
                 value = strchr(p, '=');
                 if (!value) {
-                        log_error("Line is not an assignment at '%s:%u': %s", path, c, value);
-
+                        log_syntax(NULL, LOG_WARNING, path, c, 0, "Line is not an assignment, ignoring: %s", p);
                         if (r == 0)
                                 r = -EINVAL;
                         continue;
@@ -125,52 +173,63 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
                 *value = 0;
                 value++;
 
-                p = sysctl_normalize(strstrip(p));
+                p = strstrip(p);
+                ignore_failure = p[0] == '-';
+                if (ignore_failure)
+                        p++;
+
+                p = sysctl_normalize(p);
                 value = strstrip(value);
 
                 if (!test_prefix(p))
                         continue;
 
-                existing = ordered_hashmap_get2(sysctl_options, p, &v);
+                existing = ordered_hashmap_get(sysctl_options, p);
                 if (existing) {
-                        if (streq(value, existing))
+                        if (streq(value, existing->value)) {
+                                existing->ignore_failure = existing->ignore_failure || ignore_failure;
                                 continue;
+                        }
 
                         log_debug("Overwriting earlier assignment of %s at '%s:%u'.", p, path, c);
-                        free(ordered_hashmap_remove(sysctl_options, p));
-                        free(v);
+                        option_free(ordered_hashmap_remove(sysctl_options, p));
                 }
 
-                property = strdup(p);
-                if (!property)
+                new_option = option_new(p, value, ignore_failure);
+                if (!new_option)
                         return log_oom();
 
-                new_value = strdup(value);
-                if (!new_value) {
-                        free(property);
-                        return log_oom();
-                }
+                k = ordered_hashmap_put(sysctl_options, new_option->key, new_option);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to add sysctl variable %s to hashmap: %m", p);
 
-                k = ordered_hashmap_put(sysctl_options, property, new_value);
-                if (k < 0) {
-                        log_error_errno(k, "Failed to add sysctl variable %s to hashmap: %m", property);
-                        free(property);
-                        free(new_value);
-                        return k;
-                }
+                TAKE_PTR(new_option);
         }
 
         return r;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-sysctl.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Applies kernel sysctl settings.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --cat-config       Show configuration files\n"
                "     --prefix=PATH      Only apply rules with the specified prefix\n"
-               , program_invocation_short_name);
+               "     --no-pager         Do not pipe output into a pager\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -179,6 +238,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_CAT_CONFIG,
                 ARG_PREFIX,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
@@ -186,6 +246,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",    no_argument,       NULL, ARG_VERSION    },
                 { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
                 { "prefix",     required_argument, NULL, ARG_PREFIX     },
+                { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
                 {}
         };
 
@@ -199,8 +260,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -221,7 +281,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (path_startswith(optarg, "/proc/sys"))
                                 p = strdup(optarg);
                         else
-                                p = strappend("/proc/sys/", optarg);
+                                p = path_join("/proc/sys", optarg);
                         if (!p)
                                 return log_oom();
 
@@ -231,6 +291,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -238,38 +302,33 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_cat_config && argc > optind) {
-                log_error("Positional arguments are not allowed with --cat-config");
-                return -EINVAL;
-        }
+        if (arg_cat_config && argc > optind)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Positional arguments are not allowed with --cat-config");
 
         return 1;
 }
 
-int main(int argc, char *argv[]) {
-        OrderedHashmap *sysctl_options = NULL;
-        int r = 0, k;
+static int run(int argc, char *argv[]) {
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *sysctl_options = NULL;
+        int r, k;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         umask(0022);
 
-        sysctl_options = ordered_hashmap_new(&path_hash_ops);
-        if (!sysctl_options) {
-                r = log_oom();
-                goto finish;
-        }
-
-        r = 0;
+        sysctl_options = ordered_hashmap_new(&option_hash_ops);
+        if (!sysctl_options)
+                return log_oom();
 
         if (argc > optind) {
                 int i;
+
+                r = 0;
 
                 for (i = optind; i < argc; i++) {
                         k = parse_file(sysctl_options, argv[i], false);
@@ -281,14 +340,13 @@ int main(int argc, char *argv[]) {
                 char **f;
 
                 r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) CONF_PATHS_STRV("sysctl.d"));
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
 
                 if (arg_cat_config) {
-                        r = cat_files(NULL, files, 0);
-                        goto finish;
+                        (void) pager_open(arg_pager_flags);
+
+                        return cat_files(NULL, files, 0);
                 }
 
                 STRV_FOREACH(f, files) {
@@ -302,9 +360,7 @@ int main(int argc, char *argv[]) {
         if (k < 0 && r == 0)
                 r = k;
 
-finish:
-        ordered_hashmap_free_free_free(sysctl_options);
-        strv_free(arg_prefixes);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);

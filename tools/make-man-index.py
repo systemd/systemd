@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-#  -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
 # SPDX-License-Identifier: LGPL-2.1+
-#
-#  This file is part of systemd.
-#
-#  Copyright 2012 Lennart Poettering
-#  Copyright 2013 Zbigniew Jędrzejewski-Szmek
 
 import collections
 import sys
@@ -20,15 +14,6 @@ TEMPLATE = '''\
   <refentryinfo>
     <title>systemd.index</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

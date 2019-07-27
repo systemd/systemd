@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -43,7 +38,7 @@ RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer) {
         if (!source)
                 return NULL;
 
-        source->importer.fd = fd;
+        source->importer = JOURNAL_IMPORTER_MAKE(fd);
         source->importer.passive_fd = passive_fd;
         source->importer.name = name;
 
@@ -73,7 +68,11 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
 
         assert(source->importer.iovw.iovec);
 
-        r = writer_write(source->writer, &source->importer.iovw, &source->importer.ts, compress, seal);
+        r = writer_write(source->writer,
+                         &source->importer.iovw,
+                         &source->importer.ts,
+                         &source->importer.boot_id,
+                         compress, seal);
         if (r == -EBADMSG) {
                 log_error_errno(r, "Entry is invalid, ignoring.");
                 r = 0;

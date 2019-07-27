@@ -3,11 +3,6 @@
 #define foosdlldphfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Tom Gundersen
-  Copyright (C) 2014 Susant Sahani
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -32,7 +27,7 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-/* IEEE 802.3AB Clause 9: TLV Types */
+/* IEEE 802.1AB-2009 Clause 8: TLV Types */
 enum {
         SD_LLDP_TYPE_END                 = 0,
         SD_LLDP_TYPE_CHASSIS_ID          = 1,
@@ -46,7 +41,7 @@ enum {
         SD_LLDP_TYPE_PRIVATE             = 127,
 };
 
-/* IEEE 802.3AB Clause 9.5.2: Chassis subtypes */
+/* IEEE 802.1AB-2009 Clause 8.5.2: Chassis subtypes */
 enum {
         SD_LLDP_CHASSIS_SUBTYPE_RESERVED            = 0,
         SD_LLDP_CHASSIS_SUBTYPE_CHASSIS_COMPONENT   = 1,
@@ -58,7 +53,7 @@ enum {
         SD_LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED    = 7,
 };
 
-/* IEEE 802.3AB Clause 9.5.3: Port subtype */
+/* IEEE 802.1AB-2009 Clause 8.5.3: Port subtype */
 enum {
         SD_LLDP_PORT_SUBTYPE_RESERVED         = 0,
         SD_LLDP_PORT_SUBTYPE_INTERFACE_ALIAS  = 1,
@@ -70,6 +65,7 @@ enum {
         SD_LLDP_PORT_SUBTYPE_LOCALLY_ASSIGNED = 7,
 };
 
+/* IEEE 802.1AB-2009 Clause 8.5.8: System capabilities */
 enum {
         SD_LLDP_SYSTEM_CAPABILITIES_OTHER    = 1 << 0,
         SD_LLDP_SYSTEM_CAPABILITIES_REPEATER = 1 << 1,
@@ -100,6 +96,7 @@ enum {
 #define SD_LLDP_OUI_802_1 (uint8_t[]) { 0x00, 0x80, 0xc2 }
 #define SD_LLDP_OUI_802_3 (uint8_t[]) { 0x00, 0x12, 0x0f }
 
+/* IEEE 802.1AB-2009 Annex E */
 enum {
         SD_LLDP_OUI_802_1_SUBTYPE_PORT_VLAN_ID          = 1,
         SD_LLDP_OUI_802_1_SUBTYPE_PORT_PROTOCOL_VLAN_ID = 2,
@@ -110,14 +107,24 @@ enum {
         SD_LLDP_OUI_802_1_SUBTYPE_LINK_AGGREGATION      = 7,
 };
 
+/* IEEE 802.1AB-2009 Annex F */
+enum {
+        SD_LLDP_OUI_802_3_SUBTYPE_MAC_PHY_CONFIG_STATUS = 1,
+        SD_LLDP_OUI_802_3_SUBTYPE_POWER_VIA_MDI         = 2,
+        SD_LLDP_OUI_802_3_SUBTYPE_LINK_AGGREGATION      = 3,
+        SD_LLDP_OUI_802_3_SUBTYPE_MAXIMUM_FRAME_SIZE    = 4,
+};
+
 typedef struct sd_lldp sd_lldp;
 typedef struct sd_lldp_neighbor sd_lldp_neighbor;
 
 typedef enum sd_lldp_event {
-        SD_LLDP_EVENT_ADDED     = 'a',
-        SD_LLDP_EVENT_REMOVED   = 'r',
-        SD_LLDP_EVENT_UPDATED   = 'u',
-        SD_LLDP_EVENT_REFRESHED = 'f',
+        SD_LLDP_EVENT_ADDED,
+        SD_LLDP_EVENT_REMOVED,
+        SD_LLDP_EVENT_UPDATED,
+        SD_LLDP_EVENT_REFRESHED,
+        _SD_LLDP_EVENT_MAX,
+        _SD_LLDP_EVENT_INVALID = -1,
 } sd_lldp_event;
 
 typedef void (*sd_lldp_callback_t)(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n, void *userdata);
@@ -171,8 +178,8 @@ int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n);
 int sd_lldp_neighbor_tlv_next(sd_lldp_neighbor *n);
 int sd_lldp_neighbor_tlv_get_type(sd_lldp_neighbor *n, uint8_t *type);
 int sd_lldp_neighbor_tlv_is_type(sd_lldp_neighbor *n, uint8_t type);
-int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[3], uint8_t *subtype);
-int sd_lldp_neighbor_tlv_is_oui(sd_lldp_neighbor *n, const uint8_t oui[3], uint8_t subtype);
+int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[_SD_ARRAY_STATIC 3], uint8_t *subtype);
+int sd_lldp_neighbor_tlv_is_oui(sd_lldp_neighbor *n, const uint8_t oui[_SD_ARRAY_STATIC 3], uint8_t subtype);
 int sd_lldp_neighbor_tlv_get_raw(sd_lldp_neighbor *n, const void **ret, size_t *size);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_lldp, sd_lldp_unref);

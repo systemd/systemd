@@ -1,16 +1,12 @@
 #!/bin/bash
-# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
-# ex: ts=8 sw=4 sts=4 et filetype=sh
 set -e
 TEST_DESCRIPTION="systemd-nspawn smoke test"
 TEST_NO_NSPAWN=1
-SKIP_INITRD=yes
+
 . $TEST_BASE_DIR/test-functions
 
 test_setup() {
-    create_empty_image
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
+    create_empty_image_rootdir
 
     # Create what will eventually be our root filesystem onto an overlay
     (
@@ -18,7 +14,15 @@ test_setup() {
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
         setup_basic_environment
-        dracut_install busybox chmod rmdir unshare ip
+        dracut_install busybox chmod rmdir unshare ip sysctl
+
+        # mask some services that we do not want to run in these tests
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.service
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-machined.service
 
         cp create-busybox-container $initdir/
 
@@ -29,7 +33,6 @@ test_setup() {
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
 [Unit]
 Description=Testsuite service
-After=multi-user.target
 
 [Service]
 ExecStart=/test-nspawn.sh
@@ -63,6 +66,11 @@ if [[ -f /proc/1/ns/cgroup ]]; then
 fi
 
 is_user_ns_supported=no
+# On some systems (e.g. CentOS 7) the default limit for user namespaces
+# is set to 0, which causes the following unshare syscall to fail, even
+# with enabled user namespaces support. By setting this value explicitly
+# we can ensure the user namespaces support to be detected correctly.
+sysctl -w user.max_user_namespaces=10000
 if unshare -U sh -c :; then
     is_user_ns_supported=yes
 fi
@@ -73,6 +81,17 @@ function check_bind_tmp_path {
     /create-busybox-container "$_root"
     >/tmp/bind
     systemd-nspawn --register=no -D "$_root" --bind=/tmp/bind /bin/sh -c 'test -e /tmp/bind'
+}
+
+function check_norbind {
+    # https://github.com/systemd/systemd/issues/13170
+    local _root="/var/lib/machines/norbind-path"
+    mkdir -p /tmp/binddir/subdir
+    echo -n "outer" > /tmp/binddir/subdir/file
+    mount -t tmpfs tmpfs /tmp/binddir/subdir
+    echo -n "inner" > /tmp/binddir/subdir/file
+    /create-busybox-container "$_root"
+    systemd-nspawn --register=no -D "$_root" --bind=/tmp/binddir:/mnt:norbind /bin/sh -c 'CONTENT=$(cat /mnt/subdir/file); if [[ $CONTENT != "outer" ]]; then echo "*** unexpected content: $CONTENT"; return 1; fi'
 }
 
 function check_notification_socket {
@@ -88,7 +107,7 @@ function run {
         return 0
     fi
     if [[ "$2" = "yes" && "$is_cgns_supported" = "no" ]];  then
-        printf "Cgroup namespaces are not supported. Skipping.\n" >&2
+        printf "CGroup namespaces are not supported. Skipping.\n" >&2
         return 0
     fi
 
@@ -160,6 +179,8 @@ function run {
 
 check_bind_tmp_path
 
+check_norbind
+
 check_notification_socket
 
 for api_vfs_writable in yes no network; do
@@ -174,10 +195,7 @@ EOF
 
         chmod 0755 $initdir/test-nspawn.sh
         setup_testsuite
-    ) || return 1
-
-    ddebug "umount $TESTDIR/root"
-    umount $TESTDIR/root
+    )
 }
 
 do_test "$@"

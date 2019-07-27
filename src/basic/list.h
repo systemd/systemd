@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
+#include "macro.h"
 
 /* The head of the linked list. Use this in the structure that shall
  * contain the head of the linked list */
@@ -19,8 +15,8 @@
 /* Initialize the list's head */
 #define LIST_HEAD_INIT(head)                                            \
         do {                                                            \
-                (head) = NULL; }                                        \
-        while (false)
+                (head) = NULL;                                          \
+        } while (false)
 
 /* Initialize a list item */
 #define LIST_INIT(name,item)                                            \
@@ -44,9 +40,9 @@
 /* Append an item to the list */
 #define LIST_APPEND(name,head,item)                                     \
         do {                                                            \
-                typeof(*(head)) *_tail;                                 \
-                LIST_FIND_TAIL(name,head,_tail);                        \
-                LIST_INSERT_AFTER(name,head,_tail,item);                \
+                typeof(*(head)) **_hhead = &(head), *_tail;             \
+                LIST_FIND_TAIL(name, *_hhead, _tail);                   \
+                LIST_INSERT_AFTER(name, *_hhead, _tail, item);          \
         } while (false)
 
 /* Remove an item from the list */

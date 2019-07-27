@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2010 Maarten Lankhorst
+  Copyright © 2010 Maarten Lankhorst
 ***/
 
 #include "bus-util.h"
@@ -66,7 +63,7 @@ int bus_swap_set_property(
 int bus_swap_commit_properties(Unit *u) {
         assert(u);
 
-        unit_update_cgroup_members_masks(u);
+        unit_invalidate_cgroup_members_masks(u);
         unit_realize_cgroup(u);
 
         return 0;

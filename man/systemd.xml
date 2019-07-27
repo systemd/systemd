@@ -1,14 +1,7 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -16,15 +9,6 @@
   <refentryinfo>
     <title>systemd</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -86,8 +70,14 @@
       <varlistentry>
         <term><option>--test</option></term>
 
-        <listitem><para>Determine startup sequence, dump it and exit.
-        This is an option useful for debugging only.</para></listitem>
+        <listitem><para>Determine the initial start-up transaction (i.e. the list of jobs enqueued at
+        start-up), dump it and exit — without actually executing any of the determined jobs. This option is
+        useful for debugging only. Note that during regular service manager start-up additional units not
+        shown by this operation may be started, because hardware, socket, bus or other kinds of activation
+        might add additional jobs as the transaction is executed. Use <option>--system</option> to request
+        the initial transaction of the system service manager (this is also the implied default), combine
+        with <option>--user</option> to request the initial transaction of the per-user service manager
+        instead.</para></listitem>
       </varlistentry>
       <varlistentry>
         <term><option>--dump-configuration-items</option></term>
@@ -99,9 +89,8 @@
       <varlistentry>
         <term><option>--dump-bus-properties</option></term>
 
-        <listitem><para>Dump exposed bus properties. This outputs
-        a terse but complete list of properties exposed to dbus.
-        </para></listitem>
+        <listitem><para>Dump exposed bus properties. This outputs a terse but complete list of properties
+        exposed on D-Bus.</para></listitem>
       </varlistentry>
       <varlistentry>
         <term><option>--unit=</option></term>
@@ -110,23 +99,20 @@
         not specified, defaults to
         <filename>default.target</filename>.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--system</option></term>
         <term><option>--user</option></term>
 
-        <listitem><para>For <option>--system</option>, tell systemd to
-        run a system instance, even if the process ID is not 1, i.e.
-        systemd is not run as init process. <option>--user</option>
-        does the opposite, running a user instance even if the process
-        ID is 1. Normally, it should not be necessary to pass these
-        options, as systemd automatically detects the mode it is
-        started in. These options are hence of little use except for
-        debugging. Note that it is not supported booting and
-        maintaining a full system with systemd running in
-        <option>--system</option> mode, but PID not 1. In practice,
-        passing <option>--system</option> explicitly is only useful in
-        conjunction with <option>--test</option>.</para></listitem>
+        <listitem><para>When used in conjunction with <option>--test</option>, selects whether to calculate
+        the initial transaction for the system instance or for a per-user instance. These options have no
+        effect when invoked without <option>--test</option>, as during regular
+        (i.e. non-<option>--test</option>) invocations the service manager will automatically detect whether
+        it shall operate in system or per-user mode, by checking whether the PID it is run as is 1 or
+        not. Note that it is not supported booting and maintaining a system with the service manager running
+        in <option>--system</option> mode but with a PID other than 1.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--dump-core</option></term>
 
@@ -248,8 +234,6 @@
         <option>tty</option>,
         <option>journal</option>,
         <option>journal+console</option>,
-        <option>syslog</option>,
-        <option>syslog+console</option>,
         <option>kmsg</option>,
         <option>kmsg+console</option>.  If the
         argument is omitted
@@ -405,6 +389,25 @@
     <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for details about these target units.</para>
 
+    <para>systemd only keeps a minimal set of units loaded into memory. Specifically, the only units that are kept
+    loaded into memory are those for which at least one of the following conditions is true:</para>
+
+    <orderedlist>
+      <listitem><para>It is in an active, activating, deactivating or failed state (i.e. in any unit state except for <literal>inactive</literal>)</para></listitem>
+      <listitem><para>It has a job queued for it</para></listitem>
+      <listitem><para>It is a dependency of some sort of at least one other unit that is loaded into memory</para></listitem>
+      <listitem><para>It has some form of resource still allocated (e.g. a service unit that is inactive but for which
+      a process is still lingering that ignored the request to be terminated)</para></listitem>
+      <listitem><para>It has been pinned into memory programmatically by a D-Bus call</para></listitem>
+    </orderedlist>
+
+    <para>systemd will automatically and implicitly load units from disk — if they are not loaded yet — as soon as
+    operations are requested for them. Thus, in many respects, the fact whether a unit is loaded or not is invisible to
+    clients. Use <command>systemctl list-units --all</command> to comprehensively list all units currently loaded. Any
+    unit for which none of the conditions above applies is promptly unloaded. Note that when a unit is unloaded from
+    memory its accounting data is flushed out too. However, this data is generally not lost, as a journal log record
+    is generated declaring the consumed resources whenever a unit shuts down.</para>
+
     <para>Processes systemd spawns are placed in individual Linux
     control groups named after the unit which they belong to in the
     private systemd hierarchy. (see <ulink
@@ -446,6 +449,17 @@
     means that before executing a requested operation, systemd will
     verify that it makes sense, fixing it if possible, and only
     failing if it really cannot work.</para>
+
+    <para>Note that transactions are generated independently of a unit's
+    state at runtime, hence, for example, if a start job is requested on an
+    already started unit, it will still generate a transaction and wake up any
+    inactive dependencies (and cause propagation of other jobs as per the
+    defined relationships). This is because the enqueued job is at the time of
+    execution compared to the target unit's state and is marked successful and
+    complete when both satisfy. However, this job also pulls in other
+    dependencies due to the defined relationships and thus leads to, in our
+    our example, start jobs for any of those inactive units getting queued as
+    well.</para>
 
     <para>systemd contains native implementations of various tasks
     that need to be executed as part of the boot process. For example,
@@ -568,22 +582,21 @@
         <filename>exit.target</filename> unit when this signal is
         received. This is mostly equivalent to <command>systemctl
         --user start exit.target
-        --job-mode=replace-irreversible</command>.</para></listitem>
+        --job-mode=replace-irreversibly</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><constant>SIGINT</constant></term>
 
-        <listitem><para>Upon receiving this signal the systemd system
-        manager will start the
-        <filename>ctrl-alt-del.target</filename> unit. This is mostly
-        equivalent to <command>systemctl start ctrl-alt-del.target
-        --job-mode=replace-irreversible</command>. If this signal is
-        received more than 7 times per 2s, an immediate reboot is
-        triggered.  Note that pressing Ctrl-Alt-Del on the console
-        will trigger this signal. Hence, if a reboot is hanging,
-        pressing Ctrl-Alt-Del more than 7 times in 2s is a relatively
-        safe way to trigger an immediate reboot.</para>
+        <listitem><para>Upon receiving this signal the systemd system manager will start the
+        <filename>ctrl-alt-del.target</filename> unit. This is mostly equivalent to
+        <command>systemctl start ctrl-alt-del.target --job-mode=replace-irreversibly</command>. If
+        this signal is received more than 7 times per 2s, an immediate reboot is triggered. Note
+        that pressing
+        <keycombo><keycap>Ctrl</keycap><keycap>Alt</keycap><keycap>Del</keycap></keycombo> on the
+        console will trigger this signal. Hence, if a reboot is hanging, pressing
+        <keycombo><keycap>Ctrl</keycap><keycap>Alt</keycap><keycap>Del</keycap></keycombo> more than
+        7 times in 2 seconds is a relatively safe way to trigger an immediate reboot.</para>
 
         <para>systemd user managers treat this signal the same way as
         <constant>SIGTERM</constant>.</para></listitem>
@@ -669,7 +682,7 @@
         <listitem><para>Halts the machine, starts the
         <filename>halt.target</filename> unit. This is mostly
         equivalent to <command>systemctl start halt.target
-        --job-mode=replace-irreversible</command>.</para>
+        --job-mode=replace-irreversibly</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -679,7 +692,7 @@
         <listitem><para>Powers off the machine, starts the
         <filename>poweroff.target</filename> unit. This is mostly
         equivalent to <command>systemctl start poweroff.target
-        --job-mode=replace-irreversible</command>.</para>
+        --job-mode=replace-irreversibly</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -689,7 +702,7 @@
         <listitem><para>Reboots the machine, starts the
         <filename>reboot.target</filename> unit. This is mostly
         equivalent to <command>systemctl start reboot.target
-        --job-mode=replace-irreversible</command>.</para>
+        --job-mode=replace-irreversibly</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -699,7 +712,7 @@
         <listitem><para>Reboots the machine via kexec, starts the
         <filename>kexec.target</filename> unit. This is mostly
         equivalent to <command>systemctl start kexec.target
-        --job-mode=replace-irreversible</command>.</para>
+        --job-mode=replace-irreversibly</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -749,15 +762,18 @@
 
       <varlistentry>
         <term><constant>SIGRTMIN+22</constant></term>
+
+        <listitem><para>Sets the service manager's log level to <literal>debug</literal>, in a fashion equivalent to
+        <varname>systemd.log_level=debug</varname> on the kernel command line.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>SIGRTMIN+23</constant></term>
 
-        <listitem><para>Sets the log level to <literal>debug</literal>
-        (or <literal>info</literal> on
-        <constant>SIGRTMIN+23</constant>), as controlled via
-        <varname>systemd.log_level=debug</varname> (or
-        <varname>systemd.log_level=info</varname> on
-        <constant>SIGRTMIN+23</constant>) on the kernel command
-        line.</para></listitem>
+        <listitem><para>Restores the log level to its configured value. The configured value is derived from – in order
+        of priority – the value specified with <varname>systemd.log-level=</varname> on the kernel command line, or the
+        value specified with <option>LogLevel=</option> in the configuration file, or the built-in default of
+        <literal>info</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -769,20 +785,21 @@
 
       <varlistentry>
         <term><constant>SIGRTMIN+26</constant></term>
+
+        <listitem><para>Restores the log target to its configured value. The configured value is derived from – in
+        order of priority – the value specified with <varname>systemd.log-target=</varname> on the kernel command line,
+        or the value specified with <option>LogTarget=</option> in the configuration file, or the built-in
+        default.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>SIGRTMIN+27</constant></term>
         <term><constant>SIGRTMIN+28</constant></term>
 
-        <listitem><para>Sets the log target to
-        <literal>journal-or-kmsg</literal> (or
-        <literal>console</literal> on
-        <constant>SIGRTMIN+27</constant>, <literal>kmsg</literal> on
-        <constant>SIGRTMIN+28</constant>), as controlled via
-        <varname>systemd.log_target=journal-or-kmsg</varname> (or
-        <varname>systemd.log_target=console</varname> on
-        <constant>SIGRTMIN+27</constant> or
-        <varname>systemd.log_target=kmsg</varname> on
-        <constant>SIGRTMIN+28</constant>) on the kernel command
-        line.</para></listitem>
+        <listitem><para>Sets the log target to <literal>console</literal> on <constant>SIGRTMIN+27</constant> (or
+        <literal>kmsg</literal> on <constant>SIGRTMIN+28</constant>), in a fashion equivalent to
+        <varname>systemd.log_target=console</varname> (or <varname>systemd.log_target=kmsg</varname> on
+        <constant>SIGRTMIN+28</constant>) on the kernel command line.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -891,6 +908,9 @@
         for more information.</para></listitem>
       </varlistentry>
     </variablelist>
+
+    <para>For further environment variables understood by systemd and its various components, see <ulink
+    url="https://systemd.io/ENVIRONMENT">Known Environment Variables</ulink>.</para>
   </refsect1>
 
   <refsect1>
@@ -1008,6 +1028,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.status_unit_format=</varname></term>
+
+        <listitem><para>Takes either <option>name</option> or <option>description</option> as the value. If
+        <option>name</option>, the system manager will use unit names in status messages. If specified,
+        overrides the system manager configuration file option <option>StatusUnitFormat=</option>, see
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.log_target=</varname></term>
         <term><varname>systemd.log_level=</varname></term>
         <term><varname>systemd.log_location=</varname></term>
@@ -1060,7 +1090,7 @@
         hybrid or full legacy cgroup hierarchy.</para>
 
         <para>If this option is not specified, the default behaviour is determined
-        during compilation (the <option>--with-default-hierarchy=</option>
+        during compilation (the <option>-Ddefault-hierarchy=</option> meson
         option). If the kernel does not support unified cgroup hierarchy, the legacy
         hierarchy will be used even if this option is specified.</para>
         </listitem>
@@ -1079,7 +1109,7 @@
         the use of "hybrid" hierarchy.</para>
 
         <para>If this option is not specified, the default behaviour is determined
-        during compilation (the <option>--with-default-hierarchy=</option>
+        during compilation (the <option>-Ddefault-hierarchy=</option> meson
         option). If the kernel does not support unified cgroup hierarchy, the legacy
         hierarchy will be used  even if this option is specified.</para>
         </listitem>
@@ -1089,7 +1119,7 @@
         <term><varname>quiet</varname></term>
 
         <listitem><para>Turn off status output at boot, much like
-        <varname>systemd.show_status=false</varname> would. Note that
+        <varname>systemd.show_status=no</varname> would. Note that
         this option is also read by the kernel itself and disables
         kernel log output. Passing this option hence turns off the
         usual output from both the system manager and the kernel.

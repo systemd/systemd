@@ -1,5 +1,5 @@
 ## Create Dockerfile that builds container suitable for systemd build
-## This container runs as non-root user by deafult
+## This container runs as non-root user by default
 
 FROM fedora:27
 

@@ -8,10 +8,15 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=/run/user/%i mount wrapper
+Description=User Runtime Directory /run/user/%i
+Documentation=man:user@.service(5)
+After=systemd-user-sessions.service dbus.service
 StopWhenUnneeded=yes
+IgnoreOnIsolate=yes
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-user-runtime-dir start %i
 ExecStop=@rootlibexecdir@/systemd-user-runtime-dir stop %i
-RemainAfterExit=true
+Type=oneshot
+RemainAfterExit=yes
+Slice=user-%i.slice

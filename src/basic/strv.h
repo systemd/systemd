@@ -1,21 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <fnmatch.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 
 #include "alloc-util.h"
 #include "extract-word.h"
+#include "hashmap.h"
 #include "macro.h"
-#include "util.h"
+#include "string-util.h"
 
 char *strv_find(char **l, const char *name) _pure_;
 char *strv_find_prefix(char **l, const char *name) _pure_;
@@ -59,8 +55,9 @@ bool strv_equal(char **a, char **b);
 
 #define strv_contains(l, s) (!!strv_find((l), (s)))
 
-char **strv_new(const char *x, ...) _sentinel_;
+char **strv_new_internal(const char *x, ...) _sentinel_;
 char **strv_new_ap(const char *x, va_list ap);
+#define strv_new(...) strv_new_internal(__VA_ARGS__, NULL)
 
 #define STRV_IGNORE ((const char *) -1)
 
@@ -72,12 +69,18 @@ static inline bool strv_isempty(char * const *l) {
         return !l || !*l;
 }
 
-char **strv_split(const char *s, const char *separator);
+char **strv_split_full(const char *s, const char *separator, SplitFlags flags);
+static inline char **strv_split(const char *s, const char *separator) {
+        return strv_split_full(s, separator, 0);
+}
 char **strv_split_newlines(const char *s);
 
 int strv_split_extract(char ***t, const char *s, const char *separators, ExtractFlags flags);
 
-char *strv_join(char **l, const char *separator);
+char *strv_join_prefix(char **l, const char *separator, const char *prefix);
+static inline char *strv_join(char **l, const char *separator) {
+        return strv_join_prefix(l, separator, NULL);
+}
 
 char **strv_parse_nulstr(const char *s, size_t l);
 char **strv_split_nulstr(const char *s);
@@ -142,17 +145,22 @@ void strv_print(char **l);
                 _x && strv_contains(STRV_MAKE(__VA_ARGS__), _x); \
         })
 
-#define FOREACH_STRING(x, ...)                               \
-        for (char **_l = ({                                  \
-                char **_ll = STRV_MAKE(__VA_ARGS__);         \
-                x = _ll ? _ll[0] : NULL;                     \
-                _ll;                                         \
-        });                                                  \
-        _l && *_l;                                           \
-        x = ({                                               \
-                _l ++;                                       \
-                _l[0];                                       \
-        }))
+#define STARTSWITH_SET(p, ...)                                  \
+        ({                                                      \
+                const char *_p = (p);                           \
+                char  *_found = NULL, **_i;                     \
+                STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
+                        _found = startswith(_p, *_i);           \
+                        if (_found)                             \
+                                break;                          \
+                }                                               \
+                _found;                                         \
+        })
+
+#define FOREACH_STRING(x, y, ...)                                       \
+        for (char **_l = STRV_MAKE(({ x = y; }), ##__VA_ARGS__);        \
+             x;                                                         \
+             x = *(++_l))
 
 char **strv_reverse(char **l);
 char **strv_shell_escape(char **l, const char *bad);
@@ -181,3 +189,7 @@ int fputstrv(FILE *f, char **l, const char *separator, bool *space);
                 (b) = NULL;                     \
                 0;                              \
         })
+
+extern const struct hash_ops string_strv_hash_ops;
+int string_strv_hashmap_put(Hashmap **h, const char *key, const char *value);
+int string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value);

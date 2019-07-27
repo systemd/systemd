@@ -1,0 +1,18 @@
+[Match]
+Name=dummy98
+
+[Network]
+Bridge=bridge99
+
+[Bridge]
+Cost=400
+HairPin = true
+FastLeave = true
+UnicastFlood = true
+MulticastFlood = false
+MulticastToUnicast = true
+NeighborSuppression = true
+Learning = false
+Priority = 23
+UseBPDU = true
+AllowPortToBeRoot=true

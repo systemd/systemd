@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
-  Copyright 2013 Thomas H.P. Andersen
-  Copyright 2015 Zbigniew Jędrzejewski-Szmek
-***/
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 static void test_hostname_is_valid(void) {
@@ -59,6 +55,12 @@ static void test_hostname_cleanup(void) {
         assert_se(streq(hostname_cleanup(s), "foobar.com"));
         s = strdupa("foobar.com.");
         assert_se(streq(hostname_cleanup(s), "foobar.com"));
+        s = strdupa("foo-bar.-com-.");
+        assert_se(streq(hostname_cleanup(s), "foo-bar.com"));
+        s = strdupa("foo-bar-.-com-.");
+        assert_se(streq(hostname_cleanup(s), "foo-bar--com"));
+        s = strdupa("--foo-bar.-com");
+        assert_se(streq(hostname_cleanup(s), "foo-bar.com"));
         s = strdupa("fooBAR");
         assert_se(streq(hostname_cleanup(s), "fooBAR"));
         s = strdupa("fooBAR.com");
@@ -85,6 +87,8 @@ static void test_hostname_cleanup(void) {
         assert_se(streq(hostname_cleanup(s), "foo.bar"));
         s = strdupa("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
         assert_se(streq(hostname_cleanup(s), "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
+        s = strdupa("xxxx........xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+        assert_se(streq(hostname_cleanup(s), "xxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
 }
 
 static void test_read_etc_hostname(void) {

@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stdlib.h>
@@ -11,6 +6,7 @@
 
 #include "log.h"
 #include "namespace.h"
+#include "tests.h"
 
 int main(int argc, char *argv[]) {
         const char * const writable[] = {
@@ -48,7 +44,7 @@ int main(int argc, char *argv[]) {
         char tmp_dir[] = "/tmp/systemd-private-XXXXXX",
              var_tmp_dir[] = "/var/tmp/systemd-private-XXXXXX";
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(mkdtemp(tmp_dir));
         assert_se(mkdtemp(var_tmp_dir));
@@ -79,7 +75,8 @@ int main(int argc, char *argv[]) {
                             PROTECT_HOME_NO,
                             PROTECT_SYSTEM_NO,
                             0,
-                            0);
+                            0,
+                            NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to setup namespace: %m");
 

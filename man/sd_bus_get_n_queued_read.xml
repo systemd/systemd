@@ -1,29 +1,13 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2018 Lennart Poettering
--->
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_get_n_queued_read">
 
   <refentryinfo>
     <title>sd_bus_get_fd</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -84,21 +68,21 @@
 
     <para>On success, these functions return 0 or a positive integer. On failure, they return a negative errno-style
     error code.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The bus connection was created in a different process.</para></listitem>
-      </varlistentry>
+          <listitem><para>The bus connection was created in a different process.</para></listitem>
+        </varlistentry>
 
-    </variablelist>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>

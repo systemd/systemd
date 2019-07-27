@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 systemd_importd_sources = files('''
         importd.c
@@ -38,6 +36,12 @@ systemd_import_sources = files('''
         import-compress.h
         qcow2-util.c
         qcow2-util.h
+'''.split())
+
+systemd_import_fs_sources = files('''
+        import-fs.c
+        import-common.c
+        import-common.h
 '''.split())
 
 systemd_export_sources = files('''

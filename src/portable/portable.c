@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <stdio_ext.h>
-
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "conf-files.h"
@@ -12,11 +10,13 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "install.h"
 #include "io-util.h"
 #include "locale-util.h"
 #include "loop-util.h"
 #include "machine-image.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "os-util.h"
 #include "path-lookup.h"
 #include "portable.h"
@@ -24,8 +24,10 @@
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 
 static const char profile_dirs[] = CONF_PATHS_NULSTR("systemd/portable/profile");
@@ -90,21 +92,6 @@ PortableMetadata *portable_metadata_unref(PortableMetadata *i) {
         free(i->source);
 
         return mfree(i);
-}
-
-Hashmap *portable_metadata_hashmap_unref(Hashmap *h) {
-
-        for (;;) {
-                PortableMetadata *i;
-
-                i = hashmap_steal_first(h);
-                if (!i)
-                        break;
-
-                portable_metadata_unref(i);
-        }
-
-        return hashmap_free(h);
 }
 
 static int compare_metadata(PortableMetadata *const *x, PortableMetadata *const *y) {
@@ -201,7 +188,7 @@ static int recv_item(
         assert(ret_name);
         assert(ret_fd);
 
-        n = recvmsg(socket_fd, &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC);
+        n = recvmsg(socket_fd, &mh, MSG_CMSG_CLOEXEC);
         if (n < 0)
                 return -errno;
 
@@ -232,6 +219,9 @@ static int recv_item(
         return 0;
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(portable_metadata_hash_ops, char, string_hash_func, string_compare_func,
+                                              PortableMetadata, portable_metadata_unref);
+
 static int extract_now(
                 const char *where,
                 char **matches,
@@ -239,7 +229,7 @@ static int extract_now(
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files) {
 
-        _cleanup_(portable_metadata_hashmap_unrefp) Hashmap *unit_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_close_ int os_release_fd = -1;
@@ -286,7 +276,7 @@ static int extract_now(
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire lookup paths: %m");
 
-        unit_files = hashmap_new(&string_hash_ops);
+        unit_files = hashmap_new(&portable_metadata_hash_ops);
         if (!unit_files)
                 return -ENOMEM;
 
@@ -336,7 +326,7 @@ static int extract_now(
                                 return -ENOMEM;
                         fd = -1;
 
-                        m->source = strjoin(resolved, "/", de->d_name);
+                        m->source = path_join(resolved, de->d_name);
                         if (!m->source)
                                 return -ENOMEM;
 
@@ -362,7 +352,7 @@ static int portable_extract_by_path(
                 Hashmap **ret_unit_files,
                 sd_bus_error *error) {
 
-        _cleanup_(portable_metadata_hashmap_unrefp) Hashmap *unit_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata* os_release = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         int r;
@@ -432,7 +422,7 @@ static int portable_extract_by_path(
 
                 seq[1] = safe_close(seq[1]);
 
-                unit_files = hashmap_new(&string_hash_ops);
+                unit_files = hashmap_new(&portable_metadata_hash_ops);
                 if (!unit_files)
                         return -ENOMEM;
 
@@ -445,7 +435,7 @@ static int portable_extract_by_path(
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to receive item: %m");
 
-                        /* We can't really distuingish a zero-length datagram without any fds from EOF (both are signalled the
+                        /* We can't really distinguish a zero-length datagram without any fds from EOF (both are signalled the
                          * same way by recvmsg()). Hence, accept either as end notification. */
                         if (isempty(name) && fd < 0)
                                 break;
@@ -664,10 +654,10 @@ static int portable_changes_add_with_prefix(
                 return 0;
 
         if (prefix) {
-                path = strjoina(prefix, "/", path);
+                path = prefix_roota(prefix, path);
 
                 if (source)
-                        source = strjoina(prefix, "/", source);
+                        source = prefix_roota(prefix, source);
         }
 
         return portable_changes_add(changes, n_changes, type, path, source);
@@ -702,7 +692,7 @@ static int install_chroot_dropin(
         assert(m);
         assert(dropin_dir);
 
-        dropin = strjoin(dropin_dir, "/20-portable.conf");
+        dropin = path_join(dropin_dir, "20-portable.conf");
         if (!dropin)
                 return -ENOMEM;
 
@@ -782,29 +772,29 @@ static int install_profile_dropin(
 
         r = find_profile(profile, m->name, &from);
         if (r < 0) {
-                if (r != ENOENT)
+                if (r != -ENOENT)
                         return log_debug_errno(errno, "Profile '%s' is not accessible: %m", profile);
 
                 log_debug_errno(errno, "Skipping link to profile '%s', as it does not exist: %m", profile);
                 return 0;
         }
 
-        dropin = strjoin(dropin_dir, "/10-profile.conf");
+        dropin = path_join(dropin_dir, "10-profile.conf");
         if (!dropin)
                 return -ENOMEM;
 
         if (flags & PORTABLE_PREFER_COPY) {
 
-                r = copy_file_atomic(from, dropin, 0644, 0, COPY_REFLINK);
+                r = copy_file_atomic(from, dropin, 0644, 0, 0, COPY_REFLINK);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to copy %s %s %s: %m", from, special_glyph(ARROW), dropin);
+                        return log_debug_errno(r, "Failed to copy %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW), dropin);
 
                 (void) portable_changes_add(changes, n_changes, PORTABLE_COPY, dropin, from);
 
         } else {
 
                 if (symlink(from, dropin) < 0)
-                        return log_debug_errno(errno, "Failed to link %s %s %s: %m", from, special_glyph(ARROW), dropin);
+                        return log_debug_errno(errno, "Failed to link %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW), dropin);
 
                 (void) portable_changes_add(changes, n_changes, PORTABLE_SYMLINK, dropin, from);
         }
@@ -815,15 +805,15 @@ static int install_profile_dropin(
         return 0;
 }
 
-static const char *config_path(const LookupPaths *paths, PortableFlags flags) {
+static const char *attached_path(const LookupPaths *paths, PortableFlags flags) {
         const char *where;
 
         assert(paths);
 
         if (flags & PORTABLE_RUNTIME)
-                where = paths->runtime_config;
+                where = paths->runtime_attached;
         else
-                where = paths->persistent_config;
+                where = paths->persistent_attached;
 
         assert(where);
         return where;
@@ -849,15 +839,25 @@ static int attach_unit_file(
         assert(m);
         assert(PORTABLE_METADATA_IS_UNIT(m));
 
-        where = config_path(paths, flags);
-        path = strjoina(where, "/", m->name);
+        where = attached_path(paths, flags);
 
+        (void) mkdir_parents(where, 0755);
+        if (mkdir(where, 0755) < 0) {
+                if (errno != EEXIST)
+                        return -errno;
+        } else
+                (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, where, NULL);
+
+        path = prefix_roota(where, m->name);
         dropin_dir = strjoin(path, ".d");
         if (!dropin_dir)
                 return -ENOMEM;
 
-        (void) mkdir_p(dropin_dir, 0755);
-        (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, dropin_dir, NULL);
+        if (mkdir(dropin_dir, 0755) < 0) {
+                if (errno != EEXIST)
+                        return -errno;
+        } else
+                (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, dropin_dir, NULL);
 
         /* We install the drop-ins first, and the actual unit file last to achieve somewhat atomic behaviour if PID 1
          * is reloaded while we are creating things here: as long as only the drop-ins exist the unit doesn't exist at
@@ -960,7 +960,7 @@ static int install_image_symlink(
         (void) mkdir_parents(sl, 0755);
 
         if (symlink(image_path, sl) < 0)
-                return log_debug_errno(errno, "Failed to link %s %s %s: %m", image_path, special_glyph(ARROW), sl);
+                return log_debug_errno(errno, "Failed to link %s %s %s: %m", image_path, special_glyph(SPECIAL_GLYPH_ARROW), sl);
 
         (void) portable_changes_add(changes, n_changes, PORTABLE_SYMLINK, sl, image_path);
         return 0;
@@ -976,7 +976,7 @@ int portable_attach(
                 size_t *n_changes,
                 sd_bus_error *error) {
 
-        _cleanup_(portable_metadata_hashmap_unrefp) Hashmap *unit_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(image_unrefp) Image *image = NULL;
         PortableMetadata *item;
@@ -1090,12 +1090,10 @@ static int test_chroot_dropin(
                 return log_debug_errno(errno, "Failed to open %s/%s: %m", where, p);
         }
 
-        f = fdopen(fd, "re");
-        if (!f)
-                return log_debug_errno(errno, "Failed to convert file handle: %m");
-        fd = -1;
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        r = fdopen_unlocked(fd, "r", &f);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert file handle: %m");
+        TAKE_FD(fd);
 
         r = read_line(f, LONG_LINE_MAX, &line);
         if (r < 0)
@@ -1147,11 +1145,15 @@ int portable_detach(
         if (r < 0)
                 return r;
 
-        where = config_path(&paths, flags);
+        where = attached_path(&paths, flags);
 
         d = opendir(where);
-        if (!d)
+        if (!d) {
+                if (errno == ENOENT)
+                        goto not_found;
+
                 return log_debug_errno(errno, "Failed to open '%s' directory: %m", where);
+        }
 
         unit_files = set_new(&string_hash_ops);
         if (!unit_files)
@@ -1213,10 +1215,8 @@ int portable_detach(
                 }
         }
 
-        if (set_isempty(unit_files)) {
-                log_debug("No unit files associated with '%s' found. Image not attached?", name_or_path);
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "No unit files associated with '%s' found. Image not attached?", name_or_path);
-        }
+        if (set_isempty(unit_files))
+                goto not_found;
 
         SET_FOREACH(item, unit_files, iterator) {
                 _cleanup_free_ char *md = NULL;
@@ -1289,7 +1289,15 @@ int portable_detach(
                         portable_changes_add(changes, n_changes, PORTABLE_UNLINK, sl, NULL);
         }
 
+        /* Try to remove the unit file directory, if we can */
+        if (rmdir(where) >= 0)
+                portable_changes_add(changes, n_changes, PORTABLE_UNLINK, where, NULL);
+
         return ret;
+
+not_found:
+        log_debug("No unit files associated with '%s' found. Image not attached?", name_or_path);
+        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "No unit files associated with '%s' found. Image not attached?", name_or_path);
 }
 
 static int portable_get_state_internal(
@@ -1314,11 +1322,18 @@ static int portable_get_state_internal(
         if (r < 0)
                 return r;
 
-        where = config_path(&paths, flags);
+        where = attached_path(&paths, flags);
 
         d = opendir(where);
-        if (!d)
+        if (!d) {
+                if (errno == ENOENT) {
+                        /* If the 'attached' directory doesn't exist at all, then we know for sure this image isn't attached. */
+                        *ret = PORTABLE_DETACHED;
+                        return 0;
+                }
+
                 return log_debug_errno(errno, "Failed to open '%s' directory: %m", where);
+        }
 
         unit_files = set_new(&string_hash_ops);
         if (!unit_files)

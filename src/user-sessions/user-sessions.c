@@ -1,32 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "fileio.h"
 #include "fileio-label.h"
 #include "fs-util.h"
+#include "main-func.h"
 #include "log.h"
 #include "selinux-util.h"
 #include "string-util.h"
-#include "util.h"
 
-int main(int argc, char*argv[]) {
+static int run(int argc, char *argv[]) {
         int r, k;
 
-        if (argc != 2) {
-                log_error("This program requires one argument.");
-                return EXIT_FAILURE;
-        }
+        if (argc != 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program requires one argument.");
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         umask(0022);
 
@@ -35,16 +30,14 @@ int main(int argc, char*argv[]) {
         if (streq(argv[1], "start")) {
                 r = unlink_or_warn("/run/nologin");
                 k = unlink_or_warn("/etc/nologin");
-                if (k < 0 && r >= 0)
-                        r = k;
+                if (r < 0)
+                        return r;
+                return k;
 
         } else if (streq(argv[1], "stop"))
-                r = create_shutdown_run_nologin_or_warn();
-        else {
-                log_error("Unknown verb '%s'.", argv[1]);
-                r = -EINVAL;
-        }
+                return create_shutdown_run_nologin_or_warn();
 
-        mac_selinux_finish();
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb '%s'.", argv[1]);
 }
+
+DEFINE_MAIN_FUNCTION(run);

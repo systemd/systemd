@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 basic_dns_sources = files('''
         resolved-dns-dnssec.c
@@ -65,6 +63,7 @@ systemd_resolved_sources = files('''
         resolved-dns-stub.c
         resolved-etc-hosts.h
         resolved-etc-hosts.c
+        resolved-dnstls.h
 '''.split())
 
 resolvectl_sources = files('''
@@ -141,6 +140,21 @@ libsystemd_resolve_core = static_library(
 
 systemd_resolved_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
 
+systemd_resolved_dependencies = [threads, libgpg_error, libm, libidn]
+if conf.get('ENABLE_DNS_OVER_TLS') == 1
+        if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
+                systemd_resolved_sources += files('resolved-dnstls-gnutls.c',
+                                                  'resolved-dnstls-gnutls.h')
+                systemd_resolved_dependencies += libgnutls
+        elif conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1
+                systemd_resolved_sources += files('resolved-dnstls-openssl.c',
+                                                  'resolved-dnstls-openssl.h')
+                systemd_resolved_dependencies += libopenssl
+        else
+                error('unknown dependency for supporting DNS-over-TLS')
+        endif
+endif
+
 if conf.get('ENABLE_RESOLVE') == 1
         install_data('org.freedesktop.resolve1.conf',
                      install_dir : dbuspolicydir)
@@ -173,6 +187,16 @@ tests += [
 
         [['src/resolve/test-dns-packet.c',
           dns_type_headers],
+         [libsystemd_resolve_core,
+          libshared],
+         [libgcrypt,
+          libgpg_error,
+          libm],
+         'ENABLE_RESOLVE'],
+
+        [['src/resolve/test-resolved-etc-hosts.c',
+          'src/resolve/resolved-etc-hosts.c',
+          'src/resolve/resolved-etc-hosts.h'],
          [libsystemd_resolve_core,
           libshared],
          [libgcrypt,

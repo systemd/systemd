@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Axis Communications AB. All rights reserved.
+  Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
 
 #include <errno.h>
+#include <netinet/if_ether.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -17,6 +16,7 @@
 #include "arp-util.h"
 #include "fd-util.h"
 #include "socket-util.h"
+#include "tests.h"
 #include "util.h"
 
 static bool verbose = false;
@@ -80,7 +80,7 @@ int arp_send_announcement(int fd, int ifindex,
 }
 
 int arp_network_bind_raw_socket(int index, be32_t address, const struct ether_addr *eth_mac) {
-        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0, test_fd) < 0)
+        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
                 return -errno;
 
         return test_fd[0];
@@ -195,9 +195,7 @@ static void test_basic_request(sd_event *e) {
 int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(sd_event_new(&e) >= 0);
 

@@ -1,0 +1,99 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_message_verify_type" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>sd_bus_message_verify_type</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_message_verify_type</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_message_verify_type</refname>
+
+    <refpurpose>Check if the message has specified type at the current location</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_verify_type</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>char <parameter>type</parameter></paramdef>
+        <paramdef>const char* <parameter>contents</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_message_verify_type()</function> checks if the complete type at the
+    current location in the message <parameter>m</parameter> matches the specified
+    <parameter>type</parameter> and <parameter>contents</parameter>. If non-zero, parameter
+    <parameter>type</parameter> must be one of the types specified in
+    <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    If non-null, parameter <parameter>contents</parameter> must be a valid sequence of complete
+    types. If both <parameter>type</parameter> and <parameter>contents</parameter> are specified
+    <parameter>type</parameter> must be a container type.</para>
+
+    <para>If <parameter>type</parameter> is specified, the type in the message must match.  If
+    <parameter>contents</parameter> is specified, the type in the message must be a container type
+    with this signature.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, this call returns true if the type matches and zero if not (the message
+    <parameter>m</parameter> contains different data or the end of the message has been reached). On
+    failure, it returns a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para><parameter>m</parameter> or both <parameter>type</parameter> and
+          <parameter>contents</parameter> are <constant>NULL</constant>.</para>
+
+          <para>Arguments do not satisfy other constraints listed above.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>Message <parameter>m</parameter> is not sealed.
+          </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

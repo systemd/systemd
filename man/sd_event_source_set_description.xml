@@ -1,29 +1,13 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
--->
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_event_source_set_description" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_event_source_set_description</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>More text</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -95,49 +79,45 @@
     <title>Return Value</title>
 
     <para>On success, <function>sd_event_source_set_description()</function> and
-    <function>sd_event_source_get_description()</function> return a
-    non-negative integer. On failure, they return a negative
-    errno-style error code.</para>
-  </refsect1>
+    <function>sd_event_source_get_description()</function> return a non-negative integer. On failure, they
+    return a negative errno-style error code.</para>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para><parameter>source</parameter> is not a valid
-        pointer to an <structname>sd_event_source</structname>
-        object or the <parameter>description</parameter> argument for
-        <function>sd_event_source_get_description()</function> is
-        <constant>NULL</constant>.</para></listitem>
-      </varlistentry>
+          <listitem><para><parameter>source</parameter> is not a valid pointer to an
+          <structname>sd_event_source</structname> object or the <parameter>description</parameter> argument
+          for <function>sd_event_source_get_description()</function> is <constant>NULL</constant>.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Not enough memory to copy the
-        name.</para></listitem>
-      </varlistentry>
+          <listitem><para>Not enough memory to copy the name.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The event loop has been created in a different process.</para></listitem>
+          <listitem><para>The event loop has been created in a different process.</para></listitem>
 
-      </varlistentry>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENXIO</constant></term>
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
 
-        <listitem><para>No name was set for the event
-        source.</para></listitem>
-      </varlistentry>
+          <listitem><para>No name was set for the event source.</para></listitem>
+        </varlistentry>
 
-    </variablelist>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
@@ -149,8 +129,9 @@
       <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_inotify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>

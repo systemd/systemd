@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Daniel Mack
-***/
-
 #include "resolved-manager.h"
 
 #define MDNS_PORT 5353

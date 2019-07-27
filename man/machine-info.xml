@@ -1,28 +1,12 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="machine-info">
   <refentryinfo>
     <title>machine-info</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -71,7 +55,7 @@
     <para>The following machine metadata parameters may be set using
     <filename>/etc/machine-info</filename>:</para>
 
-    <variablelist>
+    <variablelist class='environment-variables'>
 
       <varlistentry>
         <term><varname>PRETTY_HOSTNAME=</varname></term>

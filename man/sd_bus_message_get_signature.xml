@@ -1,0 +1,111 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_message_get_signature" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>sd_bus_message_get_signature</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_message_get_signature</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_message_get_signature</refname>
+    <refname>sd_bus_message_is_empty</refname>
+    <refname>sd_bus_message_has_signature</refname>
+
+    <refpurpose>Query bus message signature</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>const char* <function>sd_bus_message_get_signature</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>int <parameter>complete</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_message_is_empty</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_message_has_signature</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>const char *<parameter>signature</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_message_get_signature()</function> returns the signature of message
+    <parameter>message</parameter>. If <parameter>complete</parameter> is true, the signature of the
+    whole message is returned, and just the signature of the currently open container otherwise.
+    </para>
+
+    <para><function>sd_bus_message_is_empty()</function> returns true if the message is empty,
+    i.e. when its signature is empty.</para>
+
+    <para><function>sd_bus_message_has_signature()</function> returns true if the signature of the
+    message <parameter>message</parameter> matches given <parameter>signature</parameter>. Parameter
+    <parameter>signature</parameter> may be <constant>NULL</constant>, this is treated the same as
+    an empty string, which is equivalent to calling <function>sd_bus_message_is_empty()</function>.
+    </para>
+</refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_bus_message_get_signature()</function> returns
+    the signature, and <constant>NULL</constant> on error.</para>
+
+    <para>The other functions return 0 or a positive integer on success. On failure, they return a
+    negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The <parameter>message</parameter> parameter is <constant>NULL</constant>.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>NULL</constant></term>
+
+          <listitem><para>The <parameter>message</parameter> parameter is <constant>NULL</constant>.
+          </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

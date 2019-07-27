@@ -48,13 +48,15 @@ SUBSYSTEM=="block", KERNEL=="nbd*", ENV{DEVTYPE}=="disk", TEST!="pid", ENV{SYSTE
 SUBSYSTEM=="net", KERNEL!="lo", TAG+="systemd", ENV{SYSTEMD_ALIAS}+="/sys/subsystem/net/devices/$name"
 SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_ALIAS}+="/sys/subsystem/bluetooth/devices/%k"
 
-SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_WANTS}+="bluetooth.target"
-ENV{ID_SMARTCARD_READER}=="?*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="smartcard.target"
-SUBSYSTEM=="sound", KERNEL=="card*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sound.target"
+SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_WANTS}+="bluetooth.target", ENV{SYSTEMD_USER_WANTS}+="bluetooth.target"
+ENV{ID_SMARTCARD_READER}=="?*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="smartcard.target", ENV{SYSTEMD_USER_WANTS}+="smartcard.target"
+SUBSYSTEM=="sound", KERNEL=="card*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sound.target", ENV{SYSTEMD_USER_WANTS}+="sound.target"
 
-SUBSYSTEM=="printer", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target"
-SUBSYSTEM=="usb", KERNEL=="lp*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target"
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target"
+SUBSYSTEM=="printer", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target", ENV{SYSTEMD_USER_WANTS}+="printer.target"
+SUBSYSTEM=="usb", KERNEL=="lp*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target", ENV{SYSTEMD_USER_WANTS}+="printer.target"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target", ENV{SYSTEMD_USER_WANTS}+="printer.target"
+
+SUBSYSTEM=="udc", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}+="usb-gadget.target"
 
 # Apply sysctl variables to network devices (and only to those) as they appear.
 ACTION=="add", SUBSYSTEM=="net", KERNEL!="lo", RUN+="@rootlibexecdir@/systemd-sysctl --prefix=/net/ipv4/conf/$name --prefix=/net/ipv4/neigh/$name --prefix=/net/ipv6/conf/$name --prefix=/net/ipv6/neigh/$name"

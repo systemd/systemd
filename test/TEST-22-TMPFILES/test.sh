@@ -1,6 +1,4 @@
 #!/bin/bash
-# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
-# ex: ts=8 sw=4 sts=4 et filetype=sh
 set -e
 TEST_DESCRIPTION="Tmpfiles related tests"
 TEST_NO_QEMU=1
@@ -14,6 +12,8 @@ test_setup() {
     inst_binary stat
     inst_binary seq
     inst_binary xargs
+    inst_binary mkfifo
+    inst_binary readlink
 
     # mask some services that we do not want to run in these tests
     ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service

@@ -1,0 +1,6 @@
+[NetDev]
+Name=vrf99
+Kind=vrf
+
+[VRF]
+TableId=42

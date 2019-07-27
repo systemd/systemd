@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010-2013 Lennart Poettering
-***/
-
 #include <stdbool.h>
 
 #include "sd-event.h"
@@ -25,7 +19,7 @@ typedef enum PTYForwardFlags {
         PTY_FORWARD_IGNORE_INITIAL_VHANGUP = 4,
 } PTYForwardFlags;
 
-typedef int (*PTYForwardHandler)(PTYForward *f, int rcode, void*userdata);
+typedef int (*PTYForwardHandler)(PTYForward *f, int rcode, void *userdata);
 
 int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForward **f);
 PTYForward *pty_forward_free(PTYForward *f);
@@ -42,5 +36,7 @@ void pty_forward_set_handler(PTYForward *f, PTYForwardHandler handler, void *use
 bool pty_forward_drain(PTYForward *f);
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority);
+
+int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(PTYForward*, pty_forward_free);

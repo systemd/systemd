@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <curl/curl.h>
 #include <linux/fs.h>
@@ -17,7 +12,6 @@
 #include "copy.h"
 #include "curl-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "import-common.h"
@@ -32,6 +26,7 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "utf8.h"
 #include "util.h"
 #include "web-util.h"
@@ -61,7 +56,6 @@ struct RawPull {
 
         char *local;
         bool force_local;
-        bool grow_machine_directory;
         bool settings;
         bool roothash;
 
@@ -120,35 +114,41 @@ int raw_pull_new(
                 RawPullFinished on_finished,
                 void *userdata) {
 
+        _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(raw_pull_unrefp) RawPull *i = NULL;
+        _cleanup_free_ char *root = NULL;
         int r;
 
         assert(ret);
 
-        i = new0(RawPull, 1);
-        if (!i)
+        root = strdup(image_root ?: "/var/lib/machines");
+        if (!root)
                 return -ENOMEM;
-
-        i->on_finished = on_finished;
-        i->userdata = userdata;
-
-        i->image_root = strdup(image_root ?: "/var/lib/machines");
-        if (!i->image_root)
-                return -ENOMEM;
-
-        i->grow_machine_directory = path_startswith(i->image_root, "/var/lib/machines");
 
         if (event)
-                i->event = sd_event_ref(event);
+                e = sd_event_ref(event);
         else {
-                r = sd_event_default(&i->event);
+                r = sd_event_default(&e);
                 if (r < 0)
                         return r;
         }
 
-        r = curl_glue_new(&i->glue, i->event);
+        r = curl_glue_new(&g, e);
         if (r < 0)
                 return r;
+
+        i = new(RawPull, 1);
+        if (!i)
+                return -ENOMEM;
+
+        *i = (RawPull) {
+                .on_finished = on_finished,
+                .userdata = userdata,
+                .image_root = TAKE_PTR(root),
+                .event = TAKE_PTR(e),
+                .glue = TAKE_PTR(g),
+        };
 
         i->glue->on_finished = pull_job_curl_on_finished;
         i->glue->userdata = i;
@@ -242,7 +242,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
         if (converted_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", t);
 
-        r = chattr_fd(converted_fd, FS_NOCOW_FL, FS_NOCOW_FL);
+        r = chattr_fd(converted_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
         if (r < 0)
                 log_warning_errno(r, "Failed to set file attributes on %s: %m", t);
 
@@ -250,7 +250,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
 
         r = qcow2_convert(i->raw_job->disk_fd, converted_fd);
         if (r < 0) {
-                unlink(t);
+                (void) unlink(t);
                 return log_error_errno(r, "Failed to convert qcow2 image: %m");
         }
 
@@ -299,7 +299,7 @@ static int raw_pull_copy_auxiliary_file(
 
         local = strjoina(i->image_root, "/", i->local, suffix);
 
-        r = copy_file_atomic(*path, local, 0644, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
+        r = copy_file_atomic(*path, local, 0644, 0, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
         if (r == -EEXIST)
                 log_warning_errno(r, "File %s already exists, not replacing.", local);
         else if (r == -ENOENT)
@@ -358,17 +358,17 @@ static int raw_pull_make_local_copy(RawPull *i) {
          * performance on COW file systems like btrfs, since it
          * reduces fragmentation caused by not allowing in-place
          * writes. */
-        r = chattr_fd(dfd, FS_NOCOW_FL, FS_NOCOW_FL);
+        r = chattr_fd(dfd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
         if (r < 0)
                 log_warning_errno(r, "Failed to set file attributes on %s: %m", tp);
 
         r = copy_bytes(i->raw_job->disk_fd, dfd, (uint64_t) -1, COPY_REFLINK);
         if (r < 0) {
-                unlink(tp);
+                (void) unlink(tp);
                 return log_error_errno(r, "Failed to make writable copy of image: %m");
         }
 
-        (void) copy_times(i->raw_job->disk_fd, dfd);
+        (void) copy_times(i->raw_job->disk_fd, dfd, COPY_CRTIME);
         (void) copy_xattr(i->raw_job->disk_fd, dfd);
 
         dfd = safe_close(dfd);
@@ -376,7 +376,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
         r = rename(tp, p);
         if (r < 0)  {
                 r = log_error_errno(errno, "Failed to move writable image into place: %m");
-                unlink(tp);
+                (void) unlink(tp);
                 return r;
         }
 
@@ -600,7 +600,7 @@ static int raw_pull_job_on_open_disk_raw(PullJob *j) {
         if (r < 0)
                 return r;
 
-        r = chattr_fd(j->disk_fd, FS_NOCOW_FL, FS_NOCOW_FL);
+        r = chattr_fd(j->disk_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
         if (r < 0)
                 log_warning_errno(r, "Failed to set file attributes on %s, ignoring: %m", i->temp_path);
 
@@ -684,7 +684,6 @@ int raw_pull_start(
         i->raw_job->on_open_disk = raw_pull_job_on_open_disk_raw;
         i->raw_job->on_progress = raw_pull_job_on_progress;
         i->raw_job->calc_checksum = verify != IMPORT_VERIFY_NO;
-        i->raw_job->grow_machine_directory = i->grow_machine_directory;
 
         r = pull_find_old_etags(url, i->image_root, DT_REG, ".raw-", ".raw", &i->raw_job->old_etags);
         if (r < 0)

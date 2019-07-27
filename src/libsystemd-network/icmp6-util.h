@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014-2015 Intel Corporation. All rights reserved.
+  Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
 #include <net/ethernet.h>

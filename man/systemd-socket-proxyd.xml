@@ -1,28 +1,14 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-     "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 David Strauss
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-socket-proxyd"
     xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-socket-proxyd</title>
     <productname>systemd</productname>
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>David</firstname>
-        <surname>Strauss</surname>
-        <email>david@davidstrauss.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
   <refmeta>
     <refentrytitle>systemd-socket-proxyd</refentrytitle>
@@ -64,7 +50,7 @@
     <citerefentry project='die-net'><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     The main differences for <command>systemd-socket-proxyd</command>
     are support for socket activation with
-    <literal>Accept=false</literal> and an event-driven
+    <literal>Accept=no</literal> and an event-driven
     design that scales better with the number of
     connections.</para>
   </refsect1>

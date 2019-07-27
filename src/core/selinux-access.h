@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Dan Walsh
-***/
-
 #include "sd-bus.h"
 
 #include "bus-util.h"

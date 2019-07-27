@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <stddef.h>
 #include <unistd.h>
@@ -11,6 +6,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "util.h"
 
 assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_FTP | LOG_DEBUG))
@@ -22,20 +18,35 @@ assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_LOCAL3 | LOG_DEBUG) & LOG
 assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_USER | LOG_INFO) & LOG_PRIMASK)
           == LOG_INFO);
 
+assert_cc(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(EINVAL)));
+assert_cc(!IS_SYNTHETIC_ERRNO(EINVAL));
+assert_cc(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(0)));
+assert_cc(!IS_SYNTHETIC_ERRNO(0));
+
 #define X10(x) x x x x x x x x x x
 #define X100(x) X10(X10(x))
 #define X1000(x) X100(X10(x))
 
-static void test_log_console(void) {
-        log_struct(LOG_INFO,
-                   "MESSAGE=Waldo PID="PID_FMT, getpid_cached(),
-                   "SERVICE=piepapo");
+static void test_file(void) {
+        log_info("__FILE__: %s", __FILE__);
+        log_info("RELATIVE_SOURCE_PATH: %s", RELATIVE_SOURCE_PATH);
+        log_info("PROJECT_FILE: %s", PROJECT_FILE);
+
+        assert(startswith(__FILE__, RELATIVE_SOURCE_PATH "/"));
 }
 
-static void test_log_journal(void) {
+static void test_log_struct(void) {
         log_struct(LOG_INFO,
-                   "MESSAGE=Foobar PID="PID_FMT, getpid_cached(),
-                   "SERVICE=foobar");
+                   "MESSAGE=Waldo PID="PID_FMT" (no errno)", getpid_cached(),
+                   "SERVICE=piepapo");
+
+        log_struct_errno(LOG_INFO, EILSEQ,
+                   "MESSAGE=Waldo PID="PID_FMT": %m (normal)", getpid_cached(),
+                   "SERVICE=piepapo");
+
+        log_struct_errno(LOG_INFO, SYNTHETIC_ERRNO(EILSEQ),
+                   "MESSAGE=Waldo PID="PID_FMT": %m (synthetic)", getpid_cached(),
+                   "SERVICE=piepapo");
 
         log_struct(LOG_INFO,
                    "MESSAGE=Foobar PID="PID_FMT, getpid_cached(),
@@ -57,17 +68,27 @@ static void test_long_lines(void) {
                             "asdfasdf %s asdfasdfa", "foobar");
 }
 
+static void test_log_syntax(void) {
+        assert_se(log_syntax("unit", LOG_ERR, "filename", 10, EINVAL, "EINVAL: %s: %m", "hogehoge") == -EINVAL);
+        assert_se(log_syntax("unit", LOG_ERR, "filename", 10, -ENOENT, "ENOENT: %s: %m", "hogehoge") == -ENOENT);
+        assert_se(log_syntax("unit", LOG_ERR, "filename", 10, SYNTHETIC_ERRNO(ENOTTY), "ENOTTY: %s: %m", "hogehoge") == -ENOTTY);
+}
+
 int main(int argc, char* argv[]) {
         int target;
 
-        for (target = 0; target <  _LOG_TARGET_MAX; target++) {
+        test_file();
+
+        for (target = 0; target < _LOG_TARGET_MAX; target++) {
                 log_set_target(target);
                 log_open();
 
-                test_log_console();
-                test_log_journal();
+                test_log_struct();
                 test_long_lines();
+                test_log_syntax();
         }
+
+        assert_se(log_info_errno(SYNTHETIC_ERRNO(EUCLEAN), "foo") == -EUCLEAN);
 
         return 0;
 }

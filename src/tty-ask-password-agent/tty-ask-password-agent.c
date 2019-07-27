@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2015 Werner Fink
+  Copyright © 2015 Werner Fink
 ***/
 
 #include <errno.h>
@@ -18,8 +15,10 @@
 #include <sys/prctl.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
-#include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -33,15 +32,18 @@
 #include "hashmap.h"
 #include "io-util.h"
 #include "macro.h"
+#include "main-func.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "plymouth-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 #include "utmp-wtmp.h"
 
 static enum {
@@ -231,20 +233,24 @@ static int ask_password_plymouth(
         r = 0;
 
 finish:
-        explicit_bzero(buffer, sizeof(buffer));
+        explicit_bzero_safe(buffer, sizeof(buffer));
         return r;
 }
 
 static int send_passwords(const char *socket_name, char **passwords) {
-        _cleanup_free_ char *packet = NULL;
+        _cleanup_(erase_and_freep) char *packet = NULL;
         _cleanup_close_ int socket_fd = -1;
-        union sockaddr_union sa = { .un.sun_family = AF_UNIX };
+        union sockaddr_union sa = {};
         size_t packet_length = 1;
         char **p, *d;
         ssize_t n;
-        int r;
+        int salen;
 
         assert(socket_name);
+
+        salen = sockaddr_un_set_path(&sa.un, socket_name);
+        if (salen < 0)
+                return salen;
 
         STRV_FOREACH(p, passwords)
                 packet_length += strlen(*p) + 1;
@@ -260,24 +266,14 @@ static int send_passwords(const char *socket_name, char **passwords) {
                 d = stpcpy(d, *p) + 1;
 
         socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
-        if (socket_fd < 0) {
-                r = log_debug_errno(errno, "socket(): %m");
-                goto finish;
-        }
+        if (socket_fd < 0)
+                return log_debug_errno(errno, "socket(): %m");
 
-        strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
+        n = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, salen);
+        if (n < 0)
+                return log_debug_errno(errno, "sendto(): %m");
 
-        n = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, SOCKADDR_UN_LEN(sa.un));
-        if (n < 0) {
-                r = log_debug_errno(errno, "sendto(): %m");
-                goto finish;
-        }
-
-        r = (int) n;
-
-finish:
-        explicit_bzero(packet, packet_length);
-        return r;
+        return (int) n;
 }
 
 static int parse_password(const char *filename, char **wall) {
@@ -307,10 +303,9 @@ static int parse_password(const char *filename, char **wall) {
         if (r < 0)
                 return r;
 
-        if (!socket_name) {
-                log_error("Invalid password file %s", filename);
-                return -EBADMSG;
-        }
+        if (!socket_name)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid password file %s", filename);
 
         if (not_after > 0 && now(CLOCK_MONOTONIC) > not_after)
                 return 0;
@@ -326,7 +321,7 @@ static int parse_password(const char *filename, char **wall) {
 
                 if (asprintf(&_wall,
                              "%s%sPassword entry required for \'%s\' (PID %u).\r\n"
-                             "Please enter password with the systemd-tty-ask-password-agent tool!",
+                             "Please enter password with the systemd-tty-ask-password-agent tool:",
                              strempty(*wall),
                              *wall ? "\r\n\r\n" : "",
                              message,
@@ -351,7 +346,6 @@ static int parse_password(const char *filename, char **wall) {
                 if (arg_plymouth)
                         r = ask_password_plymouth(message, not_after, accept_cached ? ASK_PASSWORD_ACCEPT_CACHED : 0, filename, &passwords);
                 else {
-                        char *password = NULL;
                         int tty_fd = -1;
 
                         if (arg_console) {
@@ -369,18 +363,12 @@ static int parse_password(const char *filename, char **wall) {
                         r = ask_password_tty(tty_fd, message, NULL, not_after,
                                              (echo ? ASK_PASSWORD_ECHO : 0) |
                                              (arg_console ? ASK_PASSWORD_CONSOLE_COLOR : 0),
-                                             filename, &password);
+                                             filename, &passwords);
 
                         if (arg_console) {
                                 tty_fd = safe_close(tty_fd);
                                 release_terminal();
                         }
-
-                        if (r >= 0)
-                                r = strv_push(&passwords, password);
-
-                        if (r < 0)
-                                string_free_erase(password);
                 }
 
                 /* If the query went away, that's OK */
@@ -492,7 +480,7 @@ static int show_passwords(void) {
                 if (!startswith(de->d_name, "ask."))
                         continue;
 
-                p = strappend("/run/systemd/ask-password/", de->d_name);
+                p = path_join("/run/systemd/ask-password", de->d_name);
                 if (!p)
                         return log_oom();
 
@@ -527,8 +515,12 @@ static int watch_passwords(void) {
         if (notify < 0)
                 return log_error_errno(errno, "Failed to allocate directory watch: %m");
 
-        if (inotify_add_watch(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO) < 0)
-                return log_error_errno(errno, "Failed to add /run/systemd/ask-password to directory watch: %m");
+        if (inotify_add_watch(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO) < 0) {
+                if (errno == ENOSPC)
+                        return log_error_errno(errno, "Failed to add /run/systemd/ask-password to directory watch: inotify watch limit reached");
+                else
+                        return log_error_errno(errno, "Failed to add /run/systemd/ask-password to directory watch: %m");
+        }
 
         assert_se(sigemptyset(&mask) >= 0);
         assert_se(sigset_add_many(&mask, SIGINT, SIGTERM, -1) >= 0);
@@ -565,7 +557,14 @@ static int watch_passwords(void) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-tty-ask-password-agent", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Process system password requests.\n\n"
                "  -h --help     Show this help\n"
@@ -575,8 +574,13 @@ static void help(void) {
                "     --watch    Continuously process password requests\n"
                "     --wall     Continuously forward password requests to wall\n"
                "     --plymouth Ask question with Plymouth instead of on TTY\n"
-               "     --console  Ask question on /dev/console instead of current TTY\n",
-               program_invocation_short_name);
+               "     --console  Ask question on /dev/console instead of current TTY\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -613,8 +617,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -643,10 +646,9 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_console = true;
                         if (optarg) {
 
-                                if (isempty(optarg)) {
-                                        log_error("Empty console device path is not allowed.");
-                                        return -EINVAL;
-                                }
+                                if (isempty(optarg))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Empty console device path is not allowed.");
 
                                 arg_device = optarg;
                         }
@@ -659,73 +661,72 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind != argc) {
-                log_error("%s takes no arguments.", program_invocation_short_name);
-                return -EINVAL;
-        }
+        if (optind != argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s takes no arguments.", program_invocation_short_name);
 
         if (arg_plymouth || arg_console) {
 
-                if (!IN_SET(arg_action, ACTION_QUERY, ACTION_WATCH)) {
-                        log_error("Options --query and --watch conflict.");
-                        return -EINVAL;
-                }
+                if (!IN_SET(arg_action, ACTION_QUERY, ACTION_WATCH))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Options --query and --watch conflict.");
 
-                if (arg_plymouth && arg_console) {
-                        log_error("Options --plymouth and --console conflict.");
-                        return -EINVAL;
-                }
+                if (arg_plymouth && arg_console)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Options --plymouth and --console conflict.");
         }
 
         return 1;
 }
 
 /*
- * To be able to ask on all terminal devices of /dev/console
- * the devices are collected. If more than one device is found,
- * then on each of the terminals a inquiring task is forked.
- * Every task has its own session and its own controlling terminal.
- * If one of the tasks does handle a password, the remaining tasks
- * will be terminated.
+ * To be able to ask on all terminal devices of /dev/console the devices are collected. If more than one
+ * device is found, then on each of the terminals a inquiring task is forked.  Every task has its own session
+ * and its own controlling terminal.  If one of the tasks does handle a password, the remaining tasks will be
+ * terminated.
  */
-static int ask_on_this_console(const char *tty, pid_t *ret_pid, int argc, char *argv[]) {
-        struct sigaction sig = {
+static int ask_on_this_console(const char *tty, pid_t *ret_pid, char **arguments) {
+        static const struct sigaction sigchld = {
                 .sa_handler = nop_signal_handler,
                 .sa_flags = SA_NOCLDSTOP | SA_RESTART,
         };
-        pid_t pid;
+        static const struct sigaction sighup = {
+                .sa_handler = SIG_DFL,
+                .sa_flags = SA_RESTART,
+        };
         int r;
 
+        assert_se(sigaction(SIGCHLD, &sigchld, NULL) >= 0);
+        assert_se(sigaction(SIGHUP, &sighup, NULL) >= 0);
         assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD, -1) >= 0);
 
-        assert_se(sigemptyset(&sig.sa_mask) >= 0);
-        assert_se(sigaction(SIGCHLD, &sig, NULL) >= 0);
-
-        sig.sa_handler = SIG_DFL;
-        assert_se(sigaction(SIGHUP, &sig, NULL) >= 0);
-
-        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
+        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
-                int ac;
+                char **i;
 
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGHUP) >= 0);
 
-                for (ac = 0; ac < argc; ac++) {
-                        if (streq(argv[ac], "--console")) {
-                                argv[ac] = strjoina("--console=", tty);
-                                break;
+                STRV_FOREACH(i, arguments) {
+                        char *k;
+
+                        if (!streq(*i, "--console"))
+                                continue;
+
+                        k = strjoin("--console=", tty);
+                        if (!k) {
+                                log_oom();
+                                _exit(EXIT_FAILURE);
                         }
+
+                        free_and_replace(*i, k);
                 }
 
-                assert(ac < argc);
-
-                execv(SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, argv);
+                execv(SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, arguments);
                 _exit(EXIT_FAILURE);
         }
 
-        *ret_pid = pid;
         return 0;
 }
 
@@ -781,9 +782,9 @@ static void terminate_agents(Set *pids) {
         }
 }
 
-static int ask_on_consoles(int argc, char *argv[]) {
+static int ask_on_consoles(char *argv[]) {
         _cleanup_set_free_ Set *pids = NULL;
-        _cleanup_strv_free_ char **consoles = NULL;
+        _cleanup_strv_free_ char **consoles = NULL, **arguments = NULL;
         siginfo_t status = {};
         char **tty;
         pid_t pid;
@@ -797,9 +798,13 @@ static int ask_on_consoles(int argc, char *argv[]) {
         if (!pids)
                 return log_oom();
 
+        arguments = strv_copy(argv);
+        if (!arguments)
+                return log_oom();
+
         /* Start an agent on each console. */
         STRV_FOREACH(tty, consoles) {
-                r = ask_on_this_console(*tty, &pid, argc, argv);
+                r = ask_on_this_console(*tty, &pid, arguments);
                 if (r < 0)
                         return r;
 
@@ -829,42 +834,37 @@ static int ask_on_consoles(int argc, char *argv[]) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         umask(0022);
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         if (arg_console && !arg_device)
                 /*
-                 * Spawn for each console device a separate process.
+                 * Spawn a separate process for each console device.
                  */
-                r = ask_on_consoles(argc, argv);
-        else {
+                return ask_on_consoles(argv);
 
-                if (arg_device) {
-                        /*
-                         * Later on, a controlling terminal will be acquired,
-                         * therefore the current process has to become a session
-                         * leader and should not have a controlling terminal already.
-                         */
-                        (void) setsid();
-                        (void) release_terminal();
-                }
-
-                if (IN_SET(arg_action, ACTION_WATCH, ACTION_WALL))
-                        r = watch_passwords();
-                else
-                        r = show_passwords();
+        if (arg_device) {
+                /*
+                 * Later on, a controlling terminal will be acquired,
+                 * therefore the current process has to become a session
+                 * leader and should not have a controlling terminal already.
+                 */
+                (void) setsid();
+                (void) release_terminal();
         }
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        if (IN_SET(arg_action, ACTION_WATCH, ACTION_WALL))
+                return watch_passwords();
+        else
+                return show_passwords();
 }
+
+DEFINE_MAIN_FUNCTION(run);

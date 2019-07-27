@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 typedef struct Service Service;
 typedef struct ServiceFDStore ServiceFDStore;
 
@@ -36,11 +30,13 @@ typedef enum ServiceType {
         SERVICE_DBUS,     /* we fork and wait until a specific D-Bus name appears on the bus */
         SERVICE_NOTIFY,   /* we fork and wait until a daemon sends us a ready message with sd_notify() */
         SERVICE_IDLE,     /* much like simple, but delay exec() until all jobs are dispatched. */
+        SERVICE_EXEC,     /* we fork and wait until we execute exec() (this means our own setup is waited for) */
         _SERVICE_TYPE_MAX,
         _SERVICE_TYPE_INVALID = -1
 } ServiceType;
 
 typedef enum ServiceExecCommand {
+        SERVICE_EXEC_CONDITION,
         SERVICE_EXEC_START_PRE,
         SERVICE_EXEC_START,
         SERVICE_EXEC_START_POST,
@@ -72,6 +68,8 @@ typedef enum ServiceResult {
         SERVICE_FAILURE_CORE_DUMP,
         SERVICE_FAILURE_WATCHDOG,
         SERVICE_FAILURE_START_LIMIT_HIT,
+        SERVICE_FAILURE_OOM_KILL,
+        SERVICE_SKIP_CONDITION,
         _SERVICE_RESULT_MAX,
         _SERVICE_RESULT_INVALID = -1
 } ServiceResult;
@@ -101,11 +99,15 @@ struct Service {
         usec_t restart_usec;
         usec_t timeout_start_usec;
         usec_t timeout_stop_usec;
+        usec_t timeout_abort_usec;
+        bool timeout_abort_set;
+        usec_t timeout_clean_usec;
         usec_t runtime_max_usec;
 
         dual_timestamp watchdog_timestamp;
-        usec_t watchdog_usec;
-        usec_t watchdog_override_usec;
+        usec_t watchdog_usec;            /* the requested watchdog timeout in the unit file */
+        usec_t watchdog_original_usec;   /* the watchdog timeout that was in effect when the unit was started, i.e. the timeout the forked off processes currently see */
+        usec_t watchdog_override_usec;   /* the watchdog timeout requested by the service itself through sd_notify() */
         bool watchdog_override_enable;
         sd_event_source *watchdog_event_source;
 
@@ -148,6 +150,7 @@ struct Service {
         /* If we shut down, remember why */
         ServiceResult result;
         ServiceResult reload_result;
+        ServiceResult clean_result;
 
         bool main_pid_known:1;
         bool main_pid_alien:1;
@@ -156,6 +159,7 @@ struct Service {
         /* Keep restart intention between UNIT_FAILED and UNIT_ACTIVATING */
         bool will_auto_restart:1;
         bool start_timeout_defined:1;
+        bool exec_fd_hot:1;
 
         char *bus_name;
         char *bus_name_owner; /* unique name of the current owner */
@@ -171,6 +175,8 @@ struct Service {
         NotifyAccess notify_access;
         NotifyState notify_state;
 
+        sd_event_source *exec_fd_event_source;
+
         ServiceFDStore *fd_store;
         size_t n_fd_store;
         unsigned n_fd_store_max;
@@ -185,7 +191,14 @@ struct Service {
 
         unsigned n_restarts;
         bool flush_n_restarts;
+
+        OOMPolicy oom_policy;
 };
+
+static inline usec_t service_timeout_abort_usec(Service *s) {
+        assert(s);
+        return s->timeout_abort_set ? s->timeout_abort_usec : s->timeout_stop_usec;
+}
 
 extern const UnitVTable service_vtable;
 
@@ -201,6 +214,9 @@ ServiceType service_type_from_string(const char *s) _pure_;
 const char* service_exec_command_to_string(ServiceExecCommand i) _const_;
 ServiceExecCommand service_exec_command_from_string(const char *s) _pure_;
 
+const char* service_exec_ex_command_to_string(ServiceExecCommand i) _const_;
+ServiceExecCommand service_exec_ex_command_from_string(const char *s) _pure_;
+
 const char* notify_state_to_string(NotifyState i) _const_;
 NotifyState notify_state_from_string(const char *s) _pure_;
 
@@ -208,3 +224,5 @@ const char* service_result_to_string(ServiceResult i) _const_;
 ServiceResult service_result_from_string(const char *s) _pure_;
 
 DEFINE_CAST(SERVICE, Service);
+
+#define STATUS_TEXT_MAX (16U*1024U)

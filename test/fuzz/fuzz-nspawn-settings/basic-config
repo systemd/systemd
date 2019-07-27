@@ -1,0 +1,36 @@
+[Exec]
+Boot=off
+ProcessTwo=off
+Parameters=/sbin/init -x=1
+Environment=THIS=that
+User=user
+WorkingDirectory=/cwd
+PivotRoot=/newroot
+Capability=CAP_NET
+DropCapability=CAP_ADMIN
+KillSignal=SIGTERM
+Personality=shy
+MachineID=edbfea3309ba41ea83e2318c58a8d498
+PrivateUser=1:2
+NotifyReady=no
+SystemCallFilters=write
+
+[Files]
+ReadOnly=no
+Volatile=no
+Bind=/bindthis
+BindReadOnly=/bindthisro
+TemporaryFileSystem=/thisismytmpfs:rw
+Overlay=/thisisanoverlay:/thisisanoverlaytoo
+PrivateUsersChown=no
+
+[Network]
+Private=off
+VirtualEthernet=yes
+VirtualEthernetExtra=veth1:veth2
+Interface=eth1 enp0s1
+MacVLAN=eno1 eno2
+IPVLAN=eno3 enp2s124
+Bridge=bridge123 bridge125
+Zone=myzone
+Port=1234 156 -1

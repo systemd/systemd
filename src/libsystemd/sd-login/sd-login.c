@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <poll.h>
@@ -16,9 +11,9 @@
 #include "alloc-util.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
+#include "env-file.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
@@ -263,8 +258,7 @@ static int file_of_uid(uid_t uid, char **p) {
 }
 
 _public_ int sd_uid_get_state(uid_t uid, char**state) {
-        _cleanup_free_ char *p = NULL;
-        char *s = NULL;
+        _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
         assert_return(state, -EINVAL);
@@ -273,24 +267,17 @@ _public_ int sd_uid_get_state(uid_t uid, char**state) {
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p, NEWLINE, "STATE", &s, NULL);
+        r = parse_env_file(NULL, p, "STATE", &s);
         if (r == -ENOENT) {
-                free(s);
-                s = strdup("offline");
-                if (!s)
-                        return -ENOMEM;
-
-        }
-        else if (r < 0) {
-                free(s);
+                r = free_and_strdup(&s, "offline");
+                if (r < 0)
+                        return r;
+        } else if (r < 0)
                 return r;
-        }
-        if (isempty(s)) {
-                free(s);
+        else if (isempty(s))
                 return -EIO;
-        }
 
-        *state = s;
+        *state = TAKE_PTR(s);
         return 0;
 }
 
@@ -304,7 +291,7 @@ _public_ int sd_uid_get_display(uid_t uid, char **session) {
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p, NEWLINE, "DISPLAY", &s, NULL);
+        r = parse_env_file(NULL, p, "DISPLAY", &s);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
@@ -327,7 +314,7 @@ static int file_of_seat(const char *seat, char **_p) {
                 if (!filename_is_valid(seat))
                         return -EINVAL;
 
-                p = strappend("/run/systemd/seats/", seat);
+                p = path_join("/run/systemd/seats", seat);
         } else {
                 _cleanup_free_ char *buf = NULL;
 
@@ -335,9 +322,8 @@ static int file_of_seat(const char *seat, char **_p) {
                 if (r < 0)
                         return r;
 
-                p = strappend("/run/systemd/seats/", buf);
+                p = path_join("/run/systemd/seats", buf);
         }
-
         if (!p)
                 return -ENOMEM;
 
@@ -359,7 +345,7 @@ _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) 
 
         variable = require_active ? "ACTIVE_UID" : "UIDS";
 
-        r = parse_env_file(NULL, p, NEWLINE, variable, &s, NULL);
+        r = parse_env_file(NULL, p, variable, &s);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -388,7 +374,7 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p, NEWLINE, variable, &s, NULL);
+        r = parse_env_file(NULL, p, variable, &s);
         if (r == -ENOENT || (r >= 0 && isempty(s))) {
                 if (array)
                         *array = NULL;
@@ -440,7 +426,7 @@ static int file_of_session(const char *session, char **_p) {
                 if (!session_id_valid(session))
                         return -EINVAL;
 
-                p = strappend("/run/systemd/sessions/", session);
+                p = path_join("/run/systemd/sessions", session);
         } else {
                 _cleanup_free_ char *buf = NULL;
 
@@ -448,7 +434,7 @@ static int file_of_session(const char *session, char **_p) {
                 if (r < 0)
                         return r;
 
-                p = strappend("/run/systemd/sessions/", buf);
+                p = path_join("/run/systemd/sessions", buf);
         }
 
         if (!p)
@@ -466,7 +452,7 @@ _public_ int sd_session_is_active(const char *session) {
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p, NEWLINE, "ACTIVE", &s, NULL);
+        r = parse_env_file(NULL, p, "ACTIVE", &s);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
@@ -485,7 +471,7 @@ _public_ int sd_session_is_remote(const char *session) {
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p, NEWLINE, "REMOTE", &s, NULL);
+        r = parse_env_file(NULL, p, "REMOTE", &s);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
@@ -506,7 +492,7 @@ _public_ int sd_session_get_state(const char *session, char **state) {
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p, NEWLINE, "STATE", &s, NULL);
+        r = parse_env_file(NULL, p, "STATE", &s);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
@@ -529,7 +515,7 @@ _public_ int sd_session_get_uid(const char *session, uid_t *uid) {
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p, NEWLINE, "UID", &s, NULL);
+        r = parse_env_file(NULL, p, "UID", &s);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
@@ -551,7 +537,7 @@ static int session_get_string(const char *session, const char *field, char **val
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p, NEWLINE, field, &s, NULL);
+        r = parse_env_file(NULL, p, field, &s);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
@@ -643,10 +629,9 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p, NEWLINE,
+        r = parse_env_file(NULL, p,
                            "ACTIVE", &s,
-                           "ACTIVE_UID", &t,
-                           NULL);
+                           "ACTIVE_UID", &t);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
@@ -681,10 +666,9 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p, NEWLINE,
+        r = parse_env_file(NULL, p,
                            "SESSIONS", &s,
-                           "UIDS", &t,
-                           NULL);
+                           "UIDS", &t);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
@@ -750,9 +734,8 @@ static int seat_get_can(const char *seat, const char *variable) {
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p, NEWLINE,
-                           variable, &s,
-                           NULL);
+        r = parse_env_file(NULL, p,
+                           variable, &s);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
@@ -834,7 +817,7 @@ _public_ int sd_get_uids(uid_t **users) {
                                 uid_t *t;
 
                                 n = MAX(16, 2*r);
-                                t = realloc(l, sizeof(uid_t) * n);
+                                t = reallocarray(l, sizeof(uid_t), n);
                                 if (!t)
                                         return -ENOMEM;
 
@@ -895,20 +878,27 @@ _public_ int sd_machine_get_class(const char *machine, char **class) {
         const char *p;
         int r;
 
-        assert_return(machine_name_is_valid(machine), -EINVAL);
         assert_return(class, -EINVAL);
 
-        p = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(NULL, p, NEWLINE, "CLASS", &c, NULL);
-        if (r == -ENOENT)
-                return -ENXIO;
-        if (r < 0)
-                return r;
-        if (!c)
-                return -EIO;
+        if (streq(machine, ".host")) {
+                c = strdup("host");
+                if (!c)
+                        return -ENOMEM;
+        } else {
+                if (!machine_name_is_valid(machine))
+                        return -EINVAL;
+
+                p = strjoina("/run/systemd/machines/", machine);
+                r = parse_env_file(NULL, p, "CLASS", &c);
+                if (r == -ENOENT)
+                        return -ENXIO;
+                if (r < 0)
+                        return r;
+                if (!c)
+                        return -EIO;
+        }
 
         *class = TAKE_PTR(c);
-
         return 0;
 }
 
@@ -923,7 +913,7 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ifindices) {
         assert_return(ifindices, -EINVAL);
 
         p = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(NULL, p, NEWLINE, "NETIF", &netif, NULL);
+        r = parse_env_file(NULL, p, "NETIF", &netif);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
@@ -954,11 +944,11 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ifindices) {
         return nr;
 }
 
-static inline int MONITOR_TO_FD(sd_login_monitor *m) {
+static int MONITOR_TO_FD(sd_login_monitor *m) {
         return (int) (unsigned long) m - 1;
 }
 
-static inline sd_login_monitor* FD_TO_MONITOR(int fd) {
+static sd_login_monitor* FD_TO_MONITOR(int fd) {
         return (sd_login_monitor*) (unsigned long) (fd + 1);
 }
 

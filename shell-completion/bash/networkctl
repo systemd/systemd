@@ -17,55 +17,55 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word () {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
-        return 1
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+    return 1
 }
 
 __get_links() {
-        networkctl list --no-legend --no-pager --all | { while read -r a b c; do echo " $b"; done; };
+    networkctl list --no-legend --no-pager --all | { while read -r a b c; do echo " $b"; done; };
 }
 
 _networkctl() {
-        local i verb comps
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local -A OPTS=(
-               [STANDALONE]='-a --all -h --help --version --no-pager --no-legend'
-                      [ARG]=''
-        )
+    local i verb comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local -A OPTS=(
+        [STANDALONE]='-a --all -h --help --version --no-pager --no-legend -s --stats'
+        [ARG]=''
+    )
 
-        local -A VERBS=(
-                [STANDALONE]='label'
-                [LINKS]='status list lldp'
-        )
+    local -A VERBS=(
+        [STANDALONE]='label'
+        [LINKS]='status list lldp delete'
+    )
 
-        _init_completion || return
+    _init_completion || return
 
-        for ((i=0; i < COMP_CWORD; i++)); do
-                if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
-                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                        verb=${COMP_WORDS[i]}
-                        break
-                fi
-        done
-
-        if [[ "$cur" = -* ]]; then
-                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
-                return 0
+    for ((i=0; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+            verb=${COMP_WORDS[i]}
+            break
         fi
+    done
 
-        if [[ -z $verb ]]; then
-                comps=${VERBS[*]}
-        elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
-                comps=''
-        elif __contains_word "$verb" ${VERBS[LINKS]}; then
-                comps=$( __get_links )
-        fi
-
-        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
         return 0
+    fi
+
+    if [[ -z $verb ]]; then
+        comps=${VERBS[*]}
+    elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
+        comps=''
+    elif __contains_word "$verb" ${VERBS[LINKS]}; then
+        comps=$( __get_links )
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
 }
 
 complete -F _networkctl networkctl

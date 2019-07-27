@@ -1,14 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="timedatectl" conditional='ENABLE_TIMEDATECTL'
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -16,15 +9,6 @@
   <refentryinfo>
     <title>timedatectl</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -39,22 +23,25 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>timedatectl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg></command>
+      <command>timedatectl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><command>timedatectl</command> may be used to query and
-    change the system clock and its settings.</para>
+    <para><command>timedatectl</command> may be used to query and change the system clock and its settings,
+    and enable or disable time synchronization services.</para>
 
     <para>Use
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     to initialize the system time zone for mounted (but not booted)
     system images.</para>
 
-    <para><command>timedatectl</command> may be used to show the current status of
+    <para><command>timedatectl</command> may be used to show the current status of time synchronization
+    services, for example
     <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     </para>
 
@@ -86,15 +73,16 @@
       <varlistentry>
         <term><option>--monitor</option></term>
 
-        <listitem><para>If <command>timesync-status</command> is invoked and this option is passed,
-        then <command>timedatectl</command> monitors the status of
+        <listitem><para>If <command>timesync-status</command> is invoked and this option is passed, then
+        <command>timedatectl</command> monitors the status of
         <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        and updates the outputs. Use Ctrl-C to terminate the monitoring.</para></listitem>
+        and updates the outputs. Use <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> to terminate the
+        monitoring.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-a</option></term>
-        <term><option>-all</option></term>
+        <term><option>--all</option></term>
 
         <listitem><para>When showing properties of
         <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
@@ -138,12 +126,19 @@
       <varlistentry>
         <term><command>status</command></term>
 
-        <listitem><para>Show current settings of the system clock and RTC,
-        including whether network time synchronization through
-        <filename>systemd-timesyncd.service</filename> is active. Even if it is
-        inactive, a different service might still synchronize the clock.
-        If no command is specified, this is the implied default.
+        <listitem><para>Show current settings of the system clock and RTC, including whether network time
+        synchronization is active. If no command is specified, this is the implied default.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>show</command></term>
+
+        <listitem><para>Show the same information as <option>status</option>, but in machine readable form.
+        This command is intended to be used whenever computer-parsable output is required.
+        Use <option>status</option> if you are looking for formatted human-readable output.</para>
+        <para>By default, empty properties are suppressed. Use <option>--all</option> to show those too.
+        To select specific properties to show, use <option>--property=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -198,20 +193,21 @@
       <varlistentry>
         <term><command>set-ntp [BOOL]</command></term>
 
-        <listitem><para>Takes a boolean argument. Controls whether network time synchronization is active
-        and enabled (if available). If the argument is true, this enables and starts the first existed
-        service listed in the environment variable <varname>$SYSTEMD_TIMEDATED_NTP_SERVICES</varname>
-        of <filename>systemd-timedated.service</filename>. If the argument is false, then this disables and
-        stops the all services listed in <varname>$SYSTEMD_TIMEDATED_NTP_SERVICES</varname>.</para></listitem>
+        <listitem><para>Takes a boolean argument. Controls whether network time synchronization is active and
+        enabled (if available). If the argument is true, this enables and starts the first existing network
+        synchronization service. If the argument is false, then this disables and stops the known network
+        synchronization services. The way that the list of services is built is described below.</para>
+        </listitem>
       </varlistentry>
 
     </variablelist>
 
-    <refsect2><title>systemd-timesyncd Commands</title>
+    <refsect2>
+      <title>systemd-timesyncd Commands</title>
 
-    <para>The following commands are specific to
-    <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    </para>
+      <para>The following commands are specific to
+      <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      </para>
 
       <variablelist>
         <varlistentry>
@@ -225,12 +221,25 @@
         <varlistentry>
           <term><command>show-timesync</command></term>
 
-          <listitem><para>Show properties of the manager of
-          <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-          By default, empty properties are suppressed. Use <option>--all</option> to show those too. To select specific
-          properties to show, use <option>--property=</option>. This command is intended to be used whenever
-          computer-parsable output is required. Use <option>timesync-status</option> if you are looking for formatted
-          human-readable output.</para></listitem>
+          <listitem><para>Show the same information as <option>timesync-status</option>, but in machine readable form.
+          This command is intended to be used whenever computer-parsable output is required.
+          Use <option>timesync-status</option> if you are looking for formatted human-readable output.</para>
+          <para>By default, empty properties are suppressed. Use <option>--all</option> to show those too.
+          To select specific properties to show, use <option>--property=</option>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>ntp-servers <replaceable>INTERFACE</replaceable> <replaceable>SERVER</replaceable>…</command></term>
+
+          <listitem><para>Set the interface specific NTP servers. This command can be used only when the
+          interface is managed by <command>systemd-networkd</command>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>revert <replaceable>INTERFACE</replaceable></command></term>
+
+          <listitem><para>Revert the interface specific NTP servers. This command can be used only when
+          the interface is managed by <command>systemd-networkd</command>.</para></listitem>
         </varlistentry>
       </variablelist>
 
@@ -241,8 +250,7 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned, a non-zero failure
-    code otherwise.</para>
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
   </refsect1>
 
   <xi:include href="less-variables.xml" />

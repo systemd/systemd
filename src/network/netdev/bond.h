@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
-***/
+#include <netinet/in.h>
+#include <linux/if_bonding.h>
 
 #include "in-addr-util.h"
-#include "list.h"
-
-#include "netdev/netdev.h"
+#include "netdev.h"
+#include "ordered-set.h"
 
 /*
  * Maximum number of targets supported by the kernel for a single
@@ -19,23 +15,23 @@
 #define NETDEV_BOND_ARP_TARGETS_MAX 16
 
 typedef enum BondMode {
-        NETDEV_BOND_MODE_BALANCE_RR,
-        NETDEV_BOND_MODE_ACTIVE_BACKUP,
-        NETDEV_BOND_MODE_BALANCE_XOR,
-        NETDEV_BOND_MODE_BROADCAST,
-        NETDEV_BOND_MODE_802_3AD,
-        NETDEV_BOND_MODE_BALANCE_TLB,
-        NETDEV_BOND_MODE_BALANCE_ALB,
+        NETDEV_BOND_MODE_BALANCE_RR    = BOND_MODE_ROUNDROBIN,
+        NETDEV_BOND_MODE_ACTIVE_BACKUP = BOND_MODE_ACTIVEBACKUP,
+        NETDEV_BOND_MODE_BALANCE_XOR   = BOND_MODE_XOR,
+        NETDEV_BOND_MODE_BROADCAST     = BOND_MODE_BROADCAST,
+        NETDEV_BOND_MODE_802_3AD       = BOND_MODE_8023AD,
+        NETDEV_BOND_MODE_BALANCE_TLB   = BOND_MODE_TLB,
+        NETDEV_BOND_MODE_BALANCE_ALB   = BOND_MODE_ALB,
         _NETDEV_BOND_MODE_MAX,
-        _NETDEV_BOND_MODE_INVALID = -1
+        _NETDEV_BOND_MODE_INVALID      = -1
 } BondMode;
 
 typedef enum BondXmitHashPolicy {
-        NETDEV_BOND_XMIT_HASH_POLICY_LAYER2,
-        NETDEV_BOND_XMIT_HASH_POLICY_LAYER34,
-        NETDEV_BOND_XMIT_HASH_POLICY_LAYER23,
-        NETDEV_BOND_XMIT_HASH_POLICY_ENCAP23,
-        NETDEV_BOND_XMIT_HASH_POLICY_ENCAP34,
+        NETDEV_BOND_XMIT_HASH_POLICY_LAYER2   = BOND_XMIT_POLICY_LAYER2,
+        NETDEV_BOND_XMIT_HASH_POLICY_LAYER34  = BOND_XMIT_POLICY_LAYER34,
+        NETDEV_BOND_XMIT_HASH_POLICY_LAYER23  = BOND_XMIT_POLICY_LAYER23,
+        NETDEV_BOND_XMIT_HASH_POLICY_ENCAP23  = BOND_XMIT_POLICY_ENCAP23,
+        NETDEV_BOND_XMIT_HASH_POLICY_ENCAP34  = BOND_XMIT_POLICY_ENCAP34,
         _NETDEV_BOND_XMIT_HASH_POLICY_MAX,
         _NETDEV_BOND_XMIT_HASH_POLICY_INVALID = -1
 } BondXmitHashPolicy;
@@ -87,12 +83,6 @@ typedef enum BondPrimaryReselect {
         _NETDEV_BOND_PRIMARY_RESELECT_INVALID = -1,
 } BondPrimaryReselect;
 
-typedef struct ArpIpTarget {
-        union in_addr_union ip;
-
-        LIST_FIELDS(struct ArpIpTarget, arp_ip_target);
-} ArpIpTarget;
-
 typedef struct Bond {
         NetDev meta;
 
@@ -105,6 +95,8 @@ typedef struct Bond {
         BondArpAllTargets arp_all_targets;
         BondPrimaryReselect primary_reselect;
 
+        int tlb_dynamic_lb;
+
         bool all_slaves_active;
 
         unsigned resend_igmp;
@@ -112,18 +104,23 @@ typedef struct Bond {
         unsigned num_grat_arp;
         unsigned min_links;
 
+        uint16_t ad_actor_sys_prio;
+        uint16_t ad_user_port_key;
+        struct ether_addr ad_actor_system;
+
         usec_t miimon;
         usec_t updelay;
         usec_t downdelay;
         usec_t arp_interval;
         usec_t lp_interval;
 
-        int n_arp_ip_targets;
-        ArpIpTarget *arp_ip_targets;
+        OrderedSet *arp_ip_targets;
 } Bond;
 
 DEFINE_NETDEV_CAST(BOND, Bond);
 extern const NetDevVTable bond_vtable;
+
+int link_set_bond(Link *link);
 
 const char *bond_mode_to_string(BondMode d) _const_;
 BondMode bond_mode_from_string(const char *d) _pure_;
@@ -149,12 +146,15 @@ BondArpAllTargets bond_arp_all_targets_from_string(const char *d) _pure_;
 const char *bond_primary_reselect_to_string(BondPrimaryReselect d) _const_;
 BondPrimaryReselect bond_primary_reselect_from_string(const char *d) _pure_;
 
-int config_parse_bond_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_xmit_hash_policy(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_lacp_rate(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_ad_select(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_fail_over_mac(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_arp_validate(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_arp_all_targets(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bond_primary_reselect(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_arp_ip_target_address(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_xmit_hash_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_lacp_rate);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_ad_select);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_fail_over_mac);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_arp_validate);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_arp_all_targets);
+CONFIG_PARSER_PROTOTYPE(config_parse_bond_primary_reselect);
+CONFIG_PARSER_PROTOTYPE(config_parse_arp_ip_target_address);
+CONFIG_PARSER_PROTOTYPE(config_parse_ad_actor_sys_prio);
+CONFIG_PARSER_PROTOTYPE(config_parse_ad_user_port_key);
+CONFIG_PARSER_PROTOTYPE(config_parse_ad_actor_system);

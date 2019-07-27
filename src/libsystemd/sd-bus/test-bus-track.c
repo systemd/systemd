@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <sys/socket.h>
@@ -11,6 +6,7 @@
 #include "sd-bus.h"
 
 #include "macro.h"
+#include "tests.h"
 
 static bool track_cb_called_x = false;
 static bool track_cb_called_y = false;
@@ -49,23 +45,31 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_bus_track_unrefp) sd_bus_track *x = NULL, *y = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *a = NULL, *b = NULL;
+        bool use_system_bus = false;
         const char *unique;
         int r;
+
+        test_setup_logging(LOG_INFO);
 
         r = sd_event_default(&event);
         assert_se(r >= 0);
 
         r = sd_bus_open_user(&a);
         if (IN_SET(r, -ECONNREFUSED, -ENOENT)) {
-                log_info("Failed to connect to bus, skipping tests.");
-                return EXIT_TEST_SKIP;
+                r = sd_bus_open_system(&a);
+                if (IN_SET(r, -ECONNREFUSED, -ENOENT))
+                        return log_tests_skipped("Failed to connect to bus");
+                use_system_bus = true;
         }
         assert_se(r >= 0);
 
         r = sd_bus_attach_event(a, event, SD_EVENT_PRIORITY_NORMAL);
         assert_se(r >= 0);
 
-        r = sd_bus_open_user(&b);
+        if (use_system_bus)
+                r = sd_bus_open_system(&b);
+        else
+                r = sd_bus_open_user(&b);
         assert_se(r >= 0);
 
         r = sd_bus_attach_event(b, event, SD_EVENT_PRIORITY_NORMAL);

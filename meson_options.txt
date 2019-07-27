@@ -1,7 +1,8 @@
 # -*- mode: meson -*-
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
+
+option('version-tag', type : 'string',
+       description : 'override the git version string')
 
 option('split-usr', type : 'combo', choices : ['auto', 'true', 'false'],
        description : '''/bin, /sbin aren't symlinks into /usr''')
@@ -10,7 +11,7 @@ option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
 option('rootlibdir', type : 'string',
        description : '''[/usr]/lib/x86_64-linux-gnu or such''')
 option('rootprefix', type : 'string',
-       description : '''override the root prefix''')
+       description : '''override the root prefix [default '/' if split-usr and '/usr' otherwise]''')
 option('link-udev-shared', type : 'boolean',
        description : 'link systemd-udev and its helpers to libsystemd-shared.so')
 option('link-systemctl-shared', type: 'boolean',
@@ -30,12 +31,9 @@ option('telinit-path', type : 'string', value : '/lib/sysvinit/telinit',
        description : 'path to telinit')
 option('rc-local', type : 'string',
        value : '/etc/rc.local')
-option('halt-local', type : 'string',
-       value : '/usr/sbin/halt.local')
 
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')
-option('kill-path', type : 'string', description : 'path to kill')
 option('kmod-path', type : 'string', description : 'path to kmod')
 option('kexec-path', type : 'string', description : 'path to kexec')
 option('sulogin-path', type : 'string', description : 'path to sulogin')
@@ -43,17 +41,24 @@ option('mount-path', type : 'string', description : 'path to mount')
 option('umount-path', type : 'string', description : 'path to umount')
 option('loadkeys-path', type : 'string', description : 'path to loadkeys')
 option('setfont-path', type : 'string', description : 'path to setfont')
+option('nologin-path', type : 'string', description : 'path to nologin')
 
 option('debug-shell', type : 'string', value : '/bin/sh',
        description : 'path to debug shell binary')
 option('debug-tty', type : 'string', value : '/dev/tty9',
        description : 'specify the tty device for debug shell')
-option('debug', type : 'array', choices : ['hashmap', 'mmap-cache'], value : [],
+option('debug-extra', type : 'array', choices : ['hashmap', 'mmap-cache', 'siphash'], value : [],
        description : 'enable extra debugging')
 option('memory-accounting-default', type : 'boolean',
        description : 'enable MemoryAccounting= by default')
+option('bump-proc-sys-fs-file-max', type : 'boolean',
+       description : 'bump /proc/sys/fs/file-max to ULONG_MAX')
+option('bump-proc-sys-fs-nr-open', type : 'boolean',
+       description : 'bump /proc/sys/fs/nr_open to INT_MAX')
 option('valgrind', type : 'boolean', value : false,
        description : 'do extra operations to avoid valgrind warnings')
+option('log-trace', type : 'boolean', value : false,
+       description : 'enable low level debug logging')
 
 option('utmp', type : 'boolean',
        description : 'support for utmp/wtmp log handling')
@@ -73,6 +78,8 @@ option('binfmt', type : 'boolean',
        description : 'support for custom binary formats')
 option('coredump', type : 'boolean',
        description : 'install the coredump handler')
+option('pstore', type : 'boolean',
+       description : 'install the pstore archival tool')
 option('logind', type : 'boolean',
        description : 'install the systemd-logind stack')
 option('hostnamed', type : 'boolean',
@@ -91,8 +98,16 @@ option('timesyncd', type : 'boolean',
        description : 'install the systemd-timesyncd daemon')
 option('remote', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'support for "journal over the network"')
-option('myhostname', type : 'boolean',
-       description : 'nss-myhostname support')
+option('create-log-dirs', type : 'boolean',
+       description : 'create /var/log/journal{,/remote}')
+option('nss-myhostname', type : 'boolean',
+       description : 'install nss-myhostname module')
+option('nss-mymachines', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'install nss-mymachines module')
+option('nss-resolve', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'install nss-resolve module')
+option('nss-systemd', type : 'boolean',
+       description : 'install nss-systemd module')
 option('firstboot', type : 'boolean',
        description : 'support for firstboot mechanism')
 option('randomseed', type : 'boolean',
@@ -114,6 +129,7 @@ option('hwdb', type : 'boolean',
 option('rfkill', type : 'boolean',
        description : 'support for the rfkill tools')
 option('man', type : 'combo', choices : ['auto', 'true', 'false'],
+       value : 'false',
        description : 'build and install man pages')
 option('html', type : 'combo', choices : ['auto', 'true', 'false'],
        value : 'false',
@@ -127,7 +143,7 @@ option('dbussessionservicedir', type : 'string',
        description : 'D-Bus session service directory')
 option('dbussystemservicedir', type : 'string',
        description : 'D-Bus system service directory')
-option('pkgconfigdatadir', type : 'string', value : 'share/pkgconfig',
+option('pkgconfigdatadir', type : 'string', value : '',
        description : 'directory for ')
 option('pkgconfiglibdir', type : 'string', value : '',
        description : 'directory for ')
@@ -145,30 +161,31 @@ option('fallback-hostname', type : 'string', value : 'localhost',
 option('compat-gateway-hostname', type : 'boolean', value : 'false',
        description : 'allow "gateway" as the symbolic name for default gateway')
 option('default-hierarchy', type : 'combo',
-       choices : ['legacy', 'hybrid', 'unified'], value : 'hybrid',
+       choices : ['legacy', 'hybrid', 'unified'], value : 'unified',
        description : 'default cgroup hierarchy')
-option('time-epoch', type : 'string',
+option('default-net-naming-scheme', type : 'combo',
+       choices : ['latest', 'v238', 'v239', 'v240'],
+       description : 'default net.naming-scheme= value')
+option('status-unit-format-default', type : 'combo',
+       choices : ['description', 'name'],
+       description : 'use unit name or description in messages by default')
+option('time-epoch', type : 'integer', value : '-1',
        description : 'time epoch for time clients')
-option('system-uid-max', type : 'string',
+option('system-uid-max', type : 'integer', value : '-1',
        description : 'maximum system UID')
-option('system-gid-max', type : 'string',
+option('system-gid-max', type : 'integer', value : '-1',
        description : 'maximum system GID')
-option('dynamic-uid-min', type : 'string',
-       description : 'minimum dynamic UID',
-       value : '61184') # That's → 0x0000EF00 in hex
-option('dynamic-uid-max', type : 'string',
-       description : 'maximum dynamic UID',
-       value : '65519') # That's → 0x0000FFEF in hex
-option('container-uid-base-min', type : 'string',
-       description : 'minimum container UID base',
-       value : '524288') # That's → 0x00080000 in hex
-option('container-uid-base-max', type : 'string',
-       description : 'maximum container UID base',
-       value : '1878982656') # That's → 0x6FFF0000 in hex
-option('tty-gid', type : 'string',
-       description : 'the numeric GID of the "tty" group',
-       value : '5')
-option('users-gid', type : 'string',
+option('dynamic-uid-min', type : 'integer', value : 0x0000EF00,
+       description : 'minimum dynamic UID')
+option('dynamic-uid-max', type : 'integer', value : 0x0000FFEF,
+       description : 'maximum dynamic UID')
+option('container-uid-base-min', type : 'integer', value : 0x00080000,
+       description : 'minimum container UID base')
+option('container-uid-base-max', type : 'integer', value : 0x6FFF0000,
+       description : 'maximum container UID base')
+option('tty-gid', type : 'integer', value : 5,
+       description : 'the numeric GID of the "tty" group')
+option('users-gid', type : 'integer', value : '-1',
        description : 'the numeric GID of the "users" group')
 option('adm-group', type : 'boolean',
        description : 'the ACL for adm group should be added')
@@ -188,18 +205,22 @@ option('default-kill-user-processes', type : 'boolean',
        description : 'the default value for KillUserProcesses= setting')
 option('gshadow', type : 'boolean',
        description : 'support for shadow group')
+option('default-locale', type : 'string', value : '',
+       description : 'default locale used when /etc/locale.conf does not exist')
 
 option('default-dnssec', type : 'combo',
        description : 'default DNSSEC mode',
        choices : ['yes', 'allow-downgrade', 'no'],
        value : 'allow-downgrade')
-option('default-private-dns', type : 'combo',
-       description : 'default private DNS mode',
-       choices : ['opportunistic', 'no'],
+option('default-dns-over-tls', type : 'combo',
+       description : 'default DNS-over-TLS mode',
+       choices : ['yes', 'opportunistic', 'no'],
        value : 'no')
+option('dns-over-tls', type : 'combo', choices : ['auto', 'gnutls', 'openssl', 'true', 'false'],
+       description : 'DNS-over-TLS support')
 option('dns-servers', type : 'string',
        description : 'space-separated list of default DNS servers',
-       value : '8.8.8.8 8.8.4.4 2001:4860:4860::8888 2001:4860:4860::8844')
+       value : '1.1.1.1 8.8.8.8 1.0.0.1 8.8.4.4 2606:4700:4700::1111 2001:4860:4860::8888 2606:4700:4700::1001 2001:4860:4860::8844')
 option('ntp-servers', type : 'string',
        description : 'space-separated list of default NTP servers',
        value : 'time1.google.com time2.google.com time3.google.com time4.google.com')
@@ -221,7 +242,7 @@ option('smack', type : 'boolean',
 option('smack-run-label', type : 'string',
        description : 'run systemd --system itself with a specific SMACK label')
 option('polkit', type : 'combo', choices : ['auto', 'true', 'false'],
-       description : 'PolicyKit support')
+       description : 'polkit support')
 option('ima', type : 'boolean',
        description : 'IMA support')
 
@@ -247,8 +268,6 @@ option('libidn2', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libidn2 support')
 option('libidn', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libidn support')
-option('nss-systemd', type : 'boolean',
-       description : 'enable nss-systemd')
 option('libiptc', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libiptc support')
 option('qrencode', type : 'combo', choices : ['auto', 'true', 'false'],
@@ -257,6 +276,8 @@ option('gcrypt', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'gcrypt support')
 option('gnutls', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'gnutls support')
+option('openssl', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'openssl support')
 option('elfutils', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'elfutils support')
 option('zlib', type : 'combo', choices : ['auto', 'true', 'false'],
@@ -278,9 +299,9 @@ option('dbus', type : 'combo', choices : ['auto', 'true', 'false'],
 
 option('gnu-efi', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'gnu-efi support for sd-boot')
-option('efi-cc', type : 'string', value : 'gcc',
+option('efi-cc', type : 'array',
        description : 'the compiler to use for EFI modules')
-option('efi-ld', type : 'string', value : 'ld',
+option('efi-ld', type : 'string',
        description : 'the linker to use for EFI modules')
 option('efi-libdir', type : 'string',
        description : 'path to the EFI lib directory')
@@ -288,7 +309,7 @@ option('efi-ldsdir', type : 'string',
        description : 'path to the EFI lds directory')
 option('efi-includedir', type : 'string', value : '/usr/include/efi',
        description : 'path to the EFI header directory')
-option('tpm-pcrindex', type : 'string', value : '8',
+option('tpm-pcrindex', type : 'integer', value : 8,
        description : 'TPM PCR register number to use')
 
 option('bashcompletiondir', type : 'string',
@@ -315,3 +336,9 @@ option('oss-fuzz', type : 'boolean', value : 'false',
        description : 'build against oss-fuzz')
 option('llvm-fuzz', type : 'boolean', value : 'false',
        description : 'build against LLVM libFuzzer')
+option('fuzzbuzz', type : 'boolean', value : 'false',
+       description : 'build against FuzzBuzz')
+option('fuzzbuzz-engine', type : 'string',
+       description : 'the name of the FuzzBuzz fuzzing engine')
+option('fuzzbuzz-engine-dir', type : 'string',
+       description : 'the directory where the FuzzBuzz fuzzing engine is')

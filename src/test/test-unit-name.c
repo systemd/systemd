@@ -1,11 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-  Copyright 2014 Ronny Chevalier
-***/
 
 #include <pwd.h>
 #include <stdio.h>
@@ -15,6 +8,7 @@
 #include "alloc-util.h"
 #include "all-units.h"
 #include "glob-util.h"
+#include "format-util.h"
 #include "hostname-util.h"
 #include "macro.h"
 #include "manager.h"
@@ -198,7 +192,7 @@ static void test_unit_name_mangle(void) {
 }
 
 static int test_unit_printf(void) {
-        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *uid = NULL, *user = NULL, *shell = NULL, *home = NULL;
+        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL, *shell = NULL, *home = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         int r;
@@ -207,15 +201,15 @@ static int test_unit_printf(void) {
         assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
         assert_se(host = gethostname_malloc());
         assert_se(user = uid_to_name(getuid()));
+        assert_se(group = gid_to_name(getgid()));
         assert_se(asprintf(&uid, UID_FMT, getuid()));
+        assert_se(asprintf(&gid, UID_FMT, getgid()));
         assert_se(get_home_dir(&home) >= 0);
         assert_se(get_shell(&shell) >= 0);
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (MANAGER_SKIP_TEST(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return EXIT_TEST_SKIP;
-        }
+        if (MANAGER_SKIP_TEST(r))
+                return log_tests_skipped_errno(r, "manager_new");
         assert_se(r == 0);
 
 #define expect(unit, pattern, expected)                                 \
@@ -250,6 +244,8 @@ static int test_unit_printf(void) {
         expect(u, "%I", "");
         expect(u, "%j", "blah");
         expect(u, "%J", "blah");
+        expect(u, "%g", group);
+        expect(u, "%G", gid);
         expect(u, "%u", user);
         expect(u, "%U", uid);
         expect(u, "%h", home);
@@ -272,6 +268,8 @@ static int test_unit_printf(void) {
         expect(u, "%I", "foo/foo");
         expect(u, "%j", "blah");
         expect(u, "%J", "blah");
+        expect(u, "%g", group);
+        expect(u, "%G", gid);
         expect(u, "%u", user);
         expect(u, "%U", uid);
         expect(u, "%h", home);
@@ -432,29 +430,31 @@ static void test_unit_name_to_instance(void) {
         int r;
 
         r = unit_name_to_instance("foo@bar.service", &instance);
-        assert_se(r >= 0);
+        assert_se(r == UNIT_NAME_INSTANCE);
         assert_se(streq(instance, "bar"));
         free(instance);
 
         r = unit_name_to_instance("foo@.service", &instance);
-        assert_se(r >= 0);
+        assert_se(r == UNIT_NAME_TEMPLATE);
         assert_se(streq(instance, ""));
         free(instance);
 
         r = unit_name_to_instance("fo0-stUff_b@b.service", &instance);
-        assert_se(r >= 0);
+        assert_se(r == UNIT_NAME_INSTANCE);
         assert_se(streq(instance, "b"));
         free(instance);
 
         r = unit_name_to_instance("foo.service", &instance);
-        assert_se(r == 0);
+        assert_se(r == UNIT_NAME_PLAIN);
         assert_se(!instance);
 
         r = unit_name_to_instance("fooj@unk", &instance);
         assert_se(r < 0);
+        assert_se(!instance);
 
         r = unit_name_to_instance("foo@", &instance);
         assert_se(r < 0);
+        assert_se(!instance);
 }
 
 static void test_unit_name_escape(void) {
@@ -762,7 +762,7 @@ static void test_unit_name_from_dbus_path(void) {
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dcoredump_2esocket", 0, "systemd-coredump.socket");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dcoredump_400_2eservice", 0, "systemd-coredump@0.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dfirstboot_2eservice", 0, "systemd-firstboot.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dfsck_2droot_2eservice", 0, "systemd-fsck-root.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dfsck_2droot_2eservice", 0, SPECIAL_FSCK_ROOT_SERVICE);
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dhwdb_2dupdate_2eservice", 0, "systemd-hwdb-update.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dinitctl_2eservice", 0, "systemd-initctl.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dinitctl_2esocket", 0, "systemd-initctl.socket");
@@ -818,14 +818,11 @@ int main(int argc, char* argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         int r, rc = 0;
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                log_notice_errno(r, "Skipping test: cgroupfs not available");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         assert_se(runtime_dir = setup_fake_runtime_dir());
 

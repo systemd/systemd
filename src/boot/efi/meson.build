@@ -1,17 +1,18 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 efi_headers = files('''
         console.h
+        crc32.h
         disk.h
         graphics.h
         linux.h
         measure.h
         pe.h
+        random-seed.h
+        sha256.h
+        shim.h
         splash.h
         util.h
-        shim.h
 '''.split())
 
 common_sources = '''
@@ -25,6 +26,9 @@ common_sources = '''
 systemd_boot_sources = '''
         boot.c
         console.c
+        crc32.c
+        random-seed.c
+        sha256.c
         shim.c
 '''.split()
 
@@ -36,7 +40,13 @@ stub_sources = '''
 
 if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
         efi_cc = get_option('efi-cc')
+        if efi_cc.length() == 0
+                efi_cc = cc.cmd_array()
+        endif
         efi_ld = get_option('efi-ld')
+        if efi_ld == ''
+                efi_ld = find_program('ld', required: true)
+        endif
         efi_incdir = get_option('efi-includedir')
 
         gnu_efi_path_arch = ''
@@ -53,10 +63,13 @@ if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
 
         efi_libdir = get_option('efi-libdir')
         if efi_libdir == ''
-                cmd = 'cd /usr/lib/$(@0@ -print-multi-os-directory) && pwd'.format(efi_cc)
-                ret = run_command('sh', '-c', cmd)
+                ret = run_command(efi_cc + ['-print-multi-os-directory'])
                 if ret.returncode() == 0
-                        efi_libdir = ret.stdout().strip()
+                        path = join_paths('/usr/lib', ret.stdout().strip())
+                        ret = run_command('realpath', '-e', path)
+                        if ret.returncode() == 0
+                                efi_libdir = ret.stdout().strip()
+                        endif
                 endif
         endif
 
@@ -71,7 +84,6 @@ endif
 
 if have_gnu_efi
         efi_conf = configuration_data()
-        efi_conf.set_quoted('PACKAGE_VERSION', meson.project_version())
         efi_conf.set_quoted('EFI_MACHINE_TYPE_NAME', EFI_MACHINE_TYPE_NAME)
         efi_conf.set10('ENABLE_TPM', get_option('tpm'))
         efi_conf.set('SD_TPM_PCR', get_option('tpm-pcrindex'))
@@ -96,10 +108,6 @@ if have_gnu_efi
                 endif
         endif
 
-        message('efi-libdir: "@0@"'.format(efi_libdir))
-        message('efi-ldsdir: "@0@"'.format(efi_ldsdir))
-        message('efi-includedir: "@0@"'.format(efi_incdir))
-
         compile_args = ['-Wall',
                         '-Wextra',
                         '-std=gnu90',
@@ -114,7 +122,8 @@ if have_gnu_efi
                         '-Wno-missing-field-initializers',
                         '-isystem', efi_incdir,
                         '-isystem', join_paths(efi_incdir, gnu_efi_path_arch),
-                        '-include', efi_config_h]
+                        '-include', efi_config_h,
+                        '-include', version_h]
         if efi_arch == 'x86_64'
                 compile_args += ['-mno-red-zone',
                                  '-mno-sse',
@@ -149,18 +158,18 @@ if have_gnu_efi
                 o_file = custom_target(file + '.o',
                                        input : file,
                                        output : file + '.o',
-                                       command : [efi_cc, '-c', '@INPUT@', '-o', '@OUTPUT@']
+                                       command : efi_cc + ['-c', '@INPUT@', '-o', '@OUTPUT@']
                                                  + compile_args,
                                        depend_files : efi_headers)
                 if (common_sources + systemd_boot_sources).contains(file)
-                        systemd_boot_objects += [o_file]
+                        systemd_boot_objects += o_file
                 endif
                 if (common_sources + stub_sources).contains(file)
-                        stub_objects += [o_file]
+                        stub_objects += o_file
                 endif
         endforeach
 
-        libgcc_file_name = run_command(efi_cc, '-print-libgcc-file-name').stdout().strip()
+        libgcc_file_name = run_command(efi_cc + ['-print-libgcc-file-name']).stdout().strip()
         systemd_boot_efi_name = 'systemd-boot@0@.efi'.format(EFI_MACHINE_TYPE_NAME)
         stub_efi_name = 'linux@0@.efi.stub'.format(EFI_MACHINE_TYPE_NAME)
         no_undefined_symbols = find_program('no-undefined-symbols.sh')
@@ -175,9 +184,11 @@ if have_gnu_efi
                                   efi_ldflags + tuple[2] +
                                   ['-lefi', '-lgnuefi', libgcc_file_name])
 
-                test('no-undefined-symbols-' + tuple[0],
-                     no_undefined_symbols,
-                     args : [so])
+                if want_tests != 'false'
+                        test('no-undefined-symbols-' + tuple[0],
+                             no_undefined_symbols,
+                             args : [so])
+                endif
 
                 stub = custom_target(
                         tuple[1],
@@ -189,9 +200,7 @@ if have_gnu_efi
                                    '-j', '.data',
                                    '-j', '.dynamic',
                                    '-j', '.dynsym',
-                                   '-j', '.rel',
-                                   '-j', '.rela',
-                                   '-j', '.reloc']
+                                   '-j', '.rel*']
                                   + efi_format +
                                   ['@INPUT@', '@OUTPUT@'],
                         install : true,

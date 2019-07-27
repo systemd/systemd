@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
-
 #include <pthread.h>
 #include <sys/socket.h>
 
@@ -19,9 +13,13 @@
 #include "hashmap.h"
 #include "list.h"
 #include "prioq.h"
-#include "refcnt.h"
 #include "socket-util.h"
-#include "util.h"
+#include "time-util.h"
+
+/* Note that we use the new /run prefix here (instead of /var/run) since we require them to be aliases and
+ * that way we become independent of /var being mounted */
+#define DEFAULT_SYSTEM_BUS_ADDRESS "unix:path=/run/dbus/system_bus_socket"
+#define DEFAULT_USER_BUS_ADDRESS_FMT "unix:path=%s/bus"
 
 struct reply_callback {
         sd_bus_message_handler_t callback;
@@ -46,6 +44,11 @@ struct match_callback {
 
         unsigned last_iteration;
 
+        /* Don't dispatch this slot with with messages that arrived in any iteration before or at the this
+         * one. We use this to ensure that matches don't apply "retroactively" and thus can confuse the
+         * caller: matches will only match incoming messages from the moment on the match was installed. */
+        uint64_t after;
+
         char *match_string;
 
         struct bus_match_node *match_node;
@@ -66,10 +69,10 @@ struct node {
 struct node_callback {
         struct node *node;
 
-        bool is_fallback;
-        sd_bus_message_handler_t callback;
-
+        bool is_fallback:1;
         unsigned last_iteration;
+
+        sd_bus_message_handler_t callback;
 
         LIST_FIELDS(struct node_callback, callbacks);
 };
@@ -93,12 +96,12 @@ struct node_object_manager {
 struct node_vtable {
         struct node *node;
 
+        bool is_fallback:1;
+        unsigned last_iteration;
+
         char *interface;
-        bool is_fallback;
         const sd_bus_vtable *vtable;
         sd_bus_object_find_t find;
-
-        unsigned last_iteration;
 
         LIST_FIELDS(struct node_vtable, vtables);
 };
@@ -125,9 +128,6 @@ typedef enum BusSlotType {
 
 struct sd_bus_slot {
         unsigned n_ref;
-        sd_bus *bus;
-        void *userdata;
-        sd_bus_destroy_t destroy_callback;
         BusSlotType type:5;
 
         /* Slots can be "floating" or not. If they are not floating (the usual case) then they reference the bus object
@@ -139,6 +139,11 @@ struct sd_bus_slot {
         bool floating:1;
 
         bool match_added:1;
+
+        sd_bus *bus;
+        void *userdata;
+        sd_bus_destroy_t destroy_callback;
+
         char *description;
 
         LIST_FIELDS(sd_bus_slot, slots);
@@ -177,15 +182,7 @@ enum bus_auth {
 };
 
 struct sd_bus {
-        /* We use atomic ref counting here since sd_bus_message
-           objects retain references to their originating sd_bus but
-           we want to allow them to be processed in a different
-           thread. We won't provide full thread safety, but only the
-           bare minimum that makes it possible to use sd_bus and
-           sd_bus_message objects independently and on different
-           threads as long as each object is used only once at the
-           same time. */
-        RefCount n_ref;
+        unsigned n_ref;
 
         enum bus_state state;
         int input_fd, output_fd;
@@ -217,22 +214,24 @@ struct sd_bus {
         bool accept_fd:1;
         bool attach_timestamp:1;
         bool connected_signal:1;
+        bool close_on_exit:1;
 
-        int use_memfd;
+        signed int use_memfd:2;
 
         void *rbuffer;
         size_t rbuffer_size;
 
         sd_bus_message **rqueue;
-        unsigned rqueue_size;
+        size_t rqueue_size;
         size_t rqueue_allocated;
 
         sd_bus_message **wqueue;
-        unsigned wqueue_size;
+        size_t wqueue_size;
         size_t windex;
         size_t wqueue_allocated;
 
         uint64_t cookie;
+        uint64_t read_counter; /* A counter for each incoming msg */
 
         char *unique_name;
         uint64_t unique_id;
@@ -249,8 +248,8 @@ struct sd_bus {
         union sockaddr_union sockaddr;
         socklen_t sockaddr_size;
 
-        char *machine;
         pid_t nspid;
+        char *machine;
 
         sd_id128_t server_id;
 
@@ -260,9 +259,9 @@ struct sd_bus {
         int last_connect_error;
 
         enum bus_auth auth;
-        size_t auth_rbegin;
-        struct iovec auth_iovec[3];
         unsigned auth_index;
+        struct iovec auth_iovec[3];
+        size_t auth_rbegin;
         char *auth_buffer;
         usec_t auth_timeout;
 
@@ -279,8 +278,6 @@ struct sd_bus {
         char *exec_path;
         char **exec_argv;
 
-        unsigned iteration_counter;
-
         /* We do locking around the memfd cache, since we want to
          * allow people to process a sd_bus_message in a different
          * thread then it was generated on and free it there. Since
@@ -294,6 +291,8 @@ struct sd_bus {
         pid_t original_pid;
         pid_t busexec_pid;
 
+        unsigned iteration_counter;
+
         sd_event_source *input_io_event_source;
         sd_event_source *output_io_event_source;
         sd_event_source *time_event_source;
@@ -302,15 +301,14 @@ struct sd_bus {
         sd_event *event;
         int event_priority;
 
+        pid_t tid;
+
         sd_bus_message *current_message;
         sd_bus_slot *current_slot;
         sd_bus_message_handler_t current_handler;
         void *current_userdata;
 
         sd_bus **default_bus_ptr;
-        pid_t tid;
-
-        char *cgroup_root;
 
         char *description;
         char *patch_sender;
@@ -322,25 +320,31 @@ struct sd_bus {
 
         int *inotify_watches;
         size_t n_inotify_watches;
+
+        /* zero means use value specified by $SYSTEMD_BUS_TIMEOUT= environment variable or built-in default */
+        usec_t method_call_timeout;
 };
 
-/* For method calls we time-out at 25s, like in the D-Bus reference implementation */
+/* For method calls we timeout at 25s, like in the D-Bus reference implementation */
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
 
 /* For the authentication phase we grant 90s, to provide extra room during boot, when RNGs and such are not filled up
  * with enough entropy yet and might delay the boot */
 #define BUS_AUTH_TIMEOUT ((usec_t) DEFAULT_TIMEOUT_USEC)
 
-#define BUS_WQUEUE_MAX (192*1024)
-#define BUS_RQUEUE_MAX (192*1024)
+#define BUS_WQUEUE_MAX (384*1024)
+#define BUS_RQUEUE_MAX (384*1024)
 
 #define BUS_MESSAGE_SIZE_MAX (128*1024*1024)
 #define BUS_AUTH_SIZE_MAX (64*1024)
+/* Note that the D-Bus specification states that bus paths shall have no size limit. We enforce here one
+ * anyway, since truly unbounded strings are a security problem. The limit we pick is relatively large however,
+ * to not clash unnecessarily with real-life applications. */
+#define BUS_PATH_SIZE_MAX (64*1024)
 
 #define BUS_CONTAINER_DEPTH 128
 
-/* Defined by the specification as maximum size of an array in
- * bytes */
+/* Defined by the specification as maximum size of an array in bytes */
 #define BUS_ARRAY_MAX_SIZE 67108864
 
 #define BUS_FDS_MAX 1024
@@ -349,7 +353,6 @@ struct sd_bus {
 
 bool interface_name_is_valid(const char *p) _pure_;
 bool service_name_is_valid(const char *p) _pure_;
-char* service_name_startswith(const char *a, const char *b);
 bool member_name_is_valid(const char *p) _pure_;
 bool object_path_is_valid(const char *p) _pure_;
 char *object_path_startswith(const char *a, const char *b) _pure_;
@@ -387,12 +390,11 @@ void bus_close_io_fds(sd_bus *b);
 
 #define OBJECT_PATH_FOREACH_PREFIX(prefix, path)                        \
         for (char *_slash = ({ strcpy((prefix), (path)); streq((prefix), "/") ? NULL : strrchr((prefix), '/'); }) ; \
-             _slash && !(_slash[(_slash) == (prefix)] = 0);             \
+             _slash && ((_slash[(_slash) == (prefix)] = 0), true);       \
              _slash = streq((prefix), "/") ? NULL : strrchr((prefix), '/'))
 
 /* If we are invoking callbacks of a bus object, ensure unreffing the
- * bus from the callback doesn't destroy the object we are working
- * on */
+ * bus from the callback doesn't destroy the object we are working on */
 #define BUS_DONT_DESTROY(bus) \
         _cleanup_(sd_bus_unrefp) _unused_ sd_bus *_dont_destroy_##bus = sd_bus_ref(bus)
 
@@ -400,8 +402,6 @@ int bus_set_address_system(sd_bus *bus);
 int bus_set_address_user(sd_bus *bus);
 int bus_set_address_system_remote(sd_bus *b, const char *host);
 int bus_set_address_system_machine(sd_bus *b, const char *machine);
-
-int bus_get_root_path(sd_bus *bus);
 
 int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
 

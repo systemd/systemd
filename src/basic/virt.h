@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
-
 #include <stdbool.h>
 
 #include "macro.h"
@@ -27,6 +21,7 @@ enum {
         VIRTUALIZATION_PARALLELS,
         VIRTUALIZATION_BHYVE,
         VIRTUALIZATION_QNX,
+        VIRTUALIZATION_ACRN,
         VIRTUALIZATION_VM_OTHER,
         VIRTUALIZATION_VM_LAST = VIRTUALIZATION_VM_OTHER,
 
@@ -36,7 +31,9 @@ enum {
         VIRTUALIZATION_LXC,
         VIRTUALIZATION_OPENVZ,
         VIRTUALIZATION_DOCKER,
+        VIRTUALIZATION_PODMAN,
         VIRTUALIZATION_RKT,
+        VIRTUALIZATION_WSL,
         VIRTUALIZATION_CONTAINER_OTHER,
         VIRTUALIZATION_CONTAINER_LAST = VIRTUALIZATION_CONTAINER_OTHER,
 

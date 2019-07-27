@@ -2,10 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2016 Michael Karcher
+  Copyright © 2016 Michael Karcher
 ***/
 
 #include <errno.h>
@@ -20,7 +17,7 @@
  * @flags: Flags to pass to the clone system call
  *
  * Uses the clone system call to create a new process with the cloning flags and termination signal passed in the flags
- * parameter. Opposed to glibc's clone funtion, using this function does not set up a separate stack for the child, but
+ * parameter. Opposed to glibc's clone function, using this function does not set up a separate stack for the child, but
  * relies on copy-on-write semantics on the one stack at a common virtual address, just as fork does.
  *
  * To obtain copy-on-write semantics, flags must not contain CLONE_VM, and thus CLONE_THREAD and CLONE_SIGHAND (which
@@ -63,7 +60,7 @@ static inline pid_t raw_clone(unsigned long flags) {
                              "mov %%o0, %1" :
                              "=r"(in_child), "=r"(child_pid), "=r"(error) :
                              "i"(__NR_clone), "r"(flags) :
-                             "%o1", "%o0", "%g1" "cc" );
+                             "%o1", "%o0", "%g1", "cc" );
 
                 if (error) {
                         errno = child_pid;

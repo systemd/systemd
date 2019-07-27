@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <linux/netlink.h>
@@ -28,7 +23,7 @@ int audit_session_from_pid(pid_t pid, uint32_t *id) {
         assert(id);
 
         /* We don't convert ENOENT to ESRCH here, since we can't
-         * really distuingish between "audit is not available in the
+         * really distinguish between "audit is not available in the
          * kernel" and "the process does not exist", both which will
          * result in ENOENT. */
 

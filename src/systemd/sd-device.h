@@ -3,11 +3,6 @@
 #define foosddevicehfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
-  Copyright 2014-2015 Tom Gundersen <teg@jklm.no>
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -26,12 +21,19 @@
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 
+#include "sd-event.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_device sd_device;
 typedef struct sd_device_enumerator sd_device_enumerator;
+typedef struct sd_device_monitor sd_device_monitor;
+
+/* callback */
+
+typedef int (*sd_device_monitor_handler_t)(sd_device_monitor *m, sd_device *device, void *userdata);
 
 /* device */
 
@@ -57,7 +59,7 @@ int sd_device_get_devname(sd_device *device, const char **ret);
 int sd_device_get_sysname(sd_device *device, const char **ret);
 int sd_device_get_sysnum(sd_device *device, const char **ret);
 
-int sd_device_get_is_initialized(sd_device *device, int *initialized);
+int sd_device_get_is_initialized(sd_device *device);
 int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *usec);
 
 const char *sd_device_get_tag_first(sd_device *device);
@@ -73,7 +75,7 @@ int sd_device_has_tag(sd_device *device, const char *tag);
 int sd_device_get_property_value(sd_device *device, const char *key, const char **value);
 int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **_value);
 
-int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, char *value);
+int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *value);
 
 /* device enumerator */
 
@@ -94,8 +96,28 @@ int sd_device_enumerator_add_match_tag(sd_device_enumerator *enumerator, const c
 int sd_device_enumerator_add_match_parent(sd_device_enumerator *enumerator, sd_device *parent);
 int sd_device_enumerator_allow_uninitialized(sd_device_enumerator *enumerator);
 
+/* device monitor */
+
+int sd_device_monitor_new(sd_device_monitor **ret);
+sd_device_monitor *sd_device_monitor_ref(sd_device_monitor *m);
+sd_device_monitor *sd_device_monitor_unref(sd_device_monitor *m);
+
+int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, size_t size);
+int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *event);
+int sd_device_monitor_detach_event(sd_device_monitor *m);
+sd_event *sd_device_monitor_get_event(sd_device_monitor *m);
+sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *m);
+int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_handler_t callback, void *userdata);
+int sd_device_monitor_stop(sd_device_monitor *m);
+
+int sd_device_monitor_filter_add_match_subsystem_devtype(sd_device_monitor *m, const char *subsystem, const char *devtype);
+int sd_device_monitor_filter_add_match_tag(sd_device_monitor *m, const char *tag);
+int sd_device_monitor_filter_update(sd_device_monitor *m);
+int sd_device_monitor_filter_remove(sd_device_monitor *m);
+
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_device, sd_device_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_device_enumerator, sd_device_enumerator_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_device_monitor, sd_device_monitor_unref);
 
 _SD_END_DECLARATIONS;
 

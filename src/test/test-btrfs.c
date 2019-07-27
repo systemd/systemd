@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <fcntl.h>
 
 #include "btrfs-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "log.h"
-#include "parse-util.h"
 #include "string-util.h"
 #include "util.h"
 

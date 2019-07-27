@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-***/
-
 #include "journal-file.h"
 #include "journal-importer.h"
 
@@ -22,12 +16,10 @@ typedef struct Writer {
 
         uint64_t seqnum;
 
-        int n_ref;
+        unsigned n_ref;
 } Writer;
 
 Writer* writer_new(RemoteServer* server);
-Writer* writer_free(Writer *w);
-
 Writer* writer_ref(Writer *w);
 Writer* writer_unref(Writer *w);
 
@@ -36,6 +28,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Writer*, writer_unref);
 int writer_write(Writer *s,
                  struct iovec_wrapper *iovw,
                  dual_timestamp *ts,
+                 sd_id128_t *boot_id,
                  bool compress,
                  bool seal);
 

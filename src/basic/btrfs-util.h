@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
 
 #include "sd-id128.h"
 
+#include "copy.h"
 #include "time-util.h"
 
 typedef struct BtrfsSubvolInfo {
@@ -33,17 +28,18 @@ typedef struct BtrfsQuotaInfo {
 } BtrfsQuotaInfo;
 
 typedef enum BtrfsSnapshotFlags {
-        BTRFS_SNAPSHOT_FALLBACK_COPY = 1,        /* If the source isn't a subvolume, reflink everything */
-        BTRFS_SNAPSHOT_READ_ONLY = 2,
-        BTRFS_SNAPSHOT_RECURSIVE = 4,
-        BTRFS_SNAPSHOT_QUOTA = 8,
-        BTRFS_SNAPSHOT_FALLBACK_DIRECTORY = 16,  /* If the destination doesn't support subvolumes, reflink/copy instead */
-        BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE = 32,  /* When we can't create a subvolume, use the FS_IMMUTABLE attribute for indicating read-only */
+        BTRFS_SNAPSHOT_FALLBACK_COPY      = 1 << 0, /* If the source isn't a subvolume, reflink everything */
+        BTRFS_SNAPSHOT_READ_ONLY          = 1 << 1,
+        BTRFS_SNAPSHOT_RECURSIVE          = 1 << 2,
+        BTRFS_SNAPSHOT_QUOTA              = 1 << 3,
+        BTRFS_SNAPSHOT_FALLBACK_DIRECTORY = 1 << 4, /* If the destination doesn't support subvolumes, reflink/copy instead */
+        BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE = 1 << 5, /* When we can't create a subvolume, use the FS_IMMUTABLE attribute for indicating read-only */
+        BTRFS_SNAPSHOT_SIGINT             = 1 << 6, /* Check for SIGINT regularly, and return EINTR if seen */
 } BtrfsSnapshotFlags;
 
 typedef enum BtrfsRemoveFlags {
-        BTRFS_REMOVE_RECURSIVE = 1,
-        BTRFS_REMOVE_QUOTA = 2,
+        BTRFS_REMOVE_RECURSIVE = 1 << 0,
+        BTRFS_REMOVE_QUOTA     = 1 << 1,
 } BtrfsRemoveFlags;
 
 int btrfs_is_filesystem(int fd);
@@ -67,13 +63,18 @@ int btrfs_quota_scan_start(int fd);
 int btrfs_quota_scan_wait(int fd);
 int btrfs_quota_scan_ongoing(int fd);
 
-int btrfs_resize_loopback_fd(int fd, uint64_t size, bool grow_only);
-int btrfs_resize_loopback(const char *path, uint64_t size, bool grow_only);
-
 int btrfs_subvol_make(const char *path);
+int btrfs_subvol_make_fd(int fd, const char *subvolume);
 
-int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlags flags);
-int btrfs_subvol_snapshot(const char *old_path, const char *new_path, BtrfsSnapshotFlags flags);
+int btrfs_subvol_snapshot_fd_full(int old_fd, const char *new_path, BtrfsSnapshotFlags flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
+static inline int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlags flags) {
+        return btrfs_subvol_snapshot_fd_full(old_fd, new_path, flags, NULL, NULL, NULL);
+}
+
+int btrfs_subvol_snapshot_full(const char *old_path, const char *new_path, BtrfsSnapshotFlags flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
+static inline int btrfs_subvol_snapshot(const char *old_path, const char *new_path, BtrfsSnapshotFlags flags) {
+        return btrfs_subvol_snapshot_full(old_path, new_path, flags, NULL, NULL, NULL);
+}
 
 int btrfs_subvol_remove(const char *path, BtrfsRemoveFlags flags);
 int btrfs_subvol_remove_fd(int fd, const char *subvolume, BtrfsRemoveFlags flags);

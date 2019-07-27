@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <sys/resource.h>
 
 #include "alloc-util.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "macro.h"
 #include "missing.h"
@@ -38,8 +34,15 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
         if (highest.rlim_max == RLIM_INFINITY)
                 return -EPERM;
 
-        fixed.rlim_cur = MIN(rlim->rlim_cur, highest.rlim_max);
-        fixed.rlim_max = MIN(rlim->rlim_max, highest.rlim_max);
+        fixed = (struct rlimit) {
+                .rlim_cur = MIN(rlim->rlim_cur, highest.rlim_max),
+                .rlim_max = MIN(rlim->rlim_max, highest.rlim_max),
+        };
+
+        /* Shortcut things if we wouldn't change anything. */
+        if (fixed.rlim_cur == highest.rlim_cur &&
+            fixed.rlim_max == highest.rlim_max)
+                return 0;
 
         if (setrlimit(resource, &fixed) < 0)
                 return -errno;
@@ -364,4 +367,44 @@ void rlimit_free_all(struct rlimit **rl) {
 
         for (i = 0; i < _RLIMIT_MAX; i++)
                 rl[i] = mfree(rl[i]);
+}
+
+int rlimit_nofile_bump(int limit) {
+        int r;
+
+        /* Bumps the (soft) RLIMIT_NOFILE resource limit as close as possible to the specified limit. If a negative
+         * limit is specified, bumps it to the maximum the kernel and the hard resource limit allows. This call should
+         * be used by all our programs that might need a lot of fds, and that know how to deal with high fd numbers
+         * (i.e. do not use select() — which chokes on fds >= 1024) */
+
+        if (limit < 0)
+                limit = read_nr_open();
+
+        if (limit < 3)
+                limit = 3;
+
+        r = setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(limit));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set RLIMIT_NOFILE: %m");
+
+        return 0;
+}
+
+int rlimit_nofile_safe(void) {
+        struct rlimit rl;
+
+        /* Resets RLIMIT_NOFILE's soft limit FD_SETSIZE (i.e. 1024), for compatibility with software still using
+         * select() */
+
+        if (getrlimit(RLIMIT_NOFILE, &rl) < 0)
+                return log_debug_errno(errno, "Failed to query RLIMIT_NOFILE: %m");
+
+        if (rl.rlim_cur <= FD_SETSIZE)
+                return 0;
+
+        rl.rlim_cur = FD_SETSIZE;
+        if (setrlimit(RLIMIT_NOFILE, &rl) < 0)
+                return log_debug_errno(errno, "Failed to lower RLIMIT_NOFILE's soft limit to " RLIM_FMT ": %m", rl.rlim_cur);
+
+        return 1;
 }

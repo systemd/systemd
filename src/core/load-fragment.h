@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include "conf-parser.h"
 #include "unit.h"
+
+/* Config-parsing helpers relevant only for sources under src/core/ */
+int parse_crash_chvt(const char *value, int *data);
+int parse_confirm_spawn(const char *value, char **console);
 
 /* Read service data from .desktop file style configuration fragments */
 
@@ -30,6 +28,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_nice);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_oom_score_adjust);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout);
+CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout_abort);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_restart);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_bindtodevice);
@@ -45,6 +44,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_affinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_secure_bits);
 CONFIG_PARSER_PROTOTYPE(config_parse_capability_set);
 CONFIG_PARSER_PROTOTYPE(config_parse_kill_signal);
+CONFIG_PARSER_PROTOTYPE(config_parse_final_kill_signal);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_mount_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_timer);
 CONFIG_PARSER_PROTOTYPE(config_parse_trigger_unit);
@@ -74,12 +74,12 @@ CONFIG_PARSER_PROTOTYPE(config_parse_tasks_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_delegate);
 CONFIG_PARSER_PROTOTYPE(config_parse_device_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_device_allow);
+CONFIG_PARSER_PROTOTYPE(config_parse_io_device_latency);
 CONFIG_PARSER_PROTOTYPE(config_parse_io_device_weight);
 CONFIG_PARSER_PROTOTYPE(config_parse_io_limit);
 CONFIG_PARSER_PROTOTYPE(config_parse_blockio_weight);
 CONFIG_PARSER_PROTOTYPE(config_parse_blockio_device_weight);
 CONFIG_PARSER_PROTOTYPE(config_parse_blockio_bandwidth);
-CONFIG_PARSER_PROTOTYPE(config_parse_netclass);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_mode_isolate);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_selinux_context);
@@ -108,6 +108,18 @@ CONFIG_PARSER_PROTOTYPE(config_parse_job_timeout_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_running_timeout_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_log_extra_fields);
 CONFIG_PARSER_PROTOTYPE(config_parse_collect_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_pid_file);
+CONFIG_PARSER_PROTOTYPE(config_parse_exit_status);
+CONFIG_PARSER_PROTOTYPE(config_parse_disable_controllers);
+CONFIG_PARSER_PROTOTYPE(config_parse_oom_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_numa_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_numa_mask);
+CONFIG_PARSER_PROTOTYPE(config_parse_ip_filter_bpf_progs);
+CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity2);
+CONFIG_PARSER_PROTOTYPE(config_parse_show_status);
+CONFIG_PARSER_PROTOTYPE(config_parse_output_restricted);
+CONFIG_PARSER_PROTOTYPE(config_parse_crash_chvt);
+CONFIG_PARSER_PROTOTYPE(config_parse_timeout_abort);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

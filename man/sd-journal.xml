@@ -1,14 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd-journal"
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -16,15 +9,6 @@
   <refentryinfo>
     <title>sd-journal</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -90,16 +74,15 @@
   <refsect1>
     <title>Thread safety</title>
 
-    <para>Functions that operate on the <structname>sd_journal</structname> object are thread
-    agnostic — given <structname>sd_journal</structname> pointer may only be used from one thread at
-    a time, but multiple threads may use multiple such objects safely. Other functions —
-    those that are used to send entries to the journal, like
-    <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    and similar, or those that are used to retrieve global information like
-    <citerefentry><refentrytitle>sd_journal_stream_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    and
+    <para>Functions that operate on <structname>sd_journal</structname> objects are thread agnostic — given
+    <structname>sd_journal</structname> pointer may only be used from one specific thread at all times (and it has to
+    be the very same one during the entire lifetime of the object), but multiple, independent threads may use multiple,
+    independent objects safely. Other functions — those that are used to send entries to the journal, like
+    <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry> and similar,
+    or those that are used to retrieve global information like
+    <citerefentry><refentrytitle>sd_journal_stream_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>sd_journal_get_catalog_for_message_id</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    — are thread-safe and may be called from multiple threads in parallel.</para>
+    — are fully thread-safe and may be called from multiple threads in parallel.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

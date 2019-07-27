@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stdarg.h>
@@ -33,6 +28,8 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 
         assert(p);
         assert(ret);
+        /* Those two don't make sense together. */
+        assert(!FLAGS_SET(flags, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE));
 
         /* Bail early if called after last value or with no input */
         if (!*p)
@@ -140,7 +137,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                         for (;; (*p)++, c = **p) {
                                 if (c == 0)
                                         goto finish_force_terminate;
-                                else if (IN_SET(c, '\'', '"') && (flags & EXTRACT_QUOTES)) {
+                                else if (IN_SET(c, '\'', '"') && (flags & EXTRACT_UNQUOTE)) {
                                         quote = c;
                                         break;
                                 } else if (c == '\\' && !(flags & EXTRACT_RETAIN_ESCAPE)) {

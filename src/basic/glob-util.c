@@ -1,16 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <dirent.h>
 #include <errno.h>
 #include <glob.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "glob-util.h"
 #include "macro.h"
 #include "path-util.h"
@@ -39,13 +37,12 @@ int safe_glob(const char *path, int flags, glob_t *pglob) {
 
         errno = 0;
         k = glob(path, flags | GLOB_ALTDIRFUNC, NULL, pglob);
-
         if (k == GLOB_NOMATCH)
                 return -ENOENT;
         if (k == GLOB_NOSPACE)
                 return -ENOMEM;
         if (k != 0)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
         if (strv_isempty(pglob->gl_pathv))
                 return -ENOENT;
 

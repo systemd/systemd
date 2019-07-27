@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <stdio.h>
 
@@ -11,7 +6,7 @@
 #include "service.h"
 #include "unit.h"
 
-int main(int argc, char*argv[]) {
+int main(int argc, char *argv[]) {
         JobType a, b, c, ab, bc, ab_c, bc_a, a_bc;
         const ServiceState test_states[] = { SERVICE_DEAD, SERVICE_RUNNING };
         unsigned i;

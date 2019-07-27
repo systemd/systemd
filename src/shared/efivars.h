@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
-
 #if ! ENABLE_EFI
 #include <errno.h>
 #endif
@@ -16,6 +10,7 @@
 
 #include "sd-id128.h"
 
+#include "efi/loader-features.h"
 #include "time-util.h"
 
 #define EFI_VENDOR_LOADER SD_ID128_MAKE(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)
@@ -33,9 +28,11 @@ int efi_reboot_to_firmware_supported(void);
 int efi_get_reboot_to_firmware(void);
 int efi_set_reboot_to_firmware(bool value);
 
+char* efi_variable_path(sd_id128_t vendor, const char *name);
 int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, void **value, size_t *size);
-int efi_set_variable(sd_id128_t vendor, const char *name, const void *value, size_t size);
 int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p);
+int efi_set_variable(sd_id128_t vendor, const char *name, const void *value, size_t size);
+int efi_set_variable_string(sd_id128_t vendor, const char *name, const char *p);
 
 int efi_get_boot_option(uint16_t nr, char **title, sd_id128_t *part_uuid, char **path, bool *active);
 int efi_add_boot_option(uint16_t id, const char *title, uint32_t part, uint64_t pstart, uint64_t psize, sd_id128_t part_uuid, const char *path);
@@ -46,6 +43,10 @@ int efi_get_boot_options(uint16_t **options);
 
 int efi_loader_get_device_part_uuid(sd_id128_t *u);
 int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader);
+
+int efi_loader_get_entries(char ***ret);
+
+int efi_loader_get_features(uint64_t *ret);
 
 #else
 
@@ -73,7 +74,15 @@ static inline int efi_set_reboot_to_firmware(bool value) {
         return -EOPNOTSUPP;
 }
 
+static inline char* efi_variable_path(sd_id128_t vendor, const char *name) {
+        return NULL;
+}
+
 static inline int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, void **value, size_t *size) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p) {
         return -EOPNOTSUPP;
 }
 
@@ -81,7 +90,7 @@ static inline int efi_set_variable(sd_id128_t vendor, const char *name, const vo
         return -EOPNOTSUPP;
 }
 
-static inline int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p) {
+static inline int efi_set_variable_string(sd_id128_t vendor, const char *name, const char *p) {
         return -EOPNOTSUPP;
 }
 
@@ -117,6 +126,16 @@ static inline int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader) {
         return -EOPNOTSUPP;
 }
 
+static inline int efi_loader_get_entries(char ***ret) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_loader_get_features(uint64_t *ret) {
+        return -EOPNOTSUPP;
+}
+
 #endif
+
+bool efi_loader_entry_name_valid(const char *s);
 
 char *efi_tilt_backslashes(char *s);

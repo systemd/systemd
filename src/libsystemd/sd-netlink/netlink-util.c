@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
- This file is part of systemd.
-
- Copyright (C) 2013 Tom Gundersen <teg@jklm.no>
-***/
 
 #include "sd-netlink.h"
 
@@ -17,6 +12,9 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         assert(rtnl);
         assert(ifindex > 0);
         assert(name);
+
+        if (!ifname_valid(name))
+                return -EINVAL;
 
         if (!*rtnl) {
                 r = sd_netlink_open(rtnl);

@@ -1,0 +1,15 @@
+[Unit]
+Description=Test for exec condition that triggers skipping
+
+[Service]
+Type=oneshot
+
+# exit codes [1, 254] will result in skipping the rest of execution
+ExecCondition=/bin/sh -c 'exit 0'
+ExecCondition=/bin/sh -c 'exit 254'
+
+# This would normally fail the unit but will not get run due to the skip above
+ExecCondition=/bin/sh -c 'exit 255'
+
+# This should not get run
+ExecStart=/bin/sh -c 'true'

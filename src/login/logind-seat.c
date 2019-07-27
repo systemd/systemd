@@ -1,58 +1,67 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio_ext.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "logind-acl.h"
+#include "logind-seat-dbus.h"
 #include "logind-seat.h"
+#include "logind-session-dbus.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
-Seat *seat_new(Manager *m, const char *id) {
-        Seat *s;
+int seat_new(Seat** ret, Manager *m, const char *id) {
+        _cleanup_(seat_freep) Seat *s = NULL;
+        int r;
 
+        assert(ret);
         assert(m);
         assert(id);
 
-        s = new0(Seat, 1);
-        if (!s)
-                return NULL;
+        if (!seat_name_is_valid(id))
+                return -EINVAL;
 
-        s->state_file = strappend("/run/systemd/seats/", id);
+        s = new(Seat, 1);
+        if (!s)
+                return -ENOMEM;
+
+        *s = (Seat) {
+                .manager = m,
+        };
+
+        s->state_file = path_join("/run/systemd/seats", id);
         if (!s->state_file)
-                return mfree(s);
+                return -ENOMEM;
 
         s->id = basename(s->state_file);
-        s->manager = m;
 
-        if (hashmap_put(m->seats, s->id, s) < 0) {
-                free(s->state_file);
-                return mfree(s);
-        }
+        r = hashmap_put(m->seats, s->id, s);
+        if (r < 0)
+                return r;
 
-        return s;
+        *ret = TAKE_PTR(s);
+        return 0;
 }
 
-void seat_free(Seat *s) {
-        assert(s);
+Seat* seat_free(Seat *s) {
+        if (!s)
+                return NULL;
 
         if (s->in_gc_queue)
                 LIST_REMOVE(gc_queue, s->manager->seat_gc_queue, s);
@@ -69,7 +78,8 @@ void seat_free(Seat *s) {
 
         free(s->positions);
         free(s->state_file);
-        free(s);
+
+        return mfree(s);
 }
 
 int seat_save(Seat *s) {
@@ -90,7 +100,6 @@ int seat_save(Seat *s) {
         if (r < 0)
                 goto fail;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
@@ -161,8 +170,8 @@ int seat_load(Seat *s) {
         return 0;
 }
 
-static int vt_allocate(unsigned int vtnr) {
-        char p[sizeof("/dev/tty") + DECIMAL_STR_MAX(unsigned int)];
+static int vt_allocate(unsigned vtnr) {
+        char p[sizeof("/dev/tty") + DECIMAL_STR_MAX(unsigned)];
         _cleanup_close_ int fd = -1;
 
         assert(vtnr >= 1);
@@ -170,7 +179,7 @@ static int vt_allocate(unsigned int vtnr) {
         xsprintf(p, "/dev/tty%u", vtnr);
         fd = open_terminal(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return 0;
 }
@@ -182,22 +191,20 @@ int seat_preallocate_vts(Seat *s) {
         assert(s);
         assert(s->manager);
 
-        log_debug("Preallocating VTs...");
-
         if (s->manager->n_autovts <= 0)
                 return 0;
 
         if (!seat_has_vts(s))
                 return 0;
 
+        log_debug("Preallocating VTs...");
+
         for (i = 1; i <= s->manager->n_autovts; i++) {
                 int q;
 
                 q = vt_allocate(i);
-                if (q < 0) {
-                        log_error_errno(q, "Failed to preallocate VT %u: %m", i);
-                        r = q;
-                }
+                if (q < 0)
+                        r = log_error_errno(q, "Failed to preallocate VT %u: %m", i);
         }
 
         return r;
@@ -208,16 +215,15 @@ int seat_apply_acls(Seat *s, Session *old_active) {
 
         assert(s);
 
-        r = devnode_acl_all(s->manager->udev,
-                            s->id,
+        r = devnode_acl_all(s->id,
                             false,
                             !!old_active, old_active ? old_active->user->uid : 0,
                             !!s->active, s->active ? s->active->user->uid : 0);
 
         if (r < 0)
-                log_error_errno(r, "Failed to apply ACLs: %m");
+                return log_error_errno(r, "Failed to apply ACLs: %m");
 
-        return r;
+        return 0;
 }
 
 int seat_set_active(Seat *s, Session *session) {
@@ -237,7 +243,7 @@ int seat_set_active(Seat *s, Session *session) {
                 session_send_changed(old_active, "Active", NULL);
         }
 
-        seat_apply_acls(s, old_active);
+        (void) seat_apply_acls(s, old_active);
 
         if (session && session->started) {
                 session_send_changed(session, "Active", NULL);
@@ -263,7 +269,7 @@ int seat_set_active(Seat *s, Session *session) {
         return 0;
 }
 
-int seat_switch_to(Seat *s, unsigned int num) {
+int seat_switch_to(Seat *s, unsigned num) {
         /* Public session positions skip 0 (there is only F1-F12). Maybe it
          * will get reassigned in the future, so return error for now. */
         if (num == 0)
@@ -281,7 +287,7 @@ int seat_switch_to(Seat *s, unsigned int num) {
 }
 
 int seat_switch_to_next(Seat *s) {
-        unsigned int start, i;
+        unsigned start, i;
 
         if (s->position_count == 0)
                 return -EINVAL;
@@ -302,7 +308,7 @@ int seat_switch_to_next(Seat *s) {
 }
 
 int seat_switch_to_previous(Seat *s) {
-        unsigned int start, i;
+        unsigned start, i;
 
         if (s->position_count == 0)
                 return -EINVAL;
@@ -322,7 +328,7 @@ int seat_switch_to_previous(Seat *s) {
         return -EINVAL;
 }
 
-int seat_active_vt_changed(Seat *s, unsigned int vtnr) {
+int seat_active_vt_changed(Seat *s, unsigned vtnr) {
         Session *i, *new_active = NULL;
         int r;
 
@@ -361,8 +367,7 @@ int seat_active_vt_changed(Seat *s, unsigned int vtnr) {
 int seat_read_active_vt(Seat *s) {
         char t[64];
         ssize_t k;
-        unsigned int vtnr;
-        int r;
+        int vtnr;
 
         assert(s);
 
@@ -374,24 +379,16 @@ int seat_read_active_vt(Seat *s) {
 
         k = read(s->manager->console_active_fd, t, sizeof(t)-1);
         if (k <= 0) {
-                log_error("Failed to read current console: %s", k < 0 ? strerror(-errno) : "EOF");
+                log_error("Failed to read current console: %s", k < 0 ? strerror_safe(errno) : "EOF");
                 return k < 0 ? -errno : -EIO;
         }
 
         t[k] = 0;
         truncate_nl(t);
 
-        if (!startswith(t, "tty")) {
-                log_error("Hm, /sys/class/tty/tty0/active is badly formatted.");
-                return -EIO;
-        }
-
-        r = safe_atou(t+3, &vtnr);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse VT number \"%s\": %m", t+3);
-
-        if (!vtnr) {
-                log_error("VT number invalid: %s", t+3);
+        vtnr = vtnr_from_tty(t);
+        if (vtnr < 0) {
+                log_error_errno(vtnr, "Hm, /sys/class/tty/tty0/active is badly formatted: %m");
                 return -EIO;
         }
 
@@ -426,7 +423,7 @@ int seat_start(Seat *s) {
 }
 
 int seat_stop(Seat *s, bool force) {
-        int r = 0;
+        int r;
 
         assert(s);
 
@@ -436,9 +433,9 @@ int seat_stop(Seat *s, bool force) {
                            "SEAT_ID=%s", s->id,
                            LOG_MESSAGE("Removed seat %s.", s->id));
 
-        seat_stop_sessions(s, force);
+        r = seat_stop_sessions(s, force);
 
-        unlink(s->state_file);
+        (void) unlink(s->state_file);
         seat_add_to_gc_queue(s);
 
         if (s->started)
@@ -466,7 +463,7 @@ int seat_stop_sessions(Seat *s, bool force) {
 
 void seat_evict_position(Seat *s, Session *session) {
         Session *iter;
-        unsigned int pos = session->position;
+        unsigned pos = session->position;
 
         session->position = 0;
 
@@ -488,7 +485,7 @@ void seat_evict_position(Seat *s, Session *session) {
         }
 }
 
-void seat_claim_position(Seat *s, Session *session, unsigned int pos) {
+void seat_claim_position(Seat *s, Session *session, unsigned pos) {
         /* with VTs, the position is always the same as the VTnr */
         if (seat_has_vts(s))
                 pos = session->vtnr;
@@ -504,7 +501,7 @@ void seat_claim_position(Seat *s, Session *session, unsigned int pos) {
 }
 
 static void seat_assign_position(Seat *s, Session *session) {
-        unsigned int pos;
+        unsigned pos;
 
         if (session->position > 0)
                 return;

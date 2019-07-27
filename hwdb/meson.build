@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 hwdb_files = files('''
         20-pci-vendor-model.hwdb
@@ -38,9 +36,11 @@ endif
 ############################################################
 
 parse_hwdb_py = find_program('parse_hwdb.py')
-test('parse-hwdb',
-     parse_hwdb_py,
-     timeout : 90)
+if want_tests != 'false'
+        test('parse-hwdb',
+             parse_hwdb_py,
+             timeout : 90)
+endif
 
 ############################################################
 

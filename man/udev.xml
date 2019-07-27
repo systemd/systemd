@@ -1,34 +1,16 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Kay Sievers
-  Copyright 2014 Jason St. John
+  Copyright © 2014 Jason St. John
 -->
 
 <refentry id="udev">
   <refentryinfo>
     <title>udev</title>
     <productname>systemd</productname>
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Greg</firstname>
-        <surname>Kroah-Hartmann</surname>
-        <email>greg@kroah.com</email>
-      </author>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Kay</firstname>
-        <surname>Sievers</surname>
-        <email>kay@vrfy.org</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -63,20 +45,18 @@
   </refsect1>
 
   <refsect1><title>Rules Files</title>
-      <para>The udev rules are read from the files located in the
-      system rules directory <filename>/usr/lib/udev/rules.d</filename>,
-      the volatile runtime directory <filename>/run/udev/rules.d</filename>
-      and the local administration directory <filename>/etc/udev/rules.d</filename>.
-      All rules files are collectively sorted and processed in lexical order,
-      regardless of the directories in which they live. However, files with
-      identical filenames replace each other. Files in <filename>/etc</filename>
-      have the highest priority, files in <filename>/run</filename> take precedence
-      over files with the same name in <filename>/usr/lib</filename>. This can be
-      used to override a system-supplied rules file with a local file if needed;
-      a symlink in <filename>/etc</filename> with the same name as a rules file in
-      <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
-      disables the rules file entirely. Rule files must have the extension
-      <filename>.rules</filename>; other extensions are ignored.</para>
+      <para>The udev rules are read from the files located in the system rules directories
+      <filename>/usr/lib/udev/rules.d</filename> and <filename>/usr/local/lib/udev/rules.d</filename>, the
+      volatile runtime directory <filename>/run/udev/rules.d</filename> and the local administration
+      directory <filename>/etc/udev/rules.d</filename>.  All rules files are collectively sorted and
+      processed in lexical order, regardless of the directories in which they live. However, files with
+      identical filenames replace each other. Files in <filename>/etc</filename> have the highest priority,
+      files in <filename>/run</filename> take precedence over files with the same name under
+      <filename>/usr</filename>. This can be used to override a system-supplied rules file with a local
+      file if needed; a symlink in <filename>/etc</filename> with the same name as a rules file in
+      <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>, disables the rules file
+      entirely. Rule files must have the extension <filename>.rules</filename>; other extensions are
+      ignored.</para>
 
       <para>Every line in the rules file contains at least one key-value pair.
       Except for empty lines or lines beginning with <literal>#</literal>, which are ignored.
@@ -202,6 +182,8 @@
             value itself contains trailing whitespace.
             </para>
           </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>SYSCTL{<replaceable>kernel parameter</replaceable>}</varname></term>
           <listitem>
             <para>Match a kernel parameter value.
@@ -455,6 +437,8 @@
             <para>Note that running programs that access the network or mount/unmount
             filesystems is not allowed inside of udev rules, due to the default sandbox
             that is enforced on <filename>systemd-udevd.service</filename>.</para>
+            <para>Please also note that <literal>:=</literal> and <literal>=</literal> are clearing
+            both, program and builtin commands.</para>
           </listitem>
         </varlistentry>
 
@@ -580,6 +564,18 @@
                 <term><option>nowatch</option></term>
                 <listitem>
                   <para>Disable the watching of a device node with inotify.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><option>db_persist</option></term>
+                <listitem>
+                  <para>Set the flag (sticky bit) on the udev database entry
+                  of the event device. Device properties are then kept in the
+                  database even when
+                  <command>udevadm info --cleanup-db</command> is called.
+                  This option can be useful in certain cases
+                  (e.g. Device Mapper devices) for persisting device state
+                  on the transition from initramfs.</para>
                 </listitem>
               </varlistentry>
             </variablelist>

@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <getopt.h>
@@ -15,7 +10,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
-#include "bus-unit-util.h"
+#include "bus-unit-procs.h"
 #include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
@@ -23,9 +18,13 @@
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"
+#include "main-func.h"
+#include "memory-util.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "sigbus.h"
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"
@@ -35,14 +34,13 @@
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "user-util.h"
-#include "util.h"
 #include "verbs.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
 static bool arg_value = false;
 static bool arg_full = false;
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
@@ -51,6 +49,8 @@ static char *arg_host = NULL;
 static bool arg_ask_password = true;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
+
+STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 
 static OutputFlags get_output_flags(void) {
 
@@ -94,14 +94,17 @@ static int show_table(Table *table, const char *word) {
         assert(table);
         assert(word);
 
-        if (table_get_rows(table) > 1) {
+        if (table_get_rows(table) > 1 || OUTPUT_MODE_IS_JSON(arg_output)) {
                 r = table_set_sort(table, (size_t) 0, (size_t) -1);
                 if (r < 0)
                         return log_error_errno(r, "Failed to sort table: %m");
 
                 table_set_header(table, arg_legend);
 
-                r = table_print(table, NULL);
+                if (OUTPUT_MODE_IS_JSON(arg_output))
+                        r = table_print_json(table, NULL, output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO);
+                else
+                        r = table_print(table, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to show table: %m");
         }
@@ -126,7 +129,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         assert(bus);
         assert(argv);
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         r = sd_bus_call_method(
                         bus,
@@ -143,7 +146,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("SESSION", "UID", "USER", "SEAT", "TTY");
+        table = table_new("session", "uid", "user", "seat", "tty");
         if (!table)
                 return log_oom();
 
@@ -207,7 +210,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
         assert(bus);
         assert(argv);
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         r = sd_bus_call_method(
                         bus,
@@ -224,17 +227,17 @@ static int list_users(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("UID", "USER");
+        table = table_new("uid", "user");
         if (!table)
                 return log_oom();
 
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
 
         for (;;) {
-                const char *user, *object;
+                const char *user;
                 uint32_t uid;
 
-                r = sd_bus_message_read(reply, "(uso)", &uid, &user, &object);
+                r = sd_bus_message_read(reply, "(uso)", &uid, &user, NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
                 if (r == 0)
@@ -264,7 +267,7 @@ static int list_seats(int argc, char *argv[], void *userdata) {
         assert(bus);
         assert(argv);
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         r = sd_bus_call_method(
                         bus,
@@ -281,14 +284,14 @@ static int list_seats(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("SEAT");
+        table = table_new("seat");
         if (!table)
                 return log_oom();
 
         for (;;) {
-                const char *seat, *object;
+                const char *seat;
 
-                r = sd_bus_message_read(reply, "(so)", &seat, &object);
+                r = sd_bus_message_read(reply, "(so)", &seat, NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
                 if (r == 0)
@@ -351,7 +354,7 @@ typedef struct SessionStatusInfo {
         uid_t uid;
         const char *name;
         struct dual_timestamp timestamp;
-        unsigned int vtnr;
+        unsigned vtnr;
         const char *seat;
         const char *tty;
         const char *display;
@@ -728,15 +731,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
         return 0;
 }
 
-#define property(name, fmt, ...)                                        \
-        do {                                                            \
-                if (value)                                              \
-                        printf(fmt "\n", __VA_ARGS__);                  \
-                else                                                    \
-                        printf("%s=" fmt "\n", name, __VA_ARGS__);      \
-        } while (0)
-
-static int print_property(const char *name, sd_bus_message *m, bool value, bool all) {
+static int print_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
         char type;
         const char *contents;
         int r;
@@ -760,7 +755,7 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                                 return bus_log_parse_error(r);
 
                         if (all || !isempty(s))
-                                property(name, "%s", s);
+                                bus_print_property_value(name, expected_value, value, s);
 
                         return 1;
 
@@ -771,12 +766,12 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (!uid_is_valid(uid)) {
-                                log_error("Invalid user ID: " UID_FMT, uid);
-                                return -EINVAL;
-                        }
+                        if (!uid_is_valid(uid))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid user ID: " UID_FMT,
+                                                       uid);
 
-                        property(name, UID_FMT, uid);
+                        bus_print_property_valuef(name, expected_value, value, UID_FMT, uid);
                         return 1;
                 }
                 break;
@@ -848,35 +843,20 @@ static int show_session(int argc, char *argv[], void *userdata) {
 
         properties = !strstr(argv[0], "status");
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         if (argc <= 1) {
-                const char *session, *p = "/org/freedesktop/login1/session/self";
-
+                /* If no argument is specified inspect the manager itself */
                 if (properties)
-                        /* If no argument is specified inspect the manager itself */
                         return show_properties(bus, "/org/freedesktop/login1", &new_line);
 
-                /* And in the pretty case, show data of the calling session */
-                session = getenv("XDG_SESSION_ID");
-                if (session) {
-                        r = get_session_path(bus, session, &error, &path);
-                        if (r < 0) {
-                                log_error("Failed to get session path: %s", bus_error_message(&error, r));
-                                return r;
-                        }
-                        p = path;
-                }
-
-                return print_session_status_info(bus, p, &new_line);
+                return print_session_status_info(bus, "/org/freedesktop/login1/session/auto", &new_line);
         }
 
         for (i = 1; i < argc; i++) {
                 r = get_session_path(bus, argv[i], &error, &path);
-                if (r < 0) {
-                        log_error("Failed to get session path: %s", bus_error_message(&error, r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get session path: %s", bus_error_message(&error, r));
 
                 if (properties)
                         r = show_properties(bus, path, &new_line);
@@ -900,11 +880,10 @@ static int show_user(int argc, char *argv[], void *userdata) {
 
         properties = !strstr(argv[0], "status");
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         if (argc <= 1) {
-                /* If not argument is specified inspect the manager
-                 * itself */
+                /* If no argument is specified inspect the manager itself */
                 if (properties)
                         return show_properties(bus, "/org/freedesktop/login1", &new_line);
 
@@ -917,7 +896,7 @@ static int show_user(int argc, char *argv[], void *userdata) {
                 const char *path = NULL;
                 uid_t uid;
 
-                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL);
+                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
 
@@ -929,10 +908,8 @@ static int show_user(int argc, char *argv[], void *userdata) {
                                 "GetUser",
                                 &error, &reply,
                                 "u", (uint32_t) uid);
-                if (r < 0) {
-                        log_error("Failed to get user: %s", bus_error_message(&error, r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get user: %s", bus_error_message(&error, r));
 
                 r = sd_bus_message_read(reply, "o", &path);
                 if (r < 0)
@@ -960,15 +937,14 @@ static int show_seat(int argc, char *argv[], void *userdata) {
 
         properties = !strstr(argv[0], "status");
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         if (argc <= 1) {
-                /* If not argument is specified inspect the manager
-                 * itself */
+                /* If no argument is specified inspect the manager itself */
                 if (properties)
                         return show_properties(bus, "/org/freedesktop/login1", &new_line);
 
-                return print_seat_status_info(bus, "/org/freedesktop/login1/seat/self", &new_line);
+                return print_seat_status_info(bus, "/org/freedesktop/login1/seat/auto", &new_line);
         }
 
         for (i = 1; i < argc; i++) {
@@ -984,10 +960,8 @@ static int show_seat(int argc, char *argv[], void *userdata) {
                                 "GetSeat",
                                 &error, &reply,
                                 "s", argv[i]);
-                if (r < 0) {
-                        log_error("Failed to get seat: %s", bus_error_message(&error, r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get seat: %s", bus_error_message(&error, r));
 
                 r = sd_bus_message_read(reply, "o", &path);
                 if (r < 0)
@@ -1017,11 +991,8 @@ static int activate(int argc, char *argv[], void *userdata) {
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (argc < 2) {
-                /* No argument? Let's either use $XDG_SESSION_ID (if specified), or an empty
-                 * session name, in which case logind will try to guess our session. */
-
                 short_argv[0] = argv[0];
-                short_argv[1] = getenv("XDG_SESSION_ID") ?: (char*) "";
+                short_argv[1] = (char*) "";
                 short_argv[2] = NULL;
 
                 argv = short_argv;
@@ -1041,10 +1012,8 @@ static int activate(int argc, char *argv[], void *userdata) {
                                                                       "ActivateSession",
                                 &error, NULL,
                                 "s", argv[i]);
-                if (r < 0) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
         }
 
         return 0;
@@ -1073,10 +1042,8 @@ static int kill_session(int argc, char *argv[], void *userdata) {
                         "KillSession",
                         &error, NULL,
                         "ssi", argv[i], arg_kill_who, arg_signal);
-                if (r < 0) {
-                        log_error("Could not kill session: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not kill session: %s", bus_error_message(&error, -r));
         }
 
         return 0;
@@ -1113,7 +1080,7 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
                 if (isempty(argv[i]))
                         uid = UID_INVALID;
                 else {
-                        r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL);
+                        r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
                 }
@@ -1126,10 +1093,8 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
                         "SetUserLinger",
                         &error, NULL,
                         "ubb", (uint32_t) uid, b, true);
-                if (r < 0) {
-                        log_error("Could not enable linger: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not enable linger: %s", bus_error_message(&error, -r));
         }
 
         return 0;
@@ -1148,7 +1113,7 @@ static int terminate_user(int argc, char *argv[], void *userdata) {
         for (i = 1; i < argc; i++) {
                 uid_t uid;
 
-                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL);
+                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
 
@@ -1160,10 +1125,8 @@ static int terminate_user(int argc, char *argv[], void *userdata) {
                         "TerminateUser",
                         &error, NULL,
                         "u", (uint32_t) uid);
-                if (r < 0) {
-                        log_error("Could not terminate user: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not terminate user: %s", bus_error_message(&error, -r));
         }
 
         return 0;
@@ -1185,7 +1148,7 @@ static int kill_user(int argc, char *argv[], void *userdata) {
         for (i = 1; i < argc; i++) {
                 uid_t uid;
 
-                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL);
+                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
 
@@ -1197,10 +1160,8 @@ static int kill_user(int argc, char *argv[], void *userdata) {
                         "KillUser",
                         &error, NULL,
                         "ui", (uint32_t) uid, arg_signal);
-                if (r < 0) {
-                        log_error("Could not kill user: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not kill user: %s", bus_error_message(&error, -r));
         }
 
         return 0;
@@ -1227,10 +1188,8 @@ static int attach(int argc, char *argv[], void *userdata) {
                         &error, NULL,
                         "ssb", argv[1], argv[i], true);
 
-                if (r < 0) {
-                        log_error("Could not attach device: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not attach device: %s", bus_error_message(&error, -r));
         }
 
         return 0;
@@ -1255,9 +1214,9 @@ static int flush_devices(int argc, char *argv[], void *userdata) {
                         &error, NULL,
                         "b", true);
         if (r < 0)
-                log_error("Could not flush devices: %s", bus_error_message(&error, -r));
+                return log_error_errno(r, "Could not flush devices: %s", bus_error_message(&error, -r));
 
-        return r;
+        return 0;
 }
 
 static int lock_sessions(int argc, char *argv[], void *userdata) {
@@ -1279,9 +1238,9 @@ static int lock_sessions(int argc, char *argv[], void *userdata) {
                         &error, NULL,
                         NULL);
         if (r < 0)
-                log_error("Could not lock sessions: %s", bus_error_message(&error, -r));
+                return log_error_errno(r, "Could not lock sessions: %s", bus_error_message(&error, -r));
 
-        return r;
+        return 0;
 }
 
 static int terminate_seat(int argc, char *argv[], void *userdata) {
@@ -1304,16 +1263,22 @@ static int terminate_seat(int argc, char *argv[], void *userdata) {
                         "TerminateSeat",
                         &error, NULL,
                         "s", argv[i]);
-                if (r < 0) {
-                        log_error("Could not terminate seat: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not terminate seat: %s", bus_error_message(&error, -r));
         }
 
         return 0;
 }
 
 static int help(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        (void) pager_open(arg_pager_flags);
+
+        r = terminal_urlify_man("loginctl", "1", &link);
+        if (r < 0)
+                return log_oom();
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Send control commands to or query the login manager.\n\n"
@@ -1334,7 +1299,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -o --output=STRING       Change journal output mode (short, short-precise,\n"
                "                             short-iso, short-iso-precise, short-full,\n"
                "                             short-monotonic, short-unix, verbose, export,\n"
-               "                             json, json-pretty, json-sse, cat)\n"
+               "                             json, json-pretty, json-sse, json-seq, cat,\n"
+               "                             with-unit)\n"
                "Session Commands:\n"
                "  list-sessions            List sessions\n"
                "  session-status [ID...]   Show session status\n"
@@ -1361,7 +1327,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "  attach NAME DEVICE...    Attach one or more devices to a seat\n"
                "  flush-devices            Flush all device associations\n"
                "  terminate-seat NAME...   Terminate all sessions on one or more seats\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }
@@ -1406,8 +1375,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
+                        return help(0, NULL, NULL);
 
                 case ARG_VERSION:
                         return version();
@@ -1437,10 +1405,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'n':
-                        if (safe_atou(optarg, &arg_lines) < 0) {
-                                log_error("Failed to parse lines '%s'", optarg);
-                                return -EINVAL;
-                        }
+                        if (safe_atou(optarg, &arg_lines) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse lines '%s'", optarg);
                         break;
 
                 case 'o':
@@ -1450,14 +1417,17 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_output = output_mode_from_string(optarg);
-                        if (arg_output < 0) {
-                                log_error("Unknown output '%s'.", optarg);
-                                return -EINVAL;
-                        }
+                        if (arg_output < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown output '%s'.", optarg);
+
+                        if (OUTPUT_MODE_IS_JSON(arg_output))
+                                arg_legend = false;
+
                         break;
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case ARG_NO_LEGEND:
@@ -1479,10 +1449,9 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_signal = signal_from_string(optarg);
-                        if (arg_signal < 0) {
-                                log_error("Failed to parse signal string %s.", optarg);
-                                return -EINVAL;
-                        }
+                        if (arg_signal < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse signal string %s.", optarg);
                         break;
 
                 case 'H':
@@ -1538,37 +1507,31 @@ static int loginctl_main(int argc, char *argv[], sd_bus *bus) {
         return dispatch_verb(argc, argv, verbs, bus);
 }
 
-int main(int argc, char *argv[]) {
-        sd_bus *bus = NULL;
+static int run(int argc, char *argv[]) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
+        log_show_color(true);
         log_parse_environment();
         log_open();
+
+        /* The journal merging logic potentially needs a lot of fds. */
+        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
+
         sigbus_install();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = bus_connect_transport(arg_transport, arg_host, false, &bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create bus connection: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
-        sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
-        r = loginctl_main(argc, argv, bus);
-
-finish:
-        /* make sure we terminate the bus connection first, and then close the
-         * pager, see issue #3543 for the details. */
-        sd_bus_flush_close_unref(bus);
-        pager_close();
-        polkit_agent_close();
-
-        strv_free(arg_property);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return loginctl_main(argc, argv, bus);
 }
+
+DEFINE_MAIN_FUNCTION(run);

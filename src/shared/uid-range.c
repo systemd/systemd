@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stdlib.h>
@@ -11,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "macro.h"
+#include "sort-util.h"
 #include "uid-range.h"
 #include "user-util.h"
 
@@ -50,20 +46,14 @@ static void uid_range_coalesce(UidRange **p, unsigned *n) {
         }
 }
 
-static int uid_range_compare(const void *a, const void *b) {
-        const UidRange *x = a, *y = b;
+static int uid_range_compare(const UidRange *a, const UidRange *b) {
+        int r;
 
-        if (x->start < y->start)
-                return -1;
-        if (x->start > y->start)
-                return 1;
+        r = CMP(a->start, b->start);
+        if (r != 0)
+                return r;
 
-        if (x->nr < y->nr)
-                return -1;
-        if (x->nr > y->nr)
-                return 1;
-
-        return 0;
+        return CMP(a->nr, b->nr);
 }
 
 int uid_range_add(UidRange **p, unsigned *n, uid_t start, uid_t nr) {
@@ -107,7 +97,7 @@ int uid_range_add(UidRange **p, unsigned *n, uid_t start, uid_t nr) {
                 x->nr = nr;
         }
 
-        qsort(*p, *n, sizeof(UidRange), uid_range_compare);
+        typesafe_qsort(*p, *n, uid_range_compare);
         uid_range_coalesce(p, n);
 
         return *n;

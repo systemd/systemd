@@ -1,14 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
-
-#include <stdio_ext.h>
 
 #if HAVE_GCRYPT
-#include <gcrypt.h>
+#  include <gcrypt.h>
 #endif
 
 #include "alloc-util.h"
@@ -17,8 +10,10 @@
 #include "fileio.h"
 #include "gcrypt-util.h"
 #include "hexdecoct.h"
+#include "memory-util.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
+#include "sort-util.h"
 #include "string-table.h"
 
 #define VERIFY_RRS_MAX 256
@@ -79,7 +74,7 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
                 return -ENOBUFS;
 
         for (;;) {
-                r = dns_label_unescape(&n, buffer, buffer_max);
+                r = dns_label_unescape(&n, buffer, buffer_max, 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -119,32 +114,25 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
 
 #if HAVE_GCRYPT
 
-static int rr_compare(const void *a, const void *b) {
-        DnsResourceRecord **x = (DnsResourceRecord**) a, **y = (DnsResourceRecord**) b;
+static int rr_compare(DnsResourceRecord * const *a, DnsResourceRecord * const *b) {
+        const DnsResourceRecord *x = *a, *y = *b;
         size_t m;
         int r;
 
         /* Let's order the RRs according to RFC 4034, Section 6.3 */
 
         assert(x);
-        assert(*x);
-        assert((*x)->wire_format);
+        assert(x->wire_format);
         assert(y);
-        assert(*y);
-        assert((*y)->wire_format);
+        assert(y->wire_format);
 
-        m = MIN(DNS_RESOURCE_RECORD_RDATA_SIZE(*x), DNS_RESOURCE_RECORD_RDATA_SIZE(*y));
+        m = MIN(DNS_RESOURCE_RECORD_RDATA_SIZE(x), DNS_RESOURCE_RECORD_RDATA_SIZE(y));
 
-        r = memcmp(DNS_RESOURCE_RECORD_RDATA(*x), DNS_RESOURCE_RECORD_RDATA(*y), m);
+        r = memcmp(DNS_RESOURCE_RECORD_RDATA(x), DNS_RESOURCE_RECORD_RDATA(y), m);
         if (r != 0)
                 return r;
 
-        if (DNS_RESOURCE_RECORD_RDATA_SIZE(*x) < DNS_RESOURCE_RECORD_RDATA_SIZE(*y))
-                return -1;
-        else if (DNS_RESOURCE_RECORD_RDATA_SIZE(*x) > DNS_RESOURCE_RECORD_RDATA_SIZE(*y))
-                return 1;
-
-        return 0;
+        return CMP(DNS_RESOURCE_RECORD_RDATA_SIZE(x), DNS_RESOURCE_RECORD_RDATA_SIZE(y));
 }
 
 static int dnssec_rsa_verify_raw(
@@ -414,7 +402,7 @@ static int dnssec_ecdsa_verify(
         if (rrsig->rrsig.signature_size != key_size * 2)
                 return -EINVAL;
 
-        q = alloca(key_size*2 + 1);
+        q = newa(uint8_t, key_size*2 + 1);
         q[0] = 0x04; /* Prepend 0x04 to indicate an uncompressed key */
         memcpy(q+1, dnskey->dnskey.key, key_size*2);
 
@@ -811,12 +799,11 @@ int dnssec_verify_rrset(
                 return -ENODATA;
 
         /* Bring the RRs into canonical order */
-        qsort_safe(list, n, sizeof(DnsResourceRecord*), rr_compare);
+        typesafe_qsort(list, n, rr_compare);
 
-        f = open_memstream(&sig_data, &sig_size);
+        f = open_memstream_unlocked(&sig_data, &sig_size);
         if (!f)
                 return -ENOMEM;
-        __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         fwrite_uint16(f, rrsig->rrsig.type_covered);
         fwrite_uint8(f, rrsig->rrsig.algorithm);
@@ -1119,7 +1106,7 @@ int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key) {
         DnsResourceRecord *rr;
         int r;
 
-        /* Checks whether there's at least one RRSIG in 'a' that proctects RRs of the specified key */
+        /* Checks whether there's at least one RRSIG in 'a' that protects RRs of the specified key */
 
         DNS_ANSWER_FOREACH(rr, a) {
                 r = dnssec_key_match_rrsig(key, rr);
@@ -1284,10 +1271,10 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (nsec3->key->type != DNS_TYPE_NSEC3)
                 return -EINVAL;
 
-        if (nsec3->nsec3.iterations > NSEC3_ITERATIONS_MAX) {
-                log_debug("Ignoring NSEC3 RR %s with excessive number of iterations.", dns_resource_record_to_string(nsec3));
-                return -EOPNOTSUPP;
-        }
+        if (nsec3->nsec3.iterations > NSEC3_ITERATIONS_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Ignoring NSEC3 RR %s with excessive number of iterations.",
+                                       dns_resource_record_to_string(nsec3));
 
         algorithm = nsec3_hash_to_gcrypt_md(nsec3->nsec3.algorithm);
         if (algorithm < 0)
@@ -1385,22 +1372,18 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
                 return 0;
         if (rr->nsec3.salt_size != nsec3->nsec3.salt_size)
                 return 0;
-        if (memcmp(rr->nsec3.salt, nsec3->nsec3.salt, rr->nsec3.salt_size) != 0)
+        if (memcmp_safe(rr->nsec3.salt, nsec3->nsec3.salt, rr->nsec3.salt_size) != 0)
                 return 0;
 
         a = dns_resource_key_name(rr->key);
         r = dns_name_parent(&a); /* strip off hash */
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         b = dns_resource_key_name(nsec3->key);
         r = dns_name_parent(&b); /* strip off hash */
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         /* Make sure both have the same parent */
         return dns_name_equal(a, b);
@@ -1721,7 +1704,7 @@ static int dnssec_nsec_wildcard_equal(DnsResourceRecord *rr, const char *name) {
                 return 0;
 
         n = dns_resource_key_name(rr->key);
-        r = dns_label_unescape(&n, label, sizeof(label));
+        r = dns_label_unescape(&n, label, sizeof label, 0);
         if (r <= 0)
                 return r;
         if (r != 1 || label[0] != '*')
@@ -1813,22 +1796,14 @@ static int dnssec_nsec_covers(DnsResourceRecord *rr, const char *name) {
         return dns_name_between(dns_resource_key_name(rr->key), name, rr->nsec.next_domain_name);
 }
 
-static int dnssec_nsec_covers_wildcard(DnsResourceRecord *rr, const char *name) {
-        _cleanup_free_ char *wc = NULL;
-        const char *common_suffix, *signer;
-        int r;
+static int dnssec_nsec_generate_wildcard(DnsResourceRecord *rr, const char *name, char **wc) {
+        const char *common_suffix1, *common_suffix2, *signer;
+        int r, labels1, labels2;
 
         assert(rr);
         assert(rr->key->type == DNS_TYPE_NSEC);
 
-        /* Checks whether the "Wildcard at the Closest Encloser" is within the space covered by the specified
-         * RR. Specifically, checks whether 'name' has the common suffix of the NSEC RR's owner and next names as
-         * suffix, and whether the NSEC covers the name generated by that suffix prepended with an asterisk label.
-         *
-         *     NSEC             bar →   waldo.foo.bar: indicates that *.bar and *.foo.bar do not exist
-         *     NSEC   waldo.foo.bar → yyy.zzz.xoo.bar: indicates that *.xoo.bar and *.zzz.xoo.bar do not exist (and more ...)
-         *     NSEC yyy.zzz.xoo.bar →             bar: indicates that a number of wildcards don#t exist either...
-         */
+        /* Generates "Wildcard at the Closest Encloser" for the given name and NSEC RR. */
 
         r = dns_resource_record_signer(rr, &signer);
         if (r < 0)
@@ -1838,23 +1813,31 @@ static int dnssec_nsec_covers_wildcard(DnsResourceRecord *rr, const char *name) 
         if (r <= 0)
                 return r;
 
-        r = dns_name_endswith(name, dns_resource_key_name(rr->key));
-        if (r < 0)
-                return r;
-        if (r > 0)  /* If the name we are interested in is a child of the NSEC RR, then append the asterisk to the NSEC
-                     * RR's name. */
-                r = dns_name_concat("*", dns_resource_key_name(rr->key), &wc);
-        else {
-                r = dns_name_common_suffix(dns_resource_key_name(rr->key), rr->nsec.next_domain_name, &common_suffix);
-                if (r < 0)
-                        return r;
-
-                r = dns_name_concat("*", common_suffix, &wc);
-        }
+        r = dns_name_common_suffix(name, dns_resource_key_name(rr->key), &common_suffix1);
         if (r < 0)
                 return r;
 
-        return dns_name_between(dns_resource_key_name(rr->key), wc, rr->nsec.next_domain_name);
+        r = dns_name_common_suffix(name, rr->nsec.next_domain_name, &common_suffix2);
+        if (r < 0)
+                return r;
+
+        labels1 = dns_name_count_labels(common_suffix1);
+        if (labels1 < 0)
+            return labels1;
+
+        labels2 = dns_name_count_labels(common_suffix2);
+        if (labels2 < 0)
+            return labels2;
+
+        if (labels1 > labels2)
+                r = dns_name_concat("*", common_suffix1, 0, wc);
+        else
+                r = dns_name_concat("*", common_suffix2, 0, wc);
+
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
@@ -1958,14 +1941,30 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
                         covering_rr = rr;
                         covering_rr_authenticated = flags & DNS_ANSWER_AUTHENTICATED;
                 }
+        }
 
-                /* Check if this NSEC RR proves the absence of a wildcard RR under this name */
-                r = dnssec_nsec_covers_wildcard(rr, name);
+        if (covering_rr) {
+                _cleanup_free_ char *wc = NULL;
+                r = dnssec_nsec_generate_wildcard(covering_rr, name, &wc);
                 if (r < 0)
                         return r;
-                if (r > 0 && (!wildcard_rr || !wildcard_rr_authenticated)) {
-                        wildcard_rr = rr;
-                        wildcard_rr_authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+
+                DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+
+                        if (rr->key->class != key->class)
+                                continue;
+
+                        if (rr->key->type != DNS_TYPE_NSEC)
+                                continue;
+
+                        /* Check if this NSEC RR proves the nonexistence of the wildcard */
+                        r = dnssec_nsec_covers(rr, wc);
+                        if (r < 0)
+                                return r;
+                        if (r > 0 && (!wildcard_rr || !wildcard_rr_authenticated)) {
+                                wildcard_rr = rr;
+                                wildcard_rr_authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+                        }
                 }
         }
 
@@ -1986,7 +1985,7 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
         if (have_nsec3)
                 return dnssec_test_nsec3(answer, key, result, authenticated, ttl);
 
-        /* No approproate NSEC RR found, report this. */
+        /* No appropriate NSEC RR found, report this. */
         *result = DNSSEC_NSEC_NO_RR;
         return 0;
 }
@@ -2108,10 +2107,8 @@ static int dnssec_test_positive_wildcard_nsec3(
         for (;;) {
                 next_closer = name;
                 r = dns_name_parent(&name);
-                if (r < 0)
+                if (r <= 0)
                         return r;
-                if (r == 0)
-                        return 0;
 
                 r = dns_name_equal(name, source);
                 if (r < 0)
@@ -2148,7 +2145,6 @@ static int dnssec_test_positive_wildcard_nsec(
          *      3)   b.c.d.e.f
          *      4)   *.c.d.e.f
          *      5)     c.d.e.f
-         *
          */
 
         for (;;) {
@@ -2186,7 +2182,7 @@ static int dnssec_test_positive_wildcard_nsec(
                         return -EBADMSG;
 
                 /* Replace the label we stripped off with an asterisk */
-                wc = strappend("*.", name);
+                wc = strjoin("*.", name);
                 if (!wc)
                         return -ENOMEM;
 

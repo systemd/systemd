@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include "architecture.h"
 #include "automount.h"
 #include "cgroup.h"
 #include "compress.h"
 #include "condition.h"
+#include "device-private.h"
 #include "device.h"
 #include "execute.h"
 #include "import-util.h"
@@ -29,6 +25,7 @@
 #include "rlimit-util.h"
 #include "scope.h"
 #include "service.h"
+#include "show-status.h"
 #include "slice.h"
 #include "socket-util.h"
 #include "socket.h"
@@ -52,7 +49,9 @@ int main(int argc, char **argv) {
         test_table(collect_mode, COLLECT_MODE);
         test_table(condition_result, CONDITION_RESULT);
         test_table(condition_type, CONDITION_TYPE);
+        test_table(device_action, DEVICE_ACTION);
         test_table(device_state, DEVICE_STATE);
+        test_table(dns_over_tls_mode, DNS_OVER_TLS_MODE);
         test_table(dnssec_mode, DNSSEC_MODE);
         test_table(emergency_action, EMERGENCY_ACTION);
         test_table(exec_directory_type, EXEC_DIRECTORY_TYPE);
@@ -71,7 +70,7 @@ int main(int argc, char **argv) {
         test_table(kill_who, KILL_WHO);
         test_table(locale_variable, VARIABLE_LC);
         test_table(log_target, LOG_TARGET);
-        test_table(mac_policy, MACPOLICY);
+        test_table(mac_address_policy, MAC_ADDRESS_POLICY);
         test_table(manager_state, MANAGER_STATE);
         test_table(manager_timestamp, MANAGER_TIMESTAMP);
         test_table(mount_exec_command, MOUNT_EXEC_COMMAND);
@@ -80,6 +79,7 @@ int main(int argc, char **argv) {
         test_table(name_policy, NAMEPOLICY);
         test_table(namespace_type, NAMESPACE_TYPE);
         test_table(notify_access, NOTIFY_ACCESS);
+        test_table(notify_state, NOTIFY_STATE);
         test_table(output_mode, OUTPUT_MODE);
         test_table(partition_designator, PARTITION_DESIGNATOR);
         test_table(path_result, PATH_RESULT);
@@ -96,6 +96,7 @@ int main(int argc, char **argv) {
         test_table(service_result, SERVICE_RESULT);
         test_table(service_state, SERVICE_STATE);
         test_table(service_type, SERVICE_TYPE);
+        test_table(show_status, SHOW_STATUS);
         test_table(slice_state, SLICE_STATE);
         test_table(socket_address_bind_ipv6_only, SOCKET_ADDRESS_BIND_IPV6_ONLY);
         test_table(socket_exec_command, SOCKET_EXEC_COMMAND);

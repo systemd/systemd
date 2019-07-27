@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
-
 #include <stdbool.h>
 #include <sys/types.h>
 
@@ -22,6 +16,8 @@ typedef struct Server Server;
 #include "journald-stream.h"
 #include "list.h"
 #include "prioq.h"
+#include "time-util.h"
+#include "varlink.h"
 
 typedef enum Storage {
         STORAGE_AUTO,
@@ -143,8 +139,6 @@ struct Server {
 
         Set *deferred_closes;
 
-        struct udev *udev;
-
         uint64_t *kernel_seqnum;
         bool dev_kmsg_readable:1;
 
@@ -169,8 +163,12 @@ struct Server {
         Hashmap *client_contexts;
         Prioq *client_contexts_lru;
 
+        usec_t last_cache_pid_flush;
+
         ClientContext *my_context; /* the context of journald itself */
         ClientContext *pid1_context; /* the context of PID 1 */
+
+        VarlinkServer *varlink_server;
 };
 
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))

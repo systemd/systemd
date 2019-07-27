@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2011 Lennart Poettering
-***/
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "fileio.h"
@@ -12,6 +9,7 @@
 #include "rm-rf.h"
 #include "special.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void test_basic_mask_and_enable(const char *root) {
         const char *p;
@@ -19,7 +17,7 @@ static void test_basic_mask_and_enable(const char *root) {
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "a.service", NULL) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "b.service", NULL) == -ENOENT);
@@ -114,7 +112,7 @@ static void test_basic_mask_and_enable(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "c.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        /* Disabling a disabled unit must suceed but be a NOP */
+        /* Disabling a disabled unit must succeed but be a NOP */
         assert_se(unit_file_disable(UNIT_FILE_SYSTEM, 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 0);
         unit_file_changes_free(changes, n_changes);
@@ -866,7 +864,7 @@ static void test_with_dropin(const char *root) {
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(UNIT_FILE_SYSTEM, 0, root, STRV_MAKE("with-dropin-4a.service"), &changes, &n_changes) == 1);
+        assert_se(unit_file_enable(UNIT_FILE_SYSTEM, 0, root, STRV_MAKE("with-dropin-4a.service"), &changes, &n_changes) == 2);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-3.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(n_changes == 2);
         assert_se(changes[0].type == UNIT_FILE_SYMLINK);
@@ -988,6 +986,63 @@ static void test_with_dropin_template(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-3@instance-2.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 }
 
+static void test_preset_multiple_instances(const char *root) {
+        UnitFileChange *changes = NULL;
+        size_t n_changes = 0;
+        const char *p;
+        UnitFileState state;
+
+        /* Set up template service files and preset file */
+        p = strjoina(root, "/usr/lib/systemd/system/foo@.service");
+        assert_se(write_string_file(p,
+                                    "[Install]\n"
+                                    "DefaultInstance=def\n"
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+
+        p = strjoina(root, "/usr/lib/systemd/system-preset/test.preset");
+        assert_se(write_string_file(p,
+                                    "enable foo@.service bar0 bar1 bartest\n"
+                                    "enable emptylist@.service\n" /* This line ensures the old functionality for templated unit still works */
+                                    "disable *\n" , WRITE_STRING_FILE_CREATE) >= 0);
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bar0.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+
+        /* Preset a single instantiated unit specified in the list */
+        assert_se(unit_file_preset(UNIT_FILE_SYSTEM, 0, root, STRV_MAKE("foo@bar0.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bar0.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == UNIT_FILE_SYMLINK);
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_PATH"/multi-user.target.wants/foo@bar0.service");
+        assert_se(streq(changes[0].path, p));
+        unit_file_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_disable(UNIT_FILE_SYSTEM, 0, root, STRV_MAKE("foo@bar0.service"), &changes, &n_changes) >= 0);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == UNIT_FILE_UNLINK);
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_PATH"/multi-user.target.wants/foo@bar0.service");
+        assert_se(streq(changes[0].path, p));
+        unit_file_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        /* Check for preset-all case, only instances on the list should be enabled, not including the default instance */
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bar1.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bartest.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+
+        assert_se(unit_file_preset_all(UNIT_FILE_SYSTEM, 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(n_changes > 0);
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bar0.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bar1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bartest.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+
+        unit_file_changes_free(changes, n_changes);
+}
+
 int main(int argc, char *argv[]) {
         char root[] = "/tmp/rootXXXXXX";
         const char *p;
@@ -1017,6 +1072,7 @@ int main(int argc, char *argv[]) {
         test_indirect(root);
         test_preset_and_list(root);
         test_preset_order(root);
+        test_preset_multiple_instances(root);
         test_revert(root);
         test_static_instance(root);
         test_with_dropin(root);

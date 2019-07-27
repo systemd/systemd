@@ -1,2 +1,2 @@
-yyy:x:311:310::/:/sbin/nologin
-xxx:x:312:310::/:/sbin/nologin
+yyy:x:311:310::/:NOLOGIN
+xxx:x:312:310::/:NOLOGIN

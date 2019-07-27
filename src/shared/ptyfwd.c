@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010-2013 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <limits.h>
@@ -25,6 +20,7 @@
 #include "log.h"
 #include "macro.h"
 #include "ptyfwd.h"
+#include "terminal-util.h"
 #include "time-util.h"
 
 struct PTYForward {
@@ -93,8 +89,8 @@ static void pty_forward_disconnect(PTYForward *f) {
         }
 
         /* STDIN/STDOUT should not be nonblocking normally, so let's unconditionally reset it */
-        fd_nonblock(STDIN_FILENO, false);
-        fd_nonblock(STDOUT_FILENO, false);
+        (void) fd_nonblock(STDIN_FILENO, false);
+        (void) fd_nonblock(STDOUT_FILENO, false);
 }
 
 static int pty_forward_done(PTYForward *f, int rcode) {
@@ -396,11 +392,14 @@ int pty_forward_new(
         struct winsize ws;
         int r;
 
-        f = new0(PTYForward, 1);
+        f = new(PTYForward, 1);
         if (!f)
                 return -ENOMEM;
 
-        f->flags = flags;
+        *f = (struct PTYForward) {
+                .flags = flags,
+                .master = -1,
+        };
 
         if (event)
                 f->event = sd_event_ref(event);
@@ -426,8 +425,17 @@ int pty_forward_new(
 
         f->master = master;
 
-        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
-                (void) ioctl(master, TIOCSWINSZ, &ws);
+        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) < 0) {
+                /* If we can't get the resolution from the output fd, then use our internal, regular width/height,
+                 * i.e. something derived from $COLUMNS and $LINES if set. */
+
+                ws = (struct winsize) {
+                        .ws_row = lines(),
+                        .ws_col = columns(),
+                };
+        }
+
+        (void) ioctl(master, TIOCSWINSZ, &ws);
 
         if (!(flags & PTY_FORWARD_READ_ONLY)) {
                 if (tcgetattr(STDIN_FILENO, &f->saved_stdin_attr) >= 0) {
@@ -579,6 +587,45 @@ int pty_forward_set_priority(PTYForward *f, int64_t priority) {
         r = sd_event_source_set_priority(f->sigwinch_event_source, priority);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height) {
+        struct winsize ws;
+
+        assert(f);
+
+        if (width == (unsigned) -1 && height == (unsigned) -1)
+                return 0; /* noop */
+
+        if (width != (unsigned) -1 &&
+            (width == 0 || width > USHRT_MAX))
+                return -ERANGE;
+
+        if (height != (unsigned) -1 &&
+            (height == 0 || height > USHRT_MAX))
+                return -ERANGE;
+
+        if (width == (unsigned) -1 || height == (unsigned) -1) {
+                if (ioctl(f->master, TIOCGWINSZ, &ws) < 0)
+                        return -errno;
+
+                if (width != (unsigned) -1)
+                        ws.ws_col = width;
+                if (height != (unsigned) -1)
+                        ws.ws_row = height;
+        } else
+                ws = (struct winsize) {
+                        .ws_row = height,
+                        .ws_col = width,
+                };
+
+        if (ioctl(f->master, TIOCSWINSZ, &ws) < 0)
+                return -errno;
+
+        /* Make sure we ignore SIGWINCH window size events from now on */
+        f->sigwinch_event_source = sd_event_source_unref(f->sigwinch_event_source);
 
         return 0;
 }

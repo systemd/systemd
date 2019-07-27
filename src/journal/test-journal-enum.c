@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <stdio.h>
 
@@ -12,12 +7,13 @@
 #include "journal-internal.h"
 #include "log.h"
 #include "macro.h"
+#include "tests.h"
 
 int main(int argc, char *argv[]) {
         unsigned n = 0;
-        _cleanup_(sd_journal_closep) sd_journal*j = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY) >= 0);
 

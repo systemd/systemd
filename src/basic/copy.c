@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <dirent.h>
 #include <errno.h>
@@ -24,15 +19,16 @@
 #include "copy.h"
 #include "dirent-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "io-util.h"
 #include "macro.h"
 #include "missing.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
 #include "xattr-util.h"
@@ -48,7 +44,7 @@ static ssize_t try_copy_file_range(
                 int fd_in, loff_t *off_in,
                 int fd_out, loff_t *off_out,
                 size_t len,
-                unsigned int flags) {
+                unsigned flags) {
 
         static int have = -1;
         ssize_t r;
@@ -90,12 +86,30 @@ static int fd_is_nonblock_pipe(int fd) {
         return FLAGS_SET(flags, O_NONBLOCK) ? FD_IS_NONBLOCKING_PIPE : FD_IS_BLOCKING_PIPE;
 }
 
+static int sigint_pending(void) {
+        sigset_t ss;
+
+        assert_se(sigemptyset(&ss) >= 0);
+        assert_se(sigaddset(&ss, SIGINT) >= 0);
+
+        if (sigtimedwait(&ss, NULL, &(struct timespec) { 0, 0 }) < 0) {
+                if (errno == EAGAIN)
+                        return false;
+
+                return -errno;
+        }
+
+        return true;
+}
+
 int copy_bytes_full(
                 int fdf, int fdt,
                 uint64_t max_bytes,
                 CopyFlags copy_flags,
                 void **ret_remains,
-                size_t *ret_remains_size) {
+                size_t *ret_remains_size,
+                copy_progress_bytes_t progress,
+                void *userdata) {
 
         bool try_cfr = true, try_sendfile = true, try_splice = true;
         int r, nonblock_pipe = -1;
@@ -166,8 +180,6 @@ int copy_bytes_full(
                                                 return 1; /* we copied only some number of bytes, which worked, but this means we didn't hit EOF, return 1 */
                                         }
                                 }
-
-                                log_debug_errno(r, "Reflinking didn't work, falling back to non-reflink copying: %m");
                         }
                 }
         }
@@ -177,6 +189,14 @@ int copy_bytes_full(
 
                 if (max_bytes <= 0)
                         return 1; /* return > 0 if we hit the max_bytes limit */
+
+                if (FLAGS_SET(copy_flags, COPY_SIGINT)) {
+                        r = sigint_pending();
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return -EINTR;
+                }
 
                 if (max_bytes != UINT64_MAX && m > max_bytes)
                         m = max_bytes;
@@ -313,10 +333,17 @@ int copy_bytes_full(
                 }
 
         next:
+                if (progress) {
+                        r = progress(n, userdata);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (max_bytes != (uint64_t) -1) {
                         assert(max_bytes >= (uint64_t) n);
                         max_bytes -= n;
                 }
+
                 /* sendfile accepts at most SSIZE_MAX-offset bytes to copy,
                  * so reduce our maximum by the amount we already copied,
                  * but don't go below our copy buffer size, unless we are
@@ -368,7 +395,9 @@ static int fd_copy_regular(
                 const char *to,
                 uid_t override_uid,
                 gid_t override_gid,
-                CopyFlags copy_flags) {
+                CopyFlags copy_flags,
+                copy_progress_bytes_t progress,
+                void *userdata) {
 
         _cleanup_close_ int fdf = -1, fdt = -1;
         struct timespec ts[2];
@@ -386,7 +415,7 @@ static int fd_copy_regular(
         if (fdt < 0)
                 return -errno;
 
-        r = copy_bytes(fdf, fdt, (uint64_t) -1, copy_flags);
+        r = copy_bytes_full(fdf, fdt, (uint64_t) -1, copy_flags, NULL, NULL, progress, userdata);
         if (r < 0) {
                 (void) unlinkat(dt, to, 0);
                 return r;
@@ -488,12 +517,16 @@ static int fd_copy_directory(
                 unsigned depth_left,
                 uid_t override_uid,
                 gid_t override_gid,
-                CopyFlags copy_flags) {
+                CopyFlags copy_flags,
+                const char *display_path,
+                copy_progress_path_t progress_path,
+                copy_progress_bytes_t progress_bytes,
+                void *userdata) {
 
         _cleanup_close_ int fdf = -1, fdt = -1;
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
-        bool created;
+        bool exists, created;
         int r;
 
         assert(st);
@@ -514,13 +547,26 @@ static int fd_copy_directory(
                 return -errno;
         fdf = -1;
 
-        r = mkdirat(dt, to, st->st_mode & 07777);
-        if (r >= 0)
-                created = true;
-        else if (errno == EEXIST && (copy_flags & COPY_MERGE))
+        exists = false;
+        if (copy_flags & COPY_MERGE_EMPTY) {
+                r = dir_is_empty_at(dt, to);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                else if (r == 1)
+                        exists = true;
+        }
+
+        if (exists)
                 created = false;
-        else
-                return -errno;
+        else {
+                r = mkdirat(dt, to, st->st_mode & 07777);
+                if (r >= 0)
+                        created = true;
+                else if (errno == EEXIST && (copy_flags & COPY_MERGE))
+                        created = false;
+                else
+                        return -errno;
+        }
 
         fdt = openat(dt, to, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fdt < 0)
@@ -529,15 +575,36 @@ static int fd_copy_directory(
         r = 0;
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
+                const char *child_display_path = NULL;
+                _cleanup_free_ char *dp = NULL;
                 struct stat buf;
                 int q;
 
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
+                if (FLAGS_SET(copy_flags, COPY_SIGINT)) {
+                        r = sigint_pending();
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return -EINTR;
+                }
+
                 if (fstatat(dirfd(d), de->d_name, &buf, AT_SYMLINK_NOFOLLOW) < 0) {
                         r = -errno;
                         continue;
+                }
+
+                if (progress_path) {
+                        if (display_path)
+                                child_display_path = dp = path_join(display_path, de->d_name);
+                        else
+                                child_display_path = de->d_name;
+
+                        r = progress_path(child_display_path, &buf, userdata);
+                        if (r < 0)
+                                return r;
                 }
 
                 if (S_ISDIR(buf.st_mode)) {
@@ -571,9 +638,9 @@ static int fd_copy_directory(
                                         continue;
                         }
 
-                        q = fd_copy_directory(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device, depth_left-1, override_uid, override_gid, copy_flags);
+                        q = fd_copy_directory(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device, depth_left-1, override_uid, override_gid, copy_flags, child_display_path, progress_path, progress_bytes, userdata);
                 } else if (S_ISREG(buf.st_mode))
-                        q = fd_copy_regular(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
+                        q = fd_copy_regular(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags, progress_bytes, userdata);
                 else if (S_ISLNK(buf.st_mode))
                         q = fd_copy_symlink(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
                 else if (S_ISFIFO(buf.st_mode))
@@ -583,9 +650,10 @@ static int fd_copy_directory(
                 else
                         q = -EOPNOTSUPP;
 
+                if (q == -EINTR) /* Propagate SIGINT up instantly */
+                        return q;
                 if (q == -EEXIST && (copy_flags & COPY_MERGE))
                         q = 0;
-
                 if (q < 0)
                         r = q;
         }
@@ -611,7 +679,18 @@ static int fd_copy_directory(
         return r;
 }
 
-int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags) {
+int copy_tree_at_full(
+                int fdf,
+                const char *from,
+                int fdt,
+                const char *to,
+                uid_t override_uid,
+                gid_t override_gid,
+                CopyFlags copy_flags,
+                copy_progress_path_t progress_path,
+                copy_progress_bytes_t progress_bytes,
+                void *userdata) {
+
         struct stat st;
 
         assert(from);
@@ -621,9 +700,9 @@ int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t overr
                 return -errno;
 
         if (S_ISREG(st.st_mode))
-                return fd_copy_regular(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags);
+                return fd_copy_regular(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags, progress_bytes, userdata);
         else if (S_ISDIR(st.st_mode))
-                return fd_copy_directory(fdf, from, &st, fdt, to, st.st_dev, COPY_DEPTH_MAX, override_uid, override_gid, copy_flags);
+                return fd_copy_directory(fdf, from, &st, fdt, to, st.st_dev, COPY_DEPTH_MAX, override_uid, override_gid, copy_flags, NULL, progress_path, progress_bytes, userdata);
         else if (S_ISLNK(st.st_mode))
                 return fd_copy_symlink(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags);
         else if (S_ISFIFO(st.st_mode))
@@ -634,11 +713,14 @@ int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t overr
                 return -EOPNOTSUPP;
 }
 
-int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags) {
-        return copy_tree_at(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags);
-}
+int copy_directory_fd_full(
+                int dirfd,
+                const char *to,
+                CopyFlags copy_flags,
+                copy_progress_path_t progress_path,
+                copy_progress_bytes_t progress_bytes,
+                void *userdata) {
 
-int copy_directory_fd(int dirfd, const char *to, CopyFlags copy_flags) {
         struct stat st;
 
         assert(dirfd >= 0);
@@ -650,10 +732,17 @@ int copy_directory_fd(int dirfd, const char *to, CopyFlags copy_flags) {
         if (!S_ISDIR(st.st_mode))
                 return -ENOTDIR;
 
-        return fd_copy_directory(dirfd, NULL, &st, AT_FDCWD, to, st.st_dev, COPY_DEPTH_MAX, UID_INVALID, GID_INVALID, copy_flags);
+        return fd_copy_directory(dirfd, NULL, &st, AT_FDCWD, to, st.st_dev, COPY_DEPTH_MAX, UID_INVALID, GID_INVALID, copy_flags, NULL, progress_path, progress_bytes, userdata);
 }
 
-int copy_directory(const char *from, const char *to, CopyFlags copy_flags) {
+int copy_directory_full(
+                const char *from,
+                const char *to,
+                CopyFlags copy_flags,
+                copy_progress_path_t progress_path,
+                copy_progress_bytes_t progress_bytes,
+                void *userdata) {
+
         struct stat st;
 
         assert(from);
@@ -665,10 +754,16 @@ int copy_directory(const char *from, const char *to, CopyFlags copy_flags) {
         if (!S_ISDIR(st.st_mode))
                 return -ENOTDIR;
 
-        return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev, COPY_DEPTH_MAX, UID_INVALID, GID_INVALID, copy_flags);
+        return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev, COPY_DEPTH_MAX, UID_INVALID, GID_INVALID, copy_flags, NULL, progress_path, progress_bytes, userdata);
 }
 
-int copy_file_fd(const char *from, int fdt, CopyFlags copy_flags) {
+int copy_file_fd_full(
+                const char *from,
+                int fdt,
+                CopyFlags copy_flags,
+                copy_progress_bytes_t progress_bytes,
+                void *userdata) {
+
         _cleanup_close_ int fdf = -1;
         int r;
 
@@ -679,15 +774,25 @@ int copy_file_fd(const char *from, int fdt, CopyFlags copy_flags) {
         if (fdf < 0)
                 return -errno;
 
-        r = copy_bytes(fdf, fdt, (uint64_t) -1, copy_flags);
+        r = copy_bytes_full(fdf, fdt, (uint64_t) -1, copy_flags, NULL, NULL, progress_bytes, userdata);
 
-        (void) copy_times(fdf, fdt);
+        (void) copy_times(fdf, fdt, copy_flags);
         (void) copy_xattr(fdf, fdt);
 
         return r;
 }
 
-int copy_file(const char *from, const char *to, int flags, mode_t mode, unsigned chattr_flags, CopyFlags copy_flags) {
+int copy_file_full(
+                const char *from,
+                const char *to,
+                int flags,
+                mode_t mode,
+                unsigned chattr_flags,
+                unsigned chattr_mask,
+                CopyFlags copy_flags,
+                copy_progress_bytes_t progress_bytes,
+                void *userdata) {
+
         int fdt = -1, r;
 
         assert(from);
@@ -699,15 +804,18 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode, unsigned
                         return -errno;
         }
 
-        if (chattr_flags != 0)
-                (void) chattr_fd(fdt, chattr_flags, (unsigned) -1);
+        if (chattr_mask != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
 
-        r = copy_file_fd(from, fdt, copy_flags);
+        r = copy_file_fd_full(from, fdt, copy_flags, progress_bytes, userdata);
         if (r < 0) {
                 close(fdt);
                 (void) unlink(to);
                 return r;
         }
+
+        if (chattr_mask != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
 
         if (close(fdt) < 0) {
                 unlink_noerrno(to);
@@ -717,39 +825,74 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode, unsigned
         return 0;
 }
 
-int copy_file_atomic(const char *from, const char *to, mode_t mode, unsigned chattr_flags, CopyFlags copy_flags) {
-        _cleanup_free_ char *t = NULL;
+int copy_file_atomic_full(
+                const char *from,
+                const char *to,
+                mode_t mode,
+                unsigned chattr_flags,
+                unsigned chattr_mask,
+                CopyFlags copy_flags,
+                copy_progress_bytes_t progress_bytes,
+                void *userdata) {
+
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_close_ int fdt = -1;
         int r;
 
         assert(from);
         assert(to);
 
-        r = tempfn_random(to, NULL, &t);
-        if (r < 0)
-                return r;
-
-        r = copy_file(from, t, O_NOFOLLOW|O_EXCL, mode, chattr_flags, copy_flags);
-        if (r < 0)
-                return r;
+        /* We try to use O_TMPFILE here to create the file if we can. Note that that only works if COPY_REPLACE is not
+         * set though as we need to use linkat() for linking the O_TMPFILE file into the file system but that system
+         * call can't replace existing files. Hence, if COPY_REPLACE is set we create a temporary name in the file
+         * system right-away and unconditionally which we then can renameat() to the right name after we completed
+         * writing it. */
 
         if (copy_flags & COPY_REPLACE) {
-                r = renameat(AT_FDCWD, t, AT_FDCWD, to);
+                r = tempfn_random(to, NULL, &t);
                 if (r < 0)
-                        r = -errno;
-        } else
-                r = rename_noreplace(AT_FDCWD, t, AT_FDCWD, to);
-        if (r < 0) {
-                (void) unlink(t);
-                return r;
+                        return r;
+
+                fdt = open(t, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY|O_CLOEXEC, 0600);
+                if (fdt < 0) {
+                        t = mfree(t);
+                        return -errno;
+                }
+        } else {
+                fdt = open_tmpfile_linkable(to, O_WRONLY|O_CLOEXEC, &t);
+                if (fdt < 0)
+                        return fdt;
         }
 
+        if (chattr_mask != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
+
+        r = copy_file_fd_full(from, fdt, copy_flags, progress_bytes, userdata);
+        if (r < 0)
+                return r;
+
+        if (fchmod(fdt, mode) < 0)
+                return -errno;
+
+        if (copy_flags & COPY_REPLACE) {
+                if (renameat(AT_FDCWD, t, AT_FDCWD, to) < 0)
+                        return -errno;
+        } else {
+                r = link_tmpfile(fdt, t, to);
+                if (r < 0)
+                        return r;
+        }
+
+        if (chattr_mask != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
+
+        t = mfree(t);
         return 0;
 }
 
-int copy_times(int fdf, int fdt) {
+int copy_times(int fdf, int fdt, CopyFlags flags) {
         struct timespec ut[2];
         struct stat st;
-        usec_t crtime = 0;
 
         assert(fdf >= 0);
         assert(fdt >= 0);
@@ -763,8 +906,12 @@ int copy_times(int fdf, int fdt) {
         if (futimens(fdt, ut) < 0)
                 return -errno;
 
-        if (fd_getcrtime(fdf, &crtime) >= 0)
-                (void) fd_setcrtime(fdt, crtime);
+        if (FLAGS_SET(flags, COPY_CRTIME)) {
+                usec_t crtime;
+
+                if (fd_getcrtime(fdf, &crtime) >= 0)
+                        (void) fd_setcrtime(fdt, crtime);
+        }
 
         return 0;
 }

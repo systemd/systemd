@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2013 Intel Corporation. All rights reserved.
+  Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
 #include <errno.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <net/if.h>
 
 #include "sd-dhcp-client.h"
 #include "sd-event.h"
@@ -18,6 +17,8 @@
 #include "dhcp-internal.h"
 #include "dhcp-protocol.h"
 #include "fd-util.h"
+#include "random-util.h"
+#include "tests.h"
 #include "util.h"
 
 static uint8_t mac_addr[] = {'A', 'B', 'C', '1', '2', '3'};
@@ -154,6 +155,35 @@ static void test_checksum(void) {
         assert_se(dhcp_packet_checksum((uint8_t*)&buf, 20) == be16toh(0x78ae));
 }
 
+static void test_dhcp_identifier_set_iaid(void) {
+        uint32_t iaid_legacy;
+        be32_t iaid;
+        int ifindex;
+
+        for (;;) {
+                char ifname[IFNAMSIZ];
+
+                /* try to find an ifindex which does not exist. I causes dhcp_identifier_set_iaid()
+                 * to hash the MAC address. */
+                pseudo_random_bytes(&ifindex, sizeof(ifindex));
+                if (ifindex > 0 && !if_indextoname(ifindex, ifname))
+                        break;
+        }
+
+        assert_se(dhcp_identifier_set_iaid(ifindex, mac_addr, sizeof(mac_addr), true, &iaid_legacy) >= 0);
+        assert_se(dhcp_identifier_set_iaid(ifindex, mac_addr, sizeof(mac_addr), false, &iaid) >= 0);
+
+        /* we expect, that the MAC address was hashed. The legacy value is in native
+         * endianness. */
+        assert_se(iaid_legacy == 0x8dde4ba8u);
+        assert_se(iaid  == htole32(0x8dde4ba8u));
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+        assert_se(iaid == iaid_legacy);
+#else
+        assert_se(iaid == __bswap_32(iaid_legacy));
+#endif
+}
+
 static int check_options(uint8_t code, uint8_t len, const void *option, void *userdata) {
         switch(code) {
         case SD_DHCP_OPTION_CLIENT_IDENTIFIER:
@@ -163,7 +193,7 @@ static int check_options(uint8_t code, uint8_t len, const void *option, void *us
                 size_t duid_len;
 
                 assert_se(dhcp_identifier_set_duid_en(&duid, &duid_len) >= 0);
-                assert_se(dhcp_identifier_set_iaid(42, mac_addr, ETH_ALEN, &iaid) >= 0);
+                assert_se(dhcp_identifier_set_iaid(42, mac_addr, ETH_ALEN, true, &iaid) >= 0);
 
                 assert_se(len == sizeof(uint8_t) + sizeof(uint32_t) + duid_len);
                 assert_se(len == 19);
@@ -233,7 +263,7 @@ int dhcp_network_bind_raw_socket(
                 const uint8_t *addr, size_t addr_len,
                 uint16_t arp_type, uint16_t port) {
 
-        if (socketpair(AF_UNIX, SOCK_STREAM, 0, test_fd) < 0)
+        if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
                 return -errno;
 
         return test_fd[0];
@@ -242,7 +272,7 @@ int dhcp_network_bind_raw_socket(
 int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
         int fd;
 
-        fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
@@ -388,14 +418,15 @@ static uint8_t test_addr_acq_ack[] = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
 
-static void test_addr_acq_acquired(sd_dhcp_client *client, int event,
+static int test_addr_acq_acquired(sd_dhcp_client *client, int event,
                                    void *userdata) {
         sd_event *e = userdata;
         sd_dhcp_lease *lease;
         struct in_addr addr;
+        const struct in_addr *addrs;
 
         assert_se(client);
-        assert_se(event == SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
+        assert_se(IN_SET(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE, SD_DHCP_CLIENT_EVENT_SELECTING));
 
         assert_se(sd_dhcp_client_get_lease(client, &lease) >= 0);
         assert_se(lease);
@@ -408,14 +439,16 @@ static void test_addr_acq_acquired(sd_dhcp_client *client, int event,
         assert_se(memcmp(&addr.s_addr, &test_addr_acq_ack[285],
                       sizeof(addr.s_addr)) == 0);
 
-        assert_se(sd_dhcp_lease_get_router(lease, &addr) >= 0);
-        assert_se(memcmp(&addr.s_addr, &test_addr_acq_ack[308],
-                      sizeof(addr.s_addr)) == 0);
+        assert_se(sd_dhcp_lease_get_router(lease, &addrs) == 1);
+        assert_se(memcmp(&addrs[0].s_addr, &test_addr_acq_ack[308],
+                         sizeof(addrs[0].s_addr)) == 0);
 
         if (verbose)
                 printf("  DHCP address acquired\n");
 
         sd_event_exit(e, 0);
+
+        return 0;
 }
 
 static int test_addr_acq_recv_request(size_t size, DHCPMessage *request) {
@@ -526,15 +559,14 @@ static void test_addr_acq(sd_event *e) {
 int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *e;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(sd_event_new(&e) >= 0);
 
         test_request_basic(e);
         test_request_anonymize(e);
         test_checksum();
+        test_dhcp_identifier_set_iaid();
 
         test_discover_message(e);
         test_addr_acq(e);

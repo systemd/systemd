@@ -1,39 +1,20 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
 
   This is based on crypttab(5) from Fedora's initscripts package, which in
   turn is based on Debian's version.
 
   The Red Hat version has been written by Miloslav Trmac <mitr@redhat.com>.
-
 -->
 <refentry id="crypttab" conditional='HAVE_LIBCRYPTSETUP'>
 
   <refentryinfo>
     <title>crypttab</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Documentation</contrib>
-        <firstname>Miloslav</firstname>
-        <surname>Trmac</surname>
-        <email>mitr@redhat.com</email>
-      </author>
-      <author>
-        <contrib>Documentation</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -245,6 +226,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>same-cpu-crypt</option></term>
+
+        <listitem><para>Perform encryption using the same cpu that IO was submitted on. The default is to use
+        an unbound workqueue so that encryption work is automatically balanced between available CPUs.</para>
+        <para>This requires kernel 4.0 or newer.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>submit-from-crypt-cpus</option></term>
+
+        <listitem><para>Disable offloading writes to a separate thread after encryption. There are some
+        situations where offloading write bios from the encryption threads to a single thread degrades
+        performance significantly. The default is to offload write bios to the same thread because it benefits
+        CFQ to have writes submitted using the same context.</para>
+        <para>This requires kernel 4.0 or newer.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>skip=</option></term>
 
         <listitem><para>How many 512-byte sectors of the encrypted data to skip at the
@@ -265,6 +266,15 @@
         <term><option>size=</option></term>
 
         <listitem><para>Specifies the key size in bits. See
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for possible values and the default value of this
+        option.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>sector-size=</option></term>
+
+        <listitem><para>Specifies the sector size in bytes. See
         <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for possible values and the default value of this
         option.</para></listitem>

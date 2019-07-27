@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2016 BISDN GmbH. All rights reserved.
+  Copyright © 2016 BISDN GmbH. All rights reserved.
 ***/
 
 #include <netinet/in.h>
@@ -21,12 +19,12 @@
 
 static bool is_bit_set(unsigned bit, uint32_t scope) {
         assert(bit < sizeof(scope)*8);
-        return scope & (1 << bit);
+        return scope & (UINT32_C(1) << bit);
 }
 
-static inline void set_bit(unsigned nr, uint32_t *addr) {
+static void set_bit(unsigned nr, uint32_t *addr) {
         if (nr < BRIDGE_VLAN_BITMAP_MAX)
-                addr[nr / 32] |= (((uint32_t) 1) << (nr % 32));
+                addr[nr / 32] |= (UINT32_C(1) << (nr % 32));
 }
 
 static int find_next_bit(int i, uint32_t x) {
@@ -46,16 +44,16 @@ static int find_next_bit(int i, uint32_t x) {
 
 static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint16_t pvid, const uint32_t *br_vid_bitmap, const uint32_t *br_untagged_bitmap) {
         struct bridge_vlan_info br_vlan;
-        int i, j, k, r, done, cnt;
+        int i, j, k, r, cnt;
         uint16_t begin, end;
-        bool untagged = false;
+        bool done, untagged = false;
 
         assert(link);
         assert(req);
         assert(br_vid_bitmap);
         assert(br_untagged_bitmap);
 
-        i = cnt = -1;
+        cnt = 0;
 
         begin = end = UINT16_MAX;
         for (k = 0; k < BRIDGE_VLAN_BITMAP_LEN; k++) {
@@ -65,7 +63,7 @@ static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint
 
                 base_bit = k * 32;
                 i = -1;
-                done = 0;
+                done = false;
                 do {
                         j = find_next_bit(i, vid_map);
                         if (j > 0) {
@@ -82,7 +80,7 @@ static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint
                                         goto next;
                                 }
                         } else
-                                done = 1;
+                                done = true;
 
                         if (begin != UINT16_MAX) {
                                 cnt++;
@@ -131,14 +129,12 @@ static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint
                         i = j;
                 } while (!done);
         }
-        if (!cnt)
-                return -EINVAL;
 
+        assert(cnt > 0);
         return cnt;
 }
 
-static int set_brvlan_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int set_brvlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -152,9 +148,9 @@ static int set_brvlan_handler(sd_netlink *rtnl, sd_netlink_message *m, void *use
 
 int br_vlan_configure(Link *link, uint16_t pvid, uint32_t *br_vid_bitmap, uint32_t *br_untagged_bitmap) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-        uint16_t flags;
         sd_netlink *rtnl;
+        uint16_t flags;
+        int r;
 
         assert(link);
         assert(link->manager);
@@ -197,54 +193,14 @@ int br_vlan_configure(Link *link, uint16_t pvid, uint32_t *br_vid_bitmap, uint32
                 return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
 
         /* send message to the kernel */
-        r = sd_netlink_call_async(rtnl, req, set_brvlan_handler, link, 0, NULL);
+        r = netlink_call_async(rtnl, NULL, req, set_brvlan_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
+        link_ref(link);
+
         return 0;
-}
-
-static int parse_vid_range(const char *rvalue, uint16_t *vid, uint16_t *vid_end) {
-        int r;
-        char *p;
-        char *_rvalue = NULL;
-        uint16_t _vid = UINT16_MAX;
-        uint16_t _vid_end = UINT16_MAX;
-
-        assert(rvalue);
-        assert(vid);
-        assert(vid_end);
-
-        _rvalue = strdupa(rvalue);
-        p = strchr(_rvalue, '-');
-        if (p) {
-                *p = '\0';
-                p++;
-                r = parse_vlanid(_rvalue, &_vid);
-                if (r < 0)
-                        return r;
-
-                if (_vid == 0)
-                        return -ERANGE;
-
-                r = parse_vlanid(p, &_vid_end);
-                if (r < 0)
-                        return r;
-
-                if (_vid_end == 0)
-                        return -ERANGE;
-        } else {
-                r = parse_vlanid(_rvalue, &_vid);
-                if (r < 0)
-                        return r;
-
-                if (_vid == 0)
-                        return -ERANGE;
-        }
-
-        *vid = _vid;
-        *vid_end = _vid_end;
-        return r;
 }
 
 int config_parse_brvlan_pvid(const char *unit, const char *filename,
@@ -253,8 +209,9 @@ int config_parse_brvlan_pvid(const char *unit, const char *filename,
                              int ltype, const char *rvalue, void *data,
                              void *userdata) {
         Network *network = userdata;
-        int r;
         uint16_t pvid;
+        int r;
+
         r = parse_vlanid(rvalue, &pvid);
         if (r < 0)
                 return r;
@@ -271,8 +228,8 @@ int config_parse_brvlan_vlan(const char *unit, const char *filename,
                              int ltype, const char *rvalue, void *data,
                              void *userdata) {
         Network *network = userdata;
-        int r;
         uint16_t vid, vid_end;
+        int r;
 
         assert(filename);
         assert(section);
@@ -286,16 +243,9 @@ int config_parse_brvlan_vlan(const char *unit, const char *filename,
                 return 0;
         }
 
-        if (UINT16_MAX == vid_end)
-                set_bit(vid++, network->br_vid_bitmap);
-        else {
-                if (vid >= vid_end) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid VLAN range, ignoring %s", rvalue);
-                        return 0;
-                }
-                for (; vid <= vid_end; vid++)
-                        set_bit(vid, network->br_vid_bitmap);
-        }
+        for (; vid <= vid_end; vid++)
+                set_bit(vid, network->br_vid_bitmap);
+
         network->use_br_vlan = true;
         return 0;
 }
@@ -321,19 +271,11 @@ int config_parse_brvlan_untagged(const char *unit, const char *filename,
                 return 0;
         }
 
-        if (UINT16_MAX == vid_end) {
+        for (; vid <= vid_end; vid++) {
                 set_bit(vid, network->br_vid_bitmap);
                 set_bit(vid, network->br_untagged_bitmap);
-        } else {
-                if (vid >= vid_end) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid VLAN range, ignoring %s", rvalue);
-                        return 0;
-                }
-                for (; vid <= vid_end; vid++) {
-                        set_bit(vid, network->br_vid_bitmap);
-                        set_bit(vid, network->br_untagged_bitmap);
-                }
         }
+
         network->use_br_vlan = true;
         return 0;
 }

@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Daniel Mack
-***/
-
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "list.h"
@@ -25,3 +19,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ip_address_access);
 IPAddressAccessItem* ip_address_access_free_all(IPAddressAccessItem *first);
 
 IPAddressAccessItem* ip_address_access_reduce(IPAddressAccessItem *first);
+
+/* Returns true if a list consists of only the two items necessary for "any"
+ * (0.0.0.0/0 and ::/0). */
+bool ip_address_access_item_is_any(IPAddressAccessItem *first);

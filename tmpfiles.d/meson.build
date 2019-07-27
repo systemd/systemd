@@ -1,13 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 enable_tmpfiles = conf.get('ENABLE_TMPFILES') == 1
 
 tmpfiles = [['home.conf',            ''],
             ['journal-nocow.conf',   ''],
-            ['systemd-nologin.conf', ''],
+            ['systemd-nologin.conf', 'HAVE_PAM'],
             ['systemd-nspawn.conf',  'ENABLE_MACHINED'],
+            ['systemd-tmp.conf',     ''],
             ['portables.conf',       'ENABLE_PORTABLED'],
             ['tmp.conf',             ''],
             ['x11.conf',             ''],

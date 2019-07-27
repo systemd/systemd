@@ -1,4 +1,4 @@
-# Ensure it is not allowed to create groups implicitely in the uid:gid syntax
+# Ensure it is not allowed to create groups implicitly in the uid:gid syntax
 #
 #Type Name ID  GECOS HOMEDIR
 u u1 100:100 -

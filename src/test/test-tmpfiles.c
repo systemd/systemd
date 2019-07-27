@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -18,6 +13,8 @@
 #include "log.h"
 #include "process-util.h"
 #include "string-util.h"
+#include "tests.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 int main(int argc, char** argv) {
@@ -26,8 +23,7 @@ int main(int argc, char** argv) {
         const char *p = argv[1] ?: "/tmp";
         char *pattern;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         pattern = strjoina(p, "/systemd-test-XXXXXX");
 

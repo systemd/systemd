@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -262,7 +257,7 @@ int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
 
                 /* Check if there's already an RR with the same name
                  * established. If so, it has been probed already, and
-                 * we don't ned to probe again. */
+                 * we don't need to probe again. */
 
                 LIST_FIND_HEAD(by_name, i, first);
                 LIST_FOREACH(by_name, j, first) {

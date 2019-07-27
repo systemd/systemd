@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <grp.h>
+#if ENABLE_GSHADOW
 #include <gshadow.h>
+#endif
 #include <pwd.h>
 #include <shadow.h>
 #include <stdbool.h>
@@ -31,9 +27,14 @@ static inline int parse_gid(const char *s, gid_t *ret_gid) {
 char* getlogname_malloc(void);
 char* getusername_malloc(void);
 
-int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell);
-int get_user_creds_clean(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell);
-int get_group_creds(const char **groupname, gid_t *gid);
+typedef enum UserCredsFlags {
+        USER_CREDS_PREFER_NSS    = 1 << 0,  /* if set, only synthesize user records if database lacks them. Normally we bypass the userdb entirely for the records we can synthesize */
+        USER_CREDS_ALLOW_MISSING = 1 << 1,  /* if a numeric UID string is resolved, be OK if there's no record for it */
+        USER_CREDS_CLEAN         = 1 << 2,  /* try to clean up shell and home fields with invalid data */
+} UserCredsFlags;
+
+int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell, UserCredsFlags flags);
+int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags);
 
 char* uid_to_name(uid_t uid);
 char* gid_to_name(gid_t gid);
@@ -108,7 +109,9 @@ int fgetgrent_sane(FILE *stream, struct group **gr);
 int putpwent_sane(const struct passwd *pw, FILE *stream);
 int putspent_sane(const struct spwd *sp, FILE *stream);
 int putgrent_sane(const struct group *gr, FILE *stream);
-#ifdef ENABLE_GSHADOW
+#if ENABLE_GSHADOW
 int fgetsgent_sane(FILE *stream, struct sgrp **sg);
 int putsgent_sane(const struct sgrp *sg, FILE *stream);
 #endif
+
+int make_salt(char **ret);

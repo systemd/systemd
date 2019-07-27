@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <string.h>
@@ -27,7 +22,7 @@ const char *capability_to_name(int id) {
         if (id < 0)
                 return NULL;
 
-        if (id >= (int) ELEMENTSOF(capability_names))
+        if ((size_t) id >= ELEMENTSOF(capability_names))
                 return NULL;
 
         return capability_names[id];
@@ -42,7 +37,7 @@ int capability_from_name(const char *name) {
         /* Try to parse numeric capability */
         r = safe_atoi(name, &i);
         if (r >= 0) {
-                if (i >= 0 && i < (int) ELEMENTSOF(capability_names))
+                if (i >= 0 && (size_t) i < ELEMENTSOF(capability_names))
                         return i;
                 else
                         return -EINVAL;
@@ -67,7 +62,7 @@ int capability_set_to_string_alloc(uint64_t set, char **s) {
 
         assert(s);
 
-        for (i = 0; i < cap_last_cap(); i++)
+        for (i = 0; i <= cap_last_cap(); i++)
                 if (set & (UINT64_C(1) << i)) {
                         const char *p;
                         size_t add;
@@ -105,7 +100,7 @@ int capability_set_from_string(const char *s, uint64_t *set) {
                 _cleanup_free_ char *word = NULL;
                 int r;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == -ENOMEM)
                         return r;
                 if (r <= 0)

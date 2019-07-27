@@ -1,0 +1,88 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_slot_set_userdata" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_slot_set_userdata</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_slot_set_userdata</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_slot_set_userdata</refname>
+    <refname>sd_bus_slot_get_userdata</refname>
+
+    <refpurpose>Set and query the value in the "userdata" field</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>void* <function>sd_bus_slot_set_userdata</function></funcdef>
+        <paramdef>sd_bus_slot* <parameter>slot</parameter></paramdef>
+        <paramdef>void* <parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void* <function>sd_bus_slot_get_userdata</function></funcdef>
+        <paramdef>sd_bus_slot* <parameter>slot</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The userdata pointer allows data to be passed between the point where a callback is
+    registered, for example when a filter is added using
+    <citerefentry><refentrytitle>sd_bus_add_filter</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    or an asynchronous function call is made using
+    <citerefentry><refentrytitle>sd_bus_call_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    and the point where the callback is called, without having any global state. The pointer has
+    type <type>void*</type> and is not used by the sd-bus functions in any way, except to pass to
+    the callback function.</para>
+
+    <para>Usually, the userdata field is set when the slot object is initially
+    registered. <function>sd_bus_slot_set_userdata()</function> may be used to change it later for
+    the bus slot object <parameter>slot</parameter>. Previous value of the field is returned. The
+    argument and returned value may be <constant>NULL</constant>. It will be passed as the
+    <parameter>userdata</parameter> argument to the callback function attached to the slot.</para>
+
+    <para><function>sd_bus_slot_set_userdata()</function> gets the value of the userdata field in
+    the bus slot object <parameter>slot</parameter>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return the value of the userdata field before the function
+    call. If the <parameter>slot</parameter> object is <constant>NULL</constant>,
+    <constant>NULL</constant> will be returned to signify an error, but this is not distinguishable
+    from the userdata field value being <constant>NULL</constant>.</para>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_slot_set_destroy_callback</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_slot_get_current_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

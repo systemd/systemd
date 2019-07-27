@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2017 Susant Sahani
-***/
+#include <linux/can/vxcan.h>
 
 #include "netdev/vxcan.h"
-#include "missing.h"
 
 static int netdev_vxcan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         VxCan *v;
@@ -74,4 +70,5 @@ const NetDevVTable vxcan_vtable = {
         .fill_message_create = netdev_vxcan_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_vxcan_verify,
+        .generate_mac = true,
 };

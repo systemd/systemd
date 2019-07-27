@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright 2018 Jonathan Rudenberg
-***/
 
 #include "alloc-util.h"
 #include "log.h"
 #include "fileio.h"
 #include "fuzz.h"
+#include "tests.h"
 
 /* This is a test driver for the systemd fuzzers that provides main function
  * for regression testing outside of oss-fuzz (https://github.com/google/oss-fuzz)
@@ -14,14 +12,17 @@
  * It reads files named on the command line and passes them one by one into the
  * fuzzer that it is compiled into. */
 
+/* This one was borrowed from
+ * https://github.com/google/oss-fuzz/blob/646fca1b506b056db3a60d32c4a1a7398f171c94/infra/base-images/base-runner/bad_build_check#L19
+ */
+#define MIN_NUMBER_OF_RUNS 4
+
 int main(int argc, char **argv) {
         int i, r;
         size_t size;
         char *name;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         for (i = 1; i < argc; i++) {
                 _cleanup_free_ char *buf = NULL;
@@ -34,7 +35,9 @@ int main(int argc, char **argv) {
                 }
                 printf("%s... ", name);
                 fflush(stdout);
-                (void) LLVMFuzzerTestOneInput((uint8_t*)buf, size);
+                for (int j = 0; j < MIN_NUMBER_OF_RUNS; j++)
+                        if (LLVMFuzzerTestOneInput((uint8_t*)buf, size) == EXIT_TEST_SKIP)
+                                return EXIT_TEST_SKIP;
                 printf("ok\n");
         }
 

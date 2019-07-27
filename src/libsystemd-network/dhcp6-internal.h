@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014-2015 Intel Corporation. All rights reserved.
+  Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
 #include <net/ethernet.h>
@@ -75,25 +73,23 @@ struct DHCP6IA {
                 struct ia_pd ia_pd;
                 struct ia_ta ia_ta;
         };
-        sd_event_source *timeout_t1;
-        sd_event_source *timeout_t2;
 
         LIST_HEAD(DHCP6Address, addresses);
 };
 
 typedef struct DHCP6IA DHCP6IA;
 
-#define log_dhcp6_client_errno(p, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "DHCPv6 CLIENT: " fmt, ##__VA_ARGS__)
+#define log_dhcp6_client_errno(p, error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "DHCPv6 CLIENT: " fmt, ##__VA_ARGS__)
 #define log_dhcp6_client(p, fmt, ...) log_dhcp6_client_errno(p, 0, fmt, ##__VA_ARGS__)
 
 int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
                         size_t optlen, const void *optval);
-int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia);
-int dhcp6_option_append_pd(uint8_t *buf, size_t len, DHCP6IA *pd);
+int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia);
+int dhcp6_option_append_pd(uint8_t *buf, size_t len, const DHCP6IA *pd);
 int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn);
 int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
                        size_t *optlen, uint8_t **optvalue);
-int dhcp6_option_parse_status(DHCP6Option *option);
+int dhcp6_option_parse_status(DHCP6Option *option, size_t len);
 int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia);
 int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
                                 struct in6_addr **addrs, size_t count,

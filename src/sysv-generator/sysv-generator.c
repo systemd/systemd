@@ -1,11 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Thomas H.P. Andersen
-  Copyright 2010 Lennart Poettering
-  Copyright 2011 Michal Schmidt
-***/
 
 #include <errno.h>
 #include <stdio.h>
@@ -21,6 +14,7 @@
 #include "hexdecoct.h"
 #include "install.h"
 #include "log.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -48,7 +42,7 @@ static const struct {
          * means they are shut down anyway at system power off if running. */
 };
 
-static const char *arg_dest = "/tmp";
+static const char *arg_dest = NULL;
 
 typedef struct SysvStub {
         char *name;
@@ -93,7 +87,7 @@ static int add_alias(const char *service, const char *alias) {
         assert(service);
         assert(alias);
 
-        link = strjoina(arg_dest, "/", alias);
+        link = prefix_roota(arg_dest, alias);
 
         r = symlink(service, link);
         if (r < 0) {
@@ -122,7 +116,7 @@ static int generate_unit_file(SysvStub *s) {
         if (!path_escaped)
                 return log_oom();
 
-        unit = strjoina(arg_dest, "/", s->name);
+        unit = prefix_roota(arg_dest, s->name);
 
         /* We might already have a symlink with the same name from a Provides:,
          * or from backup files like /etc/init.d/foo.bak. Real scripts always win,
@@ -328,7 +322,7 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
         for (;;) {
                 _cleanup_free_ char *word = NULL, *m = NULL;
 
-                r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+                r = extract_first_word(&text, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
                 if (r == 0)
@@ -397,7 +391,7 @@ static int handle_dependencies(SysvStub *s, unsigned line, const char *full_text
                 _cleanup_free_ char *word = NULL, *m = NULL;
                 bool is_before;
 
-                r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+                r = extract_first_word(&text, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
                 if (r == 0)
@@ -439,7 +433,6 @@ static int load_sysv(SysvStub *s) {
         _cleanup_free_ char *short_description = NULL, *long_description = NULL, *chkconfig_description = NULL;
         char *description;
         bool supports_reload = false;
-        char l[LINE_MAX];
 
         assert(s);
 
@@ -453,8 +446,15 @@ static int load_sysv(SysvStub *s) {
 
         log_debug("Loading SysV script %s", s->path);
 
-        FOREACH_LINE(l, f, goto fail) {
+        for (;;) {
+                _cleanup_free_ char *l = NULL;
                 char *t;
+
+                r = read_line(f, LONG_LINE_MAX, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read configuration file '%s': %m", s->path);
+                if (r == 0)
+                        break;
 
                 line++;
 
@@ -463,7 +463,7 @@ static int load_sysv(SysvStub *s) {
                         /* Try to figure out whether this init script supports
                          * the reload operation. This heuristic looks for
                          * "Usage" lines which include the reload option. */
-                        if ( state == USAGE_CONTINUATION ||
+                        if (state == USAGE_CONTINUATION ||
                             (state == NORMAL && strcasestr(t, "usage"))) {
                                 if (usage_contains_reload(t)) {
                                         supports_reload = true;
@@ -642,7 +642,7 @@ static int load_sysv(SysvStub *s) {
         if (description) {
                 char *d;
 
-                d = strappend(s->has_lsb ? "LSB: " : "SYSV: ", description);
+                d = strjoin(s->has_lsb ? "LSB: " : "SYSV: ", description);
                 if (!d)
                         return log_oom();
 
@@ -651,9 +651,6 @@ static int load_sysv(SysvStub *s) {
 
         s->loaded = true;
         return 0;
-
-fail:
-        return log_error_errno(errno, "Failed to read configuration file '%s': %m", s->path);
 }
 
 static int fix_order(SysvStub *s, Hashmap *all_services) {
@@ -720,7 +717,7 @@ static int acquire_search_path(const char *def, const char *envvar, char ***ret)
         if (strv_isempty(l)) {
                 strv_free(l);
 
-                l = strv_new(def, NULL);
+                l = strv_new(def);
                 if (!l)
                         return log_oom();
         }
@@ -787,7 +784,7 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                                 continue;
                         }
 
-                        fpath = strjoin(*path, "/", de->d_name);
+                        fpath = path_join(*path, de->d_name);
                         if (!fpath)
                                 return log_oom();
 
@@ -832,7 +829,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                         _cleanup_free_ char *path = NULL;
                         struct dirent *de;
 
-                        path = strjoin(*p, "/", rcnd_table[i].path);
+                        path = path_join(*p, rcnd_table[i].path);
                         if (!path) {
                                 r = log_oom();
                                 goto finish;
@@ -862,7 +859,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                 if (a < 0 || b < 0)
                                         continue;
 
-                                fpath = strjoin(*p, "/", de->d_name);
+                                fpath = path_join(*p, de->d_name);
                                 if (!fpath) {
                                         r = log_oom();
                                         goto finish;
@@ -920,47 +917,30 @@ finish:
         return r;
 }
 
-int main(int argc, char *argv[]) {
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
         _cleanup_(free_sysvstub_hashmapp) Hashmap *all_services = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         SysvStub *service;
         Iterator j;
         int r;
 
-        if (argc > 1 && argc != 4) {
-                log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
-        }
-
-        if (argc > 1)
-                arg_dest = argv[3];
-
-        log_set_prohibit_ipc(true);
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
-
-        umask(0022);
+        assert_se(arg_dest = dest_late);
 
         r = lookup_paths_init(&lp, UNIT_FILE_SYSTEM, LOOKUP_PATHS_EXCLUDE_GENERATED, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to find lookup paths: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to find lookup paths: %m");
 
         all_services = hashmap_new(&string_hash_ops);
-        if (!all_services) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!all_services)
+                return log_oom();
 
         r = enumerate_sysv(&lp, all_services);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = set_dependencies_from_rcnd(&lp, all_services);
         if (r < 0)
-                goto finish;
+                return r;
 
         HASHMAP_FOREACH(service, all_services, j)
                 (void) load_sysv(service);
@@ -970,8 +950,7 @@ int main(int argc, char *argv[]) {
                 (void) generate_unit_file(service);
         }
 
-        r = 0;
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_GENERATOR_FUNCTION(run);

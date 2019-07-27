@@ -1,19 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2014 Lennart Poettering
-***/
-
-#include <net/if.h>
-#include <stdio_ext.h>
+#include <linux/if.h>
+#include <unistd.h>
 
 #include "sd-network.h"
 
 #include "alloc-util.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing.h"
+#include "log-link.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "resolved-link.h"
@@ -21,6 +17,7 @@
 #include "resolved-mdns.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 
 int link_new(Manager *m, Link **ret, int ifindex) {
         _cleanup_(link_freep) Link *l = NULL;
@@ -33,16 +30,19 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         if (r < 0)
                 return r;
 
-        l = new0(Link, 1);
+        l = new(Link, 1);
         if (!l)
                 return -ENOMEM;
 
-        l->ifindex = ifindex;
-        l->llmnr_support = RESOLVE_SUPPORT_YES;
-        l->mdns_support = RESOLVE_SUPPORT_NO;
-        l->dnssec_mode = _DNSSEC_MODE_INVALID;
-        l->private_dns_mode = _PRIVATE_DNS_MODE_INVALID;
-        l->operstate = IF_OPER_UNKNOWN;
+        *l = (Link) {
+                .ifindex = ifindex,
+                .default_route = -1,
+                .llmnr_support = RESOLVE_SUPPORT_YES,
+                .mdns_support = RESOLVE_SUPPORT_NO,
+                .dnssec_mode = _DNSSEC_MODE_INVALID,
+                .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
+                .operstate = IF_OPER_UNKNOWN,
+        };
 
         if (asprintf(&l->state_file, "/run/systemd/resolve/netif/%i", ifindex) < 0)
                 return -ENOMEM;
@@ -63,10 +63,11 @@ int link_new(Manager *m, Link **ret, int ifindex) {
 void link_flush_settings(Link *l) {
         assert(l);
 
+        l->default_route = -1;
         l->llmnr_support = RESOLVE_SUPPORT_YES;
         l->mdns_support = RESOLVE_SUPPORT_NO;
         l->dnssec_mode = _DNSSEC_MODE_INVALID;
-        l->private_dns_mode = _PRIVATE_DNS_MODE_INVALID;
+        l->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
 
         dns_server_unlink_all(l->dns_servers);
         dns_search_domain_unlink_all(l->search_domains);
@@ -97,6 +98,7 @@ Link *link_free(Link *l) {
         dns_scope_free(l->mdns_ipv6_scope);
 
         free(l->state_file);
+        free(l->ifname);
 
         return mfree(l);
 }
@@ -238,8 +240,9 @@ int link_process_rtnl(Link *l, sd_netlink_message *m) {
         (void) sd_netlink_message_read_u8(m, IFLA_OPERSTATE, &l->operstate);
 
         if (sd_netlink_message_read_string(m, IFLA_IFNAME, &n) >= 0) {
-                strncpy(l->name, n, sizeof(l->name)-1);
-                char_array_0(l->name);
+                r = free_and_strdup(&l->ifname, n);
+                if (r < 0)
+                        return r;
         }
 
         link_allocate_scopes(l);
@@ -300,6 +303,27 @@ clear:
         return r;
 }
 
+static int link_update_default_route(Link *l) {
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dns_default_route(l->ifindex);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        l->default_route = r > 0;
+        return 0;
+
+clear:
+        l->default_route = -1;
+        return r;
+}
+
 static int link_update_llmnr_support(Link *l) {
         _cleanup_free_ char *b = NULL;
         int r;
@@ -354,26 +378,26 @@ clear:
         return r;
 }
 
-void link_set_private_dns_mode(Link *l, PrivateDnsMode mode) {
+void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode) {
 
         assert(l);
 
-#if ! HAVE_GNUTLS
-        if (mode != PRIVATE_DNS_NO)
-                log_warning("Private DNS option for the link cannot be set to opportunistic when systemd-resolved is built without gnutls support. Turning off Private DNS support.");
+#if ! ENABLE_DNS_OVER_TLS
+        if (mode != DNS_OVER_TLS_NO)
+                log_warning("DNS-over-TLS option for the link cannot be enabled or set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
         return;
 #endif
 
-        l->private_dns_mode = mode;
+        l->dns_over_tls_mode = mode;
 }
 
-static int link_update_private_dns_mode(Link *l) {
+static int link_update_dns_over_tls_mode(Link *l) {
         _cleanup_free_ char *b = NULL;
         int r;
 
         assert(l);
 
-        r = sd_network_link_get_private_dns(l->ifindex, &b);
+        r = sd_network_link_get_dns_over_tls(l->ifindex, &b);
         if (r == -ENODATA) {
                 r = 0;
                 goto clear;
@@ -381,8 +405,8 @@ static int link_update_private_dns_mode(Link *l) {
         if (r < 0)
                 goto clear;
 
-        l->private_dns_mode = private_dns_mode_from_string(b);
-        if (l->private_dns_mode < 0) {
+        l->dns_over_tls_mode = dns_over_tls_mode_from_string(b);
+        if (l->dns_over_tls_mode < 0) {
                 r = -EINVAL;
                 goto clear;
         }
@@ -390,7 +414,7 @@ static int link_update_private_dns_mode(Link *l) {
         return 0;
 
 clear:
-        l->private_dns_mode = _PRIVATE_DNS_MODE_INVALID;
+        l->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
         return r;
 }
 
@@ -574,7 +598,7 @@ static void link_read_settings(Link *l) {
 
         r = link_is_managed(l);
         if (r < 0) {
-                log_warning_errno(r, "Failed to determine whether interface %s is managed: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to determine whether the interface is managed: %m");
                 return;
         }
         if (r == 0) {
@@ -591,31 +615,35 @@ static void link_read_settings(Link *l) {
 
         r = link_update_dns_servers(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNS servers for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read DNS servers for the interface, ignoring: %m");
 
         r = link_update_llmnr_support(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read LLMNR support for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read LLMNR support for the interface, ignoring: %m");
 
         r = link_update_mdns_support(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read mDNS support for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read mDNS support for the interface, ignoring: %m");
 
-        r = link_update_private_dns_mode(l);
+        r = link_update_dns_over_tls_mode(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read Private DNS mode for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read DNS-over-TLS mode for the interface, ignoring: %m");
 
         r = link_update_dnssec_mode(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNSSEC mode for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read DNSSEC mode for the interface, ignoring: %m");
 
         r = link_update_dnssec_negative_trust_anchors(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNSSEC negative trust anchors for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read DNSSEC negative trust anchors for the interface, ignoring: %m");
 
         r = link_update_search_domains(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read search domains for the interface, ignoring: %m");
+
+        r = link_update_default_route(l);
+        if (r < 0)
+                log_link_warning_errno(l, r, "Failed to read default route setting for the interface, proceeding anyway: %m");
 }
 
 int link_update(Link *l) {
@@ -673,7 +701,7 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
                 return false;
 
         (void) sd_network_link_get_operational_state(l->ifindex, &state);
-        if (state && !STR_IN_SET(state, "unknown", "degraded", "routable"))
+        if (state && !STR_IN_SET(state, "unknown", "degraded", "degraded-carrier", "routable"))
                 return false;
 
         LIST_FOREACH(addresses, a, l->addresses)
@@ -702,7 +730,7 @@ DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
                 return s;
 
         if (s)
-                log_debug("Switching to DNS server %s for interface %s.", dns_server_string(s), l->name);
+                log_debug("Switching to DNS server %s for interface %s.", dns_server_string(s), l->ifname);
 
         dns_server_unref(l->current_dns_server);
         l->current_dns_server = dns_server_ref(s);
@@ -738,13 +766,13 @@ void link_next_dns_server(Link *l) {
         link_set_dns_server(l, l->dns_servers);
 }
 
-PrivateDnsMode link_get_private_dns_mode(Link *l) {
+DnsOverTlsMode link_get_dns_over_tls_mode(Link *l) {
         assert(l);
 
-        if (l->private_dns_mode != _PRIVATE_DNS_MODE_INVALID)
-                return l->private_dns_mode;
+        if (l->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
+                return l->dns_over_tls_mode;
 
-        return manager_get_private_dns_mode(l->manager);
+        return manager_get_dns_over_tls_mode(l->manager);
 }
 
 DnssecMode link_get_dnssec_mode(Link *l) {
@@ -1112,7 +1140,8 @@ static bool link_needs_save(Link *l) {
 
         if (l->llmnr_support != RESOLVE_SUPPORT_YES ||
             l->mdns_support != RESOLVE_SUPPORT_NO ||
-            l->dnssec_mode != _DNSSEC_MODE_INVALID)
+            l->dnssec_mode != _DNSSEC_MODE_INVALID ||
+            l->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
                 return true;
 
         if (l->dns_servers ||
@@ -1120,6 +1149,9 @@ static bool link_needs_save(Link *l) {
                 return true;
 
         if (!set_isempty(l->dnssec_negative_trust_anchors))
+                return true;
+
+        if (l->default_route >= 0)
                 return true;
 
         return false;
@@ -1147,7 +1179,6 @@ int link_save_user(Link *l) {
         if (r < 0)
                 goto fail;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fputs("# This is private data. Do not parse.\n", f);
@@ -1163,6 +1194,9 @@ int link_save_user(Link *l) {
         v = dnssec_mode_to_string(l->dnssec_mode);
         if (v)
                 fprintf(f, "DNSSEC=%s\n", v);
+
+        if (l->default_route >= 0)
+                fprintf(f, "DEFAULT_ROUTE=%s\n", yes_no(l->default_route));
 
         if (l->dns_servers) {
                 DnsServer *server;
@@ -1245,7 +1279,8 @@ int link_load_user(Link *l) {
                 *dnssec = NULL,
                 *servers = NULL,
                 *domains = NULL,
-                *ntas = NULL;
+                *ntas = NULL,
+                *default_route = NULL;
 
         ResolveSupport s;
         const char *p;
@@ -1262,14 +1297,14 @@ int link_load_user(Link *l) {
         if (l->is_managed)
                 return 0; /* if the device is managed, then networkd is our configuration source, not the bus API */
 
-        r = parse_env_file(NULL, l->state_file, NEWLINE,
+        r = parse_env_file(NULL, l->state_file,
                            "LLMNR", &llmnr,
                            "MDNS", &mdns,
                            "DNSSEC", &dnssec,
                            "SERVERS", &servers,
                            "DOMAINS", &domains,
                            "NTAS", &ntas,
-                           NULL);
+                           "DEFAULT_ROUTE", &default_route);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1285,6 +1320,10 @@ int link_load_user(Link *l) {
         s = resolve_support_from_string(mdns);
         if (s >= 0)
                 l->mdns_support = s;
+
+        r = parse_boolean(default_route);
+        if (r >= 0)
+                l->default_route = r;
 
         /* If we can't recognize the DNSSEC setting, then set it to invalid, so that the daemon default is used. */
         l->dnssec_mode = dnssec_mode_from_string(dnssec);

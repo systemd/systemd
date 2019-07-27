@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2017 Susant Sahani
-***/
 
 #include <net/if.h>
 #include <linux/if_addrlabel.h>
@@ -15,18 +10,6 @@
 #include "networkd-manager.h"
 #include "parse-util.h"
 #include "socket-util.h"
-
-int address_label_new(AddressLabel **ret) {
-        _cleanup_(address_label_freep) AddressLabel *addrlabel = NULL;
-
-        addrlabel = new0(AddressLabel, 1);
-        if (!addrlabel)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(addrlabel);
-
-        return 0;
-}
 
 void address_label_free(AddressLabel *label) {
         if (!label)
@@ -55,40 +38,79 @@ static int address_label_new_static(Network *network, const char *filename, unsi
         assert(ret);
         assert(!!filename == (section_line > 0));
 
-        r = network_config_section_new(filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (filename) {
+                r = network_config_section_new(filename, section_line, &n);
+                if (r < 0)
+                        return r;
 
-        label = hashmap_get(network->address_labels_by_section, n);
-        if (label) {
-                *ret = TAKE_PTR(label);
+                label = hashmap_get(network->address_labels_by_section, n);
+                if (label) {
+                        *ret = TAKE_PTR(label);
 
-                return 0;
+                        return 0;
+                }
         }
 
-        r = address_label_new(&label);
-        if (r < 0)
-                return r;
+        label = new(AddressLabel, 1);
+        if (!label)
+                return -ENOMEM;
 
-        label->section = TAKE_PTR(n);
+        *label = (AddressLabel) {
+                .network = network,
+        };
 
-        r = hashmap_put(network->address_labels_by_section, label->section, label);
-        if (r < 0)
-                return r;
-
-        label->network = network;
         LIST_APPEND(labels, network->address_labels, label);
         network->n_address_labels++;
+
+        if (filename) {
+                label->section = TAKE_PTR(n);
+
+                r = hashmap_ensure_allocated(&network->address_labels_by_section, &network_config_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_put(network->address_labels_by_section, label->section, label);
+                if (r < 0)
+                        return r;
+        }
 
         *ret = TAKE_PTR(label);
 
         return 0;
 }
 
+static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(rtnl);
+        assert(m);
+        assert(link);
+        assert(link->ifname);
+        assert(link->address_label_messages > 0);
+
+        link->address_label_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_link_warning_errno(link, r, "could not set address label: %m");
+                link_enter_failed(link);
+                return 1;
+        } else if (r >= 0)
+                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+
+        if (link->address_label_messages == 0)
+                log_link_debug(link, "Addresses label set");
+
+        return 1;
+}
+
 int address_label_configure(
                 AddressLabel *label,
                 Link *link,
-                sd_netlink_message_handler_t callback,
+                link_netlink_message_handler_t callback,
                 bool update) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
@@ -117,7 +139,9 @@ int address_label_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_ADDRESS attribute: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               callback ?: address_label_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -137,7 +161,7 @@ int config_parse_address_label_prefix(const char *unit,
                                       void *data,
                                       void *userdata) {
 
-        _cleanup_(address_label_freep) AddressLabel *n = NULL;
+        _cleanup_(address_label_free_or_set_invalidp) AddressLabel *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -174,7 +198,7 @@ int config_parse_address_label(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(address_label_freep) AddressLabel *n = NULL;
+        _cleanup_(address_label_free_or_set_invalidp) AddressLabel *n = NULL;
         Network *network = userdata;
         uint32_t k;
         int r;
@@ -196,7 +220,7 @@ int config_parse_address_label(
         }
 
         if (k == 0xffffffffUL) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Adress label is invalid, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Address label is invalid, ignoring: %s", rvalue);
                 return 0;
         }
 

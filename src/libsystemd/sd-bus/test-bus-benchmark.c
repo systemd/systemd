@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 
@@ -15,6 +11,7 @@
 #include "bus-util.h"
 #include "def.h"
 #include "fd-util.h"
+#include "missing_resource.h"
 #include "time-util.h"
 #include "util.h"
 

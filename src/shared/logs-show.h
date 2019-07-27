@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
-
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -26,7 +20,7 @@ int show_journal_entry(
                 unsigned n_columns,
                 OutputFlags flags,
                 char **output_fields,
-                size_t highlight[2],
+                const size_t highlight[2],
                 bool *ellipsized);
 int show_journal(
                 FILE *f,

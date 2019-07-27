@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <errno.h>
 #include <mntent.h>
@@ -16,11 +11,11 @@
 #include "fstab-util.h"
 #include "macro.h"
 #include "mount-util.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 int fstab_has_fstype(const char *fstype) {
         _cleanup_endmntent_ FILE *f = NULL;
@@ -126,7 +121,7 @@ int fstab_filter_options(const char *opts, const char *names,
                         t++;
                         continue;
                 found:
-                        /* Keep the last occurence found */
+                        /* Keep the last occurrence found */
                         n = name;
                         if (value) {
                                 free(v);

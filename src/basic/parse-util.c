@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <inttypes.h>
+#include <linux/oom.h>
 #include <locale.h>
+#include <net/if.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,10 +18,12 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 
 int parse_boolean(const char *v) {
-        assert(v);
+        if (!v)
+                return -EINVAL;
 
         if (streq(v, "1") || strcaseeq(v, "yes") || strcaseeq(v, "y") || strcaseeq(v, "true") || strcaseeq(v, "t") || strcaseeq(v, "on"))
                 return 1;
@@ -85,6 +84,9 @@ int parse_mode(const char *s, mode_t *ret) {
 int parse_ifindex(const char *s, int *ret) {
         int ifi, r;
 
+        assert(s);
+        assert(ret);
+
         r = safe_atoi(s, &ifi);
         if (r < 0)
                 return r;
@@ -92,6 +94,24 @@ int parse_ifindex(const char *s, int *ret) {
                 return -EINVAL;
 
         *ret = ifi;
+        return 0;
+}
+
+int parse_ifindex_or_ifname(const char *s, int *ret) {
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        r = parse_ifindex(s, ret);
+        if (r >= 0)
+                return r;
+
+        r = (int) if_nametoindex(s);
+        if (r <= 0)
+                return -errno;
+
+        *ret = r;
         return 0;
 }
 
@@ -342,47 +362,6 @@ int parse_syscall_and_errno(const char *in, char **name, int *error) {
         return 0;
 }
 
-char *format_bytes(char *buf, size_t l, uint64_t t) {
-        unsigned i;
-
-        /* This only does IEC units so far */
-
-        static const struct {
-                const char *suffix;
-                uint64_t factor;
-        } table[] = {
-                { "E", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
-                { "P", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
-                { "T", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
-                { "G", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
-                { "M", UINT64_C(1024)*UINT64_C(1024) },
-                { "K", UINT64_C(1024) },
-        };
-
-        if (t == (uint64_t) -1)
-                return NULL;
-
-        for (i = 0; i < ELEMENTSOF(table); i++) {
-
-                if (t >= table[i].factor) {
-                        snprintf(buf, l,
-                                 "%" PRIu64 ".%" PRIu64 "%s",
-                                 t / table[i].factor,
-                                 ((t*UINT64_C(10)) / table[i].factor) % UINT64_C(10),
-                                 table[i].suffix);
-
-                        goto finish;
-                }
-        }
-
-        snprintf(buf, l, "%" PRIu64 "B", t);
-
-finish:
-        buf[l-1] = 0;
-        return buf;
-
-}
-
 int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
         char *x = NULL;
         unsigned long l;
@@ -575,7 +554,7 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
 
         s = *p;
 
-        /* accept any number of digits, strtoull is limted to 19 */
+        /* accept any number of digits, strtoull is limited to 19 */
         for (i=0; i < digits; i++,s++) {
                 if (*s < '0' || *s > '9') {
                         if (i == 0)
@@ -642,6 +621,8 @@ int parse_permille_unbounded(const char *p) {
                 r = safe_atoi(n, &v);
                 if (r < 0)
                         return r;
+                if (v < 0)
+                        return -ERANGE;
         } else {
                 pc = endswith(p, "%");
                 if (!pc)
@@ -662,14 +643,13 @@ int parse_permille_unbounded(const char *p) {
                 r = safe_atoi(n, &v);
                 if (r < 0)
                         return r;
-                if (v > ((INT_MAX - q) / 10))
+                if (v < 0)
+                        return -ERANGE;
+                if (v > (INT_MAX - q) / 10)
                         return -ERANGE;
 
                 v = v * 10 + q;
         }
-
-        if (v < 0)
-                return -ERANGE;
 
         return v;
 }
@@ -714,18 +694,51 @@ int parse_ip_port(const char *s, uint16_t *ret) {
         return 0;
 }
 
+int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high) {
+        unsigned l, h;
+        int r;
+
+        r = parse_range(s, &l, &h);
+        if (r < 0)
+                return r;
+
+        if (l <= 0 || l > 65535 || h <= 0 || h > 65535)
+                return -EINVAL;
+
+        if (h < l)
+                return -EINVAL;
+
+        *low = l;
+        *high = h;
+
+        return 0;
+}
+
 int parse_dev(const char *s, dev_t *ret) {
+        const char *major;
         unsigned x, y;
-        dev_t d;
+        size_t n;
+        int r;
 
-        if (sscanf(s, "%u:%u", &x, &y) != 2)
+        n = strspn(s, DIGITS);
+        if (n == 0)
+                return -EINVAL;
+        if (s[n] != ':')
                 return -EINVAL;
 
-        d = makedev(x, y);
-        if ((unsigned) major(d) != x || (unsigned) minor(d) != y)
-                return -EINVAL;
+        major = strndupa(s, n);
+        r = safe_atou(major, &x);
+        if (r < 0)
+                return r;
 
-        *ret = d;
+        r = safe_atou(s + n + 1, &y);
+        if (r < 0)
+                return r;
+
+        if (!DEVICE_MAJOR_VALID(x) || !DEVICE_MINOR_VALID(y))
+                return -ERANGE;
+
+        *ret = makedev(x, y);
         return 0;
 }
 

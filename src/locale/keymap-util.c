@@ -1,27 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-  Copyright 2013 Kay Sievers
-***/
 
 #include <errno.h>
-#include <stdio_ext.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
-#include "def.h"
+#include "bus-util.h"
+#include "env-file-label.h"
+#include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio-label.h"
 #include "fileio.h"
+#include "kbd-util.h"
 #include "keymap-util.h"
 #include "locale-util.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 
 static bool startswith_comma(const char *s, const char *prefix) {
         s = startswith(s, prefix);
@@ -29,10 +29,6 @@ static bool startswith_comma(const char *s, const char *prefix) {
                 return false;
 
         return IN_SET(*s, ',', '\0');
-}
-
-static const char* strnulldash(const char *s) {
-        return isempty(s) || streq(s, "-") ? NULL : s;
 }
 
 static const char* systemd_kbd_model_map(void) {
@@ -74,10 +70,16 @@ static void context_free_locale(Context *c) {
                 c->locale[p] = mfree(c->locale[p]);
 }
 
-void context_free(Context *c) {
+void context_clear(Context *c) {
         context_free_locale(c);
         context_free_x11(c);
         context_free_vconsole(c);
+
+        sd_bus_message_unref(c->locale_cache);
+        sd_bus_message_unref(c->x11_cache);
+        sd_bus_message_unref(c->vc_cache);
+
+        bus_verify_polkit_async_registry_free(c->polkit_registry);
 };
 
 void locale_simplify(char *locale[_VARIABLE_LC_MAX]) {
@@ -93,11 +95,13 @@ int locale_read_data(Context *c, sd_bus_message *m) {
         int r;
 
         /* Do not try to re-read the file within single bus operation. */
-        if (m && m == c->locale_cache)
-                return 0;
+        if (m) {
+                if (m == c->locale_cache)
+                        return 0;
 
-        /* To suppress multiple call of stat(), store the message to cache here. */
-        c->locale_cache = m;
+                sd_bus_message_unref(c->locale_cache);
+                c->locale_cache = sd_bus_message_ref(m);
+        }
 
         r = stat("/etc/locale.conf", &st);
         if (r < 0 && errno != ENOENT)
@@ -114,7 +118,7 @@ int locale_read_data(Context *c, sd_bus_message *m) {
                 c->locale_mtime = t;
                 context_free_locale(c);
 
-                r = parse_env_file(NULL, "/etc/locale.conf", NEWLINE,
+                r = parse_env_file(NULL, "/etc/locale.conf",
                                    "LANG",              &c->locale[VARIABLE_LANG],
                                    "LANGUAGE",          &c->locale[VARIABLE_LANGUAGE],
                                    "LC_CTYPE",          &c->locale[VARIABLE_LC_CTYPE],
@@ -128,8 +132,7 @@ int locale_read_data(Context *c, sd_bus_message *m) {
                                    "LC_ADDRESS",        &c->locale[VARIABLE_LC_ADDRESS],
                                    "LC_TELEPHONE",      &c->locale[VARIABLE_LC_TELEPHONE],
                                    "LC_MEASUREMENT",    &c->locale[VARIABLE_LC_MEASUREMENT],
-                                   "LC_IDENTIFICATION", &c->locale[VARIABLE_LC_IDENTIFICATION],
-                                   NULL);
+                                   "LC_IDENTIFICATION", &c->locale[VARIABLE_LC_IDENTIFICATION]);
                 if (r < 0)
                         return r;
         } else {
@@ -161,11 +164,13 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         int r;
 
         /* Do not try to re-read the file within single bus operation. */
-        if (m && m == c->vc_cache)
-                return 0;
+        if (m) {
+                if (m == c->vc_cache)
+                        return 0;
 
-        /* To suppress multiple call of stat(), store the message to cache here. */
-        c->vc_cache = m;
+                sd_bus_message_unref(c->vc_cache);
+                c->vc_cache = sd_bus_message_ref(m);
+        }
 
         if (stat("/etc/vconsole.conf", &st) < 0) {
                 if (errno != ENOENT)
@@ -184,10 +189,9 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         c->vc_mtime = t;
         context_free_vconsole(c);
 
-        r = parse_env_file(NULL, "/etc/vconsole.conf", NEWLINE,
+        r = parse_env_file(NULL, "/etc/vconsole.conf",
                            "KEYMAP",        &c->vc_keymap,
-                           "KEYMAP_TOGGLE", &c->vc_keymap_toggle,
-                           NULL);
+                           "KEYMAP_TOGGLE", &c->vc_keymap_toggle);
         if (r < 0)
                 return r;
 
@@ -197,17 +201,18 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
 int x11_read_data(Context *c, sd_bus_message *m) {
         _cleanup_fclose_ FILE *f = NULL;
         bool in_section = false;
-        char line[LINE_MAX];
         struct stat st;
         usec_t t;
         int r;
 
         /* Do not try to re-read the file within single bus operation. */
-        if (m && m == c->x11_cache)
-                return 0;
+        if (m) {
+                if (m == c->x11_cache)
+                        return 0;
 
-        /* To suppress multiple call of stat(), store the message to cache here. */
-        c->x11_cache = m;
+                sd_bus_message_unref(c->x11_cache);
+                c->x11_cache = sd_bus_message_ref(m);
+        }
 
         if (stat("/etc/X11/xorg.conf.d/00-keyboard.conf", &st) < 0) {
                 if (errno != ENOENT)
@@ -230,19 +235,24 @@ int x11_read_data(Context *c, sd_bus_message *m) {
         if (!f)
                 return -errno;
 
-        while (fgets(line, sizeof(line), f)) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 char *l;
 
-                char_array_0(line);
-                l = strstrip(line);
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
+                l = strstrip(line);
                 if (IN_SET(l[0], 0, '#'))
                         continue;
 
                 if (in_section && first_word(l, "Option")) {
                         _cleanup_strv_free_ char **a = NULL;
 
-                        r = strv_split_extract(&a, l, WHITESPACE, EXTRACT_QUOTES);
+                        r = strv_split_extract(&a, l, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return r;
 
@@ -266,7 +276,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                 } else if (!in_section && first_word(l, "Section")) {
                         _cleanup_strv_free_ char **a = NULL;
 
-                        r = strv_split_extract(&a, l, WHITESPACE, EXTRACT_QUOTES);
+                        r = strv_split_extract(&a, l, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return -ENOMEM;
 
@@ -333,7 +343,7 @@ int vconsole_write_data(Context *c) {
         struct stat st;
         int r;
 
-        r = load_env_file(NULL, "/etc/vconsole.conf", NULL, &l);
+        r = load_env_file(NULL, "/etc/vconsole.conf", &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -343,7 +353,7 @@ int vconsole_write_data(Context *c) {
                 _cleanup_free_ char *s = NULL;
                 char **u;
 
-                s = strappend("KEYMAP=", c->vc_keymap);
+                s = strjoin("KEYMAP=", c->vc_keymap);
                 if (!s)
                         return -ENOMEM;
 
@@ -360,7 +370,7 @@ int vconsole_write_data(Context *c) {
                 _cleanup_free_ char *s = NULL;
                 char **u;
 
-                s = strappend("KEYMAP_TOGGLE=", c->vc_keymap_toggle);
+                s = strjoin("KEYMAP_TOGGLE=", c->vc_keymap_toggle);
                 if (!s)
                         return -ENOMEM;
 
@@ -407,13 +417,11 @@ int x11_write_data(Context *c) {
                 return 0;
         }
 
-        mkdir_p_label("/etc/X11/xorg.conf.d", 0755);
-
+        (void) mkdir_p_label("/etc/X11/xorg.conf.d", 0755);
         r = fopen_temporary("/etc/X11/xorg.conf.d/00-keyboard.conf", &f, &temp_path);
         if (r < 0)
                 return r;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fputs("# Written by systemd-localed(8), read by systemd-localed and Xorg. It's\n"
@@ -466,19 +474,16 @@ static int read_next_mapping(const char* filename,
         assert(a);
 
         for (;;) {
-                char line[LINE_MAX];
+                _cleanup_free_ char *line = NULL;
+                size_t length;
                 char *l, **b;
                 int r;
-                size_t length;
 
-                errno = 0;
-                if (!fgets(line, sizeof(line), f)) {
-
-                        if (ferror(f))
-                                return errno > 0 ? -errno : -EIO;
-
-                        return 0;
-                }
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
                 (*n)++;
 
@@ -486,7 +491,7 @@ static int read_next_mapping(const char* filename,
                 if (IN_SET(l[0], 0, '#'))
                         continue;
 
-                r = strv_split_extract(&b, l, WHITESPACE, EXTRACT_QUOTES);
+                r = strv_split_extract(&b, l, WHITESPACE, EXTRACT_UNQUOTE);
                 if (r < 0)
                         return r;
 
@@ -501,6 +506,8 @@ static int read_next_mapping(const char* filename,
                 *a = b;
                 return 1;
         }
+
+        return 0;
 }
 
 int vconsole_convert_to_x11(Context *c) {
@@ -538,15 +545,15 @@ int vconsole_convert_to_x11(Context *c) {
                         if (!streq(c->vc_keymap, a[0]))
                                 continue;
 
-                        if (!streq_ptr(c->x11_layout, strnulldash(a[1])) ||
-                            !streq_ptr(c->x11_model, strnulldash(a[2])) ||
-                            !streq_ptr(c->x11_variant, strnulldash(a[3])) ||
-                            !streq_ptr(c->x11_options, strnulldash(a[4]))) {
+                        if (!streq_ptr(c->x11_layout, empty_or_dash_to_null(a[1])) ||
+                            !streq_ptr(c->x11_model, empty_or_dash_to_null(a[2])) ||
+                            !streq_ptr(c->x11_variant, empty_or_dash_to_null(a[3])) ||
+                            !streq_ptr(c->x11_options, empty_or_dash_to_null(a[4]))) {
 
-                                if (free_and_strdup(&c->x11_layout, strnulldash(a[1])) < 0 ||
-                                    free_and_strdup(&c->x11_model, strnulldash(a[2])) < 0 ||
-                                    free_and_strdup(&c->x11_variant, strnulldash(a[3])) < 0 ||
-                                    free_and_strdup(&c->x11_options, strnulldash(a[4])) < 0)
+                                if (free_and_strdup(&c->x11_layout, empty_or_dash_to_null(a[1])) < 0 ||
+                                    free_and_strdup(&c->x11_model, empty_or_dash_to_null(a[2])) < 0 ||
+                                    free_and_strdup(&c->x11_variant, empty_or_dash_to_null(a[3])) < 0 ||
+                                    free_and_strdup(&c->x11_options, empty_or_dash_to_null(a[4])) < 0)
                                         return -ENOMEM;
 
                                 modified = true;
@@ -641,11 +648,11 @@ int find_legacy_keymap(Context *c, char **ret) {
                         if (startswith_comma(c->x11_layout, a[1]))
                                 matching = 5;
                         else  {
-                                char *x;
+                                _cleanup_free_ char *x = NULL;
 
                                 /* If that didn't work, strip off the
                                  * other layouts from the entry, too */
-                                x = strndupa(a[1], strcspn(a[1], ","));
+                                x = strndup(a[1], strcspn(a[1], ","));
                                 if (startswith_comma(c->x11_layout, x))
                                         matching = 1;
                         }

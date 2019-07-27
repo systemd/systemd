@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include <dirent.h>
 #include <errno.h>
@@ -12,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/file.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <linux/fs.h>
@@ -22,9 +18,9 @@
 #include "copy.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
+#include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
@@ -35,6 +31,7 @@
 #include "machine-image.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -43,7 +40,6 @@
 #include "strv.h"
 #include "time-util.h"
 #include "utf8.h"
-#include "util.h"
 #include "xattr-util.h"
 
 static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
@@ -61,15 +57,8 @@ static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
                            "/usr/lib/portables\0",
 };
 
-Image *image_unref(Image *i) {
-        if (!i)
-                return NULL;
-
-        assert(i->n_ref > 0);
-        i->n_ref--;
-
-        if (i->n_ref > 0)
-                return NULL;
+static Image *image_free(Image *i) {
+        assert(i);
 
         free(i->name);
         free(i->path);
@@ -81,15 +70,9 @@ Image *image_unref(Image *i) {
         return mfree(i);
 }
 
-Image *image_ref(Image *i) {
-        if (!i)
-                return NULL;
-
-        assert(i->n_ref > 0);
-        i->n_ref++;
-
-        return i;
-}
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Image, image, image_free);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(image_hash_ops, char, string_hash_func, string_compare_func,
+                                      Image, image_unref);
 
 static char **image_settings_path(Image *image) {
         _cleanup_strv_free_ char **l = NULL;
@@ -104,8 +87,8 @@ static char **image_settings_path(Image *image) {
 
         fn = strjoina(image->name, ".nspawn");
 
-        FOREACH_STRING(s, "/etc/systemd/nspawn/", "/run/systemd/nspawn/") {
-                l[i] = strappend(s, fn);
+        FOREACH_STRING(s, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
+                l[i] = path_join(s, fn);
                 if (!l[i])
                         return NULL;
 
@@ -163,10 +146,7 @@ static int image_new(
         if (!i->name)
                 return -ENOMEM;
 
-        if (path)
-                i->path = strjoin(path, "/", filename);
-        else
-                i->path = strdup(filename);
+        i->path = path_join(path, filename);
         if (!i->path)
                 return -ENOMEM;
 
@@ -217,12 +197,13 @@ static int image_make(
                 const struct stat *st,
                 Image **ret) {
 
-        _cleanup_free_ char *pretty_buffer = NULL;
+        _cleanup_free_ char *pretty_buffer = NULL, *parent = NULL;
         struct stat stbuf;
         bool read_only;
         int r;
 
         assert(dfd >= 0 || dfd == AT_FDCWD);
+        assert(path || dfd == AT_FDCWD);
         assert(filename);
 
         /* We explicitly *do* follow symlinks here, since we want to allow symlinking trees, raw files and block
@@ -236,6 +217,13 @@ static int image_make(
                         return -errno;
 
                 st = &stbuf;
+        }
+
+        if (!path) {
+                if (dfd == AT_FDCWD)
+                        (void) safe_getcwd(&parent);
+                else
+                        (void) fd_get_path(dfd, &parent);
         }
 
         read_only =
@@ -376,7 +364,7 @@ static int image_make(
 
                 block_fd = openat(dfd, filename, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
                 if (block_fd < 0)
-                        log_debug_errno(errno, "Failed to open block device %s/%s, ignoring: %m", path, filename);
+                        log_debug_errno(errno, "Failed to open block device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
                 else {
                         /* Refresh stat data after opening the node */
                         if (fstat(block_fd, &stbuf) < 0)
@@ -390,13 +378,13 @@ static int image_make(
                                 int state = 0;
 
                                 if (ioctl(block_fd, BLKROGET, &state) < 0)
-                                        log_debug_errno(errno, "Failed to issue BLKROGET on device %s/%s, ignoring: %m", path, filename);
+                                        log_debug_errno(errno, "Failed to issue BLKROGET on device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
                                 else if (state)
                                         read_only = true;
                         }
 
                         if (ioctl(block_fd, BLKGETSIZE64, &size) < 0)
-                                log_debug_errno(errno, "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m", path, filename);
+                                log_debug_errno(errno, "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
 
                         block_fd = safe_close(block_fd);
                 }
@@ -412,7 +400,7 @@ static int image_make(
                 if (r < 0)
                         return r;
 
-                if (size != 0 && size != UINT64_MAX)
+                if (!IN_SET(size, 0, UINT64_MAX))
                         (*ret)->usage = (*ret)->usage_exclusive = (*ret)->limit = (*ret)->limit_exclusive = size;
 
                 return 0;
@@ -453,7 +441,7 @@ int image_find(ImageClass class, const char *name, Image **ret) {
                         if (errno != ENOENT)
                                 return -errno;
 
-                        raw = strappend(name, ".raw");
+                        raw = strjoin(name, ".raw");
                         if (!raw)
                                 return -ENOMEM;
 
@@ -505,7 +493,7 @@ int image_from_path(const char *path, Image **ret) {
 
         /* Note that we don't set the 'discoverable' field of the returned object, because we don't check here whether
          * the image is in the image search path. And if it is we don't know if the path we used is actually not
-         * overriden by another, different image earlier in the search path */
+         * overridden by another, different image earlier in the search path */
 
         if (path_equal(path, "/"))
                 return image_make(".host", AT_FDCWD, NULL, "/", NULL, ret);
@@ -657,7 +645,7 @@ int image_remove(Image *i) {
 
         case IMAGE_DIRECTORY:
                 /* Allow deletion of read-only directories */
-                (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
+                (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL, NULL);
                 r = rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
                 if (r < 0)
                         return r;
@@ -756,7 +744,7 @@ int image_rename(Image *i, const char *new_name) {
                 (void) read_attr_path(i->path, &file_attr);
 
                 if (file_attr & FS_IMMUTABLE_FL)
-                        (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
+                        (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL, NULL);
 
                 _fallthrough_;
         case IMAGE_SUBVOLUME:
@@ -797,7 +785,7 @@ int image_rename(Image *i, const char *new_name) {
 
         /* Restore the immutable bit, if it was set before */
         if (file_attr & FS_IMMUTABLE_FL)
-                (void) chattr_path(new_path, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL);
+                (void) chattr_path(new_path, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL, NULL);
 
         free_and_replace(i->path, new_path);
         free_and_replace(i->name, nn);
@@ -825,7 +813,7 @@ static int clone_auxiliary_file(const char *path, const char *new_name, const ch
         if (!rs)
                 return -ENOMEM;
 
-        return copy_file_atomic(path, rs, 0664, 0, COPY_REFLINK);
+        return copy_file_atomic(path, rs, 0664, 0, 0, COPY_REFLINK);
 }
 
 int image_clone(Image *i, const char *new_name, bool read_only) {
@@ -887,7 +875,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         case IMAGE_RAW:
                 new_path = strjoina("/var/lib/machines/", new_name, ".raw");
 
-                r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, FS_NOCOW_FL, COPY_REFLINK);
+                r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, FS_NOCOW_FL, FS_NOCOW_FL, COPY_REFLINK|COPY_CRTIME);
                 break;
 
         case IMAGE_BLOCK:
@@ -947,7 +935,7 @@ int image_read_only(Image *i, bool b) {
                    a read-only subvolume, but at least something, and
                    we can read the value back. */
 
-                r = chattr_path(i->path, b ? FS_IMMUTABLE_FL : 0, FS_IMMUTABLE_FL);
+                r = chattr_path(i->path, b ? FS_IMMUTABLE_FL : 0, FS_IMMUTABLE_FL, NULL);
                 if (r < 0)
                         return r;
 
@@ -1049,7 +1037,7 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
         }
 
         if (p) {
-                mkdir_p("/run/systemd/nspawn/locks", 0700);
+                (void) mkdir_p("/run/systemd/nspawn/locks", 0700);
 
                 r = make_lock_file(p, operation, global);
                 if (r < 0) {
@@ -1134,7 +1122,7 @@ int image_read_metadata(Image *i) {
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/machine-info in image %s: %m", i->name);
                 else if (r >= 0) {
-                        r = load_env_file_pairs(NULL, path, NULL, &machine_info);
+                        r = load_env_file_pairs(NULL, path, &machine_info);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to parse machine-info data of %s: %m", i->name);
                 }
@@ -1186,8 +1174,6 @@ int image_read_metadata(Image *i) {
 }
 
 int image_name_lock(const char *name, int operation, LockFile *ret) {
-        const char *p;
-
         assert(name);
         assert(ret);
 
@@ -1204,9 +1190,8 @@ int image_name_lock(const char *name, int operation, LockFile *ret) {
         if (streq(name, ".host"))
                 return -EBUSY;
 
-        mkdir_p("/run/systemd/nspawn/locks", 0700);
-        p = strjoina("/run/systemd/nspawn/locks/name-", name);
-
+        const char *p = strjoina("/run/systemd/nspawn/locks/name-", name);
+        (void) mkdir_p("/run/systemd/nspawn/locks", 0700);
         return make_lock_file(p, operation, ret);
 }
 

@@ -1,12 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 zshcompletiondir = get_option('zshcompletiondir')
 if zshcompletiondir == ''
         zshcompletiondir = join_paths(datadir, 'zsh/site-functions')
-
-        message('zsh completions: @0@'.format(zshcompletiondir))
 endif
 
 if zshcompletiondir != 'no'

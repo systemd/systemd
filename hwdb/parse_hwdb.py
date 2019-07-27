@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
-# -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
-#  SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MIT
 #
-# This file is part of systemd. It is distrubuted under the MIT license, see
-# below.
-#
-# Copyright 2016 Zbigniew Jędrzejewski-Szmek
+# This file is distributed under the MIT license, see below.
 #
 # The MIT License (MIT)
 #
@@ -33,8 +29,7 @@ import sys
 import os
 
 try:
-    from pyparsing import (Word, White, Literal, ParserElement, Regex,
-                           LineStart, LineEnd,
+    from pyparsing import (Word, White, Literal, ParserElement, Regex, LineEnd,
                            OneOrMore, Combine, Or, Optional, Suppress, Group,
                            nums, alphanums, printables,
                            stringEnd, pythonStyleComment, QuotedString,
@@ -131,6 +126,7 @@ def property_grammar():
              ('KEYBOARD_LED_NUMLOCK', Literal('0')),
              ('KEYBOARD_LED_CAPSLOCK', Literal('0')),
              ('ACCEL_MOUNT_MATRIX', mount_matrix),
+             ('ACCEL_LOCATION', Or(('display', 'base'))),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]

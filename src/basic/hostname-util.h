@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010-2015 Lennart Poettering
-***/
-
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -17,6 +11,7 @@ bool hostname_is_set(void);
 char* gethostname_malloc(void);
 int gethostname_strict(char **ret);
 
+bool valid_ldh_char(char c) _const_;
 bool hostname_is_valid(const char *s, bool allow_trailing_dot) _pure_;
 char* hostname_cleanup(char *s);
 

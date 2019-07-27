@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include "sd-bus-vtable.h"
 
 #include "manager.h"
@@ -18,3 +12,5 @@ void bus_manager_send_reloading(Manager *m, bool active);
 void bus_manager_send_change_signal(Manager *m);
 
 int verify_run_space_and_log(const char *message);
+
+int bus_property_get_oom_policy(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *ret_error);

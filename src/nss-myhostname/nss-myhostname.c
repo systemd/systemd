@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2008-2011 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <net/if.h>
@@ -13,13 +8,13 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "hostname-util.h"
 #include "local-addresses.h"
 #include "macro.h"
 #include "nss-util.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "util.h"
 
 /* We use 127.0.0.2 as IPv4 address. This has the advantage over
  * 127.0.0.1 that it can be translated back to the local hostname. For
@@ -50,6 +45,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         char *r_name;
         unsigned n;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
@@ -68,28 +64,23 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         } else if (is_gateway_hostname(name)) {
 
                 n_addresses = local_gateways(NULL, 0, AF_UNSPEC, &addresses);
-                if (n_addresses <= 0) {
-                        *errnop = ENOENT;
-                        *h_errnop = HOST_NOT_FOUND;
-                        return NSS_STATUS_NOTFOUND;
-                }
+                if (n_addresses <= 0)
+                        goto not_found;
 
                 canonical = "_gateway";
 
         } else {
                 hn = gethostname_malloc();
                 if (!hn) {
+                        UNPROTECT_ERRNO;
                         *errnop = ENOMEM;
                         *h_errnop = NO_RECOVERY;
                         return NSS_STATUS_TRYAGAIN;
                 }
 
                 /* We respond to our local host name, our hostname suffixed with a single dot. */
-                if (!streq(name, hn) && !streq_ptr(startswith(name, hn), ".")) {
-                        *errnop = ENOENT;
-                        *h_errnop = HOST_NOT_FOUND;
-                        return NSS_STATUS_NOTFOUND;
-                }
+                if (!streq(name, hn) && !streq_ptr(startswith(name, hn), "."))
+                        goto not_found;
 
                 n_addresses = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
                 if (n_addresses < 0)
@@ -102,6 +93,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         l = strlen(canonical);
         ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * (n_addresses > 0 ? n_addresses : 2);
         if (buflen < ms) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
@@ -162,12 +154,16 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         if (ttlp)
                 *ttlp = 0;
 
-        /* Explicitly reset all error variables */
-        *errnop = 0;
+        /* Explicitly reset both *h_errnop and h_errno to work around
+         * https://bugzilla.redhat.com/show_bug.cgi?id=1125975 */
         *h_errnop = NETDB_SUCCESS;
         h_errno = 0;
 
         return NSS_STATUS_SUCCESS;
+
+not_found:
+        *h_errnop = HOST_NOT_FOUND;
+        return NSS_STATUS_NOTFOUND;
 }
 
 static enum nss_status fill_in_hostent(
@@ -192,6 +188,8 @@ static enum nss_status fill_in_hostent(
         assert(errnop);
         assert(h_errnop);
 
+        PROTECT_ERRNO;
+
         alen = FAMILY_ADDRESS_SIZE(af);
 
         for (a = addresses, n = 0, c = 0; n < n_addresses; a++, n++)
@@ -208,6 +206,7 @@ static enum nss_status fill_in_hostent(
                 (c > 0 ? c+1 : 2) * sizeof(char*);
 
         if (buflen < ms) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
@@ -291,8 +290,8 @@ static enum nss_status fill_in_hostent(
         if (canonp)
                 *canonp = r_name;
 
-        /* Explicitly reset all error variables */
-        *errnop = 0;
+        /* Explicitly reset both *h_errnop and h_errno to work around
+         * https://bugzilla.redhat.com/show_bug.cgi?id=1125975 */
         *h_errnop = NETDB_SUCCESS;
         h_errno = 0;
 
@@ -314,6 +313,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
         uint32_t local_address_ipv4 = 0;
         int n_addresses = 0;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
@@ -326,6 +326,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 af = AF_INET;
 
         if (!IN_SET(af, AF_INET, AF_INET6)) {
+                UNPROTECT_ERRNO;
                 *errnop = EAFNOSUPPORT;
                 *h_errnop = NO_DATA;
                 return NSS_STATUS_UNAVAIL;
@@ -338,27 +339,22 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
         } else if (is_gateway_hostname(name)) {
 
                 n_addresses = local_gateways(NULL, 0, af, &addresses);
-                if (n_addresses <= 0) {
-                        *errnop = ENOENT;
-                        *h_errnop = HOST_NOT_FOUND;
-                        return NSS_STATUS_NOTFOUND;
-                }
+                if (n_addresses <= 0)
+                        goto not_found;
 
                 canonical = "_gateway";
 
         } else {
                 hn = gethostname_malloc();
                 if (!hn) {
+                        UNPROTECT_ERRNO;
                         *errnop = ENOMEM;
                         *h_errnop = NO_RECOVERY;
                         return NSS_STATUS_TRYAGAIN;
                 }
 
-                if (!streq(name, hn) && !streq_ptr(startswith(name, hn), ".")) {
-                        *errnop = ENOENT;
-                        *h_errnop = HOST_NOT_FOUND;
-                        return NSS_STATUS_NOTFOUND;
-                }
+                if (!streq(name, hn) && !streq_ptr(startswith(name, hn), "."))
+                        goto not_found;
 
                 n_addresses = local_addresses(NULL, 0, af, &addresses);
                 if (n_addresses < 0)
@@ -368,6 +364,8 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 additional = n_addresses <= 0 && af == AF_INET6 ? "localhost" : NULL;
                 local_address_ipv4 = LOCALADDRESS_IPV4;
         }
+
+        UNPROTECT_ERRNO;
 
         return fill_in_hostent(
                         canonical, additional,
@@ -379,6 +377,10 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         errnop, h_errnop,
                         ttlp,
                         canonp);
+
+not_found:
+        *h_errnop = HOST_NOT_FOUND;
+        return NSS_STATUS_NOTFOUND;
 }
 
 enum nss_status _nss_myhostname_gethostbyaddr2_r(
@@ -398,6 +400,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         bool additional_from_hostname = false;
         unsigned n;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(addr);
@@ -407,12 +410,14 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         assert(h_errnop);
 
         if (!IN_SET(af, AF_INET, AF_INET6)) {
+                UNPROTECT_ERRNO;
                 *errnop = EAFNOSUPPORT;
                 *h_errnop = NO_DATA;
                 return NSS_STATUS_UNAVAIL;
         }
 
         if (len != FAMILY_ADDRESS_SIZE(af)) {
+                UNPROTECT_ERRNO;
                 *errnop = EINVAL;
                 *h_errnop = NO_RECOVERY;
                 return NSS_STATUS_UNAVAIL;
@@ -460,7 +465,6 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 }
         }
 
-        *errnop = ENOENT;
         *h_errnop = HOST_NOT_FOUND;
         return NSS_STATUS_NOTFOUND;
 
@@ -468,6 +472,7 @@ found:
         if (!canonical || additional_from_hostname) {
                 hn = gethostname_malloc();
                 if (!hn) {
+                        UNPROTECT_ERRNO;
                         *errnop = ENOMEM;
                         *h_errnop = NO_RECOVERY;
                         return NSS_STATUS_TRYAGAIN;
@@ -479,6 +484,7 @@ found:
                         additional = hn;
         }
 
+        UNPROTECT_ERRNO;
         return fill_in_hostent(
                         canonical, additional,
                         af,

@@ -1,0 +1,5 @@
+[NetDev]
+Name=w
+Kind=wireguard
+[WireGuardPeer]
+PublicKey=e

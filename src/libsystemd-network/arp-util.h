@@ -2,12 +2,10 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Axis Communications AB. All rights reserved.
+  Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
 
-#include <netinet/if_ether.h>
+#include <net/ethernet.h>
 
 #include "socket-util.h"
 #include "sparse-endian.h"

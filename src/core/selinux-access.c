@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Dan Walsh
-***/
 
 #include "selinux-access.h"
 
@@ -22,6 +17,8 @@
 #include "alloc-util.h"
 #include "audit-fd.h"
 #include "bus-util.h"
+#include "errno-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "selinux-util.h"
@@ -114,7 +111,11 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
                 va_end(ap);
 
                 if (r >= 0) {
-                        audit_log_user_avc_message(fd, AUDIT_USER_AVC, buf, NULL, NULL, NULL, 0);
+                        if (type == SELINUX_AVC)
+                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_AVC, buf, NULL, NULL, NULL, 0);
+                        else if (type == SELINUX_ERROR)
+                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_SELINUX_ERR, buf, NULL, NULL, NULL, 0);
+
                         return 0;
                 }
         }
@@ -126,7 +127,7 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
         log_internalv(LOG_AUTH | callback_type_to_priority(type),
-                      0, __FILE__, __LINE__, __FUNCTION__,
+                      0, PROJECT_FILE, __LINE__, __FUNCTION__,
                       fmt2, ap);
 #pragma GCC diagnostic pop
         va_end(ap);
@@ -158,7 +159,7 @@ static int access_init(sd_bus_error *error) {
                 /* Return an access denied error, if we couldn't load
                  * the AVC but enforcing mode was on, or we couldn't
                  * determine whether it is one. */
-                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to open the SELinux AVC: %s", strerror(saved_errno));
+                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to open the SELinux AVC: %s", strerror_safe(saved_errno));
         }
 
         selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) audit_callback);

@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
-
 typedef struct AddressPool AddressPool;
 
 #include "in-addr-util.h"
@@ -25,7 +19,6 @@ struct AddressPool {
         LIST_FIELDS(AddressPool, address_pools);
 };
 
-int address_pool_new(Manager *m, AddressPool **ret, int family, const union in_addr_union *u, unsigned prefixlen);
 int address_pool_new_from_string(Manager *m, AddressPool **ret, int family, const char *p, unsigned prefixlen);
 void address_pool_free(AddressPool *p);
 

@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 _systemd_headers = '''
         sd-bus.h
         sd-bus-protocol.h
         sd-bus-vtable.h
         sd-daemon.h
+        sd-device.h
         sd-event.h
+        sd-hwdb.h
         sd-id128.h
         sd-journal.h
         sd-login.h
@@ -17,22 +17,23 @@ _systemd_headers = '''
 # https://github.com/mesonbuild/meson/issues/1633
 systemd_headers = files(_systemd_headers)
 
-#  sd-device.h
-#  sd-hwdb.h
-#  sd-dhcp6-client.h
-#  sd-dhcp6-lease.h
-#  sd-dhcp-client.h
-#  sd-dhcp-lease.h
-#  sd-dhcp-server.h
-#  sd-ipv4acd.h
-#  sd-ipv4ll.h
-#  sd-lldp.h
-#  sd-ndisc.h
-#  sd-netlink.h
-#  sd-network.h
-#  sd-path.h
-#  sd-resolve.h
-#  sd-utf8.h
+_not_installed_headers = '''
+        sd-dhcp6-client.h
+        sd-dhcp6-lease.h
+        sd-dhcp-client.h
+        sd-dhcp-lease.h
+        sd-dhcp-server.h
+        sd-ipv4acd.h
+        sd-ipv4ll.h
+        sd-lldp.h
+        sd-ndisc.h
+        sd-netlink.h
+        sd-network.h
+        sd-path.h
+        sd-radv.h
+        sd-resolve.h
+        sd-utf8.h
+'''.split()
 
 install_headers(
         systemd_headers,
@@ -51,8 +52,7 @@ if cc.has_argument('-std=iso9899:2017')
         opts += [['c', '-std=iso9899:2017']]
 endif
 
-cxx = find_program('c++', required : false)
-if cxx.found()
+if add_languages('cpp', required : false)
         opts += [['c++'],
                  ['c++', '-std=c++98'],
                  ['c++', '-std=c++11']]
@@ -64,13 +64,15 @@ if cxx.found()
         endif
 endif
 
-foreach header : _systemd_headers
+foreach header : _systemd_headers + _not_installed_headers + ['../libudev/libudev.h']
         foreach opt : opts
-                name = ''.join([header, ':'] + opt)
-                test('cc-' + name,
-                     check_compilation_sh,
-                     args : cc.cmd_array() + ['-c', '-x'] + opt +
-                            ['-Werror', '-include',
-                             join_paths(meson.current_source_dir(), header)])
+                name = ''.join(['cc-', header.split('/')[-1], ':'] + opt)
+                if want_tests != 'false'
+                        test(name,
+                             check_compilation_sh,
+                             args : cc.cmd_array() + ['-c', '-x'] + opt +
+                                    ['-Werror', '-include',
+                                     join_paths(meson.current_source_dir(), header)])
+                endif
         endforeach
 endforeach

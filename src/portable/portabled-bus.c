@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "io-util.h"
 #include "machine-image.h"
+#include "missing_capability.h"
 #include "portable.h"
 #include "portabled-bus.h"
 #include "portabled-image-bus.h"
@@ -131,7 +132,7 @@ static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_erro
 
 static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
         Manager *m = userdata;
         Image *image;
         Iterator i;
@@ -140,7 +141,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
         assert(m);
 
-        images = hashmap_new(&string_hash_ops);
+        images = hashmap_new(&image_hash_ops);
         if (!images)
                 return -ENOMEM;
 
@@ -358,8 +359,8 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("GetImage", "s", "o", method_get_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListImages", NULL, "a(ssbtttso)", method_list_images, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetImageOSRelease", "s", "a{ss}", method_get_image_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetImageState", "s", "s", method_get_image_state, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetImageMetadata", "sas", "saya{say}", method_get_image_metadata, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetImageState", "s", "s", method_get_image_state, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("AttachImage", "sassbs", "a(sss)", method_attach_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("DetachImage", "sb", "a(sss)", method_detach_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RemoveImage", "s", NULL, method_remove_image, SD_BUS_VTABLE_UNPRIVILEGED),

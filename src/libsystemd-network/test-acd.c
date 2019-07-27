@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Tom Gundersen <teg@jklm.no>
-***/
 
 #include <errno.h>
 #include <stdlib.h>
@@ -18,6 +13,7 @@
 
 #include "in-addr-util.h"
 #include "netlink-util.h"
+#include "tests.h"
 #include "util.h"
 
 static void acd_handler(sd_ipv4acd *acd, int event, void *userdata) {
@@ -88,9 +84,7 @@ static int test_acd(const char *ifname, const char *address) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         if (argc == 3)
                 return test_acd(argv[1], argv[2]);

@@ -1,29 +1,13 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
--->
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_event_add_io" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_event_add_io</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -177,6 +161,12 @@
     "floating", and will be destroyed implicitly when the event loop
     itself is destroyed.</para>
 
+    <para>Note that this call does not take possession of the file descriptor passed in, ownership (and thus
+    the duty to close it when it is no longer needed) remains with the caller. However, with the
+    <function>sd_event_source_set_io_fd_own()</function> call (see below) the event source may optionally
+    take ownership of the file descriptor after the event source has been created. In that case the file
+    descriptor is closed automatically as soon as the event source is released.</para>
+
     <para>It is recommended to use
     <function>sd_event_add_io()</function> only in conjunction with
     file descriptors that have <constant>O_NONBLOCK</constant> set, to
@@ -244,46 +234,46 @@
     <para>On success, these functions return 0 or a positive
     integer. On failure, they return a negative errno-style error
     code.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned values may indicate the following problems:</para>
+      <para>Returned values may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Not enough memory to allocate an object.</para></listitem>
-      </varlistentry>
+          <listitem><para>Not enough memory to allocate an object.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>An invalid argument has been passed.</para></listitem>
+          <listitem><para>An invalid argument has been passed.</para></listitem>
 
-      </varlistentry>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ESTALE</constant></term>
+        <varlistentry>
+          <term><constant>-ESTALE</constant></term>
 
-        <listitem><para>The event loop is already terminated.</para></listitem>
+          <listitem><para>The event loop is already terminated.</para></listitem>
 
-      </varlistentry>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The event loop has been created in a different process.</para></listitem>
-      </varlistentry>
+          <listitem><para>The event loop has been created in a different process.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EDOM</constant></term>
+        <varlistentry>
+          <term><constant>-EDOM</constant></term>
 
-        <listitem><para>The passed event source is not an I/O event source.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>The passed event source is not an I/O event source.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
@@ -306,7 +296,7 @@
       <citerefentry><refentrytitle>sd_event_source_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_get_pending</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>epoll_ctl</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>

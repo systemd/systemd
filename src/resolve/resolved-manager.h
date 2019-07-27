@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
-***/
-
 #include "sd-event.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
@@ -24,10 +18,17 @@ typedef struct Manager Manager;
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dns-trust-anchor.h"
+#include "resolved-dnstls.h"
 #include "resolved-link.h"
 
-#define MANAGER_SEARCH_DOMAINS_MAX 32
-#define MANAGER_DNS_SERVERS_MAX 32
+#define MANAGER_SEARCH_DOMAINS_MAX 256
+#define MANAGER_DNS_SERVERS_MAX 256
+
+typedef struct EtcHosts {
+        Hashmap *by_address;
+        Hashmap *by_name;
+        Set *no_address;
+} EtcHosts;
 
 struct Manager {
         sd_event *event;
@@ -35,9 +36,13 @@ struct Manager {
         ResolveSupport llmnr_support;
         ResolveSupport mdns_support;
         DnssecMode dnssec_mode;
-        PrivateDnsMode private_dns_mode;
-        bool enable_cache;
+        DnsOverTlsMode dns_over_tls_mode;
+        DnsCacheMode enable_cache;
         DnsStubListenerMode dns_stub_listener_mode;
+
+#if ENABLE_DNS_OVER_TLS
+        DnsTlsManagerData dnstls_data;
+#endif
 
         /* Network */
         Hashmap *links;
@@ -54,7 +59,7 @@ struct Manager {
         unsigned n_dns_queries;
 
         LIST_HEAD(DnsStream, dns_streams);
-        unsigned n_dns_streams;
+        unsigned n_dns_streams[_DNS_STREAM_TYPE_MAX];
 
         /* Unicast dns */
         LIST_HEAD(DnsServer, dns_servers);
@@ -112,9 +117,6 @@ struct Manager {
         int hostname_fd;
         sd_event_source *hostname_event_source;
 
-        /* Watch for system suspends */
-        sd_bus_slot *prepare_for_sleep_slot;
-
         sd_event_source *sigusr1_event_source;
         sd_event_source *sigusr2_event_source;
         sd_event_source *sigrtmin1_event_source;
@@ -123,9 +125,9 @@ struct Manager {
         unsigned n_dnssec_verdict[_DNSSEC_VERDICT_MAX];
 
         /* Data from /etc/hosts */
-        Set* etc_hosts_by_address;
-        Hashmap* etc_hosts_by_name;
+        EtcHosts etc_hosts;
         usec_t etc_hosts_last, etc_hosts_mtime;
+        bool read_etc_hosts;
 
         /* Local DNS stub on 127.0.0.53:53 */
         int dns_stub_udp_fd;
@@ -173,7 +175,7 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_
 DnssecMode manager_get_dnssec_mode(Manager *m);
 bool manager_dnssec_supported(Manager *m);
 
-PrivateDnsMode manager_get_private_dns_mode(Manager *m);
+DnsOverTlsMode manager_get_dns_over_tls_mode(Manager *m);
 
 void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key);
 

@@ -3,11 +3,6 @@
 #define foosdnetworkhfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-  Copyright 2014 Tom Gundersen
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -54,6 +49,8 @@ _SD_BEGIN_DECLARATIONS;
  *   -ENODATA: networkd is not aware of any links
  */
 int sd_network_get_operational_state(char **state);
+int sd_network_get_carrier_state(char **state);
+int sd_network_get_address_state(char **state);
 
 /* Get DNS entries for all links. These are string representations of
  * IP addresses */
@@ -94,6 +91,9 @@ int sd_network_link_get_setup_state(int ifindex, char **state);
  *   -ENODATA: networkd is not aware of the link
  */
 int sd_network_link_get_operational_state(int ifindex, char **state);
+int sd_network_link_get_required_operstate_for_online(int ifindex, char **state);
+int sd_network_link_get_carrier_state(int ifindex, char **state);
+int sd_network_link_get_address_state(int ifindex, char **state);
 
 /* Indicates whether the network is relevant to being online.
  * Possible return codes:
@@ -129,13 +129,13 @@ int sd_network_link_get_llmnr(int ifindex, char **llmnr);
  */
 int sd_network_link_get_mdns(int ifindex, char **mdns);
 
-/* Indicates whether or not Private DNS should be enabled for the
+/* Indicates whether or not DNS-over-TLS should be enabled for the
  * link.
- * Possible levels of support: strict, no, opportunistic
+ * Possible levels of support: yes, no, opportunistic
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link
  */
-int sd_network_link_get_private_dns(int ifindex, char **private_dns);
+int sd_network_link_get_dns_over_tls(int ifindex, char **dns_over_tls);
 
 /* Indicates whether or not DNSSEC should be enabled for the link
  * Possible levels of support: yes, no, allow-downgrade
@@ -155,6 +155,9 @@ int sd_network_link_get_search_domains(int ifindex, char ***domains);
 
 /* Get the route DNS domain names for a given link. */
 int sd_network_link_get_route_domains(int ifindex, char ***domains);
+
+/* Get whether this link shall be used as 'default route' for DNS queries */
+int sd_network_link_get_dns_default_route(int ifindex);
 
 /* Get the carrier interface indexes to which current link is bound to. */
 int sd_network_link_get_carrier_bound_to(int ifindex, int **ifindexes);

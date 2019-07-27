@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2014 Lennart Poettering
-***/
+#include <fcntl.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "curl-util.h"
 #include "fd-util.h"
 #include "locale-util.h"
@@ -30,12 +28,10 @@ static void curl_glue_check_finished(CurlGlue *g) {
 
 static int curl_glue_on_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         CurlGlue *g = userdata;
-        int action, k = 0, translated_fd;
+        int action, k = 0;
 
         assert(s);
         assert(g);
-
-        translated_fd = PTR_TO_FD(hashmap_get(g->translate_fds, FD_TO_PTR(fd)));
 
         if (FLAGS_SET(revents, EPOLLIN | EPOLLOUT))
                 action = CURL_POLL_INOUT;
@@ -46,17 +42,16 @@ static int curl_glue_on_io(sd_event_source *s, int fd, uint32_t revents, void *u
         else
                 action = 0;
 
-        if (curl_multi_socket_action(g->curl, translated_fd, action, &k) < 0) {
-                log_debug("Failed to propagate IO event.");
-                return -EINVAL;
-        }
+        if (curl_multi_socket_action(g->curl, fd, action, &k) != CURLM_OK)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to propagate IO event.");
 
         curl_glue_check_finished(g);
         return 0;
 }
 
 static int curl_glue_socket_callback(CURLM *curl, curl_socket_t s, int action, void *userdata, void *socketp) {
-        sd_event_source *io;
+        sd_event_source *io = socketp;
         CurlGlue *g = userdata;
         uint32_t events = 0;
         int r;
@@ -64,34 +59,17 @@ static int curl_glue_socket_callback(CURLM *curl, curl_socket_t s, int action, v
         assert(curl);
         assert(g);
 
-        io = hashmap_get(g->ios, FD_TO_PTR(s));
-
         if (action == CURL_POLL_REMOVE) {
                 if (io) {
-                        int fd;
-
-                        fd = sd_event_source_get_io_fd(io);
-                        assert(fd >= 0);
-
-                        sd_event_source_set_enabled(io, SD_EVENT_OFF);
-                        sd_event_source_unref(io);
+                        sd_event_source_disable_unref(io);
 
                         hashmap_remove(g->ios, FD_TO_PTR(s));
-                        hashmap_remove(g->translate_fds, FD_TO_PTR(fd));
-
-                        safe_close(fd);
                 }
 
                 return 0;
         }
 
         r = hashmap_ensure_allocated(&g->ios, &trivial_hash_ops);
-        if (r < 0) {
-                log_oom();
-                return -1;
-        }
-
-        r = hashmap_ensure_allocated(&g->translate_fds, &trivial_hash_ops);
         if (r < 0) {
                 log_oom();
                 return -1;
@@ -111,19 +89,10 @@ static int curl_glue_socket_callback(CURLM *curl, curl_socket_t s, int action, v
                 if (sd_event_source_set_enabled(io, SD_EVENT_ON) < 0)
                         return -1;
         } else {
-                _cleanup_close_ int fd = -1;
-
-                /* When curl needs to remove an fd from us it closes
-                 * the fd first, and only then calls into us. This is
-                 * nasty, since we cannot pass the fd on to epoll()
-                 * anymore. Hence, duplicate the fds here, and keep a
-                 * copy for epoll which we control after use. */
-
-                fd = fcntl(s, F_DUPFD_CLOEXEC, 3);
-                if (fd < 0)
+                if (sd_event_add_io(g->event, &io, s, events, curl_glue_on_io, g) < 0)
                         return -1;
 
-                if (sd_event_add_io(g->event, &io, fd, events, curl_glue_on_io, g) < 0)
+                if (curl_multi_assign(g->curl, s, io) != CURLM_OK)
                         return -1;
 
                 (void) sd_event_source_set_description(io, "curl-io");
@@ -134,16 +103,6 @@ static int curl_glue_socket_callback(CURLM *curl, curl_socket_t s, int action, v
                         sd_event_source_unref(io);
                         return -1;
                 }
-
-                r = hashmap_put(g->translate_fds, FD_TO_PTR(fd), FD_TO_PTR(s));
-                if (r < 0) {
-                        log_oom();
-                        hashmap_remove(g->ios, FD_TO_PTR(s));
-                        sd_event_source_unref(io);
-                        return -1;
-                }
-
-                fd = -1;
         }
 
         return 0;
@@ -156,10 +115,9 @@ static int curl_glue_on_timer(sd_event_source *s, uint64_t usec, void *userdata)
         assert(s);
         assert(g);
 
-        if (curl_multi_socket_action(g->curl, CURL_SOCKET_TIMEOUT, 0, &k) != CURLM_OK) {
-                log_debug("Failed to propagate timeout.");
-                return -EINVAL;
-        }
+        if (curl_multi_socket_action(g->curl, CURL_SOCKET_TIMEOUT, 0, &k) != CURLM_OK)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to propagate timeout.");
 
         curl_glue_check_finished(g);
         return 0;
@@ -209,14 +167,6 @@ CurlGlue *curl_glue_unref(CurlGlue *g) {
                 curl_multi_cleanup(g->curl);
 
         while ((io = hashmap_steal_first(g->ios))) {
-                int fd;
-
-                fd = sd_event_source_get_io_fd(io);
-                assert(fd >= 0);
-
-                hashmap_remove(g->translate_fds, FD_TO_PTR(fd));
-
-                safe_close(fd);
                 sd_event_source_unref(io);
         }
 
@@ -229,23 +179,30 @@ CurlGlue *curl_glue_unref(CurlGlue *g) {
 
 int curl_glue_new(CurlGlue **glue, sd_event *event) {
         _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
+        _cleanup_(curl_multi_cleanupp) CURL *c = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         int r;
 
-        g = new0(CurlGlue, 1);
-        if (!g)
-                return -ENOMEM;
-
         if (event)
-                g->event = sd_event_ref(event);
+                e = sd_event_ref(event);
         else {
-                r = sd_event_default(&g->event);
+                r = sd_event_default(&e);
                 if (r < 0)
                         return r;
         }
 
-        g->curl = curl_multi_init();
-        if (!g->curl)
+        c = curl_multi_init();
+        if (!c)
                 return -ENOMEM;
+
+        g = new(CurlGlue, 1);
+        if (!g)
+                return -ENOMEM;
+
+        *g = (CurlGlue) {
+                .event = TAKE_PTR(e),
+                .curl = TAKE_PTR(c),
+        };
 
         if (curl_multi_setopt(g->curl, CURLMOPT_SOCKETDATA, g) != CURLM_OK)
                 return -EINVAL;
@@ -265,9 +222,8 @@ int curl_glue_new(CurlGlue **glue, sd_event *event) {
 }
 
 int curl_glue_make(CURL **ret, const char *url, void *userdata) {
+        _cleanup_(curl_easy_cleanupp) CURL *c = NULL;
         const char *useragent;
-        CURL *c;
-        int r;
 
         assert(ret);
         assert(url);
@@ -278,33 +234,21 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
 
         /* curl_easy_setopt(c, CURLOPT_VERBOSE, 1L); */
 
-        if (curl_easy_setopt(c, CURLOPT_URL, url) != CURLE_OK) {
-                r = -EIO;
-                goto fail;
-        }
+        if (curl_easy_setopt(c, CURLOPT_URL, url) != CURLE_OK)
+                return -EIO;
 
-        if (curl_easy_setopt(c, CURLOPT_PRIVATE, userdata) != CURLE_OK) {
-                r = -EIO;
-                goto fail;
-        }
+        if (curl_easy_setopt(c, CURLOPT_PRIVATE, userdata) != CURLE_OK)
+                return -EIO;
 
-        useragent = strjoina(program_invocation_short_name, "/" PACKAGE_VERSION);
-        if (curl_easy_setopt(c, CURLOPT_USERAGENT, useragent) != CURLE_OK) {
-                r = -EIO;
-                goto fail;
-        }
+        useragent = strjoina(program_invocation_short_name, "/" GIT_VERSION);
+        if (curl_easy_setopt(c, CURLOPT_USERAGENT, useragent) != CURLE_OK)
+                return -EIO;
 
-        if (curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L) != CURLE_OK) {
-                r = -EIO;
-                goto fail;
-        }
+        if (curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L) != CURLE_OK)
+                return -EIO;
 
-        *ret = c;
+        *ret = TAKE_PTR(c);
         return 0;
-
-fail:
-        curl_easy_cleanup(c);
-        return r;
 }
 
 int curl_glue_add(CurlGlue *g, CURL *c) {
@@ -368,7 +312,7 @@ int curl_header_strdup(const void *contents, size_t sz, const char *field, char 
         const char *p;
         char *s;
 
-        p = memory_startswith(contents, sz, field);
+        p = memory_startswith_no_case(contents, sz, field);
         if (!p)
                 return 0;
 
@@ -377,7 +321,7 @@ int curl_header_strdup(const void *contents, size_t sz, const char *field, char 
         if (memchr(p, 0, sz))
                 return 0;
 
-        /* Skip over preceeding whitespace */
+        /* Skip over preceding whitespace */
         while (sz > 0 && strchr(WHITESPACE, p[0])) {
                 p++;
                 sz--;

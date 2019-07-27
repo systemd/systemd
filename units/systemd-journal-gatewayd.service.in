@@ -13,26 +13,27 @@ Documentation=man:systemd-journal-gatewayd(8)
 Requires=systemd-journal-gatewayd.socket
 
 [Service]
-ExecStart=@rootlibexecdir@/systemd-journal-gatewayd
-User=systemd-journal-gateway
-SupplementaryGroups=systemd-journal
 DynamicUser=yes
+ExecStart=@rootlibexecdir@/systemd-journal-gatewayd
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
 PrivateDevices=yes
 PrivateNetwork=yes
-ProtectHome=yes
 ProtectControlGroups=yes
-ProtectKernelTunables=yes
+ProtectHome=yes
+ProtectHostname=yes
 ProtectKernelModules=yes
-MemoryDenyWriteExecute=yes
-RestrictRealtime=yes
-RestrictNamespaces=yes
+ProtectKernelTunables=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SupplementaryGroups=systemd-journal
 SystemCallArchitectures=native
-LockPersonality=yes
+User=systemd-journal-gateway
 
-# If there are many split upjournal files we need a lot of fds to
-# access them all and combine
-LimitNOFILE=16384
+# If there are many split up journal files we need a lot of fds to access them
+# all in parallel.
+LimitNOFILE=@HIGH_RLIMIT_NOFILE@
 
 [Install]
 Also=systemd-journal-gatewayd.socket

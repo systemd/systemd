@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <stdlib.h>
 
@@ -48,10 +43,7 @@ static int prepare_filename(const char *filename, char **ret) {
         if (!dir)
                 return -ENOMEM;
 
-        if (with_instance)
-                c = path_join(NULL, dir, with_instance);
-        else
-                c = path_join(NULL, dir, name);
+        c = path_join(dir, with_instance ?: name);
         if (!c)
                 return -ENOMEM;
 
@@ -113,10 +105,8 @@ static int verify_socket(Unit *u) {
 
         /* This makes sure instance is created if necessary. */
         r = socket_instantiate_service(SOCKET(u));
-        if (r < 0) {
-                log_unit_error_errno(u, r, "Socket cannot be started, failed to create instance: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Socket cannot be started, failed to create instance: %m");
 
         /* This checks both type of sockets */
         if (UNIT_ISSET(SOCKET(u)->service)) {
@@ -186,9 +176,9 @@ static int verify_documentation(Unit *u, bool check_man) {
                         k = show_man_page(*p + 4, true);
                         if (k != 0) {
                                 if (k < 0)
-                                        log_unit_error_errno(u, r, "Can't show %s: %m", *p);
+                                        log_unit_error_errno(u, k, "Can't show %s: %m", *p + 4);
                                 else {
-                                        log_unit_error_errno(u, r, "man %s command failed with code %d", *p + 4, k);
+                                        log_unit_error(u, "Command 'man %s' failed with code %d", *p + 4, k);
                                         k = -ENOEXEC;
                                 }
                                 if (r == 0)
@@ -212,7 +202,7 @@ static int verify_unit(Unit *u, bool check_man) {
                 unit_dump(u, stdout, "\t");
 
         log_unit_debug(u, "Creating %s/start job", u->id);
-        r = manager_add_job(u->manager, JOB_START, u, JOB_REPLACE, &err, NULL);
+        r = manager_add_job(u->manager, JOB_START, u, JOB_REPLACE, NULL, &err, NULL);
         if (r < 0)
                 log_unit_error_errno(u, r, "Failed to create %s/start: %s", u->id, bus_error_message(&err, r));
 
@@ -232,18 +222,16 @@ static int verify_unit(Unit *u, bool check_man) {
 }
 
 int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
-        _cleanup_free_ char *var = NULL;
-        Manager *m = NULL;
-        FILE *serial = NULL;
-        FDSet *fdset = NULL;
-        char **filename;
-        int r = 0, k;
+        const ManagerTestRunFlags flags =
+                MANAGER_TEST_RUN_BASIC |
+                MANAGER_TEST_RUN_ENV_GENERATORS |
+                run_generators * MANAGER_TEST_RUN_GENERATORS;
 
+        _cleanup_(manager_freep) Manager *m = NULL;
         Unit *units[strv_length(filenames)];
-        int i, count = 0;
-        const uint8_t flags = MANAGER_TEST_RUN_BASIC |
-                              MANAGER_TEST_RUN_ENV_GENERATORS |
-                              run_generators * MANAGER_TEST_RUN_GENERATORS;
+        _cleanup_free_ char *var = NULL;
+        int r = 0, k, i, count = 0;
+        char **filename;
 
         if (strv_isempty(filenames))
                 return 0;
@@ -261,11 +249,9 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         log_debug("Starting manager...");
 
-        r = manager_startup(m, serial, fdset);
-        if (r < 0) {
-                log_error_errno(r, "Failed to start manager: %m");
-                goto finish;
-        }
+        r = manager_startup(m, NULL, NULL);
+        if (r < 0)
+                return r;
 
         manager_clear_jobs(m);
 
@@ -296,9 +282,6 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                 if (k < 0 && r == 0)
                         r = k;
         }
-
-finish:
-        manager_free(m);
 
         return r;
 }

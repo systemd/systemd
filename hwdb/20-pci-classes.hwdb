@@ -20,6 +20,30 @@ pci:v*d*sv*sd*bc01sc00*
 pci:v*d*sv*sd*bc01sc01*
  ID_PCI_SUBCLASS_FROM_DATABASE=IDE interface
 
+pci:v*d*sv*sd*bc01sc01i00*
+ ID_PCI_INTERFACE_FROM_DATABASE=ISA Compatibility mode-only controller
+
+pci:v*d*sv*sd*bc01sc01i05*
+ ID_PCI_INTERFACE_FROM_DATABASE=PCI native mode-only controller
+
+pci:v*d*sv*sd*bc01sc01i0A*
+ ID_PCI_INTERFACE_FROM_DATABASE=ISA Compatibility mode controller, supports both channels switched to PCI native mode
+
+pci:v*d*sv*sd*bc01sc01i0F*
+ ID_PCI_INTERFACE_FROM_DATABASE=PCI native mode controller, supports both channels switched to ISA compatibility mode
+
+pci:v*d*sv*sd*bc01sc01i80*
+ ID_PCI_INTERFACE_FROM_DATABASE=ISA Compatibility mode-only controller, supports bus mastering
+
+pci:v*d*sv*sd*bc01sc01i85*
+ ID_PCI_INTERFACE_FROM_DATABASE=PCI native mode-only controller, supports bus mastering
+
+pci:v*d*sv*sd*bc01sc01i8A*
+ ID_PCI_INTERFACE_FROM_DATABASE=ISA Compatibility mode controller, supports both channels switched to PCI native mode, supports bus mastering
+
+pci:v*d*sv*sd*bc01sc01i8F*
+ ID_PCI_INTERFACE_FROM_DATABASE=PCI native mode controller, supports both channels switched to ISA compatibility mode, supports bus mastering
+
 pci:v*d*sv*sd*bc01sc02*
  ID_PCI_SUBCLASS_FROM_DATABASE=Floppy disk controller
 
@@ -462,7 +486,16 @@ pci:v*d*sv*sd*bc0Csc06*
  ID_PCI_SUBCLASS_FROM_DATABASE=InfiniBand
 
 pci:v*d*sv*sd*bc0Csc07*
- ID_PCI_SUBCLASS_FROM_DATABASE=IPMI SMIC interface
+ ID_PCI_SUBCLASS_FROM_DATABASE=IPMI Interface
+
+pci:v*d*sv*sd*bc0Csc07i00*
+ ID_PCI_INTERFACE_FROM_DATABASE=SMIC
+
+pci:v*d*sv*sd*bc0Csc07i01*
+ ID_PCI_INTERFACE_FROM_DATABASE=KCS
+
+pci:v*d*sv*sd*bc0Csc07i02*
+ ID_PCI_INTERFACE_FROM_DATABASE=BT (Block Transfer)
 
 pci:v*d*sv*sd*bc0Csc08*
  ID_PCI_SUBCLASS_FROM_DATABASE=SERCOS interface

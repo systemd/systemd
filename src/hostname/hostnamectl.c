@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <getopt.h>
 #include <locale.h>
@@ -19,8 +14,9 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "hostname-util.h"
+#include "main-func.h"
+#include "pretty-print.h"
 #include "spawn-polkit-agent.h"
-#include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"
 
@@ -232,8 +228,9 @@ static int set_simple_string(sd_bus *bus, const char *method, const char *value)
                         &error, NULL,
                         "sb", value, arg_ask_password);
         if (r < 0)
-                log_error("Could not set property: %s", bus_error_message(&error, -r));
-        return r;
+                return log_error_errno(r, "Could not set property: %s", bus_error_message(&error, -r));
+
+        return 0;
 }
 
 static int set_hostname(int argc, char **argv, void *userdata) {
@@ -305,6 +302,13 @@ static int set_location(int argc, char **argv, void *userdata) {
 }
 
 static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("hostnamectl", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "Query or change system hostname.\n\n"
                "  -h --help              Show this help\n"
@@ -322,7 +326,10 @@ static int help(void) {
                "  set-chassis NAME       Set chassis type for host\n"
                "  set-deployment NAME    Set deployment environment for host\n"
                "  set-location NAME      Set location for host\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }
@@ -420,26 +427,24 @@ static int hostnamectl_main(sd_bus *bus, int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, bus);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
+        log_show_color(true);
         log_parse_environment();
         log_open();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = bus_connect_transport(arg_transport, arg_host, false, &bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create bus connection: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
-        r = hostnamectl_main(bus, argc, argv);
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return hostnamectl_main(bus, argc, argv);
 }
+
+DEFINE_MAIN_FUNCTION(run);

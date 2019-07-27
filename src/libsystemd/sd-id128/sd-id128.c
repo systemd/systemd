@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -23,7 +18,7 @@
 #include "user-util.h"
 #include "util.h"
 
-_public_ char *sd_id128_to_string(sd_id128_t id, char s[SD_ID128_STRING_MAX]) {
+_public_ char *sd_id128_to_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID128_STRING_MAX]) {
         unsigned n;
 
         assert_return(s, NULL);
@@ -122,7 +117,6 @@ _public_ int sd_id128_get_boot(sd_id128_t *ret) {
 }
 
 static int get_invocation_from_keyring(sd_id128_t *ret) {
-
         _cleanup_free_ char *description = NULL;
         char *d, *p, *g, *u, *e;
         unsigned long perms;
@@ -141,7 +135,7 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         if (key == -1) {
                 /* Keyring support not available? No invocation key stored? */
                 if (IN_SET(errno, ENOSYS, ENOKEY))
-                        return 0;
+                        return -ENXIO;
 
                 return -errno;
         }
@@ -217,7 +211,19 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         if (c != sizeof(sd_id128_t))
                 return -EIO;
 
-        return 1;
+        return 0;
+}
+
+static int get_invocation_from_environment(sd_id128_t *ret) {
+        const char *e;
+
+        assert(ret);
+
+        e = secure_getenv("INVOCATION_ID");
+        if (!e)
+                return -ENXIO;
+
+        return sd_id128_from_string(e, ret);
 }
 
 _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
@@ -227,31 +233,17 @@ _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
         assert_return(ret, -EINVAL);
 
         if (sd_id128_is_null(saved_invocation_id)) {
+                /* We first check the environment. The environment variable is primarily relevant for user
+                 * services, and sufficiently safe as long as no privilege boundary is involved. */
+                r = get_invocation_from_environment(&saved_invocation_id);
+                if (r < 0 && r != -ENXIO)
+                        return r;
 
-                /* We first try to read the invocation ID from the kernel keyring. This has the benefit that it is not
-                 * fakeable by unprivileged code. If the information is not available in the keyring, we use
-                 * $INVOCATION_ID but ignore the data if our process was called by less privileged code
-                 * (i.e. secure_getenv() instead of getenv()).
-                 *
-                 * The kernel keyring is only relevant for system services (as for user services we don't store the
-                 * invocation ID in the keyring, as there'd be no trust benefit in that). The environment variable is
-                 * primarily relevant for user services, and sufficiently safe as no privilege boundary is involved. */
-
+                /* The kernel keyring is relevant for system services (as for user services we don't store
+                 * the invocation ID in the keyring, as there'd be no trust benefit in that). */
                 r = get_invocation_from_keyring(&saved_invocation_id);
                 if (r < 0)
                         return r;
-
-                if (r == 0) {
-                        const char *e;
-
-                        e = secure_getenv("INVOCATION_ID");
-                        if (!e)
-                                return -ENXIO;
-
-                        r = sd_id128_from_string(e, &saved_invocation_id);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         *ret = saved_invocation_id;
@@ -277,7 +269,9 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
 
         assert_return(ret, -EINVAL);
 
-        r = acquire_random_bytes(&t, sizeof t, true);
+        /* We allow usage if x86-64 RDRAND here. It might not be trusted enough for keeping secrets, but it should be
+         * fine for UUIDS. */
+        r = genuine_random_bytes(&t, sizeof t, RANDOM_ALLOW_RDRAND);
         if (r < 0)
                 return r;
 
@@ -289,19 +283,15 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
         return 0;
 }
 
-_public_ int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret) {
+static int get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id128_t *ret) {
         _cleanup_(khash_unrefp) khash *h = NULL;
-        sd_id128_t m, result;
+        sd_id128_t result;
         const void *p;
         int r;
 
-        assert_return(ret, -EINVAL);
+        assert(ret);
 
-        r = sd_id128_get_machine(&m);
-        if (r < 0)
-                return r;
-
-        r = khash_new_with_key(&h, "hmac(sha256)", &m, sizeof(m));
+        r = khash_new_with_key(&h, "hmac(sha256)", &base, sizeof(base));
         if (r < 0)
                 return r;
 
@@ -318,4 +308,30 @@ _public_ int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *re
 
         *ret = make_v4_uuid(result);
         return 0;
+}
+
+_public_ int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret) {
+        sd_id128_t id;
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        r = sd_id128_get_machine(&id);
+        if (r < 0)
+                return r;
+
+        return get_app_specific(id, app_id, ret);
+}
+
+_public_ int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret) {
+        sd_id128_t id;
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        r = sd_id128_get_boot(&id);
+        if (r < 0)
+                return r;
+
+        return get_app_specific(id, app_id, ret);
 }

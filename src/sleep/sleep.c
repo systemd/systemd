@@ -1,33 +1,42 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-  Copyright 2010-2017 Canonical
-  Copyright 2018 Dell Inc.
+  Copyright © 2010-2017 Canonical
+  Copyright © 2018 Dell Inc.
 ***/
 
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <linux/fiemap.h>
+#include <poll.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/timerfd.h>
+#include <unistd.h>
 
 #include "sd-messages.h"
 
-#include "parse-util.h"
+#include "btrfs-util.h"
 #include "def.h"
 #include "exec-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "main-func.h"
+#include "parse-util.h"
+#include "pretty-print.h"
 #include "sleep-config.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "util.h"
 
 static char* arg_verb = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_verb, freep);
 
 static int write_hibernate_location_info(void) {
         _cleanup_free_ char *device = NULL, *type = NULL;
@@ -44,22 +53,26 @@ static int write_hibernate_location_info(void) {
                 return log_debug_errno(r, "Unable to find hibernation location: %m");
 
         /* if it's a swap partition, we just write the disk to /sys/power/resume */
-        if (streq(type, "partition"))
-                return write_string_file("/sys/power/resume", device, 0);
-        else if (!streq(type, "file"))
-                return log_debug_errno(EINVAL, "Invalid hibernate type %s: %m",
-                                       type);
+        if (streq(type, "partition")) {
+                r = write_string_file("/sys/power/resume", device, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to write partition device to /sys/power/resume: %m");
+
+                return r;
+        }
+        if (!streq(type, "file"))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid hibernate type: %s", type);
 
         /* Only available in 4.17+ */
-        if (access("/sys/power/resume_offset", F_OK) < 0) {
-                if (errno == ENOENT)
+        if (access("/sys/power/resume_offset", W_OK) < 0) {
+                if (errno == ENOENT) {
+                        log_debug("Kernel too old, can't configure resume offset, ignoring.");
                         return 0;
-                return log_debug_errno(errno, "/sys/power/resume_offset unavailable: %m");
-        }
+                }
 
-        r = access("/sys/power/resume_offset", W_OK);
-        if (r < 0)
                 return log_debug_errno(errno, "/sys/power/resume_offset not writeable: %m");
+        }
 
         fd = open(device, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
         if (fd < 0)
@@ -67,26 +80,37 @@ static int write_hibernate_location_info(void) {
         r = fstat(fd, &stb);
         if (r < 0)
                 return log_debug_errno(errno, "Unable to stat %s: %m", device);
+
+        r = btrfs_is_filesystem(fd);
+        if (r < 0)
+                return log_error_errno(r, "Error checking %s for Btrfs filesystem: %m", device);
+
+        if (r)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Unable to calculate swapfile offset when using Btrfs: %s", device);
+
         r = read_fiemap(fd, &fiemap);
         if (r < 0)
-                return log_debug_errno(r, "Unable to read extent map for '%s': %m",
-                                       device);
-        if (fiemap->fm_mapped_extents == 0) {
-                log_debug("No extents found in '%s'", device);
-                return -EINVAL;
-        }
+                return log_debug_errno(r, "Unable to read extent map for '%s': %m", device);
+        if (fiemap->fm_mapped_extents == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No extents found in '%s'", device);
+
         offset = fiemap->fm_extents[0].fe_physical / page_size();
         xsprintf(offset_str, "%" PRIu64, offset);
-        r = write_string_file("/sys/power/resume_offset", offset_str, 0);
+        r = write_string_file("/sys/power/resume_offset", offset_str, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                return log_debug_errno(r, "Failed to write offset '%s': %m",
-                                       offset_str);
+                return log_debug_errno(r, "Failed to write offset '%s': %m", offset_str);
+
+        log_debug("Wrote calculated resume_offset value to /sys/power/resume_offset: %s", offset_str);
 
         xsprintf(device_str, "%lx", (unsigned long)stb.st_dev);
-        r = write_string_file("/sys/power/resume", device_str, 0);
+        r = write_string_file("/sys/power/resume", device_str, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                return log_debug_errno(r, "Failed to write device '%s': %m",
-                                       device_str);
+                return log_debug_errno(r, "Failed to write device '%s': %m", device_str);
+
+        log_debug("Wrote device id to /sys/power/resume: %s", device_str);
+
         return 0;
 }
 
@@ -97,13 +121,12 @@ static int write_mode(char **modes) {
         STRV_FOREACH(mode, modes) {
                 int k;
 
-                k = write_string_file("/sys/power/disk", *mode, 0);
-                if (k == 0)
+                k = write_string_file("/sys/power/disk", *mode, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (k >= 0)
                         return 0;
 
-                log_debug_errno(k, "Failed to write '%s' to /sys/power/disk: %m",
-                                *mode);
-                if (r == 0)
+                log_debug_errno(k, "Failed to write '%s' to /sys/power/disk: %m", *mode);
+                if (r >= 0)
                         r = k;
         }
 
@@ -117,12 +140,11 @@ static int write_state(FILE **f, char **states) {
         STRV_FOREACH(state, states) {
                 int k;
 
-                k = write_string_stream(*f, *state, 0);
-                if (k == 0)
+                k = write_string_stream(*f, *state, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (k >= 0)
                         return 0;
-                log_debug_errno(k, "Failed to write '%s' to /sys/power/state: %m",
-                                *state);
-                if (r == 0)
+                log_debug_errno(k, "Failed to write '%s' to /sys/power/state: %m", *state);
+                if (r >= 0)
                         r = k;
 
                 fclose(*f);
@@ -134,8 +156,33 @@ static int write_state(FILE **f, char **states) {
         return r;
 }
 
-static int execute(char **modes, char **states) {
+static int configure_hibernation(void) {
+        _cleanup_free_ char *resume = NULL, *resume_offset = NULL;
+        int r;
 
+        /* check for proper hibernation configuration */
+        r = read_one_line_file("/sys/power/resume", &resume);
+        if (r < 0)
+                return log_debug_errno(r, "Error reading from /sys/power/resume: %m");
+
+        r = read_one_line_file("/sys/power/resume_offset", &resume_offset);
+        if (r < 0)
+                return log_debug_errno(r, "Error reading from /sys/power/resume_offset: %m");
+
+        if (!streq(resume_offset, "0") && !streq(resume, "0:0")) {
+                log_debug("Hibernating using device id and offset read from /sys/power/resume: %s and /sys/power/resume_offset: %s", resume, resume_offset);
+                return 0;
+        } else if (!streq(resume, "0:0")) {
+                log_debug("Hibernating using device id read from /sys/power/resume: %s", resume);
+                return 0;
+        } else if (!streq(resume_offset, "0"))
+                log_debug("Found offset in /sys/power/resume_offset: %s; no device id found in /sys/power/resume; ignoring offset", resume_offset);
+
+        /* if hibernation is not properly configured, attempt to calculate and write values */
+        return write_hibernate_location_info();
+}
+
+static int execute(char **modes, char **states) {
         char *arguments[] = {
                 NULL,
                 (char*) "pre",
@@ -156,17 +203,20 @@ static int execute(char **modes, char **states) {
         if (!f)
                 return log_error_errno(errno, "Failed to open /sys/power/state: %m");
 
+        setvbuf(f, NULL, _IONBF, 0);
+
         /* Configure the hibernation mode */
         if (!strv_isempty(modes)) {
-                r = write_hibernate_location_info();
+                r = configure_hibernation();
                 if (r < 0)
-                        return log_error_errno(r, "Failed to write hibernation disk offset: %m");
+                        return log_error_errno(r, "Failed to prepare for hibernation: %m");
+
                 r = write_mode(modes);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");;
         }
 
-        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments);
+        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_SLEEP_START_STR,
@@ -175,108 +225,102 @@ static int execute(char **modes, char **states) {
 
         r = write_state(&f, states);
         if (r < 0)
-                return log_error_errno(r, "Failed to write /sys/power/state: %m");
-
-        log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
-                   LOG_MESSAGE("System resumed."),
-                   "SLEEP=%s", arg_verb);
+                log_struct_errno(LOG_ERR, r,
+                                 "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
+                                 LOG_MESSAGE("Failed to suspend system. System resumed again: %m"),
+                                 "SLEEP=%s", arg_verb);
+        else
+                log_struct(LOG_INFO,
+                           "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
+                           LOG_MESSAGE("System resumed."),
+                           "SLEEP=%s", arg_verb);
 
         arguments[1] = (char*) "post";
-        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments);
+        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         return r;
 }
 
-static int read_wakealarm(uint64_t *result) {
-        _cleanup_free_ char *t = NULL;
-
-        if (read_one_line_file("/sys/class/rtc/rtc0/since_epoch", &t) >= 0)
-                return safe_atou64(t, result);
-        return -EBADF;
-}
-
-static int write_wakealarm(const char *str) {
-
-        _cleanup_fclose_ FILE *f = NULL;
+static int execute_s2h(const SleepConfig *sleep_config) {
+        _cleanup_close_ int tfd = -1;
+        char buf[FORMAT_TIMESPAN_MAX];
+        struct itimerspec ts = {};
+        struct pollfd fds;
         int r;
 
-        f = fopen("/sys/class/rtc/rtc0/wakealarm", "we");
-        if (!f)
-                return log_error_errno(errno, "Failed to open /sys/class/rtc/rtc0/wakealarm: %m");
+        assert(sleep_config);
 
-        r = write_string_stream(f, str, 0);
+        tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
+        if (tfd < 0)
+                return log_error_errno(errno, "Error creating timerfd: %m");
+
+        log_debug("Set timerfd wake alarm for %s",
+                  format_timespan(buf, sizeof(buf), sleep_config->hibernate_delay_sec, USEC_PER_SEC));
+
+        timespec_store(&ts.it_value, sleep_config->hibernate_delay_sec);
+
+        r = timerfd_settime(tfd, 0, &ts, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to write '%s' to /sys/class/rtc/rtc0/wakealarm: %m", str);
+                return log_error_errno(errno, "Error setting hibernate timer: %m");
+
+        r = execute(sleep_config->suspend_modes, sleep_config->suspend_states);
+        if (r < 0)
+                return r;
+
+        fds = (struct pollfd) {
+                .fd = tfd,
+                .events = POLLIN,
+        };
+        r = poll(&fds, 1, 0);
+        if (r < 0)
+                return log_error_errno(errno, "Error polling timerfd: %m");
+
+        tfd = safe_close(tfd);
+
+        if (!FLAGS_SET(fds.revents, POLLIN)) /* We woke up before the alarm time, we are done. */
+                return 0;
+
+        /* If woken up after alarm time, hibernate */
+        log_debug("Attempting to hibernate after waking from %s timer",
+                  format_timespan(buf, sizeof(buf), sleep_config->hibernate_delay_sec, USEC_PER_SEC));
+
+        r = execute(sleep_config->hibernate_modes, sleep_config->hibernate_states);
+        if (r < 0) {
+                log_notice("Couldn't hibernate, will try to suspend again.");
+                r = execute(sleep_config->suspend_modes, sleep_config->suspend_states);
+                if (r < 0) {
+                        log_notice("Could neither hibernate nor suspend again, giving up.");
+                        return r;
+                }
+        }
 
         return 0;
 }
 
-static int execute_s2h(usec_t hibernate_delay_sec) {
-
-        _cleanup_strv_free_ char **hibernate_modes = NULL, **hibernate_states = NULL,
-                                 **suspend_modes = NULL, **suspend_states = NULL;
-        usec_t orig_time, cmp_time;
-        char time_str[DECIMAL_STR_MAX(uint64_t)];
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
         int r;
 
-        r = parse_sleep_config("suspend", &suspend_modes, &suspend_states,
-                               NULL);
+        r = terminal_urlify_man("systemd-suspend.service", "8", &link);
         if (r < 0)
-                return r;
+                return log_oom();
 
-        r = parse_sleep_config("hibernate", &hibernate_modes,
-                               &hibernate_states, NULL);
-        if (r < 0)
-                return r;
-
-        r = read_wakealarm(&orig_time);
-        if (r < 0)
-                return log_error_errno(errno, "Failed to read time: %d", r);
-
-        orig_time += hibernate_delay_sec / USEC_PER_SEC;
-        xsprintf(time_str, "%" PRIu64, orig_time);
-
-        r = write_wakealarm(time_str);
-        if (r < 0)
-                return r;
-
-        log_debug("Set RTC wake alarm for %s", time_str);
-
-        r = execute(suspend_modes, suspend_states);
-        if (r < 0)
-                return r;
-
-        r = read_wakealarm(&cmp_time);
-        if (r < 0)
-                return log_error_errno(errno, "Failed to read time: %d", r);
-
-        /* reset RTC */
-        r = write_wakealarm("0");
-        if (r < 0)
-                return r;
-
-        log_debug("Woke up at %"PRIu64, cmp_time);
-
-        /* if woken up after alarm time, hibernate */
-        if (cmp_time >= orig_time)
-                r = execute(hibernate_modes, hibernate_states);
-
-        return r;
-}
-
-static void help(void) {
         printf("%s COMMAND\n\n"
                "Suspend the system, hibernate the system, or both.\n\n"
-               "Commands:\n"
-               "  -h --help            Show this help and exit\n"
-               "  --version            Print version string and exit\n"
-               "  suspend              Suspend the system\n"
-               "  hibernate            Hibernate the system\n"
-               "  hybrid-sleep         Both hibernate and suspend the system\n"
+               "  -h --help              Show this help and exit\n"
+               "  --version              Print version string and exit\n"
+               "\nCommands:\n"
+               "  suspend                Suspend the system\n"
+               "  hibernate              Hibernate the system\n"
+               "  hybrid-sleep           Both hibernate and suspend the system\n"
                "  suspend-then-hibernate Initially suspend and then hibernate\n"
-               "                       the system after a fixed period of time\n"
-               , program_invocation_short_name);
+               "                         the system after a fixed period of time\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -298,8 +342,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        help();
-                        return 0; /* done */
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -311,46 +354,51 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (argc - optind != 1) {
-                log_error("Usage: %s COMMAND",
-                          program_invocation_short_name);
-                return -EINVAL;
-        }
+        if (argc - optind != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Usage: %s COMMAND",
+                                       program_invocation_short_name);
 
-        arg_verb = argv[optind];
+        arg_verb = strdup(argv[optind]);
+        if (!arg_verb)
+                return log_oom();
 
-        if (!streq(arg_verb, "suspend") &&
-            !streq(arg_verb, "hibernate") &&
-            !streq(arg_verb, "hybrid-sleep") &&
-            !streq(arg_verb, "suspend-then-hibernate")) {
-                log_error("Unknown command '%s'.", arg_verb);
-                return -EINVAL;
-        }
+        if (!STR_IN_SET(arg_verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown command '%s'.", arg_verb);
 
         return 1 /* work to do */;
 }
 
-int main(int argc, char *argv[]) {
-        _cleanup_strv_free_ char **modes = NULL, **states = NULL;
-        usec_t delay = 0;
+static int run(int argc, char *argv[]) {
+        bool allow;
+        char **modes = NULL, **states = NULL;
+        _cleanup_(free_sleep_configp) SleepConfig *sleep_config = NULL;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
-        r = parse_sleep_config(arg_verb, &modes, &states, &delay);
+        r = parse_sleep_config(&sleep_config);
         if (r < 0)
-                goto finish;
+                return r;
+
+        r = sleep_settings(arg_verb, sleep_config, &allow, &modes, &states);
+        if (r < 0)
+                return r;
+
+        if (!allow)
+                return log_error_errno(SYNTHETIC_ERRNO(EACCES),
+                                       "Sleep mode \"%s\" is disabled by configuration, refusing.",
+                                       arg_verb);
 
         if (streq(arg_verb, "suspend-then-hibernate"))
-                r = execute_s2h(delay);
+                return execute_s2h(sleep_config);
         else
-                r = execute(modes, states);
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                return execute(modes, states);
 }
+
+DEFINE_MAIN_FUNCTION(run);

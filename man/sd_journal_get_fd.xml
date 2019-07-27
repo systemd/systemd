@@ -1,29 +1,13 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_journal_get_fd" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_get_fd</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -239,14 +223,9 @@ else {
   <refsect1>
     <title>Notes</title>
 
-    <para>The <function>sd_journal_get_fd()</function>,
-    <function>sd_journal_get_events()</function>,
-    <function>sd_journal_reliable_fd()</function>,
-    <function>sd_journal_process()</function> and
-    <function>sd_journal_wait()</function> interfaces are available as
-    a shared library, which can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>

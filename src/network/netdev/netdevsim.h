@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2018 Susant Sahani
-***/
-
 typedef struct NetDevSim NetDevSim;
 
 #include "netdev/netdev.h"

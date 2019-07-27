@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-  Copyright 2014 Tom Gundersen
-***/
-
 #include "sd-netlink.h"
+
+#include "log-link.h"
+#include "network-util.h"
 
 typedef struct Link Link;
 typedef struct Manager Manager;
@@ -21,7 +17,8 @@ struct Link {
         unsigned flags;
 
         bool required_for_online;
-        char *operational_state;
+        LinkOperationalState required_operstate;
+        LinkOperationalState operational_state;
         char *state;
 };
 

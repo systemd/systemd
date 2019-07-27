@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <dwarf.h>
 #include <elfutils/libdwfl.h>
-#include <stdio_ext.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
+#include "fileio.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "macro.h"
@@ -111,7 +108,7 @@ static int thread_callback(Dwfl_Thread *thread, void *userdata) {
         return DWARF_CB_OK;
 }
 
-int coredump_make_stack_trace(int fd, const char *executable, char **ret) {
+static int make_stack_trace(int fd, const char *executable, char **ret) {
 
         static const Dwfl_Callbacks callbacks = {
                 .find_elf = dwfl_build_id_find_elf,
@@ -129,11 +126,9 @@ int coredump_make_stack_trace(int fd, const char *executable, char **ret) {
         if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
                 return -errno;
 
-        c.f = open_memstream(&buf, &sz);
+        c.f = open_memstream_unlocked(&buf, &sz);
         if (!c.f)
                 return -ENOMEM;
-
-        (void) __fsetlocking(c.f, FSETLOCKING_BYCALLER);
 
         elf_version(EV_CURRENT);
 
@@ -187,4 +182,14 @@ finish:
         free(buf);
 
         return r;
+}
+
+void coredump_make_stack_trace(int fd, const char *executable, char **ret) {
+        int r;
+
+        r = make_stack_trace(fd, executable, ret);
+        if (r == -EINVAL)
+                log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
+        else if (r < 0)
+                log_warning_errno(r, "Failed to generate stack trace: %m");
 }

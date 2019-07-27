@@ -1,6 +1,4 @@
 #!/bin/bash
-# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
-# ex: ts=8 sw=4 sts=4 et filetype=sh
 set -e
 TEST_DESCRIPTION="cryptsetup systemd setup"
 TEST_NO_NSPAWN=1
@@ -27,13 +25,11 @@ check_result_qemu() {
 
 
 test_setup() {
-    create_empty_image
+    create_empty_image_rootdir
     echo -n test >$TESTDIR/keyfile
-    cryptsetup -q luksFormat ${LOOPDEV}p2 $TESTDIR/keyfile
+    cryptsetup -q luksFormat --pbkdf pbkdf2 --pbkdf-force-iterations 1000 ${LOOPDEV}p2 $TESTDIR/keyfile
     cryptsetup luksOpen ${LOOPDEV}p2 varcrypt <$TESTDIR/keyfile
     mkfs.ext4 -L var /dev/mapper/varcrypt
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
     mkdir -p $TESTDIR/root/var
     mount /dev/mapper/varcrypt $TESTDIR/root/var
 
@@ -44,6 +40,14 @@ test_setup() {
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
         setup_basic_environment
+
+        # mask some services that we do not want to run in these tests
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.service
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-machined.service
 
         # setup the testsuite service
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
@@ -69,21 +73,24 @@ EOF
         cat >>$initdir/etc/fstab <<EOF
 /dev/mapper/varcrypt    /var    ext4    defaults 0 1
 EOF
-    ) || return 1
+    )
+}
 
+cleanup_root_var() {
     ddebug "umount $TESTDIR/root/var"
-    umount $TESTDIR/root/var
-    cryptsetup luksClose /dev/mapper/varcrypt
-    ddebug "umount $TESTDIR/root"
-    umount $TESTDIR/root
+    mountpoint $TESTDIR/root/var && umount $TESTDIR/root/var
+    [[ -b /dev/mapper/varcrypt ]] && cryptsetup luksClose /dev/mapper/varcrypt
 }
 
 test_cleanup() {
-    [ -d $TESTDIR/root/var ] && mountpoint $TESTDIR/root/var && umount $TESTDIR/root/var
-    [[ -b /dev/mapper/varcrypt ]] && cryptsetup luksClose /dev/mapper/varcrypt
-    umount $TESTDIR/root 2>/dev/null || true
-    [[ $LOOPDEV ]] && losetup -d $LOOPDEV
-    return 0
+    # ignore errors, so cleanup can continue
+    cleanup_root_var || :
+    _test_cleanup
+}
+
+test_setup_cleanup() {
+    cleanup_root_var
+    _test_setup_cleanup
 }
 
 do_test "$@"

@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-***/
 
 #include <sys/reboot.h>
 #include <sys/wait.h>
 #include <sys/prctl.h>
 #include <unistd.h>
 
+#include "def.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "log.h"
 #include "missing.h"
@@ -17,7 +14,6 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "time-util.h"
-#include "def.h"
 
 static int reset_environ(const char *new_environment, size_t length) {
         unsigned long start, end;
@@ -71,7 +67,7 @@ int stub_pid1(sd_id128_t uuid) {
         reset_all_signal_handlers();
 
         log_close();
-        close_all_fds(NULL, 0);
+        (void) close_all_fds(NULL, 0);
         log_open();
 
         /* Flush out /proc/self/environ, so that we don't leak the environment from the host into the container. Also,
@@ -127,7 +123,7 @@ int stub_pid1(sd_id128_t uuid) {
                         if (si.si_pid == pid && si.si_code == CLD_EXITED)
                                 r = si.si_status; /* pass on exit code */
                         else
-                                r = 255; /* signal, coredump, timeout, … */
+                                r = EXIT_EXCEPTION; /* signal, coredump, timeout, … */
 
                         goto finish;
                 }

@@ -1,26 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
-
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "macro.h"
+#include "string.h"
+
+static inline size_t sc_arg_max(void) {
+        long l = sysconf(_SC_ARG_MAX);
+        assert(l > 0);
+        return (size_t) l;
+}
 
 bool env_name_is_valid(const char *e);
 bool env_value_is_valid(const char *e);
 bool env_assignment_is_valid(const char *e);
 
 enum {
-        REPLACE_ENV_USE_ENVIRONMENT = 1u,
-        REPLACE_ENV_ALLOW_BRACELESS = 2u,
-        REPLACE_ENV_ALLOW_EXTENDED  = 4u,
+        REPLACE_ENV_USE_ENVIRONMENT = 1 << 0,
+        REPLACE_ENV_ALLOW_BRACELESS = 1 << 1,
+        REPLACE_ENV_ALLOW_EXTENDED  = 1 << 2,
 };
 
 char *replace_env_n(const char *format, size_t n, char **env, unsigned flags);
@@ -50,6 +52,3 @@ char *strv_env_get(char **x, const char *n) _pure_;
 
 int getenv_bool(const char *p);
 int getenv_bool_secure(const char *p);
-
-int serialize_environment(FILE *f, char **environment);
-int deserialize_environment(char ***environment, const char *line);

@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Axis Communications AB. All rights reserved.
-  Copyright (C) 2015 Tom Gundersen
+  Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
 
 #include <arpa/inet.h>
@@ -53,34 +50,19 @@ struct sd_ipv4ll {
         void* userdata;
 };
 
-#define log_ipv4ll_errno(ll, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "IPV4LL: " fmt, ##__VA_ARGS__)
+#define log_ipv4ll_errno(ll, error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "IPV4LL: " fmt, ##__VA_ARGS__)
 #define log_ipv4ll(ll, fmt, ...) log_ipv4ll_errno(ll, 0, fmt, ##__VA_ARGS__)
 
 static void ipv4ll_on_acd(sd_ipv4acd *ll, int event, void *userdata);
 
-sd_ipv4ll *sd_ipv4ll_ref(sd_ipv4ll *ll) {
-        if (!ll)
-                return NULL;
-
-        assert(ll->n_ref >= 1);
-        ll->n_ref++;
-
-        return ll;
-}
-
-sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll) {
-        if (!ll)
-                return NULL;
-
-        assert(ll->n_ref >= 1);
-        ll->n_ref--;
-
-        if (ll->n_ref > 0)
-                return NULL;
+static sd_ipv4ll *ipv4ll_free(sd_ipv4ll *ll) {
+        assert(ll);
 
         sd_ipv4acd_unref(ll->acd);
         return mfree(ll);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_ipv4ll, sd_ipv4ll, ipv4ll_free);
 
 int sd_ipv4ll_new(sd_ipv4ll **ret) {
         _cleanup_(sd_ipv4ll_unrefp) sd_ipv4ll *ll = NULL;
@@ -236,28 +218,21 @@ static int ipv4ll_pick_address(sd_ipv4ll *ll) {
         return sd_ipv4ll_set_address(ll, &(struct in_addr) { addr });
 }
 
-int sd_ipv4ll_restart(sd_ipv4ll *ll) {
-        ll->address = 0;
-
-        return sd_ipv4ll_start(ll);
-}
-
 #define MAC_HASH_KEY SD_ID128_MAKE(df,04,22,98,3f,ad,14,52,f9,87,2e,d1,9c,70,e2,f2)
 
-int sd_ipv4ll_start(sd_ipv4ll *ll) {
+static int ipv4ll_start_internal(sd_ipv4ll *ll, bool reset_generation) {
         int r;
         bool picked_address = false;
 
         assert_return(ll, -EINVAL);
         assert_return(!ether_addr_is_null(&ll->mac), -EINVAL);
-        assert_return(sd_ipv4ll_is_running(ll) == 0, -EBUSY);
 
         /* If no random seed is set, generate some from the MAC address */
         if (!ll->seed_set)
                 ll->seed.value = htole64(siphash24(ll->mac.ether_addr_octet, ETH_ALEN, MAC_HASH_KEY.bytes));
 
-        /* Restart the generation counter. */
-        ll->seed.generation = 0;
+        if (reset_generation)
+                ll->seed.generation = 0;
 
         if (ll->address == 0) {
                 r = ipv4ll_pick_address(ll);
@@ -279,6 +254,19 @@ int sd_ipv4ll_start(sd_ipv4ll *ll) {
         }
 
         return 0;
+}
+
+int sd_ipv4ll_start(sd_ipv4ll *ll) {
+        assert_return(ll, -EINVAL);
+        assert_return(sd_ipv4ll_is_running(ll) == 0, -EBUSY);
+
+        return ipv4ll_start_internal(ll, true);
+}
+
+int sd_ipv4ll_restart(sd_ipv4ll *ll) {
+        ll->address = 0;
+
+        return ipv4ll_start_internal(ll, false);
 }
 
 static void ipv4ll_client_notify(sd_ipv4ll *ll, int event) {
@@ -316,11 +304,7 @@ void ipv4ll_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
 
                         ll->claimed_address = 0;
                 } else {
-                        r = ipv4ll_pick_address(ll);
-                        if (r < 0)
-                                goto error;
-
-                        r = sd_ipv4acd_start(ll->acd);
+                        r = sd_ipv4ll_restart(ll);
                         if (r < 0)
                                 goto error;
                 }

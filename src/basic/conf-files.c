@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <dirent.h>
 #include <errno.h>
@@ -22,11 +17,11 @@
 #include "missing.h"
 #include "path-util.h"
 #include "set.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static int files_add(
                 Hashmap *h,
@@ -104,7 +99,7 @@ static int files_add(
 
                 /* Does this node have the executable bit set? */
                 if (flags & CONF_FILES_EXECUTABLE)
-                        /* As requested: check if the file is marked exectuable. Note that we don't check access(X_OK)
+                        /* As requested: check if the file is marked executable. Note that we don't check access(X_OK)
                          * here, as we care about whether the file is marked executable at all, and not whether it is
                          * executable for us, because if so, such errors are stuff we should log about. */
 
@@ -120,7 +115,7 @@ static int files_add(
 
                         key = p;
                 } else {
-                        p = strjoin(dirpath, "/", de->d_name);
+                        p = path_join(dirpath, de->d_name);
                         if (!p)
                                 return -ENOMEM;
 
@@ -139,12 +134,8 @@ static int files_add(
         return 0;
 }
 
-static int base_cmp(const void *a, const void *b) {
-        const char *s1, *s2;
-
-        s1 = *(char * const *)a;
-        s2 = *(char * const *)b;
-        return strcmp(basename(s1), basename(s2));
+static int base_cmp(char * const *a, char * const *b) {
+        return strcmp(basename(*a), basename(*b));
 }
 
 static int conf_files_list_strv_internal(char ***strv, const char *suffix, const char *root, unsigned flags, char **dirs) {
@@ -181,7 +172,7 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
         if (!files)
                 return -ENOMEM;
 
-        qsort_safe(files, hashmap_size(fh), sizeof(char *), base_cmp);
+        typesafe_qsort(files, hashmap_size(fh), base_cmp);
         *strv = files;
 
         return 0;
@@ -198,25 +189,29 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
          * - do nothing if our new entry matches the existing entry,
          * - replace the existing entry if our new entry has higher priority.
          */
-        size_t i;
+        size_t i, n;
         char *t;
         int r;
 
-        for (i = 0; i < strv_length(*strv); i++) {
+        n = strv_length(*strv);
+        for (i = 0; i < n; i++) {
                 int c;
 
-                c = base_cmp(*strv + i, &path);
+                c = base_cmp((char* const*) *strv + i, (char* const*) &path);
                 if (c == 0) {
                         char **dir;
 
-                        /* Oh, we found our spot and it already contains something. */
+                        /* Oh, there already is an entry with a matching name (the last component). */
+
                         STRV_FOREACH(dir, dirs) {
+                                _cleanup_free_ char *rdir = NULL;
                                 char *p1, *p2;
 
-                                p1 = path_startswith((*strv)[i], root);
-                                if (p1)
-                                        /* Skip "/" in *dir, because p1 is without "/" too */
-                                        p1 = path_startswith(p1, *dir + 1);
+                                rdir = path_join(root, *dir);
+                                if (!rdir)
+                                        return -ENOMEM;
+
+                                p1 = path_startswith((*strv)[i], rdir);
                                 if (p1)
                                         /* Existing entry with higher priority
                                          * or same priority, no need to do anything. */
@@ -225,7 +220,8 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
                                 p2 = path_startswith(path, *dir);
                                 if (p2) {
                                         /* Our new entry has higher priority */
-                                        t = path_join(root, path, NULL);
+
+                                        t = path_join(root, path);
                                         if (!t)
                                                 return log_oom();
 
@@ -241,26 +237,16 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
                 /* … we are not there yet, let's continue */
         }
 
-        t = path_join(root, path, NULL);
+        /* The new file has lower priority than all the existing entries */
+        t = path_join(root, path);
         if (!t)
-                return log_oom();
+                return -ENOMEM;
 
         r = strv_insert(strv, i, t);
         if (r < 0)
                 free(t);
+
         return r;
-}
-
-int conf_files_insert_nulstr(char ***strv, const char *root, const char *dirs, const char *path) {
-        _cleanup_strv_free_ char **d = NULL;
-
-        assert(strv);
-
-        d = strv_split_nulstr(dirs);
-        if (!d)
-                return -ENOMEM;
-
-        return conf_files_insert(strv, root, d, path);
 }
 
 int conf_files_list_strv(char ***strv, const char *suffix, const char *root, unsigned flags, const char* const* dirs) {
@@ -327,7 +313,7 @@ int conf_files_list_with_replacement(
                 if (r < 0)
                         return log_error_errno(r, "Failed to extend config file list: %m");
 
-                p = path_join(root, replacement, NULL);
+                p = path_join(root, replacement);
                 if (!p)
                         return log_oom();
         }
@@ -336,37 +322,4 @@ int conf_files_list_with_replacement(
         if (replace_file)
                 *replace_file = TAKE_PTR(p);
         return 0;
-}
-
-int conf_files_cat(const char *root, const char *name) {
-        _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
-        _cleanup_free_ char *path = NULL;
-        const char *dir;
-        char **t;
-        int r;
-
-        NULSTR_FOREACH(dir, CONF_PATHS_NULSTR("")) {
-                assert(endswith(dir, "/"));
-                r = strv_extendf(&dirs, "%s%s.d", dir, name);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to build directory list: %m");
-        }
-
-        r = conf_files_list_strv(&files, ".conf", root, 0, (const char* const*) dirs);
-        if (r < 0)
-                return log_error_errno(r, "Failed to query file list: %m");
-
-        path = path_join(root, "/etc", name);
-        if (!path)
-                return log_oom();
-
-        if (DEBUG_LOGGING) {
-                log_debug("Looking for configuration in:");
-                log_debug("   %s", path);
-                STRV_FOREACH(t, dirs)
-                        log_debug("   %s/*.conf", *t);
-        }
-
-        /* show */
-        return cat_files(path, files, CAT_FLAGS_MAIN_FILE_OPTIONAL);
 }

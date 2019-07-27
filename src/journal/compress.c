@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #if HAVE_XZ
@@ -29,6 +26,7 @@
 #include "sparse-endian.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "unaligned.h"
 #include "util.h"
 
 #if HAVE_LZ4
@@ -100,15 +98,11 @@ int compress_blob_lz4(const void *src, uint64_t src_size,
         if (src_size < 9)
                 return -ENOBUFS;
 
-#if LZ4_VERSION_NUMBER >= 10700
         r = LZ4_compress_default(src, (char*)dst + 8, src_size, (int) dst_alloc_size - 8);
-#else
-        r = LZ4_compress_limitedOutput(src, (char*)dst + 8, src_size, (int) dst_alloc_size - 8);
-#endif
         if (r <= 0)
                 return -ENOBUFS;
 
-        *(le64_t*) dst = htole64(src_size);
+        unaligned_write_le64(dst, src_size);
         *dst_size = r + 8;
 
         return 0;
@@ -194,8 +188,8 @@ int decompress_blob_lz4(const void *src, uint64_t src_size,
         if (src_size <= 8)
                 return -EBADMSG;
 
-        size = le64toh( *(le64_t*)src );
-        if (size < 0 || (unsigned) size != le64toh(*(le64_t*)src))
+        size = unaligned_read_le64(src);
+        if (size < 0 || (unsigned) size != unaligned_read_le64(src))
                 return -EFBIG;
         if ((size_t) size > *dst_alloc_size) {
                 out = realloc(*dst, size);
@@ -299,7 +293,6 @@ int decompress_startswith_lz4(const void *src, uint64_t src_size,
          * prefix */
 
         int r;
-        size_t size;
 
         assert(src);
         assert(src_size > 0);
@@ -316,23 +309,37 @@ int decompress_startswith_lz4(const void *src, uint64_t src_size,
 
         r = LZ4_decompress_safe_partial((char*)src + 8, *buffer, src_size - 8,
                                         prefix_len + 1, *buffer_size);
-        if (r >= 0)
-                size = (unsigned) r;
-        else {
-                /* lz4 always tries to decode full "sequence", so in
-                 * pathological cases might need to decompress the
-                 * full field. */
+        /* One lz4 < 1.8.3, we might get "failure" (r < 0), or "success" where
+         * just a part of the buffer is decompressed. But if we get a smaller
+         * amount of bytes than requested, we don't know whether there isn't enough
+         * data to fill the requested size or whether we just got a partial answer.
+         */
+        if (r < 0 || (size_t) r < prefix_len + 1) {
+                size_t size;
+
+                if (LZ4_versionNumber() >= 10803)
+                        /* We trust that the newer lz4 decompresses the number of bytes we
+                         * requested if available in the compressed string. */
+                        return 0;
+
+                if (r > 0)
+                        /* Compare what we have first, in case of mismatch we can
+                         * shortcut the full comparison. */
+                        if (memcmp(*buffer, prefix, r) != 0)
+                                return 0;
+
+                /* Before version 1.8.3, lz4 always tries to decode full a "sequence",
+                 * so in pathological cases might need to decompress the full field. */
                 r = decompress_blob_lz4(src, src_size, buffer, buffer_size, &size, 0);
                 if (r < 0)
                         return r;
+
+                if (size < prefix_len + 1)
+                        return 0;
         }
 
-        if (size >= prefix_len + 1)
-                return memcmp(*buffer, prefix, prefix_len) == 0 &&
-                        ((const uint8_t*) *buffer)[prefix_len] == extra;
-        else
-                return 0;
-
+        return memcmp(*buffer, prefix, prefix_len) == 0 &&
+                ((const uint8_t*) *buffer)[prefix_len] == extra;
 #else
         return -EPROTONOSUPPORT;
 #endif

@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <sys/resource.h>
 
 #include "macro.h"
@@ -26,3 +20,6 @@ int rlimit_format(const struct rlimit *rl, char **ret);
 void rlimit_free_all(struct rlimit **rl);
 
 #define RLIMIT_MAKE_CONST(lim) ((struct rlimit) { lim, lim })
+
+int rlimit_nofile_bump(int limit);
+int rlimit_nofile_safe(void);

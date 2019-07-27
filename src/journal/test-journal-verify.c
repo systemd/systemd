@@ -1,20 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
 
+#include "chattr-util.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "journal-file.h"
 #include "journal-verify.h"
 #include "log.h"
 #include "rm-rf.h"
 #include "terminal-util.h"
+#include "tests.h"
 #include "util.h"
 
 #define N_ENTRIES 6000
@@ -54,7 +52,7 @@ static int raw_verify(const char *fn, const char *verification_key) {
 }
 
 int main(int argc, char *argv[]) {
-        char t[] = "/tmp/journal-XXXXXX";
+        char t[] = "/var/tmp/journal-XXXXXX";
         unsigned n;
         JournalFile *f;
         const char *verification_key = argv[1];
@@ -67,12 +65,13 @@ int main(int argc, char *argv[]) {
 
         /* journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("/etc/machine-id not found");
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
+        (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 
         log_info("Generating...");
 
@@ -87,8 +86,7 @@ int main(int argc, char *argv[]) {
 
                 assert_se(asprintf(&test, "RANDOM=%lu", random() % RANDOM_RANGE));
 
-                iovec.iov_base = (void*) test;
-                iovec.iov_len = strlen(test);
+                iovec = IOVEC_MAKE_STRING(test);
 
                 assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 

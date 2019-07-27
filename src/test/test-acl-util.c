@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <fcntl.h>
 #include <stdlib.h>
@@ -12,8 +7,8 @@
 
 #include "acl-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 
 static void test_add_acls_for_user(void) {
@@ -37,7 +32,7 @@ static void test_add_acls_for_user(void) {
 
         if (getuid() == 0) {
                 const char *nobody = NOBODY_USER_NAME;
-                r = get_user_creds(&nobody, &uid, NULL, NULL, NULL);
+                r = get_user_creds(&nobody, &uid, NULL, NULL, NULL, 0);
                 if (r < 0)
                         uid = 0;
         } else

@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include "kill.h"
 #include "signal-util.h"
@@ -14,8 +9,10 @@ void kill_context_init(KillContext *c) {
         assert(c);
 
         c->kill_signal = SIGTERM;
+        c->final_kill_signal = SIGKILL;
         c->send_sigkill = true;
         c->send_sighup = false;
+        c->watchdog_signal = SIGABRT;
 }
 
 void kill_context_dump(KillContext *c, FILE *f, const char *prefix) {
@@ -26,10 +23,12 @@ void kill_context_dump(KillContext *c, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sKillMode: %s\n"
                 "%sKillSignal: SIG%s\n"
+                "%sFinalKillSignal: SIG%s\n"
                 "%sSendSIGKILL: %s\n"
                 "%sSendSIGHUP:  %s\n",
                 prefix, kill_mode_to_string(c->kill_mode),
                 prefix, signal_to_string(c->kill_signal),
+                prefix, signal_to_string(c->final_kill_signal),
                 prefix, yes_no(c->send_sigkill),
                 prefix, yes_no(c->send_sighup));
 }

@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/capability.h>
 #include <sys/types.h>
 
 #include "macro.h"
+#include "missing_capability.h"
 #include "util.h"
 
 #define CAP_ALL (uint64_t) -1
@@ -38,10 +33,45 @@ static inline void cap_free_charpp(char **p) {
 }
 #define _cleanup_cap_free_charp_ _cleanup_(cap_free_charpp)
 
+static inline uint64_t all_capabilities(void) {
+        return UINT64_MAX >> (63 - cap_last_cap());
+}
+
 static inline bool cap_test_all(uint64_t caps) {
-        uint64_t m;
-        m = (UINT64_C(1) << (cap_last_cap() + 1)) - 1;
-        return FLAGS_SET(caps, m);
+        return FLAGS_SET(caps, all_capabilities());
 }
 
 bool ambient_capabilities_supported(void);
+
+/* Identical to linux/capability.h's CAP_TO_MASK(), but uses an unsigned 1U instead of a signed 1 for shifting left, in
+ * order to avoid complaints about shifting a signed int left by 31 bits, which would make it negative. */
+#define CAP_TO_MASK_CORRECTED(x) (1U << ((x) & 31U))
+
+typedef struct CapabilityQuintet {
+        /* Stores all five types of capabilities in one go. Note that we use (uint64_t) -1 for unset here. This hence
+         * needs to be updated as soon as Linux learns more than 63 caps. */
+        uint64_t effective;
+        uint64_t bounding;
+        uint64_t inheritable;
+        uint64_t permitted;
+        uint64_t ambient;
+} CapabilityQuintet;
+
+assert_cc(CAP_LAST_CAP < 64);
+
+#define CAPABILITY_QUINTET_NULL { (uint64_t) -1, (uint64_t) -1, (uint64_t) -1, (uint64_t) -1, (uint64_t) -1 }
+
+static inline bool capability_quintet_is_set(const CapabilityQuintet *q) {
+        return q->effective != (uint64_t) -1 ||
+                q->bounding != (uint64_t) -1 ||
+                q->inheritable != (uint64_t) -1 ||
+                q->permitted != (uint64_t) -1 ||
+                q->ambient != (uint64_t) -1;
+}
+
+/* Mangles the specified caps quintet taking the current bounding set into account:
+ * drops all caps from all five sets if our bounding set doesn't allow them.
+ * Returns true if the quintet was modified. */
+bool capability_quintet_mangle(CapabilityQuintet *q);
+
+int capability_quintet_enforce(const CapabilityQuintet *q);

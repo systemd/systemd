@@ -1,38 +1,70 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 #include "alloc-util.h"
 #include "locale-util.h"
 #include "macro.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "utf8.h"
+#include "util.h"
 
-static void test_string_erase(void) {
-        char *x;
+static void test_free_and_strndup_one(char **t, const char *src, size_t l, const char *expected, bool change) {
+        int r;
 
-        x = strdupa("");
-        assert_se(streq(string_erase(x), ""));
+        log_debug("%s: \"%s\", \"%s\", %zd (expect \"%s\", %s)",
+                  __func__, strnull(*t), strnull(src), l, strnull(expected), yes_no(change));
 
-        x = strdupa("1");
-        assert_se(streq(string_erase(x), ""));
+        r = free_and_strndup(t, src, l);
+        assert_se(streq_ptr(*t, expected));
+        assert_se(r == change); /* check that change occurs only when necessary */
+}
 
-        x = strdupa("123456789");
-        assert_se(streq(string_erase(x), ""));
+static void test_free_and_strndup(void) {
+        static const struct test_case {
+                const char *src;
+                size_t len;
+                const char *expected;
+        } cases[] = {
+                     {"abc", 0, ""},
+                     {"abc", 0, ""},
+                     {"abc", 1, "a"},
+                     {"abc", 2, "ab"},
+                     {"abc", 3, "abc"},
+                     {"abc", 4, "abc"},
+                     {"abc", 5, "abc"},
+                     {"abc", 5, "abc"},
+                     {"abc", 4, "abc"},
+                     {"abc", 3, "abc"},
+                     {"abc", 2, "ab"},
+                     {"abc", 1, "a"},
+                     {"abc", 0, ""},
 
-        assert_se(x[1] == '\0');
-        assert_se(x[2] == '\0');
-        assert_se(x[3] == '\0');
-        assert_se(x[4] == '\0');
-        assert_se(x[5] == '\0');
-        assert_se(x[6] == '\0');
-        assert_se(x[7] == '\0');
-        assert_se(x[8] == '\0');
-        assert_se(x[9] == '\0');
+                     {"", 0, ""},
+                     {"", 1, ""},
+                     {"", 2, ""},
+                     {"", 0, ""},
+                     {"", 1, ""},
+                     {"", 2, ""},
+                     {"", 2, ""},
+                     {"", 1, ""},
+                     {"", 0, ""},
+
+                     {NULL, 0, NULL},
+
+                     {"foo", 3, "foo"},
+                     {"foobar", 6, "foobar"},
+        };
+
+        _cleanup_free_ char *t = NULL;
+        const char *prev_expected = t;
+
+        for (unsigned i = 0; i < ELEMENTSOF(cases); i++) {
+                test_free_and_strndup_one(&t,
+                                          cases[i].src, cases[i].len, cases[i].expected,
+                                          !streq_ptr(cases[i].expected, prev_expected));
+                prev_expected = t;
+        }
 }
 
 static void test_ascii_strcasecmp_n(void) {
@@ -218,22 +250,6 @@ static void test_strrep(void) {
         assert_se(streq(zero, ""));
 }
 
-static void test_strappend(void) {
-        _cleanup_free_ char *t1, *t2, *t3, *t4;
-
-        t1 = strappend(NULL, NULL);
-        assert_se(streq(t1, ""));
-
-        t2 = strappend(NULL, "suf");
-        assert_se(streq(t2, "suf"));
-
-        t3 = strappend("pre", NULL);
-        assert_se(streq(t3, "pre"));
-
-        t4 = strappend("pre", "suf");
-        assert_se(streq(t4, "presuf"));
-}
-
 static void test_string_has_cc(void) {
         assert_se(string_has_cc("abc\1", NULL));
         assert_se(string_has_cc("abc\x7f", NULL));
@@ -325,7 +341,7 @@ static void check(const char *test, char** expected, bool trailing) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&test, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&test, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0) {
                         assert_se(!trailing);
                         break;
@@ -501,8 +517,33 @@ static void test_memory_startswith(void) {
         assert_se(!memory_startswith("xxx", 4, "xxxx"));
 }
 
+static void test_memory_startswith_no_case(void) {
+        assert_se(streq(memory_startswith_no_case("", 0, ""), ""));
+        assert_se(streq(memory_startswith_no_case("", 1, ""), ""));
+        assert_se(streq(memory_startswith_no_case("x", 2, ""), "x"));
+        assert_se(streq(memory_startswith_no_case("X", 2, ""), "X"));
+        assert_se(!memory_startswith_no_case("", 1, "X"));
+        assert_se(!memory_startswith_no_case("", 1, "xxxxXXXX"));
+        assert_se(streq(memory_startswith_no_case("xxx", 4, "X"), "xx"));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "x"), "XX"));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "X"), "XX"));
+        assert_se(streq(memory_startswith_no_case("xxx", 4, "XX"), "x"));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "xx"), "X"));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "XX"), "X"));
+        assert_se(streq(memory_startswith_no_case("xxx", 4, "XXX"), ""));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "xxx"), ""));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "XXX"), ""));
+
+        assert_se(memory_startswith_no_case((char[2]){'x', 'x'}, 2, "xx"));
+        assert_se(memory_startswith_no_case((char[2]){'x', 'X'}, 2, "xX"));
+        assert_se(memory_startswith_no_case((char[2]){'X', 'x'}, 2, "Xx"));
+        assert_se(memory_startswith_no_case((char[2]){'X', 'X'}, 2, "XX"));
+}
+
 int main(int argc, char *argv[]) {
-        test_string_erase();
+        test_setup_logging(LOG_DEBUG);
+
+        test_free_and_strndup();
         test_ascii_strcasecmp_n();
         test_ascii_strcasecmp_nn();
         test_cellescape();
@@ -511,7 +552,6 @@ int main(int argc, char *argv[]) {
         test_strextend();
         test_strextend_with_separator();
         test_strrep();
-        test_strappend();
         test_string_has_cc();
         test_ascii_strlower();
         test_strshorten();
@@ -530,6 +570,7 @@ int main(int argc, char *argv[]) {
         test_first_word();
         test_strlen_ptr();
         test_memory_startswith();
+        test_memory_startswith_no_case();
 
         return 0;
 }

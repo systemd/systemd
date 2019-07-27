@@ -1,27 +1,13 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Ivan Shapovalov
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-hibernate-resume-generator" conditional='ENABLE_HIBERNATE'>
 
   <refentryinfo>
     <title>systemd-hibernate-resume-generator</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Ivan</firstname>
-        <surname>Shapovalov</surname>
-        <email>intelfx100@gmail.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -41,11 +27,13 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-hibernate-resume-generator</filename> is a
-    generator that instantiates
+    <para><command>systemd-hibernate-resume-generator</command> is a
+    generator that initiates the procedure to resume the system from hibernation.
+    It instantiates the
     <citerefentry><refentrytitle>systemd-hibernate-resume@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     unit according to the value of <option>resume=</option> parameter
-    specified on the kernel command line.</para>
+    specified on the kernel command line, which will instruct the kernel
+    to resume the system from the hibernation image on that device.</para>
   </refsect1>
 
   <refsect1>
@@ -67,6 +55,19 @@
         supported.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>resumeflags=</varname></term>
+
+        <listitem><para>Takes the resume device mount options to
+        use. Defaults <varname>rootflags=</varname> if not specified.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>noresume</varname></term>
+
+        <listitem><para>Do not try to resume from hibernation. If this parameter is
+        present, <varname>resume=</varname> is ignored.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

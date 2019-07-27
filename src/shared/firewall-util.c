@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 /* Temporary work-around for broken glibc vs. linux kernel header definitions
  * This is already fixed upstream, remove this when distributions have updated.
@@ -55,8 +50,14 @@ static int entry_fill_basics(
         entry->ip.proto = protocol;
 
         if (in_interface) {
+                size_t l;
+
+                l = strlen(in_interface);
+                assert(l < sizeof entry->ip.iniface);
+                assert(l < sizeof entry->ip.iniface_mask);
+
                 strcpy(entry->ip.iniface, in_interface);
-                memset(entry->ip.iniface_mask, 0xFF, strlen(in_interface)+1);
+                memset(entry->ip.iniface_mask, 0xFF, l + 1);
         }
         if (source) {
                 entry->ip.src = source->in;
@@ -89,6 +90,7 @@ int fw_add_masquerade(
                 const union in_addr_union *destination,
                 unsigned destination_prefixlen) {
 
+        static const xt_chainlabel chain = "POSTROUTING";
         _cleanup_(iptc_freep) struct xtc_handle *h = NULL;
         struct ipt_entry *entry, *mask;
         struct ipt_entry_target *t;
@@ -132,15 +134,15 @@ int fw_add_masquerade(
         memset(mask, 0xFF, sz);
 
         if (add) {
-                if (iptc_check_entry("POSTROUTING", entry, (unsigned char*) mask, h))
+                if (iptc_check_entry(chain, entry, (unsigned char*) mask, h))
                         return 0;
                 if (errno != ENOENT) /* if other error than not existing yet, fail */
                         return -errno;
 
-                if (!iptc_insert_entry("POSTROUTING", entry, 0, h))
+                if (!iptc_insert_entry(chain, entry, 0, h))
                         return -errno;
         } else {
-                if (!iptc_delete_entry("POSTROUTING", entry, (unsigned char*) mask, h)) {
+                if (!iptc_delete_entry(chain, entry, (unsigned char*) mask, h)) {
                         if (errno == ENOENT) /* if it's already gone, all is good! */
                                 return 0;
 
@@ -168,6 +170,7 @@ int fw_add_local_dnat(
                 uint16_t remote_port,
                 const union in_addr_union *previous_remote) {
 
+        static const xt_chainlabel chain_pre = "PREROUTING", chain_output = "OUTPUT";
         _cleanup_(iptc_freep) struct xtc_handle *h = NULL;
         struct ipt_entry *entry, *mask;
         struct ipt_entry_target *t;
@@ -265,20 +268,20 @@ int fw_add_local_dnat(
         mr->range[0].flags = NF_NAT_RANGE_PROTO_SPECIFIED|NF_NAT_RANGE_MAP_IPS;
         mr->range[0].min_ip = mr->range[0].max_ip = remote->in.s_addr;
         if (protocol == IPPROTO_TCP)
-                mr->range[0].min.tcp.port = mr->range[0].max.tcp.port = htons(remote_port);
+                mr->range[0].min.tcp.port = mr->range[0].max.tcp.port = htobe16(remote_port);
         else
-                mr->range[0].min.udp.port = mr->range[0].max.udp.port = htons(remote_port);
+                mr->range[0].min.udp.port = mr->range[0].max.udp.port = htobe16(remote_port);
 
         mask = alloca0(sz);
         memset(mask, 0xFF, sz);
 
         if (add) {
                 /* Add the PREROUTING rule, if it is missing so far */
-                if (!iptc_check_entry("PREROUTING", entry, (unsigned char*) mask, h)) {
+                if (!iptc_check_entry(chain_pre, entry, (unsigned char*) mask, h)) {
                         if (errno != ENOENT)
                                 return -EINVAL;
 
-                        if (!iptc_insert_entry("PREROUTING", entry, 0, h))
+                        if (!iptc_insert_entry(chain_pre, entry, 0, h))
                                 return -errno;
                 }
 
@@ -286,7 +289,7 @@ int fw_add_local_dnat(
                 if (previous_remote && previous_remote->in.s_addr != remote->in.s_addr) {
                         mr->range[0].min_ip = mr->range[0].max_ip = previous_remote->in.s_addr;
 
-                        if (!iptc_delete_entry("PREROUTING", entry, (unsigned char*) mask, h)) {
+                        if (!iptc_delete_entry(chain_pre, entry, (unsigned char*) mask, h)) {
                                 if (errno != ENOENT)
                                         return -errno;
                         }
@@ -304,11 +307,11 @@ int fw_add_local_dnat(
                                 entry->ip.invflags = IPT_INV_DSTIP;
                         }
 
-                        if (!iptc_check_entry("OUTPUT", entry, (unsigned char*) mask, h)) {
+                        if (!iptc_check_entry(chain_output, entry, (unsigned char*) mask, h)) {
                                 if (errno != ENOENT)
                                         return -errno;
 
-                                if (!iptc_insert_entry("OUTPUT", entry, 0, h))
+                                if (!iptc_insert_entry(chain_output, entry, 0, h))
                                         return -errno;
                         }
 
@@ -316,14 +319,14 @@ int fw_add_local_dnat(
                         if (previous_remote && previous_remote->in.s_addr != remote->in.s_addr) {
                                 mr->range[0].min_ip = mr->range[0].max_ip = previous_remote->in.s_addr;
 
-                                if (!iptc_delete_entry("OUTPUT", entry, (unsigned char*) mask, h)) {
+                                if (!iptc_delete_entry(chain_output, entry, (unsigned char*) mask, h)) {
                                         if (errno != ENOENT)
                                                 return -errno;
                                 }
                         }
                 }
         } else {
-                if (!iptc_delete_entry("PREROUTING", entry, (unsigned char*) mask, h)) {
+                if (!iptc_delete_entry(chain_pre, entry, (unsigned char*) mask, h)) {
                         if (errno != ENOENT)
                                 return -errno;
                 }
@@ -335,7 +338,7 @@ int fw_add_local_dnat(
                                 entry->ip.invflags = IPT_INV_DSTIP;
                         }
 
-                        if (!iptc_delete_entry("OUTPUT", entry, (unsigned char*) mask, h)) {
+                        if (!iptc_delete_entry(chain_output, entry, (unsigned char*) mask, h)) {
                                 if (errno != ENOENT)
                                         return -errno;
                         }

@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Danish translation for systemd.
-# Copyright (C) 2014 systemd's COPYRIGHT HOLDER
-# This file is distributed under the same license as the systemd package.
 # Daniel Machon <dmachon.dev@gmail.com>, 2015.
 #
 msgid ""
@@ -12,7 +10,7 @@ msgstr ""
 "POT-Creation-Date: 2015-10-07 19:30+0000\n"
 "PO-Revision-Date: 2015-10-07 19:30+0200\n"
 "Last-Translator: Daniel Machon <dmachon.dev@gmail.com>\n"
-"Language-Team: danish\n"
+"Language-Team: Danish\n"
 "Language: da\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"

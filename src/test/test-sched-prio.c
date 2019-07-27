@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2012 Holger Hans Peter Freyther
+  Copyright © 2012 Holger Hans Peter Freyther
 ***/
 
 #include <sched.h>
@@ -19,26 +17,22 @@ int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *idle_ok, *idle_bad, *rr_ok, *rr_bad, *rr_sched;
         Service *ser;
-        FILE *serial = NULL;
-        FDSet *fdset = NULL;
         int r;
 
+        test_setup_logging(LOG_INFO);
+
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                log_notice_errno(r, "Skipping test: cgroupfs not available");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         /* prepare the test */
-        assert_se(set_unit_path(get_testdata_dir("")) >= 0);
+        assert_se(set_unit_path(get_testdata_dir()) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &m);
-        if (MANAGER_SKIP_TEST(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return EXIT_TEST_SKIP;
-        }
+        if (MANAGER_SKIP_TEST(r))
+                return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
-        assert_se(manager_startup(m, serial, fdset) >= 0);
+        assert_se(manager_startup(m, NULL, NULL) >= 0);
 
         /* load idle ok */
         assert_se(manager_load_startable_unit_or_warn(m, "sched_idle_ok.service", NULL, &idle_ok) >= 0);

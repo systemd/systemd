@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -18,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "def.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "journal-file.h"
@@ -185,7 +181,7 @@ static int get_source_for_fd(RemoteServer *s,
                 return log_warning_errno(r, "Failed to get writer for source %s: %m",
                                          name);
 
-        if (s->sources[fd] == NULL) {
+        if (!s->sources[fd]) {
                 s->sources[fd] = source_new(fd, false, name, writer);
                 if (!s->sources[fd]) {
                         writer_unref(writer);
@@ -351,7 +347,7 @@ static void MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
 }
 #endif
 
-RemoteServer* journal_remote_server_destroy(RemoteServer *s) {
+void journal_remote_server_destroy(RemoteServer *s) {
         size_t i;
 
 #if HAVE_MICROHTTPD
@@ -375,7 +371,6 @@ RemoteServer* journal_remote_server_destroy(RemoteServer *s) {
                 journal_remote_server_global = NULL;
 
         /* fds that we're listening on remain open... */
-        return NULL;
 }
 
 /**********************************************************************
@@ -413,7 +408,10 @@ int journal_remote_handle_raw_source(
                 log_debug("%zu active sources remaining", s->active);
                 return 0;
         } else if (r == -E2BIG) {
-                log_notice_errno(E2BIG, "Entry too big, skipped");
+                log_notice("Entry with too many fields, skipped");
+                return 1;
+        } else if (r == -ENOBUFS) {
+                log_notice("Entry too big, skipped");
                 return 1;
         } else if (r == -EAGAIN) {
                 return 0;
@@ -469,14 +467,23 @@ static int dispatch_blocking_source_event(sd_event_source *event,
         return journal_remote_handle_raw_source(event, source->importer.fd, EPOLLIN, journal_remote_server_global);
 }
 
-static int accept_connection(const char* type, int fd,
-                             SocketAddress *addr, char **hostname) {
-        int fd2, r;
+static int accept_connection(
+                const char* type,
+                int fd,
+                SocketAddress *addr,
+                char **hostname) {
+
+        _cleanup_close_ int fd2 = -1;
+        int r;
 
         log_debug("Accepting new %s connection on fd:%d", type, fd);
         fd2 = accept4(fd, &addr->sockaddr.sa, &addr->size, SOCK_NONBLOCK|SOCK_CLOEXEC);
-        if (fd2 < 0)
+        if (fd2 < 0) {
+                if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                        return -EAGAIN;
+
                 return log_error_errno(errno, "accept() on fd:%d failed: %m", fd);
+        }
 
         switch(socket_address_family(addr)) {
         case AF_INET:
@@ -485,18 +492,12 @@ static int accept_connection(const char* type, int fd,
                 char *b;
 
                 r = socket_address_print(addr, &a);
-                if (r < 0) {
-                        log_error_errno(r, "socket_address_print(): %m");
-                        close(fd2);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "socket_address_print(): %m");
 
                 r = socknameinfo_pretty(&addr->sockaddr, addr->size, &b);
-                if (r < 0) {
-                        log_error_errno(r, "Resolving hostname failed: %m");
-                        close(fd2);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Resolving hostname failed: %m");
 
                 log_debug("Accepted %s %s connection from %s",
                           type,
@@ -504,22 +505,22 @@ static int accept_connection(const char* type, int fd,
                           a);
 
                 *hostname = b;
+                return TAKE_FD(fd2);
+        }
 
-                return fd2;
-        };
         default:
-                log_error("Rejected %s connection with unsupported family %d",
-                          type, socket_address_family(addr));
-                close(fd2);
-
-                return -EINVAL;
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Rejected %s connection with unsupported family %d",
+                                       type, socket_address_family(addr));
         }
 }
 
-static int dispatch_raw_connection_event(sd_event_source *event,
-                                         int fd,
-                                         uint32_t revents,
-                                         void *userdata) {
+static int dispatch_raw_connection_event(
+                sd_event_source *event,
+                int fd,
+                uint32_t revents,
+                void *userdata) {
+
         RemoteServer *s = userdata;
         int fd2;
         SocketAddress addr = {
@@ -529,6 +530,8 @@ static int dispatch_raw_connection_event(sd_event_source *event,
         char *hostname = NULL;
 
         fd2 = accept_connection("raw", fd, &addr, &hostname);
+        if (fd2 == -EAGAIN)
+                return 0;
         if (fd2 < 0)
                 return fd2;
 

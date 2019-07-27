@@ -2,14 +2,15 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2016 BISDN GmbH. All rights reserved.
+  Copyright © 2016 BISDN GmbH. All rights reserved.
 ***/
 
 #include <stdint.h>
 
 #include "conf-parser.h"
+
+#define BRIDGE_VLAN_BITMAP_MAX 4096
+#define BRIDGE_VLAN_BITMAP_LEN (BRIDGE_VLAN_BITMAP_MAX / 32)
 
 typedef struct Link Link;
 

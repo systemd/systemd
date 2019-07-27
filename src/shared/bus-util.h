@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
-
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -18,6 +12,7 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "string-util.h"
+#include "time-util.h"
 
 typedef enum BusTransport {
         BUS_TRANSPORT_LOCAL,
@@ -44,7 +39,6 @@ enum {
 int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
 
 int bus_message_map_all_properties(sd_bus_message *m, const struct bus_properties_map *map, unsigned flags, sd_bus_error *error, void *userdata);
-int bus_message_map_properties_changed(sd_bus_message *m, const struct bus_properties_map *map, unsigned flags, sd_bus_error *error, void *userdata);
 int bus_map_all_properties(sd_bus *bus, const char *destination, const char *path, const struct bus_properties_map *map,
                            unsigned flags, sd_bus_error *error, sd_bus_message **reply, void *userdata);
 
@@ -69,9 +63,10 @@ int bus_connect_user_systemd(sd_bus **_bus);
 int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **bus);
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus);
 
-typedef int (*bus_message_print_t) (const char *name, sd_bus_message *m, bool value, bool all);
+typedef int (*bus_message_print_t) (const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all);
 
-int bus_print_property(const char *name, sd_bus_message *property, bool value, bool all);
+int bus_print_property_value(const char *name, const char *expected_value, bool only_value, const char *value);
+int bus_print_property_valuef(const char *name, const char *expected_value, bool only_value, const char *fmt, ...) _printf_(4,5);
 int bus_message_print_all_properties(sd_bus_message *m, bus_message_print_t func, char **filter, bool value, bool all, Set **found_properties);
 int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, bus_message_print_t func, char **filter, bool value, bool all, Set **found_properties);
 
@@ -183,6 +178,6 @@ static inline int bus_open_system_watch_bind(sd_bus **ret) {
         return bus_open_system_watch_bind_with_description(ret, NULL);
 }
 
-int bus_request_name_async_may_reload_dbus(sd_bus *bus, sd_bus_slot **ret_slot, const char *name, uint64_t flags, void *userdata);
-
 int bus_reply_pair_array(sd_bus_message *m, char **l);
+
+extern const struct hash_ops bus_message_hash_ops;

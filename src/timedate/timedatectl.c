@@ -1,10 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-  Copyright 2013 Kay Sievers
-***/
 
 #include <getopt.h>
 #include <locale.h>
@@ -17,8 +11,10 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "in-addr-util.h"
+#include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "spawn-polkit-agent.h"
 #include "sparse-endian.h"
 #include "string-table.h"
@@ -27,7 +23,7 @@
 #include "util.h"
 #include "verbs.h"
 
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
@@ -168,6 +164,26 @@ static int show_status(int argc, char **argv, void *userdata) {
         return r;
 }
 
+static int show_properties(int argc, char **argv, void *userdata) {
+        sd_bus *bus = userdata;
+        int r;
+
+        assert(bus);
+
+        r = bus_print_all_properties(bus,
+                                     "org.freedesktop.timedate1",
+                                     "/org/freedesktop/timedate1",
+                                     NULL,
+                                     arg_property,
+                                     arg_value,
+                                     arg_all,
+                                     NULL);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
 static int set_time(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool relative = false, interactive = arg_ask_password;
@@ -190,9 +206,9 @@ static int set_time(int argc, char **argv, void *userdata) {
                                NULL,
                                "xbb", (int64_t) t, relative, interactive);
         if (r < 0)
-                log_error("Failed to set time: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to set time: %s", bus_error_message(&error, r));
 
-        return r;
+        return 0;
 }
 
 static int set_timezone(int argc, char **argv, void *userdata) {
@@ -211,9 +227,9 @@ static int set_timezone(int argc, char **argv, void *userdata) {
                                NULL,
                                "sb", argv[1], arg_ask_password);
         if (r < 0)
-                log_error("Failed to set time zone: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to set time zone: %s", bus_error_message(&error, r));
 
-        return r;
+        return 0;
 }
 
 static int set_local_rtc(int argc, char **argv, void *userdata) {
@@ -236,9 +252,9 @@ static int set_local_rtc(int argc, char **argv, void *userdata) {
                                NULL,
                                "bbb", b, arg_adjust_system_clock, arg_ask_password);
         if (r < 0)
-                log_error("Failed to set local RTC: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to set local RTC: %s", bus_error_message(&error, r));
 
-        return r;
+        return 0;
 }
 
 static int set_ntp(int argc, char **argv, void *userdata) {
@@ -261,20 +277,35 @@ static int set_ntp(int argc, char **argv, void *userdata) {
                                NULL,
                                "bb", b, arg_ask_password);
         if (r < 0)
-                log_error("Failed to set ntp: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to set ntp: %s", bus_error_message(&error, r));
 
-        return r;
+        return 0;
 }
 
 static int list_timezones(int argc, char **argv, void *userdata) {
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
+        char** zones;
 
-        r = get_timezones(&zones);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.timedate1",
+                               "/org/freedesktop/timedate1",
+                               "org.freedesktop.timedate1",
+                               "ListTimezones",
+                               &error,
+                               &reply,
+                               NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to read list of time zones: %m");
+                return log_error_errno(r, "Failed to request list of time zones: %s",
+                                       bus_error_message(&error, r));
 
-        (void) pager_open(arg_no_pager, false);
+        r = sd_bus_message_read_strv(reply, &zones);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        (void) pager_open(arg_pager_flags);
         strv_print(zones);
 
         return 0;
@@ -422,15 +453,13 @@ static int map_server_address(sd_bus *bus, const char *member, sd_bus_message *m
                 return 0;
         }
 
-        if (!IN_SET(family, AF_INET, AF_INET6)) {
-                log_error("Unknown address family %i", family);
-                return -EINVAL;
-        }
+        if (!IN_SET(family, AF_INET, AF_INET6))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown address family %i", family);
 
-        if (sz != FAMILY_ADDRESS_SIZE(family)) {
-                log_error("Invalid address size");
-                return -EINVAL;
-        }
+        if (sz != FAMILY_ADDRESS_SIZE(family))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid address size");
 
         r = in_addr_to_string(family, d, p);
         if (r < 0)
@@ -477,7 +506,7 @@ static int map_ntp_message(sd_bus *bus, const char *member, sd_bus_message *m, s
 
         memcpy(p->reference.str, d, sz);
 
-        p->spike = !!b;
+        p->spike = b;
 
         return 0;
 }
@@ -575,15 +604,7 @@ static int show_timesync_status(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-#define property(name, fmt, ...)                                        \
-        do {                                                            \
-                if (value)                                              \
-                        printf(fmt "\n", __VA_ARGS__);                  \
-                else                                                    \
-                        printf("%s=" fmt "\n", name, __VA_ARGS__);      \
-        } while (0)
-
-static int print_timesync_property(const char *name, sd_bus_message *m, bool value, bool all) {
+static int print_timesync_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
         char type;
         const char *contents;
         int r;
@@ -649,7 +670,7 @@ static int print_timesync_property(const char *name, sd_bus_message *m, bool val
                                 return r;
 
                         if (arg_all || !isempty(str))
-                                property(name, "%s", str);
+                                bus_print_property_value(name, expected_value, value, str);
 
                         return 1;
                 }
@@ -679,7 +700,115 @@ static int show_timesync(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static int parse_ifindex_bus(sd_bus *bus, const char *str, int *ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int32_t i;
+        int r;
+
+        assert(bus);
+        assert(str);
+        assert(ret);
+
+        r = parse_ifindex(str, ret);
+        if (r >= 0)
+                return 0;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "GetLinkByName",
+                        &error,
+                        &reply,
+                        "s", str);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get ifindex of interfaces %s: %s", str, bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "io", &i, NULL);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        *ret = i;
+        return 0;
+}
+
+static int verb_ntp_servers(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+        sd_bus *bus = userdata;
+        int ifindex, r;
+
+        assert(bus);
+
+        r = parse_ifindex_bus(bus, argv[1], &ifindex);
+        if (r < 0)
+                return r;
+
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &req,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "SetLinkNTP");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(req, "i", ifindex);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(req, argv + 2);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, req, 0, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set NTP servers: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int verb_revert(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        int ifindex, r;
+
+        assert(bus);
+
+        r = parse_ifindex_bus(bus, argv[1], &ifindex);
+        if (r < 0)
+                return r;
+
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "RevertLinkNTP",
+                        &error,
+                        NULL,
+                        "i", ifindex);
+        if (r < 0)
+                return log_error_errno(r, "Failed to revert interface configuration: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("timedatectl", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "Query or change system time and date settings.\n\n"
                "  -h --help                Show this help message\n"
@@ -696,6 +825,7 @@ static int help(void) {
                "\n"
                "Commands:\n"
                "  status                   Show current time settings\n"
+               "  show                     Show properties of systemd-timedated\n"
                "  set-time TIME            Set system time\n"
                "  set-timezone ZONE        Set system time zone\n"
                "  list-timezones           Show known time zones\n"
@@ -705,7 +835,10 @@ static int help(void) {
                "systemd-timesyncd Commands:\n"
                "  timesync-status          Show status of systemd-timesyncd\n"
                "  show-timesync            Show properties of systemd-timesyncd\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }
@@ -774,7 +907,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case ARG_MONITOR:
@@ -812,9 +945,9 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
-
         static const Verb verbs[] = {
                 { "status",          VERB_ANY, 1,        VERB_DEFAULT, show_status          },
+                { "show",            VERB_ANY, 1,        0,            show_properties      },
                 { "set-time",        2,        2,        0,            set_time             },
                 { "set-timezone",    2,        2,        0,            set_timezone         },
                 { "list-timezones",  VERB_ANY, 1,        0,            list_timezones       },
@@ -822,6 +955,8 @@ static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
                 { "set-ntp",         2,        2,        0,            set_ntp              },
                 { "timesync-status", VERB_ANY, 1,        0,            show_timesync_status },
                 { "show-timesync",   VERB_ANY, 1,        0,            show_timesync        },
+                { "ntp-servers",     3,        VERB_ANY, 0,            verb_ntp_servers     },
+                { "revert",          2,        2,        0,            verb_revert          },
                 { "help",            VERB_ANY, VERB_ANY, 0,            verb_help            }, /* Not documented, but supported since it is created. */
                 {}
         };
@@ -829,31 +964,24 @@ static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, bus);
 }
 
-int main(int argc, char *argv[]) {
-        sd_bus *bus = NULL;
+static int run(int argc, char *argv[]) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
+        log_show_color(true);
         log_parse_environment();
         log_open();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = bus_connect_transport(arg_transport, arg_host, false, &bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create bus connection: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
-        r = timedatectl_main(bus, argc, argv);
-
-finish:
-        /* make sure we terminate the bus connection first, and then close the
-         * pager, see issue #3543 for the details. */
-        sd_bus_flush_close_unref(bus);
-        pager_close();
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return timedatectl_main(bus, argc, argv);
 }
+
+DEFINE_MAIN_FUNCTION(run);

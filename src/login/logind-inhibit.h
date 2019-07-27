@@ -1,24 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
-
 typedef struct Inhibitor Inhibitor;
 
 typedef enum InhibitWhat {
-        INHIBIT_SHUTDOWN = 1,
-        INHIBIT_SLEEP = 2,
-        INHIBIT_IDLE = 4,
-        INHIBIT_HANDLE_POWER_KEY = 8,
-        INHIBIT_HANDLE_SUSPEND_KEY = 16,
-        INHIBIT_HANDLE_HIBERNATE_KEY = 32,
-        INHIBIT_HANDLE_LID_SWITCH = 64,
-        _INHIBIT_WHAT_MAX = 128,
-        _INHIBIT_WHAT_INVALID = -1
+        INHIBIT_SHUTDOWN             = 1 << 0,
+        INHIBIT_SLEEP                = 1 << 1,
+        INHIBIT_IDLE                 = 1 << 2,
+        INHIBIT_HANDLE_POWER_KEY     = 1 << 3,
+        INHIBIT_HANDLE_SUSPEND_KEY   = 1 << 4,
+        INHIBIT_HANDLE_HIBERNATE_KEY = 1 << 5,
+        INHIBIT_HANDLE_LID_SWITCH    = 1 << 6,
+        _INHIBIT_WHAT_MAX            = 1 << 7,
+        _INHIBIT_WHAT_INVALID        = -1
 } InhibitWhat;
 
 typedef enum InhibitMode {
@@ -35,7 +29,7 @@ struct Inhibitor {
 
         sd_event_source *event_source;
 
-        char *id;
+        const char *id;
         char *state_file;
 
         bool started;
@@ -54,17 +48,19 @@ struct Inhibitor {
         int fifo_fd;
 };
 
-Inhibitor* inhibitor_new(Manager *m, const char *id);
-void inhibitor_free(Inhibitor *i);
+int inhibitor_new(Inhibitor **ret, Manager *m, const char* id);
+Inhibitor* inhibitor_free(Inhibitor *i);
 
-int inhibitor_save(Inhibitor *i);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Inhibitor*, inhibitor_free);
+
 int inhibitor_load(Inhibitor *i);
 
 int inhibitor_start(Inhibitor *i);
-int inhibitor_stop(Inhibitor *i);
+void inhibitor_stop(Inhibitor *i);
 
 int inhibitor_create_fifo(Inhibitor *i);
-void inhibitor_remove_fifo(Inhibitor *i);
+
+bool inhibitor_is_orphan(Inhibitor *i);
 
 InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm);
 bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since, bool ignore_inactive, bool ignore_uid, uid_t uid, Inhibitor **offending);

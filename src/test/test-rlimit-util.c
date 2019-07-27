@@ -1,16 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd
-***/
 
 #include <sys/resource.h>
 
 #include "alloc-util.h"
 #include "capability-util.h"
 #include "macro.h"
+#include "missing.h"
 #include "rlimit-util.h"
 #include "string-util.h"
-#include "util.h"
+#include "time-util.h"
 
 static void test_rlimit_parse_format(int resource, const char *string, rlim_t soft, rlim_t hard, int ret, const char *formatted) {
         _cleanup_free_ char *f = NULL;

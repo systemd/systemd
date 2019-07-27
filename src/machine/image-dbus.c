@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <sys/file.h>
 #include <sys/mount.h>
@@ -20,6 +15,7 @@
 #include "io-util.h"
 #include "loop-util.h"
 #include "machine-image.h"
+#include "missing_capability.h"
 #include "mount-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
@@ -174,7 +170,7 @@ int bus_image_method_clone(
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        r = safe_fork("(imgclone)", FORK_RESET_SIGNALS, &child);
+        r = safe_fork("(sd-imgclone)", FORK_RESET_SIGNALS, &child);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
         if (r == 0) {
@@ -387,7 +383,7 @@ static int image_flush_cache(sd_event_source *s, void *userdata) {
         assert(s);
         assert(m);
 
-        hashmap_clear_with_destructor(m->image_cache, image_unref);
+        hashmap_clear(m->image_cache);
         return 0;
 }
 
@@ -417,7 +413,7 @@ int image_object_find(sd_bus *bus, const char *path, const char *interface, void
                 return 1;
         }
 
-        r = hashmap_ensure_allocated(&m->image_cache, &string_hash_ops);
+        r = hashmap_ensure_allocated(&m->image_cache, &image_hash_ops);
         if (r < 0)
                 return r;
 
@@ -462,11 +458,11 @@ char *image_bus_path(const char *name) {
         if (!e)
                 return NULL;
 
-        return strappend("/org/freedesktop/machine1/image/", e);
+        return strjoin("/org/freedesktop/machine1/image/", e);
 }
 
 int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_strv_free_ char **l = NULL;
         Image *image;
         Iterator i;
@@ -476,7 +472,7 @@ int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char **
         assert(path);
         assert(nodes);
 
-        images = hashmap_new(&string_hash_ops);
+        images = hashmap_new(&image_hash_ops);
         if (!images)
                 return -ENOMEM;
 

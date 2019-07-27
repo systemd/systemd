@@ -1,10 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
-
-int change_uid_gid(const char *user, char **ret);
+int change_uid_gid_raw(uid_t uid, gid_t gid, const gid_t *supplementary_gids, size_t n_supplementary_gids);
+int change_uid_gid(const char *user, char **ret_home);

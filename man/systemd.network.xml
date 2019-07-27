@@ -1,29 +1,13 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.network" conditional='ENABLE_NETWORKD'>
 
   <refentryinfo>
     <title>systemd.network</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Tom</firstname>
-        <surname>Gundersen</surname>
-        <email>teg@jklm.no</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -50,17 +34,17 @@
     <para>The main network file must have the extension <filename>.network</filename>; other
     extensions are ignored. Networks are applied to links whenever the links appear.</para>
 
-    <para>The <filename>.network</filename> files are read from the files located in the system
-    network directory <filename>/usr/lib/systemd/network</filename>, the volatile runtime network
-    directory <filename>/run/systemd/network</filename> and the local administration network
-    directory <filename>/etc/systemd/network</filename>. All configuration files are collectively
-    sorted and processed in lexical order, regardless of the directories in which they live.
-    However, files with identical filenames replace each other. Files in <filename>/etc</filename>
-    have the highest priority, files in <filename>/run</filename> take precedence over files with
-    the same name in <filename>/usr/lib</filename>. This can be used to override a system-supplied
-    configuration file with a local file if needed. As a special case, an empty file (file size 0)
-    or symlink with the same name pointing to <filename>/dev/null</filename> disables the
-    configuration file entirely (it is "masked").</para>
+    <para>The <filename>.network</filename> files are read from the files located in the system network
+    directories <filename>/usr/lib/systemd/network</filename> and
+    <filename>/usr/local/lib/systemd/network</filename>, the volatile runtime network directory
+    <filename>/run/systemd/network</filename> and the local administration network directory
+    <filename>/etc/systemd/network</filename>. All configuration files are collectively sorted and processed
+    in lexical order, regardless of the directories in which they live. However, files with identical
+    filenames replace each other. Files in <filename>/etc</filename> have the highest priority, files in
+    <filename>/run</filename> take precedence over files with the same name under
+    <filename>/usr</filename>. This can be used to override a system-supplied configuration file with a local
+    file if needed. As a special case, an empty file (file size 0) or symlink with the same name pointing to
+    <filename>/dev/null</filename> disables the configuration file entirely (it is "masked").</para>
 
     <para>Along with the network file <filename>foo.network</filename>, a "drop-in" directory
     <filename>foo.network.d/</filename> may exist. All files with the suffix
@@ -73,9 +57,7 @@
     <filename>/run/systemd/network</filename> directories. Drop-in files in
     <filename>/etc</filename> take precedence over those in <filename>/run</filename> which in turn
     take precedence over those in <filename>/usr/lib</filename>. Drop-in files under any of these
-    directories take precedence over the main netdev file wherever located. (Of course, since
-    <filename>/run</filename> is temporary and <filename>/usr/lib</filename> is for vendors, it is
-    unlikely drop-ins should be used in either of those places.)</para>
+    directories take precedence over the main netdev file wherever located.</para>
 
     <para>Note that an interface without any static IPv6 addresses configured, and neither DHCPv6
     nor IPv6LL enabled, shall be considered to have no IPv6 support. IPv6 will be automatically
@@ -95,9 +77,13 @@
       is applied, all later files are ignored, even if they match as
       well.</para>
 
-      <para>A network file is said to match a device if each of the
-      entries in the <literal>[Match]</literal> section matches, or if
-      the section is empty. The following keys are accepted:</para>
+      <para>A network file is said to match a network interface if all matches specified by the
+      <literal>[Match]</literal> section are satisfied. When a network file does not contain valid
+      settings in <literal>[Match]</literal> section, then the file will match all interfaces and
+      <command>systemd-networkd</command> warns about that. Hint: to avoid the warning and to make it
+      clear that all interfaces shall be matched, add the following:
+      <programlisting>Name=*</programlisting>
+      The following keys are accepted:</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
@@ -127,7 +113,7 @@
           <listitem>
             <para>A whitespace-separated list of shell-style globs
             matching the driver currently bound to the device, as
-            exposed by the udev property <literal>DRIVER</literal>
+            exposed by the udev property <literal>ID_NET_DRIVER</literal>
             of its parent device, or if that is not set the driver
             as exposed by <literal>ethtool -i</literal> of the
             device itself. If the list is prefixed with a "!", the
@@ -153,55 +139,72 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>Property=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of udev property name with its value after a equal
+            (<literal>=</literal>). If multiple properties are specified, the test results are ANDed.
+            If the list is prefixed with a "!", the test is inverted. If a value contains white
+            spaces, then please quote whole key and value pair. If a value contains quotation, then
+            please escape the quotation with <literal>\</literal>.</para>
+
+            <para>Example: if a .network file has the following:
+            <programlisting>Property=ID_MODEL_ID=9999 "ID_VENDOR_FROM_DATABASE=vendor name" "KEY=with \"quotation\""</programlisting>
+            then, the .network file matches only when an interface has all the above three properties.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Host=</varname></term>
           <listitem>
-            <para>Matches against the hostname or machine ID of the
-            host. See <literal>ConditionHost=</literal> in
+            <para>Matches against the hostname or machine ID of the host. See
+            <literal>ConditionHost=</literal> in
             <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details.
+            for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+            If an empty string is assigned, then previously assigned value is cleared.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Virtualization=</varname></term>
           <listitem>
-            <para>Checks whether the system is executed in a virtualized
-            environment and optionally test whether it is a specific
-            implementation. See <literal>ConditionVirtualization=</literal> in
+            <para>Checks whether the system is executed in a virtualized environment and optionally test
+            whether it is a specific implementation. See <literal>ConditionVirtualization=</literal> in
             <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details.
+            for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+            If an empty string is assigned, then previously assigned value is cleared.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>KernelCommandLine=</varname></term>
           <listitem>
-            <para>Checks whether a specific kernel command line option is
-            set (or if prefixed with the exclamation mark unset). See
+            <para>Checks whether a specific kernel command line option is set. See
             <literal>ConditionKernelCommandLine=</literal> in
             <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details.
+            for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+            If an empty string is assigned, then previously assigned value is cleared.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>KernelVersion=</varname></term>
           <listitem>
-            <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a certain
-            expression (or if prefixed with the exclamation mark does not match it). See
-            <literal>ConditionKernelVersion=</literal> in
-            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-            details.
+            <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a
+            certain expression. See <literal>ConditionKernelVersion=</literal> in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+            If an empty string is assigned, then previously assigned value is cleared.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Architecture=</varname></term>
           <listitem>
-            <para>Checks whether the system is running on a specific
-            architecture. See <literal>ConditionArchitecture=</literal> in
+            <para>Checks whether the system is running on a specific architecture. See
+            <literal>ConditionArchitecture=</literal> in
             <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details.
+            for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+            If an empty string is assigned, then previously assigned value is cleared.
             </para>
           </listitem>
         </varlistentry>
@@ -234,8 +237,8 @@
       <varlistentry>
         <term><varname>ARP=</varname></term>
         <listitem>
-          <para>A boolean. Enables or disables the ARP (low-level Address Resolution Protocol)
-          for this interface. Defaults to unset, which means that the kernel default will be used.</para>
+          <para>Takes a boolean. If set to true, the ARP (low-level Address Resolution Protocol)
+          for this interface is enabled. When unset, the kernel's default will be used.</para>
           <para> For example, disabling ARP is useful when creating multiple MACVLAN or VLAN virtual
           interfaces atop a single lower-level physical interface, which will then only serve as a
           link/"bridge" device aggregating traffic to the same physical link and not participate in
@@ -245,20 +248,20 @@
       <varlistentry>
         <term><varname>Multicast=</varname></term>
         <listitem>
-          <para>A boolean. Enables or disables the multicast flag on the device.</para>
+          <para>Takes a boolean. If set to true, the multicast flag on the device is enabled.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>AllMulticast=</varname></term>
         <listitem>
-          <para>A boolean. When this flag is set the driver retrieves all multicast packets from the network.
+          <para>Takes a boolean. If set to true, the driver retrieves all multicast packets from the network.
           This happens when multicast routing is enabled.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Unmanaged=</varname></term>
         <listitem>
-          <para>A boolean. When <literal>yes</literal>, no attempts are
+          <para>Takes a boolean. When <literal>yes</literal>, no attempts are
           made to bring up or configure matching links, equivalent to
           when there are no matching network files. Defaults to
           <literal>no</literal>.</para>
@@ -270,16 +273,20 @@
       <varlistentry>
         <term><varname>RequiredForOnline=</varname></term>
         <listitem>
-          <para>A boolean. When <literal>yes</literal>, the network is deemed
-          required when determining whether the system is online when running
-          <literal>systemd-networkd-wait-online</literal>.
-          When <literal>no</literal>, the network is ignored when checking for
-          online state. Defaults to <literal>yes</literal>.</para>
+          <para>Takes a boolean or operational state. Please see
+          <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          for possible operational states. When <literal>yes</literal>, the network is deemed required when
+          determining whether the system is online when running
+          <command>systemd-networkd-wait-online</command>. When <literal>no</literal>, the network is ignored
+          when checking for online state. When an operational state is set, <literal>yes</literal> is implied,
+          and this controls the operational state required for the network interface to be considered online.
+          Defaults to <literal>yes</literal>.</para>
+
           <para>The network will be brought up normally in all cases, but in
           the event that there is no address being assigned by DHCP or the
           cable is not plugged in, the link will simply remain offline and be
-          skipped automatically by <literal>systemd-networkd-wait-online</literal>
-          if <literal>RequiredForOnline=true</literal>.</para>
+          skipped automatically by <command>systemd-networkd-wait-online</command>
+          if <literal>RequiredForOnline=no</literal>.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -317,14 +324,14 @@
             specified through DHCP is not used for name resolution.
             See option <option>UseDomains=</option> below.</para>
 
-            <para>See the <literal>[DHCP]</literal> section below for further configuration options for the DHCP client
-            support.</para>
+            <para>See the <literal>[DHCPv4]</literal> or <literal>[DHCPv6]</literal> section below for
+            further configuration options for the DHCP client support.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>DHCPServer=</varname></term>
           <listitem>
-            <para>A boolean. Enables DHCPv4 server support. Defaults
+            <para>Takes a boolean. If set to <literal>yes</literal>, DHCPv4 server will be started. Defaults
             to <literal>no</literal>. Further settings for the DHCP
             server may be set in the <literal>[DHCPServer]</literal>
             section described below.</para>
@@ -333,19 +340,35 @@
         <varlistentry>
           <term><varname>LinkLocalAddressing=</varname></term>
           <listitem>
-            <para>Enables link-local address autoconfiguration. Accepts
-            <literal>yes</literal>, <literal>no</literal>,
-            <literal>ipv4</literal>, or <literal>ipv6</literal>. Defaults to
-            <literal>ipv6</literal>.</para>
+            <para>Enables link-local address autoconfiguration. Accepts <literal>yes</literal>,
+            <literal>no</literal>, <literal>ipv4</literal>, <literal>ipv6</literal>,
+            <literal>fallback</literal>, or <literal>ipv4-fallback</literal>. If
+            <literal>fallback</literal> or <literal>ipv4-fallback</literal> is specified, then an IPv4
+            link-local address is configured only when DHCPv4 fails. If <literal>fallback</literal>,
+            an IPv6 link-local address is always configured, and if <literal>ipv4-fallback</literal>,
+            the address is not configured. Note that, the fallback mechanism works only when DHCPv4
+            client is enabled, that is, it requires <literal>DHCP=yes</literal> or
+            <literal>DHCP=ipv4</literal>. If <varname>Bridge=</varname> is set, defaults to
+            <literal>no</literal>, and if not, defaults to <literal>ipv6</literal>.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPv4LLRoute=</varname></term>
           <listitem>
-            <para>A boolean. When true, sets up the route needed for
+            <para>Takes a boolean. If set to true, sets up the route needed for
             non-IPv4LL hosts to communicate with IPv4LL-only hosts. Defaults
             to false.
             </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DefaultRouteOnDevice=</varname></term>
+          <listitem>
+            <para>Takes a boolean. If set to true, sets up the default route bound to the interface.
+            Defaults to false. This is useful when creating routes on point-to-point interfaces.
+            This is equivalent to e.g. the following.
+            <programlisting>ip route add default dev veth99</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -361,7 +384,7 @@
         <varlistentry>
           <term><varname>LLMNR=</varname></term>
           <listitem>
-            <para>A boolean or <literal>resolve</literal>. When true,
+            <para>Takes a boolean or <literal>resolve</literal>. When true,
             enables <ulink
             url="https://tools.ietf.org/html/rfc4795">Link-Local
             Multicast Name Resolution</ulink> on the link. When set to
@@ -374,7 +397,7 @@
         <varlistentry>
           <term><varname>MulticastDNS=</varname></term>
           <listitem>
-            <para>A boolean or <literal>resolve</literal>. When true,
+            <para>Takes a boolean or <literal>resolve</literal>. When true,
             enables <ulink
             url="https://tools.ietf.org/html/rfc6762">Multicast
             DNS</ulink> support on the link. When set to
@@ -385,16 +408,19 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>PrivateDNS=</varname></term>
+          <term><varname>DNSOverTLS=</varname></term>
           <listitem>
-            <para>Takes false or
-            <literal>opportunistic</literal>. When set to <literal>opportunistic</literal>, enables
+            <para>Takes a boolean or <literal>opportunistic</literal>.
+            When true, enables
             <ulink
             url="https://tools.ietf.org/html/rfc7858">DNS-over-TLS</ulink>
-            support on the link. This option defines a
-            per-interface setting for
+            support on the link.
+            When set to <literal>opportunistic</literal>, compatibility with
+            non-DNS-over-TLS servers is increased, by automatically
+            turning off DNS-over-TLS servers in this case.
+            This option defines a per-interface setting for
             <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
-            global <varname>PrivateDNS=</varname> option. Defaults to
+            global <varname>DNSOverTLS=</varname> option. Defaults to
             false. This setting is read by
             <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
           </listitem>
@@ -402,7 +428,7 @@
         <varlistentry>
           <term><varname>DNSSEC=</varname></term>
           <listitem>
-            <para>A boolean or
+            <para>Takes a boolean. or
             <literal>allow-downgrade</literal>. When true, enables
             <ulink
             url="https://tools.ietf.org/html/rfc4033">DNSSEC</ulink>
@@ -494,18 +520,14 @@
             specified more than once.
             </para>
 
-            <para>If the specified address is 0.0.0.0 (for IPv4) or
-            [::] (for IPv6), a new address range of the requested size
-            is automatically allocated from a system-wide pool of
-            unused ranges. The allocated range is checked against all
-            current network interfaces and all known network
-            configuration files to avoid address range conflicts. The
-            default system-wide pool consists of 192.168.0.0/16,
-            172.16.0.0/12 and 10.0.0.0/8 for IPv4, and fc00::/7 for
-            IPv6. This functionality is useful to manage a large
-            number of dynamically created network interfaces with the
-            same network configuration and automatic address range
-            assignment.</para>
+            <para>If the specified address is <literal>0.0.0.0</literal> (for IPv4) or <literal>::</literal>
+            (for IPv6), a new address range of the requested size is automatically allocated from a
+            system-wide pool of unused ranges. Note that the prefix length must be equal or larger than 8 for
+            IPv4, and 64 for IPv6. The allocated range is checked against all current network interfaces and
+            all known network configuration files to avoid address range conflicts. The default system-wide
+            pool consists of 192.168.0.0/16, 172.16.0.0/12 and 10.0.0.0/8 for IPv4, and fd00::/8 for IPv6.
+            This functionality is useful to manage a large number of dynamically created network interfaces
+            with the same network configuration and automatic address range assignment.</para>
 
           </listitem>
         </varlistentry>
@@ -561,6 +583,17 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>DNSDefaultRoute=</varname></term>
+          <listitem>
+            <para>Takes a boolean argument. If true, this link's configured DNS servers are used for resolving domain
+            names that do not match any link's configured <varname>Domains=</varname> setting. If false, this link's
+            configured DNS servers are never used for such domains, and are exclusively used for resolving names that
+            match at least one of the domains configured on this link. If not specified defaults to an automatic mode:
+            queries not matching any link's configured domains will be routed to this link if it has no routing-only
+            domains configured.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>NTP=</varname></term>
           <listitem>
             <para>An NTP server address. This option may be specified more than once. This setting is read by
@@ -572,8 +605,8 @@
           <listitem><para>Configures IP packet forwarding for the
           system. If enabled, incoming packets on any network
           interface will be forwarded to any other interfaces
-          according to the routing table. Takes either a boolean
-          argument, or the values <literal>ipv4</literal> or
+          according to the routing table. Takes a boolean,
+          or the values <literal>ipv4</literal> or
           <literal>ipv6</literal>, which only enable IP packet
           forwarding for the specified address family.  This controls
           the <filename>net.ipv4.ip_forward</filename> and
@@ -621,11 +654,10 @@
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6AcceptRA=</varname></term>
-          <listitem><para>Enable or disable IPv6 Router Advertisement (RA) reception support for the interface.  Takes
-          a boolean parameter. If true, RAs are accepted; if false, RAs are ignored, independently of the local
-          forwarding state. When not set, the kernel default is used, and RAs are accepted only when local forwarding
-          is disabled for that interface.  When RAs are accepted, they may trigger the start of the DHCPv6 client if
-          the relevant flags are set in the RA data, or if no routers are found on the link.</para>
+          <listitem><para>Takes a boolean. Controls IPv6 Router Advertisement (RA) reception support
+          for the interface. If true, RAs are accepted; if false, RAs are ignored, independently of the
+          local forwarding state. When RAs are accepted, they may trigger the start of the DHCPv6
+          client if the relevant flags are set in the RA data, or if no routers are found on the link.</para>
 
           <para>Further settings for the IPv6 RA support may be configured in the
           <literal>[IPv6AcceptRA]</literal> section, see below.</para>
@@ -634,12 +666,18 @@
           url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink> in the kernel
           documentation regarding <literal>accept_ra</literal>, but note that systemd's setting of
           <constant>1</constant> (i.e. true) corresponds to kernel's setting of <constant>2</constant>.</para>
+
+          <para>Note that kernel's implementation of the IPv6 RA protocol is always disabled,
+          regardless of this setting. If this option is enabled, a userspace implementation of the IPv6
+          RA protocol is used, and the kernel's own implementation remains disabled, since
+          <command>systemd-networkd</command> needs to know all details supplied in the advertisements,
+          and these are not available from the kernel if the kernel's own implementation is used.</para>
         </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6DuplicateAddressDetection=</varname></term>
           <listitem><para>Configures the amount of IPv6 Duplicate
-          Address Detection (DAD) probes to send. Defaults to unset.
+          Address Detection (DAD) probes to send. When unset, the kernel's default will be used.
         </para></listitem>
         </varlistentry>
         <varlistentry>
@@ -647,21 +685,21 @@
           <listitem><para>Configures IPv6 Hop Limit. For each router that
           forwards the packet, the hop limit is decremented by 1. When the
           hop limit field reaches zero, the packet is discarded.
-          Defaults to unset.
+          When unset, the kernel's default will be used.
         </para></listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPv4ProxyARP=</varname></term>
-          <listitem><para>A boolean. Configures proxy ARP for IPv4. Proxy ARP is the technique in which one host,
+          <listitem><para>Takes a boolean. Configures proxy ARP for IPv4. Proxy ARP is the technique in which one host,
           usually a router, answers ARP requests intended for another machine. By "faking" its identity,
           the router accepts responsibility for routing packets to the "real" destination. (see <ulink
           url="https://tools.ietf.org/html/rfc1027">RFC 1027</ulink>.
-          Defaults to unset.
+          When unset, the kernel's default will be used.
         </para></listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6ProxyNDP=</varname></term>
-          <listitem><para>A boolean. Configures proxy NDP for IPv6. Proxy NDP (Neighbor Discovery
+          <listitem><para>Takes a boolean. Configures proxy NDP for IPv6. Proxy NDP (Neighbor Discovery
           Protocol) is a technique for IPv6 to allow routing of addresses to a different
           destination when peers expect them to be present on a certain physical link.
           In this case a router answers Neighbour Advertisement messages intended for
@@ -671,7 +709,7 @@
           which can also be shown by <command>ip -6 neighbour show proxy</command>.
           systemd-networkd will control the per-interface `proxy_ndp` switch for each configured
           interface depending on this option.
-          Defautls to unset.
+          When unset, the kernel's default will be used.
         </para></listitem>
         </varlistentry>
         <varlistentry>
@@ -679,8 +717,8 @@
           <listitem><para>An IPv6 address, for which Neighbour Advertisement messages will be
           proxied. This option may be specified more than once. systemd-networkd will add the
           <option>IPv6ProxyNDPAddress=</option> entries to the kernel's IPv6 neighbor proxy table.
-          This option implies <option>IPv6ProxyNDP=true</option> but has no effect if
-          <option>IPv6ProxyNDP</option> has been set to false. Defaults to unset.
+          This option implies <option>IPv6ProxyNDP=yes</option> but has no effect if
+          <option>IPv6ProxyNDP</option> has been set to false. When unset, the kernel's default will be used.
         </para></listitem>
         </varlistentry>
         <varlistentry>
@@ -701,7 +739,7 @@
         <varlistentry>
           <term><varname>IPv6MTUBytes=</varname></term>
           <listitem><para>Configures IPv6 maximum transmission unit (MTU).
-          An integer greater than or equal to 1280 bytes. Defaults to unset.
+          An integer greater than or equal to 1280 bytes. When unset, the kernel's default will be used.
           </para></listitem>
         </varlistentry>
         <varlistentry>
@@ -737,6 +775,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPVLAN=</varname></term>
+          <listitem>
+            <para>The name of a IPVLAN to create on the link. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This option may be specified more than once.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>MACVLAN=</varname></term>
           <listitem>
             <para>The name of a MACVLAN to create on the link. See
@@ -760,10 +806,18 @@
             This option may be specified more than once.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>MACsec=</varname></term>
+          <listitem>
+            <para>The name of a MACsec device to create on the link. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This option may be specified more than once.</para>
+          </listitem>
+        </varlistentry>
       <varlistentry>
         <term><varname>ActiveSlave=</varname></term>
         <listitem>
-          <para>A boolean. Specifies the new active slave. The <literal>ActiveSlave=</literal>
+          <para>Takes a boolean. Specifies the new active slave. The <literal>ActiveSlave=</literal>
           option is only valid for following modes:
           <literal>active-backup</literal>,
           <literal>balance-alb</literal> and
@@ -774,7 +828,7 @@
       <varlistentry>
         <term><varname>PrimarySlave=</varname></term>
         <listitem>
-          <para>A boolean. Specifies which slave is the primary device. The specified
+          <para>Takes a boolean. Specifies which slave is the primary device. The specified
           device will always be the active slave while it is available. Only when the
           primary is off-line will alternate devices be used.  This is useful when
           one slave is preferred over another, e.g. when one slave has higher throughput
@@ -789,11 +843,44 @@
       <varlistentry>
         <term><varname>ConfigureWithoutCarrier=</varname></term>
         <listitem>
-          <para>A boolean. Allows networkd to configure a specific link even if it has no carrier.
+          <para>Takes a boolean. Allows networkd to configure a specific link even if it has no carrier.
           Defaults to false.
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>IgnoreCarrierLoss=</varname></term>
+        <listitem>
+          <para>A boolean. Allows networkd to retain both the static and dynamic configuration of the
+          interface even if its carrier is lost. Defaults to false.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Xfrm=</varname></term>
+        <listitem>
+          <para>The name of the xfrm to create on the link. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This option may be specified more than once.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>KeepConfiguration=</varname></term>
+        <listitem>
+          <para>Takes a boolean or one of <literal>static</literal>, <literal>dhcp-on-stop</literal>,
+          <literal>dhcp</literal>. When <literal>static</literal>, <command>systemd-networkd</command>
+          will not drop static addresses and routes on starting up process. When set to
+          <literal>dhcp-on-stop</literal>, <command>systemd-networkd</command> will not drop addresses
+          and routes on stopping the daemon. When <literal>dhcp</literal>,
+          the addresses and routes provided by a DHCP server will never be dropped even if the DHCP
+          lease expires. This is contrary to the DHCP specification, but may be the best choice if,
+          e.g., the root filesystem relies on this connection. The setting <literal>dhcp</literal>
+          implies <literal>dhcp-on-stop</literal>, and <literal>yes</literal> implies
+          <literal>dhcp</literal> and <literal>static</literal>. Defaults to
+          <literal>dhcp-on-stop</literal>.</para>
+        </listitem>
+      </varlistentry>
+
       </variablelist>
 
   </refsect1>
@@ -809,15 +896,15 @@
         <varlistentry>
           <term><varname>Address=</varname></term>
           <listitem>
-            <para>As in the <literal>[Network]</literal> section. This
-            key is mandatory.</para>
+            <para>As in the <literal>[Network]</literal> section. This key is mandatory. Each
+            <literal>[Address]</literal> section can contain one <varname>Address=</varname> setting.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Peer=</varname></term>
           <listitem>
             <para>The peer address in a point-to-point connection.
-            Accepts the same format as the <literal>Address</literal>
+            Accepts the same format as the <varname>Address=</varname>
             key.</para>
           </listitem>
         </varlistentry>
@@ -828,7 +915,7 @@
             described in
             <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
             This key only applies to IPv4 addresses. If it is not
-            given, it is derived from the <literal>Address</literal>
+            given, it is derived from the <varname>Address=</varname>
             key.</para>
           </listitem>
         </varlistentry>
@@ -861,7 +948,7 @@
         <varlistentry>
           <term><varname>HomeAddress=</varname></term>
           <listitem>
-            <para>Takes a boolean argument. Designates this address the "home address" as defined in
+            <para>Takes a boolean. Designates this address the "home address" as defined in
             <ulink url="https://tools.ietf.org/html/rfc6275">RFC 6275</ulink>.
             Supported only on IPv6. Defaults to false.</para>
           </listitem>
@@ -869,7 +956,7 @@
         <varlistentry>
           <term><varname>DuplicateAddressDetection=</varname></term>
           <listitem>
-            <para>Takes a boolean argument. Do not perform Duplicate Address Detection
+            <para>Takes a boolean. Do not perform Duplicate Address Detection
             <ulink url="https://tools.ietf.org/html/rfc4862">RFC 4862</ulink> when adding this address.
             Supported only on IPv6. Defaults to false.</para>
           </listitem>
@@ -877,7 +964,7 @@
         <varlistentry>
           <term><varname>ManageTemporaryAddress=</varname></term>
           <listitem>
-            <para>Takes a boolean argument. If true the kernel manage temporary addresses created
+            <para>Takes a boolean. If true the kernel manage temporary addresses created
             from this one as template on behalf of Privacy Extensions
             <ulink url="https://tools.ietf.org/html/rfc3041">RFC 3041</ulink>.  For this to become
             active, the use_tempaddr sysctl setting has to be set to a value greater than zero.
@@ -889,7 +976,7 @@
         <varlistentry>
           <term><varname>PrefixRoute=</varname></term>
           <listitem>
-            <para>Takes a boolean argument. When adding or modifying an IPv6 address, the userspace
+            <para>Takes a boolean. When adding or modifying an IPv6 address, the userspace
             application needs a way to suppress adding a prefix route. This is for example relevant
             together with IFA_F_MANAGERTEMPADDR, where userspace creates autoconf generated addresses,
             but depending on on-link, no route for the prefix should be added. Defaults to false.</para>
@@ -898,7 +985,7 @@
         <varlistentry>
           <term><varname>AutoJoin=</varname></term>
           <listitem>
-            <para>Takes a boolean argument. Joining multicast group on ethernet level via
+            <para>Takes a boolean. Joining multicast group on ethernet level via
             <command>ip maddr</command> command would not work if we have an Ethernet switch that does
             IGMP snooping since the switch would not replicate multicast packets on  ports that did not
             have IGMP reports for the multicast addresses. Linux vxlan interfaces created via
@@ -907,6 +994,31 @@
             <literal>autojoin</literal> we can get similar functionality for openvswitch (OVS) vxlan
             interfaces as well as other tunneling mechanisms that need to receive multicast traffic.
             Defaults to <literal>no</literal>.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[Neighbor] Section Options</title>
+      <para>A <literal>[Neighbor]</literal> section accepts the
+      following keys. The neighbor section adds a permanent, static
+      entry to the neighbor table (IPv6) or ARP table (IPv4) for
+      the given hardware address on the links matched for the network.
+      Specify several <literal>[Neighbor]</literal> sections to configure
+      several static neighbors.</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>Address=</varname></term>
+          <listitem>
+            <para>The IP address of the neighbor.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>LinkLayerAddress=</varname></term>
+          <listitem>
+            <para>The link layer address (MAC address or IP address) of the neighbor.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -974,8 +1086,9 @@
         <varlistentry>
           <term><varname>Table=</varname></term>
           <listitem>
-            <para>Specifies the routing table identifier to lookup if the rule
-            selector matches. The table identifier for a route (a number between 1 and 4294967295).</para>
+            <para>Specifies the routing table identifier to lookup if the rule selector matches. Takes
+            one of <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>,
+            or a number between 1 and 4294967295. Defaults to <literal>main</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -997,6 +1110,35 @@
             <para>Specifies the outgoing device to match. The outgoing interface is only available for packets originating from local sockets that are bound to a device.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>SourcePort=</varname></term>
+          <listitem>
+            <para>Specifies the source IP port or IP port range match in forwarding information base (FIB) rules.
+            A port range is specified by the lower and upper port separated by a dash. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DestinationPort=</varname></term>
+          <listitem>
+            <para>Specifies the destination IP port or IP port range match in forwarding information base (FIB) rules.
+            A port range is specified by the lower and upper port separated by a dash. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPProtocol=</varname></term>
+          <listitem>
+            <para>Specifies the IP protocol to match in forwarding information base (FIB) rules. Takes IP protocol name such as <literal>tcp</literal>,
+            <literal>udp</literal> or <literal>sctp</literal>, or IP protocol number such as <literal>6</literal> for <literal>tcp</literal> or
+            <literal>17</literal> for <literal>udp</literal>.
+            Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>InvertRule=</varname></term>
+          <listitem>
+            <para>A boolean. Specifies whether the rule to be inverted. Defaults to false.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
@@ -1014,12 +1156,12 @@
           </listitem>
         </varlistentry>
          <varlistentry>
-           <term><varname>GatewayOnlink=</varname></term>
+           <term><varname>GatewayOnLink=</varname></term>
            <listitem>
-             <para>The <literal>GatewayOnlink</literal> option tells the kernel that it does not have
+             <para>Takes a boolean. If set to true, the kernel does not have
              to check if the gateway is reachable directly by the current machine (i.e., the kernel does
              not need to check if the gateway is attached to the local network), so that we can insert the
-             route in the kernel table without it being complained about. A boolean, defaults to <literal>no</literal>.
+             route in the kernel table without it being complained about. Defaults to <literal>no</literal>.
              </para>
            </listitem>
          </varlistentry>
@@ -1082,21 +1224,26 @@
         <varlistentry>
           <term><varname>Protocol=</varname></term>
           <listitem>
-            <para>The Protocol identifier for the route. Takes a number between 0 and 255 or the special values
-            <literal>kernel</literal>, <literal>boot</literal> and <literal>static</literal>. Defaults to
-            <literal>static</literal>.
+            <para>The protocol identifier for the route. Takes a number between 0 and 255 or the special values
+            <literal>kernel</literal>, <literal>boot</literal>, <literal>static</literal>,
+            <literal>ra</literal> and <literal>dhcp</literal>. Defaults to <literal>static</literal>.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Type=</varname></term>
           <listitem>
-            <para>The Type identifier for special route types, which can be
-            <literal>unicast</literal> route to a destination network address which describes the path to the destination,
-            <literal>blackhole</literal> packets are discarded silently,
-            <literal>unreachable</literal> packets are discarded and the ICMP message host unreachable is generated,
-            <literal>prohibit</literal> packets are discarded and the ICMP message communication administratively
-            prohibited is generated. Defaults to <literal>unicast</literal>.
+            <para>Specifies the type for the route. Takes one of <literal>unicast</literal>,
+            <literal>local</literal>, <literal>broadcast</literal>, <literal>anycast</literal>,
+            <literal>multicast</literal>, <literal>blackhole</literal>, <literal>unreachable</literal>,
+            <literal>prohibit</literal>, <literal>throw</literal>, <literal>nat</literal>, and
+            <literal>xresolve</literal>. If <literal>unicast</literal>, a regular route is defined, i.e. a
+            route indicating the path to take to a destination network address. If <literal>blackhole</literal>, packets
+            to the defined route are discarded silently. If <literal>unreachable</literal>, packets to the defined route
+            are discarded and the ICMP message "Host Unreachable" is generated. If <literal>prohibit</literal>, packets
+            to the defined route are discarded and the ICMP message "Communication Administratively Prohibited" is
+            generated. If <literal>throw</literal>, route lookup in the current routing table will fail and the route
+            selection process will return to Routing Policy Database (RPDB). Defaults to <literal>unicast</literal>.
             </para>
           </listitem>
         </varlistentry>
@@ -1106,24 +1253,40 @@
             <para>The TCP initial congestion window is used during the start of a TCP connection. During the start of a TCP
             session, when a client requests a resource, the server's initial congestion window determines how many data bytes
             will be sent during the initial burst of data. Takes a size in bytes between 1 and 4294967295 (2^32 - 1). The usual
-            suffixes K, M, G are supported and are understood to the base of 1024. Defaults to unset.
+            suffixes K, M, G are supported and are understood to the base of 1024. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>InitialAdvertisedReceiveWindow=</varname></term>
           <listitem>
-            <para>The TCP initial advertised receive window is the amount of receive data (in bytes) that can initally be buffered at one time
+            <para>The TCP initial advertised receive window is the amount of receive data (in bytes) that can initially be buffered at one time
             on a connection. The sending host can send only that amount of data before waiting for an acknowledgment and window update
             from the receiving host. Takes a size in bytes between 1 and 4294967295 (2^32 - 1). The usual suffixes K, M, G are supported
-            and are understood to the base of 1024. Defaults to unset.
+            and are understood to the base of 1024. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>QuickAck=</varname></term>
           <listitem>
-            <para>Takes a boolean argument. When true enables TCP quick ack mode for the route. Defaults to unset.
+            <para>Takes a boolean. When true enables TCP quick ack mode for the route. When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>FastOpenNoCookie=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When true enables TCP fastopen without a cookie on a per-route basis.
+            When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>TTLPropagate=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When true enables TTL propagation at Label Switched Path (LSP) egress.
+            When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
@@ -1141,9 +1304,9 @@
   </refsect1>
 
   <refsect1>
-    <title>[DHCP] Section Options</title>
-      <para>The <literal>[DHCP]</literal> section configures the
-      DHCPv4 and DHCP6 client, if it is enabled with the
+    <title>[DHCPv4] Section Options</title>
+      <para>The <literal>[DHCPv4]</literal> section configures the
+      DHCPv4 client, if it is enabled with the
       <varname>DHCP=</varname> setting described above:</para>
 
       <variablelist class='network-directives'>
@@ -1160,6 +1323,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>RoutesToDNS=</varname></term>
+          <listitem>
+            <para>When true, the routes to the DNS servers received from the DHCP server will be
+            configured. When <varname>UseDNS=</varname> is disabled, this setting is ignored.
+            Defaults to false.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>UseNTP=</varname></term>
           <listitem>
             <para>When true (the default), the NTP servers received
@@ -1172,13 +1343,14 @@
           <listitem>
             <para>When true, the interface maximum transmission unit
             from the DHCP server will be used on the current link.
+            If <varname>MTUBytes=</varname> is set, then this setting is ignored.
             Defaults to false.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Anonymize=</varname></term>
           <listitem>
-            <para>Takes a boolean argument. When true, the options sent to the DHCP server will
+            <para>Takes a boolean. When true, the options sent to the DHCP server will
             follow the <ulink url="https://tools.ietf.org/html/rfc7844">RFC 7844</ulink>
             (Anonymity Profiles for DHCP Clients) to minimize disclosure of identifying information.
             Defaults to false.</para>
@@ -1194,34 +1366,42 @@
             <varname>UseRoutes=</varname>, <varname>SendHostname=</varname>,
             <varname>UseMTU=</varname>, <varname>VendorClassIdentifier=</varname>,
             <varname>UseTimezone=</varname>.</para>
+
+            <para>With this option enabled DHCP requests will mimic those generated by Microsoft Windows, in
+            order to reduce the ability to fingerprint and recognize installations. This means DHCP request
+            sizes will grow and lease data will be more comprehensive than normally, though most of the
+            requested data is not actually used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>SendHostname=</varname></term>
           <listitem>
-            <para>When true (the default), the machine's hostname will
-            be sent to the DHCP server.</para>
+            <para>When true (the default), the machine's hostname will be sent to the DHCP server.
+            Note that the machine's hostname must consist only of 7-bit ASCII lower-case characters and
+            no spaces or dots, and be formatted as a valid DNS domain name. Otherwise, the hostname is not
+            sent even if this is set to true.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>UseHostname=</varname></term>
           <listitem>
             <para>When true (the default), the hostname received from
-            the DHCP server will be set as the transient hostname of the system
+            the DHCP server will be set as the transient hostname of the system.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
-        <term><varname>Hostname=</varname></term>
-        <listitem>
-          <para>Use this value for the hostname which is sent to the
-          DHCP server, instead of machine's hostname.</para>
-        </listitem>
-      </varlistentry>
+          <term><varname>Hostname=</varname></term>
+          <listitem>
+            <para>Use this value for the hostname which is sent to the DHCP server, instead of machine's hostname.
+            Note that the specified hostname must consist only of 7-bit ASCII lower-case characters and
+            no spaces or dots, and be formatted as a valid DNS domain name.</para>
+          </listitem>
+        </varlistentry>
         <varlistentry>
           <term><varname>UseDomains=</varname></term>
           <listitem>
-            <para>Takes a boolean argument, or the special value <literal>route</literal>. When true, the domain name
+            <para>Takes a boolean, or the special value <literal>route</literal>. When true, the domain name
             received from the DHCP server will be used as DNS search domain over this link, similar to the effect of
             the <option>Domains=</option> setting. If set to <literal>route</literal>, the domain name received from
             the DHCP server will be used for routing DNS queries only, but not for searching, similar to the effect of
@@ -1257,17 +1437,6 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>CriticalConnection=</varname></term>
-          <listitem>
-            <para>When true, the connection will never be torn down
-            even if the DHCP lease expires. This is contrary to the
-            DHCP specification, but may be the best choice if, say,
-            the root filesystem relies on this connection. Defaults to
-            false.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><varname>ClientIdentifier=</varname></term>
           <listitem>
             <para>The DHCPv4 client identifier to use. Takes one of <literal>mac</literal>, <literal>duid</literal> or <literal>duid-only</literal>.
@@ -1293,6 +1462,16 @@
             it represents. The information contained in this option is a string that represents the user class of which
             the client is a member. Each class sets an identifying string of information to be used by the DHCP
             service to classify clients. Takes a whitespace-separated list of strings.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>MaxAttempts=</varname></term>
+          <listitem>
+            <para>Specifies how many times the DHCPv4 client configuration should be attempted. Takes a
+            number or <literal>infinity</literal>. Defaults to <literal>infinity</literal>.
+            Note that the time between retries is increased exponentially, so the network will not be
+            overloaded even if this number is high.</para>
           </listitem>
         </varlistentry>
 
@@ -1361,9 +1540,41 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>SendRelease=</varname></term>
+          <listitem>
+            <para>When true, the DHCPv4 client sends a DHCP release packet when it stops.
+            Defaults to false.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>BlackList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected.</para>
+          </listitem>
+        </varlistentry>
+
+       </variablelist>
+   </refsect1>
+
+  <refsect1>
+    <title>[DHCPv6] Section Options</title>
+      <para>The <literal>[DHCPv6]</literal> section configures the DHCPv6 client, if it is enabled with the
+      <varname>DHCP=</varname> setting described above, or invoked by the IPv6 Router Advertisement:</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>UseDNS=</varname></term>
+          <term><varname>UseNTP=</varname></term>
+          <listitem>
+            <para>As in the <literal>[DHCPv4]</literal> section.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>RapidCommit=</varname></term>
           <listitem>
-            <para>A boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server through
+            <para>Takes a boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server through
             a rapid two-message exchange (solicit and reply). When the rapid commit option is enabled by both
             the DHCPv6 client and the DHCPv6 server, the two-message exchange is used, rather than the default
             four-method exchange (solicit, advertise, request, and reply). The two-message exchange provides
@@ -1373,8 +1584,24 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><varname>ForceDHCPv6PDOtherInformation=</varname></term>
+          <listitem>
+            <para>Takes a boolean that enforces DHCPv6 stateful mode when the 'Other information' bit is set in
+            Router Advertisement messages. By default setting only the 'O' bit in Router Advertisements
+            makes DHCPv6 request network information in a stateless manner using a two-message Information
+            Request and Information Reply message exchange.
+            <ulink url="https://tools.ietf.org/html/rfc7084">RFC 7084</ulink>, requirement WPD-4, updates
+            this behavior for a Customer Edge router so that stateful DHCPv6 Prefix Delegation is also
+            requested when only the 'O' bit is set in Router Advertisements. This option enables such a CE
+            behavior as it is impossible to automatically distinguish the intention of the 'O' bit otherwise.
+            By default this option is set to 'false', enable it if no prefixes are delegated when the device
+            should be acting as a CE router.</para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
-    </refsect1>
+  </refsect1>
 
   <refsect1>
     <title>[IPv6AcceptRA] Section Options</title>
@@ -1397,7 +1624,7 @@
         <varlistentry>
           <term><varname>UseDomains=</varname></term>
           <listitem>
-            <para>Takes a boolean argument, or the special value <literal>route</literal>. When true, the domain name
+            <para>Takes a boolean, or the special value <literal>route</literal>. When true, the domain name
             received via IPv6 Router Advertisement (RA) will be used as DNS search domain over this link, similar to
             the effect of the <option>Domains=</option> setting. If set to <literal>route</literal>, the domain name
             received via IPv6 RA will be used for routing DNS queries only, but not for searching, similar to the
@@ -1423,6 +1650,30 @@
             </para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseAutonomousPrefix=</varname></term>
+          <listitem>
+            <para>When true (the default), the autonomous prefix received in the Router Advertisement will be used and take
+            precedence over any statically configured ones.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseOnLinkPrefix=</varname></term>
+          <listitem>
+            <para>When true (the default), the onlink prefix received in the Router Advertisement will be used and take
+            precedence over any statically configured ones.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>BlackList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv6 prefixes. IPv6 prefixes supplied via router advertisements in the list are ignored.</para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
   </refsect1>
 
@@ -1473,11 +1724,9 @@
         <term><varname>EmitDNS=</varname></term>
         <term><varname>DNS=</varname></term>
 
-        <listitem><para>Configures whether the DHCP leases handed out
-        to clients shall contain DNS server information. The
-        <varname>EmitDNS=</varname> setting takes a boolean argument
-        and defaults to <literal>yes</literal>. The DNS servers to
-        pass to clients may be configured with the
+        <listitem><para>Takes a boolean. Configures whether the DHCP leases handed out
+        to clients shall contain DNS server information. Defaults to <literal>yes</literal>.
+        The DNS servers to pass to clients may be configured with the
         <varname>DNS=</varname> option, which takes a list of IPv4
         addresses. If the <varname>EmitDNS=</varname> option is
         enabled but no servers configured, the servers are
@@ -1524,10 +1773,8 @@
         <term><varname>EmitTimezone=</varname></term>
         <term><varname>Timezone=</varname></term>
 
-        <listitem><para>Configures whether the DHCP leases handed out
-        to clients shall contain timezone information. The
-        <varname>EmitTimezone=</varname> setting takes a boolean
-        argument and defaults to <literal>yes</literal>. The
+        <listitem><para>Takes a boolean. Configures whether the DHCP leases handed out
+        to clients shall contain timezone information. Defaults to <literal>yes</literal>. The
         <varname>Timezone=</varname> setting takes a timezone string
         (such as <literal>Europe/Berlin</literal> or
         <literal>UTC</literal>) to pass to clients. If no explicit
@@ -1553,11 +1800,11 @@
         <term><varname>Managed=</varname></term>
         <term><varname>OtherInformation=</varname></term>
 
-        <listitem><para>Controls whether a DHCPv6 server is used to acquire IPv6
-        addresses on the network link when <varname>Managed=</varname> boolean
+        <listitem><para>Takes a boolean. Controls whether a DHCPv6 server is used to acquire IPv6
+        addresses on the network link when <varname>Managed=</varname>
         is set to <literal>true</literal> or if only additional network
         information can be obtained via DHCPv6 for the network link when
-        <varname>OtherInformation=</varname> boolean is set to
+        <varname>OtherInformation=</varname> is set to
         <literal>true</literal>. Both settings default to
         <literal>false</literal>, which means that a DHCPv6 server is not being
         used.</para></listitem>
@@ -1566,10 +1813,9 @@
       <varlistentry>
         <term><varname>RouterLifetimeSec=</varname></term>
 
-        <listitem><para>Configures the IPv6 router lifetime in seconds. If set,
+        <listitem><para>Takes a timespan. Configures the IPv6 router lifetime in seconds. If set,
         this host also announces itself in Router Advertisements as an IPv6
-        router for the network link. Defaults to unset, which means the host is
-        not acting as a router.</para>
+        router for the network link. When unset, the host is not acting as a router.</para>
         </listitem>
       </varlistentry>
 
@@ -1643,7 +1889,7 @@
         <term><varname>AddressAutoconfiguration=</varname></term>
         <term><varname>OnLink=</varname></term>
 
-        <listitem><para>Boolean values to specify whether IPv6 addresses can be
+        <listitem><para>Takes a boolean to specify whether IPv6 addresses can be
         autoconfigured with this prefix and whether the prefix can be used for
         onlink determination. Both settings default to <literal>true</literal>
         in order to ease configuration.
@@ -1683,42 +1929,102 @@
         <varlistentry>
           <term><varname>UnicastFlood=</varname></term>
           <listitem>
-            <para>A boolean. Controls whether the bridge should flood
+            <para>Takes a boolean. Controls whether the bridge should flood
             traffic for which an FDB entry is missing and the destination
-            is unknown through this port. Defaults to unset.
+            is unknown through this port. When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MulticastFlood=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Controls whether the bridge should flood
+            traffic for which an MDB entry is missing and the destination
+            is unknown through this port. When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MulticastToUnicast=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Multicast to unicast works on top of the multicast snooping feature of
+            the bridge. Which means unicast copies are only delivered to hosts which are interested in it.
+            When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>NeighborSuppression=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Configures whether ARP and ND neighbor suppression is enabled for
+            this port. When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Learning=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Configures whether MAC address learning is enabled for
+            this port. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>HairPin=</varname></term>
           <listitem>
-            <para>A boolean. Configures whether traffic may be sent back
-            out of the port on which it was received. Defaults to unset. When this
-            flag is false, and the bridge will not forward traffic back
-            out of the receiving port.</para>
+            <para>Takes a boolean. Configures whether traffic may be sent back
+            out of the port on which it was received. When this flag is false, and the bridge
+            will not forward traffic back out of the receiving port.
+            When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>UseBPDU=</varname></term>
           <listitem>
-            <para>A boolean. Configures whether STP Bridge Protocol Data Units will be
-            processed by the bridge port. Defaults to unset.</para>
+            <para>Takes a boolean. Configures whether STP Bridge Protocol Data Units will be
+            processed by the bridge port. When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>FastLeave=</varname></term>
           <listitem>
-            <para>A boolean. This flag allows the bridge to immediately stop multicast
+            <para>Takes a boolean. This flag allows the bridge to immediately stop multicast
             traffic on a port that receives an IGMP Leave message. It is only used with
-            IGMP snooping if enabled on the bridge. Defaults to unset.</para>
+            IGMP snooping if enabled on the bridge. When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>AllowPortToBeRoot=</varname></term>
           <listitem>
-            <para>A boolean. Configures whether a given port is allowed to
+            <para>Takes a boolean. Configures whether a given port is allowed to
             become a root port. Only used when STP is enabled on the bridge.
-            Defaults to unset.</para>
+            When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>ProxyARP=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Configures whether proxy ARP to be enabled on this port.
+            When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>ProxyARPWiFi=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Configures whether proxy ARP to be enabled on this port
+            which meets extended requirements by IEEE 802.11 and Hotspot 2.0 specifications.
+            When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MulticastRouter=</varname></term>
+          <listitem>
+            <para>Configures this port for having multicast routers attached. A port with a multicast
+            router will receive all multicast traffic. Takes one of <literal>no</literal>
+            to disable multicast routers on this port, <literal>query</literal> to let the system detect
+            the presence of routers, <literal>permanent</literal> to permanently enable multicast traffic
+            forwarding on this port, or <literal>temporary</literal> to enable multicast routers temporarily
+            on this port, not depending on incoming queries. When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1759,11 +2065,38 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>Destination=</varname></term>
+          <listitem>
+            <para>Takes an IP address of the destination VXLAN tunnel endpoint.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>VLANId=</varname></term>
           <listitem>
             <para>The VLAN ID for the new static MAC table entry. If
             omitted, no VLAN ID information is appended to the new static MAC
             table entry.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>VNI=</varname></term>
+          <listitem>
+            <para>The VXLAN Network Identifier (or VXLAN Segment ID) to use to connect to
+            the remote VXLAN tunnel endpoint. Takes a number in the range 1-16777215.
+            Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>AssociatedWith=</varname></term>
+          <listitem>
+            <para>Specifies where the address is associated with. Takes one of <literal>use</literal>,
+            <literal>self</literal>, <literal>master</literal> or <literal>router</literal>.
+            <literal>use</literal> means the address is in use. User space can use this option to
+            indicate to the kernel that the fdb entry is in use. <literal>self</literal> means
+            the address is associated with the port drivers fdb. Usually hardware. <literal>master</literal>
+            means the address is associated with master devices fdb. <literal>router</literal> means
+            the destination address is associated with a router. Note that it's valid if the referenced
+            device is a VXLAN type device and has route shortcircuit enabled. Defaults to <literal>self</literal>.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1796,6 +2129,13 @@
             be specified using decimals (e.g. <literal>0.1s</literal>) or a <literal>ms</literal> or
             <literal>us</literal> postfix. Using <literal>infinity</literal> or <literal>0</literal> will turn the
             automatic restart off. By default automatic restart is disabled.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>TripleSampling=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, three samples (instead of one) are used to determine
+            the value of a received bit by majority rule. When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -2035,6 +2375,29 @@ Name=enp0s25
 [Network]
 MACVTAP=macvtap-test
 </programlisting>
+    </example>
+
+    <example>
+      <title>A Xfrm interface with physical underlying device.</title>
+
+      <programlisting># /etc/systemd/network/27-xfrm.netdev
+[NetDev]
+Name=xfrm0
+
+[Xfrm]
+InterfaceId=7</programlisting>
+
+      <programlisting># /etc/systemd/network/27-eth0.network
+[Match]
+Name=eth0
+
+[Network]
+Xfrm=xfrm0</programlisting>
+
+      <para>This creates a <literal>xfrm0</literal> interface and binds it to the <literal>eth0</literal> device.
+      This allows hardware based ipsec offloading to the <literal>eth0</literal> nic.
+      If offloading is not needed, xfrm interfaces can be assigned to the <literal>lo</literal> device.
+      </para>
     </example>
   </refsect1>
 

@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <dirent.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -20,7 +14,7 @@
 
 int close_nointr(int fd);
 int safe_close(int fd);
-void safe_close_pair(int p[]);
+void safe_close_pair(int p[static 2]);
 
 static inline int safe_close_above_stdio(int fd) {
         if (fd < 3) /* Don't close stdin/stdout/stderr, but still invalidate the fd by returning -1 */
@@ -82,14 +76,6 @@ enum {
 int acquire_data_fd(const void *data, size_t size, unsigned flags);
 
 int fd_duplicate_data_fd(int fd);
-
-/* Hint: ENETUNREACH happens if we try to connect to "non-existing" special IP addresses, such as ::5 */
-#define ERRNO_IS_DISCONNECT(r) \
-        IN_SET(r, ENOTCONN, ECONNRESET, ECONNREFUSED, ECONNABORTED, EPIPE, ENETUNREACH)
-
-/* Resource exhaustion, could be our fault or general system trouble */
-#define ERRNO_IS_RESOURCE(r) \
-        IN_SET(r, ENOMEM, EMFILE, ENFILE)
 
 int fd_move_above_stdio(int fd);
 

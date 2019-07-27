@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013-2015 Tom Gundersen <teg@jklm.no>
-***/
 
 #include <net/if.h>
 
 #include "conf-parser.h"
 #include "netdev/ipvlan.h"
+#include "networkd-link.h"
 #include "string-table.h"
 
 static const char* const ipvlan_mode_table[_NETDEV_IPVLAN_MODE_MAX] = {
@@ -37,7 +33,10 @@ static int netdev_ipvlan_fill_message_create(NetDev *netdev, Link *link, sd_netl
         assert(link);
         assert(netdev->ifname);
 
-        m = IPVLAN(netdev);
+        if (netdev->kind == NETDEV_KIND_IPVLAN)
+                m = IPVLAN(netdev);
+        else
+                m = IPVTAP(netdev);
 
         assert(m);
 
@@ -61,7 +60,10 @@ static void ipvlan_init(NetDev *n) {
 
         assert(n);
 
-        m = IPVLAN(n);
+        if (n->kind == NETDEV_KIND_IPVLAN)
+                m = IPVLAN(n);
+        else
+                m = IPVTAP(n);
 
         assert(m);
 
@@ -75,4 +77,29 @@ const NetDevVTable ipvlan_vtable = {
         .sections = "Match\0NetDev\0IPVLAN\0",
         .fill_message_create = netdev_ipvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .generate_mac = true,
 };
+
+const NetDevVTable ipvtap_vtable = {
+        .object_size = sizeof(IPVlan),
+        .init = ipvlan_init,
+        .sections = "Match\0NetDev\0IPVTAP\0",
+        .fill_message_create = netdev_ipvlan_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
+        .generate_mac = true,
+};
+
+IPVlanMode link_get_ipvlan_mode(Link *link) {
+        NetDev *netdev;
+
+        if (!streq_ptr(link->kind, "ipvlan"))
+                return _NETDEV_IPVLAN_MODE_INVALID;
+
+        if (netdev_get(link->manager, link->ifname, &netdev) < 0)
+                return _NETDEV_IPVLAN_MODE_INVALID;
+
+        if (netdev->kind != NETDEV_KIND_IPVLAN)
+                return _NETDEV_IPVLAN_MODE_INVALID;
+
+        return IPVLAN(netdev)->mode;
+}

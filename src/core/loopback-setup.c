@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <net/if.h>
 #include <stdlib.h>
@@ -13,6 +8,7 @@
 #include "loopback-setup.h"
 #include "missing.h"
 #include "netlink-util.h"
+#include "time-util.h"
 
 #define LOOPBACK_SETUP_TIMEOUT_USEC (5 * USEC_PER_SEC)
 
@@ -58,7 +54,7 @@ static int start_loopback(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(rtnl, req, generic_handler, s, LOOPBACK_SETUP_TIMEOUT_USEC, NULL);
+        r = sd_netlink_call_async(rtnl, NULL, req, generic_handler, NULL, s, LOOPBACK_SETUP_TIMEOUT_USEC, "systemd-start-loopback");
         if (r < 0)
                 return r;
 
@@ -93,7 +89,7 @@ static int add_ipv4_address(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(rtnl, req, generic_handler, s, USEC_INFINITY, NULL);
+        r = sd_netlink_call_async(rtnl, NULL, req, generic_handler, NULL, s, USEC_INFINITY, "systemd-loopback-ipv4");
         if (r < 0)
                 return r;
 
@@ -128,7 +124,7 @@ static int add_ipv6_address(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(rtnl, req, generic_handler, s, USEC_INFINITY, NULL);
+        r = sd_netlink_call_async(rtnl, NULL, req, generic_handler, NULL, s, USEC_INFINITY, "systemd-loopback-ipv6");
         if (r < 0)
                 return r;
 

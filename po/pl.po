@@ -1,17 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Polish translation for systemd.
-# Copyright © 2011-2018 the systemd authors.
-# This file is distributed under the same license as the systemd package.
-# Piotr Drąg <piotrdrag@gmail.com>, 2011, 2013-2018.
-# Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>, 2011.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2018-05-27 09:40+0000\n"
-"PO-Revision-Date: 2018-05-28 07:22+0200\n"
+"POT-Creation-Date: 2019-07-11 15:28+0000\n"
+"PO-Revision-Date: 2019-07-13 14:42+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -73,19 +69,19 @@ msgstr "Ponowne wczytanie stanu systemd"
 msgid "Authentication is required to reload the systemd state."
 msgstr "Wymagane jest uwierzytelnienie, aby ponownie wczytać stan systemd."
 
-#: src/hostname/org.freedesktop.hostname1.policy:22
+#: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set host name"
 msgstr "Ustawienie nazwy komputera"
 
-#: src/hostname/org.freedesktop.hostname1.policy:23
+#: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local host name."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić nazwę lokalnego komputera."
 
-#: src/hostname/org.freedesktop.hostname1.policy:32
+#: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static host name"
 msgstr "Ustawienie statycznej nazwy komputera"
 
-#: src/hostname/org.freedesktop.hostname1.policy:33
+#: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
 "Authentication is required to set the statically configured local host name, "
 "as well as the pretty host name."
@@ -93,14 +89,22 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić statycznie skonfigurowaną nazwę "
 "lokalnego komputera, a także jego nazwę czytelną dla człowieka."
 
-#: src/hostname/org.freedesktop.hostname1.policy:43
+#: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
 msgstr "Ustawienie informacji o komputerze"
 
-#: src/hostname/org.freedesktop.hostname1.policy:44
+#: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić informacje o lokalnym komputerze."
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "Uzyskanie UUID produktu"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "Wymagane jest uwierzytelnienie, aby uzyskać UUID produktu."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -465,10 +469,20 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby zablokować lub odblokować aktywne sesje."
 
 #: src/login/org.freedesktop.login1.policy:341
-msgid "Allow indication to the firmware to boot to setup interface"
-msgstr "Wskazanie oprogramowaniu sprzętowemu, aby uruchomić interfejs ustawień"
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr "Ustawienie przyczyny ponownego uruchomienia w jądrze"
 
 #: src/login/org.freedesktop.login1.policy:342
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby ustawić przyczynę ponownego uruchomienia "
+"w jądrze."
+
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "Wskazanie oprogramowaniu sprzętowemu, aby uruchomić interfejs ustawień"
+
+#: src/login/org.freedesktop.login1.policy:353
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
@@ -476,11 +490,35 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby wskazać oprogramowaniu sprzętowemu, że "
 "należy uruchomić interfejs ustawień."
 
-#: src/login/org.freedesktop.login1.policy:351
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr "Wskazanie programowi startowemu, aby uruchomić jego menu"
+
+#: src/login/org.freedesktop.login1.policy:364
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby wskazać programowi startowemu, że należy "
+"uruchomić jego menu."
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr "Wskazanie programowi startowemu, aby uruchomić podany wpis"
+
+#: src/login/org.freedesktop.login1.policy:375
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby wskazać programowi startowemu, że należy "
+"uruchomić podany wpis."
+
+#: src/login/org.freedesktop.login1.policy:385
 msgid "Set a wall message"
 msgstr "Ustawienie komunikatu wall"
 
-#: src/login/org.freedesktop.login1.policy:352
+#: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to set a wall message"
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić komunikat wall"
 
@@ -564,21 +602,23 @@ msgstr ""
 "wirtualnych i kontenerów."
 
 #: src/portable/org.freedesktop.portable1.policy:13
-msgid "Inspect a portable service"
-msgstr "Badanie przenośnej usługi"
+msgid "Inspect a portable service image"
+msgstr "Badanie obrazu przenośnej usługi"
 
 #: src/portable/org.freedesktop.portable1.policy:14
-msgid "Authentication is required to inspect a portable service."
-msgstr "Wymagane jest uwierzytelnienie, aby zbadać przenośną usługę."
+msgid "Authentication is required to inspect a portable service image."
+msgstr "Wymagane jest uwierzytelnienie, aby zbadać obraz przenośnej usługi."
 
 #: src/portable/org.freedesktop.portable1.policy:23
-msgid "Attach or detach a portable service"
-msgstr "Podłączenie lub odłączenie przenośnej usługi"
+msgid "Attach or detach a portable service image"
+msgstr "Podłączenie lub odłączenie obrazu przenośnej usługi"
 
 #: src/portable/org.freedesktop.portable1.policy:24
-msgid "Authentication is required to attach or detach a portable service."
+msgid ""
+"Authentication is required to attach or detach a portable service image."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby podłączyć lub odłączyć przenośną usługę."
+"Wymagane jest uwierzytelnienie, aby podłączyć lub odłączyć obraz przenośnej "
+"usługi."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
@@ -647,39 +687,50 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
 "czasu przez sieć."
 
-#: src/core/dbus-unit.c:329
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:330
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby zatrzymać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:331
+#: src/core/dbus-unit.c:355
 msgid "Authentication is required to reload '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie wczytać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:332 src/core/dbus-unit.c:333
+#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
 msgid "Authentication is required to restart '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:440
-msgid "Authentication is required to kill '$(unit)'."
+#: src/core/dbus-unit.c:529
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby wymusić wyłączenie jednostki „$(unit)”."
+"Wymagane jest uwierzytelnienie, aby wysłać sygnał uniksowy do procesów "
+"jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:471
+#: src/core/dbus-unit.c:560
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby przywrócić stan „failed” (niepowodzenia) "
 "jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:504
+#: src/core/dbus-unit.c:593
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić właściwości jednostki „$(unit)”."
+
+#: src/core/dbus-unit.c:702
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby usunąć pliki i katalogi powiązane "
+"z jednostką „$(unit)”."
 
 #~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 #~ msgstr ""

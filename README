@@ -148,20 +148,25 @@ REQUIREMENTS:
         libacl (optional)
         libselinux (optional)
         liblzma (optional)
-        liblz4 >= 119 (optional)
+        liblz4 >= 1.3.0 / 130 (optional)
         libgcrypt (optional)
         libqrencode (optional)
         libmicrohttpd (optional)
         libpython (optional)
         libidn2 or libidn (optional)
+        gnutls >= 3.1.4 (optional, >= 3.5.3 is required to support DNS-over-TLS with gnutls)
+        openssl >= 1.1.0 (optional, required to support DNS-over-TLS with openssl)
         elfutils >= 158 (optional)
         polkit (optional)
+        tzdata >= 2014f (optional)
         pkg-config
         gperf
         docbook-xsl (optional, required for documentation)
         xsltproc    (optional, required for documentation)
         python-lxml (optional, required to build the indices)
-        python >= 3.4, meson >= 0.44, ninja
+        python >= 3.5
+        meson >= 0.46 (>= 0.49 is required to build position-independent executables)
+        ninja
         gcc, awk, sed, grep, m4, and similar tools
 
         During runtime, you need the following additional
@@ -172,12 +177,12 @@ REQUIREMENTS:
                 NOTE: If using dbus < 1.9.18, you should override the default
                 policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
         dracut (optional)
-        PolicyKit (optional)
+        polkit (optional)
 
         To build in directory build/:
           meson build/ && ninja -C build
 
-        Any configuration options can be specfied as -Darg=value... arguments
+        Any configuration options can be specified as -Darg=value... arguments
         to meson. After the build directory is initially configured, meson will
         refuse to run again, and options must be changed with:
           mesonconf -Darg=value...
@@ -204,10 +209,12 @@ REQUIREMENTS:
         make use of DynamicUser= now, hence enabling nss-systemd is not
         optional.
 
-        Note that the build prefix for systemd must be /usr. -Dsplit-usr=false
-        (which is the default and does not need to be specified) is the
-        recommended setting, and -Dsplit-usr=true should be used on systems
-        which have /usr on a separate partition.
+        Note that the build prefix for systemd must be /usr. (Moreover,
+        packages systemd relies on — such as D-Bus — really should use the same
+        prefix, otherwise you are on your own.) -Dsplit-usr=false (which is the
+        default and does not need to be specified) is the recommended setting,
+        and -Dsplit-usr=true should be used on systems which have /usr on a
+        separate partition.
 
         Additional packages are necessary to run some tests:
         - busybox            (used by test/TEST-13-NSPAWN-SMOKE)
@@ -310,8 +317,7 @@ WARNINGS:
         that valgrind generates nice output only on exit(), hence on shutdown
         we don't execve() systemd-shutdown.
 
-STABLE BRANCHES AND BACKPORTS
-
+STABLE BRANCHES AND BACKPORTS:
        Stable branches with backported patches are available in the
        systemd-stable repo at https://github.com/systemd/systemd-stable.
 

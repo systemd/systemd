@@ -1,32 +1,16 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.nspawn">
 
   <refentryinfo>
     <title>systemd.nspawn</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -125,7 +109,7 @@
     <para>Settings files may include an <literal>[Exec]</literal>
     section, which carries various execution parameters:</para>
 
-    <variablelist>
+    <variablelist class='nspawn-directives'>
 
       <varlistentry>
         <term><varname>Boot=</varname></term>
@@ -135,8 +119,18 @@
         specified parameters using <varname>Parameters=</varname> are passed as additional arguments to the
         <filename>init</filename> process. This setting corresponds to the <option>--boot</option> switch on the
         <command>systemd-nspawn</command> command line. This option may not be combined with
-        <varname>ProcessTwo=yes</varname>. This option is the default if the
-        <filename>systemd-nspawn@.service</filename> template unit file is used.</para></listitem>
+        <varname>ProcessTwo=yes</varname>. This option is specified by default in the
+        <filename>systemd-nspawn@.service</filename> template unit.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Ephemeral=</varname></term>
+
+        <listitem><para>Takes a boolean argument, which defaults to off, If enabled, the container is run with
+        a temporary snapshot of its file system that is removed immediately when the container terminates.
+        This is equivalent to the <option>--ephemeral</option> command line switch. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details
+        about the specific options supported.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -151,13 +145,15 @@
       <varlistentry>
         <term><varname>Parameters=</varname></term>
 
-        <listitem><para>Takes a space-separated list of
-        arguments. This is either a command line, beginning with the
-        binary name to execute, or – if <varname>Boot=</varname> is
-        enabled – the list of arguments to pass to the init
-        process. This setting corresponds to the command line
-        parameters passed on the <command>systemd-nspawn</command>
-        command line.</para></listitem>
+        <listitem><para>Takes a whitespace-separated list of arguments. Single (<literal>'</literal>) and
+        double (<literal>"</literal>) quotes may be used around arguments with whitespace. This is either a
+        command line, beginning with the binary name to execute, or – if <varname>Boot=</varname> is enabled
+        – the list of arguments to pass to the init process. This setting corresponds to the command line
+        parameters passed on the <command>systemd-nspawn</command> command line.</para>
+
+        <para>Note: <option>Boot=no</option>, <option>Parameters=a b "c c"</option> is the same as
+        <command>systemd-nspawn a b "c c"</command>, and <option>Boot=yes</option>, <option>Parameters=b 'c c'</option>
+        is the same as <command>systemd-nspawn --boot b 'c c'</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -353,7 +349,7 @@
         <term><varname>Timezone=</varname></term>
 
         <listitem><para>Configures how <filename>/etc/localtime</filename> in the container shall be handled. This is
-        equivalent to the <option>--localtime=</option> command line switch, and takes the same argument. See
+        equivalent to the <option>--timezone=</option> command line switch, and takes the same argument. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -377,7 +373,7 @@
     section, which carries various parameters configuring the file
     system of the container:</para>
 
-    <variablelist>
+    <variablelist class='nspawn-directives'>
 
       <varlistentry>
         <term><varname>ReadOnly=</varname></term>
@@ -432,6 +428,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Inaccessible=</varname></term>
+
+        <listitem><para>Masks the specified file or directly in the container, by over-mounting it with an empty file
+        node of the same type with the most restrictive access mode. Takes a file system path as argument. This option
+        may be used multiple times to mask multiple files or directories. This option is equivalent to the command line
+        switch <option>--inaccessible=</option>, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details
+        about the specific options supported. This setting is privileged (see above).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Overlay=</varname></term>
         <term><varname>OverlayReadOnly=</varname></term>
 
@@ -461,7 +468,7 @@
     section, which carries various parameters configuring the network
     connectivity of the container:</para>
 
-    <variablelist>
+    <variablelist class='nspawn-directives'>
 
       <varlistentry>
         <term><varname>Private=</varname></term>

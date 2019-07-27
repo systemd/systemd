@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <pthread.h>
@@ -17,10 +12,12 @@
 #include "bus-internal.h"
 #include "bus-match.h"
 #include "bus-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
 #include "macro.h"
+#include "tests.h"
 #include "util.h"
 
 static int match_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
@@ -249,7 +246,7 @@ fail:
         return r;
 }
 
-static void* client1(void*p) {
+static void* client1(void *p) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -312,7 +309,7 @@ static void* client1(void*p) {
 
         errno = 0;
         if (read(pp[0], &x, 1) <= 0) {
-                log_error("Failed to read from pipe: %s", errno ? strerror(errno) : "early read");
+                log_error("Failed to read from pipe: %s", errno != 0 ? strerror_safe(errno) : "early read");
                 goto finish;
         }
 
@@ -348,7 +345,7 @@ static int quit_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_er
         return 1;
 }
 
-static void* client2(void*p) {
+static void* client2(void *p) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -514,11 +511,11 @@ int main(int argc, char *argv[]) {
         void *p;
         int q, r;
 
+        test_setup_logging(LOG_INFO);
+
         r = server_init(&bus);
-        if (r < 0) {
-                log_info("Failed to connect to bus, skipping tests.");
-                return EXIT_TEST_SKIP;
-        }
+        if (r < 0)
+                return log_tests_skipped("Failed to connect to bus");
 
         log_info("Initialized...");
 

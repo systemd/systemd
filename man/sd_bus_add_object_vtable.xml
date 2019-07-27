@@ -1,0 +1,473 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_add_object_vtable"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_add_object_vtable</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_add_object_vtable</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_add_object_vtable</refname>
+    <refname>sd_bus_add_fallback_vtable</refname>
+    <refname>SD_BUS_VTABLE_START</refname>
+    <refname>SD_BUS_VTABLE_END</refname>
+    <refname>SD_BUS_METHOD_WITH_NAMES_OFFSET</refname>
+    <refname>SD_BUS_METHOD_WITH_NAMES</refname>
+    <refname>SD_BUS_METHOD_WITH_OFFSET</refname>
+    <refname>SD_BUS_METHOD</refname>
+    <refname>SD_BUS_SIGNAL_WITH_NAMES</refname>
+    <refname>SD_BUS_SIGNAL</refname>
+    <refname>SD_BUS_WRITABLE_PROPERTY</refname>
+    <refname>SD_BUS_PROPERTY</refname>
+    <refname>SD_BUS_PARAM</refname>
+
+    <refpurpose>Declare properties and methods for a D-Bus path</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus-vtable.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>typedef int (*<function>sd_bus_message_handler_t</function>)</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>typedef int (*<function>sd_bus_property_get_t</function>)</funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>property</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>reply</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>typedef int (*<function>sd_bus_property_set_t</function>)</funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>property</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>value</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>typedef int (*<function>sd_bus_object_find_t</function>)</funcdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+        <paramdef>void **<parameter>ret_found</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_add_object_vtable</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const sd_bus_vtable *<parameter>vtable</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_add_fallback_vtable</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>const char *<parameter>prefix</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const sd_bus_vtable *<parameter>vtable</parameter></paramdef>
+        <paramdef>sd_bus_object_find_t <parameter>find</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <para>
+        <constant>SD_BUS_VTABLE_START(<replaceable>flags</replaceable>)</constant>
+      </para>
+      <para>
+        <constant>SD_BUS_VTABLE_END</constant>
+      </para>
+      <para>
+        <constant>SD_BUS_METHOD_WITH_NAMES_OFFSET(
+        <replaceable>member</replaceable>,
+        <replaceable>signature</replaceable>,
+        <replaceable>in_names</replaceable>,
+        <replaceable>result</replaceable>,
+        <replaceable>out_names</replaceable>,
+        <replaceable>handler</replaceable>,
+        <replaceable>offset</replaceable>,
+        <replaceable>flags</replaceable>)
+        </constant>
+      </para>
+      <para>
+        <constant>SD_BUS_METHOD_WITH_NAMES(
+        <replaceable>member</replaceable>,
+        <replaceable>signature</replaceable>,
+        <replaceable>in_names</replaceable>,
+        <replaceable>result</replaceable>,
+        <replaceable>out_names</replaceable>,
+        <replaceable>handler</replaceable>,
+        <replaceable>flags</replaceable>)
+        </constant>
+      </para>
+      <para>
+        <constant>SD_BUS_METHOD_WITH_OFFSET(
+        <replaceable>member</replaceable>,
+        <replaceable>signature</replaceable>,
+        <replaceable>result</replaceable>,
+        <replaceable>handler</replaceable>,
+        <replaceable>offset</replaceable>,
+        <replaceable>flags</replaceable>)
+        </constant>
+      </para>
+      <para>
+        <constant>SD_BUS_METHOD(
+        <replaceable>member</replaceable>,
+        <replaceable>signature</replaceable>,
+        <replaceable>result</replaceable>,
+        <replaceable>handler</replaceable>,
+        <replaceable>flags</replaceable>)
+        </constant>
+      </para>
+      <para>
+        <constant>SD_BUS_SIGNAL_WITH_NAMES(
+        <replaceable>member</replaceable>,
+        <replaceable>signature</replaceable>,
+        <replaceable>names</replaceable>,
+        <replaceable>flags</replaceable>)
+        </constant>
+      </para>
+      <para>
+        <constant>SD_BUS_SIGNAL(
+        <replaceable>member</replaceable>,
+        <replaceable>signature</replaceable>,
+        <replaceable>flags</replaceable>)
+        </constant>
+      </para>
+      <para>
+        <constant>SD_BUS_WRITABLE_PROPERTY(
+        <replaceable>member</replaceable>,
+        <replaceable>signature</replaceable>,
+        <replaceable>get</replaceable>,
+        <replaceable>set</replaceable>,
+        <replaceable>offset</replaceable>,
+        <replaceable>flags</replaceable>)
+        </constant>
+      </para>
+      <para>
+        <constant>SD_BUS_PROPERTY(
+        <replaceable>member</replaceable>,
+        <replaceable>signature</replaceable>,
+        <replaceable>get</replaceable>,
+        <replaceable>offset</replaceable>,
+        <replaceable>flags</replaceable>)
+        </constant>
+      </para>
+      <para>
+        <constant>SD_BUS_PARAM(<replaceable>name</replaceable>)</constant>
+      </para>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_add_object_vtable()</function> is used to declare attributes for the path object
+    path <parameter>path</parameter> connected to the bus connection <parameter>bus</parameter> under the
+    interface <parameter>interface</parameter>. The table <parameter>vtable</parameter> may contain property
+    declarations using <constant>SD_BUS_PROPERTY()</constant> or
+    <constant>SD_BUS_WRITABLE_PROPERTY()</constant>, method declarations using
+    <constant>SD_BUS_METHOD()</constant>, <constant>SD_BUS_METHOD_WITH_NAMES()</constant>,
+    <constant>SD_BUS_METHOD_WITH_OFFSET()</constant>, or
+    <constant>SD_BUS_METHOD_WITH_NAMES_OFFSET()</constant>, and signal declarations using
+    <constant>SD_BUS_SIGNAL_WITH_NAMES()</constant> or <constant>SD_BUS_SIGNAL()</constant>, see below. The
+    <replaceable>userdata</replaceable> parameter contains a pointer that will be passed to various callback
+    functions. It may be specified as <constant>NULL</constant> if no value is necessary.</para>
+
+    <para><function>sd_bus_add_fallback_vtable()</function> is similar to
+    <function>sd_bus_add_object_vtable()</function>, but is used to register "fallback" attributes. When
+    looking for an attribute declaration, bus object paths registered with
+    <function>sd_bus_add_object_vtable()</function> are checked first. If no match is found, the fallback
+    vtables are checked for each prefix of the bus object path, i.e. with the last slash-separated components
+    successively removed. This allows the vtable to be used for an arbitrary number of dynamically created
+    objects.</para>
+
+    <para>Parameter <replaceable>find</replaceable> is a function which is used to locate the target object
+    based on the bus object path <replaceable>path</replaceable>. It must return <constant>1</constant> and
+    set the <parameter>ret_found</parameter> output parameter if the object is found, return
+    <constant>0</constant> if the object was not found, and return a negative errno-style error code or
+    initialize the error structure <replaceable>ret_error</replaceable> on error. The pointer passed in
+    <parameter>ret_found</parameter> will be used as the <parameter>userdata</parameter> parameter for the
+    callback functions (offset by the <parameter>offset</parameter> offsets as specified in the vtable
+    entries).</para>
+
+    <para>For both functions, a match slot is created internally. If the output parameter
+    <replaceable>slot</replaceable> is <constant>NULL</constant>, a "floating" slot object is created, see
+    <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Otherwise, a pointer to the slot object is returned. In that case, the reference to the slot object
+    should be dropped when the vtable is not needed anymore, see
+    <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+
+    <refsect2>
+      <title>The <structname>sd_bus_vtable</structname> array</title>
+
+      <para>The array consists of the structures of type <structname>sd_bus_vtable</structname>, but it
+      should never be filled in manually, but through one of the following macros:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>SD_BUS_VTABLE_START()</constant></term>
+          <term><constant>SD_BUS_VTABLE_END</constant></term>
+
+          <listitem><para>Those must always be the first and last element.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_BUS_METHOD_WITH_NAMES_OFFSET()</constant></term>
+          <term><constant>SD_BUS_METHOD_WITH_NAMES()</constant></term>
+          <term><constant>SD_BUS_METHOD_WITH_OFFSET()</constant></term>
+          <term><constant>SD_BUS_METHOD()</constant></term>
+
+          <listitem><para>Declare a D-Bus method with the name <replaceable>member</replaceable>, parameter
+          signature <replaceable>signature</replaceable>, result signature <replaceable>result</replaceable>.
+          Parameters <replaceable>in_names</replaceable> and <replaceable>out_names</replaceable> specify the
+          argument names of the input and output arguments in the function signature. The handler function
+          <replaceable>handler</replaceable> must be of type <function>sd_bus_message_handler_t</function>.
+          It will be called to handle the incoming messages that call this method. It receives a pointer that
+          is the <replaceable>userdata</replaceable> parameter passed to the registration function offset by
+          <replaceable>offset</replaceable> bytes. This may be used to pass pointers to different fields in
+          the same data structure to different methods in the same
+          vtable. <replaceable>in_names</replaceable> and <replaceable>out_names</replaceable> should be
+          created using the <constant>SD_BUS_PARAM()</constant> macro, see below. Parameter
+          <replaceable>flags</replaceable> is a combination of flags, see below.</para>
+
+          <para><constant>SD_BUS_METHOD_WITH_NAMES()</constant>,
+          <constant>SD_BUS_METHOD_WITH_OFFSET()</constant>, and <constant>SD_BUS_METHOD()</constant> are
+          variants which specify zero offset (<replaceable>userdata</replaceable> parameter is passed with
+          no change), leave the names unset (i.e. no parameter names), or both.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_BUS_SIGNAL_WITH_NAMES()</constant></term>
+          <term><constant>SD_BUS_SIGNAL()</constant></term>
+
+          <listitem><para>Declare a D-Bus signal with the name <replaceable>member</replaceable>,
+          parameter signature <replaceable>signature</replaceable>, and argument names
+          <replaceable>names</replaceable>. <replaceable>names</replaceable> should be
+          created using the <constant>SD_BUS_PARAM()</constant> macro, see below.
+          Parameter <replaceable>flags</replaceable> is a combination of flags, see below.
+          </para>
+
+          <para>Equivalent to <constant>SD_BUS_SIGNAL_WITH_NAMES()</constant> with the
+          <replaceable>names</replaceable> parameter unset (i.e. no parameter names).</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_BUS_WRITABLE_PROPERTY()</constant></term>
+          <term><constant>SD_BUS_PROPERTY()</constant></term>
+
+          <listitem><para>Declare a D-Bus property with the name <replaceable>member</replaceable> and value
+          signature <replaceable>signature</replaceable>. Parameters <replaceable>get</replaceable> and
+          <replaceable>set</replaceable> are the getter and setter methods. They are called with a pointer
+          that is the <replaceable>userdata</replaceable> parameter passed to the registration function
+          offset by <replaceable>offset</replaceable> bytes. This may be used pass pointers to different
+          fields in the same data structure to different setters and getters in the same vtable. Parameter
+          <replaceable>flags</replaceable> is a combination of flags, see below.</para>
+
+          <para>The setter and getter methods may be omitted (specified as <constant>NULL</constant>), if the
+          property has one of the basic types or <literal>as</literal> in case of read-only properties. In
+          those cases, the <replaceable>userdata</replaceable> and <replaceable>offset</replaceable>
+          parameters must together point to valid variable of the corresponding type. A default setter and
+          getters will be provided, which simply copy the argument between this variable and the message.
+          </para>
+
+          <para><constant>SD_BUS_PROPERTY()</constant> is used to define a read-only property.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_BUS_PARAM()</constant></term>
+          <listitem><para>Parameter names should be wrapped in this macro, see the example below.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Flags</title>
+
+      <para>The <replaceable>flags</replaceable> parameter is used to specify a combination of
+      <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html#introspection-format">D-Bus annotations</ulink>.
+      </para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>SD_BUS_VTABLE_DEPRECATED</constant></term>
+
+          <listitem><para>Mark this vtable entry as deprecated using the
+          <constant>org.freedesktop.DBus.Deprecated</constant> annotation in introspection data.  If
+          specified for <constant>SD_BUS_VTABLE_START()</constant>, the annotation is applied to the
+          enclosing interface.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_BUS_VTABLE_HIDDEN</constant></term>
+
+          <listitem><para>Make this vtable entry hidden. It will not be shown in introspection data.  If
+          specified for <constant>SD_BUS_VTABLE_START()</constant>, all entries in the array are hidden.
+          </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_BUS_VTABLE_UNPRIVILEGED</constant></term>
+
+          <listitem><para>Mark this vtable entry as unprivileged. If not specified, the
+          <constant>org.freedesktop.systemd1.Privileged</constant> annotation with value
+          <literal>true</literal> will be shown in introspection data.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_BUS_VTABLE_METHOD_NO_REPLY</constant></term>
+
+          <listitem><para>Mark his vtable entry as a method that will not return a reply using the
+          <constant>org.freedesktop.DBus.Method.NoReply</constant> annotation in introspection data.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_BUS_VTABLE_PROPERTY_CONST</constant></term>
+          <term><constant>SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE</constant></term>
+          <term><constant>SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION</constant></term>
+
+          <listitem><para>Those three flags correspond to different values of the
+          <constant>org.freedesktop.DBus.Property.EmitsChangedSignal</constant> annotation, which specifies
+          whether the <constant>org.freedesktop.DBus.Properties.PropertiesChanged</constant> signal is
+          emitted whenever the property changes. <constant>SD_BUS_VTABLE_PROPERTY_CONST</constant> corresponds to
+          <constant>const</constant> and means that the property never changes during the lifetime of the
+          object it belongs to, so no signal needs to be emitted.
+          <constant>SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE</constant> corresponds to <constant>true</constant> and means
+          that the signal is emitted. <constant>SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION</constant> corresponds to
+          <constant>invalidates</constant> and means that the signal is emitted, but the value is not included
+          in the signal.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_BUS_VTABLE_PROPERTY_EXPLICIT</constant></term>
+
+          <listitem><para>Mark this vtable property entry as requiring explicit request to for the value to
+          be shown (generally because the value is large or slow to calculate). This entry cannot be combined
+          with <constant>SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE</constant>, and will not be shown in property listings by
+          default (e.g. <command>busctl introspect</command>).  This corresponds to the
+          <constant>org.freedesktop.systemd1.Explicit</constant> annotation in introspection data.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Create a simple listener on the bus</title>
+
+      <programlisting><xi:include href="vtable-example.c" parse="text" /></programlisting>
+
+      <para>This creates a simple client on the bus (the user bus, when run as normal user).
+      We may use the D-Bus <constant>org.freedesktop.DBus.Introspectable.Introspect</constant>
+      call to acquire the XML description of the interface:</para>
+
+      <programlisting><xi:include href="vtable-example.xml" parse="text" /></programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_bus_add_object_vtable</function> and
+    <function>sd_bus_add_fallback_vtable</function> calls return 0 or a positive integer. On failure, they
+    return a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>One of the required parameters is <constant>NULL</constant> or invalid. A reserved
+          D-Bus interface was passed as the <replaceable>interface</replaceable> parameter.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>The bus cannot be resolved.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus was created in a different process.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPROTOTYPE</constant></term>
+
+          <listitem><para><function>sd_bus_add_object_vtable</function> and
+          <function>sd_bus_add_fallback_vtable</function> have been both called
+          for the same bus object path, which is not allowed.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EEXIST</constant></term>
+
+          <listitem><para>This vtable has already been registered for this
+          <replaceable>interface</replaceable> and <replaceable>path</replaceable>.
+          </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

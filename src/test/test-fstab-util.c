@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2015 Zbigniew Jędrzejewski-Szmek
-***/
+#include <stdio.h>
 
 #include "alloc-util.h"
 #include "fstab-util.h"
 #include "log.h"
 #include "string-util.h"
-#include "util.h"
 
 /*
 int fstab_filter_options(const char *opts, const char *names,

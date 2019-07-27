@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <sys/epoll.h>
@@ -13,12 +8,14 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "dbus-path.h"
+#include "dbus-unit.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "path.h"
+#include "serialize.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -92,7 +89,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                                 break;
                         }
 
-                        r = log_warning_errno(errno, "Failed to add watch on %s: %s", s->path, errno == ENOSPC ? "too many watches" : strerror(-r));
+                        r = log_warning_errno(errno, "Failed to add watch on %s: %s", s->path, errno == ENOSPC ? "too many watches" : strerror_safe(r));
                         if (cut)
                                 *cut = tmp;
                         goto fail;
@@ -150,10 +147,9 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
         ssize_t l;
         int r = 0;
 
-        if (revents != EPOLLIN) {
-                log_error("Got invalid poll event on inotify.");
-                return -EINVAL;
-        }
+        if (revents != EPOLLIN)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Got invalid poll event on inotify.");
 
         l = read(s->inotify_fd, &buffer, sizeof(buffer));
         if (l < 0) {
@@ -303,17 +299,17 @@ static int path_add_default_dependencies(Path *p) {
         if (!UNIT(p)->default_dependencies)
                 return 0;
 
-        r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE, SPECIAL_PATHS_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE, SPECIAL_PATHS_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(p)->manager)) {
-                r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
+                r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
+        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
 }
 
 static int path_add_trigger_dependencies(Path *p) {
@@ -415,6 +411,9 @@ static void path_set_state(Path *p, PathState state) {
         PathState old_state;
         assert(p);
 
+        if (p->state != state)
+                bus_unit_send_pending_change_signal(UNIT(p), false);
+
         old_state = p->state;
         p->state = state;
 
@@ -453,9 +452,7 @@ static void path_enter_dead(Path *p, PathResult f) {
         if (p->result == PATH_SUCCESS)
                 p->result = f;
 
-        if (p->result != PATH_SUCCESS)
-                log_unit_warning(UNIT(p), "Failed with result '%s'.", path_result_to_string(p->result));
-
+        unit_log_result(UNIT(p), p->result == PATH_SUCCESS, path_result_to_string(p->result));
         path_set_state(p, p->result != PATH_SUCCESS ? PATH_FAILED : PATH_DEAD);
 }
 
@@ -477,7 +474,7 @@ static void path_enter_running(Path *p) {
                 return;
         }
 
-        r = manager_add_job(UNIT(p)->manager, JOB_START, trigger, JOB_REPLACE, &error, NULL);
+        r = manager_add_job(UNIT(p)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
         if (r < 0)
                 goto fail;
 
@@ -558,19 +555,16 @@ static void path_mkdir(Path *p) {
 
 static int path_start(Unit *u) {
         Path *p = PATH(u);
-        Unit *trigger;
         int r;
 
         assert(p);
         assert(IN_SET(p->state, PATH_DEAD, PATH_FAILED));
 
-        trigger = UNIT_TRIGGER(u);
-        if (!trigger || trigger->load_state != UNIT_LOADED) {
-                log_unit_error(u, "Refusing to start, unit to trigger not loaded.");
-                return -ENOENT;
-        }
+        r = unit_test_trigger_loaded(u);
+        if (r < 0)
+                return r;
 
-        r = unit_start_limit_test(u);
+        r = unit_test_start_limit(u);
         if (r < 0) {
                 path_enter_dead(p, PATH_FAILURE_START_LIMIT_HIT);
                 return r;
@@ -605,8 +599,8 @@ static int path_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        unit_serialize_item(u, f, "state", path_state_to_string(p->state));
-        unit_serialize_item(u, f, "result", path_result_to_string(p->result));
+        (void) serialize_item(f, "state", path_state_to_string(p->state));
+        (void) serialize_item(f, "result", path_result_to_string(p->result));
 
         return 0;
 }

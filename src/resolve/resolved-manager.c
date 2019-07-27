@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
- ***/
-
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <poll.h>
-#include <stdio_ext.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #if HAVE_LIBIDN2
 #include <idn2.h>
@@ -16,12 +14,14 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "bus-util.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
-#include "fileio-label.h"
+#include "fileio.h"
 #include "hostname-util.h"
 #include "io-util.h"
+#include "missing_network.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "ordered-set.h"
@@ -29,8 +29,8 @@
 #include "random-util.h"
 #include "resolved-bus.h"
 #include "resolved-conf.h"
-#include "resolved-dnssd.h"
 #include "resolved-dns-stub.h"
+#include "resolved-dnssd.h"
 #include "resolved-etc-hosts.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
@@ -83,14 +83,14 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
                         goto fail;
 
                 if (is_new)
-                        log_debug("Found new link %i/%s", ifindex, l->name);
+                        log_debug("Found new link %i/%s", ifindex, l->ifname);
 
                 break;
         }
 
         case RTM_DELLINK:
                 if (l) {
-                        log_debug("Removing link %i/%s", l->ifindex, l->name);
+                        log_debug("Removing link %i/%s", l->ifindex, l->ifname);
                         link_remove_user(l);
                         link_free(l);
                 }
@@ -205,19 +205,19 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_NEWLINK, manager_process_link, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWLINK, manager_process_link, NULL, m, "resolve-NEWLINK");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_DELLINK, manager_process_link, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELLINK, manager_process_link, NULL, m, "resolve-DELLINK");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_NEWADDR, manager_process_address, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWADDR, manager_process_address, NULL, m, "resolve-NEWADDR");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_DELADDR, manager_process_address, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELADDR, manager_process_address, NULL, m, "resolve-DELADDR");
         if (r < 0)
                 return r;
 
@@ -338,13 +338,12 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
                 return log_debug_errno(r, "Can't determine system hostname: %m");
 
         p = h;
-        r = dns_label_unescape(&p, label, sizeof label);
+        r = dns_label_unescape(&p, label, sizeof label, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to unescape host name: %m");
-        if (r == 0) {
-                log_error("Couldn't find a single label in hostname.");
-                return -EINVAL;
-        }
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Couldn't find a single label in hostname.");
 
 #if HAVE_LIBIDN2
         r = idn2_to_unicode_8z8z(label, &utf8, 0);
@@ -361,10 +360,9 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
         if (k > 0)
                 r = k;
 
-        if (!utf8_is_valid(label)) {
-                log_error("System hostname is not UTF-8 clean.");
-                return -EINVAL;
-        }
+        if (!utf8_is_valid(label))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "System hostname is not UTF-8 clean.");
         decoded = label;
 #else
         decoded = label; /* no decoding */
@@ -374,12 +372,11 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
         if (r < 0)
                 return log_error_errno(r, "Failed to escape host name: %m");
 
-        if (is_localhost(n)) {
-                log_debug("System hostname is 'localhost', ignoring.");
-                return -EINVAL;
-        }
+        if (is_localhost(n))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "System hostname is 'localhost', ignoring.");
 
-        r = dns_name_concat(n, "local", mdns_hostname);
+        r = dns_name_concat(n, "local", 0, mdns_hostname);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine mDNS hostname: %m");
 
@@ -411,7 +408,7 @@ static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, 
         assert(mdns_hostname);
 
         p = fallback_hostname();
-        r = dns_label_unescape(&p, label, sizeof(label));
+        r = dns_label_unescape(&p, label, sizeof label, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to unescape fallback host name: %m");
 
@@ -421,7 +418,7 @@ static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, 
         if (r < 0)
                 return log_error_errno(r, "Failed to escape fallback hostname: %m");
 
-        r = dns_name_concat(n, "local", &m);
+        r = dns_name_concat(n, "local", 0, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to concatenate mDNS hostname: %m");
 
@@ -514,11 +511,9 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
         assert(si);
         assert(m);
 
-        f = open_memstream(&buffer, &size);
+        f = open_memstream_unlocked(&buffer, &size);
         if (!f)
                 return log_oom();
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         LIST_FOREACH(scopes, scope, m->dns_scopes)
                 dns_scope_dump(scope, f);
@@ -567,25 +562,33 @@ int manager_new(Manager **ret) {
 
         assert(ret);
 
-        m = new0(Manager, 1);
+        m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
 
-        m->llmnr_ipv4_udp_fd = m->llmnr_ipv6_udp_fd = -1;
-        m->llmnr_ipv4_tcp_fd = m->llmnr_ipv6_tcp_fd = -1;
-        m->mdns_ipv4_fd = m->mdns_ipv6_fd = -1;
-        m->dns_stub_udp_fd = m->dns_stub_tcp_fd = -1;
-        m->hostname_fd = -1;
+        *m = (Manager) {
+                .llmnr_ipv4_udp_fd = -1,
+                .llmnr_ipv6_udp_fd = -1,
+                .llmnr_ipv4_tcp_fd = -1,
+                .llmnr_ipv6_tcp_fd = -1,
+                .mdns_ipv4_fd = -1,
+                .mdns_ipv6_fd = -1,
+                .dns_stub_udp_fd = -1,
+                .dns_stub_tcp_fd = -1,
+                .hostname_fd = -1,
 
-        m->llmnr_support = RESOLVE_SUPPORT_YES;
-        m->mdns_support = RESOLVE_SUPPORT_YES;
-        m->dnssec_mode = DEFAULT_DNSSEC_MODE;
-        m->private_dns_mode = DEFAULT_PRIVATE_DNS_MODE;
-        m->enable_cache = true;
-        m->dns_stub_listener_mode = DNS_STUB_LISTENER_UDP;
-        m->read_resolv_conf = true;
-        m->need_builtin_fallbacks = true;
-        m->etc_hosts_last = m->etc_hosts_mtime = USEC_INFINITY;
+                .llmnr_support = RESOLVE_SUPPORT_YES,
+                .mdns_support = RESOLVE_SUPPORT_YES,
+                .dnssec_mode = DEFAULT_DNSSEC_MODE,
+                .dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE,
+                .enable_cache = DNS_CACHE_MODE_YES,
+                .dns_stub_listener_mode = DNS_STUB_LISTENER_YES,
+                .read_resolv_conf = true,
+                .need_builtin_fallbacks = true,
+                .etc_hosts_last = USEC_INFINITY,
+                .etc_hosts_mtime = USEC_INFINITY,
+                .read_etc_hosts = true,
+        };
 
         r = dns_trust_anchor_load(&m->trust_anchor);
         if (r < 0)
@@ -595,14 +598,20 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse configuration file: %m");
 
+#if ENABLE_DNS_OVER_TLS
+        r = dnstls_manager_init(m);
+        if (r < 0)
+                return r;
+#endif
+
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
 
-        sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
-        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
-        sd_event_set_watchdog(m->event, true);
+        (void) sd_event_set_watchdog(m->event, true);
 
         r = manager_watch_hostname(m);
         if (r < 0)
@@ -675,6 +684,10 @@ Manager *manager_free(Manager *m) {
         while (m->dns_streams)
                 dns_stream_unref(m->dns_streams);
 
+#if ENABLE_DNS_OVER_TLS
+        dnstls_manager_free(m);
+#endif
+
         hashmap_free(m->links);
         hashmap_free(m->dns_transactions);
 
@@ -688,8 +701,9 @@ Manager *manager_free(Manager *m) {
         manager_mdns_stop(m);
         manager_dns_stub_stop(m);
 
-        sd_bus_slot_unref(m->prepare_for_sleep_slot);
-        sd_bus_unref(m->bus);
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
+
+        sd_bus_flush_close_unref(m->bus);
 
         sd_event_source_unref(m->sigusr1_event_source);
         sd_event_source_unref(m->sigusr2_event_source);
@@ -728,9 +742,16 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                                + EXTRA_CMSG_SPACE /* kernel appears to require extra buffer space */];
         } control;
         union sockaddr_union sa;
-        struct msghdr mh = {};
-        struct cmsghdr *cmsg;
         struct iovec iov;
+        struct msghdr mh = {
+                .msg_name = &sa.sa,
+                .msg_namelen = sizeof(sa),
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
         ssize_t ms, l;
         int r;
 
@@ -746,25 +767,17 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         if (r < 0)
                 return r;
 
-        iov.iov_base = DNS_PACKET_DATA(p);
-        iov.iov_len = p->allocated;
-
-        mh.msg_name = &sa.sa;
-        mh.msg_namelen = sizeof(sa);
-        mh.msg_iov = &iov;
-        mh.msg_iovlen = 1;
-        mh.msg_control = &control;
-        mh.msg_controllen = sizeof(control);
+        iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->allocated);
 
         l = recvmsg(fd, &mh, 0);
-        if (l == 0)
-                return 0;
         if (l < 0) {
                 if (IN_SET(errno, EAGAIN, EINTR))
                         return 0;
 
                 return -errno;
         }
+        if (l == 0)
+                return 0;
 
         assert(!(mh.msg_flags & MSG_CTRUNC));
         assert(!(mh.msg_flags & MSG_TRUNC));
@@ -914,15 +927,18 @@ static int manager_ipv4_send(
                 uint16_t port,
                 const struct in_addr *source,
                 DnsPacket *p) {
-        union sockaddr_union sa = {
-                .in.sin_family = AF_INET,
-        };
         union {
                 struct cmsghdr header; /* For alignment */
                 uint8_t buffer[CMSG_SPACE(sizeof(struct in_pktinfo))];
-        } control;
-        struct msghdr mh = {};
+        } control = {};
+        union sockaddr_union sa;
         struct iovec iov;
+        struct msghdr mh = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_name = &sa.sa,
+                .msg_namelen = sizeof(sa.in),
+        };
 
         assert(m);
         assert(fd >= 0);
@@ -930,22 +946,17 @@ static int manager_ipv4_send(
         assert(port > 0);
         assert(p);
 
-        iov.iov_base = DNS_PACKET_DATA(p);
-        iov.iov_len = p->size;
+        iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->size);
 
-        sa.in.sin_addr = *destination;
-        sa.in.sin_port = htobe16(port),
-
-        mh.msg_iov = &iov;
-        mh.msg_iovlen = 1;
-        mh.msg_name = &sa.sa;
-        mh.msg_namelen = sizeof(sa.in);
+        sa = (union sockaddr_union) {
+                .in.sin_family = AF_INET,
+                .in.sin_addr = *destination,
+                .in.sin_port = htobe16(port),
+        };
 
         if (ifindex > 0) {
                 struct cmsghdr *cmsg;
                 struct in_pktinfo *pi;
-
-                zero(control);
 
                 mh.msg_control = &control;
                 mh.msg_controllen = CMSG_LEN(sizeof(struct in_pktinfo));
@@ -974,15 +985,18 @@ static int manager_ipv6_send(
                 const struct in6_addr *source,
                 DnsPacket *p) {
 
-        union sockaddr_union sa = {
-                .in6.sin6_family = AF_INET6,
-        };
         union {
                 struct cmsghdr header; /* For alignment */
                 uint8_t buffer[CMSG_SPACE(sizeof(struct in6_pktinfo))];
-        } control;
-        struct msghdr mh = {};
+        } control = {};
+        union sockaddr_union sa;
         struct iovec iov;
+        struct msghdr mh = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_name = &sa.sa,
+                .msg_namelen = sizeof(sa.in6),
+        };
 
         assert(m);
         assert(fd >= 0);
@@ -990,23 +1004,18 @@ static int manager_ipv6_send(
         assert(port > 0);
         assert(p);
 
-        iov.iov_base = DNS_PACKET_DATA(p);
-        iov.iov_len = p->size;
+        iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->size);
 
-        sa.in6.sin6_addr = *destination;
-        sa.in6.sin6_port = htobe16(port),
-        sa.in6.sin6_scope_id = ifindex;
-
-        mh.msg_iov = &iov;
-        mh.msg_iovlen = 1;
-        mh.msg_name = &sa.sa;
-        mh.msg_namelen = sizeof(sa.in6);
+        sa = (union sockaddr_union) {
+                .in6.sin6_family = AF_INET6,
+                .in6.sin6_addr = *destination,
+                .in6.sin6_port = htobe16(port),
+                .in6.sin6_scope_id = ifindex,
+        };
 
         if (ifindex > 0) {
                 struct cmsghdr *cmsg;
                 struct in6_pktinfo *pi;
-
-                zero(control);
 
                 mh.msg_control = &control;
                 mh.msg_controllen = CMSG_LEN(sizeof(struct in6_pktinfo));
@@ -1045,9 +1054,9 @@ int manager_send(
         log_debug("Sending %s packet with id %" PRIu16 " on interface %i/%s.", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p), ifindex, af_to_name(family));
 
         if (family == AF_INET)
-                return manager_ipv4_send(m, fd, ifindex, &destination->in, port, &source->in, p);
+                return manager_ipv4_send(m, fd, ifindex, &destination->in, port, source ? &source->in : NULL, p);
         if (family == AF_INET6)
-                return manager_ipv6_send(m, fd, ifindex, &destination->in6, port, &source->in6, p);
+                return manager_ipv6_send(m, fd, ifindex, &destination->in6, port, source ? &source->in6 : NULL, p);
 
         return -EAFNOSUPPORT;
 }
@@ -1153,7 +1162,7 @@ int manager_next_hostname(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = dns_name_concat(h, "local", &k);
+        r = dns_name_concat(h, "local", 0, &k);
         if (r < 0)
                 return r;
 
@@ -1385,13 +1394,13 @@ bool manager_dnssec_supported(Manager *m) {
         return true;
 }
 
-PrivateDnsMode manager_get_private_dns_mode(Manager *m) {
+DnsOverTlsMode manager_get_dns_over_tls_mode(Manager *m) {
         assert(m);
 
-        if (m->private_dns_mode != _PRIVATE_DNS_MODE_INVALID)
-                return m->private_dns_mode;
+        if (m->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
+                return m->dns_over_tls_mode;
 
-        return _PRIVATE_DNS_MODE_INVALID;
+        return DNS_OVER_TLS_NO;
 }
 
 void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key) {
@@ -1494,7 +1503,7 @@ void manager_cleanup_saved_user(Manager *m) {
                 continue;
 
         rm:
-                p = strappend("/run/systemd/resolve/netif/", de->d_name);
+                p = path_join("/run/systemd/resolve/netif", de->d_name);
                 if (!p) {
                         log_oom();
                         return;

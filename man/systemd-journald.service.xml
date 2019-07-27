@@ -1,29 +1,13 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-journald.service">
 
   <refentryinfo>
     <title>systemd-journald.service</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -65,7 +49,7 @@
 
       <listitem><para>Structured system log messages via the native
       Journal API, see
-      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>4</manvolnum></citerefentry></para></listitem>
+      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry></para></listitem>
 
       <listitem><para>Standard output and standard error of service units. For further details see
       below.</para></listitem>
@@ -219,10 +203,10 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
     <para>Journal files are, by default, owned and readable by the
     <literal>systemd-journal</literal> system group but are not
-    writable. Adding a user to this group thus enables her/him to read
+    writable. Adding a user to this group thus enables them to read
     the journal files.</para>
 
-    <para>By default, each logged in user will get her/his own set of
+    <para>By default, each logged in user will get their own set of
     journal files in <filename>/var/log/journal/</filename>. These
     files will not be owned by the user, however, in order to avoid
     that the user can write to them directly. Instead, file system
@@ -316,7 +300,7 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
       <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>4</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <command>pydoc systemd.journal</command>
     </para>
   </refsect1>

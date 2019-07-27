@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <getopt.h>
 #include <sys/epoll.h>
@@ -15,21 +10,25 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
+#include "util.h"
 
-static char** arg_listen = NULL;
+static char **arg_listen = NULL;
 static bool arg_accept = false;
 static int arg_socket_type = SOCK_STREAM;
-static char** arg_args = NULL;
-static char** arg_setenv = NULL;
+static char **arg_args = NULL;
+static char **arg_setenv = NULL;
 static char **arg_fdnames = NULL;
 static bool arg_inetd = false;
 
@@ -50,8 +49,7 @@ static int add_epoll(int epoll_fd, int fd) {
 
 static int open_sockets(int *epoll_fd, bool accept) {
         char **address;
-        int n, fd, r;
-        int count = 0;
+        int n, fd, r, count = 0;
 
         n = sd_listen_fds(true);
         if (n < 0)
@@ -70,13 +68,20 @@ static int open_sockets(int *epoll_fd, bool accept) {
 
         /* Close logging and all other descriptors */
         if (arg_listen) {
-                int except[3 + n];
+                _cleanup_free_ int *except = NULL;
+                int i;
 
-                for (fd = 0; fd < SD_LISTEN_FDS_START + n; fd++)
-                        except[fd] = fd;
+                except = new(int, n);
+                if (!except)
+                        return log_oom();
+
+                for (i = 0; i < n; i++)
+                        except[i] = SD_LISTEN_FDS_START + i;
 
                 log_close();
-                close_all_fds(except, 3 + n);
+                r = close_all_fds(except, n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to close all file descriptors: %m");
         }
 
         /** Note: we leak some fd's on error here. I doesn't matter
@@ -85,7 +90,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
          */
 
         STRV_FOREACH(address, arg_listen) {
-                fd = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, (arg_accept*SOCK_CLOEXEC));
+                fd = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, (arg_accept * SOCK_CLOEXEC));
                 if (fd < 0) {
                         log_open();
                         return log_error_errno(fd, "Failed to open '%s': %m", *address);
@@ -116,7 +121,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
         return count;
 }
 
-static int exec_process(const char* name, char **argv, char **env, int start_fd, size_t n_fds) {
+static int exec_process(const char *name, char **argv, char **env, int start_fd, size_t n_fds) {
 
         _cleanup_strv_free_ char **envp = NULL;
         _cleanup_free_ char *joined = NULL;
@@ -125,10 +130,9 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
         char **s;
         int r;
 
-        if (arg_inetd && n_fds != 1) {
-                log_error("--inetd only supported for single file descriptors.");
-                return -EINVAL;
-        }
+        if (arg_inetd && n_fds != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--inetd only supported for single file descriptors.");
 
         length = strv_length(arg_setenv);
 
@@ -151,7 +155,7 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
                         _cleanup_free_ char *p;
                         const char *n;
 
-                        p = strappend(*s, "=");
+                        p = strjoin(*s, "=");
                         if (!p)
                                 return log_oom();
 
@@ -199,10 +203,10 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
                         start_fd = SD_LISTEN_FDS_START;
                 }
 
-                if (asprintf((char**)(envp + n_env++), "LISTEN_FDS=%zu", n_fds) < 0)
+                if (asprintf((char **) (envp + n_env++), "LISTEN_FDS=%zu", n_fds) < 0)
                         return log_oom();
 
-                if (asprintf((char**)(envp + n_env++), "LISTEN_PID=" PID_FMT, getpid_cached()) < 0)
+                if (asprintf((char **) (envp + n_env++), "LISTEN_PID=" PID_FMT, getpid_cached()) < 0)
                         return log_oom();
 
                 if (arg_fdnames) {
@@ -226,7 +230,7 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
                         if (!names)
                                 return log_oom();
 
-                        e = strappend("LISTEN_FDNAMES=", names);
+                        e = strjoin("LISTEN_FDNAMES=", names);
                         if (!e)
                                 return log_oom();
 
@@ -244,7 +248,7 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
         return log_error_errno(errno, "Failed to execp %s (%s): %m", name, joined);
 }
 
-static int fork_and_exec_process(const char* child, char** argv, char **env, int fd) {
+static int fork_and_exec_process(const char *child, char **argv, char **env, int fd) {
         _cleanup_free_ char *joined = NULL;
         pid_t child_pid;
         int r;
@@ -253,7 +257,9 @@ static int fork_and_exec_process(const char* child, char** argv, char **env, int
         if (!joined)
                 return log_oom();
 
-        r = safe_fork("(activate)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &child_pid);
+        r = safe_fork("(activate)",
+                      FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG,
+                      &child_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -266,16 +272,20 @@ static int fork_and_exec_process(const char* child, char** argv, char **env, int
         return 0;
 }
 
-static int do_accept(const char* name, char **argv, char **envp, int fd) {
+static int do_accept(const char *name, char **argv, char **envp, int fd) {
         _cleanup_free_ char *local = NULL, *peer = NULL;
         _cleanup_close_ int fd_accepted = -1;
 
         fd_accepted = accept4(fd, NULL, NULL, 0);
-        if (fd_accepted < 0)
-                return log_error_errno(errno, "Failed to accept connection on fd:%d: %m", fd);
+        if (fd_accepted < 0) {
+                if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                        return 0;
 
-        getsockname_pretty(fd_accepted, &local);
-        getpeername_pretty(fd_accepted, true, &peer);
+                return log_error_errno(errno, "Failed to accept connection on fd:%d: %m", fd);
+        }
+
+        (void) getsockname_pretty(fd_accepted, &local);
+        (void) getpeername_pretty(fd_accepted, true, &peer);
         log_info("Connection from %s to %s", strna(peer), strna(local));
 
         return fork_and_exec_process(name, argv, envp, fd_accepted);
@@ -290,7 +300,7 @@ static void sigchld_hdl(int sig) {
                 int r;
 
                 si.si_pid = 0;
-                r = waitid(P_ALL, 0, &si, WEXITED|WNOHANG);
+                r = waitid(P_ALL, 0, &si, WEXITED | WNOHANG);
                 if (r < 0) {
                         if (errno != ECHILD)
                                 log_error_errno(errno, "Failed to reap children: %m");
@@ -305,7 +315,7 @@ static void sigchld_hdl(int sig) {
 
 static int install_chld_handler(void) {
         static const struct sigaction act = {
-                .sa_flags = SA_NOCLDSTOP|SA_RESTART,
+                .sa_flags = SA_NOCLDSTOP | SA_RESTART,
                 .sa_handler = sigchld_hdl,
         };
 
@@ -315,7 +325,14 @@ static int install_chld_handler(void) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-socket-activate", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Listen on sockets and launch child on connection.\n\n"
                "Options:\n"
@@ -328,9 +345,13 @@ static void help(void) {
                "  -E --setenv=NAME[=VALUE]   Pass an environment variable to children\n"
                "     --fdname=NAME[:NAME...] Specify names for file descriptors\n"
                "     --inetd                 Enable inetd file descriptor passing protocol\n"
-               "\n"
-               "Note: file descriptors from sd_listen_fds() will be passed through.\n"
-               , program_invocation_short_name);
+               "\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -361,10 +382,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "+hl:aE:d", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -377,19 +397,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'd':
-                        if (arg_socket_type == SOCK_SEQPACKET) {
-                                log_error("--datagram may not be combined with --seqpacket.");
-                                return -EINVAL;
-                        }
+                        if (arg_socket_type == SOCK_SEQPACKET)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--datagram may not be combined with --seqpacket.");
 
                         arg_socket_type = SOCK_DGRAM;
                         break;
 
                 case ARG_SEQPACKET:
-                        if (arg_socket_type == SOCK_DGRAM) {
-                                log_error("--seqpacket may not be combined with --datagram.");
-                                return -EINVAL;
-                        }
+                        if (arg_socket_type == SOCK_DGRAM)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--seqpacket may not be combined with --datagram.");
 
                         arg_socket_type = SOCK_SEQPACKET;
                         break;
@@ -441,17 +459,15 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind == argc) {
-                log_error("%s: command to execute is missing.",
-                          program_invocation_short_name);
-                return -EINVAL;
-        }
+        if (optind == argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s: command to execute is missing.",
+                                       program_invocation_short_name);
 
-        if (arg_socket_type == SOCK_DGRAM && arg_accept) {
-                log_error("Datagram sockets do not accept connections. "
-                          "The --datagram and --accept options may not be combined.");
-                return -EINVAL;
-        }
+        if (arg_socket_type == SOCK_DGRAM && arg_accept)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Datagram sockets do not accept connections. "
+                                       "The --datagram and --accept options may not be combined.");
 
         arg_args = argv + optind;
 
@@ -462,6 +478,7 @@ int main(int argc, char **argv, char **envp) {
         int r, n;
         int epoll_fd = -1;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

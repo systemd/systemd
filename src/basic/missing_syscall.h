@@ -1,16 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2016 Zbigniew Jędrzejewski-Szmek
-***/
-
 /* Missing glibc definitions to access certain kernel APIs */
 
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
+#include <unistd.h>
+
+#ifdef ARCH_MIPS
+#include <asm/sgidefs.h>
+#endif
+
+#include "missing_keyctl.h"
+#include "missing_stat.h"
+
+/* linux/kcmp.h */
+#ifndef KCMP_FILE /* 3f4994cfc15f38a3159c6e3a4b3ab2e1481a6b02 (3.19) */
+#define KCMP_FILE 0
+#endif
 
 #if !HAVE_PIVOT_ROOT
 static inline int missing_pivot_root(const char *new_root, const char *put_old) {
@@ -259,7 +268,7 @@ static inline int missing_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long i
 /* ======================================================================= */
 
 #if !HAVE_KEYCTL
-static inline long missing_keyctl(int cmd, unsigned long arg2, unsigned long arg3, unsigned long arg4,unsigned long arg5) {
+static inline long missing_keyctl(int cmd, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) {
 #  ifdef __NR_keyctl
         return syscall(__NR_keyctl, cmd, arg2, arg3, arg4, arg5);
 #  else
@@ -434,4 +443,46 @@ static inline ssize_t missing_statx(int dfd, const char *filename, unsigned flag
 }
 
 #  define statx missing_statx
+#endif
+
+#if !HAVE_SET_MEMPOLICY
+
+enum {
+        MPOL_DEFAULT,
+        MPOL_PREFERRED,
+        MPOL_BIND,
+        MPOL_INTERLEAVE,
+        MPOL_LOCAL,
+};
+
+static inline long missing_set_mempolicy(int mode, const unsigned long *nodemask,
+                           unsigned long maxnode) {
+        long i;
+#  ifdef __NR_set_mempolicy
+        i = syscall(__NR_set_mempolicy, mode, nodemask, maxnode);
+#  else
+        errno = ENOSYS;
+        i = -1;
+#  endif
+        return i;
+}
+
+#  define set_mempolicy missing_set_mempolicy
+#endif
+
+#if !HAVE_GET_MEMPOLICY
+static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
+                           unsigned long maxnode, void *addr,
+                           unsigned long flags) {
+        long i;
+#  ifdef __NR_get_mempolicy
+        i = syscall(__NR_get_mempolicy, mode, nodemask, maxnode, addr, flags);
+#  else
+        errno = ENOSYS;
+        i = -1;
+#  endif
+        return i;
+}
+
+#define get_mempolicy missing_get_mempolicy
 #endif

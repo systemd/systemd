@@ -162,8 +162,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:pvr*
  KEYBOARD_KEY_6b=fn
  KEYBOARD_KEY_6c=screenlock                             # FIXME: lock tablet device/buttons
 
-# Travelmate P648-G2-MG and P645-S
+# Travelmate P648-G2-MG, P648-G3-M and P645-S
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*P648-G2-MG*:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*P648-G3-M*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*P645-S*:pvr*
  KEYBOARD_KEY_8a=f20                                    # Microphone mute button; should be micmute
 
@@ -181,8 +182,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*1640:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAOA*:pvr*
  KEYBOARD_KEY_a9=!switchvideomode                       # Fn+F5
 
-# Easynote models
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPackard*Bell*:pnEasynote*:pvr*
+# Packard Bell and Gateway models
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGateway*:pn*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPackard*Bell*:pn*
  KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for comunication key
 
 ###########################################################
@@ -190,6 +192,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPackard*Bell*:pnEasynote*:pvr*
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pn*
+ KEYBOARD_KEY_81=f21                                    # Touchpad toggle
  KEYBOARD_KEY_8a=ejectcd
 
 # Alienware/Dell reserves these keys; safe to apply on all their devices
@@ -212,12 +215,26 @@ evdev:name:Eee PC WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:pvr*
 evdev:name:Asus Laptop extra buttons:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:pvr*
  KEYBOARD_KEY_6b=f21                                    # Touchpad Toggle
 
+# USB keyboard in Asus FX503VD
+evdev:input:b0003v0B05p1869*
+ KEYBOARD_KEY_ff31007c=f20                              # Remap micmute to f20
+
 ###########################################################
 # BenQ
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*BenQ*:pn*Joybook*R22*:pvr*
  KEYBOARD_KEY_6e=wlan
+
+###########################################################
+# Clevo
+###########################################################
+
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnNotebook:pnW65_67SZ:pvr*
+ KEYBOARD_KEY_a0=!mute
+ KEYBOARD_KEY_a2=!playpause
+ KEYBOARD_KEY_ae=!volumedown
+ KEYBOARD_KEY_b0=!volumeup
 
 ###########################################################
 # Compal
@@ -264,7 +281,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pn*
  KEYBOARD_KEY_85=brightnessdown                         # Fn+Down Brightness Down
  KEYBOARD_KEY_86=brightnessup                           # Fn+Up Brightness Up
  KEYBOARD_KEY_87=battery                                # Fn+F3 battery icon
- KEYBOARD_KEY_88=!wlan                                  # Fn+(F2|PrtScr|Home) Turn On/Off Wireless
+ KEYBOARD_KEY_88=unknown                                # Fn+F2 Turn On/Off Wireless - handled in hardware
  KEYBOARD_KEY_89=ejectclosecd                           # Fn+F10 Eject CD
  KEYBOARD_KEY_8a=suspend                                # Fn+F1 hibernate
  KEYBOARD_KEY_8b=switchvideomode                        # Fn+F8 CRT/LCD (high keycode: "displaytoggle")
@@ -299,6 +316,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1520:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*2110:pvr*
  KEYBOARD_KEY_85=unknown  # Brightness Down, also emitted by acpi-video, ignore
  KEYBOARD_KEY_86=unknown  # Brightness Up, also emitted by acpi-video, ignore
+
+# Dell Inspiron 537*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron537*:pvr*
+ KEYBOARD_KEY_88=!wlan                                  # Fn-PrtScr rfkill
 
 # Latitude XT2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*XT2:pvr*
@@ -419,6 +440,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGIGABYTE:pnU2442:*
  KEYBOARD_KEY_a0=!                                      # mute
 
 ###########################################################
+# Gemini
+###########################################################
+
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGeminiDevices:pnNC14V1006:*
+ KEYBOARD_KEY_9c=enter
+
+###########################################################
 # Genius
 ###########################################################
 
@@ -480,7 +508,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*Pavilion*dv7*Notebook*PC:
  KEYBOARD_KEY_c6=break
  KEYBOARD_KEY_94=reserved
 
-# Pavilion x360 13 (Prevents random airplane mode activation)
+# Pavilion and Spectre x360 13 (Prevents random airplane mode activation)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[sS][pP][eE][cC][tT][rR][eE]*x360*13*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*13*x360*:pvr*
  KEYBOARD_KEY_d7=unknown
 
@@ -566,6 +595,16 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBook*:pvr*
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
 
+# HP ZBook 15 G2
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook15G2:pvr*
+ KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
+
+# HP ProBook 11 G1
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook11G1:pvr*
+ KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
+ KEYBOARD_KEY_d8=f21                                    # touchpad toggle
+ KEYBOARD_KEY_d9=f21                                    # touchpad toggle
+
 # HP ZBook Studio G4
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnHPZBookStudioG4:pvr*
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
@@ -575,6 +614,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPEliteBookFolio1040G2:pvr*
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
  KEYBOARD_KEY_d8=!f23                                   # touchpad off
  KEYBOARD_KEY_d9=!f22                                   # touchpad on
+
+# HP ProBook 650
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*ProBook*650*:pvr*
+ KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
 
 # HP ProBook 6555b
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard:pnHPProBook6555b:*
@@ -586,6 +629,36 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*440*G3*
 evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*640*G2*
  KEYBOARD_KEY_85=unknown                                # lid close; also reported via special evdev
  KEYBOARD_KEY_f8=unknown                                # rf kill; also reported via special evdev
+
+# HP ProBook 645 G4
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*645*G4*
+ KEYBOARD_KEY_73=slash                                  # Slash key
+ KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
+
+# HP Stream 7
+# The ACPI tables contains a gpio-keys entry for a non connected GPIO
+# causing spurious events, map this to unknown to disable it
+# older kernels use "ev:23" newer kernels "ev:3"
+evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
+evdev:name:gpio-keys:phys:gpio-keys/input0:ev:23:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
+ KEYBOARD_KEY_0=unknown
+
+##########################################################
+# Huawei
+##########################################################
+
+# Huawei WMI hotkeys driver
+evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI*
+ KEYBOARD_KEY_287=f20                                   # Microphone mute button, should be micmute
+
+# Huawei MACH-WX9
+evdev:atkbd:dmi:bvn*:bvr*:svnHUAWEI*:pnMACH-WX9:pvr*
+ KEYBOARD_KEY_f7=unknown
+ KEYBOARD_KEY_f8=fn
+
+evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI*:pnMACH-WX9:pvr*
+ KEYBOARD_KEY_281=unknown                               # Brightness Down, also emitted by acpi-video, ignore
+ KEYBOARD_KEY_282=unknown                               # Brightness Up, also emitted by acpi-video, ignore
 
 ###########################################################
 # IBM
@@ -652,6 +725,7 @@ evdev:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*
  KEYBOARD_KEY_16=mute
  KEYBOARD_KEY_17=prog1
  KEYBOARD_KEY_1a=f20                                    # Microphone mute button; should be micmute
+ KEYBOARD_KEY_45=bookmarks
 
 # ThinkPad Keyboard with TrackPoint
 evdev:input:b0003v17EFp6009*
@@ -738,13 +812,17 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
 
+# Lenovo Y50-70
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*20378*:pvr*
+ KEYBOARD_KEY_f3=f21      # Fn+F6 (toggle touchpad)
+
 # V480
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
  KEYBOARD_KEY_f1=f21
 
-# Lenovo Thinkcentre M800z AIO machine
+# Lenovo ThinkCentre M800z/M820z/M920z AIO machines
 # key_scancode 00 is KEY_MICMUTE
-keyboard:name:Microphone Mute Button:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*
+evdev:name:Microphone Mute Button:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*
  KEYBOARD_KEY_00=f20
 
 # enhanced USB keyboard
@@ -762,6 +840,168 @@ evdev:input:b0003v04B3p301B*
 ###########################################################
 # Logitech
 ###########################################################
+
+# 27MHz wireless keyboards, these all have a PID of 00?? and all send c10xx
+# logitech custom consumer usage-page codes. The mappings below are the most
+# common, but some mapping may differ, especially the Fn F1-F12 mappings
+evdev:input:b0003v046Dp00*
+ KEYBOARD_KEY_c0183=media           # HUT:config, kbd:Media/Music player button
+ KEYBOARD_KEY_c1001=chat            # Messenger button
+ KEYBOARD_KEY_c1002=camera          # Webcam button
+ KEYBOARD_KEY_c1003=audio           # Music Browser button
+ KEYBOARD_KEY_c1004=video           # Video Browser button
+ KEYBOARD_KEY_c1005=images          # Image Browser button
+ KEYBOARD_KEY_c100a=documents       # Document Browser button
+ KEYBOARD_KEY_c100b=rewind          # Rewind button
+ KEYBOARD_KEY_c100c=fastforward     # Fast Forward button
+ KEYBOARD_KEY_c100f=f14             # Track 1 button → f14 → XF86Launch5
+ KEYBOARD_KEY_c1010=f15             # Track 2 button → f15 → XF86Launch6
+ KEYBOARD_KEY_c1011=channeldown     # Playlist back button
+ KEYBOARD_KEY_c1012=channelup       # Playlist advance button
+ KEYBOARD_KEY_c1013=camera          # Webcam button
+ KEYBOARD_KEY_c1014=coffee          # Status button
+ KEYBOARD_KEY_c1015=record          # Record symbol button
+ KEYBOARD_KEY_c1016=sound           # Flame/CD burning → sound → XF86AudioPreset
+ KEYBOARD_KEY_c1017=ejectcd         # Eject button
+ KEYBOARD_KEY_c1018=config          # Remote-control ico
+ KEYBOARD_KEY_c1019=f14             # Preset 1 → f14 → XF86Launch5
+ KEYBOARD_KEY_c101a=f15             # Preset 2 → f15 → XF86Launch6
+ KEYBOARD_KEY_c101b=f16             # Preset 3 → f16 → XF86Launch7
+ KEYBOARD_KEY_c101c=cyclewindows    # 2 overlapping windows icon
+ KEYBOARD_KEY_c101f=zoomout         # zoom - button / - side of zoomrocker
+ KEYBOARD_KEY_c1020=zoomin          # zoom + button / + side off zoom rocker
+ KEYBOARD_KEY_c1021=zoomreset       # 100% symbol on kbd left side
+ KEYBOARD_KEY_c1023=close           # [x] symbol on kbd left side
+ KEYBOARD_KEY_c1027=menu            # Hamburger menu icon
+ KEYBOARD_KEY_c1028=angle           # Rotate button
+ KEYBOARD_KEY_c1029=shuffle         # Shuffle button
+ KEYBOARD_KEY_c102a=back            # Back button
+ KEYBOARD_KEY_c102b=cyclewindows    # Empty window icon
+ KEYBOARD_KEY_c102d=www             # www text + magnifierglass icon
+ KEYBOARD_KEY_c1031=connect         # Pickup phone button → connect → XF86Go
+ KEYBOARD_KEY_c1032=cancel          # Hangup phone button → cancel → Cancel
+ KEYBOARD_KEY_c1041=help            # Help text or icon (Fn + F1)
+ KEYBOARD_KEY_c1042=wordprocessor   # Word icon (Fn + F2)
+ KEYBOARD_KEY_c1043=spreadsheet     # Excel icon (Fn + F3)
+ KEYBOARD_KEY_c1044=presentation    # Presentation icon (Fn + F4)
+ KEYBOARD_KEY_c1045=undo            # Undo Icon (Fn + F5)
+ KEYBOARD_KEY_c1046=redo            # Redo Icon (Fn + F6)
+ KEYBOARD_KEY_c1047=print           # Printer Icon (Fn + F7)
+ KEYBOARD_KEY_c1048=save            # Floppy Icon (Fn + F8)
+ KEYBOARD_KEY_c1049=prog1           # Smartkey A (Fn + F9)  → XF86Launch1
+ KEYBOARD_KEY_c104a=prog2           # Smartkey B (Fn + F10) → XF86Launch2
+ KEYBOARD_KEY_c104b=prog3           # Smartkey C (Fn + F11) → XF86Launch3
+ KEYBOARD_KEY_c104c=prog4           # Smartkey D (Fn + F12) → XF86Launch4
+
+# Cordless Access Keyboard (27 MHz, modelnumber Y-RH35)
+evdev:input:b0003v046Dp0042*
+ KEYBOARD_KEY_c1041=new
+ KEYBOARD_KEY_c1042=reply
+ KEYBOARD_KEY_c1043=forward
+ KEYBOARD_KEY_c1044=send
+ KEYBOARD_KEY_c1045=previoussong
+ KEYBOARD_KEY_c1046=nextsong
+ KEYBOARD_KEY_c1047=playpause
+ KEYBOARD_KEY_c1048=stopcd
+ KEYBOARD_KEY_c1049=file
+ KEYBOARD_KEY_c104a=documents
+ KEYBOARD_KEY_c104b=images
+ KEYBOARD_KEY_c104c=audio
+
+# "Cordless Rechargeable Desktop" keyboard (27 MHz, modelnumber Y-RK49)
+evdev:input:b0003v046Dp0045*
+ KEYBOARD_KEY_c1041=new
+ KEYBOARD_KEY_c1042=reply
+ KEYBOARD_KEY_c1043=forward
+ KEYBOARD_KEY_c1044=send
+ KEYBOARD_KEY_c1049=file
+ KEYBOARD_KEY_c104a=documents
+ KEYBOARD_KEY_c104b=images
+ KEYBOARD_KEY_c104c=audio
+
+# S510 keyboard (27 MHz, modelnumber Y-RAK73)
+evdev:input:b0003v046Dp0056*
+ KEYBOARD_KEY_c1041=battery      # Battery icon (Fn + F1)
+
+# MX3000 keyboard (27 MHz, modelnumber Y-RAM74)
+# We ignore the scroll up / down keypress events since these buttons also
+# generate scroll-wheel events and we do not want to generate duplicate events
+# Note if the "Special Button Function" in the HID++ features register gets
+# cleared then the scroll-wheel events for these buttons go away and then
+# tilting the scrollwheel left/right starts sending c1022 / c1024 events
+evdev:input:b0003v046Dp0057*
+ KEYBOARD_KEY_c1041=battery      # Battery icon (Fn + F1)
+
+#KEYBOARD_KEY_c101d=scrolldown   # Button below scrollwheel (see note above)
+#KEYBOARD_KEY_c101e=scrollup     # Button above scrollwheel (see note above)
+#KEYBOARD_KEY_c1022=scrollleft   # Left click on scroll-wheel (see note above)
+#KEYBOARD_KEY_c1024=scrollright  # Right click on scroll-wheel (see note above)
+
+# MX3200 keyboard (27 MHz, modelnumber Y-RAV80)
+evdev:input:b0003v046Dp005C*
+ KEYBOARD_KEY_c1001=phone           # VOIP button
+ KEYBOARD_KEY_c1016=record          # Record button
+ KEYBOARD_KEY_c1041=wordprocessor   # Word icon (Fn + F1)
+ KEYBOARD_KEY_c1042=spreadsheet     # Excel icon (Fn + F2)
+ KEYBOARD_KEY_c1043=calendar        # Calendar icon (Fn + F3)
+ KEYBOARD_KEY_c1044=documents       # My Documents icon (Fn + F4)
+ KEYBOARD_KEY_c1045=prog1           # Smartkey A (Fn + F5) → XF86Launch1
+ KEYBOARD_KEY_c1046=prog2           # Smartkey B (Fn + F6) → XF86Launch2
+ KEYBOARD_KEY_c1047=prog3           # Smartkey C (Fn + F7) → XF86Launch3
+ KEYBOARD_KEY_c1048=prog4           # Smartkey D (Fn + F8) → XF86Launch4
+
+# EX100 keyboard (27 MHz, modelnumber Y-RBH94)
+evdev:input:b0003v046Dp0065*
+ KEYBOARD_KEY_c104b=battery         # Battery icon (Fn + F11)
+ KEYBOARD_KEY_c104c=ejectcd         # Eject icon (Fn + F12)
+
+# S520 keyboard (27 MHz, modelnumber Y-RBA97)
+# Note this one uses non-standard codes for FN + F9 - Fn + F12?
+evdev:input:b0003v046Dp0066*
+ KEYBOARD_KEY_c100e=prog4           # Smartkey D (Fn + F12) → XF86Launch4
+ KEYBOARD_KEY_c1019=prog1           # Smartkey A (Fn + F9)  → XF86Launch1
+ KEYBOARD_KEY_c101a=prog2           # Smartkey B (Fn + F10) → XF86Launch2
+ KEYBOARD_KEY_c101b=prog3           # Smartkey C (Fn + F11) → XF86Launch3
+ KEYBOARD_KEY_c1041=wordprocessor   # Word icon (Fn + F1)
+ KEYBOARD_KEY_c1042=spreadsheet     # Excel icon (Fn + F2)
+ KEYBOARD_KEY_c1043=presentation    # Presentation icon (Fn + F3)
+ KEYBOARD_KEY_c1044=calendar        # Calendar icon (Fn + F4)
+ KEYBOARD_KEY_c1045=homepage        # Home icon (Fn + F5)
+ KEYBOARD_KEY_c1046=email           # Letter icon (Fn + F6)
+ KEYBOARD_KEY_c1047=search          # Magnifying glass icon (Fn + F7)
+ KEYBOARD_KEY_c1048=config          # Window with gear icon (Fn + F8)
+ KEYBOARD_KEY_c106f=battery         # Battery icon
+
+# S510 remote control (27 MHz)
+evdev:input:b0003v046Dp00FE*
+ KEYBOARD_KEY_c1018=media           # Media button
+
+# MX5000 keyboard (HID proxy mode and bluetooth matches)
+# The 4 buttons below the LCD send codes 0xc100c - 0xc100f. They only send
+# these codes when the LCD is displaying text send to it. These codes are
+# directly consumed by recent versions of lcdproc when it is driving the LCD,
+# so these codes should not be mapped
+evdev:input:b0003v046DpB305*
+evdev:input:b0005v046DpB305*
+ KEYBOARD_KEY_c0230=zoomreset	# HUT says fullscreen, kbd says 100%
+ KEYBOARD_KEY_c1004=send	# Send and receive / sync button
+ KEYBOARD_KEY_c1006=coffee	# Status (online/away) button
+ KEYBOARD_KEY_c1007=camera	# Webcam button
+ KEYBOARD_KEY_c1038=prog1	# Smartkey A → XF86Launch1
+ KEYBOARD_KEY_c1039=prog2	# Smartkey B → XF86Launch2
+ KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
+ KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
+
+# MX5500 keyboard (HID proxy mode and bluetooth matches)
+evdev:input:b0003v046DpB30B*
+evdev:input:b0005v046DpB30B*
+ KEYBOARD_KEY_c0183=media	# HUT says consumer control configuration, kbd says Media Center
+ KEYBOARD_KEY_c100e=images      # Camera icon, "Photo Gallery"
+ KEYBOARD_KEY_c100f=config      # Window with gear icon
+ KEYBOARD_KEY_c1038=prog1	# Smartkey A → XF86Launch1
+ KEYBOARD_KEY_c1039=prog2	# Smartkey B → XF86Launch2
+ KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
+ KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
 
 # iTouch
 evdev:input:b0003v046DpC308*
@@ -849,8 +1089,8 @@ evdev:input:b0003v046DpC309*
  KEYBOARD_KEY_c0207=save         # Save (F8)
  KEYBOARD_KEY_c0194=file         # My Computer (F9)
  KEYBOARD_KEY_c01a7=documents    # My Documents (F10)
- KEYBOARD_KEY_c01b6=images       # My Pictures (F11) ??
- KEYBOARD_KEY_c01b7=sound        # My Music (F12) ??
+ KEYBOARD_KEY_c01b6=images       # My Pictures (F11)
+ KEYBOARD_KEY_c01b7=audio        # My Music (F12)
 
 
 ###########################################################
@@ -902,6 +1142,12 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMEDIONNB:pnA555*:pvr*
 evdev:input:b0003v045Ep00DB*
  KEYBOARD_KEY_c022d=up                                  # zoomin
  KEYBOARD_KEY_c022e=down                                # zoomout
+
+# Microsoft (Razer produced) Reclusa keyboard
+evdev:input:b0003v1532p0200*
+ KEYBOARD_KEY_c01c9=shuffle
+ KEYBOARD_KEY_c01ca=up                                  # zoomin
+ KEYBOARD_KEY_c01cb=down                                # zoomout
 
 ###########################################################
 # Micro Star
@@ -956,8 +1202,12 @@ evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][a
 # OLPC
 ###########################################################
 
-# XO
+# XO-1 and XO-1.5
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnOLPC:pnXO:*
+# XO-1.75 and XO-1.4 (sp/ is the Security Processor)
+evdev:name:AT Translated Set 2 keyboard:phys:sp/serio*/input*:ev:120013:*
+ KEYBOARD_LED_CAPSLOCK=0
+ KEYBOARD_LED_NUMLOCK=0
  KEYBOARD_KEY_59=fn
  KEYBOARD_KEY_81=fn_esc
  KEYBOARD_KEY_f9=camera
@@ -1002,15 +1252,15 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnOLPC:pnXO:*
  KEYBOARD_KEY_dc=rightmeta                              # right grab
  KEYBOARD_KEY_85=rightmeta                              # Right grab releases on a different scancode
  KEYBOARD_KEY_d6=kbdillumtoggle                         # Fn+Space
- KEYBOARD_KEY_69=switchvideomode                        # Brightness key
- KEYBOARD_KEY_65=kp8                                    # up
- KEYBOARD_KEY_66=kp2                                    # down
- KEYBOARD_KEY_67=kp4                                    # left
- KEYBOARD_KEY_68=kp6                                    # right
- KEYBOARD_KEY_e5=kp9                                    # pgup
- KEYBOARD_KEY_e6=kp3                                    # pgdn
- KEYBOARD_KEY_e7=kp7                                    # home
- KEYBOARD_KEY_e8=kp1                                    # end
+ KEYBOARD_KEY_69=rotate_display
+ KEYBOARD_KEY_65=btn_dpad_up
+ KEYBOARD_KEY_66=btn_dpad_down
+ KEYBOARD_KEY_67=btn_dpad_left
+ KEYBOARD_KEY_68=btn_dpad_right
+ KEYBOARD_KEY_e5=btn_north
+ KEYBOARD_KEY_e6=btn_south
+ KEYBOARD_KEY_e7=btn_west
+ KEYBOARD_KEY_e8=btn_east
 
 ###########################################################
 # Onkyo
@@ -1060,6 +1310,13 @@ evdev:input:b0003v047FpC006*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v2*:pvr*
  KEYBOARD_KEY_56=backslash
 
+# Purism Librem 13 V3
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v3*:pvr*
+ KEYBOARD_KEY_56=backslash
+
+# Purism Librem 13 V4
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v4*:pvr*
+ KEYBOARD_KEY_56=backslash
 
 ###########################################################
 # Quanta
@@ -1433,6 +1690,11 @@ evdev:input:b0003v05FEp1010*
 
 # Logitech K750
 evdev:input:b0003v046Dp4002*
+ KEYBOARD_LED_NUMLOCK=0
+ KEYBOARD_LED_CAPSLOCK=0
+
+# PFU Limited HHKB Professional JP
+evdev:input:b0003v04FEp000D*
  KEYBOARD_LED_NUMLOCK=0
  KEYBOARD_LED_CAPSLOCK=0
 

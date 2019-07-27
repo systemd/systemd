@@ -1,22 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-***/
-
 #include "sd-netlink.h"
 
+#include "conf-parser.h"
 #include "list.h"
+#include "../networkd-link.h"
 #include "time-util.h"
 
 typedef struct netdev_join_callback netdev_join_callback;
-typedef struct Link Link;
 
 struct netdev_join_callback {
-        sd_netlink_message_handler_t callback;
+        link_netlink_message_handler_t callback;
         Link *link;
 
         LIST_FIELDS(netdev_join_callback, callbacks);
@@ -29,6 +24,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_MACVLAN,
         NETDEV_KIND_MACVTAP,
         NETDEV_KIND_IPVLAN,
+        NETDEV_KIND_IPVTAP,
         NETDEV_KIND_VXLAN,
         NETDEV_KIND_IPIP,
         NETDEV_KIND_GRE,
@@ -49,7 +45,14 @@ typedef enum NetDevKind {
         NETDEV_KIND_VXCAN,
         NETDEV_KIND_WIREGUARD,
         NETDEV_KIND_NETDEVSIM,
+        NETDEV_KIND_FOU,
+        NETDEV_KIND_ERSPAN,
+        NETDEV_KIND_L2TP,
+        NETDEV_KIND_MACSEC,
+        NETDEV_KIND_NLMON,
+        NETDEV_KIND_XFRM,
         _NETDEV_KIND_MAX,
+        _NETDEV_KIND_TUNNEL, /* Used by config_parse_stacked_netdev() */
         _NETDEV_KIND_INVALID = -1
 } NetDevKind;
 
@@ -67,6 +70,7 @@ typedef enum NetDevCreateType {
         NETDEV_CREATE_INDEPENDENT,
         NETDEV_CREATE_MASTER,
         NETDEV_CREATE_STACKED,
+        NETDEV_CREATE_AFTER_CONFIGURED,
         _NETDEV_CREATE_MAX,
         _NETDEV_CREATE_INVALID = -1,
 } NetDevCreateType;
@@ -77,15 +81,11 @@ typedef struct Condition Condition;
 typedef struct NetDev {
         Manager *manager;
 
-        int n_ref;
+        unsigned n_ref;
 
         char *filename;
 
-        Condition *match_host;
-        Condition *match_virt;
-        Condition *match_kernel_cmdline;
-        Condition *match_kernel_version;
-        Condition *match_arch;
+        LIST_HEAD(Condition, conditions);
 
         NetDevState state;
         NetDevKind kind;
@@ -125,11 +125,17 @@ typedef struct NetDevVTable {
         /* create netdev, if not done via rtnl */
         int (*create)(NetDev *netdev);
 
+        /* create netdev after link is fully configured */
+        int (*create_after_configured)(NetDev *netdev, Link *link);
+
         /* perform additional configuration after netdev has been createad */
         int (*post_create)(NetDev *netdev, Link *link, sd_netlink_message *message);
 
         /* verify that compulsory configuration options were specified */
         int (*config_verify)(NetDev *netdev, const char *filename);
+
+        /* Generate MAC address or not When MACAddress= is not specified. */
+        bool generate_mac;
 } NetDevVTable;
 
 extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
@@ -151,23 +157,32 @@ extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 #define NETDEV(n) (&(n)->meta)
 
 int netdev_load(Manager *manager);
+int netdev_load_one(Manager *manager, const char *filename);
 void netdev_drop(NetDev *netdev);
 
 NetDev *netdev_unref(NetDev *netdev);
 NetDev *netdev_ref(NetDev *netdev);
-
+DEFINE_TRIVIAL_DESTRUCTOR(netdev_destroy_callback, NetDev, netdev_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 
+bool netdev_is_managed(NetDev *netdev);
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
-int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t callback);
 int netdev_get_mac(const char *ifname, struct ether_addr **ret);
-int netdev_join(NetDev *netdev, Link *link, sd_netlink_message_handler_t cb);
+int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t cb);
+int netdev_join_after_configured(NetDev *netdev, Link *link, link_netlink_message_handler_t callback);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;
 
-int config_parse_netdev_kind(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+static inline NetDevCreateType netdev_get_create_type(NetDev *netdev) {
+        assert(netdev);
+        assert(NETDEV_VTABLE(netdev));
+
+        return NETDEV_VTABLE(netdev)->create_type;
+}
+
+CONFIG_PARSER_PROTOTYPE(config_parse_netdev_kind);
 
 /* gperf */
 const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
@@ -177,8 +192,8 @@ const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, GPERF_
 #define log_netdev_full(netdev, level, error, ...)                      \
         ({                                                              \
                 const NetDev *_n = (netdev);                            \
-                _n ? log_object_internal(level, error, __FILE__, __LINE__, __func__, "INTERFACE=", _n->ifname, NULL, NULL, ##__VA_ARGS__) : \
-                        log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+                _n ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, "INTERFACE=", _n->ifname, NULL, NULL, ##__VA_ARGS__) : \
+                        log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
 #define log_netdev_debug(netdev, ...)       log_netdev_full(netdev, LOG_DEBUG, 0, ##__VA_ARGS__)

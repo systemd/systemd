@@ -1,26 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
-
 #include <inttypes.h>
+#include <sys/uio.h>
 
 #if HAVE_GCRYPT
-#include <gcrypt.h>
+#  include <gcrypt.h>
 #endif
 
+#include "sd-event.h"
 #include "sd-id128.h"
 
 #include "hashmap.h"
 #include "journal-def.h"
-#include "macro.h"
 #include "mmap-cache.h"
-#include "sd-event.h"
 #include "sparse-endian.h"
+#include "time-util.h"
 
 typedef struct JournalMetrics {
         /* For all these: -1 means "pick automatically", and 0 means "no limit enforced" */
@@ -150,6 +145,7 @@ int journal_file_open(
 int journal_file_set_offline(JournalFile *f, bool wait);
 bool journal_file_is_offlining(JournalFile *f);
 JournalFile* journal_file_close(JournalFile *j);
+DEFINE_TRIVIAL_CLEANUP_FUNC(JournalFile*, journal_file_close);
 
 int journal_file_open_reliably(
                 const char *fname,
@@ -241,7 +237,11 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
 
+int journal_file_archive(JournalFile *f);
+JournalFile* journal_initiate_close(JournalFile *f, Set *deferred_closes);
 int journal_file_rotate(JournalFile **f, bool compress, uint64_t compress_threshold_bytes, bool seal, Set *deferred_closes);
+
+int journal_file_dispose(int dir_fd, const char *fname);
 
 void journal_file_post_change(JournalFile *f);
 int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t);

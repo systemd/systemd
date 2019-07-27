@@ -1,17 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
-
 #include "in-addr-util.h"
-
-#if HAVE_GNUTLS
-#include <gnutls/gnutls.h>
-#endif
 
 typedef struct DnsServer DnsServer;
 
@@ -19,8 +9,9 @@ typedef enum DnsServerType {
         DNS_SERVER_SYSTEM,
         DNS_SERVER_FALLBACK,
         DNS_SERVER_LINK,
+        _DNS_SERVER_TYPE_MAX,
+        _DNS_SERVER_TYPE_INVALID = -1
 } DnsServerType;
-#define _DNS_SERVER_TYPE_MAX (DNS_SERVER_LINK + 1)
 
 const char* dns_server_type_to_string(DnsServerType i) _const_;
 DnsServerType dns_server_type_from_string(const char *s) _pure_;
@@ -44,6 +35,7 @@ typedef enum DnsServerFeatureLevel {
 const char* dns_server_feature_level_to_string(int i) _const_;
 int dns_server_feature_level_from_string(const char *s) _pure_;
 
+#include "resolved-dnstls.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
 
@@ -60,11 +52,12 @@ struct DnsServer {
         int ifindex; /* for IPv6 link-local DNS servers */
 
         char *server_string;
+
+        /* The long-lived stream towards this server. */
         DnsStream *stream;
 
-#if HAVE_GNUTLS
-        gnutls_certificate_credentials_t tls_cert_cred;
-        gnutls_datum_t tls_session_data;
+#if ENABLE_DNS_OVER_TLS
+        DnsTlsServerData dnstls_data;
 #endif
 
         DnsServerFeatureLevel verified_feature_level;
@@ -110,7 +103,7 @@ void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);
 
 void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, size_t size);
-void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t usec);
+void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level);
 void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level);
@@ -127,8 +120,6 @@ bool dns_server_dnssec_supported(DnsServer *server);
 
 void dns_server_warn_downgrade(DnsServer *server);
 
-bool dns_server_limited_domains(DnsServer *server);
-
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, int ifindex);
 
 void dns_server_unlink_all(DnsServer *first);
@@ -141,10 +132,8 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s);
 DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m);
 
-bool dns_server_address_valid(int family, const union in_addr_union *sa);
-
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s);
-PrivateDnsMode dns_server_get_private_dns_mode(DnsServer *s);
+DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
 
@@ -156,3 +145,7 @@ void dns_server_reset_features(DnsServer *s);
 void dns_server_reset_features_all(DnsServer *s);
 
 void dns_server_dump(DnsServer *s, FILE *f);
+
+void dns_server_unref_stream(DnsServer *s);
+
+DnsScope *dns_server_scope(DnsServer *s);

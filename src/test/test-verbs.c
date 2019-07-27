@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2014 systemd developers
-***/
+#include <getopt.h>
 
 #include "macro.h"
 #include "strv.h"

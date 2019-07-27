@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright 2018 Jonathan Rudenberg
-***/
+
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "fuzz.h"
 

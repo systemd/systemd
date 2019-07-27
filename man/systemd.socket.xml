@@ -1,28 +1,12 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.socket">
   <refentryinfo>
     <title>systemd.socket</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -51,9 +35,9 @@
     this unit type. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
-    configuration items are configured in the generic [Unit] and
-    [Install] sections. The socket specific configuration options are
-    configured in the [Socket] section.</para>
+    configuration items are configured in the generic <literal>[Unit]</literal> and
+    <literal>[Install]</literal> sections. The socket specific configuration options are
+    configured in the <literal>[Socket]</literal> section.</para>
 
     <para>Additional options are listed in
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -67,11 +51,11 @@
     which configure resource control settings for the processes of the
     socket.</para>
 
-    <para>For each socket file, a matching service file must exist,
+    <para>For each socket unit, a matching service unit must exist,
     describing the service to start on incoming traffic on the socket
     (see
     <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more information about .service files). The name of the
+    for more information about .service units). The name of the
     .service unit is by default the same as the name of the .socket
     unit, but can be altered with the <option>Service=</option> option
     described below. Depending on the setting of the
@@ -81,8 +65,8 @@
     or it must be a template unit named the same way. Example: a
     socket file <filename>foo.socket</filename> needs a matching
     service <filename>foo.service</filename> if
-    <option>Accept=false</option> is set. If
-    <option>Accept=true</option> is set, a service template file
+    <option>Accept=no</option> is set. If
+    <option>Accept=yes</option> is set, a service template
     <filename>foo@.service</filename> must exist from which services
     are instantiated for each incoming connection.</para>
 
@@ -107,6 +91,18 @@
     socket passing (i.e. sockets passed in via standard input and
     output, using <varname>StandardInput=socket</varname> in the
     service file).</para>
+
+    <para>All network sockets allocated through <filename>.socket</filename> units are allocated in the host's network
+    namespace (see <citerefentry
+    project='man-pages'><refentrytitle>network_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>). This
+    does not mean however that the service activated by a configured socket unit has to be part of the host's network
+    namespace as well.  It is supported and even good practice to run services in their own network namespace (for
+    example through <varname>PrivateNetwork=</varname>, see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>), receiving only
+    the sockets configured through socket-activation from the host's namespace. In such a set-up communication within
+    the host's network namespace is only permitted through the activation sockets passed in while all sockets allocated
+    from the service code itself will be associated with the service's own namespace, and thus possibly subject to a a
+    much more restrictive configuration.</para>
   </refsect1>
 
   <refsect1>
@@ -316,7 +312,7 @@
 
       <varlistentry>
         <term><varname>SocketProtocol=</varname></term>
-        <listitem><para>Takes a one of <option>udplite</option>
+        <listitem><para>Takes one of <option>udplite</option>
         or <option>sctp</option>. Specifies a socket protocol
         (<constant>IPPROTO_UDPLITE</constant>) UDP-Lite
         (<constant>IPPROTO_SCTP</constant>) SCTP socket respectively. </para>
@@ -325,7 +321,7 @@
 
       <varlistentry>
         <term><varname>BindIPv6Only=</varname></term>
-        <listitem><para>Takes a one of <option>default</option>,
+        <listitem><para>Takes one of <option>default</option>,
         <option>both</option> or <option>ipv6-only</option>. Controls
         the IPV6_V6ONLY socket option (see
         <citerefentry project='die-net'><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -408,17 +404,17 @@
         incoming traffic. Defaults to <option>false</option>. For
         performance reasons, it is recommended to write new daemons
         only in a way that is suitable for
-        <option>Accept=false</option>. A daemon listening on an
+        <option>Accept=no</option>. A daemon listening on an
         <constant>AF_UNIX</constant> socket may, but does not need to,
         call
         <citerefentry><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         on the received socket before exiting. However, it must not
         unlink the socket from a file system. It should not invoke
         <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        on sockets it got with <varname>Accept=false</varname>, but it
+        on sockets it got with <varname>Accept=no</varname>, but it
         may do so for sockets it got with
-        <varname>Accept=true</varname> set. Setting
-        <varname>Accept=true</varname> is mostly useful to allow
+        <varname>Accept=yes</varname> set. Setting
+        <varname>Accept=yes</varname> is mostly useful to allow
         daemons designed for usage with
         <citerefentry project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         to work unmodified with systemd socket
@@ -442,11 +438,11 @@
         <term><varname>MaxConnections=</varname></term>
         <listitem><para>The maximum number of connections to
         simultaneously run services instances for, when
-        <option>Accept=true</option> is set. If more concurrent
+        <option>Accept=yes</option> is set. If more concurrent
         connections are coming in, they will be refused until at least
         one existing connection is terminated. This setting has no
         effect on sockets configured with
-        <option>Accept=false</option> or datagram sockets. Defaults to
+        <option>Accept=no</option> or datagram sockets. Defaults to
         64.</para></listitem>
       </varlistentry>
 
@@ -854,6 +850,7 @@
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

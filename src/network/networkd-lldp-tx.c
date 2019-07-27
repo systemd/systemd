@@ -1,18 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-***/
 
 #include <endian.h>
 #include <inttypes.h>
+#include <net/if.h>
+#include <net/if_arp.h>
 #include <string.h>
 
 #include "alloc-util.h"
+#include "env-file.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "hostname-util.h"
+#include "missing_network.h"
+#include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
@@ -41,6 +40,21 @@ static const struct ether_addr lldp_multicast_addr[_LLDP_EMIT_MAX] = {
         [LLDP_EMIT_NON_TPMR_BRIDGE] = {{ 0x01, 0x80, 0xc2, 0x00, 0x00, 0x03 }},
         [LLDP_EMIT_CUSTOMER_BRIDGE] = {{ 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 }},
 };
+
+bool link_lldp_emit_enabled(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (link->iftype != ARPHRD_ETHER)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        return link->network->lldp_emit != LLDP_EMIT_NO;
+}
 
 static int lldp_write_tlv_header(uint8_t **p, uint8_t id, size_t sz) {
         assert(p);
@@ -249,7 +263,7 @@ static int link_send_lldp(Link *link) {
                 return r;
 
         (void) gethostname_strict(&hostname);
-        (void) parse_env_file(NULL, "/etc/machine-info", NEWLINE, "PRETTY_HOSTNAME", &pretty_hostname, NULL);
+        (void) parse_env_file(NULL, "/etc/machine-info", "PRETTY_HOSTNAME", &pretty_hostname);
 
         assert_cc(LLDP_TX_INTERVAL_USEC * LLDP_TX_HOLD + 1 <= (UINT16_MAX - 1) * USEC_PER_SEC);
         ttl = DIV_ROUND_UP(LLDP_TX_INTERVAL_USEC * LLDP_TX_HOLD + 1, USEC_PER_SEC);

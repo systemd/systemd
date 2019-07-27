@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2016 Lennart Poettering
-***/
+#include <net/if.h>
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -18,7 +15,7 @@
 static BUS_DEFINE_PROPERTY_GET(property_get_dnssec_supported, "b", Link, link_dnssec_supported);
 static BUS_DEFINE_PROPERTY_GET2(property_get_dnssec_mode, "s", Link, link_get_dnssec_mode, dnssec_mode_to_string);
 
-static int property_get_private_dns_mode(
+static int property_get_dns_over_tls_mode(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -32,7 +29,7 @@ static int property_get_private_dns_mode(
         assert(reply);
         assert(l);
 
-        return sd_bus_message_append(reply, "s", private_dns_mode_to_string(link_get_private_dns_mode(l)));
+        return sd_bus_message_append(reply, "s", dns_over_tls_mode_to_string(link_get_dns_over_tls_mode(l)));
 }
 
 static int property_get_dns(
@@ -112,6 +109,31 @@ static int property_get_domains(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_default_route(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Link *l = userdata;
+
+        assert(reply);
+        assert(l);
+
+        /* Return what is configured, if there's something configured */
+        if (l->default_route >= 0)
+                return sd_bus_message_append(reply, "b", l->default_route);
+
+        /* Otherwise report what is in effect */
+        if (l->unicast_scope)
+                return sd_bus_message_append(reply, "b", dns_scope_is_default_route(l->unicast_scope));
+
+        return sd_bus_message_append(reply, "b", false);
+}
+
 static int property_get_scopes_mask(
                 sd_bus *bus,
                 const char *path,
@@ -170,9 +192,9 @@ static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
         assert(l);
 
         if (l->flags & IFF_LOOPBACK)
-                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is loopback device.", l->name);
+                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is loopback device.", l->ifname);
         if (l->is_managed)
-                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is managed.", l->name);
+                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is managed.", l->ifname);
 
         return 0;
 }
@@ -351,6 +373,31 @@ clear:
         return r;
 }
 
+int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = userdata;
+        int r, b;
+
+        assert(message);
+        assert(l);
+
+        r = verify_unmanaged_link(l, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "b", &b);
+        if (r < 0)
+                return r;
+
+        if (l->default_route != b) {
+                l->default_route = b;
+
+                (void) link_save_user(l);
+                (void) manager_write_resolv_conf(l->manager);
+        }
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Link *l = userdata;
         ResolveSupport mode;
@@ -419,10 +466,10 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_link_method_set_private_dns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Link *l = userdata;
-        const char *private_dns;
-        PrivateDnsMode mode;
+        const char *dns_over_tls;
+        DnsOverTlsMode mode;
         int r;
 
         assert(message);
@@ -432,19 +479,19 @@ int bus_link_method_set_private_dns(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read(message, "s", &private_dns);
+        r = sd_bus_message_read(message, "s", &dns_over_tls);
         if (r < 0)
                 return r;
 
-        if (isempty(private_dns))
-                mode = _PRIVATE_DNS_MODE_INVALID;
+        if (isempty(dns_over_tls))
+                mode = _DNS_OVER_TLS_MODE_INVALID;
         else {
-                mode = private_dns_mode_from_string(private_dns);
+                mode = dns_over_tls_mode_from_string(dns_over_tls);
                 if (mode < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PrivateDNS setting: %s", private_dns);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNSOverTLS setting: %s", dns_over_tls);
         }
 
-        link_set_private_dns_mode(l, mode);
+        link_set_dns_over_tls_mode(l, mode);
 
         (void) link_save_user(l);
 
@@ -555,18 +602,20 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("DNS", "a(iay)", property_get_dns, 0, 0),
         SD_BUS_PROPERTY("CurrentDNSServer", "(iay)", property_get_current_dns_server, offsetof(Link, current_dns_server), 0),
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
+        SD_BUS_PROPERTY("DefaultRoute", "b", property_get_default_route, 0, 0),
         SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Link, llmnr_support), 0),
         SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Link, mdns_support), 0),
-        SD_BUS_PROPERTY("PrivateDNS", "s", property_get_private_dns_mode, 0, 0),
+        SD_BUS_PROPERTY("DNSOverTLS", "s", property_get_dns_over_tls_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", property_get_ntas, 0, 0),
         SD_BUS_PROPERTY("DNSSECSupported", "b", property_get_dnssec_supported, 0, 0),
 
         SD_BUS_METHOD("SetDNS", "a(iay)", NULL, bus_link_method_set_dns_servers, 0),
         SD_BUS_METHOD("SetDomains", "a(sb)", NULL, bus_link_method_set_domains, 0),
+        SD_BUS_METHOD("SetDefaultRoute", "b", NULL, bus_link_method_set_default_route, 0),
         SD_BUS_METHOD("SetLLMNR", "s", NULL, bus_link_method_set_llmnr, 0),
         SD_BUS_METHOD("SetMulticastDNS", "s", NULL, bus_link_method_set_mdns, 0),
-        SD_BUS_METHOD("SetPrivateDNS", "s", NULL, bus_link_method_set_private_dns, 0),
+        SD_BUS_METHOD("SetDNSOverTLS", "s", NULL, bus_link_method_set_dns_over_tls, 0),
         SD_BUS_METHOD("SetDNSSEC", "s", NULL, bus_link_method_set_dnssec, 0),
         SD_BUS_METHOD("SetDNSSECNegativeTrustAnchors", "as", NULL, bus_link_method_set_dnssec_negative_trust_anchors, 0),
         SD_BUS_METHOD("Revert", NULL, NULL, bus_link_method_revert, 0),

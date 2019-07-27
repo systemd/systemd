@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -24,7 +19,7 @@ int dns_search_domain_new(
         assert((type == DNS_SEARCH_DOMAIN_LINK) == !!l);
         assert(name);
 
-        r = dns_name_normalize(name, &normalized);
+        r = dns_name_normalize(name, 0, &normalized);
         if (r < 0)
                 return r;
 
@@ -70,29 +65,14 @@ int dns_search_domain_new(
         return 0;
 }
 
-DnsSearchDomain* dns_search_domain_ref(DnsSearchDomain *d) {
-        if (!d)
-                return NULL;
-
-        assert(d->n_ref > 0);
-        d->n_ref++;
-
-        return d;
-}
-
-DnsSearchDomain* dns_search_domain_unref(DnsSearchDomain *d) {
-        if (!d)
-                return NULL;
-
-        assert(d->n_ref > 0);
-        d->n_ref--;
-
-        if (d->n_ref > 0)
-                return NULL;
+static DnsSearchDomain* dns_search_domain_free(DnsSearchDomain *d) {
+        assert(d);
 
         free(d->name);
         return mfree(d);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsSearchDomain, dns_search_domain, dns_search_domain_free);
 
 void dns_search_domain_unlink(DnsSearchDomain *d) {
         assert(d);

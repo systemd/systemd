@@ -1,8 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-#  This file is part of systemd.
-#
-#  Copyright 2012 Lennart Poettering
 
 # Message catalog for systemd's own messages
 
@@ -56,7 +52,8 @@ dropped, other services' messages are unaffected.
 
 The limits controlling when messages are dropped may be configured
 with RateLimitIntervalSec= and RateLimitBurst= in
-/etc/systemd/journald.conf. See journald.conf(5) for details.
+/etc/systemd/journald.conf or LogRateLimitIntervalSec= and LogRateLimitBurst=
+in the unit file. See journald.conf(5) and systemd.exec(5) for details.
 
 -- e9bf28e6e834481bb6f48f548ad13606
 Subject: Journal messages have been missed
@@ -192,59 +189,67 @@ System shutdown has been initiated. The shutdown has now begun and
 all system services are terminated and all file systems unmounted.
 
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
-Subject: Unit @UNIT@ has begun start-up
+Subject: A start job for unit @UNIT@ has begun execution
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Unit @UNIT@ has begun starting up.
+A start job for unit @UNIT@ has begun execution.
+
+The job identifier is @JOB_ID@.
 
 -- 39f53479d3a045ac8e11786248231fbf
-Subject: Unit @UNIT@ has finished start-up
+Subject: A start job for unit @UNIT@ has finished successfully
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Unit @UNIT@ has finished starting up.
+A start job for unit @UNIT@ has finished successfully.
 
-The start-up result is @RESULT@.
-
--- de5b426a63be47a7b6ac3eaac82e2f6f
-Subject: Unit @UNIT@ has begun shutting down
-Defined-By: systemd
-Support: %SUPPORT_URL%
-
-Unit @UNIT@ has begun shutting down.
-
--- 9d1aaa27d60140bd96365438aad20286
-Subject: Unit @UNIT@ has finished shutting down
-Defined-By: systemd
-Support: %SUPPORT_URL%
-
-Unit @UNIT@ has finished shutting down.
+The job identifier is @JOB_ID@.
 
 -- be02cf6855d2428ba40df7e9d022f03d
-Subject: Unit @UNIT@ has failed
+Subject: A start job for unit @UNIT@ has failed
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Unit @UNIT@ has failed.
+A start job for unit @UNIT@ has finished with a failure.
 
-The result is @RESULT@.
+The job identifier is @JOB_ID@ and the job result is @JOB_RESULT@.
+
+-- de5b426a63be47a7b6ac3eaac82e2f6f
+Subject: A stop job for unit @UNIT@ has begun execution
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A stop job for unit @UNIT@ has begun execution.
+
+The job identifier is @JOB_ID@.
+
+-- 9d1aaa27d60140bd96365438aad20286
+Subject: A stop job for unit @UNIT@ has finished
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A stop job for unit @UNIT@ has finished.
+
+The job identifier is @JOB_ID@ and the job result is @JOB_RESULT@.
 
 -- d34d037fff1847e6ae669a370e694725
-Subject: Unit @UNIT@ has begun reloading its configuration
+Subject: A reload job for unit @UNIT@ has begun execution
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Unit @UNIT@ has begun reloading its configuration
+A reload job for unit @UNIT@ has begun execution.
+
+The job identifier is @JOB_ID@.
 
 -- 7b05ebc668384222baa8881179cfda54
-Subject: Unit @UNIT@ has finished reloading its configuration
+Subject: A reload job for unit @UNIT@ has finished
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Unit @UNIT@ has finished reloading its configuration
+A reload job for unit @UNIT@ has finished.
 
-The result is @RESULT@.
+The job identifier is @JOB_ID@ and the job result is @JOB_RESULT@.
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Process @EXECUTABLE@ could not be executed
@@ -347,6 +352,37 @@ Support: %SUPPORT_URL%
 
 The unit @UNIT@ completed and consumed the indicated resources.
 
+-- 7ad2d189f7e94e70a38c781354912448
+Subject: Unit succeeded
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The unit @UNIT@ has successfully entered the 'dead' state.
+
+-- 0e4284a0caca4bfc81c0bb6786972673
+Subject: Unit skipped
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The unit @UNIT@ was skipped due to an ExecCondition= command failure, and has
+entered the 'dead' state with result '@UNIT_RESULT@'.
+
+-- d9b373ed55a64feb8242e02dbe79a49c
+Subject: Unit failed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The unit @UNIT@ has entered the 'failed' state with result '@UNIT_RESULT@'.
+
+-- 98e322203f7a4ed290d09fe03c09fe15
+Subject: Unit process exited
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+An @COMMAND@= process belonging to unit @UNIT@ has exited.
+
+The process' exit code is '@EXIT_CODE@' and its exit status is @EXIT_STATUS@.
+
 -- 50876a9db00f4c40bde1a2ad381c3a1b
 Subject: The system is configured in a way that might cause problems
 Defined-By: systemd
@@ -356,10 +392,23 @@ The following "tags" are possible:
 - "split-usr" — /usr is a separate file system and was not mounted when systemd
   was booted
 - "cgroups-missing" — the kernel was compiled without cgroup support or access
-  to expected interface files is resticted
+  to expected interface files is restricted
 - "var-run-bad" — /var/run is not a symlink to /run
 - "overflowuid-not-65534" — the kernel user ID used for "unknown" users (with
   NFS or user namespaces) is not 65534
 - "overflowgid-not-65534" — the kernel group ID used for "unknown" users (with
   NFS or user namespaces) is not 65534
 Current system is tagged as @TAINT@.
+
+-- fe6faa94e7774663a0da52717891d8ef
+Subject: A process of @UNIT@ unit has been killed by the OOM killer.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A process of unit @UNIT has been killed by the Linux kernel out-of-memory (OOM)
+killer logic. This usually indicates that the system is low on memory and that
+memory needed to be freed. A process associated with @UNIT@ has been determined
+as the best process to terminate and has been forcibly terminated by the
+kernel.
+
+Note that the memory pressure might or might not have been caused by @UNIT@.

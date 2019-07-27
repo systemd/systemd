@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -13,10 +8,11 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "string-util.h"
+#include "tests.h"
+#include "tmpfile-util.h"
 #include "xattr-util.h"
 
 static void test_fgetxattrat_fake(void) {
@@ -83,9 +79,7 @@ static void test_getcrtime(void) {
 }
 
 int main(void) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_fgetxattrat_fake();
         test_getcrtime();

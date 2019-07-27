@@ -1,17 +1,10 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemctl"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -19,15 +12,6 @@
   <refentryinfo>
     <title>systemctl</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -149,6 +133,10 @@
           <para>When listing units with <command>list-dependencies</command>, recursively show
           dependencies of all dependent units (by default only dependencies of target units are
           shown).</para>
+
+          <para>When used with <command>status</command>, show journal messages in full, even if they include
+          unprintable characters or are very long. By default, fields with unprintable characters are
+          abbreviated as "blob data". (Note that the pager may escape unprintable characters again.)</para>
         </listitem>
       </varlistentry>
 
@@ -312,6 +300,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-T</option></term>
+        <term><option>--show-transaction</option></term>
+
+        <listitem>
+          <para>When enqueuing a unit job (for example as effect of a <command>systemctl start</command>
+          invocation or similar), show brief information about all jobs enqueued, covering both the requested
+          job and any added because of unit dependencies. Note that the output will only include jobs
+          immediately part of the transaction requested. It is possible that service start-up program code
+          run as effect of the enqueued jobs might request further jobs to be pulled in. This means that
+          completion of the listed jobs might ultimately entail more jobs than the listed ones.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--fail</option></term>
 
         <listitem>
@@ -327,18 +329,13 @@
         <term><option>--ignore-inhibitors</option></term>
 
         <listitem>
-          <para>When system shutdown or a sleep state is requested,
-          ignore inhibitor locks. Applications can establish inhibitor
-          locks to avoid that certain important operations (such as CD
-          burning or suchlike) are interrupted by system shutdown or a
-          sleep state. Any user may take these locks and privileged
-          users may override these locks. If any locks are taken,
-          shutdown and sleep state requests will normally fail
-          (regardless of whether privileged or not) and a list of active locks
-          is printed. However, if <option>--ignore-inhibitors</option>
-          is specified, the locks are ignored and not printed, and the
-          operation attempted anyway, possibly requiring additional
-          privileges.</para>
+          <para>When system shutdown or a sleep state is requested, ignore inhibitor locks. Applications can establish
+          inhibitor locks to avoid that certain important operations (such as CD burning or suchlike) are interrupted
+          by system shutdown or a sleep state. Any user may take these locks and privileged users may override these
+          locks. If any locks are taken, shutdown and sleep state requests will normally fail (unless privileged) and a
+          list of active locks is printed. However, if <option>--ignore-inhibitors</option> is specified, the
+          established locks are ignored and not shown, and the operation attempted anyway, possibly requiring
+          additional privileges.</para>
         </listitem>
       </varlistentry>
 
@@ -348,8 +345,8 @@
         <listitem>
           <para>Just print what would be done. Currently supported by verbs
           <command>halt</command>, <command>poweroff</command>, <command>reboot</command>,
-          <command>kexec</command>, <command>suspend</command>,
-          <command>hibernate</command>, <command>hybrid-sleep</command>,
+          <command>kexec</command>, <command>suspend</command>, <command>hibernate</command>,
+          <command>hybrid-sleep</command>, <command>suspend-then-hibernate</command>,
           <command>default</command>, <command>rescue</command>,
           <command>emergency</command>, and <command>exit</command>.</para>
         </listitem>
@@ -390,6 +387,9 @@
           Note that this will wait forever if any given unit never terminates
           (by itself or by getting stopped explicitly); particularly services
           which use <literal>RemainAfterExit=yes</literal>.</para>
+
+          <para>When used with <command>is-system-running</command>, wait
+          until the boot process is completed before returning.</para>
         </listitem>
       </varlistentry>
 
@@ -507,6 +507,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--what=</option></term>
+
+        <listitem>
+          <para>Select what type of per-unit resources to remove when the <command>clean</command> command is
+          invoked, see below. Takes one of <constant>configuration</constant>, <constant>state</constant>,
+          <constant>cache</constant>, <constant>logs</constant>, <constant>runtime</constant> to select the
+          type of resource. This option may be specified more than once, in which case all specified resource
+          types are removed. Also accepts the special value <constant>all</constant> as a shortcut for
+          specifiying all five resource types. If this option is not specified defaults to the combination of
+          <constant>cache</constant> and <constant>runtime</constant>, i.e. the two kinds of resources that
+          are generally considered to be redundant and can be reconstructed on next invocation.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-f</option></term>
         <term><option>--force</option></term>
 
@@ -570,19 +585,19 @@
         <term><option>--runtime</option></term>
 
         <listitem>
-          <para>When used with <command>set-property</command>, make changes only
-          temporarily, so that they are lost on the next reboot.</para>
-
-          <para>Similarily, when used with <command>enable</command>, <command>mask</command>,
-          <command>edit</command> and related commands, make temporary changes, which are lost on
-          the next reboot. Changes are not made in subdirectories of <filename>/etc</filename>, but
-          in <filename>/run</filename>. The immediate effect is identical, however since the latter
+          <para>When used with <command>enable</command>,
+          <command>disable</command>, <command>edit</command>,
+          (and related commands), make changes only temporarily, so
+          that they are lost on the next reboot. This will have the
+          effect that changes are not made in subdirectories of
+          <filename>/etc</filename> but in <filename>/run</filename>,
+          with identical immediate effects, however, since the latter
           is lost on reboot, the changes are lost too.</para>
 
-          <para>Note: this option cannot be used with <command>disable</command>,
-          <command>unmask</command>, <command>preset</command>, or <command>preset-all</command>,
-          because those operations sometimes need to remove symlinks under <filename>/etc</filename>
-          to have the desired effect, which would cause a persistent change.</para>
+          <para>Similarly, when used with
+          <command>set-property</command>, make changes only
+          temporarily, so that they are lost on the next
+          reboot.</para>
         </listitem>
       </varlistentry>
 
@@ -605,9 +620,8 @@
         <term><option>--lines=</option></term>
 
         <listitem>
-          <para>When used with <command>status</command>, controls the
-          number of journal lines to show, counting from the most
-          recent ones. Takes a positive integer argument. Defaults to
+          <para>When used with <command>status</command>, controls the number of journal lines to show, counting from
+          the most recent ones. Takes a positive integer argument, or 0 to disable journal output. Defaults to
           10.</para>
         </listitem>
       </varlistentry>
@@ -629,11 +643,30 @@
         <term><option>--firmware-setup</option></term>
 
         <listitem>
-          <para>When used with the <command>reboot</command> command,
-          indicate to the system's firmware to boot into setup
-          mode. Note that this is currently only supported on some EFI
-          systems and only if the system was booted in EFI
-          mode.</para>
+          <para>When used with the <command>reboot</command> command, indicate to the system's firmware to reboot into
+          the firmware setup interface. Note that this functionality is not available on all systems.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--boot-loader-menu=</option></term>
+
+        <listitem>
+          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to show the
+          boot loader menu on the following boot. Takes a time value as parameter — indicating the menu time-out. Pass
+          zero in order to disable the menu time-out. Note that not all boot loaders support this
+          functionality.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--boot-loader-entry=</option></term>
+
+        <listitem>
+          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to boot into
+          a specific boot loader entry on the following boot. Takes a boot loader entry identifier as argument, or
+          <literal>help</literal> in order to list available entries. Note that not all boot loaders support this
+          functionality.</para>
         </listitem>
       </varlistentry>
 
@@ -668,7 +701,7 @@
 
       <variablelist>
         <varlistentry>
-          <term><command>list-units <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
+          <term><command>list-units</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
             <para>List units that <command>systemd</command> currently has in memory. This includes units that are
@@ -686,8 +719,8 @@
   boot-efi.mount               loaded active mounted /boot/efi
   systemd-journald.service     loaded active running Journal Service
   systemd-logind.service       loaded active running Login Service
-● user@1000.service            loaded active running User Manager for UID 1000
-…
+● user@1000.service            loaded failed failed  User Manager for UID 1000
+  …
   systemd-tmpfiles-clean.timer loaded active waiting Daily Cleanup of Temporary Directories
 
 LOAD   = Reflects whether the unit definition was properly loaded.
@@ -716,7 +749,7 @@ To show all installed unit files use 'systemctl list-unit-files'.
         </varlistentry>
 
         <varlistentry>
-          <term><command>list-sockets <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
+          <term><command>list-sockets</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
             <para>List socket units currently in memory, ordered by listening address.  If one or more
@@ -739,7 +772,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>list-timers <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
+          <term><command>list-timers</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
             <para>List timer units currently in memory, ordered by the time they elapse next. If one or more
@@ -783,8 +816,14 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           <term><command>stop <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
-            <para>Stop (deactivate) one or more units specified on the
-            command line.</para>
+            <para>Stop (deactivate) one or more units specified on the command line.</para>
+
+            <para>This command will fail if the unit does exist or if stopping of the unit is prohibited (see
+            <varname>RefuseManualStop=</varname> in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+            It will <emphasis>not</emphasis> fail if any of the commands configured to stop the unit
+            (<varname>ExecStop=</varname>, etc.) fail, because the manager will still forcibly terminate the
+            unit.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -816,7 +855,7 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
 
             <para>Note that restarting a unit with this command does not necessarily flush out all of the unit's
             resources before it is started again. For example, the per-service file descriptor storage facility (see
-            <varname>FileDescriptoreStoreMax=</varname> in
+            <varname>FileDescriptorStoreMax=</varname> in
             <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>) will
             remain intact as long as the unit has a job pending, and is only cleared when the unit is fully stopped and
             no jobs are pending anymore. If it is intended that the file descriptor store is flushed out, too, during a
@@ -884,6 +923,24 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             unit. Use <option>--kill-who=</option> to select which
             process to kill. Use <option>--signal=</option> to select
             the signal to send.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>clean <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Remove the configuration, state, cache, logs or runtime data of the specified units. Use
+            <option>--what=</option> to select which kind of resource to remove. For service units this may
+            be used to remove the directories configured with <varname>ConfigurationDirectory=</varname>,
+            <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>,
+            <varname>LogsDirectory=</varname> and <varname>RuntimeDirectory=</varname>, see
+            <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details. For timer units this may be used to clear out the persistent timestamp data if
+            <varname>Persistent=</varname> is used and <option>--what=state</option> is selected, see
+            <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+            command only applies to units that use either of these settings. If <option>--what=</option> is
+            not specified, both the cache and runtime data are removed (as these two types of data are
+            generally redundant and reproducible on the next invocation of the unit).</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1040,18 +1097,22 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             next reboot. The syntax of the property assignment follows
             closely the syntax of assignments in unit files.</para>
 
-            <para>Example: <command>systemctl set-property foobar.service CPUShares=777</command></para>
+            <para>Example: <command>systemctl set-property foobar.service CPUWeight=200</command></para>
 
             <para>If the specified unit appears to be inactive, the
             changes will be only stored on disk as described
             previously hence they will be effective when the unit will
             be started.</para>
 
-            <para>Note that this command allows changing multiple
-            properties at the same time, which is preferable over
-            setting them individually. Like with unit file configuration
-            settings, assigning an empty list will reset the property.
-            </para>
+            <para>Note that this command allows changing multiple properties at the same time, which is
+            preferable over setting them individually.</para>
+
+            <para>Example: <command>systemctl set-property foobar.service CPUWeight=200 MemoryMax=2G IPAccounting=yes</command></para>
+
+            <para>Like with unit file configuration settings, assigning an empty setting usually resets a
+            property to its defaults.</para>
+
+            <para>Example: <command>systemctl set-property avahi-daemon.service IPAddressDeny=</command></para>
           </listitem>
         </varlistentry>
 
@@ -1074,6 +1135,12 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             terminating abnormally or timing out), it will automatically enter the <literal>failed</literal> state and
             its exit code and status is recorded for introspection by the administrator until the service is
             stopped/re-started or reset with this command.</para>
+
+            <para>In addition to resetting the <literal>failed</literal> state of a unit it also resets various other
+            per-unit properties: the start rate limit counter of all unit types is reset to zero, as is the restart
+            counter of service units. Thus, if a unit's start limit (as configured with
+            <varname>StartLimitIntervalSec=</varname>/<varname>StartLimitBurst=</varname>) is hit and the unit refuses
+            to be started again, use this command to make it startable again.</para>
           </listitem>
         </varlistentry>
 
@@ -1101,6 +1168,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <option>--after</option>, <option>--before</option>
             may be used to change what types of dependencies
             are shown.</para>
+
+            <para>Note that this command only lists units currently loaded into memory by the service manager. In
+            particular, this command is not suitable to get a comprehensive list at all reverse dependencies on a
+            specific unit, as it won't list the dependencies declared by units currently not loaded.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1111,7 +1182,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
       <variablelist>
         <varlistentry>
-          <term><command>list-unit-files <optional><replaceable>PATTERN…</replaceable></optional></command></term>
+          <term><command>list-unit-files</command> <optional><replaceable>PATTERN…</replaceable></optional></term>
 
           <listitem>
             <para>List unit files installed on the system, in combination with their enablement state (as reported by
@@ -1313,7 +1384,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                   </row>
                   <row>
                     <entry><literal>indirect</literal></entry>
-                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> unit file section, listing other unit files that might be enabled, or it has an alias under a different name through a symlink that is not specified in Also=. For template unit file, an instance different than the one specified in <varname>DefaultInstance=</varname> is enabled.</entry>
+                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> unit file section, listing other unit files that might be enabled, or it has an alias under a different name through a symlink that is not specified in <varname>Also=</varname>. For template unit file, an instance different than the one specified in <varname>DefaultInstance=</varname> is enabled.</entry>
                     <entry>0</entry>
                   </row>
                   <row>
@@ -1490,7 +1561,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
       <variablelist>
         <varlistentry>
-          <term><command>list-machines <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
+          <term><command>list-machines</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
             <para>List the host and all running local containers with
@@ -1654,6 +1725,15 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             output, see the table below. Use <option>--quiet</option> to
             suppress this output.</para>
 
+            <para>Use <option>--wait</option> to wait until the boot
+            process is completed before printing the current state and
+            returning the appropriate error status. If <option>--wait</option>
+            is in use, states <varname>initializing</varname> or
+            <varname>starting</varname> will not be reported, instead
+            the command will block until a later state (such as
+            <varname>running</varname> or <varname>degraded</varname>)
+            is reached.</para>
+
             <table>
               <title><command>is-system-running</command> output</title>
               <tgroup cols='3'>
@@ -1792,7 +1872,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>reboot <optional><replaceable>arg</replaceable></optional></command></term>
+          <term><command>reboot</command> <optional><replaceable>arg</replaceable></optional></term>
 
           <listitem>
             <para>Shut down and reboot the system. This is mostly equivalent to <command>systemctl start reboot.target
@@ -1832,7 +1912,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>exit <optional><replaceable>EXIT_CODE</replaceable></optional></command></term>
+          <term><command>exit</command> <optional><replaceable>EXIT_CODE</replaceable></optional></term>
 
           <listitem>
             <para>Ask the service manager to quit. This is only supported for user service managers (i.e. in
@@ -1846,7 +1926,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>switch-root <replaceable>ROOT</replaceable> <optional><replaceable>INIT</replaceable></optional></command></term>
+          <term><command>switch-root</command> <replaceable>ROOT</replaceable> <optional><replaceable>INIT</replaceable></optional></term>
 
           <listitem>
             <para>Switches to a different root directory and executes a new system manager process below it. This is
@@ -1888,6 +1968,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Hibernate and suspend the system. This will trigger activation of the special target unit
             <filename>hybrid-sleep.target</filename>. This command is asynchronous, and will return after the hybrid
             sleep operation is successfully enqueued. It will not wait for the sleep/wake-up cycle to complete.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>suspend-then-hibernate</command></term>
+
+          <listitem>
+            <para>Suspend the system and hibernate it after the delay specified in <filename>systemd-sleep.conf</filename>.
+            This will trigger activation of the special target unit <filename>suspend-then-hibernate.target</filename>.
+            This command is asynchronous, and will return after the hybrid sleep operation is successfully enqueued.
+            It will not wait for the sleep/wake-up or hibernate/thaw cycle to complete.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1946,8 +2037,56 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned, a non-zero failure
-    code otherwise.</para>
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+
+    <para><command>systemctl</command> uses the return codes defined by LSB, as defined in
+    <ulink url="http://refspecs.linuxbase.org/LSB_3.0.0/LSB-PDA/LSB-PDA/iniscrptact.html">LSB 3.0.0</ulink>.
+    </para>
+
+    <table>
+      <title>LSB return codes</title>
+
+      <tgroup cols='3'>
+        <thead>
+          <row>
+            <entry>Value</entry>
+            <entry>Description in LSB</entry>
+            <entry>Use in systemd</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><constant>0</constant></entry>
+            <entry>"program is running or service is OK"</entry>
+            <entry>unit is active</entry>
+          </row>
+          <row>
+            <entry><constant>1</constant></entry>
+            <entry>"program is dead and <filename>/var/run</filename> pid file exists"</entry>
+            <entry>unit <emphasis>not</emphasis> failed (used by <command>is-failed</command>)</entry>
+          </row>
+          <row>
+            <entry><constant>2</constant></entry>
+            <entry>"program is dead and <filename>/var/lock</filename> lock file exists"</entry>
+            <entry>unused</entry>
+          </row>
+          <row>
+            <entry><constant>3</constant></entry>
+            <entry>"program is not running"</entry>
+            <entry>unit is not active</entry>
+          </row>
+          <row>
+            <entry><constant>4</constant></entry>
+            <entry>"program or service status is unknown"</entry>
+            <entry>no such unit</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>The mapping of LSB service states to systemd unit states is imperfect, so it is better to
+    not rely on those return values but to look for specific unit states and substates instead.
+    </para>
   </refsect1>
 
   <refsect1>

@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 #include <sys/prctl.h>
 
@@ -19,6 +14,7 @@
 #include "process-util.h"
 #include "pull-common.h"
 #include "pull-job.h"
+#include "rlimit-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "siphash24.h"
@@ -65,8 +61,8 @@ int pull_find_old_etags(
         }
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
+                _cleanup_free_ char *u = NULL;
                 const char *a, *b;
-                char *u;
 
                 if (de->d_type != DT_UNKNOWN &&
                     de->d_type != dt)
@@ -101,12 +97,10 @@ int pull_find_old_etags(
                 if (r < 0)
                         return r;
 
-                if (!http_etag_is_valid(u)) {
-                        free(u);
+                if (!http_etag_is_valid(u))
                         continue;
-                }
 
-                r = strv_consume(&l, u);
+                r = strv_consume(&l, TAKE_PTR(u));
                 if (r < 0)
                         return r;
         }
@@ -126,7 +120,7 @@ int pull_make_local_copy(const char *final, const char *image_root, const char *
         if (!image_root)
                 image_root = "/var/lib/machines";
 
-        p = strjoina(image_root, "/", local);
+        p = prefix_roota(image_root, local);
 
         if (force_local)
                 (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
@@ -343,10 +337,9 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
         if (r < 0)
                 return log_oom();
 
-        if (!filename_is_valid(fn)) {
-                log_error("Cannot verify checksum, could not determine server-side file name.");
-                return -EBADMSG;
-        }
+        if (!filename_is_valid(fn))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Cannot verify checksum, could not determine server-side file name.");
 
         line = strjoina(job->checksum, " *", fn, "\n");
 
@@ -364,10 +357,9 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
                         strlen(line));
         }
 
-        if (!p || (p != (char*) checksum_job->payload && p[-1] != '\n')) {
-                log_error("DOWNLOAD INVALID: Checksum of %s file did not checkout, file has been tampered with.", fn);
-                return -EBADMSG;
-        }
+        if (!p || (p != (char*) checksum_job->payload && p[-1] != '\n'))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "DOWNLOAD INVALID: Checksum of %s file did not checkout, file has been tampered with.", fn);
 
         log_info("SHA256 checksum of %s is valid.", job->url);
         return 1;
@@ -442,7 +434,7 @@ int pull_verify(PullJob *main_job,
         }
 
         if (!mkdtemp(gpg_home)) {
-                r = log_error_errno(errno, "Failed to create tempory home for gpg: %m");
+                r = log_error_errno(errno, "Failed to create temporary home for gpg: %m");
                 goto finish;
         }
 
@@ -478,6 +470,8 @@ int pull_verify(PullJob *main_job,
                         log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
+
+                (void) rlimit_nofile_safe();
 
                 cmd[k++] = strjoina("--homedir=", gpg_home);
 
@@ -525,8 +519,7 @@ int pull_verify(PullJob *main_job,
         }
 
 finish:
-        if (sig_file >= 0)
-                (void) unlink(sig_file_path);
+        (void) unlink(sig_file_path);
 
         if (gpg_home_created)
                 (void) rm_rf(gpg_home, REMOVE_ROOT|REMOVE_PHYSICAL);

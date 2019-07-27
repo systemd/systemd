@@ -1,29 +1,13 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
--->
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-sleep.conf"
           xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd-sleep.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -125,7 +109,25 @@
     <filename>/etc/systemd/sleep.conf</filename> or a
     <filename>sleep.conf.d</filename> file:</para>
 
-    <variablelist class='systemd-directives'>
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>AllowSuspend=</varname></term>
+        <term><varname>AllowHibernation=</varname></term>
+        <term><varname>AllowSuspendThenHibernate=</varname></term>
+        <term><varname>AllowHybridSleep=</varname></term>
+
+        <listitem><para>By default any power-saving mode is advertised if possible (i.e.
+        the kernel supports that mode, the necessary resources are available). Those
+        switches can be used to disable specific modes.</para>
+
+        <para>If <varname>AllowHibernation=no</varname> or <varname>AllowSuspend=no</varname> is
+        used, this implies <varname>AllowSuspendThenHibernate=no</varname> and
+        <varname>AllowHybridSleep=no</varname>, since those methods use both suspend and hibernation
+        internally. <varname>AllowSuspendThenHibernate=yes</varname> and
+        <varname>AllowHybridSleep=yes</varname> can be used to override and enable those specific
+        modes.</para></listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><varname>SuspendMode=</varname></term>
         <term><varname>HibernateMode=</varname></term>

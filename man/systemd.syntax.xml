@@ -1,10 +1,9 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.syntax">
@@ -12,15 +11,6 @@
   <refentryinfo>
     <title>systemd.syntax</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>A. U. Thor</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -75,14 +65,15 @@
 
     <para>Each file is a plain text file divided into sections, with configuration entries in the
     style <replaceable>key</replaceable>=<replaceable>value</replaceable>.
-    Empty lines and lines starting with <literal>#</literal> or <literal>;</literal> are
+    Whitespace immediately before or after the <literal>=</literal> is ignored. Empty lines and lines starting with <literal>#</literal> or <literal>;</literal> are
     ignored, which may be used for commenting.</para>
 
     <para>Lines ending in a backslash are concatenated with the following line while reading and the
     backslash is replaced by a space character. This may be used to wrap long lines. The limit on
     line length is very large (currently 1 MB), but it is recommended to avoid such long lines and
     use multiple directives, variable substitution, or other mechanism as appropriate for the given
-    file type.</para>
+    file type. When a comment line or lines follow a line ending with a backslash, the comment block
+    is ignored, so the continued line is concatenated with whatever follows the comment block.</para>
 
     <example><programlisting>[Section A]
 KeyOne=value 1
@@ -94,7 +85,30 @@ KeyTwo=value 2
 Setting="something" "some thing" "…"
 KeyTwo=value 2 \
        value 2 continued
+
+[Section C]
+KeyThree=value 2\
+# this line is ignored
+; this line is ignored too
+       value 2 continued
 </programlisting></example>
+
+    <para>Boolean arguments used in configuration files can be written in
+    various formats. For positive settings the strings
+    <option>1</option>, <option>yes</option>, <option>true</option>
+    and <option>on</option> are equivalent. For negative settings, the
+    strings <option>0</option>, <option>no</option>,
+    <option>false</option> and <option>off</option> are
+    equivalent.</para>
+
+    <para>Time span values encoded in configuration files can be written in various formats. A stand-alone
+    number specifies a time in seconds.  If suffixed with a time unit, the unit is honored. A
+    concatenation of multiple values with units is supported, in which case the values are added
+    up. Example: <literal>50</literal> refers to 50 seconds; <literal>2min 200ms</literal> refers to
+    2 minutes and 200 milliseconds, i.e. 120200 ms.  The following time units are understood:
+    <literal>s</literal>, <literal>min</literal>, <literal>h</literal>, <literal>d</literal>,
+    <literal>w</literal>, <literal>ms</literal>, <literal>us</literal>.  For details see
+    <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
     <para>Various settings are allowed to be specified more than once, in which case the
     interpretation depends on the setting. Often, multiple settings form a list, and setting to an
@@ -102,6 +116,13 @@ KeyTwo=value 2 \
     it is mentioned in the description of the setting. Note that using multiple assignments to the
     same value makes the file incompatible with parsers for the XDG <filename>.desktop</filename>
     file format.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
   </refsect1>
 
 </refentry>

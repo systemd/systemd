@@ -1,10 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -17,17 +11,16 @@
 #include "catalog.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "fileio.h"
 #include "log.h"
 #include "macro.h"
+#include "path-util.h"
 #include "string-util.h"
+#include "strv.h"
+#include "tests.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
-static const char *catalog_dirs[] = {
-        CATALOG_DIR,
-        NULL,
-};
-
+static char** catalog_dirs = NULL;
 static const char *no_catalog_dirs[] = {
         "/bin/hopefully/with/no/catalog",
         NULL
@@ -173,8 +166,8 @@ static void test_catalog_update(const char *database) {
         assert_se(r == 0);
 
         /* Make sure that we at least have some files loaded or the
-           catalog_list below will fail. */
-        r = catalog_update(database, NULL, catalog_dirs);
+         * catalog_list below will fail. */
+        r = catalog_update(database, NULL, (const char * const *) catalog_dirs);
         assert_se(r == 0);
 }
 
@@ -213,8 +206,14 @@ int main(int argc, char *argv[]) {
 
         setlocale(LC_ALL, "de_DE.UTF-8");
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
+
+        /* If test-catalog is located at the build directory, then use catalogs in that.
+         * If it is not, e.g. installed by systemd-tests package, then use installed catalogs. */
+        catalog_dirs = STRV_MAKE(get_catalog_dir());
+
+        assert_se(access(catalog_dirs[0], F_OK) >= 0);
+        log_notice("Using catalog directory '%s'", catalog_dirs[0]);
 
         test_catalog_file_lang();
 

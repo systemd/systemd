@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include "alloc-util.h"
 #include "journal-remote.h"
@@ -39,7 +34,7 @@ Writer* writer_new(RemoteServer *server) {
         return w;
 }
 
-Writer* writer_free(Writer *w) {
+static Writer* writer_free(Writer *w) {
         if (!w)
                 return NULL;
 
@@ -59,23 +54,12 @@ Writer* writer_free(Writer *w) {
         return mfree(w);
 }
 
-Writer* writer_unref(Writer *w) {
-        if (w && (-- w->n_ref <= 0))
-                writer_free(w);
-
-        return NULL;
-}
-
-Writer* writer_ref(Writer *w) {
-        if (w)
-                assert_se(++ w->n_ref >= 2);
-
-        return w;
-}
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Writer, writer, writer_free);
 
 int writer_write(Writer *w,
                  struct iovec_wrapper *iovw,
                  dual_timestamp *ts,
+                 sd_id128_t *boot_id,
                  bool compress,
                  bool seal) {
         int r;
@@ -92,7 +76,7 @@ int writer_write(Writer *w,
                         return r;
         }
 
-        r = journal_file_append_entry(w->journal, ts, NULL,
+        r = journal_file_append_entry(w->journal, ts, boot_id,
                                       iovw->iovec, iovw->count,
                                       &w->seqnum, NULL, NULL);
         if (r >= 0) {
@@ -110,7 +94,7 @@ int writer_write(Writer *w,
                 log_debug("%s: Successfully rotated journal", w->journal->path);
 
         log_debug("Retrying write.");
-        r = journal_file_append_entry(w->journal, ts, NULL,
+        r = journal_file_append_entry(w->journal, ts, boot_id,
                                       iovw->iovec, iovw->count,
                                       &w->seqnum, NULL, NULL);
         if (r < 0)

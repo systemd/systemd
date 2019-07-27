@@ -1,29 +1,13 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2016 Zbigniew Jędrzejewski-Szmek
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="journal-upload.conf" conditional='HAVE_MICROHTTPD'
           xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>journal-upload.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Monkey with a keyboard</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -61,7 +45,7 @@
 
     <para>All options are configured in the <literal>[Upload]</literal> section:</para>
 
-    <variablelist>
+    <variablelist class='config-directives'>
       <varlistentry>
         <term><varname>URL=</varname></term>
 

@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-  Copyright 2013 Kay Sievers
-***/
 
 #include <errno.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #if HAVE_XKBCOMMON
@@ -25,31 +21,33 @@
 #include "keymap-util.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "main-func.h"
+#include "missing_capability.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
-
-static Hashmap *polkit_registry = NULL;
 
 static int locale_update_system_manager(Context *c, sd_bus *bus) {
         _cleanup_free_ char **l_unset = NULL;
         _cleanup_strv_free_ char **l_set = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus_error error = SD_BUS_ERROR_NULL;
-        unsigned c_set, c_unset, p;
+        size_t c_set, c_unset;
+        LocaleVariable p;
         int r;
 
         assert(bus);
 
         l_unset = new0(char*, _VARIABLE_LC_MAX);
         if (!l_unset)
-                return -ENOMEM;
+                return log_oom();
 
         l_set = new0(char*, _VARIABLE_LC_MAX);
         if (!l_set)
-                return -ENOMEM;
+                return log_oom();
 
         for (p = 0, c_set = 0, c_unset = 0; p < _VARIABLE_LC_MAX; p++) {
                 const char *name;
@@ -62,8 +60,9 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
                 else {
                         char *s;
 
-                        if (asprintf(&s, "%s=%s", name, c->locale[p]) < 0)
-                                return -ENOMEM;
+                        s = strjoin(name, "=", c->locale[p]);
+                        if (!s)
+                                return log_oom();
 
                         l_set[c_unset++] = s;
                 }
@@ -76,19 +75,19 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
                         "org.freedesktop.systemd1.Manager",
                         "UnsetAndSetEnvironment");
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_append_strv(m, l_unset);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_append_strv(m, l_set);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, NULL);
         if (r < 0)
-                log_error_errno(r, "Failed to update the manager environment, ignoring: %m");
+                return log_error_errno(r, "Failed to update the manager environment: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -109,8 +108,9 @@ static int vconsole_reload(sd_bus *bus) {
                         "ss", "systemd-vconsole-setup.service", "replace");
 
         if (r < 0)
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
-        return r;
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+
+        return 0;
 }
 
 static int vconsole_convert_to_x11_and_emit(Context *c, sd_bus_message *m) {
@@ -257,20 +257,13 @@ static int property_get_xkb(
         return -EINVAL;
 }
 
-static void locale_free(char ***l) {
-        int p;
-
-        for (p = 0; p < _VARIABLE_LC_MAX; p++)
-                (*l)[p] = mfree((*l)[p]);
-}
-
 static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        Context *c = userdata;
+        _cleanup_(locale_variables_freep) char *new_locale[_VARIABLE_LC_MAX] = {};
         _cleanup_strv_free_ char **settings = NULL, **l = NULL;
-        char *new_locale[_VARIABLE_LC_MAX] = {}, **i;
-        _cleanup_(locale_free) _unused_ char **dummy = new_locale;
+        Context *c = userdata;
         bool modified = false;
         int interactive, p, r;
+        char **i;
 
         assert(m);
         assert(c);
@@ -371,7 +364,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                         NULL,
                         interactive,
                         UID_INVALID,
-                        &polkit_registry,
+                        &c->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -442,7 +435,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         NULL,
                         interactive,
                         UID_INVALID,
-                        &polkit_registry,
+                        &c->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -462,9 +455,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         log_info("Changed virtual console keymap to '%s' toggle '%s'",
                  strempty(c->vc_keymap), strempty(c->vc_keymap_toggle));
 
-        r = vconsole_reload(sd_bus_message_get_bus(m));
-        if (r < 0)
-                log_error_errno(r, "Failed to request keymap reload: %m");
+        (void) vconsole_reload(sd_bus_message_get_bus(m));
 
         (void) sd_bus_emit_properties_changed(
                         sd_bus_message_get_bus(m),
@@ -637,7 +628,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                         NULL,
                         interactive,
                         UID_INVALID,
-                        &polkit_registry,
+                        &c->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -721,8 +712,8 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
-        _cleanup_(context_free) Context context = {
+static int run(int argc, char *argv[]) {
+        _cleanup_(context_clear) Context context = {
                 .locale_mtime = USEC_INFINITY,
                 .vc_mtime = USEC_INFINITY,
                 .x11_mtime = USEC_INFINITY,
@@ -731,37 +722,39 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         umask(0022);
         mac_selinux_init();
 
-        if (argc != 1) {
-                log_error("This program takes no arguments.");
-                r = -EINVAL;
-                goto finish;
-        }
+        if (argc != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
         r = sd_event_default(&event);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate event loop: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        sd_event_set_watchdog(event, true);
+        (void) sd_event_set_watchdog(event, true);
+
+        r = sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to install SIGINT handler: %m");
+
+        r = sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to install SIGTERM handler: %m");
 
         r = connect_bus(&context, event, &bus);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = bus_event_loop_with_idle(event, bus, "org.freedesktop.locale1", DEFAULT_EXIT_USEC, NULL, NULL);
         if (r < 0)
-                log_error_errno(r, "Failed to run event loop: %m");
+                return log_error_errno(r, "Failed to run event loop: %m");
 
-finish:
-        bus_verify_polkit_async_registry_free(polkit_registry);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

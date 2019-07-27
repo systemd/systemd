@@ -1,18 +1,6 @@
 /*
  * systemd service to wait until kernel realtime clock is synchronized
  *
- * Copyright 2018 Peter A. Bigot
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
@@ -34,6 +22,7 @@
 
 #include "fd-util.h"
 #include "fs-util.h"
+#include "main-func.h"
 #include "missing.h"
 #include "signal-util.h"
 #include "time-util.h"
@@ -197,61 +186,49 @@ static int clock_state_update(
         return r;
 }
 
-int main(int argc, char * argv[]) {
-        int r;
+static int run(int argc, char * argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *event;
-        ClockState state = {
+        _cleanup_(clock_state_release) ClockState state = {
                 .timerfd_fd = -1,
                 .inotify_fd = -1,
                 .run_systemd_wd = -1,
                 .run_systemd_timesync_wd = -1,
         };
+        int r;
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
         r = sd_event_default(&event);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate event loop: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
 
         r = sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create sigterm event source: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create sigterm event source: %m");
 
         r = sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create sigint event source: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create sigint event source: %m");
 
         r = sd_event_set_watchdog(event, true);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create watchdog event source: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create watchdog event source: %m");
 
         r = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
-        if (r < 0) {
-                log_error_errno(errno, "Failed to create inotify descriptor: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
+
         state.inotify_fd = r;
 
         r = sd_event_add_io(event, &state.inotify_event_source, state.inotify_fd,
                             EPOLLIN, inotify_handler, &state);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create notify event source: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create notify event source: %m");
 
         r = inotify_add_watch(state.inotify_fd, "/run/systemd/", IN_CREATE);
-        if (r < 0) {
-                log_error_errno(errno, "Failed to watch /run/systemd/: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to watch /run/systemd/: %m");
+
         state.run_systemd_wd = r;
 
         (void) update_notify_run_systemd_timesync(&state);
@@ -264,12 +241,12 @@ int main(int argc, char * argv[]) {
         }
 
         if (state.has_watchfile)
-                log_debug("Exit enabled by: /run/systemd/timesync/synchonized");
+                log_debug("Exit enabled by: /run/systemd/timesync/synchronized");
 
         if (state.adjtime_state == TIME_ERROR)
                 log_info("Exit without adjtimex synchronized.");
 
- finish:
-        clock_state_release(&state);
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);

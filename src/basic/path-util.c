@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010-2012 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <limits.h>
@@ -26,6 +21,7 @@
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -72,10 +68,7 @@ char *path_make_absolute(const char *p, const char *prefix) {
         if (path_is_absolute(p) || isempty(prefix))
                 return strdup(p);
 
-        if (endswith(prefix, "/"))
-                return strjoin(prefix, p);
-        else
-                return strjoin(prefix, "/", p);
+        return path_join(prefix, p);
 }
 
 int safe_getcwd(char **ret) {
@@ -115,10 +108,7 @@ int path_make_absolute_cwd(const char *p, char **ret) {
                 if (r < 0)
                         return r;
 
-                if (endswith(cwd, "/"))
-                        c = strjoin(cwd, p);
-                else
-                        c = strjoin(cwd, "/", p);
+                c = path_join(cwd, p);
         }
         if (!c)
                 return -ENOMEM;
@@ -217,6 +207,18 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
         return 0;
 }
 
+char* path_startswith_strv(const char *p, char **set) {
+        char **s, *t;
+
+        STRV_FOREACH(s, set) {
+                t = path_startswith(p, *s);
+                if (t)
+                        return t;
+        }
+
+        return NULL;
+}
+
 int path_strv_make_absolute_cwd(char **l) {
         char **s;
         int r;
@@ -263,7 +265,7 @@ char **path_strv_resolve(char **l, const char *root) {
 
                 if (root) {
                         orig = *s;
-                        t = prefix_root(root, orig);
+                        t = path_join(root, orig);
                         if (!t) {
                                 enomem = true;
                                 continue;
@@ -341,11 +343,14 @@ char *path_simplify(char *path, bool kill_dots) {
         /* Removes redundant inner and trailing slashes. Also removes unnecessary dots
          * if kill_dots is true. Modifies the passed string in-place.
          *
-         * ///foo//./bar/.   becomes /foo/./bar/.  (if kill_dots is false)
-         * ///foo//./bar/.   becomes /foo/bar      (if kill_dots is true)
-         * .//./foo//./bar/. becomes ./foo/bar     (if kill_dots is false)
-         * .//./foo//./bar/. becomes foo/bar       (if kill_dots is true)
+         * ///foo//./bar/.   becomes /foo/./bar/.      (if kill_dots is false)
+         * ///foo//./bar/.   becomes /foo/bar          (if kill_dots is true)
+         * .//./foo//./bar/. becomes ././foo/./bar/.   (if kill_dots is false)
+         * .//./foo//./bar/. becomes foo/bar           (if kill_dots is true)
          */
+
+        if (isempty(path))
+                return path;
 
         absolute = path_is_absolute(path);
 
@@ -376,12 +381,63 @@ char *path_simplify(char *path, bool kill_dots) {
                 *(t++) = *f;
         }
 
-        /* Special rule, if we are talking of the root directory, a trailing slash is good */
-        if (absolute && t == path)
-                *(t++) = '/';
+        /* Special rule, if we stripped everything, we either need a "/" (for the root directory)
+         * or "." for the current directory */
+        if (t == path) {
+                if (absolute)
+                        *(t++) = '/';
+                else
+                        *(t++) = '.';
+        }
 
         *t = 0;
         return path;
+}
+
+int path_simplify_and_warn(
+                char *path,
+                unsigned flag,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *lvalue) {
+
+        bool fatal = flag & PATH_CHECK_FATAL;
+
+        assert(!FLAGS_SET(flag, PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE));
+
+        if (!utf8_is_valid(path))
+                return log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, path);
+
+        if (flag & (PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE)) {
+                bool absolute;
+
+                absolute = path_is_absolute(path);
+
+                if (!absolute && (flag & PATH_CHECK_ABSOLUTE))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "%s= path is not absolute%s: %s",
+                                          lvalue, fatal ? "" : ", ignoring", path);
+
+                if (absolute && (flag & PATH_CHECK_RELATIVE))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "%s= path is absolute%s: %s",
+                                          lvalue, fatal ? "" : ", ignoring", path);
+        }
+
+        path_simplify(path, true);
+
+        if (!path_is_valid(path))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "%s= path has invalid length (%zu bytes)%s.",
+                                  lvalue, strlen(path), fatal ? "" : ", ignoring");
+
+        if (!path_is_normalized(path))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "%s= path is not normalized%s: %s",
+                                  lvalue, fatal ? "" : ", ignoring", path);
+
+        return 0;
 }
 
 char* path_startswith(const char *path, const char *prefix) {
@@ -433,7 +489,7 @@ int path_compare(const char *a, const char *b) {
         assert(a);
         assert(b);
 
-        /* A relative path and an abolute path must not compare as equal.
+        /* A relative path and an absolute path must not compare as equal.
          * Which one is sorted before the other does not really matter.
          * Here a relative path is ordered before an absolute path. */
         d = (a[0] == '/') - (b[0] == '/');
@@ -481,18 +537,62 @@ bool path_equal_or_files_same(const char *a, const char *b, int flags) {
         return path_equal(a, b) || files_same(a, b, flags) > 0;
 }
 
-char* path_join(const char *root, const char *path, const char *rest) {
-        assert(path);
+char* path_join_internal(const char *first, ...) {
+        char *joined, *q;
+        const char *p;
+        va_list ap;
+        bool slash;
+        size_t sz;
 
-        if (!isempty(root))
-                return strjoin(root, endswith(root, "/") ? "" : "/",
-                               path[0] == '/' ? path+1 : path,
-                               rest ? (endswith(path, "/") ? "" : "/") : NULL,
-                               rest && rest[0] == '/' ? rest+1 : rest);
-        else
-                return strjoin(path,
-                               rest ? (endswith(path, "/") ? "" : "/") : NULL,
-                               rest && rest[0] == '/' ? rest+1 : rest);
+        /* Joins all listed strings until the sentinel and places a "/" between them unless the strings end/begin
+         * already with one so that it is unnecessary. Note that slashes which are already duplicate won't be
+         * removed. The string returned is hence always equal to or longer than the sum of the lengths of each
+         * individual string.
+         *
+         * Note: any listed empty string is simply skipped. This can be useful for concatenating strings of which some
+         * are optional.
+         *
+         * Examples:
+         *
+         * path_join("foo", "bar") → "foo/bar"
+         * path_join("foo/", "bar") → "foo/bar"
+         * path_join("", "foo", "", "bar", "") → "foo/bar" */
+
+        sz = strlen_ptr(first);
+        va_start(ap, first);
+        while ((p = va_arg(ap, char*)) != (const char*) -1)
+                if (!isempty(p))
+                        sz += 1 + strlen(p);
+        va_end(ap);
+
+        joined = new(char, sz + 1);
+        if (!joined)
+                return NULL;
+
+        if (!isempty(first)) {
+                q = stpcpy(joined, first);
+                slash = endswith(first, "/");
+        } else {
+                /* Skip empty items */
+                joined[0] = 0;
+                q = joined;
+                slash = true; /* no need to generate a slash anymore */
+        }
+
+        va_start(ap, first);
+        while ((p = va_arg(ap, char*)) != (const char*) -1) {
+                if (isempty(p))
+                        continue;
+
+                if (!slash && p[0] != '/')
+                        *(q++) = '/';
+
+                q = stpcpy(q, p);
+                slash = endswith(p, "/");
+        }
+        va_end(ap);
+
+        return joined;
 }
 
 int find_binary(const char *name, char **ret) {
@@ -536,7 +636,7 @@ int find_binary(const char *name, char **ret) {
                 if (!path_is_absolute(element))
                         continue;
 
-                j = strjoin(element, "/", name);
+                j = path_join(element, name);
                 if (!j)
                         return -ENOMEM;
 
@@ -641,40 +741,6 @@ int mkfs_exists(const char *fstype) {
         return binary_is_good(mkfs);
 }
 
-char *prefix_root(const char *root, const char *path) {
-        char *n, *p;
-        size_t l;
-
-        /* If root is passed, prefixes path with it. Otherwise returns
-         * it as is. */
-
-        assert(path);
-
-        /* First, drop duplicate prefixing slashes from the path */
-        while (path[0] == '/' && path[1] == '/')
-                path++;
-
-        if (empty_or_root(root))
-                return strdup(path);
-
-        l = strlen(root) + 1 + strlen(path) + 1;
-
-        n = new(char, l);
-        if (!n)
-                return NULL;
-
-        p = stpcpy(n, root);
-
-        while (p > n && p[-1] == '/')
-                p--;
-
-        if (path[0] != '/')
-                *(p++) = '/';
-
-        strcpy(p, path);
-        return n;
-}
-
 int parse_path_argument_and_warn(const char *path, bool suppress_root, char **arg) {
         char *p;
         int r;
@@ -750,6 +816,9 @@ const char *last_path_component(const char *path) {
 
         unsigned l, k;
 
+        if (!path)
+                return NULL;
+
         l = k = strlen(path);
         if (l == 0) /* special case — an empty string */
                 return path;
@@ -766,6 +835,37 @@ const char *last_path_component(const char *path) {
         return path + k;
 }
 
+int path_extract_filename(const char *p, char **ret) {
+        _cleanup_free_ char *a = NULL;
+        const char *c, *e = NULL, *q;
+
+        /* Extracts the filename part (i.e. right-most component) from a path, i.e. string that passes
+         * filename_is_valid(). A wrapper around last_path_component(), but eats up trailing slashes. */
+
+        if (!p)
+                return -EINVAL;
+
+        c = last_path_component(p);
+
+        for (q = c; *q != 0; q++)
+                if (*q != '/')
+                        e = q + 1;
+
+        if (!e) /* no valid character? */
+                return -EINVAL;
+
+        a = strndup(c, e - c);
+        if (!a)
+                return -ENOMEM;
+
+        if (!filename_is_valid(a))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(a);
+
+        return 0;
+}
+
 bool filename_is_valid(const char *p) {
         const char *e;
 
@@ -779,7 +879,18 @@ bool filename_is_valid(const char *p) {
         if (*e != 0)
                 return false;
 
-        if (e - p > FILENAME_MAX)
+        if (e - p > FILENAME_MAX) /* FILENAME_MAX is counted *without* the trailing NUL byte */
+                return false;
+
+        return true;
+}
+
+bool path_is_valid(const char *p) {
+
+        if (isempty(p))
+                return false;
+
+        if (strlen(p) >= PATH_MAX) /* PATH_MAX is counted *with* the trailing NUL byte */
                 return false;
 
         return true;
@@ -787,16 +898,13 @@ bool filename_is_valid(const char *p) {
 
 bool path_is_normalized(const char *p) {
 
-        if (isempty(p))
+        if (!path_is_valid(p))
                 return false;
 
         if (dot_or_dot_dot(p))
                 return false;
 
         if (startswith(p, "../") || endswith(p, "/..") || strstr(p, "/../"))
-                return false;
-
-        if (strlen(p)+1 > PATH_MAX)
                 return false;
 
         if (startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
@@ -911,8 +1019,7 @@ bool valid_device_allow_pattern(const char *path) {
         /* Like valid_device_node_path(), but also allows full-subsystem expressions, like DeviceAllow= and DeviceDeny=
          * accept it */
 
-        if (startswith(path, "block-") ||
-            startswith(path, "char-"))
+        if (STARTSWITH_SET(path, "block-", "char-"))
                 return true;
 
         return valid_device_node_path(path);
@@ -941,7 +1048,7 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
                 _cleanup_free_ char *path = NULL;
                 char *c, **name;
 
-                path = prefix_root(root, pattern);
+                path = path_join(root, pattern);
                 if (!path)
                         return -ENOMEM;
 
@@ -1008,51 +1115,4 @@ bool empty_or_root(const char *root) {
                 return true;
 
         return root[strspn(root, "/")] == 0;
-}
-
-int path_simplify_and_warn(
-                char *path,
-                unsigned flag,
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *lvalue) {
-
-        bool absolute, fatal = flag & PATH_CHECK_FATAL;
-
-        assert(!FLAGS_SET(flag, PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE));
-
-        if (!utf8_is_valid(path)) {
-                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, path);
-                return -EINVAL;
-        }
-
-        if (flag & (PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE)) {
-                absolute = path_is_absolute(path);
-
-                if (!absolute && (flag & PATH_CHECK_ABSOLUTE)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "%s= path is not absolute%s: %s",
-                                   lvalue, fatal ? "" : ", ignoring", path);
-                        return -EINVAL;
-                }
-
-                if (absolute && (flag & PATH_CHECK_RELATIVE)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "%s= path is absolute%s: %s",
-                                   lvalue, fatal ? "" : ", ignoring", path);
-                        return -EINVAL;
-                }
-        }
-
-        path_simplify(path, true);
-
-        if (!path_is_normalized(path)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "%s= path is not normalized%s: %s",
-                           lvalue, fatal ? "" : ", ignoring", path);
-                return -EINVAL;
-        }
-
-        return 0;
 }

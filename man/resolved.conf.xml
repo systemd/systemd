@@ -1,29 +1,13 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="resolved.conf" conditional='ENABLE_RESOLVE'
     xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>resolved.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Tom</firstname>
-        <surname>Gundersen</surname>
-        <email>teg@jklm.no</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -104,7 +88,7 @@
         <listitem><para>Takes a boolean argument or
         <literal>resolve</literal>. Controls Link-Local Multicast Name
         Resolution support (<ulink
-        url="https://tools.ietf.org/html/rfc4795">RFC 4794</ulink>) on
+        url="https://tools.ietf.org/html/rfc4795">RFC 4795</ulink>) on
         the local host. If true, enables full LLMNR responder and
         resolver support. If false, disables both. If set to
         <literal>resolve</literal>, only resolution support is enabled,
@@ -202,15 +186,18 @@
         domains (TLDs) that are not known by the DNS root server. This
         logic does not work in all private zone setups.</para>
 
-        <para>Defaults to off.</para>
+        <para>Defaults to <literal>allow-downgrade</literal></para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>PrivateDNS=</varname></term>
+        <term><varname>DNSOverTLS=</varname></term>
         <listitem>
-        <para>Takes false or
-        <literal>opportunistic</literal>. When set to <literal>opportunistic</literal>
+        <para>Takes a boolean argument or <literal>opportunistic</literal>.
+        If true all connections to the server will be encrypted. Note that
+        this mode requires a DNS server that supports DNS-over-TLS and has
+        a valid certificate for it's IP. If the DNS server does not support
+        DNS-over-TLS all DNS requests will fail. When set to <literal>opportunistic</literal>
         DNS request are attempted to send encrypted with DNS-over-TLS.
         If the DNS server does not support TLS, DNS-over-TLS is disabled.
         Note that this mode makes DNS-over-TLS vulnerable to "downgrade"
@@ -226,10 +213,10 @@
         <para>Note as the resolver is not capable of authenticating
         the server, it is vulnerable for "man-in-the-middle" attacks.</para>
 
-        <para>In addition to this global PrivateDNS setting
+        <para>In addition to this global DNSOverTLS setting
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        also maintains per-link PrivateDNS settings. For system DNS
-        servers (see above), only the global PrivateDNS setting is in
+        also maintains per-link DNSOverTLS settings. For system DNS
+        servers (see above), only the global DNSOverTLS setting is in
         effect. For per-link DNS servers the per-link
         setting is in effect, unless it is unset in which case the
         global setting is used instead.</para>
@@ -240,10 +227,11 @@
 
       <varlistentry>
         <term><varname>Cache=</varname></term>
-        <listitem><para>Takes a boolean argument. If "yes" (the default), resolving a domain name which already got
-        queried earlier will return the previous result as long as it is still valid, and thus does not result in a new
-        network request. Be aware that turning off caching comes at a performance penalty, which is particularly
-        high when DNSSEC is used.</para>
+        <listitem><para>Takes a boolean or <literal>no-negative</literal> as argument. If <literal>yes</literal> (the default), resolving a domain name
+        which already got queried earlier will return the previous result as long as it is still valid, and thus does
+        not result in a new network request. Be aware that turning off caching comes at a performance penalty, which
+        is particularly high when DNSSEC is used.</para>
+        If <literal>no-negative</literal>, only positive answers are cached.
 
         <para>Note that caching is turned off implicitly if the configured DNS server is on a host-local IP address
         (such as 127.0.0.1 or ::1), in order to avoid duplicate local caching.</para></listitem>
@@ -252,13 +240,20 @@
       <varlistentry>
         <term><varname>DNSStubListener=</varname></term>
         <listitem><para>Takes a boolean argument or one of <literal>udp</literal> and <literal>tcp</literal>. If
-        <literal>udp</literal> (the default), a DNS stub resolver will listen for UDP requests on address 127.0.0.53
+        <literal>udp</literal>, a DNS stub resolver will listen for UDP requests on address 127.0.0.53
         port 53. If <literal>tcp</literal>, the stub will listen for TCP requests on the same address and port. If
-        <literal>yes</literal>, the stub listens for both UDP and TCP requests.  If <literal>no</literal>, the stub
+        <literal>yes</literal> (the default), the stub listens for both UDP and TCP requests.  If <literal>no</literal>, the stub
         listener is disabled.</para>
 
         <para>Note that the DNS stub listener is turned off implicitly when its listening address and port are already
         in use.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReadEtcHosts=</varname></term>
+        <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default), the DNS stub resolver will read
+        <filename>/etc/hosts</filename>, and try to resolve hosts or address by using the entries in the file before
+        sending query to DNS servers.</para></listitem>
       </varlistentry>
 
     </variablelist>

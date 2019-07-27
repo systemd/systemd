@@ -3,10 +3,6 @@
 #define foosdmessageshfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -27,12 +23,10 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-/* Hey! If you add a new message here, you *must* also update the
- * message catalog with an appropriate explanation */
+/* Hey! If you add a new message here, you *must* also update the message catalog with an appropriate explanation */
 
-/* And if you add a new ID here, make sure to generate a random one
- * with journalctl --new-id128. Do not use any other IDs, and do not
- * count them up manually. */
+/* And if you add a new ID here, make sure to generate a random one with "systemd-id128 new". Do not use any other IDs,
+ * and do not count them up manually. */
 
 #define SD_MESSAGE_JOURNAL_START          SD_ID128_MAKE(f7,73,79,a8,49,0b,40,8b,be,5f,69,40,50,5a,77,7b)
 #define SD_MESSAGE_JOURNAL_START_STR      SD_ID128_MAKE_STR(f7,73,79,a8,49,0b,40,8b,be,5f,69,40,50,5a,77,7b)
@@ -87,16 +81,19 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_SHUTDOWN               SD_ID128_MAKE(98,26,88,66,d1,d5,4a,49,9c,4e,98,92,1d,93,bc,40)
 #define SD_MESSAGE_SHUTDOWN_STR           SD_ID128_MAKE_STR(98,26,88,66,d1,d5,4a,49,9c,4e,98,92,1d,93,bc,40)
 
+/* The messages below are actually about jobs, not really about units, the macros are misleadingly named. Moreover
+ * SD_MESSAGE_UNIT_FAILED is not actually about a failing unit but about a failed start job. A job either finishes with
+ * SD_MESSAGE_UNIT_STARTED or with SD_MESSAGE_UNIT_FAILED hence. */
 #define SD_MESSAGE_UNIT_STARTING          SD_ID128_MAKE(7d,49,58,e8,42,da,4a,75,8f,6c,1c,dc,7b,36,dc,c5)
 #define SD_MESSAGE_UNIT_STARTING_STR      SD_ID128_MAKE_STR(7d,49,58,e8,42,da,4a,75,8f,6c,1c,dc,7b,36,dc,c5)
 #define SD_MESSAGE_UNIT_STARTED           SD_ID128_MAKE(39,f5,34,79,d3,a0,45,ac,8e,11,78,62,48,23,1f,bf)
 #define SD_MESSAGE_UNIT_STARTED_STR       SD_ID128_MAKE_STR(39,f5,34,79,d3,a0,45,ac,8e,11,78,62,48,23,1f,bf)
+#define SD_MESSAGE_UNIT_FAILED            SD_ID128_MAKE(be,02,cf,68,55,d2,42,8b,a4,0d,f7,e9,d0,22,f0,3d)
+#define SD_MESSAGE_UNIT_FAILED_STR        SD_ID128_MAKE_STR(be,02,cf,68,55,d2,42,8b,a4,0d,f7,e9,d0,22,f0,3d)
 #define SD_MESSAGE_UNIT_STOPPING          SD_ID128_MAKE(de,5b,42,6a,63,be,47,a7,b6,ac,3e,aa,c8,2e,2f,6f)
 #define SD_MESSAGE_UNIT_STOPPING_STR      SD_ID128_MAKE_STR(de,5b,42,6a,63,be,47,a7,b6,ac,3e,aa,c8,2e,2f,6f)
 #define SD_MESSAGE_UNIT_STOPPED           SD_ID128_MAKE(9d,1a,aa,27,d6,01,40,bd,96,36,54,38,aa,d2,02,86)
 #define SD_MESSAGE_UNIT_STOPPED_STR       SD_ID128_MAKE_STR(9d,1a,aa,27,d6,01,40,bd,96,36,54,38,aa,d2,02,86)
-#define SD_MESSAGE_UNIT_FAILED            SD_ID128_MAKE(be,02,cf,68,55,d2,42,8b,a4,0d,f7,e9,d0,22,f0,3d)
-#define SD_MESSAGE_UNIT_FAILED_STR        SD_ID128_MAKE_STR(be,02,cf,68,55,d2,42,8b,a4,0d,f7,e9,d0,22,f0,3d)
 #define SD_MESSAGE_UNIT_RELOADING         SD_ID128_MAKE(d3,4d,03,7f,ff,18,47,e6,ae,66,9a,37,0e,69,47,25)
 #define SD_MESSAGE_UNIT_RELOADING_STR     SD_ID128_MAKE_STR(d3,4d,03,7f,ff,18,47,e6,ae,66,9a,37,0e,69,47,25)
 #define SD_MESSAGE_UNIT_RELOADED          SD_ID128_MAKE(7b,05,eb,c6,68,38,42,22,ba,a8,88,11,79,cf,da,54)
@@ -109,8 +106,19 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_UNIT_RESOURCES         SD_ID128_MAKE(ae,8f,7b,86,6b,03,47,b9,af,31,fe,1c,80,b1,27,c0)
 #define SD_MESSAGE_UNIT_RESOURCES_STR     SD_ID128_MAKE_STR(ae,8f,7b,86,6b,03,47,b9,af,31,fe,1c,80,b1,27,c0)
 
+#define SD_MESSAGE_UNIT_SUCCESS           SD_ID128_MAKE(7a,d2,d1,89,f7,e9,4e,70,a3,8c,78,13,54,91,24,48)
+#define SD_MESSAGE_UNIT_SUCCESS_STR       SD_ID128_MAKE_STR(7a,d2,d1,89,f7,e9,4e,70,a3,8c,78,13,54,91,24,48)
+#define SD_MESSAGE_UNIT_SKIPPED           SD_ID128_MAKE(0e,42,84,a0,ca,ca,4b,fc,81,c0,bb,67,86,97,26,73)
+#define SD_MESSAGE_UNIT_SKIPPED_STR       SD_ID128_MAKE_STR(0e,42,84,a0,ca,ca,4b,fc,81,c0,bb,67,86,97,26,73)
+#define SD_MESSAGE_UNIT_FAILURE_RESULT    SD_ID128_MAKE(d9,b3,73,ed,55,a6,4f,eb,82,42,e0,2d,be,79,a4,9c)
+#define SD_MESSAGE_UNIT_FAILURE_RESULT_STR \
+                                          SD_ID128_MAKE_STR(d9,b3,73,ed,55,a6,4f,eb,82,42,e0,2d,be,79,a4,9c)
+
 #define SD_MESSAGE_SPAWN_FAILED           SD_ID128_MAKE(64,12,57,65,1c,1b,4e,c9,a8,62,4d,7a,40,a9,e1,e7)
 #define SD_MESSAGE_SPAWN_FAILED_STR       SD_ID128_MAKE_STR(64,12,57,65,1c,1b,4e,c9,a8,62,4d,7a,40,a9,e1,e7)
+
+#define SD_MESSAGE_UNIT_PROCESS_EXIT      SD_ID128_MAKE(98,e3,22,20,3f,7a,4e,d2,90,d0,9f,e0,3c,09,fe,15)
+#define SD_MESSAGE_UNIT_PROCESS_EXIT_STR  SD_ID128_MAKE_STR(98,e3,22,20,3f,7a,4e,d2,90,d0,9f,e0,3c,09,fe,15)
 
 #define SD_MESSAGE_FORWARD_SYSLOG_MISSED  SD_ID128_MAKE(00,27,22,9c,a0,64,41,81,a7,6c,4e,92,45,8a,fa,2e)
 #define SD_MESSAGE_FORWARD_SYSLOG_MISSED_STR \
@@ -118,6 +126,9 @@ _SD_BEGIN_DECLARATIONS;
 
 #define SD_MESSAGE_OVERMOUNTING           SD_ID128_MAKE(1d,ee,03,69,c7,fc,47,36,b7,09,9b,38,ec,b4,6e,e7)
 #define SD_MESSAGE_OVERMOUNTING_STR       SD_ID128_MAKE_STR(1d,ee,03,69,c7,fc,47,36,b7,09,9b,38,ec,b4,6e,e7)
+
+#define SD_MESSAGE_UNIT_OUT_OF_MEMORY     SD_ID128_MAKE(fe,6f,aa,94,e7,77,46,63,a0,da,52,71,78,91,d8,ef)
+#define SD_MESSAGE_UNIT_OUT_OF_MEMORY_STR SD_ID128_MAKE_STR(fe,6f,aa,94,e7,77,46,63,a0,da,52,71,78,91,d8,ef)
 
 #define SD_MESSAGE_LID_OPENED             SD_ID128_MAKE(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,6f)
 #define SD_MESSAGE_LID_OPENED_STR         SD_ID128_MAKE_STR(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,6f)

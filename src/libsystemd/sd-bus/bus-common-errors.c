@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <errno.h>
 
@@ -46,6 +41,9 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_USER_MAPPING,         ENXIO),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_GROUP_MAPPING,        ENXIO),
 
+        SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_PORTABLE_IMAGE,       ENOENT),
+        SD_BUS_ERROR_MAP(BUS_ERROR_BAD_PORTABLE_IMAGE_TYPE,      EMEDIUMTYPE),
+
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_SESSION,              ENXIO),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SESSION_FOR_PID,           ENXIO),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_USER,                 ENXIO),
@@ -58,6 +56,7 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_OPERATION_IN_PROGRESS,        EINPROGRESS),
         SD_BUS_ERROR_MAP(BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,     EOPNOTSUPP),
         SD_BUS_ERROR_MAP(BUS_ERROR_SESSION_BUSY,                 EBUSY),
+        SD_BUS_ERROR_MAP(BUS_ERROR_NOT_YOUR_DEVICE,              EPERM),
 
         SD_BUS_ERROR_MAP(BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED,  EALREADY),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_NTP_SUPPORT,               EOPNOTSUPP),
@@ -76,6 +75,8 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_LINK,                 ENXIO),
         SD_BUS_ERROR_MAP(BUS_ERROR_LINK_BUSY,                    EBUSY),
         SD_BUS_ERROR_MAP(BUS_ERROR_NETWORK_DOWN,                 ENETDOWN),
+        SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_DNSSD_SERVICE,        ENOENT),
+        SD_BUS_ERROR_MAP(BUS_ERROR_DNSSD_SERVICE_EXISTS,         EEXIST),
 
         SD_BUS_ERROR_MAP(_BUS_ERROR_DNS "FORMERR",               EBADMSG),
         SD_BUS_ERROR_MAP(_BUS_ERROR_DNS "SERVFAIL",              EHOSTDOWN),
@@ -98,6 +99,10 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
 
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_TRANSFER,             ENXIO),
         SD_BUS_ERROR_MAP(BUS_ERROR_TRANSFER_IN_PROGRESS,         EBUSY),
+
+        SD_BUS_ERROR_MAP(BUS_ERROR_NO_PRODUCT_UUID,              EOPNOTSUPP),
+
+        SD_BUS_ERROR_MAP(BUS_ERROR_SPEED_METER_INACTIVE,         EOPNOTSUPP),
 
         SD_BUS_ERROR_MAP_END
 };

@@ -1,13 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/stat.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,7 +27,7 @@ int getxattr_malloc(const char *path, const char *name, char **value, bool allow
         assert(name);
         assert(value);
 
-        for (l = 100; ; l = (size_t) n + 1) {
+        for (l = 100; ; l = (size_t) n + 1 /* extra byte to make sure this remains NUL suffixed */) {
                 v = new0(char, l);
                 if (!v)
                         return -ENOMEM;
@@ -42,7 +36,6 @@ int getxattr_malloc(const char *path, const char *name, char **value, bool allow
                         n = lgetxattr(path, name, v, l);
                 else
                         n = getxattr(path, name, v, l);
-
                 if (n >= 0 && (size_t) n < l) {
                         *value = v;
                         return n;
@@ -71,13 +64,12 @@ int fgetxattr_malloc(int fd, const char *name, char **value) {
         assert(name);
         assert(value);
 
-        for (l = 100; ; l = (size_t) n + 1) {
+        for (l = 100;; l = (size_t) n + 1 /* extra byte to make sure this remains NUL suffixed */) {
                 v = new0(char, l);
                 if (!v)
                         return -ENOMEM;
 
                 n = fgetxattr(fd, name, v, l);
-
                 if (n >= 0 && (size_t) n < l) {
                         *value = v;
                         return n;
@@ -146,7 +138,12 @@ static int parse_crtime(le64_t le, usec_t *usec) {
 }
 
 int fd_getcrtime_at(int dirfd, const char *name, usec_t *ret, int flags) {
-        struct_statx sx;
+        struct_statx sx
+#if HAS_FEATURE_MEMORY_SANITIZER
+                = {}
+#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
+#endif
+                ;
         usec_t a, b;
         le64_t le;
         size_t n;

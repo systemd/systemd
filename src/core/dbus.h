@@ -1,17 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include "sd-bus.h"
 
 #include "manager.h"
 
-int bus_send_queued_message(Manager *m);
+int bus_send_pending_reload_message(Manager *m);
 
 int bus_init_private(Manager *m);
 int bus_init_api(Manager *m);

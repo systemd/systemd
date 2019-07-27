@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 David Strauss
- ***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -21,18 +16,22 @@
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
+#include "main-func.h"
+#include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
+#include "resolve-private.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "parse-util.h"
 #include "util.h"
 
 #define BUFFER_SIZE (256 * 1024)
-static unsigned arg_connections_max = 256;
 
+static unsigned arg_connections_max = 256;
 static const char *arg_remote_host = NULL;
 
 typedef struct Context {
@@ -78,7 +77,7 @@ static void connection_free(Connection *c) {
         free(c);
 }
 
-static void context_free(Context *context) {
+static void context_clear(Context *context) {
         assert(context);
 
         set_free_with_destructor(context->listen, sd_event_source_unref);
@@ -88,7 +87,7 @@ static void context_free(Context *context) {
         sd_resolve_unref(context->resolve);
 }
 
-static int connection_create_pipes(Connection *c, int buffer[2], size_t *sz) {
+static int connection_create_pipes(Connection *c, int buffer[static 2], size_t *sz) {
         int r;
 
         assert(c);
@@ -143,7 +142,7 @@ static int connection_shovel(
                         if (z > 0) {
                                 *full += z;
                                 shoveled = true;
-                        } else if (z == 0 || IN_SET(errno, EPIPE, ECONNRESET)) {
+                        } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
                                 *from_source = sd_event_source_unref(*from_source);
                                 *from = safe_close(*from);
                         } else if (!IN_SET(errno, EAGAIN, EINTR))
@@ -155,7 +154,7 @@ static int connection_shovel(
                         if (z > 0) {
                                 *full -= z;
                                 shoveled = true;
-                        } else if (z == 0 || IN_SET(errno, EPIPE, ECONNRESET)) {
+                        } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
                                 *to_source = sd_event_source_unref(*to_source);
                                 *to = safe_close(*to);
                         } else if (!IN_SET(errno, EAGAIN, EINTR))
@@ -350,9 +349,7 @@ fail:
         return 0; /* ignore errors, continue serving */
 }
 
-static int resolve_cb(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata) {
-        Connection *c = userdata;
-
+static int resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, Connection *c) {
         assert(q);
         assert(c);
 
@@ -382,17 +379,16 @@ static int resolve_remote(Connection *c) {
         const char *node, *service;
         int r;
 
-        if (path_is_absolute(arg_remote_host)) {
-                sa.un.sun_family = AF_UNIX;
-                strncpy(sa.un.sun_path, arg_remote_host, sizeof(sa.un.sun_path));
-                return connection_start(c, &sa.sa, SOCKADDR_UN_LEN(sa.un));
-        }
+        if (IN_SET(arg_remote_host[0], '/', '@')) {
+                int salen;
 
-        if (arg_remote_host[0] == '@') {
-                sa.un.sun_family = AF_UNIX;
-                sa.un.sun_path[0] = 0;
-                strncpy(sa.un.sun_path+1, arg_remote_host+1, sizeof(sa.un.sun_path)-1);
-                return connection_start(c, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+                salen = sockaddr_un_set_path(&sa.un, arg_remote_host);
+                if (salen < 0) {
+                        log_error_errno(salen, "Specified address doesn't fit in an AF_UNIX address, refusing: %m");
+                        goto fail;
+                }
+
+                return connection_start(c, &sa.sa, salen);
         }
 
         service = strrchr(arg_remote_host, ':');
@@ -405,7 +401,7 @@ static int resolve_remote(Connection *c) {
         }
 
         log_debug("Looking up address info for %s:%s", node, service);
-        r = sd_resolve_getaddrinfo(c->context->resolve, &c->resolve_query, node, service, &hints, resolve_cb, c);
+        r = resolve_getaddrinfo(c->context->resolve, &c->resolve_query, node, service, &hints, resolve_handler, NULL, c);
         if (r < 0) {
                 log_error_errno(r, "Failed to resolve remote host: %m");
                 goto fail;
@@ -471,10 +467,10 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (nfd < 0) {
-                if (errno != -EAGAIN)
+                if (!ERRNO_IS_ACCEPT_AGAIN(errno))
                         log_warning_errno(errno, "Failed to accept() socket: %m");
         } else {
-                getpeername_pretty(nfd, true, &peer);
+                (void) getpeername_pretty(nfd, true, &peer);
                 log_debug("New connection from %s", strna(peer));
 
                 r = add_connection_socket(context, nfd);
@@ -510,10 +506,9 @@ static int add_listen_socket(Context *context, int fd) {
         r = sd_is_socket(fd, 0, SOCK_STREAM, 1);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine socket type: %m");
-        if (r == 0) {
-                log_error("Passed in socket is not a stream socket.");
-                return -EINVAL;
-        }
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Passed in socket is not a stream socket.");
 
         r = fd_nonblock(fd, true);
         if (r < 0)
@@ -539,14 +534,26 @@ static int add_listen_socket(Context *context, int fd) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-socket-proxyd", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%1$s [HOST:PORT]\n"
                "%1$s [SOCKET]\n\n"
                "Bidirectionally proxy local sockets to another (possibly remote) socket.\n\n"
                "  -c --connections-max=  Set the maximum number of connections to be accepted\n"
                "  -h --help              Show this help\n"
-               "     --version           Show package version\n",
-               program_invocation_short_name);
+               "     --version           Show package version\n"
+               "\nSee the %2$s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -573,8 +580,10 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
+
+                case ARG_VERSION:
+                        return version();
 
                 case 'c':
                         r = safe_atou(optarg, &arg_connections_max);
@@ -583,15 +592,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         }
 
-                        if (arg_connections_max < 1) {
-                                log_error("Connection limit is too low.");
-                                return -EINVAL;
-                        }
+                        if (arg_connections_max < 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Connection limit is too low.");
 
                         break;
-
-                case ARG_VERSION:
-                        return version();
 
                 case '?':
                         return -EINVAL;
@@ -600,22 +605,20 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind >= argc) {
-                log_error("Not enough parameters.");
-                return -EINVAL;
-        }
+        if (optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not enough parameters.");
 
-        if (argc != optind+1) {
-                log_error("Too many parameters.");
-                return -EINVAL;
-        }
+        if (argc != optind+1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Too many parameters.");
 
         arg_remote_host = argv[optind];
         return 1;
 }
 
-int main(int argc, char *argv[]) {
-        Context context = {};
+static int run(int argc, char *argv[]) {
+        _cleanup_(context_clear) Context context = {};
         int r, n, fd;
 
         log_parse_environment();
@@ -623,53 +626,41 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = sd_event_default(&context.event);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate event loop: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
 
         r = sd_resolve_default(&context.resolve);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate resolver: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate resolver: %m");
 
         r = sd_resolve_attach_event(context.resolve, context.event, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to attach resolver: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach resolver: %m");
 
         sd_event_set_watchdog(context.event, true);
 
-        n = sd_listen_fds(1);
-        if (n < 0) {
-                log_error("Failed to receive sockets from parent.");
-                r = n;
-                goto finish;
-        } else if (n == 0) {
-                log_error("Didn't get any sockets passed in.");
-                r = -EINVAL;
-                goto finish;
-        }
+        r = sd_listen_fds(1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to receive sockets from parent.");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Didn't get any sockets passed in.");
+
+        n = r;
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                 r = add_listen_socket(&context, fd);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         r = sd_event_loop(context.event);
-        if (r < 0) {
-                log_error_errno(r, "Failed to run event loop: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
 
-finish:
-        context_free(&context);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

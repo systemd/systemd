@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include "sd-bus.h"
 
@@ -55,6 +50,8 @@ static struct track_item* track_item_free(struct track_item *i) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct track_item*, track_item_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(track_item_hash_ops, char, string_hash_func, string_compare_func,
+                                              struct track_item, track_item_free);
 
 static void bus_track_add_to_queue(sd_bus_track *track) {
         assert(track);
@@ -148,33 +145,14 @@ _public_ int sd_bus_track_new(
         return 0;
 }
 
-_public_ sd_bus_track* sd_bus_track_ref(sd_bus_track *track) {
-
-        if (!track)
-                return NULL;
-
-        assert(track->n_ref > 0);
-
-        track->n_ref++;
-
-        return track;
-}
-
-_public_ sd_bus_track* sd_bus_track_unref(sd_bus_track *track) {
-        if (!track)
-                return NULL;
-
-        assert(track->n_ref > 0);
-        track->n_ref--;
-
-        if (track->n_ref > 0)
-                return NULL;
+static sd_bus_track *track_free(sd_bus_track *track) {
+        assert(track);
 
         if (track->in_list)
                 LIST_REMOVE(tracks, track->bus->tracks, track);
 
         bus_track_remove_from_queue(track);
-        track->names = hashmap_free_with_destructor(track->names, track_item_free);
+        track->names = hashmap_free(track->names);
         track->bus = sd_bus_unref(track->bus);
 
         if (track->destroy_callback)
@@ -182,6 +160,8 @@ _public_ sd_bus_track* sd_bus_track_unref(sd_bus_track *track) {
 
         return mfree(track);
 }
+
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus_track, sd_bus_track, track_free);
 
 static int on_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         sd_bus_track *track = userdata;
@@ -223,7 +203,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
                 return 0;
         }
 
-        r = hashmap_ensure_allocated(&track->names, &string_hash_ops);
+        r = hashmap_ensure_allocated(&track->names, &track_item_hash_ops);
         if (r < 0)
                 return r;
 
@@ -325,7 +305,7 @@ _public_ const char* sd_bus_track_first(sd_bus_track *track) {
         track->modified = false;
         track->iterator = ITERATOR_FIRST;
 
-        hashmap_iterate(track->names, &track->iterator, NULL, (const void**) &n);
+        (void) hashmap_iterate(track->names, &track->iterator, NULL, (const void**) &n);
         return n;
 }
 
@@ -338,7 +318,7 @@ _public_ const char* sd_bus_track_next(sd_bus_track *track) {
         if (track->modified)
                 return NULL;
 
-        hashmap_iterate(track->names, &track->iterator, NULL, (const void**) &n);
+        (void) hashmap_iterate(track->names, &track->iterator, NULL, (const void**) &n);
         return n;
 }
 
@@ -419,7 +399,7 @@ void bus_track_close(sd_bus_track *track) {
                 return;
 
         /* Let's flush out all names */
-        hashmap_clear_with_destructor(track->names, track_item_free);
+        hashmap_clear(track->names);
 
         /* Invoke handler */
         if (track->handler)

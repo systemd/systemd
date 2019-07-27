@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
+#include <stdbool.h>
 
-  Copyright 2016 Lennart Poettering
-***/
+#include "conf-parser.h"
 
-#include "networkd-link.h"
+typedef struct Link Link;
 
 typedef enum LLDPEmit {
         LLDP_EMIT_NO,
@@ -17,7 +15,8 @@ typedef enum LLDPEmit {
         _LLDP_EMIT_MAX,
 } LLDPEmit;
 
+bool link_lldp_emit_enabled(Link *link);
 int link_lldp_emit_start(Link *link);
 void link_lldp_emit_stop(Link *link);
 
-int config_parse_lldp_emit(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_lldp_emit);

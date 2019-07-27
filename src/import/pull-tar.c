@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 #include <curl/curl.h>
 #include <sys/prctl.h>
@@ -15,7 +10,6 @@
 #include "copy.h"
 #include "curl-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "import-common.h"
@@ -30,6 +24,7 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "utf8.h"
 #include "util.h"
 #include "web-util.h"
@@ -57,7 +52,6 @@ struct TarPull {
 
         char *local;
         bool force_local;
-        bool grow_machine_directory;
         bool settings;
 
         pid_t tar_pid;
@@ -113,35 +107,41 @@ int tar_pull_new(
                 TarPullFinished on_finished,
                 void *userdata) {
 
+        _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(tar_pull_unrefp) TarPull *i = NULL;
+        _cleanup_free_ char *root = NULL;
         int r;
 
         assert(ret);
 
-        i = new0(TarPull, 1);
-        if (!i)
+        root = strdup(image_root ?: "/var/lib/machines");
+        if (!root)
                 return -ENOMEM;
-
-        i->on_finished = on_finished;
-        i->userdata = userdata;
-
-        i->image_root = strdup(image_root ?: "/var/lib/machines");
-        if (!i->image_root)
-                return -ENOMEM;
-
-        i->grow_machine_directory = path_startswith(i->image_root, "/var/lib/machines");
 
         if (event)
-                i->event = sd_event_ref(event);
+                e = sd_event_ref(event);
         else {
-                r = sd_event_default(&i->event);
+                r = sd_event_default(&e);
                 if (r < 0)
                         return r;
         }
 
-        r = curl_glue_new(&i->glue, i->event);
+        r = curl_glue_new(&g, e);
         if (r < 0)
                 return r;
+
+        i = new(TarPull, 1);
+        if (!i)
+                return -ENOMEM;
+
+        *i = (TarPull) {
+                .on_finished = on_finished,
+                .userdata = userdata,
+                .image_root = TAKE_PTR(root),
+                .event = TAKE_PTR(e),
+                .glue = TAKE_PTR(g),
+        };
 
         i->glue->on_finished = pull_job_curl_on_finished;
         i->glue->userdata = i;
@@ -244,7 +244,7 @@ static int tar_pull_make_local_copy(TarPull *i) {
 
                 local_settings = strjoina(i->image_root, "/", i->local, ".nspawn");
 
-                r = copy_file_atomic(i->settings_path, local_settings, 0664, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
+                r = copy_file_atomic(i->settings_path, local_settings, 0664, 0, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
                 if (r == -EEXIST)
                         log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
                 else if (r == -ENOENT)
@@ -507,7 +507,6 @@ int tar_pull_start(
         i->tar_job->on_open_disk = tar_pull_job_on_open_disk_tar;
         i->tar_job->on_progress = tar_pull_job_on_progress;
         i->tar_job->calc_checksum = verify != IMPORT_VERIFY_NO;
-        i->tar_job->grow_machine_directory = i->grow_machine_directory;
 
         r = pull_find_old_etags(url, i->image_root, DT_DIR, ".tar-", NULL, &i->tar_job->old_etags);
         if (r < 0)

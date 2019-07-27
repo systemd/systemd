@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2013 Lennart Poettering
-***/
-
+#include <errno.h>
 #include <string.h>
 #include <sys/socket.h>
 
@@ -21,7 +17,7 @@ const char *af_to_name(int id) {
         if (id <= 0)
                 return NULL;
 
-        if (id >= (int) ELEMENTSOF(af_names))
+        if ((size_t) id >= ELEMENTSOF(af_names))
                 return NULL;
 
         return af_names[id];
@@ -34,7 +30,7 @@ int af_from_name(const char *name) {
 
         sc = lookup_af(name, strlen(name));
         if (!sc)
-                return AF_UNSPEC;
+                return -EINVAL;
 
         return sc->id;
 }

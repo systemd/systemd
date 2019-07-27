@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <dirent.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -15,8 +9,6 @@
 #include <sys/types.h>
 
 #include "def.h"
-#include "hashmap.h"
-#include "macro.h"
 #include "set.h"
 
 #define SYSTEMD_CGROUP_CONTROLLER_LEGACY "name=systemd"
@@ -25,6 +17,7 @@
 
 /* An enum of well known cgroup controllers */
 typedef enum CGroupController {
+        /* Original cgroup controllers */
         CGROUP_CONTROLLER_CPU,
         CGROUP_CONTROLLER_CPUACCT,    /* v1 only */
         CGROUP_CONTROLLER_IO,         /* v2 only */
@@ -32,11 +25,16 @@ typedef enum CGroupController {
         CGROUP_CONTROLLER_MEMORY,
         CGROUP_CONTROLLER_DEVICES,    /* v1 only */
         CGROUP_CONTROLLER_PIDS,
+
+        /* BPF-based pseudo-controllers, v2 only */
+        CGROUP_CONTROLLER_BPF_FIREWALL,
+        CGROUP_CONTROLLER_BPF_DEVICES,
+
         _CGROUP_CONTROLLER_MAX,
         _CGROUP_CONTROLLER_INVALID = -1,
 } CGroupController;
 
-#define CGROUP_CONTROLLER_TO_MASK(c) (1 << (c))
+#define CGROUP_CONTROLLER_TO_MASK(c) (1U << (c))
 
 /* A bit mask of well known cgroup controllers */
 typedef enum CGroupMask {
@@ -47,8 +45,32 @@ typedef enum CGroupMask {
         CGROUP_MASK_MEMORY = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_MEMORY),
         CGROUP_MASK_DEVICES = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_DEVICES),
         CGROUP_MASK_PIDS = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_PIDS),
+        CGROUP_MASK_BPF_FIREWALL = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BPF_FIREWALL),
+        CGROUP_MASK_BPF_DEVICES = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BPF_DEVICES),
+
+        /* All real cgroup v1 controllers */
+        CGROUP_MASK_V1 = CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT|CGROUP_MASK_BLKIO|CGROUP_MASK_MEMORY|CGROUP_MASK_DEVICES|CGROUP_MASK_PIDS,
+
+        /* All real cgroup v2 controllers */
+        CGROUP_MASK_V2 = CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_MEMORY|CGROUP_MASK_PIDS,
+
+        /* All cgroup v2 BPF pseudo-controllers */
+        CGROUP_MASK_BPF = CGROUP_MASK_BPF_FIREWALL|CGROUP_MASK_BPF_DEVICES,
+
         _CGROUP_MASK_ALL = CGROUP_CONTROLLER_TO_MASK(_CGROUP_CONTROLLER_MAX) - 1
 } CGroupMask;
+
+static inline CGroupMask CGROUP_MASK_EXTEND_JOINED(CGroupMask mask) {
+        /* We always mount "cpu" and "cpuacct" in the same hierarchy. Hence, when one bit is set also set the other */
+
+        if (mask & (CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT))
+                mask |= (CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT);
+
+        return mask;
+}
+
+CGroupMask get_cpu_accounting_mask(void);
+bool cpu_accounting_is_cheap(void);
 
 /* Special values for all weight knobs on unified hierarchy */
 #define CGROUP_WEIGHT_INVALID ((uint64_t) -1)
@@ -140,12 +162,12 @@ int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d);
 int cg_read_subgroup(DIR *d, char **fn);
 
 typedef enum CGroupFlags {
-        CGROUP_SIGCONT     = 1,
-        CGROUP_IGNORE_SELF = 2,
-        CGROUP_REMOVE      = 4,
+        CGROUP_SIGCONT     = 1 << 0,
+        CGROUP_IGNORE_SELF = 1 << 1,
+        CGROUP_REMOVE      = 1 << 2,
 } CGroupFlags;
 
-typedef void (*cg_kill_log_func_t)(pid_t pid, int sig, void *userdata);
+typedef int (*cg_kill_log_func_t)(pid_t pid, int sig, void *userdata);
 
 int cg_kill(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
 int cg_kill_recursive(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
@@ -223,7 +245,7 @@ int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_m
 int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set* pids, cg_migrate_callback_t callback, void *userdata);
 int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to, cg_migrate_callback_t callback, void *userdata);
 int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root);
-int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p);
+int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p, CGroupMask *ret_result_mask);
 
 int cg_mask_supported(CGroupMask *ret);
 int cg_mask_from_string(const char *s, CGroupMask *ret);

@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd
-
-  Copyright 2013 Jan Janssen
+  Copyright © 2013 Jan Janssen
 ***/
 
 #include "list.h"

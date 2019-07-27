@@ -14,7 +14,6 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-sysusers.service
 Before=sysinit.target local-fs-pre.target systemd-udevd.service shutdown.target
-ConditionCapability=CAP_SYS_MODULE
 
 [Service]
 Type=oneshot

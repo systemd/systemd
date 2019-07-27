@@ -3,7 +3,7 @@
 #
 # sys-script.py
 #
-# (C) 2017 Canonical Ltd.
+# © 2017 Canonical Ltd.
 # Author: Dan Streetman <dan.streetman@canonical.com>
 
 import os, sys

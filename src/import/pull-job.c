@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2015 Lennart Poettering
-***/
-
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/xattr.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "format-util.h"
+#include "gcrypt-util.h"
 #include "hexdecoct.h"
 #include "import-util.h"
 #include "io-util.h"
@@ -78,7 +77,6 @@ static int pull_job_restart(PullJob *j) {
         j->payload_allocated = 0;
         j->written_compressed = 0;
         j->written_uncompressed = 0;
-        j->written_since_last_grow = 0;
 
         r = pull_job_begin(j);
         if (r < 0)
@@ -218,33 +216,27 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
         if (sz <= 0)
                 return 0;
 
-        if (j->written_uncompressed + sz < j->written_uncompressed) {
-                log_error("File too large, overflow");
-                return -EOVERFLOW;
-        }
+        if (j->written_uncompressed + sz < j->written_uncompressed)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW),
+                                       "File too large, overflow");
 
-        if (j->written_uncompressed + sz > j->uncompressed_max) {
-                log_error("File overly large, refusing");
-                return -EFBIG;
-        }
+        if (j->written_uncompressed + sz > j->uncompressed_max)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
+                                       "File overly large, refusing");
 
         if (j->disk_fd >= 0) {
 
-                if (j->grow_machine_directory && j->written_since_last_grow >= GROW_INTERVAL_BYTES) {
-                        j->written_since_last_grow = 0;
-                        grow_machine_directory();
-                }
-
                 if (j->allow_sparse)
                         n = sparse_write(j->disk_fd, p, sz, 64);
-                else
+                else {
                         n = write(j->disk_fd, p, sz);
-                if (n < 0)
-                        return log_error_errno(errno, "Failed to write file: %m");
-                if ((size_t) n < sz) {
-                        log_error("Short write");
-                        return -EIO;
+                        if (n < 0)
+                                n = -errno;
                 }
+                if (n < 0)
+                        return log_error_errno((int) n, "Failed to write file: %m");
+                if ((size_t) n < sz)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write");
         } else {
 
                 if (!GREEDY_REALLOC(j->payload, j->payload_allocated, j->payload_size + sz))
@@ -255,7 +247,6 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
         }
 
         j->written_uncompressed += sz;
-        j->written_since_last_grow += sz;
 
         return 0;
 }
@@ -269,21 +260,16 @@ static int pull_job_write_compressed(PullJob *j, void *p, size_t sz) {
         if (sz <= 0)
                 return 0;
 
-        if (j->written_compressed + sz < j->written_compressed) {
-                log_error("File too large, overflow");
-                return -EOVERFLOW;
-        }
+        if (j->written_compressed + sz < j->written_compressed)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
 
-        if (j->written_compressed + sz > j->compressed_max) {
-                log_error("File overly large, refusing.");
-                return -EFBIG;
-        }
+        if (j->written_compressed + sz > j->compressed_max)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "File overly large, refusing.");
 
         if (j->content_length != (uint64_t) -1 &&
-            j->written_compressed + sz > j->content_length) {
-                log_error("Content length incorrect.");
-                return -EFBIG;
-        }
+            j->written_compressed + sz > j->content_length)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
+                                       "Content length incorrect.");
 
         if (j->checksum_context)
                 gcry_md_write(j->checksum_context, p, sz);
@@ -322,10 +308,11 @@ static int pull_job_open_disk(PullJob *j) {
         }
 
         if (j->calc_checksum) {
-                if (gcry_md_open(&j->checksum_context, GCRY_MD_SHA256, 0) != 0) {
-                        log_error("Failed to initialize hash context.");
-                        return -EIO;
-                }
+                initialize_libgcrypt(false);
+
+                if (gcry_md_open(&j->checksum_context, GCRY_MD_SHA256, 0) != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to initialize hash context.");
         }
 
         return 0;
@@ -546,27 +533,32 @@ static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_o
 
 int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata) {
         _cleanup_(pull_job_unrefp) PullJob *j = NULL;
+        _cleanup_free_ char *u = NULL;
 
         assert(url);
         assert(glue);
         assert(ret);
 
-        j = new0(PullJob, 1);
+        u = strdup(url);
+        if (!u)
+                return -ENOMEM;
+
+        j = new(PullJob, 1);
         if (!j)
                 return -ENOMEM;
 
-        j->state = PULL_JOB_INIT;
-        j->disk_fd = -1;
-        j->userdata = userdata;
-        j->glue = glue;
-        j->content_length = (uint64_t) -1;
-        j->start_usec = now(CLOCK_MONOTONIC);
-        j->compressed_max = j->uncompressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU; /* 64GB safety limit */
-        j->style = VERIFICATION_STYLE_UNSET;
-
-        j->url = strdup(url);
-        if (!j->url)
-                return -ENOMEM;
+        *j = (PullJob) {
+                .state = PULL_JOB_INIT,
+                .disk_fd = -1,
+                .userdata = userdata,
+                .glue = glue,
+                .content_length = (uint64_t) -1,
+                .start_usec = now(CLOCK_MONOTONIC),
+                .compressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */
+                .uncompressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */
+                .style = VERIFICATION_STYLE_UNSET,
+                .url = TAKE_PTR(u),
+        };
 
         *ret = TAKE_PTR(j);
 
@@ -581,9 +573,6 @@ int pull_job_begin(PullJob *j) {
         if (j->state != PULL_JOB_INIT)
                 return -EBUSY;
 
-        if (j->grow_machine_directory)
-                grow_machine_directory();
-
         r = curl_glue_make(&j->curl, j->url, j);
         if (r < 0)
                 return r;
@@ -595,7 +584,7 @@ int pull_job_begin(PullJob *j) {
                 if (!cc)
                         return -ENOMEM;
 
-                hdr = strappend("If-None-Match: ", cc);
+                hdr = strjoin("If-None-Match: ", cc);
                 if (!hdr)
                         return -ENOMEM;
 

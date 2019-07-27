@@ -1,0 +1,14 @@
+[Match]
+Name=veth99
+
+[Network]
+DHCP=yes
+
+[DHCPv4]
+UseDNS=yes
+
+[DHCPv6]
+UseDNS=yes
+
+[IPv6AcceptRA]
+UseDNS=no

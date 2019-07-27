@@ -1,0 +1,4 @@
+[NetDev]
+Name=dropin-test
+Kind=dummy
+MACAddress=00:50:56:c0:00:38

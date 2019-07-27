@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <stdbool.h>
 
 #include "macro.h"
@@ -15,10 +9,10 @@
 #define UNIT_NAME_MAX 256
 
 typedef enum UnitNameFlags {
-        UNIT_NAME_PLAIN = 1,      /* Allow foo.service */
-        UNIT_NAME_INSTANCE = 2,   /* Allow foo@bar.service */
-        UNIT_NAME_TEMPLATE = 4,   /* Allow foo@.service */
-        UNIT_NAME_ANY = UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE,
+        UNIT_NAME_PLAIN    = 1 << 0, /* Allow foo.service */
+        UNIT_NAME_TEMPLATE = 1 << 1, /* Allow foo@.service */
+        UNIT_NAME_INSTANCE = 1 << 2, /* Allow foo@bar.service */
+        UNIT_NAME_ANY = UNIT_NAME_PLAIN|UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE,
 } UnitNameFlags;
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) _pure_;
@@ -26,13 +20,11 @@ bool unit_prefix_is_valid(const char *p) _pure_;
 bool unit_instance_is_valid(const char *i) _pure_;
 bool unit_suffix_is_valid(const char *s) _pure_;
 
-static inline int unit_prefix_and_instance_is_valid(const char *p) {
-        /* For prefix+instance and instance the same rules apply */
-        return unit_instance_is_valid(p);
+int unit_name_to_prefix(const char *n, char **ret);
+int unit_name_to_instance(const char *n, char **ret);
+static inline int unit_name_classify(const char *n) {
+        return unit_name_to_instance(n, NULL);
 }
-
-int unit_name_to_prefix(const char *n, char **prefix);
-int unit_name_to_instance(const char *n, char **instance);
 int unit_name_to_prefix_and_instance(const char *n, char **ret);
 
 UnitType unit_name_to_type(const char *n) _pure_;
@@ -56,8 +48,8 @@ int unit_name_from_path_instance(const char *prefix, const char *path, const cha
 int unit_name_to_path(const char *name, char **ret);
 
 typedef enum UnitNameMangle {
-        UNIT_NAME_MANGLE_GLOB = 1,
-        UNIT_NAME_MANGLE_WARN = 2,
+        UNIT_NAME_MANGLE_GLOB = 1 << 0,
+        UNIT_NAME_MANGLE_WARN = 1 << 1,
 } UnitNameMangle;
 
 int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const char *suffix, char **ret);
@@ -67,5 +59,5 @@ static inline int unit_name_mangle(const char *name, UnitNameMangle flags, char 
 }
 
 int slice_build_parent_slice(const char *slice, char **ret);
-int slice_build_subslice(const char *slice, const char*name, char **subslice);
+int slice_build_subslice(const char *slice, const char *name, char **subslice);
 bool slice_name_is_valid(const char *name);

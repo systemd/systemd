@@ -1,29 +1,13 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
--->
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_event_source_set_enabled" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_event_source_set_enabled</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -87,8 +71,10 @@
     <para><function>sd_event_source_get_enabled()</function> may be
     used to query whether the event source object
     <parameter>source</parameter> is currently enabled or not. It
-    returns the enablement state in
-    <parameter>enabled</parameter>.</para>
+    returns the enablement state (one of <constant>SD_EVENT_ON</constant>,
+    <constant>SD_EVENT_OFF</constant>, <constant>SD_EVENT_ONESHOT</constant>)
+    in <parameter>enabled</parameter>, if it is not <constant>NULL</constant>.
+    It also returns true if the event source is not disabled.</para>
 
     <para>Event source objects are enabled when they are first created
     with calls such as
@@ -113,40 +99,39 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_event_source_set_enabled()</function> and
-    <function>sd_event_source_get_enabled()</function> return a
-    non-negative integer. On failure, they return a negative
+    <para>On success, <function>sd_event_source_set_enabled()</function> returns a non-negative
+    integer. <function>sd_event_source_get_enabled()</function> returns zero if the source is disabled
+    (<constant>SD_EVENT_OFF</constant>) and a positive integer otherwise. On failure, they return a negative
     errno-style error code.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para><parameter>source</parameter> is not a valid
-        pointer to an <structname>sd_event_source</structname>
-        object.</para></listitem>
-      </varlistentry>
+          <listitem><para><parameter>source</parameter> is not a valid pointer to an
+          <structname>sd_event_source</structname> object.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Not enough memory.</para></listitem>
-      </varlistentry>
+          <listitem><para>Not enough memory.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The event loop has been created in a different process.</para></listitem>
+          <listitem><para>The event loop has been created in a different process.</para></listitem>
 
-      </varlistentry>
+        </varlistentry>
 
-    </variablelist>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
@@ -158,8 +143,9 @@
       <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_inotify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>

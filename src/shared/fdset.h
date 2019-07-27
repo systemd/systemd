@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <stdbool.h>
 
 #include "hashmap.h"
@@ -38,6 +32,8 @@ bool fdset_isempty(FDSet *fds);
 int fdset_iterate(FDSet *s, Iterator *i);
 
 int fdset_steal_first(FDSet *fds);
+
+void fdset_close(FDSet *fds);
 
 #define FDSET_FOREACH(fd, fds, i) \
         for ((i) = ITERATOR_FIRST, (fd) = fdset_iterate((fds), &(i)); (fd) >= 0; (fd) = fdset_iterate((fds), &(i)))

@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
-
 #include <stdio.h>
+
+#include "main-func.h"
 
 int generator_open_unit_file(
         const char *dest,
@@ -15,7 +11,7 @@ int generator_open_unit_file(
         const char *name,
         FILE **file);
 
-int generator_add_symlink(const char *root, const char *dst, const char *dep_type, const char *src);
+int generator_add_symlink(const char *dir, const char *dst, const char *dep_type, const char *src);
 
 int generator_write_fsck_deps(
         FILE *f,
@@ -53,3 +49,21 @@ int generator_hook_up_growfs(
         const char *dir,
         const char *where,
         const char *target);
+
+int generator_enable_remount_fs_service(const char *dir);
+
+void log_setup_generator(void);
+
+/* Similar to DEFINE_MAIN_FUNCTION, but initializes logging and assigns positional arguments. */
+#define DEFINE_MAIN_GENERATOR_FUNCTION(impl)                            \
+        _DEFINE_MAIN_FUNCTION(                                          \
+                ({                                                      \
+                        log_setup_generator();                          \
+                        if (argc > 1 && argc != 4)                      \
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), \
+                                                       "This program takes zero or three arguments."); \
+                }),                                                     \
+                impl(argc > 1 ? argv[1] : "/tmp",                       \
+                     argc > 1 ? argv[2] : "/tmp",                       \
+                     argc > 1 ? argv[3] : "/tmp"),                      \
+                r < 0 ? EXIT_FAILURE : EXIT_SUCCESS)

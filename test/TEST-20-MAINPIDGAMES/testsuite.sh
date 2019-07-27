@@ -1,11 +1,9 @@
 #!/bin/bash
-# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
-# ex: ts=8 sw=4 sts=4 et filetype=sh
 set -ex
 set -o pipefail
 
-systemd-analyze set-log-level debug
-systemd-analyze set-log-target console
+systemd-analyze log-level debug
+systemd-analyze log-target console
 
 test `systemctl show -p MainPID --value testsuite.service` -eq $$
 
@@ -44,11 +42,11 @@ test `systemctl show -p MainPID --value testsuite.service` -eq $$
 systemd-notify MAINPID=1073741824
 test `systemctl show -p MainPID --value testsuite.service` -eq $$
 
-# Change it again to the external PID, without priviliges this time. This should be ignored, because the PID is from outside of our cgroup and we lack privileges.
+# Change it again to the external PID, without privileges this time. This should be ignored, because the PID is from outside of our cgroup and we lack privileges.
 systemd-notify --uid=1000 MAINPID=$EXTERNALPID
 test `systemctl show -p MainPID --value testsuite.service` -eq $$
 
-# Change it again to the internal PID, without priviliges this time. This should work, as the process is on our cgroup, and that's enough even if we lack privileges.
+# Change it again to the internal PID, without privileges this time. This should work, as the process is on our cgroup, and that's enough even if we lack privileges.
 systemd-notify --uid=1000 MAINPID=$INTERNALPID
 test `systemctl show -p MainPID --value testsuite.service` -eq $INTERNALPID
 
@@ -134,7 +132,7 @@ chmod 755 /dev/shm/mainpid3.sh
 # Test that this failed due to timeout, and not some other error
 test `systemctl show -p Result --value mainpidsh3.service` = timeout
 
-systemd-analyze set-log-level info
+systemd-analyze log-level info
 
 echo OK > /testok
 

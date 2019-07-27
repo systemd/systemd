@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <inttypes.h>
 #include <limits.h>
 #include <stddef.h>
@@ -15,22 +9,18 @@
 
 #include "macro.h"
 
-#define MODE_INVALID ((mode_t) -1)
-
 int parse_boolean(const char *v) _pure_;
 int parse_dev(const char *s, dev_t *ret);
 int parse_pid(const char *s, pid_t* ret_pid);
 int parse_mode(const char *s, mode_t *ret);
 int parse_ifindex(const char *s, int *ret);
+int parse_ifindex_or_ifname(const char *s, int *ret);
 int parse_mtu(int family, const char *s, uint32_t *ret);
 
 int parse_size(const char *t, uint64_t base, uint64_t *size);
 int parse_range(const char *t, unsigned *lower, unsigned *upper);
 int parse_errno(const char *t);
 int parse_syscall_and_errno(const char *in, char **name, int *error);
-
-#define FORMAT_BYTES_MAX 8
-char *format_bytes(char *buf, size_t l, uint64_t t);
 
 int safe_atou_full(const char *s, unsigned base, unsigned *ret_u);
 
@@ -121,5 +111,6 @@ int parse_permille(const char *p);
 int parse_nice(const char *p, int *ret);
 
 int parse_ip_port(const char *s, uint16_t *ret);
+int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high);
 
 int parse_oom_score_adjust(const char *s, int *ret);

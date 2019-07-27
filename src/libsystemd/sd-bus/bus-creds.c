@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include <linux/capability.h>
 #include <stdlib.h>
@@ -654,19 +649,24 @@ _public_ int sd_bus_creds_get_description(sd_bus_creds *c, const char **ret) {
         return 0;
 }
 
-static int has_cap(sd_bus_creds *c, unsigned offset, int capability) {
+static int has_cap(sd_bus_creds *c, size_t offset, int capability) {
+        unsigned long lc;
         size_t sz;
 
         assert(c);
         assert(capability >= 0);
         assert(c->capability);
 
-        if ((unsigned) capability > cap_last_cap())
+        lc = cap_last_cap();
+
+        if ((unsigned long) capability > lc)
                 return 0;
 
-        sz = DIV_ROUND_UP(cap_last_cap(), 32U);
+        /* If the last cap is 63, then there are 64 caps defined, and we need 2 entries á 32bit hence. *
+         * If the last cap is 64, then there are 65 caps defined, and we need 3 entries á 32bit hence. */
+        sz = DIV_ROUND_UP(lc+1, 32LU);
 
-        return !!(c->capability[offset * sz + CAP_TO_INDEX(capability)] & CAP_TO_MASK(capability));
+        return !!(c->capability[offset * sz + CAP_TO_INDEX((uint32_t) capability)] & CAP_TO_MASK_CORRECTED((uint32_t) capability));
 }
 
 _public_ int sd_bus_creds_has_effective_cap(sd_bus_creds *c, int capability) {
@@ -716,7 +716,7 @@ static int parse_caps(sd_bus_creds *c, unsigned offset, const char *p) {
         assert(c);
         assert(p);
 
-        max = DIV_ROUND_UP(cap_last_cap(), 32U);
+        max = DIV_ROUND_UP(cap_last_cap()+1, 32U);
         p += strspn(p, WHITESPACE);
 
         sz = strlen(p);
@@ -805,10 +805,15 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         else if (!IN_SET(errno, EPERM, EACCES))
                                 return -errno;
                 } else {
-                        char line[LINE_MAX];
 
-                        FOREACH_LINE(line, f, return -errno) {
-                                truncate_nl(line);
+                        for (;;) {
+                                _cleanup_free_ char *line = NULL;
+
+                                r = read_line(f, LONG_LINE_MAX, &line);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
 
                                 if (missing & SD_BUS_CREDS_PPID) {
                                         p = startswith(line, "PPid:");
@@ -1256,7 +1261,7 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         if (c->mask & mask & (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS)) {
                 assert(c->capability);
 
-                n->capability = memdup(c->capability, DIV_ROUND_UP(cap_last_cap(), 32U) * 4 * 4);
+                n->capability = memdup(c->capability, DIV_ROUND_UP(cap_last_cap()+1, 32U) * 4 * 4);
                 if (!n->capability)
                         return -ENOMEM;
 

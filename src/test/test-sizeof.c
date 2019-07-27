@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2016 Zbigniew Jędrzejewski-Szmek
-***/
-
+#include <sched.h>
 #include <stdio.h>
 #include <string.h>
+
+#define __STDC_WANT_IEC_60559_TYPES_EXT__
+#include <float.h>
 
 #include "time-util.h"
 
@@ -15,11 +14,12 @@
 
 #pragma GCC diagnostic ignored "-Wtype-limits"
 
-#define info(t)                                                 \
-        printf("%s → %zu bits%s\n", STRINGIFY(t),               \
-               sizeof(t)*CHAR_BIT,                              \
-               strstr(STRINGIFY(t), "signed") ? "" :            \
-               ((t)-1 < (t)0 ? ", signed" : ", unsigned"));
+#define info(t)                                                         \
+        printf("%s → %zu bits%s, %zu byte alignment\n", STRINGIFY(t),   \
+               sizeof(t)*CHAR_BIT,                                      \
+               strstr(STRINGIFY(t), "signed") ? "" :                    \
+               (t)-1 < (t)0 ? ", signed" : ", unsigned",                \
+               __alignof__(t))
 
 enum Enum {
         enum_value,
@@ -49,6 +49,14 @@ int main(void) {
         info(double);
         info(long double);
 
+#ifdef FLT128_MAX
+        info(_Float128);
+        info(_Float64);
+        info(_Float64x);
+        info(_Float32);
+        info(_Float32x);
+#endif
+
         info(size_t);
         info(ssize_t);
         info(time_t);
@@ -57,6 +65,8 @@ int main(void) {
         info(pid_t);
         info(uid_t);
         info(gid_t);
+
+        info(__cpu_mask);
 
         info(enum Enum);
         info(enum BigEnum);

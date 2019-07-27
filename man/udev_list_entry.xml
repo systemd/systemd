@@ -1,17 +1,10 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2015 David Herrmann <dh.herrmann@gmail.com>
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="udev_list_entry"
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -19,15 +12,6 @@
   <refentryinfo>
     <title>udev_list_entry</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>David</firstname>
-        <surname>Herrmann</surname>
-        <email>dh.herrmann@gmail.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

@@ -1,13 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd
 
-  Copyright 2014 Tom Gundersen
-***/
-
+#include "memory-util.h"
 #include "sparse-endian.h"
 #include "unaligned.h"
-#include "util.h"
 
 static uint8_t data[] = {
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,

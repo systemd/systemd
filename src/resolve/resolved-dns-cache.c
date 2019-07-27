@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <net/if.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "format-util.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-packet.h"
@@ -233,11 +229,7 @@ void dns_cache_prune(DnsCache *c) {
 static int dns_cache_item_prioq_compare_func(const void *a, const void *b) {
         const DnsCacheItem *x = a, *y = b;
 
-        if (x->until < y->until)
-                return -1;
-        if (x->until > y->until)
-                return 1;
-        return 0;
+        return CMP(x->until, y->until);
 }
 
 static int dns_cache_init(DnsCache *c) {
@@ -399,7 +391,7 @@ static int dns_cache_put_positive(
 
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
         DnsCacheItem *existing;
-        char key_str[DNS_RESOURCE_KEY_STRING_MAX], ifname[IF_NAMESIZE];
+        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         int r, k;
 
         assert(c);
@@ -465,6 +457,7 @@ static int dns_cache_put_positive(
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = NULL;
+                char ifname[IF_NAMESIZE + 1];
 
                 (void) in_addr_to_string(i->owner_family, &i->owner_address, &t);
 
@@ -473,7 +466,7 @@ static int dns_cache_put_positive(
                           i->shared_owner ? " shared" : "",
                           dns_resource_key_to_string(i->key, key_str, sizeof key_str),
                           (i->until - timestamp) / USEC_PER_SEC,
-                          i->ifindex == 0 ? "*" : strna(if_indextoname(i->ifindex, ifname)),
+                          i->ifindex == 0 ? "*" : strna(format_ifname(i->ifindex, ifname)),
                           af_to_name_short(i->owner_family),
                           strna(t));
         }
@@ -628,6 +621,7 @@ static bool rr_eligible(DnsResourceRecord *rr) {
 
 int dns_cache_put(
                 DnsCache *c,
+                DnsCacheMode cache_mode,
                 DnsResourceKey *key,
                 int rcode,
                 DnsAnswer *answer,
@@ -654,12 +648,13 @@ int dns_cache_put(
          * short time.) */
 
         if (IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN)) {
-
                 if (dns_answer_size(answer) <= 0) {
-                        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
+                        if (key) {
+                                char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
-                        log_debug("Not caching negative entry without a SOA record: %s",
-                                  dns_resource_key_to_string(key, key_str, sizeof key_str));
+                                log_debug("Not caching negative entry without a SOA record: %s",
+                                          dns_resource_key_to_string(key, key_str, sizeof key_str));
+                        }
                         return 0;
                 }
 
@@ -684,13 +679,8 @@ int dns_cache_put(
 
         /* Second, add in positive entries for all contained RRs */
         DNS_ANSWER_FOREACH_FULL(rr, ifindex, flags, answer) {
-                if ((flags & DNS_ANSWER_CACHEABLE) == 0)
-                        continue;
-
-                r = rr_eligible(rr);
-                if (r < 0)
-                        return r;
-                if (r == 0)
+                if ((flags & DNS_ANSWER_CACHEABLE) == 0 ||
+                    !rr_eligible(rr))
                         continue;
 
                 r = dns_cache_put_positive(
@@ -737,6 +727,13 @@ int dns_cache_put(
                  * signed */
                 if (authenticated && (flags & DNS_ANSWER_AUTHENTICATED) == 0)
                         return 0;
+        }
+
+        if (cache_mode == DNS_CACHE_MODE_NO_NEGATIVE) {
+                char key_str[DNS_RESOURCE_KEY_STRING_MAX];
+                log_debug("Not caching negative entry for: %s, cache mode set to no-negative",
+                        dns_resource_key_to_string(key, key_str, sizeof key_str));
+                return 0;
         }
 
         r = dns_cache_put_negative(
@@ -796,7 +793,7 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
         if (dns_type_may_redirect(k->type)) {
                 /* Check if we have a CNAME record instead */
                 i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_CNAME, n));
-                if (i)
+                if (i && i->type != DNS_CACHE_NODATA)
                         return i;
 
                 /* OK, let's look for cached DNAME records. */
@@ -805,7 +802,7 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
                                 return NULL;
 
                         i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_DNAME, n));
-                        if (i)
+                        if (i && i->type != DNS_CACHE_NODATA)
                                 return i;
 
                         /* Jump one label ahead */

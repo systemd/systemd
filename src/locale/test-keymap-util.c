@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include "alloc-util.h"
 #include "keymap-util.h"
 #include "log.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void test_find_language_fallback(void) {
         _cleanup_free_ char *ans = NULL, *ans2 = NULL;
@@ -70,7 +66,7 @@ static void test_find_legacy_keymap(void) {
 }
 
 static void test_vconsole_convert_to_x11(void) {
-        _cleanup_(context_free) Context c = {};
+        _cleanup_(context_clear) Context c = {};
 
         log_info("/*** %s ***/", __func__);
 
@@ -124,7 +120,7 @@ static void test_vconsole_convert_to_x11(void) {
 }
 
 static void test_x11_convert_to_vconsole(void) {
-        _cleanup_(context_free) Context c = {};
+        _cleanup_(context_clear) Context c = {};
         int r;
 
         log_info("/*** %s ***/", __func__);
@@ -194,8 +190,7 @@ static void test_x11_convert_to_vconsole(void) {
 }
 
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         test_find_language_fallback();
         test_find_converted_keymap();

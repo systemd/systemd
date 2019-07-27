@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 #include "sd-bus.h"
 
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "bus-wait-for-jobs.h"
 #include "nspawn-register.h"
 #include "special.h"
 #include "stat-util.h"
@@ -20,8 +16,7 @@ static int append_machine_properties(
                 sd_bus_message *m,
                 CustomMount *mounts,
                 unsigned n_mounts,
-                int kill_signal,
-                char **properties) {
+                int kill_signal) {
 
         unsigned j;
         int r;
@@ -117,6 +112,7 @@ int register_machine(
                 unsigned n_mounts,
                 int kill_signal,
                 char **properties,
+                sd_bus_message *properties_message,
                 bool keep_unit,
                 const char *service) {
 
@@ -186,10 +182,15 @@ int register_machine(
                                 m,
                                 mounts,
                                 n_mounts,
-                                kill_signal,
-                                properties);
+                                kill_signal);
                 if (r < 0)
                         return r;
+
+                if (properties_message) {
+                        r = sd_bus_message_copy(m, properties_message, true);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
 
                 r = bus_append_unit_property_assignment_many(m, UNIT_SERVICE, properties);
                 if (r < 0)
@@ -202,18 +203,17 @@ int register_machine(
                 r = sd_bus_call(bus, m, 0, &error, NULL);
         }
 
-        if (r < 0) {
-                log_error("Failed to register machine: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register machine: %s", bus_error_message(&error, r));
 
         return 0;
 }
 
-int terminate_machine(sd_bus *bus, pid_t pid) {
+int terminate_machine(
+                sd_bus *bus,
+                const char *machine_name) {
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *path;
         int r;
 
         assert(bus);
@@ -223,36 +223,13 @@ int terminate_machine(sd_bus *bus, pid_t pid) {
                         "org.freedesktop.machine1",
                         "/org/freedesktop/machine1",
                         "org.freedesktop.machine1.Manager",
-                        "GetMachineByPID",
-                        &error,
-                        &reply,
-                        "u",
-                        (uint32_t) pid);
-        if (r < 0) {
-                /* Note that the machine might already have been
-                 * cleaned up automatically, hence don't consider it a
-                 * failure if we cannot get the machine object. */
-                log_debug("Failed to get machine: %s", bus_error_message(&error, r));
-                return 0;
-        }
-
-        r = sd_bus_message_read(reply, "o", &path);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.machine1",
-                        path,
-                        "org.freedesktop.machine1.Machine",
-                        "Terminate",
+                        "TerminateMachine",
                         &error,
                         NULL,
-                        NULL);
-        if (r < 0) {
+                        "s",
+                        machine_name);
+        if (r < 0)
                 log_debug("Failed to terminate machine: %s", bus_error_message(&error, r));
-                return 0;
-        }
 
         return 0;
 }
@@ -265,11 +242,11 @@ int allocate_scope(
                 CustomMount *mounts,
                 unsigned n_mounts,
                 int kill_signal,
-                char **properties) {
+                char **properties,
+                sd_bus_message *properties_message) {
 
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *scope = NULL;
         const char *description, *object;
@@ -306,10 +283,12 @@ int allocate_scope(
 
         description = strjoina("Container ", machine_name);
 
-        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)",
+        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)(sv)",
                                   "PIDs", "au", 1, pid,
                                   "Description", "s", description,
                                   "Delegate", "b", 1,
+                                  "CollectMode", "s", "inactive-or-failed",
+                                  "AddRef", "b", 1,
                                   "Slice", "s", isempty(slice) ? SPECIAL_MACHINE_SLICE : slice);
         if (r < 0)
                 return bus_log_create_error(r);
@@ -318,12 +297,17 @@ int allocate_scope(
         if (r < 0)
                 return r;
 
+        if (properties_message) {
+                r = sd_bus_message_copy(m, properties_message, true);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
         r = append_machine_properties(
                         m,
                         mounts,
                         n_mounts,
-                        kill_signal,
-                        properties);
+                        kill_signal);
         if (r < 0)
                 return r;
 
@@ -344,10 +328,8 @@ int allocate_scope(
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_error("Failed to allocate scope: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate scope: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "o", &object);
         if (r < 0)
@@ -356,6 +338,66 @@ int allocate_scope(
         r = bus_wait_for_jobs_one(w, object, false);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+int terminate_scope(
+                sd_bus *bus,
+                const char *machine_name) {
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *scope = NULL;
+        int r;
+
+        r = unit_name_mangle_with_suffix(machine_name, 0, ".scope", &scope);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle scope name: %m");
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "AbandonScope",
+                        &error,
+                        NULL,
+                        "s",
+                        scope);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to abandon scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
+                sd_bus_error_free(&error);
+        }
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "KillUnit",
+                        &error,
+                        NULL,
+                        "ssi",
+                        scope,
+                        "all",
+                        (int32_t) SIGKILL);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to SIGKILL scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
+                sd_bus_error_free(&error);
+        }
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "UnrefUnit",
+                        &error,
+                        NULL,
+                        "s",
+                        scope);
+        if (r < 0)
+                log_debug_errno(r, "Failed to drop reference to scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
 
         return 0;
 }

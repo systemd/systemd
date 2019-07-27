@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2016 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <string.h>
 
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
+#include "serialize.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
@@ -18,13 +14,13 @@
 static void test_strv_env_delete(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
 
-        a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF", NULL);
+        a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF");
         assert_se(a);
 
-        b = strv_new("PIEP", "FOO", NULL);
+        b = strv_new("PIEP", "FOO");
         assert_se(b);
 
-        c = strv_new("SCHLUMPF", NULL);
+        c = strv_new("SCHLUMPF");
         assert_se(c);
 
         d = strv_env_delete(a, 2, b, c);
@@ -48,7 +44,7 @@ static void test_strv_env_get(void) {
 static void test_strv_env_unset(void) {
         _cleanup_strv_free_ char **l = NULL;
 
-        l = strv_new("PIEP", "SCHLUMPF=SMURFF", "NANANANA=YES", NULL);
+        l = strv_new("PIEP", "SCHLUMPF=SMURFF", "NANANANA=YES");
         assert_se(l);
 
         assert_se(strv_env_unset(l, "SCHLUMPF") == l);
@@ -61,7 +57,7 @@ static void test_strv_env_unset(void) {
 static void test_strv_env_set(void) {
         _cleanup_strv_free_ char **l = NULL, **r = NULL;
 
-        l = strv_new("PIEP", "SCHLUMPF=SMURFF", "NANANANA=YES", NULL);
+        l = strv_new("PIEP", "SCHLUMPF=SMURFF", "NANANANA=YES");
         assert_se(l);
 
         r = strv_env_set(l, "WALDO=WALDO");
@@ -77,10 +73,10 @@ static void test_strv_env_set(void) {
 static void test_strv_env_merge(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **r = NULL;
 
-        a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF", NULL);
+        a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF");
         assert_se(a);
 
-        b = strv_new("FOO=KKK", "FOO=", "PIEP=", "SCHLUMPF=SMURFF", "NANANANA=YES", NULL);
+        b = strv_new("FOO=KKK", "FOO=", "PIEP=", "SCHLUMPF=SMURFF", "NANANANA=YES");
         assert_se(b);
 
         r = strv_env_merge(2, a, b);
@@ -126,10 +122,10 @@ static void test_env_strv_get_n(void) {
 
         assert_se(!strv_env_get_n(env, "PATH__", 4, 0));
         assert_se(!strv_env_get_n(env, "PATH", 4, 0));
-        assert_se(streq(strv_env_get_n(env, "PATH__", 4, REPLACE_ENV_USE_ENVIRONMENT),
-                        getenv("PATH")));
-        assert_se(streq(strv_env_get_n(env, "PATH", 4, REPLACE_ENV_USE_ENVIRONMENT),
-                        getenv("PATH")));
+        assert_se(streq_ptr(strv_env_get_n(env, "PATH__", 4, REPLACE_ENV_USE_ENVIRONMENT),
+                            getenv("PATH")));
+        assert_se(streq_ptr(strv_env_get_n(env, "PATH", 4, REPLACE_ENV_USE_ENVIRONMENT),
+                            getenv("PATH")));
 }
 
 static void test_replace_env(bool braceless) {
@@ -253,8 +249,7 @@ static void test_env_clean(void) {
                      "xyz\n=xyz",
                      "xyz=xyz\n",
                      "another=one",
-                     "another=final one",
-                     NULL);
+                     "another=final one");
         assert_se(e);
         assert_se(!strv_env_is_valid(e));
         assert_se(strv_env_clean(e) == e);
@@ -309,61 +304,6 @@ static void test_env_assignment_is_valid(void) {
         assert_se(!env_assignment_is_valid("głąb=printf \"\x1b]0;<mock-chroot>\x07<mock-chroot>\""));
 }
 
-static void test_deserialize_environment(void) {
-        _cleanup_strv_free_ char **env = strv_new("A=1", NULL);
-
-        assert_se(deserialize_environment(&env, "env=B=2") >= 0);
-        assert_se(deserialize_environment(&env, "env=FOO%%=a\\177b\\nc\\td e") >= 0);
-
-        assert_se(strv_equal(env, STRV_MAKE("A=1", "B=2", "FOO%%=a\177b\nc\td e")));
-
-        assert_se(deserialize_environment(&env, "env=foo\\") < 0);
-        assert_se(deserialize_environment(&env, "env=bar\\_baz") < 0);
-}
-
-static void test_serialize_environment(void) {
-        char fn[] = "/tmp/test-env-util.XXXXXXX";
-        int fd, r;
-        _cleanup_fclose_ FILE *f = NULL;
-
-        _cleanup_strv_free_ char **env = strv_new("A=1",
-                                                  "B=2",
-                                                  "C=ąęółń",
-                                                  "D=D=a\\x0Ab",
-                                                  "FOO%%=a\177b\nc\td e",
-                                                  NULL);
-        _cleanup_strv_free_ char **env2 = NULL;
-
-        fd = mkostemp_safe(fn);
-        assert_se(fd >= 0);
-
-        assert_se(f = fdopen(fd, "r+"));
-
-        assert_se(serialize_environment(f, env) == 0);
-        assert_se(fflush_and_check(f) == 0);
-
-        rewind(f);
-
-        for (;;) {
-                char line[LINE_MAX];
-                const char *l;
-
-                if (!fgets(line, sizeof line, f))
-                        break;
-
-                char_array_0(line);
-                l = strstrip(line);
-
-                r = deserialize_environment(&env2, l);
-                assert_se(r == 1);
-        }
-        assert_se(feof(f));
-
-        assert_se(strv_equal(env, env2));
-
-        unlink(fn);
-}
-
 int main(int argc, char *argv[]) {
         test_strv_env_delete();
         test_strv_env_get();
@@ -380,8 +320,6 @@ int main(int argc, char *argv[]) {
         test_env_name_is_valid();
         test_env_value_is_valid();
         test_env_assignment_is_valid();
-        test_deserialize_environment();
-        test_serialize_environment();
 
         return 0;
 }

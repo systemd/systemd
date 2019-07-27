@@ -1,14 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd-id128"
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -16,15 +9,6 @@
   <refentryinfo>
     <title>sd-id128</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -40,6 +24,7 @@
     <refname>SD_ID128_NULL</refname>
     <refname>SD_ID128_CONST_STR</refname>
     <refname>SD_ID128_FORMAT_STR</refname>
+    <refname>SD_ID128_UUID_FORMAT_STR</refname>
     <refname>SD_ID128_FORMAT_VAL</refname>
     <refname>sd_id128_equal</refname>
     <refname>sd_id128_is_null</refname>
@@ -135,6 +120,11 @@ int main(int argc, char **argv) {
         return 0;
 }</programlisting>
 
+    <para><function>SD_ID128_UUID_FORMAT_STR()</function> is similar to
+    <function>SD_ID128_FORMAT_STR()</function> but includes separating hyphens to conform to the
+    "<ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">canonical representation</ulink>".
+    </para>
+
     <para>Use <function>sd_id128_equal()</function> to compare two 128-bit IDs:</para>
 
     <programlisting>int main(int argc, char *argv[]) {
@@ -154,8 +144,8 @@ int main(int argc, char **argv) {
 }</programlisting>
 
     <para>Note that new, randomized IDs may be generated with
-    <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-    <option>--new-id128</option> option.</para>
+    <citerefentry><refentrytitle>systemd-id128</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    <command>new</command> command.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

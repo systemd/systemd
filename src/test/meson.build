@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 awkscript = 'test-hashmap-ordered.awk'
 test_hashmap_ordered_c = custom_target(
@@ -8,7 +6,8 @@ test_hashmap_ordered_c = custom_target(
         input : [awkscript, 'test-hashmap-plain.c'],
         output : 'test-hashmap-ordered.c',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
-        capture : true)
+        capture : true,
+        build_by_default : want_tests != 'false')
 
 test_include_dir = include_directories('.')
 
@@ -28,14 +27,16 @@ test_libsystemd_sym_c = custom_target(
         input : [libsystemd_sym_path] + systemd_headers,
         output : 'test-libsystemd-sym.c',
         command : [generate_sym_test_py, libsystemd_sym_path] + systemd_headers,
-        capture : true)
+        capture : true,
+        build_by_default : want_tests != 'false')
 
 test_libudev_sym_c = custom_target(
         'test-libudev-sym.c',
         input : [libudev_sym_path, libudev_h_path],
         output : 'test-libudev-sym.c',
         command : [generate_sym_test_py, '@INPUT0@', '@INPUT1@'],
-        capture : true)
+        capture : true,
+        build_by_default : want_tests != 'false')
 
 test_dlopen_c = files('test-dlopen.c')
 
@@ -62,6 +63,16 @@ tests += [
           libmount,
           libblkid]],
 
+        [['src/test/test-emergency-action.c'],
+         [libcore,
+          libshared],
+         []],
+
+        [['src/test/test-chown-rec.c'],
+         [libcore,
+          libshared],
+         []],
+
         [['src/test/test-job-type.c'],
          [libcore,
           libshared],
@@ -73,6 +84,17 @@ tests += [
           libblkid]],
 
         [['src/test/test-ns.c'],
+         [libcore,
+          libshared],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid],
+         '', 'manual'],
+
+        [['src/test/test-nscd-flush.c'],
          [libcore,
           libshared],
          [threads,
@@ -126,7 +148,7 @@ tests += [
           libmount,
           libblkid]],
 
-        [['src/test/test-unit-file.c',
+        [['src/test/test-load-fragment.c',
           'src/test/test-helper.c'],
          [libcore,
           libshared],
@@ -137,7 +159,15 @@ tests += [
           libmount,
           libblkid]],
 
+        [['src/test/test-serialize.c'],
+         [],
+         []],
+
         [['src/test/test-utf8.c'],
+         [],
+         []],
+
+        [['src/test/test-dev-setup.c'],
          [],
          []],
 
@@ -155,6 +185,10 @@ tests += [
          []],
 
         [['src/test/test-copy.c'],
+         [],
+         []],
+
+        [['src/test/test-static-destruct.c'],
          [],
          []],
 
@@ -182,6 +216,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-format-util.c'],
+         [],
+         []],
+
         [['src/test/test-ratelimit.c'],
          [],
          []],
@@ -190,7 +228,20 @@ tests += [
          [],
          []],
 
+        [['src/test/test-json.c'],
+         [],
+         []],
+
+        [['src/test/test-libmount.c'],
+         [],
+         [threads,
+          libmount]],
+
         [['src/test/test-mount-util.c'],
+         [],
+         []],
+
+        [['src/test/test-mountpoint-util.c'],
          [],
          []],
 
@@ -219,6 +270,10 @@ tests += [
          []],
 
         [['src/test/test-fs-util.c'],
+         [],
+         []],
+
+        [['src/test/test-umask-util.c'],
          [],
          []],
 
@@ -283,6 +338,10 @@ tests += [
          []],
 
         [['src/test/test-path-lookup.c'],
+         [],
+         []],
+
+        [['src/test/test-pretty-print.c'],
          [],
          []],
 
@@ -393,6 +452,14 @@ tests += [
         [['src/test/test-set.c'],
          [],
          []],
+
+        [['src/test/test-ordered-set.c'],
+         [],
+         []],
+
+        [['src/test/test-set-disable-mempool.c'],
+         [],
+         [threads]],
 
         [['src/test/test-bitmap.c'],
          [],
@@ -510,6 +577,17 @@ tests += [
          [],
          '', 'manual'],
 
+        [['src/test/test-cgroup-cpu.c'],
+         [libcore,
+          libshared],
+         []],
+
+        [['src/test/test-cgroup-unit-default.c',
+          'src/test/test-helper.c'],
+         [libcore,
+          libshared],
+         []],
+
         [['src/test/test-cgroup-mask.c',
           'src/test/test-helper.c'],
          [libcore,
@@ -521,7 +599,15 @@ tests += [
           libmount,
           libblkid]],
 
+        [['src/test/test-varlink.c'],
+         [],
+         [threads]],
+
         [['src/test/test-cgroup-util.c'],
+         [],
+         []],
+
+        [['src/test/test-env-file.c'],
          [],
          []],
 
@@ -540,6 +626,11 @@ tests += [
         [['src/test/test-path-util.c'],
          [],
          []],
+
+        [['src/test/test-chase-symlinks.c'],
+         [],
+         [],
+         '', 'manual'],
 
         [['src/test/test-path.c',
           'src/test/test-helper.c'],
@@ -611,6 +702,11 @@ tests += [
          [],
          []],
 
+        [['src/test/test-ip-protocol-list.c',
+          shared_generated_gperf_headers],
+         [],
+         []],
+
         [['src/test/test-journal-importer.c'],
          [],
          []],
@@ -629,7 +725,7 @@ tests += [
           libblkid,
           libkmod,
           libacl],
-         '', 'manual'],
+         '', 'manual', '-DLOG_REALM=LOG_REALM_UDEV'],
 
         [['src/test/test-id128.c'],
          [],
@@ -647,17 +743,24 @@ tests += [
         [['src/test/test-nss.c'],
          [],
          [libdl],
-         '', 'manual'],
+         'ENABLE_NSS', 'manual'],
 
         [['src/test/test-umount.c',
-          'src/core/mount-setup.c',
-          'src/core/mount-setup.h',
-          'src/core/umount.c',
-          'src/core/umount.h'],
-         [],
+          'src/shutdown/umount.c',
+          'src/shutdown/umount.h'],
+         [libcore_shared,
+          libshared],
          [libmount]],
 
         [['src/test/test-bus-util.c'],
+         [],
+         []],
+
+        [['src/test/test-sd-hwdb.c'],
+         [],
+         []],
+
+        [['src/test/test-local-addresses.c'],
          [],
          []],
 ]
@@ -758,8 +861,7 @@ tests += [
           libshared],
          [threads,
           libxz,
-          liblz4],
-         '', '', '-DCATALOG_DIR="@0@"'.format(build_catalog_dir)],
+          liblz4]],
 
         [['src/journal/test-compress.c'],
          [libjournal_core,
@@ -784,6 +886,10 @@ tests += [
 ############################################################
 
 tests += [
+        [['src/libsystemd/sd-bus/test-bus-address.c'],
+         [],
+         [threads]],
+
         [['src/libsystemd/sd-bus/test-bus-marshal.c'],
          [],
          [threads,
@@ -793,6 +899,10 @@ tests += [
           libdbus]],
 
         [['src/libsystemd/sd-bus/test-bus-signature.c'],
+         [],
+         [threads]],
+
+        [['src/libsystemd/sd-bus/test-bus-queue-ref-cycle.c'],
          [],
          [threads]],
 
@@ -826,7 +936,8 @@ tests += [
          [],
          [threads]],
 
-        [['src/libsystemd/sd-bus/test-bus-vtable.c'],
+        [['src/libsystemd/sd-bus/test-bus-vtable.c',
+          'src/libsystemd/sd-bus/test-vtable-data.h'],
          [],
          []],
 
@@ -849,7 +960,8 @@ tests += [
          [threads],
          '', 'manual'],
 
-        [['src/libsystemd/sd-bus/test-bus-introspect.c'],
+        [['src/libsystemd/sd-bus/test-bus-introspect.c',
+          'src/libsystemd/sd-bus/test-vtable-data.h'],
          [],
          []],
 
@@ -861,20 +973,41 @@ tests += [
          [],
          []],
 
-        [['src/libsystemd/sd-netlink/test-local-addresses.c'],
-         [],
-         []],
-
         [['src/libsystemd/sd-resolve/test-resolve.c'],
          [],
-         [threads]],
+         [threads],
+         '', 'timeout=120'],
 
         [['src/libsystemd/sd-login/test-login.c'],
          [],
          []],
+
+        [['src/libsystemd/sd-device/test-sd-device.c'],
+         [],
+         []],
+
+        [['src/libsystemd/sd-device/test-sd-device-thread.c'],
+         [libbasic,
+          libshared_static,
+          libsystemd],
+         [threads]],
+
+        [['src/libsystemd/sd-device/test-udev-device-thread.c'],
+         [libbasic,
+          libshared_static,
+          libudev],
+         [threads]],
+
+        [['src/libsystemd/sd-device/test-sd-device-monitor.c'],
+         [],
+         []],
+
 ]
 
-if cxx.found()
+# test-bus-vtable-cc.cc is a symlink and symlinks get lost in containers on FuzzBuzz.
+# The issue has been reported to the developers of FuzzBuzz and hopefully will be fixed soon.
+# In the meantime, let's just skip the symlink there.
+if cxx_cmd != '' and not want_fuzzbuzz
         tests += [
                 [['src/libsystemd/sd-bus/test-bus-vtable-cc.cc'],
                  [],

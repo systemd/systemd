@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -21,6 +16,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "dbus-automount.h"
+#include "dbus-unit.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "io-util.h"
@@ -28,9 +24,11 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mount.h"
+#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "serialize.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -50,7 +48,7 @@ struct expire_data {
         int ioctl_fd;
 };
 
-static inline void expire_data_free(struct expire_data *data) {
+static void expire_data_free(struct expire_data *data) {
         if (!data)
                 return;
 
@@ -90,7 +88,7 @@ static void unmount_autofs(Automount *a) {
         a->pipe_fd = safe_close(a->pipe_fd);
 
         /* If we reload/reexecute things we keep the mount point around */
-        if (!IN_SET(UNIT(a)->manager->exit_code, MANAGER_RELOAD, MANAGER_REEXECUTE)) {
+        if (!IN_SET(UNIT(a)->manager->objective, MANAGER_RELOAD, MANAGER_REEXECUTE)) {
 
                 automount_send_ready(a, a->tokens, -EHOSTDOWN);
                 automount_send_ready(a, a->expire_tokens, -EHOSTDOWN);
@@ -154,7 +152,7 @@ static int automount_add_default_dependencies(Automount *a) {
         if (!MANAGER_IS_SYSTEM(UNIT(a)->manager))
                 return 0;
 
-        r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
@@ -240,6 +238,9 @@ static void automount_set_state(Automount *a, AutomountState state) {
         AutomountState old_state;
         assert(a);
 
+        if (a->state != state)
+                bus_unit_send_pending_change_signal(UNIT(a), false);
+
         old_state = a->state;
         a->state = state;
 
@@ -319,9 +320,7 @@ static void automount_enter_dead(Automount *a, AutomountResult f) {
         if (a->result == AUTOMOUNT_SUCCESS)
                 a->result = f;
 
-        if (a->result != AUTOMOUNT_SUCCESS)
-                log_unit_warning(UNIT(a), "Failed with result '%s'.", automount_result_to_string(a->result));
-
+        unit_log_result(UNIT(a), a->result == AUTOMOUNT_SUCCESS, automount_result_to_string(a->result));
         automount_set_state(a, a->result != AUTOMOUNT_SUCCESS ? AUTOMOUNT_FAILED : AUTOMOUNT_DEAD);
 }
 
@@ -579,10 +578,13 @@ static void automount_enter_waiting(Automount *a) {
                 goto fail;
         }
 
-        if (pipe2(p, O_NONBLOCK|O_CLOEXEC) < 0) {
+        if (pipe2(p, O_CLOEXEC) < 0) {
                 r = -errno;
                 goto fail;
         }
+        r = fd_nonblock(p[0], true);
+        if (r < 0)
+                goto fail;
 
         xsprintf(options, "fd=%i,pgrp="PID_FMT",minproto=5,maxproto=5,direct", p[1], getpgrp());
         xsprintf(name, "systemd-"PID_FMT, getpid_cached());
@@ -757,7 +759,7 @@ static void automount_enter_running(Automount *a) {
                 return;
         }
 
-        mkdir_p_label(a->where, a->directory_mode);
+        (void) mkdir_p_label(a->where, a->directory_mode);
 
         /* Before we do anything, let's see if somebody is playing games with us? */
         if (lstat(a->where, &st) < 0) {
@@ -779,7 +781,7 @@ static void automount_enter_running(Automount *a) {
                 goto fail;
         }
 
-        r = manager_add_job(UNIT(a)->manager, JOB_START, trigger, JOB_REPLACE, &error, NULL);
+        r = manager_add_job(UNIT(a)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
         if (r < 0) {
                 log_unit_warning(UNIT(a), "Failed to queue mount startup job: %s", bus_error_message(&error, r));
                 goto fail;
@@ -794,7 +796,6 @@ fail:
 
 static int automount_start(Unit *u) {
         Automount *a = AUTOMOUNT(u);
-        Unit *trigger;
         int r;
 
         assert(a);
@@ -805,13 +806,11 @@ static int automount_start(Unit *u) {
                 return -EEXIST;
         }
 
-        trigger = UNIT_TRIGGER(u);
-        if (!trigger || trigger->load_state != UNIT_LOADED) {
-                log_unit_error(u, "Refusing to start, unit to trigger not loaded.");
-                return -ENOENT;
-        }
+        r = unit_test_trigger_loaded(u);
+        if (r < 0)
+                return r;
 
-        r = unit_start_limit_test(u);
+        r = unit_test_start_limit(u);
         if (r < 0) {
                 automount_enter_dead(a, AUTOMOUNT_FAILURE_START_LIMIT_HIT);
                 return r;
@@ -846,16 +845,16 @@ static int automount_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        unit_serialize_item(u, f, "state", automount_state_to_string(a->state));
-        unit_serialize_item(u, f, "result", automount_result_to_string(a->result));
-        unit_serialize_item_format(u, f, "dev-id", "%u", (unsigned) a->dev_id);
+        (void) serialize_item(f, "state", automount_state_to_string(a->state));
+        (void) serialize_item(f, "result", automount_result_to_string(a->result));
+        (void) serialize_item_format(f, "dev-id", "%lu", (unsigned long) a->dev_id);
 
         SET_FOREACH(p, a->tokens, i)
-                unit_serialize_item_format(u, f, "token", "%u", PTR_TO_UINT(p));
+                (void) serialize_item_format(f, "token", "%u", PTR_TO_UINT(p));
         SET_FOREACH(p, a->expire_tokens, i)
-                unit_serialize_item_format(u, f, "expire-token", "%u", PTR_TO_UINT(p));
+                (void) serialize_item_format(f, "expire-token", "%u", PTR_TO_UINT(p));
 
-        r = unit_serialize_item_fd(u, f, fds, "pipe-fd", a->pipe_fd);
+        r = serialize_fd(f, fds, "pipe-fd", a->pipe_fd);
         if (r < 0)
                 return r;
 
@@ -887,12 +886,13 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
                         a->result = f;
 
         } else if (streq(key, "dev-id")) {
-                unsigned d;
+                unsigned long d;
 
-                if (safe_atou(value, &d) < 0)
+                if (safe_atolu(value, &d) < 0)
                         log_unit_debug(u, "Failed to parse dev-id value: %s", value);
                 else
-                        a->dev_id = (unsigned) d;
+                        a->dev_id = (dev_t) d;
+
         } else if (streq(key, "token")) {
                 unsigned token;
 
@@ -1035,7 +1035,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                         goto fail;
                 }
 
-                r = manager_add_job(UNIT(a)->manager, JOB_STOP, trigger, JOB_REPLACE, &error, NULL);
+                r = manager_add_job(UNIT(a)->manager, JOB_STOP, trigger, JOB_REPLACE, NULL, &error, NULL);
                 if (r < 0) {
                         log_unit_warning(UNIT(a), "Failed to queue umount startup job: %s", bus_error_message(&error, r));
                         goto fail;

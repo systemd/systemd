@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 #include <linux/fs.h>
 
@@ -29,6 +24,7 @@
 #include "ratelimit.h"
 #include "rm-rf.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 struct TarImport {
@@ -42,7 +38,6 @@ struct TarImport {
         char *local;
         bool force_local;
         bool read_only;
-        bool grow_machine_directory;
 
         char *temp_path;
         char *final_path;
@@ -51,8 +46,6 @@ struct TarImport {
         int tar_fd;
 
         ImportCompress compress;
-
-        uint64_t written_since_last_grow;
 
         sd_event_source *input_event_source;
 
@@ -106,26 +99,29 @@ int tar_import_new(
                 void *userdata) {
 
         _cleanup_(tar_import_unrefp) TarImport *i = NULL;
+        _cleanup_free_ char *root = NULL;
         int r;
 
         assert(ret);
 
-        i = new0(TarImport, 1);
+        root = strdup(image_root ?: "/var/lib/machines");
+        if (!root)
+                return -ENOMEM;
+
+        i = new(TarImport, 1);
         if (!i)
                 return -ENOMEM;
 
-        i->input_fd = i->tar_fd = -1;
-        i->on_finished = on_finished;
-        i->userdata = userdata;
+        *i = (TarImport) {
+                .input_fd = -1,
+                .tar_fd = -1,
+                .on_finished = on_finished,
+                .userdata = userdata,
+                .last_percent = (unsigned) -1,
+                .image_root = TAKE_PTR(root),
+        };
 
         RATELIMIT_INIT(i->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
-        i->last_percent = (unsigned) -1;
-
-        i->image_root = strdup(image_root ?: "/var/lib/machines");
-        if (!i->image_root)
-                return -ENOMEM;
-
-        i->grow_machine_directory = path_startswith(i->image_root, "/var/lib/machines");
 
         if (event)
                 i->event = sd_event_ref(event);
@@ -180,7 +176,13 @@ static int tar_import_finish(TarImport *i) {
                 i->tar_pid = 0;
                 if (r < 0)
                         return r;
+                if (r != EXIT_SUCCESS)
+                        return -EPROTO;
         }
+
+        r = import_mangle_os_tree(i->temp_path);
+        if (r < 0)
+                return r;
 
         if (i->read_only) {
                 r = import_make_read_only(i->temp_path);
@@ -209,7 +211,7 @@ static int tar_import_fork_tar(TarImport *i) {
         assert(!i->temp_path);
         assert(i->tar_fd < 0);
 
-        i->final_path = strjoin(i->image_root, "/", i->local);
+        i->final_path = path_join(i->image_root, i->local);
         if (!i->final_path)
                 return log_oom();
 
@@ -239,17 +241,11 @@ static int tar_import_write(const void *p, size_t sz, void *userdata) {
         TarImport *i = userdata;
         int r;
 
-        if (i->grow_machine_directory && i->written_since_last_grow >= GROW_INTERVAL_BYTES) {
-                i->written_since_last_grow = 0;
-                grow_machine_directory();
-        }
-
         r = loop_write(i->tar_fd, p, sz, false);
         if (r < 0)
                 return r;
 
         i->written_uncompressed += sz;
-        i->written_since_last_grow += sz;
 
         return 0;
 }

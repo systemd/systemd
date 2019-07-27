@@ -1,8 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-#  This file is part of systemd.
-#
-#  Copyright 2012 Lennart Poettering
 
 -- fc2e22bc6ee647b6b90729ab34a250b1
 Subject: Speicherabbild für Prozess @COREDUMP_PID@ (@COREDUMP_COMM) generiert

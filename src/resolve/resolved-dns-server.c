@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include "sd-messages.h"
 
@@ -48,16 +43,18 @@ int dns_server_new(
                         return -E2BIG;
         }
 
-        s = new0(DnsServer, 1);
+        s = new(DnsServer, 1);
         if (!s)
                 return -ENOMEM;
 
-        s->n_ref = 1;
-        s->manager = m;
-        s->type = type;
-        s->family = family;
-        s->address = *in_addr;
-        s->ifindex = ifindex;
+        *s = (DnsServer) {
+                .n_ref = 1,
+                .manager = m,
+                .type = type,
+                .family = family,
+                .address = *in_addr,
+                .ifindex = ifindex,
+        };
 
         dns_server_reset_features(s);
 
@@ -85,11 +82,6 @@ int dns_server_new(
 
         s->linked = true;
 
-#if HAVE_GNUTLS
-        /* Do not verify cerificate */
-        gnutls_certificate_allocate_credentials(&s->tls_cert_cred);
-#endif
-
         /* A new DNS server that isn't fallback is added and the one
          * we used so far was a fallback one? Then let's try to pick
          * the new one */
@@ -104,39 +96,20 @@ int dns_server_new(
         return 0;
 }
 
-DnsServer* dns_server_ref(DnsServer *s)  {
-        if (!s)
-                return NULL;
+static DnsServer* dns_server_free(DnsServer *s)  {
+        assert(s);
 
-        assert(s->n_ref > 0);
-        s->n_ref++;
+        dns_server_unref_stream(s);
 
-        return s;
-}
-
-DnsServer* dns_server_unref(DnsServer *s)  {
-        if (!s)
-                return NULL;
-
-        assert(s->n_ref > 0);
-        s->n_ref--;
-
-        if (s->n_ref > 0)
-                return NULL;
-
-        dns_stream_unref(s->stream);
-
-#if HAVE_GNUTLS
-        if (s->tls_cert_cred)
-                gnutls_certificate_free_credentials(s->tls_cert_cred);
-
-        if (s->tls_session_data.data)
-                gnutls_free(s->tls_session_data.data);
+#if ENABLE_DNS_OVER_TLS
+        dnstls_server_free(s);
 #endif
 
         free(s->server_string);
         return mfree(s);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsServer, dns_server, dns_server_free);
 
 void dns_server_unlink(DnsServer *s) {
         assert(s);
@@ -169,6 +142,8 @@ void dns_server_unlink(DnsServer *s) {
                 LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
                 s->manager->n_dns_servers--;
                 break;
+        default:
+                assert_not_reached("Unknown server type");
         }
 
         s->linked = false;
@@ -178,6 +153,9 @@ void dns_server_unlink(DnsServer *s) {
 
         if (s->manager->current_dns_server == s)
                 manager_set_dns_server(s->manager, NULL);
+
+        /* No need to keep a default stream around anymore */
+        dns_server_unref_stream(s);
 
         dns_server_unref(s);
 }
@@ -257,7 +235,7 @@ static void dns_server_reset_counters(DnsServer *s) {
          *
          * This is particularly important to deal with certain Belkin routers which break OPT for certain lookups (A),
          * but pass traffic through for others (AAAA). If we detect the broken behaviour on one lookup we should not
-         * reenable it for another, because we cannot validate things anyway, given that the RRSIG/OPT data will be
+         * re-enable it for another, because we cannot validate things anyway, given that the RRSIG/OPT data will be
          * incomplete. */
 }
 
@@ -302,7 +280,7 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
                 s->received_udp_packet_max = size;
 }
 
-void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t usec) {
+void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level) {
         assert(s);
         assert(s->manager);
 
@@ -400,11 +378,11 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
         /* Determine the best feature level we care about. If DNSSEC mode is off there's no point in using anything
          * better than EDNS0, hence don't even try. */
         if (dns_server_get_dnssec_mode(s) != DNSSEC_NO)
-                best = dns_server_get_private_dns_mode(s) == PRIVATE_DNS_NO ?
+                best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ?
                         DNS_SERVER_FEATURE_LEVEL_LARGE :
                         DNS_SERVER_FEATURE_LEVEL_TLS_DO;
         else
-                best = dns_server_get_private_dns_mode(s) == PRIVATE_DNS_NO ?
+                best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ?
                         DNS_SERVER_FEATURE_LEVEL_EDNS0 :
                         DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
 
@@ -441,12 +419,12 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         log_debug("Reached maximum number of failed TCP connection attempts, trying UDP again...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
                 } else if (s->n_failed_tls > 0 &&
-                           DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level)) {
+                           DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) && dns_server_get_dns_over_tls_mode(s) != DNS_OVER_TLS_YES) {
 
                         /* We tried to connect using DNS-over-TLS, and it didn't work. Downgrade to plaintext UDP
                          * if we don't require DNS-over-TLS */
 
-                        log_debug("Server doesn't support seem to support DNS-over-TLS, downgrading protocol...");
+                        log_debug("Server doesn't support DNS-over-TLS, downgrading protocol...");
                         s->possible_feature_level--;
                 } else if (s->packet_bad_opt &&
                            s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
@@ -598,29 +576,7 @@ void dns_server_warn_downgrade(DnsServer *server) {
         server->warned_downgrade = true;
 }
 
-bool dns_server_limited_domains(DnsServer *server) {
-        DnsSearchDomain *domain;
-        bool domain_restricted = false;
-
-        /* Check if the server has route-only domains without ~., i. e. whether
-         * it should only be used for particular domains */
-        if (!server->link)
-                return false;
-
-        LIST_FOREACH(domains, domain, server->link->search_domains)
-                if (domain->route_only) {
-                        domain_restricted = true;
-                        /* ~. means "any domain", thus it is a global server */
-                        if (dns_name_is_root(DNS_SEARCH_DOMAIN_NAME(domain)))
-                                return false;
-                }
-
-        return domain_restricted;
-}
-
-static void dns_server_hash_func(const void *p, struct siphash *state) {
-        const DnsServer *s = p;
-
+static void dns_server_hash_func(const DnsServer *s, struct siphash *state) {
         assert(s);
 
         siphash24_compress(&s->family, sizeof(s->family), state);
@@ -628,31 +584,25 @@ static void dns_server_hash_func(const void *p, struct siphash *state) {
         siphash24_compress(&s->ifindex, sizeof(s->ifindex), state);
 }
 
-static int dns_server_compare_func(const void *a, const void *b) {
-        const DnsServer *x = a, *y = b;
+static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
         int r;
 
-        if (x->family < y->family)
-                return -1;
-        if (x->family > y->family)
-                return 1;
+        r = CMP(x->family, y->family);
+        if (r != 0)
+                return r;
 
         r = memcmp(&x->address, &y->address, FAMILY_ADDRESS_SIZE(x->family));
         if (r != 0)
                 return r;
 
-        if (x->ifindex < y->ifindex)
-                return -1;
-        if (x->ifindex > y->ifindex)
-                return 1;
+        r = CMP(x->ifindex, y->ifindex);
+        if (r != 0)
+                return r;
 
         return 0;
 }
 
-const struct hash_ops dns_server_hash_ops = {
-        .hash = dns_server_hash_func,
-        .compare = dns_server_compare_func
-};
+DEFINE_HASH_OPS(dns_server_hash_ops, DnsServer, dns_server_hash_func, dns_server_compare_func);
 
 void dns_server_unlink_all(DnsServer *first) {
         DnsServer *next;
@@ -789,19 +739,6 @@ void manager_next_dns_server(Manager *m) {
                 manager_set_dns_server(m, m->dns_servers);
 }
 
-bool dns_server_address_valid(int family, const union in_addr_union *sa) {
-
-        /* Refuses the 0 IP addresses as well as 127.0.0.53 (which is our own DNS stub) */
-
-        if (in_addr_is_null(family, sa))
-                return false;
-
-        if (family == AF_INET && sa->in.s_addr == htobe32(INADDR_DNS_STUB))
-                return false;
-
-        return true;
-}
-
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s) {
         assert(s);
 
@@ -811,13 +748,13 @@ DnssecMode dns_server_get_dnssec_mode(DnsServer *s) {
         return manager_get_dnssec_mode(s->manager);
 }
 
-PrivateDnsMode dns_server_get_private_dns_mode(DnsServer *s) {
+DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s) {
         assert(s);
 
         if (s->link)
-                return link_get_private_dns_mode(s->link);
+                return link_get_dns_over_tls_mode(s->link);
 
-        return manager_get_private_dns_mode(s->manager);
+        return manager_get_dns_over_tls_mode(s->manager);
 }
 
 void dns_server_flush_cache(DnsServer *s) {
@@ -855,6 +792,9 @@ void dns_server_reset_features(DnsServer *s) {
         s->warned_downgrade = false;
 
         dns_server_reset_counters(s);
+
+        /* Let's close the default stream, so that we reprobe with the new features */
+        dns_server_unref_stream(s);
 }
 
 void dns_server_reset_features_all(DnsServer *s) {
@@ -879,7 +819,7 @@ void dns_server_dump(DnsServer *s, FILE *f) {
                 assert(s->link);
 
                 fputs(" interface=", f);
-                fputs(s->link->name, f);
+                fputs(s->link->ifname, f);
         }
 
         fputs("]\n", f);
@@ -913,6 +853,30 @@ void dns_server_dump(DnsServer *s, FILE *f) {
                 yes_no(s->packet_truncated),
                 yes_no(s->packet_bad_opt),
                 yes_no(s->packet_rrsig_missing));
+}
+
+void dns_server_unref_stream(DnsServer *s) {
+        DnsStream *ref;
+
+        assert(s);
+
+        /* Detaches the default stream of this server. Some special care needs to be taken here, as that stream and
+         * this server reference each other. First, take the stream out of the server. It's destructor will check if it
+         * is registered with us, hence let's invalidate this separately, so that it is already unregistered. */
+        ref = TAKE_PTR(s->stream);
+
+        /* And then, unref it */
+        dns_stream_unref(ref);
+}
+
+DnsScope *dns_server_scope(DnsServer *s) {
+        assert(s);
+        assert((s->type == DNS_SERVER_LINK) == !!s->link);
+
+        if (s->link)
+                return s->link->unicast_scope;
+
+        return s->manager->unicast_scope;
 }
 
 static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {

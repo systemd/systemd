@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Susant Sahani <susant@redhat.com>
-***/
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/if_tun.h>
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <linux/if_tun.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -39,9 +34,6 @@ static int netdev_fill_tuntap_message(NetDev *netdev, struct ifreq *ifr) {
         if (!t->packet_info)
                 ifr->ifr_flags |= IFF_NO_PI;
 
-        if (t->one_queue)
-                ifr->ifr_flags |= IFF_ONE_QUEUE;
-
         if (t->multi_queue)
                 ifr->ifr_flags |= IFF_MULTI_QUEUE;
 
@@ -65,12 +57,11 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
         assert(netdev);
         assert(ifr);
 
-        fd = open(TUN_DEV, O_RDWR);
+        fd = open(TUN_DEV, O_RDWR|O_CLOEXEC);
         if (fd < 0)
                 return log_netdev_error_errno(netdev, -errno,  "Failed to open tun dev: %m");
 
-        r = ioctl(fd, TUNSETIFF, ifr);
-        if (r < 0)
+        if (ioctl(fd, TUNSETIFF, ifr) < 0)
                 return log_netdev_error_errno(netdev, -errno, "TUNSETIFF failed on tun dev: %m");
 
         if (netdev->kind == NETDEV_KIND_TAP)
@@ -81,34 +72,29 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
         assert(t);
 
         if (t->user_name) {
-
                 user = t->user_name;
 
-                r = get_user_creds(&user, &uid, NULL, NULL, NULL);
+                r = get_user_creds(&user, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Cannot resolve user name %s: %m", t->user_name);
 
-                r = ioctl(fd, TUNSETOWNER, uid);
-                if (r < 0)
+                if (ioctl(fd, TUNSETOWNER, uid) < 0)
                         return log_netdev_error_errno(netdev, -errno, "TUNSETOWNER failed on tun dev: %m");
         }
 
         if (t->group_name) {
-
                 group = t->group_name;
 
-                r = get_group_creds(&group, &gid);
+                r = get_group_creds(&group, &gid, USER_CREDS_ALLOW_MISSING);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Cannot resolve group name %s: %m", t->group_name);
 
-                r = ioctl(fd, TUNSETGROUP, gid);
-                if (r < 0)
+                if (ioctl(fd, TUNSETGROUP, gid) < 0)
                         return log_netdev_error_errno(netdev, -errno, "TUNSETGROUP failed on tun dev: %m");
 
         }
 
-        r = ioctl(fd, TUNSETPERSIST, 1);
-        if (r < 0)
+        if (ioctl(fd, TUNSETPERSIST, 1) < 0)
                 return log_netdev_error_errno(netdev, -errno, "TUNSETPERSIST failed on tun dev: %m");
 
         return 0;
@@ -145,10 +131,16 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
         assert(netdev);
 
         if (netdev->mtu != 0)
-                log_netdev_warning(netdev, "MTU configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
+                log_netdev_warning(netdev,
+                                   "MTUBytes= configured for %s device in %s will be ignored.\n"
+                                   "Please set it in the corresponding .network file.",
+                                   netdev_kind_to_string(netdev->kind), filename);
 
         if (netdev->mac)
-                log_netdev_warning(netdev, "MAC configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
+                log_netdev_warning(netdev,
+                                   "MACAddress= configured for %s device in %s will be ignored.\n"
+                                   "Please set it in the corresponding .network file.",
+                                   netdev_kind_to_string(netdev->kind), filename);
 
         return 0;
 }

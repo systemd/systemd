@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include "bus-util.h"
 #include "dbus-cgroup.h"
@@ -150,7 +145,7 @@ int bus_mount_set_property(
 int bus_mount_commit_properties(Unit *u) {
         assert(u);
 
-        unit_update_cgroup_members_masks(u);
+        unit_invalidate_cgroup_members_masks(u);
         unit_realize_cgroup(u);
 
         return 0;

@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 systemd_journal_upload_sources = files('''
         journal-upload.h
@@ -65,9 +63,11 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
         install_data('browse.html',
                      install_dir : join_paths(pkgdatadir, 'gatewayd'))
 
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format('/var/log/journal/remote'))
-        meson.add_install_script('sh', '-c',
-                                 '''chown 0:0 $DESTDIR/var/log/journal/remote &&
-                                    chmod 755 $DESTDIR/var/log/journal/remote || :''')
+        if get_option('create-log-dirs')
+                meson.add_install_script('sh', '-c',
+                                         mkdir_p.format('/var/log/journal/remote'))
+                meson.add_install_script('sh', '-c',
+                                         '''chown 0:0 $DESTDIR/var/log/journal/remote &&
+                                            chmod 755 $DESTDIR/var/log/journal/remote || :''')
+        endif
 endif

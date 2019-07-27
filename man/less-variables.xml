@@ -1,14 +1,7 @@
 <?xml version="1.0"?>
-<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-                 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refsect1>
   <title>Environment</title>
@@ -30,7 +23,38 @@
       <term><varname>$SYSTEMD_LESS</varname></term>
 
       <listitem><para>Override the options passed to <command>less</command> (by default
-      <literal>FRSXMK</literal>).</para></listitem>
+      <literal>FRSXMK</literal>).</para>
+
+      <para>Users might want to change two options in particular:</para>
+
+      <variablelist class='environment-variables'>
+        <varlistentry>
+          <term><option>K</option></term>
+
+          <para>This option instructs the pager to exit immediately when
+          <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> is pressed. To allow
+          <command>less</command> to handle <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo>
+          itself to switch back to the pager command prompt, unset this option.</para>
+
+          <para>If the value of <varname>$SYSTEMD_LESS</varname> does not include <literal>K</literal>,
+          and the pager that is invoked is <command>less</command>,
+          <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> will be ignored by the
+          executable, and needs to be handled by the pager.</para>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>X</option></term>
+
+          <para>This option instructs the pager to not send termcap initialization and deinitialization
+          strings to the terminal. It is set by default to allow command output to remain visible in the
+          terminal even after the pager exits. Nevertheless, this prevents some pager functionality from
+          working, in particular paged output cannot be scrolled with the mouse.</para>
+        </varlistentry>
+      </variablelist>
+
+      <para>See
+      <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      for more discussion.</para></listitem>
     </varlistentry>
 
     <varlistentry id='lesscharset'>

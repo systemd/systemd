@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <alloca.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "macro.h"
 
 /* What is interpreted as whitespace? */
@@ -62,6 +57,16 @@ static inline const char *empty_to_dash(const char *str) {
         return isempty(str) ? "-" : str;
 }
 
+static inline bool empty_or_dash(const char *str) {
+        return !str ||
+                str[0] == 0 ||
+                (str[0] == '-' && str[1] == 0);
+}
+
+static inline const char *empty_or_dash_to_null(const char *p) {
+        return empty_or_dash(p) ? NULL : p;
+}
+
 static inline char *startswith(const char *s, const char *prefix) {
         size_t l;
 
@@ -87,18 +92,22 @@ char *endswith_no_case(const char *s, const char *postfix) _pure_;
 
 char *first_word(const char *s, const char *word) _pure_;
 
-const char* split(const char **state, size_t *l, const char *separator, bool quoted);
+typedef enum SplitFlags {
+        SPLIT_QUOTES                     = 0x01 << 0,
+        SPLIT_RELAX                      = 0x01 << 1,
+} SplitFlags;
+
+const char* split(const char **state, size_t *l, const char *separator, SplitFlags flags);
 
 #define FOREACH_WORD(word, length, s, state)                            \
-        _FOREACH_WORD(word, length, s, WHITESPACE, false, state)
+        _FOREACH_WORD(word, length, s, WHITESPACE, 0, state)
 
 #define FOREACH_WORD_SEPARATOR(word, length, s, separator, state)       \
-        _FOREACH_WORD(word, length, s, separator, false, state)
+        _FOREACH_WORD(word, length, s, separator, 0, state)
 
-#define _FOREACH_WORD(word, length, s, separator, quoted, state)        \
-        for ((state) = (s), (word) = split(&(state), &(length), (separator), (quoted)); (word); (word) = split(&(state), &(length), (separator), (quoted)))
+#define _FOREACH_WORD(word, length, s, separator, flags, state)         \
+        for ((state) = (s), (word) = split(&(state), &(length), (separator), (flags)); (word); (word) = split(&(state), &(length), (separator), (flags)))
 
-char *strappend(const char *s, const char *suffix);
 char *strnappend(const char *s, const char *suffix, size_t length);
 
 char *strjoin_real(const char *x, ...) _sentinel_;
@@ -112,7 +121,7 @@ char *strjoin_real(const char *x, ...) _sentinel_;
                 size_t _i_;                                           \
                 for (_i_ = 0; _i_ < ELEMENTSOF(_appendees_) && _appendees_[_i_]; _i_++) \
                         _len_ += strlen(_appendees_[_i_]);              \
-                _p_ = _d_ = alloca(_len_ + 1);                          \
+                _p_ = _d_ = newa(char, _len_ + 1);                      \
                 for (_i_ = 0; _i_ < ELEMENTSOF(_appendees_) && _appendees_[_i_]; _i_++) \
                         _p_ = stpcpy(_p_, _appendees_[_i_]);            \
                 *_p_ = 0;                                               \
@@ -165,8 +174,6 @@ char *cellescape(char *buf, size_t len, const char *s);
 /* This limit is arbitrary, enough to give some idea what the string contains */
 #define CELLESCAPE_DEFAULT_LENGTH 64
 
-bool nulstr_contains(const char *nulstr, const char *needle);
-
 char* strshorten(char *s, size_t l);
 
 char *strreplace(const char *text, const char *old_string, const char *new_string);
@@ -182,31 +189,12 @@ char *strrep(const char *s, unsigned n);
 int split_pair(const char *s, const char *sep, char **l, char **r);
 
 int free_and_strdup(char **p, const char *s);
-
-/* Normal memmem() requires haystack to be nonnull, which is annoying for zero-length buffers */
-static inline void *memmem_safe(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
-
-        if (needlelen <= 0)
-                return (void*) haystack;
-
-        if (haystacklen < needlelen)
-                return NULL;
-
-        assert(haystack);
-        assert(needle);
-
-        return memmem(haystack, haystacklen, needle, needlelen);
+static inline int free_and_strdup_warn(char **p, const char *s) {
+        if (free_and_strdup(p, s) < 0)
+                return log_oom();
+        return 0;
 }
-
-#if !HAVE_EXPLICIT_BZERO
-void explicit_bzero(void *p, size_t l);
-#endif
-
-char *string_erase(char *x);
-
-char *string_free_erase(char *s);
-DEFINE_TRIVIAL_CLEANUP_FUNC(char *, string_free_erase);
-#define _cleanup_string_free_erase_ _cleanup_(string_free_erasep)
+int free_and_strndup(char **p, const char *s, size_t l);
 
 bool string_is_safe(const char *p) _pure_;
 
@@ -216,6 +204,12 @@ static inline size_t strlen_ptr(const char *s) {
 
         return strlen(s);
 }
+
+DISABLE_WARNING_STRINGOP_TRUNCATION;
+static inline void strncpy_exact(char *buf, const char *src, size_t buf_len) {
+        strncpy(buf, src, buf_len);
+}
+REENABLE_WARNING;
 
 /* Like startswith(), but operates on arbitrary memory blocks */
 static inline void *memory_startswith(const void *p, size_t sz, const char *token) {
@@ -233,4 +227,39 @@ static inline void *memory_startswith(const void *p, size_t sz, const char *toke
                 return NULL;
 
         return (uint8_t*) p + n;
+}
+
+/* Like startswith_no_case(), but operates on arbitrary memory blocks.
+ * It works only for ASCII strings.
+ */
+static inline void *memory_startswith_no_case(const void *p, size_t sz, const char *token) {
+        size_t n, i;
+
+        assert(token);
+
+        n = strlen(token);
+        if (sz < n)
+                return NULL;
+
+        assert(p);
+
+        for (i = 0; i < n; i++) {
+                if (ascii_tolower(((char *)p)[i]) != ascii_tolower(token[i]))
+                        return NULL;
+        }
+
+        return (uint8_t*) p + n;
+}
+
+static inline char* str_realloc(char **p) {
+        /* Reallocate *p to actual size */
+
+        if (!*p)
+                return NULL;
+
+        char *t = realloc(*p, strlen(*p) + 1);
+        if (!t)
+                return NULL;
+
+        return (*p = t);
 }

@@ -1,0 +1,113 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1+
+
+  Copyright © 2016 Julian Orth
+-->
+
+<refentry id="sd_bus_wait" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_wait</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_wait</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_wait</refname>
+
+    <refpurpose>Wait for I/O on a bus connection</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_wait</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>uint64_t <parameter>timeout_usec</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_wait()</function> synchronously waits for I/O on the specified bus connection object. This
+    function is supposed to be called whenever
+    <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry> returns zero,
+    indicating that no work is pending on the connection. Internally, this call invokes <citerefentry
+    project='man-pages'><refentrytitle>ppoll</refentrytitle><manvolnum>3</manvolnum></citerefentry>, to wait for I/O on
+    the bus connection. If the <parameter>timeout_sec</parameter> parameter is specified, the call will block at most
+    for the specified amount of time in µs. Pass <constant>UINT64_MAX</constant> to permit it to sleep
+    indefinitely.</para>
+
+    <para>After each invocation of <function>sd_bus_wait()</function> the <function>sd_bus_process()</function> call
+    should be invoked in order to process any now pending I/O work.</para>
+
+    <para>Note that <function>sd_bus_wait()</function> is suitable only for simple programs as it does not permit
+    waiting for other I/O events. For more complex programs either connect the bus connection object to an external
+    event loop using <citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    or to an <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry> event loop
+    using
+    <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>If any I/O was seen, a positive value is returned, zero otherwise. If an error occurs, a negative
+    <varname>errno</varname>-style error code is returned.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An invalid bus object was passed.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus connection was allocated in a parent process and is being reused in a child
+          process after <function>fork()</function>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
+
+          <listitem><para>The bus connection has been terminated already.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

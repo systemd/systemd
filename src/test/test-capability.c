@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd
-
-  Copyright 2014 Ronny Chevalier
-***/
 
 #include <netinet/in.h>
 #include <pwd.h>
@@ -18,14 +13,21 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
+#include "missing_prctl.h"
 #include "parse-util.h"
+#include "tests.h"
 #include "util.h"
 
 static uid_t test_uid = -1;
 static gid_t test_gid = -1;
 
+#if HAS_FEATURE_ADDRESS_SANITIZER
+/* Keep CAP_SYS_PTRACE when running under Address Sanitizer */
+static const uint64_t test_flags = UINT64_C(1) << CAP_SYS_PTRACE;
+#else
 /* We keep CAP_DAC_OVERRIDE to avoid errors with gcov when doing test coverage */
-static uint64_t test_flags = 1ULL << CAP_DAC_OVERRIDE;
+static const uint64_t test_flags = UINT64_C(1) << CAP_DAC_OVERRIDE;
+#endif
 
 /* verify cap_last_cap() against /proc/sys/kernel/cap_last_cap */
 static void test_last_cap_file(void) {
@@ -96,10 +98,9 @@ static int setup_tests(bool *run_ambient) {
         int r;
 
         nobody = getpwnam(NOBODY_USER_NAME);
-        if (!nobody) {
-                log_error_errno(errno, "Could not find nobody user: %m");
-                return -EXIT_TEST_SKIP;
-        }
+        if (!nobody)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Could not find nobody user: %m");
+
         test_uid = nobody->pw_uid;
         test_gid = nobody->pw_gid;
 
@@ -185,8 +186,6 @@ static void test_update_inherited_set(void) {
 
         caps = cap_get_proc();
         assert_se(caps);
-        assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert(fv == CAP_CLEAR);
 
         set = (UINT64_C(1) << CAP_CHOWN);
 
@@ -202,12 +201,6 @@ static void test_set_ambient_caps(void) {
         uint64_t set = 0;
         cap_flag_value_t fv;
 
-        caps = cap_get_proc();
-        assert_se(caps);
-        assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert(fv == CAP_CLEAR);
-        cap_free(caps);
-
         assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 0);
 
         set = (UINT64_C(1) << CAP_CHOWN);
@@ -222,24 +215,42 @@ static void test_set_ambient_caps(void) {
         assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 1);
 }
 
-int main(int argc, char *argv[]) {
+static void test_ensure_cap_64bit(void) {
+        _cleanup_free_ char *content = NULL;
+        unsigned long p = 0;
         int r;
+
+        r = read_one_line_file("/proc/sys/kernel/cap_last_cap", &content);
+        if (r == -ENOENT) /* kernel pre 3.2 */
+                return;
+        assert_se(r >= 0);
+
+        assert_se(safe_atolu(content, &p) >= 0);
+
+        /* If caps don't fit into 64bit anymore, we have a problem, fail the test. */
+        assert_se(p <= 63);
+
+        /* Also check for the header definition */
+        assert_se(CAP_LAST_CAP <= 63);
+}
+
+int main(int argc, char *argv[]) {
         bool run_ambient;
+
+        test_setup_logging(LOG_INFO);
+
+        test_ensure_cap_64bit();
 
         test_last_cap_file();
         test_last_cap_probe();
 
-        log_parse_environment();
-        log_open();
-
         log_info("have ambient caps: %s", yes_no(ambient_capabilities_supported()));
 
         if (getuid() != 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("not running as root");
 
-        r = setup_tests(&run_ambient);
-        if (r < 0)
-                return -r;
+        if (setup_tests(&run_ambient) < 0)
+                return log_tests_skipped("setup failed");
 
         show_capabilities();
 

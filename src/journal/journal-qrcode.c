@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <qrencode.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdio_ext.h>
 #include <stdlib.h>
 
+#include "fileio.h"
 #include "journal-qrcode.h"
 #include "macro.h"
 
@@ -50,11 +45,9 @@ int print_qr_code(
         assert(seed);
         assert(seed_size > 0);
 
-        f = open_memstream(&url, &url_size);
+        f = open_memstream_unlocked(&url, &url_size);
         if (!f)
                 return -ENOMEM;
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         fputs("fss://", f);
 

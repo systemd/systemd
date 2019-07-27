@@ -3,7 +3,7 @@
 #
 # systemd-sysv-generator integration test
 #
-# (C) 2015 Canonical Ltd.
+# © 2015 Canonical Ltd.
 # Author: Martin Pitt <martin.pitt@ubuntu.com>
 
 import collections
@@ -48,7 +48,7 @@ class SysvGeneratorTest(unittest.TestCase):
         '''Run sysv-generator.
 
         Fail if stderr contains any "Fail", unless expect_error is True.
-        Return (stderr, filename -> ConfigParser) pair with ouput to stderr and
+        Return (stderr, filename -> ConfigParser) pair with output to stderr and
         parsed generated units.
         '''
         env = os.environ.copy()

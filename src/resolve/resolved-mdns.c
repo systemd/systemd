@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Daniel Mack
- ***/
 
 #include <resolv.h>
 #include <netinet/in.h>
@@ -13,6 +8,7 @@
 #include "fd-util.h"
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
+#include "sort-util.h"
 
 #define CLEAR_CACHE_FLUSH(x) (~MDNS_RR_CACHE_FLUSH & (x))
 
@@ -58,50 +54,41 @@ eaddrinuse:
         return 0;
 }
 
-static int mdns_rr_compare(const void *a, const void *b) {
-        DnsResourceRecord **x = (DnsResourceRecord**) a, **y = (DnsResourceRecord**) b;
+static int mdns_rr_compare(DnsResourceRecord * const *a, DnsResourceRecord * const *b) {
+        DnsResourceRecord *x = *(DnsResourceRecord **) a, *y = *(DnsResourceRecord **) b;
         size_t m;
         int r;
 
         assert(x);
-        assert(*x);
         assert(y);
-        assert(*y);
 
-        if (CLEAR_CACHE_FLUSH((*x)->key->class) < CLEAR_CACHE_FLUSH((*y)->key->class))
-                return -1;
-        else if (CLEAR_CACHE_FLUSH((*x)->key->class) > CLEAR_CACHE_FLUSH((*y)->key->class))
-                return 1;
-
-        if ((*x)->key->type < (*y)->key->type)
-                return -1;
-        else if ((*x)->key->type > (*y)->key->type)
-                return 1;
-
-        r = dns_resource_record_to_wire_format(*x, false);
-        if (r < 0) {
-                log_warning_errno(r, "Can't wire-format RR: %m");
-                return 0;
-        }
-
-        r = dns_resource_record_to_wire_format(*y, false);
-        if (r < 0) {
-                log_warning_errno(r, "Can't wire-format RR: %m");
-                return 0;
-        }
-
-        m = MIN(DNS_RESOURCE_RECORD_RDATA_SIZE(*x), DNS_RESOURCE_RECORD_RDATA_SIZE(*y));
-
-        r = memcmp(DNS_RESOURCE_RECORD_RDATA(*x), DNS_RESOURCE_RECORD_RDATA(*y), m);
+        r = CMP(CLEAR_CACHE_FLUSH(x->key->class), CLEAR_CACHE_FLUSH(y->key->class));
         if (r != 0)
                 return r;
 
-        if (DNS_RESOURCE_RECORD_RDATA_SIZE(*x) < DNS_RESOURCE_RECORD_RDATA_SIZE(*y))
-                return -1;
-        else if (DNS_RESOURCE_RECORD_RDATA_SIZE(*x) > DNS_RESOURCE_RECORD_RDATA_SIZE(*y))
-                return 1;
+        r = CMP(x->key->type, y->key->type);
+        if (r != 0)
+                return r;
 
-        return 0;
+        r = dns_resource_record_to_wire_format(x, false);
+        if (r < 0) {
+                log_warning_errno(r, "Can't wire-format RR: %m");
+                return 0;
+        }
+
+        r = dns_resource_record_to_wire_format(y, false);
+        if (r < 0) {
+                log_warning_errno(r, "Can't wire-format RR: %m");
+                return 0;
+        }
+
+        m = MIN(DNS_RESOURCE_RECORD_RDATA_SIZE(x), DNS_RESOURCE_RECORD_RDATA_SIZE(y));
+
+        r = memcmp(DNS_RESOURCE_RECORD_RDATA(x), DNS_RESOURCE_RECORD_RDATA(y), m);
+        if (r != 0)
+                return r;
+
+        return CMP(DNS_RESOURCE_RECORD_RDATA_SIZE(x), DNS_RESOURCE_RECORD_RDATA_SIZE(y));
 }
 
 static int proposed_rrs_cmp(DnsResourceRecord **x, unsigned x_size, DnsResourceRecord **y, unsigned y_size) {
@@ -115,12 +102,7 @@ static int proposed_rrs_cmp(DnsResourceRecord **x, unsigned x_size, DnsResourceR
                         return r;
         }
 
-        if (x_size < y_size)
-                return -1;
-        if (x_size > y_size)
-                return 1;
-
-        return 0;
+        return CMP(x_size, y_size);
 }
 
 static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, DnsResourceRecord ***ret_rrs) {
@@ -156,7 +138,7 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
                         list[n++] = p->answer->items[i].rr;
         }
         assert(n == size);
-        qsort_safe(list, size, sizeof(DnsResourceRecord*), mdns_rr_compare);
+        typesafe_qsort(list, size, mdns_rr_compare);
 
         *ret_rrs = TAKE_PTR(list);
 
@@ -176,7 +158,8 @@ static int mdns_do_tiebreak(DnsResourceKey *key, DnsAnswer *answer, DnsPacket *p
 
         DNS_ANSWER_FOREACH(rr, answer)
                 our[i++] = rr;
-        qsort_safe(our, size, sizeof(DnsResourceRecord*), mdns_rr_compare);
+
+        typesafe_qsort(our, size, mdns_rr_compare);
 
         r = mdns_packet_extract_matching_rrs(p, key, &remote);
         if (r < 0)
@@ -336,7 +319,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 dns_transaction_process_reply(t, p);
                 }
 
-                dns_cache_put(&scope->cache, NULL, DNS_PACKET_RCODE(p), p->answer, false, (uint32_t) -1, 0, p->family, &p->sender);
+                dns_cache_put(&scope->cache, scope->manager->enable_cache, NULL, DNS_PACKET_RCODE(p), p->answer, false, (uint32_t) -1, 0, p->family, &p->sender);
 
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));
@@ -357,7 +340,7 @@ int manager_mdns_ipv4_fd(Manager *m) {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(MDNS_PORT),
         };
-        static const int one = 1, pmtu = IP_PMTUDISC_DONT, ttl = 255;
+        _cleanup_close_ int s = -1;
         int r;
 
         assert(m);
@@ -365,88 +348,64 @@ int manager_mdns_ipv4_fd(Manager *m) {
         if (m->mdns_ipv4_fd >= 0)
                 return m->mdns_ipv4_fd;
 
-        m->mdns_ipv4_fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->mdns_ipv4_fd < 0)
+        s = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (s < 0)
                 return log_error_errno(errno, "mDNS-IPv4: Failed to create socket: %m");
 
-        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
-        if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_TTL: %m");
-                goto fail;
-        }
+        r = setsockopt_int(s, IPPROTO_IP, IP_TTL, 255);
+        if (r < 0)
+                return log_error_errno(r, "mDNS-IPv4: Failed to set IP_TTL: %m");
 
-        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
-        if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_MULTICAST_TTL: %m");
-                goto fail;
-        }
+        r = setsockopt_int(s, IPPROTO_IP, IP_MULTICAST_TTL, 255);
+        if (r < 0)
+                return log_error_errno(r, "mDNS-IPv4: Failed to set IP_MULTICAST_TTL: %m");
 
-        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &one, sizeof(one));
-        if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_MULTICAST_LOOP: %m");
-                goto fail;
-        }
+        r = setsockopt_int(s, IPPROTO_IP, IP_MULTICAST_LOOP, true);
+        if (r < 0)
+                return log_error_errno(r, "mDNS-IPv4: Failed to set IP_MULTICAST_LOOP: %m");
 
-        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_PKTINFO: %m");
-                goto fail;
-        }
+        r = setsockopt_int(s, IPPROTO_IP, IP_PKTINFO, true);
+        if (r < 0)
+                return log_error_errno(r, "mDNS-IPv4: Failed to set IP_PKTINFO: %m");
 
-        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_RECVTTL, &one, sizeof(one));
-        if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_RECVTTL: %m");
-                goto fail;
-        }
+        r = setsockopt_int(s, IPPROTO_IP, IP_RECVTTL, true);
+        if (r < 0)
+                return log_error_errno(r, "mDNS-IPv4: Failed to set IP_RECVTTL: %m");
 
         /* Disable Don't-Fragment bit in the IP header */
-        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_MTU_DISCOVER, &pmtu, sizeof(pmtu));
-        if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_MTU_DISCOVER: %m");
-                goto fail;
-        }
+        r = setsockopt_int(s, IPPROTO_IP, IP_MTU_DISCOVER, IP_PMTUDISC_DONT);
+        if (r < 0)
+                return log_error_errno(r, "mDNS-IPv4: Failed to set IP_MTU_DISCOVER: %m");
 
         /* See the section 15.1 of RFC6762 */
         /* first try to bind without SO_REUSEADDR to detect another mDNS responder */
-        r = bind(m->mdns_ipv4_fd, &sa.sa, sizeof(sa.in));
+        r = bind(s, &sa.sa, sizeof(sa.in));
         if (r < 0) {
-                if (errno != EADDRINUSE) {
-                        r = log_error_errno(errno, "mDNS-IPv4: Failed to bind socket: %m");
-                        goto fail;
-                }
+                if (errno != EADDRINUSE)
+                        return log_error_errno(errno, "mDNS-IPv4: Failed to bind socket: %m");
 
                 log_warning("mDNS-IPv4: There appears to be another mDNS responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt(m->mdns_ipv4_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-                if (r < 0) {
-                        r = log_error_errno(errno, "mDNS-IPv4: Failed to set SO_REUSEADDR: %m");
-                        goto fail;
-                }
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                if (r < 0)
+                        return log_error_errno(r, "mDNS-IPv4: Failed to set SO_REUSEADDR: %m");
 
-                r = bind(m->mdns_ipv4_fd, &sa.sa, sizeof(sa.in));
-                if (r < 0) {
-                        r = log_error_errno(errno, "mDNS-IPv4: Failed to bind socket: %m");
-                        goto fail;
-                }
+                r = bind(s, &sa.sa, sizeof(sa.in));
+                if (r < 0)
+                        return log_error_errno(errno, "mDNS-IPv4: Failed to bind socket: %m");
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple mDNS responders */
-                r = setsockopt(m->mdns_ipv4_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-                if (r < 0) {
-                        r = log_error_errno(errno, "mDNS-IPv4: Failed to set SO_REUSEADDR: %m");
-                        goto fail;
-                }
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                if (r < 0)
+                        return log_error_errno(r, "mDNS-IPv4: Failed to set SO_REUSEADDR: %m");
         }
 
-        r = sd_event_add_io(m->event, &m->mdns_ipv4_event_source, m->mdns_ipv4_fd, EPOLLIN, on_mdns_packet, m);
+        r = sd_event_add_io(m->event, &m->mdns_ipv4_event_source, s, EPOLLIN, on_mdns_packet, m);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "mDNS-IPv4: Failed to create event source: %m");
 
-        return m->mdns_ipv4_fd;
-
-fail:
-        m->mdns_ipv4_fd = safe_close(m->mdns_ipv4_fd);
-        return r;
+        return m->mdns_ipv4_fd = TAKE_FD(s);
 }
 
 int manager_mdns_ipv6_fd(Manager *m) {
@@ -454,7 +413,7 @@ int manager_mdns_ipv6_fd(Manager *m) {
                 .in6.sin6_family = AF_INET6,
                 .in6.sin6_port = htobe16(MDNS_PORT),
         };
-        static const int one = 1, ttl = 255;
+        _cleanup_close_ int s = -1;
         int r;
 
         assert(m);
@@ -462,86 +421,62 @@ int manager_mdns_ipv6_fd(Manager *m) {
         if (m->mdns_ipv6_fd >= 0)
                 return m->mdns_ipv6_fd;
 
-        m->mdns_ipv6_fd = socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->mdns_ipv6_fd < 0)
+        s = socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (s < 0)
                 return log_error_errno(errno, "mDNS-IPv6: Failed to create socket: %m");
 
-        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(ttl));
-        if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_UNICAST_HOPS: %m");
-                goto fail;
-        }
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_UNICAST_HOPS, 255);
+        if (r < 0)
+                return log_error_errno(r, "mDNS-IPv6: Failed to set IPV6_UNICAST_HOPS: %m");
 
         /* RFC 4795, section 2.5 recommends setting the TTL of UDP packets to 255. */
-        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &ttl, sizeof(ttl));
-        if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_MULTICAST_HOPS: %m");
-                goto fail;
-        }
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, 255);
+        if (r < 0)
+                return log_error_errno(r, "mDNS-IPv6: Failed to set IPV6_MULTICAST_HOPS: %m");
 
-        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &one, sizeof(one));
-        if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_MULTICAST_LOOP: %m");
-                goto fail;
-        }
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, true);
+        if (r < 0)
+                return log_error_errno(r, "mDNS-IPv6: Failed to set IPV6_MULTICAST_LOOP: %m");
 
-        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof(one));
-        if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_V6ONLY: %m");
-                goto fail;
-        }
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_V6ONLY, true);
+        if (r < 0)
+                return log_error_errno(r, "mDNS-IPv6: Failed to set IPV6_V6ONLY: %m");
 
-        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_RECVPKTINFO: %m");
-                goto fail;
-        }
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVPKTINFO, true);
+        if (r < 0)
+                return log_error_errno(r, "mDNS-IPv6: Failed to set IPV6_RECVPKTINFO: %m");
 
-        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &one, sizeof(one));
-        if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_RECVHOPLIMIT: %m");
-                goto fail;
-        }
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, true);
+        if (r < 0)
+                return log_error_errno(r, "mDNS-IPv6: Failed to set IPV6_RECVHOPLIMIT: %m");
 
         /* See the section 15.1 of RFC6762 */
         /* first try to bind without SO_REUSEADDR to detect another mDNS responder */
-        r = bind(m->mdns_ipv6_fd, &sa.sa, sizeof(sa.in6));
+        r = bind(s, &sa.sa, sizeof(sa.in6));
         if (r < 0) {
-                if (errno != EADDRINUSE) {
-                        r = log_error_errno(errno, "mDNS-IPv6: Failed to bind socket: %m");
-                        goto fail;
-                }
+                if (errno != EADDRINUSE)
+                        return log_error_errno(errno, "mDNS-IPv6: Failed to bind socket: %m");
 
                 log_warning("mDNS-IPv6: There appears to be another mDNS responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt(m->mdns_ipv6_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-                if (r < 0) {
-                        r = log_error_errno(errno, "mDNS-IPv6: Failed to set SO_REUSEADDR: %m");
-                        goto fail;
-                }
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                if (r < 0)
+                        return log_error_errno(r, "mDNS-IPv6: Failed to set SO_REUSEADDR: %m");
 
-                r = bind(m->mdns_ipv6_fd, &sa.sa, sizeof(sa.in6));
-                if (r < 0) {
-                        r = log_error_errno(errno, "mDNS-IPv6: Failed to bind socket: %m");
-                        goto fail;
-                }
+                r = bind(s, &sa.sa, sizeof(sa.in6));
+                if (r < 0)
+                        return log_error_errno(errno, "mDNS-IPv6: Failed to bind socket: %m");
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple mDNS responders */
-                r = setsockopt(m->mdns_ipv6_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-                if (r < 0) {
-                        r = log_error_errno(errno, "mDNS-IPv6: Failed to set SO_REUSEADDR: %m");
-                        goto fail;
-                }
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                if (r < 0)
+                        return log_error_errno(r, "mDNS-IPv6: Failed to set SO_REUSEADDR: %m");
         }
 
-        r = sd_event_add_io(m->event, &m->mdns_ipv6_event_source, m->mdns_ipv6_fd, EPOLLIN, on_mdns_packet, m);
+        r = sd_event_add_io(m->event, &m->mdns_ipv6_event_source, s, EPOLLIN, on_mdns_packet, m);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "mDNS-IPv6: Failed to create event source: %m");
 
-        return m->mdns_ipv6_fd;
-
-fail:
-        m->mdns_ipv6_fd = safe_close(m->mdns_ipv6_fd);
-        return r;
+        return m->mdns_ipv6_fd = TAKE_FD(s);
 }

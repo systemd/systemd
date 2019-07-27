@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <errno.h>
 #include <stdarg.h>
@@ -29,16 +24,15 @@
 #include "unit-name.h"
 
 int drop_in_file(const char *dir, const char *unit, unsigned level,
-                 const char *name, char **_p, char **_q) {
+                 const char *name, char **ret_p, char **ret_q) {
 
         char prefix[DECIMAL_STR_MAX(unsigned)];
-        _cleanup_free_ char *b = NULL;
-        char *p, *q;
+        _cleanup_free_ char *b = NULL, *p = NULL, *q = NULL;
 
         assert(unit);
         assert(name);
-        assert(_p);
-        assert(_q);
+        assert(ret_p);
+        assert(ret_q);
 
         sprintf(prefix, "%u", level);
 
@@ -50,17 +44,12 @@ int drop_in_file(const char *dir, const char *unit, unsigned level,
                 return -EINVAL;
 
         p = strjoin(dir, "/", unit, ".d");
-        if (!p)
-                return -ENOMEM;
-
         q = strjoin(p, "/", prefix, "-", b, ".conf");
-        if (!q) {
-                free(p);
+        if (!p || !q)
                 return -ENOMEM;
-        }
 
-        *_p = p;
-        *_q = q;
+        *ret_p = TAKE_PTR(p);
+        *ret_q = TAKE_PTR(q);
         return 0;
 }
 
@@ -104,7 +93,7 @@ int write_drop_in_format(const char *dir, const char *unit, unsigned level,
         return write_drop_in(dir, unit, level, name, p);
 }
 
-static int unit_file_find_dir(
+static int unit_file_add_dir(
                 const char *original_root,
                 const char *path,
                 char ***dirs) {
@@ -113,6 +102,8 @@ static int unit_file_find_dir(
         int r;
 
         assert(path);
+
+        /* This adds [original_root]/path to dirs, if it exists. */
 
         r = chase_symlinks(path, original_root, 0, &chased);
         if (r == -ENOENT) /* Ignore -ENOENT, after all most units won't have a drop-in dir. */
@@ -126,11 +117,9 @@ static int unit_file_find_dir(
         if (r < 0)
                 return log_warning_errno(r, "Failed to canonicalize path '%s': %m", path);
 
-        r = strv_push(dirs, chased);
-        if (r < 0)
+        if (strv_consume(dirs, TAKE_PTR(chased)) < 0)
                 return log_oom();
 
-        chased = NULL;
         return 0;
 }
 
@@ -156,7 +145,7 @@ static int unit_file_find_dirs(
 
         path = strjoina(unit_path, "/", name, suffix);
         if (!unit_path_cache || set_get(unit_path_cache, path)) {
-                r = unit_file_find_dir(original_root, path, dirs);
+                r = unit_file_add_dir(original_root, path, dirs);
                 if (r < 0)
                         return r;
         }
@@ -209,10 +198,10 @@ static int unit_file_find_dirs(
                 return 0;
 
         type = unit_name_to_type(name);
-        if (type < 0) {
-                log_error("Failed to to derive unit type from unit name: %s", name);
-                return -EINVAL;
-        }
+        if (type < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to to derive unit type from unit name: %s",
+                                       name);
 
         if (is_instance) {
                 r = unit_name_to_instance(name, &instance);
@@ -233,19 +222,19 @@ int unit_file_find_dropin_paths(
                 Set *unit_path_cache,
                 const char *dir_suffix,
                 const char *file_suffix,
-                Set *names,
+                const Set *names,
                 char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL;
-        char *t, **p;
+        char *name, **p;
         Iterator i;
         int r;
 
         assert(ret);
 
-        SET_FOREACH(t, names, i)
+        SET_FOREACH(name, names, i)
                 STRV_FOREACH(p, lookup_path)
-                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, t, dir_suffix, &dirs);
+                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, name, dir_suffix, &dirs);
 
         if (strv_isempty(dirs)) {
                 *ret = NULL;

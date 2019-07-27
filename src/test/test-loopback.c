@@ -1,22 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <stdio.h>
 #include <string.h>
 
 #include "log.h"
 #include "loopback-setup.h"
+#include "tests.h"
 
 int main(int argc, char* argv[]) {
         int r;
 
-        log_open();
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         r = loopback_setup();
         if (r < 0)

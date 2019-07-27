@@ -1,16 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2017 Lennart Poettering
-***/
-
 #include <inttypes.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 
 #include "sd-id128.h"
+
+#include "time-util.h"
 
 typedef struct ClientContext ClientContext;
 
@@ -55,6 +52,9 @@ struct ClientContext {
         size_t extra_fields_n_iovec;
         void *extra_fields_data;
         nsec_t extra_fields_mtime;
+
+        usec_t log_rate_limit_interval;
+        unsigned log_rate_limit_burst;
 };
 
 int client_context_get(

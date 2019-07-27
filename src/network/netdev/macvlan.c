@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-***/
 
 #include <net/if.h>
 
@@ -66,6 +61,7 @@ const NetDevVTable macvtap_vtable = {
         .sections = "Match\0NetDev\0MACVTAP\0",
         .fill_message_create = netdev_macvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .generate_mac = true,
 };
 
 const NetDevVTable macvlan_vtable = {
@@ -74,4 +70,5 @@ const NetDevVTable macvlan_vtable = {
         .sections = "Match\0NetDev\0MACVLAN\0",
         .fill_message_create = netdev_macvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .generate_mac = true,
 };

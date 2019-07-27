@@ -1,28 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "alloc-util.h"
 #include "escape.h"
+#include "fileio.h"
 #include "gunicode.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "utf8.h"
 #include "util.h"
-#include "fileio.h"
 
 int strcmp_ptr(const char *a, const char *b) {
 
@@ -133,7 +128,7 @@ static size_t strcspn_escaped(const char *s, const char *reject) {
 }
 
 /* Split a string into words. */
-const char* split(const char **state, size_t *l, const char *separator, bool quoted) {
+const char* split(const char **state, size_t *l, const char *separator, SplitFlags flags) {
         const char *current;
 
         current = *state;
@@ -149,20 +144,24 @@ const char* split(const char **state, size_t *l, const char *separator, bool quo
                 return NULL;
         }
 
-        if (quoted && strchr("\'\"", *current)) {
+        if (flags & SPLIT_QUOTES && strchr("\'\"", *current)) {
                 char quotechars[2] = {*current, '\0'};
 
                 *l = strcspn_escaped(current + 1, quotechars);
                 if (current[*l + 1] == '\0' || current[*l + 1] != quotechars[0] ||
                     (current[*l + 2] && !strchr(separator, current[*l + 2]))) {
                         /* right quote missing or garbage at the end */
+                        if (flags & SPLIT_RELAX) {
+                                *state = current + *l + 1 + (current[*l + 1] != '\0');
+                                return current + 1;
+                        }
                         *state = current;
                         return NULL;
                 }
                 *state = current++ + *l + 2;
-        } else if (quoted) {
+        } else if (flags & SPLIT_QUOTES) {
                 *l = strcspn_escaped(current, separator);
-                if (current[*l] && !strchr(separator, current[*l])) {
+                if (current[*l] && !strchr(separator, current[*l]) && !(flags & SPLIT_RELAX)) {
                         /* unfinished escape */
                         *state = current;
                         return NULL;
@@ -205,10 +204,6 @@ char *strnappend(const char *s, const char *suffix, size_t b) {
         r[a+b] = 0;
 
         return r;
-}
-
-char *strappend(const char *s, const char *suffix) {
-        return strnappend(s, suffix, strlen_ptr(suffix));
 }
 
 char *strjoin_real(const char *x, ...) {
@@ -399,12 +394,7 @@ int ascii_strcasecmp_nn(const char *a, size_t n, const char *b, size_t m) {
         if (r != 0)
                 return r;
 
-        if (n < m)
-                return -1;
-        else if (n > m)
-                return 1;
-        else
-                return 0;
+        return CMP(n, m);
 }
 
 bool chars_intersect(const char *a, const char *b) {
@@ -681,19 +671,6 @@ char *cellescape(char *buf, size_t len, const char *s) {
         return buf;
 }
 
-bool nulstr_contains(const char *nulstr, const char *needle) {
-        const char *i;
-
-        if (!nulstr)
-                return false;
-
-        NULSTR_FOREACH(i, nulstr)
-                if (streq(i, needle))
-                        return true;
-
-        return false;
-}
-
 char* strshorten(char *s, size_t l) {
         assert(s);
 
@@ -748,9 +725,16 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
         return ret;
 }
 
-static void advance_offsets(ssize_t diff, size_t offsets[2], size_t shift[2], size_t size) {
+static void advance_offsets(
+                ssize_t diff,
+                size_t offsets[2], /* note: we can't use [static 2] here, since this may be NULL */
+                size_t shift[static 2],
+                size_t size) {
+
         if (!offsets)
                 return;
+
+        assert(shift);
 
         if ((size_t) diff < offsets[0])
                 shift[0] += size;
@@ -779,22 +763,19 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
          * 2. Strips ANSI color sequences (a subset of CSI), i.e. ESC '[' … 'm' sequences
          * 3. Strips ANSI operating system sequences (CSO), i.e. ESC ']' … BEL sequences
          *
-         * Everything else will be left as it is. In particular other ANSI sequences are left as they are, as are any
-         * other special characters. Truncated ANSI sequences are left-as is too. This call is supposed to suppress the
-         * most basic formatting noise, but nothing else.
+         * Everything else will be left as it is. In particular other ANSI sequences are left as they are, as
+         * are any other special characters. Truncated ANSI sequences are left-as is too. This call is
+         * supposed to suppress the most basic formatting noise, but nothing else.
          *
          * Why care for CSO sequences? Well, to undo what terminal_urlify() and friends generate. */
 
         isz = _isz ? *_isz : strlen(*ibuf);
 
-        f = open_memstream(&obuf, &osz);
+        /* Note we turn off internal locking on f for performance reasons. It's safe to do so since we
+         * created f here and it doesn't leave our scope. */
+        f = open_memstream_unlocked(&obuf, &osz);
         if (!f)
                 return NULL;
-
-        /* Note we turn off internal locking on f for performance reasons.  It's safe to do so since we created f here
-         * and it doesn't leave our scope. */
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         for (i = *ibuf; i < *ibuf + isz + 1; i++) {
 
@@ -870,8 +851,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
         fclose(f);
 
-        free(*ibuf);
-        *ibuf = obuf;
+        free_and_replace(*ibuf, obuf);
 
         if (_isz)
                 *_isz = osz;
@@ -881,7 +861,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 highlight[1] += shift[1];
         }
 
-        return obuf;
+        return *ibuf;
 }
 
 char *strextend_with_separator(char **x, const char *separator, ...) {
@@ -1009,7 +989,7 @@ int free_and_strdup(char **p, const char *s) {
 
         assert(p);
 
-        /* Replaces a string pointer with an strdup()ed new string,
+        /* Replaces a string pointer with a strdup()ed new string,
          * possibly freeing the old one. */
 
         if (streq_ptr(*p, s))
@@ -1028,34 +1008,30 @@ int free_and_strdup(char **p, const char *s) {
         return 1;
 }
 
-#if !HAVE_EXPLICIT_BZERO
-/*
- * Pointer to memset is volatile so that compiler must de-reference
- * the pointer and can't assume that it points to any function in
- * particular (such as memset, which it then might further "optimize")
- * This approach is inspired by openssl's crypto/mem_clr.c.
- */
-typedef void *(*memset_t)(void *,int,size_t);
+int free_and_strndup(char **p, const char *s, size_t l) {
+        char *t;
 
-static volatile memset_t memset_func = memset;
+        assert(p);
+        assert(s || l == 0);
 
-void explicit_bzero(void *p, size_t l) {
-        memset_func(p, '\0', l);
-}
-#endif
+        /* Replaces a string pointer with a strndup()ed new string,
+         * freeing the old one. */
 
-char* string_erase(char *x) {
-        if (!x)
-                return NULL;
+        if (!*p && !s)
+                return 0;
 
-        /* A delicious drop of snake-oil! To be called on memory where
-         * we stored passphrases or so, after we used them. */
-        explicit_bzero(x, strlen(x));
-        return x;
-}
+        if (*p && s && strneq(*p, s, l) && (l > strlen(*p) || (*p)[l] == '\0'))
+                return 0;
 
-char *string_free_erase(char *s) {
-        return mfree(string_erase(s));
+        if (s) {
+                t = strndup(s, l);
+                if (!t)
+                        return -ENOMEM;
+        } else
+                t = NULL;
+
+        free_and_replace(*p, t);
+        return 1;
 }
 
 bool string_is_safe(const char *p) {

@@ -3,34 +3,46 @@
 #include <stdint.h>
 #include <sys/mount.h>
 
+#include "sd-bus.h"
+
+#include "bus-error.h"
 #include "fs-util.h"
+#include "format-util.h"
 #include "label.h"
-#include "logind.h"
+#include "main-func.h"
 #include "mkdir.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "selinux-util.h"
 #include "smack-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 
-static int gather_configuration(size_t *runtime_dir_size) {
-        Manager m = {};
+static int acquire_runtime_dir_size(uint64_t *ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        manager_reset_config(&m);
-
-        r = manager_parse_config_file(&m);
+        r = sd_bus_default_system(&bus);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse logind.conf: %m");
+                return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        *runtime_dir_size = m.runtime_dir_size;
+        r = sd_bus_get_property_trivial(bus, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "RuntimeDirectorySize", &error, 't', ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire runtime directory size: %s", bus_error_message(&error, r));
+
         return 0;
 }
 
-static int user_mkdir_runtime_path(const char *runtime_path, uid_t uid, gid_t gid, size_t runtime_dir_size) {
+static int user_mkdir_runtime_path(
+                const char *runtime_path,
+                uid_t uid,
+                gid_t gid,
+                uint64_t runtime_dir_size) {
+
         int r;
 
         assert(runtime_path);
@@ -48,10 +60,10 @@ static int user_mkdir_runtime_path(const char *runtime_path, uid_t uid, gid_t gi
                 char options[sizeof("mode=0700,uid=,gid=,size=,smackfsroot=*")
                              + DECIMAL_STR_MAX(uid_t)
                              + DECIMAL_STR_MAX(gid_t)
-                             + DECIMAL_STR_MAX(size_t)];
+                             + DECIMAL_STR_MAX(uint64_t)];
 
                 xsprintf(options,
-                         "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu%s",
+                         "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%" PRIu64 "%s",
                          uid, gid, runtime_dir_size,
                          mac_smack_use() ? ",smackfsroot=*" : "");
 
@@ -95,76 +107,93 @@ static int user_remove_runtime_path(const char *runtime_path) {
 
         r = rm_rf(runtime_path, 0);
         if (r < 0)
-                log_error_errno(r, "Failed to remove runtime directory %s (before unmounting): %m", runtime_path);
+                log_debug_errno(r, "Failed to remove runtime directory %s (before unmounting), ignoring: %m", runtime_path);
 
-        /* Ignore cases where the directory isn't mounted, as that's
-         * quite possible, if we lacked the permissions to mount
-         * something */
+        /* Ignore cases where the directory isn't mounted, as that's quite possible, if we lacked the permissions to
+         * mount something */
         r = umount2(runtime_path, MNT_DETACH);
         if (r < 0 && !IN_SET(errno, EINVAL, ENOENT))
-                log_error_errno(errno, "Failed to unmount user runtime directory %s: %m", runtime_path);
+                log_debug_errno(errno, "Failed to unmount user runtime directory %s, ignoring: %m", runtime_path);
 
         r = rm_rf(runtime_path, REMOVE_ROOT);
-        if (r < 0)
-                log_error_errno(r, "Failed to remove runtime directory %s (after unmounting): %m", runtime_path);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Failed to remove runtime directory %s (after unmounting): %m", runtime_path);
 
-        return r;
+        return 0;
 }
 
-static int do_mount(const char *runtime_path, uid_t uid, gid_t gid) {
-        size_t runtime_dir_size;
+static int do_mount(const char *user) {
+        char runtime_path[sizeof("/run/user") + DECIMAL_STR_MAX(uid_t)];
+        uint64_t runtime_dir_size;
+        uid_t uid;
+        gid_t gid;
+        int r;
 
-        assert_se(gather_configuration(&runtime_dir_size) == 0);
+        r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
+        if (r < 0)
+                return log_error_errno(r,
+                                       r == -ESRCH ? "No such user \"%s\"" :
+                                       r == -ENOMSG ? "UID \"%s\" is invalid or has an invalid main group"
+                                                    : "Failed to look up user \"%s\": %m",
+                                       user);
+
+        r = acquire_runtime_dir_size(&runtime_dir_size);
+        if (r < 0)
+                return r;
+
+        xsprintf(runtime_path, "/run/user/" UID_FMT, uid);
 
         log_debug("Will mount %s owned by "UID_FMT":"GID_FMT, runtime_path, uid, gid);
         return user_mkdir_runtime_path(runtime_path, uid, gid, runtime_dir_size);
 }
 
-static int do_umount(const char *runtime_path) {
+static int do_umount(const char *user) {
+        char runtime_path[sizeof("/run/user") + DECIMAL_STR_MAX(uid_t)];
+        uid_t uid;
+        int r;
+
+        /* The user may be already removed. So, first try to parse the string by parse_uid(),
+         * and if it fails, fallback to get_user_creds().*/
+        if (parse_uid(user, &uid) < 0) {
+                r = get_user_creds(&user, &uid, NULL, NULL, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r,
+                                               r == -ESRCH ? "No such user \"%s\"" :
+                                               r == -ENOMSG ? "UID \"%s\" is invalid or has an invalid main group"
+                                                            : "Failed to look up user \"%s\": %m",
+                                               user);
+        }
+
+        xsprintf(runtime_path, "/run/user/" UID_FMT, uid);
+
         log_debug("Will remove %s", runtime_path);
         return user_remove_runtime_path(runtime_path);
 }
 
-int main(int argc, char *argv[]) {
-        const char *user;
-        uid_t uid;
-        gid_t gid;
-        char runtime_path[sizeof("/run/user") + DECIMAL_STR_MAX(uid_t)];
+static int run(int argc, char *argv[]) {
         int r;
 
         log_parse_environment();
         log_open();
 
-        if (argc != 3) {
-                log_error("This program takes two arguments.");
-                return EXIT_FAILURE;
-        }
-        if (!STR_IN_SET(argv[1], "start", "stop")) {
-                log_error("First argument must be either \"start\" or \"stop\".");
-                return EXIT_FAILURE;
-        }
+        if (argc != 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program takes two arguments.");
+        if (!STR_IN_SET(argv[1], "start", "stop"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "First argument must be either \"start\" or \"stop\".");
+
+        r = mac_selinux_init();
+        if (r < 0)
+                return log_error_errno(r, "Could not initialize labelling: %m\n");
 
         umask(0022);
 
-        user = argv[2];
-        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r,
-                                r == -ESRCH ? "No such user \"%s\"" :
-                                r == -ENOMSG ? "UID \"%s\" is invalid or has an invalid main group"
-                                             : "Failed to look up user \"%s\": %m",
-                                user);
-                return EXIT_FAILURE;
-        }
-
-        xsprintf(runtime_path, "/run/user/" UID_FMT, uid);
-
         if (streq(argv[1], "start"))
-                r = do_mount(runtime_path, uid, gid);
-        else if (streq(argv[1], "stop"))
-                r = do_umount(runtime_path);
-        else
-                assert_not_reached("Unknown verb!");
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                return do_mount(argv[2]);
+        if (streq(argv[1], "stop"))
+                return do_umount(argv[2]);
+        assert_not_reached("Unknown verb!");
 }
+
+DEFINE_MAIN_FUNCTION(run);

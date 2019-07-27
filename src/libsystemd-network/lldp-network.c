@@ -1,16 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Tom Gundersen
-  Copyright (C) 2014 Susant Sahani
-***/
 
 #include <linux/filter.h>
 #include <netinet/if_ether.h>
 
 #include "fd-util.h"
 #include "lldp-network.h"
+#include "missing.h"
 #include "socket-util.h"
 
 int lldp_network_bind_raw_socket(int ifindex) {

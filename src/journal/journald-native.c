@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <stddef.h>
 #include <sys/epoll.h>
@@ -24,12 +19,14 @@
 #include "journald-syslog.h"
 #include "journald-wall.h"
 #include "memfd-util.h"
+#include "memory-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unaligned.h"
 
 static bool allow_object_pid(const struct ucred *ucred) {
@@ -66,7 +63,7 @@ static void server_process_entry_meta(
                  startswith(p, "SYSLOG_IDENTIFIER=")) {
                 char *t;
 
-                t = strndup(p + 18, l - 18);
+                t = memdup_suffix0(p + 18, l - 18);
                 if (t) {
                         free(*identifier);
                         *identifier = t;
@@ -76,7 +73,7 @@ static void server_process_entry_meta(
                    startswith(p, "MESSAGE=")) {
                 char *t;
 
-                t = strndup(p + 8, l - 8);
+                t = memdup_suffix0(p + 8, l - 8);
                 if (t) {
                         free(*message);
                         *message = t;
@@ -114,7 +111,7 @@ static int server_process_entry(
         int priority = LOG_INFO;
         pid_t object_pid = 0;
         const char *p;
-        int r = 0;
+        int r = 1;
 
         p = buffer;
 
@@ -126,8 +123,7 @@ static int server_process_entry(
                 if (!e) {
                         /* Trailing noise, let's ignore it, and flush what we collected */
                         log_debug("Received message with trailing noise, ignoring.");
-                        r = 1; /* finish processing of the message */
-                        break;
+                        break; /* finish processing of the message */
                 }
 
                 if (e == p) {
@@ -137,14 +133,17 @@ static int server_process_entry(
                 }
 
                 if (IN_SET(*p, '.', '#')) {
-                        /* Ignore control commands for now, and
-                         * comments too. */
+                        /* Ignore control commands for now, and comments too. */
                         *remaining -= (e - p) + 1;
                         p = e + 1;
                         continue;
                 }
 
                 /* A property follows */
+                if (n > ENTRY_FIELD_COUNT_MAX) {
+                        log_debug("Received an entry that has more than " STRINGIFY(ENTRY_FIELD_COUNT_MAX) " fields, ignoring entry.");
+                        goto finish;
+                }
 
                 /* n existing properties, 1 new, +1 for _TRANSPORT */
                 if (!GREEDY_REALLOC(iovec, m,
@@ -152,7 +151,7 @@ static int server_process_entry(
                                     N_IOVEC_META_FIELDS + N_IOVEC_OBJECT_FIELDS +
                                     client_context_extra_fields_n_iovec(context))) {
                         r = log_oom();
-                        break;
+                        goto finish;
                 }
 
                 q = memchr(p, '=', e - p);
@@ -161,6 +160,16 @@ static int server_process_entry(
                                 size_t l;
 
                                 l = e - p;
+                                if (l > DATA_SIZE_MAX) {
+                                        log_debug("Received text block of %zu bytes is too large, ignoring entry.", l);
+                                        goto finish;
+                                }
+
+                                if (entry_size + l + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
+                                        log_debug("Entry is too big (%zu bytes after processing %zu entries), ignoring entry.",
+                                                  entry_size + l, n + 1);
+                                        goto finish;
+                                }
 
                                 /* If the field name starts with an underscore, skip the variable, since that indicates
                                  * a trusted field */
@@ -178,7 +187,7 @@ static int server_process_entry(
                         p = e + 1;
                         continue;
                 } else {
-                        uint64_t l;
+                        uint64_t l, total;
                         char *k;
 
                         if (*remaining < e - p + 1 + sizeof(uint64_t) + 1) {
@@ -187,10 +196,16 @@ static int server_process_entry(
                         }
 
                         l = unaligned_read_le64(e + 1);
-
                         if (l > DATA_SIZE_MAX) {
-                                log_debug("Received binary data block of %"PRIu64" bytes is too large, ignoring.", l);
-                                break;
+                                log_debug("Received binary data block of %"PRIu64" bytes is too large, ignoring entry.", l);
+                                goto finish;
+                        }
+
+                        total = (e - p) + 1 + l;
+                        if (entry_size + total + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
+                                log_debug("Entry is too big (%"PRIu64"bytes after processing %zu fields), ignoring.",
+                                          entry_size + total, n + 1);
+                                goto finish;
                         }
 
                         if ((uint64_t) *remaining < e - p + 1 + sizeof(uint64_t) + l + 1 ||
@@ -199,7 +214,7 @@ static int server_process_entry(
                                 break;
                         }
 
-                        k = malloc((e - p) + 1 + l);
+                        k = malloc(total);
                         if (!k) {
                                 log_oom();
                                 break;
@@ -210,8 +225,7 @@ static int server_process_entry(
                         memcpy(k + (e - p) + 1, e + 1 + sizeof(uint64_t), l);
 
                         if (journal_field_valid(p, e - p, false)) {
-                                iovec[n].iov_base = k;
-                                iovec[n].iov_len = (e - p) + 1 + l;
+                                iovec[n] = IOVEC_MAKE(k, (e - p) + 1 + l);
                                 entry_size += iovec[n].iov_len;
                                 n++;
 
@@ -228,15 +242,8 @@ static int server_process_entry(
                 }
         }
 
-        if (n <= 0) {
-                r = 1;
+        if (n <= 0)
                 goto finish;
-        }
-
-        if (!client_context_test_priority(context, priority)) {
-                r = 0;
-                goto finish;
-        }
 
         tn = n++;
         iovec[tn] = IOVEC_MAKE_STRING("_TRANSPORT=journal");
@@ -246,6 +253,11 @@ static int server_process_entry(
                 log_debug("Entry is too big with %zu properties and %zu bytes, ignoring.", n, entry_size);
                 goto finish;
         }
+
+        r = 0; /* Success, we read the message. */
+
+        if (!client_context_test_priority(context, priority))
+                goto finish;
 
         if (message) {
                 if (s->forward_to_syslog)
@@ -282,7 +294,7 @@ finish:
 
 void server_process_native_message(
                 Server *s,
-                const void *buffer, size_t buffer_size,
+                const char *buffer, size_t buffer_size,
                 const struct ucred *ucred,
                 const struct timeval *tv,
                 const char *label, size_t label_len) {
@@ -318,15 +330,13 @@ void server_process_native_file(
         bool sealed;
         int r;
 
-        /* Data is in the passed fd, since it didn't fit in a
-         * datagram. */
+        /* Data is in the passed fd, probably it didn't fit in a datagram. */
 
         assert(s);
         assert(fd >= 0);
 
         /* If it's a memfd, check if it is sealed. If so, we can just
-         * use map it and use it, and do not need to copy the data
-         * out. */
+         * mmap it and use it, and do not need to copy the data out. */
         sealed = memfd_get_sealed(fd) > 0;
 
         if (!sealed && (!ucred || ucred->uid != 0)) {
@@ -342,11 +352,7 @@ void server_process_native_file(
                         return;
                 }
 
-                e = path_startswith(k, "/dev/shm/");
-                if (!e)
-                        e = path_startswith(k, "/tmp/");
-                if (!e)
-                        e = path_startswith(k, "/var/tmp/");
+                e = PATH_STARTSWITH_SET(k, "/dev/shm/", "/tmp/", "/var/tmp/");
                 if (!e) {
                         log_error("Received file outside of allowed directories. Refusing.");
                         return;
@@ -371,8 +377,10 @@ void server_process_native_file(
         if (st.st_size <= 0)
                 return;
 
-        if (st.st_size > ENTRY_SIZE_MAX) {
-                log_error("File passed too large. Ignoring.");
+        /* When !sealed, set a lower memory limit. We have to read the file,
+         * effectively doubling memory use. */
+        if (st.st_size > ENTRY_SIZE_MAX / (sealed ? 1 : 2)) {
+                log_error("File passed too large (%"PRIu64" bytes). Ignoring.", (uint64_t) st.st_size);
                 return;
         }
 
@@ -397,7 +405,7 @@ void server_process_native_file(
                 ssize_t n;
 
                 if (fstatvfs(fd, &vfs) < 0) {
-                        log_error_errno(errno, "Failed to stat file system of passed file, ignoring: %m");
+                        log_error_errno(errno, "Failed to stat file system of passed file, not processing it: %m");
                         return;
                 }
 
@@ -407,7 +415,7 @@ void server_process_native_file(
                  * https://github.com/systemd/systemd/issues/1822
                  */
                 if (vfs.f_flag & ST_MANDLOCK) {
-                        log_error("Received file descriptor from file system with mandatory locking enabled, refusing.");
+                        log_error("Received file descriptor from file system with mandatory locking enabled, not processing it.");
                         return;
                 }
 
@@ -420,13 +428,13 @@ void server_process_native_file(
                  * and so is SMB. */
                 r = fd_nonblock(fd, true);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to make fd non-blocking, ignoring: %m");
+                        log_error_errno(r, "Failed to make fd non-blocking, not processing it: %m");
                         return;
                 }
 
                 /* The file is not sealed, we can't map the file here, since
                  * clients might then truncate it and trigger a SIGBUS for
-                 * us. So let's stupidly read it */
+                 * us. So let's stupidly read it. */
 
                 p = malloc(st.st_size);
                 if (!p) {
@@ -442,13 +450,12 @@ void server_process_native_file(
         }
 }
 
-int server_open_native_socket(Server*s) {
+int server_open_native_socket(Server *s) {
 
         static const union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = "/run/systemd/journal/socket",
         };
-        static const int one = 1;
         int r;
 
         assert(s);
@@ -458,7 +465,7 @@ int server_open_native_socket(Server*s) {
                 if (s->native_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");
 
-                (void) unlink(sa.un.sun_path);
+                (void) sockaddr_un_unlink(&sa.un);
 
                 r = bind(s->native_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
                 if (r < 0)
@@ -466,23 +473,23 @@ int server_open_native_socket(Server*s) {
 
                 (void) chmod(sa.un.sun_path, 0666);
         } else
-                fd_nonblock(s->native_fd, 1);
+                (void) fd_nonblock(s->native_fd, true);
 
-        r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        r = setsockopt_int(s->native_fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return log_error_errno(errno, "SO_PASSCRED failed: %m");
+                return log_error_errno(r, "SO_PASSCRED failed: %m");
 
 #if HAVE_SELINUX
         if (mac_selinux_use()) {
-                r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
+                r = setsockopt_int(s->native_fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
-                        log_warning_errno(errno, "SO_PASSSEC failed: %m");
+                        log_warning_errno(r, "SO_PASSSEC failed: %m");
         }
 #endif
 
-        r = setsockopt(s->native_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
+        r = setsockopt_int(s->native_fd, SOL_SOCKET, SO_TIMESTAMP, true);
         if (r < 0)
-                return log_error_errno(errno, "SO_TIMESTAMP failed: %m");
+                return log_error_errno(r, "SO_TIMESTAMP failed: %m");
 
         r = sd_event_add_io(s->event, &s->native_event_source, s->native_fd, EPOLLIN, server_process_datagram, s);
         if (r < 0)

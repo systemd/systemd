@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -46,7 +41,7 @@ int memfd_new(const char *name) {
                         if (!e)
                                 return -ENOMEM;
 
-                        g = strappend("sd-", e);
+                        g = strjoin("sd-", e);
                         if (!g)
                                 return -ENOMEM;
 

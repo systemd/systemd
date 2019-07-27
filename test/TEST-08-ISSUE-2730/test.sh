@@ -1,19 +1,14 @@
 #!/bin/bash
-# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
-# ex: ts=8 sw=4 sts=4 et filetype=sh
 set -e
 TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/2730"
 TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
-SKIP_INITRD=yes
 QEMU_TIMEOUT=180
 FSTYPE=ext4
 
 test_setup() {
-    create_empty_image
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
+    create_empty_image_rootdir
 
     # Create what will eventually be our root filesystem onto an overlay
     (
@@ -26,7 +21,6 @@ test_setup() {
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
 [Unit]
 Description=Testsuite service
-After=multi-user.target
 
 [Service]
 ExecStart=/bin/sh -x -c 'mount -o remount,rw /dev/sda1 && echo OK > /testok; systemctl poweroff'
@@ -64,7 +58,7 @@ ExecStart=/bin/systemctl reload /
 EOF
 
         setup_testsuite
-    ) || return 1
+    )
 
     ln -s /etc/systemd/system/-.mount $initdir/etc/systemd/system/root.mount
     mkdir -p $initdir/etc/systemd/system/local-fs.target.wants
@@ -76,9 +70,6 @@ EOF
     ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.service
     ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
     ln -s /dev/null $initdir/etc/systemd/system/systemd-resolved.service
-
-    ddebug "umount $TESTDIR/root"
-    umount $TESTDIR/root
 }
 
 do_test "$@"

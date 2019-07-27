@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2013 Holger Hans Peter Freyther
+  Copyright © 2013 Holger Hans Peter Freyther
 ***/
 
 #include "sd-daemon.h"
@@ -29,3 +27,5 @@
                )
 
 int enter_cgroup_subroot(void);
+
+bool is_run_on_travis_ci(void);

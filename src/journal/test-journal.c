@@ -1,20 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "chattr-util.h"
+#include "io-util.h"
 #include "journal-authenticate.h"
 #include "journal-file.h"
 #include "journal-vacuum.h"
 #include "log.h"
 #include "rm-rf.h"
+#include "tests.h"
 
 static bool arg_keep = false;
+
+static void mkdtemp_chdir_chattr(char *path) {
+        assert_se(mkdtemp(path));
+        assert_se(chdir(path) >= 0);
+
+        /* Speed up things a bit on btrfs, ensuring that CoW is turned off for all files created in our
+         * directory during the test run */
+        (void) chattr_path(path, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+}
 
 static void test_non_empty(void) {
         dual_timestamp ts;
@@ -24,28 +31,24 @@ static void test_non_empty(void) {
         Object *o;
         uint64_t p;
         sd_id128_t fake_boot_id;
-        char t[] = "/tmp/journal-XXXXXX";
+        char t[] = "/var/tmp/journal-XXXXXX";
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
-        assert_se(mkdtemp(t));
-        assert_se(chdir(t) >= 0);
+        mkdtemp_chdir_chattr(t);
 
         assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, true, NULL, NULL, NULL, NULL, &f) == 0);
 
         assert_se(dual_timestamp_get(&ts));
         assert_se(sd_id128_randomize(&fake_boot_id) == 0);
 
-        iovec.iov_base = (void*) test;
-        iovec.iov_len = strlen(test);
+        iovec = IOVEC_MAKE_STRING(test);
         assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
-        iovec.iov_base = (void*) test2;
-        iovec.iov_len = strlen(test2);
+        iovec = IOVEC_MAKE_STRING(test2);
         assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
-        iovec.iov_base = (void*) test;
-        iovec.iov_len = strlen(test);
+        iovec = IOVEC_MAKE_STRING(test);
         assert_se(journal_file_append_entry(f, &ts, &fake_boot_id, &iovec, 1, NULL, NULL, NULL) == 0);
 
 #if HAVE_GCRYPT
@@ -115,12 +118,11 @@ static void test_non_empty(void) {
 
 static void test_empty(void) {
         JournalFile *f1, *f2, *f3, *f4;
-        char t[] = "/tmp/journal-XXXXXX";
+        char t[] = "/var/tmp/journal-XXXXXX";
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
-        assert_se(mkdtemp(t));
-        assert_se(chdir(t) >= 0);
+        mkdtemp_chdir_chattr(t);
 
         assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, false, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &f1) == 0);
 
@@ -162,24 +164,22 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         struct iovec iovec;
         Object *o;
         uint64_t p;
-        char t[] = "/tmp/journal-XXXXXX";
+        char t[] = "/var/tmp/journal-XXXXXX";
         char data[2048] = {0};
         bool is_compressed;
         int r;
 
         assert_se(data_size <= sizeof(data));
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
-        assert_se(mkdtemp(t));
-        assert_se(chdir(t) >= 0);
+        mkdtemp_chdir_chattr(t);
 
         assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, compress_threshold, true, NULL, NULL, NULL, NULL, &f) == 0);
 
         dual_timestamp_get(&ts);
 
-        iovec.iov_base = (void*) data;
-        iovec.iov_len = data_size;
+        iovec = IOVEC_MAKE(data, data_size);
         assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
 #if HAVE_GCRYPT
@@ -243,9 +243,11 @@ static void test_min_compress_size(void) {
 int main(int argc, char *argv[]) {
         arg_keep = argc > 1;
 
+        test_setup_logging(LOG_INFO);
+
         /* journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("/etc/machine-id not found");
 
         test_non_empty();
         test_empty();

@@ -1,14 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Zbigniew Jędrzejewski-Szmek
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="coredumpctl" conditional='ENABLE_COREDUMP'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -16,15 +9,6 @@
   <refentryinfo>
     <title>coredumpctl</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -223,7 +207,8 @@
       <varlistentry>
         <term><command>info</command></term>
 
-        <listitem><para>Show detailed information about core dumps
+        <listitem><para>Show detailed information about the last core dump
+        or core dumps matching specified characteristics
         captured in the journal.</para></listitem>
       </varlistentry>
 
@@ -284,9 +269,10 @@
       <varlistentry>
         <term><replaceable>MATCH</replaceable></term>
 
-        <listitem><para>General journalctl predicate (see
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
-        Must contain an equals sign (<literal>=</literal>).</para></listitem>
+        <listitem><para>General journalctl match filter, must contain an equals
+        sign (<literal>=</literal>). See
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

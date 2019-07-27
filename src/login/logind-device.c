@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <string.h>
 
 #include "alloc-util.h"
 #include "logind-device.h"
+#include "logind-seat-dbus.h"
 #include "util.h"
 
 Device* device_new(Manager *m, const char *sysfs, bool master) {
@@ -104,6 +100,8 @@ void device_attach(Device *d, Seat *s) {
                 }
         }
 
-        if (!had_master && d->master)
+        if (!had_master && d->master && s->started) {
+                seat_save(s);
                 seat_send_changed(s, "CanGraphical", NULL);
+        }
 }

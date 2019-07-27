@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2017 Intel Corporation. All rights reserved.
+  Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
 #include <netinet/icmp6.h>
@@ -11,32 +9,35 @@
 
 #include "sd-radv.h"
 
-#include "macro.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "ether-addr-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
+#include "io-util.h"
+#include "macro.h"
+#include "memory-util.h"
 #include "radv-internal.h"
+#include "random-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
-#include "random-util.h"
 
 _public_ int sd_radv_new(sd_radv **ret) {
         _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
 
         assert_return(ret, -EINVAL);
 
-        ra = new0(sd_radv, 1);
+        ra = new(sd_radv, 1);
         if (!ra)
                 return -ENOMEM;
 
-        ra->n_ref = 1;
-        ra->fd = -1;
-
-        LIST_HEAD_INIT(ra->prefixes);
+        *ra = (sd_radv) {
+                .n_ref = 1,
+                .fd = -1,
+        };
 
         *ret = TAKE_PTR(ra);
 
@@ -77,9 +78,9 @@ _public_ sd_event *sd_radv_get_event(sd_radv *ra) {
 }
 
 static void radv_reset(sd_radv *ra) {
+        assert(ra);
 
-        ra->timeout_event_source =
-                sd_event_source_unref(ra->timeout_event_source);
+        (void) event_source_disable(ra->timeout_event_source);
 
         ra->recv_event_source =
                 sd_event_source_unref(ra->recv_event_source);
@@ -87,24 +88,8 @@ static void radv_reset(sd_radv *ra) {
         ra->ra_sent = 0;
 }
 
-_public_ sd_radv *sd_radv_ref(sd_radv *ra) {
+static sd_radv *radv_free(sd_radv *ra) {
         if (!ra)
-                return NULL;
-
-        assert(ra->n_ref > 0);
-        ra->n_ref++;
-
-        return ra;
-}
-
-_public_ sd_radv *sd_radv_unref(sd_radv *ra) {
-        if (!ra)
-                return NULL;
-
-        assert(ra->n_ref > 0);
-        ra->n_ref--;
-
-        if (ra->n_ref > 0)
                 return NULL;
 
         while (ra->prefixes) {
@@ -117,15 +102,20 @@ _public_ sd_radv *sd_radv_unref(sd_radv *ra) {
         free(ra->rdnss);
         free(ra->dnssl);
 
+        ra->timeout_event_source = sd_event_source_unref(ra->timeout_event_source);
+
         radv_reset(ra);
 
         sd_radv_detach_event(ra);
+
+        ra->fd = safe_close(ra->fd);
+
         return mfree(ra);
 }
 
-static int radv_send(sd_radv *ra, const struct in6_addr *dst,
-                     const uint32_t router_lifetime) {
-        static const struct ether_addr mac_zero = {};
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv, sd_radv, radv_free);
+
+static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_lifetime) {
         sd_radv_prefix *p;
         struct sockaddr_in6 dst_addr = {
                 .sin6_family = AF_INET6,
@@ -157,35 +147,31 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst,
         usec_t time_now;
         int r;
 
+        assert(ra);
+
         r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
                 return r;
 
-        if (dst && !in_addr_is_null(AF_INET6, (union in_addr_union*) dst))
+        if (dst && !IN6_IS_ADDR_UNSPECIFIED(dst))
                 dst_addr.sin6_addr = *dst;
 
         adv.nd_ra_type = ND_ROUTER_ADVERT;
         adv.nd_ra_curhoplimit = ra->hop_limit;
         adv.nd_ra_flags_reserved = ra->flags;
         adv.nd_ra_router_lifetime = htobe16(router_lifetime);
-        iov[msg.msg_iovlen].iov_base = &adv;
-        iov[msg.msg_iovlen].iov_len = sizeof(adv);
-        msg.msg_iovlen++;
+        iov[msg.msg_iovlen++] = IOVEC_MAKE(&adv, sizeof(adv));
 
         /* MAC address is optional, either because the link does not use L2
            addresses or load sharing is desired. See RFC 4861, Section 4.2 */
-        if (memcmp(&mac_zero, &ra->mac_addr, sizeof(mac_zero))) {
+        if (!ether_addr_is_null(&ra->mac_addr)) {
                 opt_mac.slladdr = ra->mac_addr;
-                iov[msg.msg_iovlen].iov_base = &opt_mac;
-                iov[msg.msg_iovlen].iov_len = sizeof(opt_mac);
-                msg.msg_iovlen++;
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(&opt_mac, sizeof(opt_mac));
         }
 
         if (ra->mtu) {
                 opt_mtu.nd_opt_mtu_mtu = htobe32(ra->mtu);
-                iov[msg.msg_iovlen].iov_base = &opt_mtu;
-                iov[msg.msg_iovlen].iov_len = sizeof(opt_mtu);
-                msg.msg_iovlen++;
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(&opt_mtu, sizeof(opt_mtu));
         }
 
         LIST_FOREACH(prefix, p, ra->prefixes) {
@@ -201,22 +187,14 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst,
                         else
                                 p->opt.preferred_lifetime = htobe32((p->preferred_until - time_now) / USEC_PER_SEC);
                 }
-                iov[msg.msg_iovlen].iov_base = &p->opt;
-                iov[msg.msg_iovlen].iov_len = sizeof(p->opt);
-                msg.msg_iovlen++;
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(&p->opt, sizeof(p->opt));
         }
 
-        if (ra->rdnss) {
-                iov[msg.msg_iovlen].iov_base = ra->rdnss;
-                iov[msg.msg_iovlen].iov_len = ra->rdnss->length * 8;
-                msg.msg_iovlen++;
-        }
+        if (ra->rdnss)
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(ra->rdnss, ra->rdnss->length * 8);
 
-        if (ra->dnssl) {
-                iov[msg.msg_iovlen].iov_base = ra->dnssl;
-                iov[msg.msg_iovlen].iov_len = ra->dnssl->length * 8;
-                msg.msg_iovlen++;
-        }
+        if (ra->dnssl)
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(ra->dnssl, ra->dnssl->length * 8);
 
         if (sendmsg(ra->fd, &msg, 0) < 0)
                 return -errno;
@@ -238,13 +216,12 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         assert(ra->event);
 
         buflen = next_datagram_size_fd(fd);
-
-        if ((unsigned) buflen < sizeof(struct nd_router_solicit))
-                return log_radv("Too short packet received");
+        if (buflen < 0)
+                return (int) buflen;
 
         buf = new0(char, buflen);
         if (!buf)
-                return 0;
+                return -ENOMEM;
 
         r = icmp6_receive(fd, buf, buflen, &src, &timestamp);
         if (r < 0) {
@@ -262,11 +239,19 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         log_radv("Received invalid source address from ICMPv6 socket. Ignoring.");
                         break;
 
+                case -EAGAIN: /* ignore spurious wakeups */
+                        break;
+
                 default:
-                        log_radv_warning_errno(r, "Error receiving from ICMPv6 socket: %m");
+                        log_radv_errno(r, "Unexpected error receiving from ICMPv6 socket: %m");
                         break;
                 }
 
+                return 0;
+        }
+
+        if ((size_t) buflen < sizeof(struct nd_router_solicit)) {
+                log_radv("Too short packet received");
                 return 0;
         }
 
@@ -274,9 +259,9 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         r = radv_send(ra, &src, ra->lifetime);
         if (r < 0)
-                log_radv_warning_errno(r, "Unable to send solicited Router Advertisment to %s: %m", addr);
+                log_radv_errno(r, "Unable to send solicited Router Advertisement to %s: %m", strnull(addr));
         else
-                log_radv("Sent solicited Router Advertisement to %s", addr);
+                log_radv("Sent solicited Router Advertisement to %s", strnull(addr));
 
         return 0;
 }
@@ -299,15 +284,13 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(ra);
         assert(ra->event);
 
-        ra->timeout_event_source = sd_event_source_unref(ra->timeout_event_source);
-
         r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
                 goto fail;
 
         r = radv_send(ra, NULL, ra->lifetime);
         if (r < 0)
-                log_radv_warning_errno(r, "Unable to send Router Advertisement: %m");
+                log_radv_errno(r, "Unable to send Router Advertisement: %m");
 
         /* RFC 4861, Section 6.2.4, sending initial Router Advertisements */
         if (ra->ra_sent < SD_RADV_MAX_INITIAL_RTR_ADVERTISEMENTS) {
@@ -321,28 +304,20 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
                  format_timespan(time_string, FORMAT_TIMESPAN_MAX,
                                  timeout, USEC_PER_SEC));
 
-        r = sd_event_add_time(ra->event, &ra->timeout_event_source,
-                              clock_boottime_or_monotonic(),
-                              time_now + timeout, MSEC_PER_SEC,
-                              radv_timeout, ra);
-        if (r < 0)
-                goto fail;
-
-        r = sd_event_source_set_priority(ra->timeout_event_source,
-                                         ra->event_priority);
-        if (r < 0)
-                goto fail;
-
-        r = sd_event_source_set_description(ra->timeout_event_source,
-                                            "radv-timeout");
+        r = event_reset_time(ra->event, &ra->timeout_event_source,
+                             clock_boottime_or_monotonic(),
+                             time_now + timeout, MSEC_PER_SEC,
+                             radv_timeout, ra,
+                             ra->event_priority, "radv-timeout", true);
         if (r < 0)
                 goto fail;
 
         ra->ra_sent++;
 
+        return 0;
+
 fail:
-        if (r < 0)
-                sd_radv_stop(ra);
+        sd_radv_stop(ra);
 
         return 0;
 }
@@ -352,13 +327,16 @@ _public_ int sd_radv_stop(sd_radv *ra) {
 
         assert_return(ra, -EINVAL);
 
+        if (ra->state == SD_RADV_STATE_IDLE)
+                return 0;
+
         log_radv("Stopping IPv6 Router Advertisement daemon");
 
         /* RFC 4861, Section 6.2.5, send at least one Router Advertisement
            with zero lifetime  */
         r = radv_send(ra, NULL, 0);
         if (r < 0)
-                log_radv_warning_errno(r, "Unable to send last Router Advertisement with router lifetime set to zero: %m");
+                log_radv_errno(r, "Unable to send last Router Advertisement with router lifetime set to zero: %m");
 
         radv_reset(ra);
         ra->fd = safe_close(ra->fd);
@@ -368,7 +346,7 @@ _public_ int sd_radv_stop(sd_radv *ra) {
 }
 
 _public_ int sd_radv_start(sd_radv *ra) {
-        int r = 0;
+        int r;
 
         assert_return(ra, -EINVAL);
         assert_return(ra->event, -EINVAL);
@@ -377,19 +355,13 @@ _public_ int sd_radv_start(sd_radv *ra) {
         if (ra->state != SD_RADV_STATE_IDLE)
                 return 0;
 
-        r = sd_event_add_time(ra->event, &ra->timeout_event_source,
-                              clock_boottime_or_monotonic(), 0, 0,
-                              radv_timeout, ra);
+        r = event_reset_time(ra->event, &ra->timeout_event_source,
+                             clock_boottime_or_monotonic(),
+                             0, 0,
+                             radv_timeout, ra,
+                             ra->event_priority, "radv-timeout", true);
         if (r < 0)
                 goto fail;
-
-        r = sd_event_source_set_priority(ra->timeout_event_source,
-                                         ra->event_priority);
-        if (r < 0)
-                goto fail;
-
-        (void) sd_event_source_set_description(ra->timeout_event_source,
-                                               "radv-timeout");
 
         r = icmp6_bind_router_advertisement(ra->ifindex);
         if (r < 0)
@@ -518,7 +490,7 @@ _public_ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
         return r;
 }
 
-_public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, bool dynamic) {
+_public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         sd_radv_prefix *cur;
         int r;
         _cleanup_free_ char *addr_p = NULL;
@@ -530,6 +502,10 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, bool dynamic) {
 
         if (!p)
                 return -EINVAL;
+
+        /* Refuse prefixes that don't have a prefix set */
+        if (IN6_IS_ADDR_UNSPECIFIED(&p->opt.in6_addr))
+                return -ENOEXEC;
 
         LIST_FOREACH(prefix, cur, ra->prefixes) {
 
@@ -604,8 +580,8 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, bool dynamic) {
 }
 
 _public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
-                                               struct in6_addr *prefix,
-                                               uint8_t prefixlen) {
+                                               const struct in6_addr *prefix,
+                                               unsigned char prefixlen) {
         sd_radv_prefix *cur, *next;
 
         assert_return(ra, NULL);
@@ -622,6 +598,7 @@ _public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
 
                 LIST_REMOVE(prefix, ra->prefixes, cur);
                 ra->n_prefixes--;
+                sd_radv_prefix_unref(cur);
 
                 break;
         }
@@ -672,9 +649,8 @@ _public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
 
         assert_return(ra, -EINVAL);
 
-        if (!search_list || *search_list == NULL) {
+        if (strv_isempty(search_list)) {
                 ra->dnssl = mfree(ra->dnssl);
-
                 return 0;
         }
 
@@ -714,58 +690,35 @@ _public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
 }
 
 _public_ int sd_radv_prefix_new(sd_radv_prefix **ret) {
-        _cleanup_(sd_radv_prefix_unrefp) sd_radv_prefix *p = NULL;
+        sd_radv_prefix *p;
 
         assert_return(ret, -EINVAL);
 
-        p = new0(sd_radv_prefix, 1);
+        p = new(sd_radv_prefix, 1);
         if (!p)
                 return -ENOMEM;
 
-        p->n_ref = 1;
+        *p = (sd_radv_prefix) {
+                .n_ref = 1,
 
-        p->opt.type = ND_OPT_PREFIX_INFORMATION;
-        p->opt.length = (sizeof(p->opt) - 1) /8 + 1;
+                .opt.type = ND_OPT_PREFIX_INFORMATION,
+                .opt.length = (sizeof(p->opt) - 1)/8 + 1,
+                .opt.prefixlen = 64,
 
-        p->opt.prefixlen = 64;
+                /* RFC 4861, Section 6.2.1 */
+                .opt.flags = ND_OPT_PI_FLAG_ONLINK|ND_OPT_PI_FLAG_AUTO,
 
-        /* RFC 4861, Section 6.2.1 */
-        SET_FLAG(p->opt.flags, ND_OPT_PI_FLAG_ONLINK, true);
-        SET_FLAG(p->opt.flags, ND_OPT_PI_FLAG_AUTO, true);
-        p->opt.preferred_lifetime = htobe32(604800);
-        p->opt.valid_lifetime = htobe32(2592000);
+                .opt.preferred_lifetime = htobe32(604800),
+                .opt.valid_lifetime = htobe32(2592000),
+        };
 
-        LIST_INIT(prefix, p);
-
-        *ret = TAKE_PTR(p);
-
+        *ret = p;
         return 0;
 }
 
-_public_ sd_radv_prefix *sd_radv_prefix_ref(sd_radv_prefix *p) {
-        if (!p)
-                return NULL;
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv_prefix, sd_radv_prefix, mfree);
 
-        assert(p->n_ref > 0);
-        p->n_ref++;
-
-        return p;
-}
-
-_public_ sd_radv_prefix *sd_radv_prefix_unref(sd_radv_prefix *p) {
-        if (!p)
-                return NULL;
-
-        assert(p->n_ref > 0);
-        p->n_ref--;
-
-        if (p->n_ref > 0)
-                return NULL;
-
-        return mfree(p);
-}
-
-_public_ int sd_radv_prefix_set_prefix(sd_radv_prefix *p, struct in6_addr *in6_addr,
+_public_ int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr *in6_addr,
                                        unsigned char prefixlen) {
         assert_return(p, -EINVAL);
         assert_return(in6_addr, -EINVAL);

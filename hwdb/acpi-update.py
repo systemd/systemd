@@ -72,8 +72,8 @@ b = open("pnp_id_registry.html")
 print('# This file is part of systemd.\n'
       '#\n'
       '# Data imported from:\n'
-      '#     http://www.uefi.org/uefi-pnp-export\n'
-      '#     http://www.uefi.org/uefi-acpi-export')
+      '#     https://uefi.org/uefi-pnp-export\n'
+      '#     https://uefi.org/uefi-acpi-export')
 
 read_table(a)
 read_table(b)

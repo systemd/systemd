@@ -1,0 +1,7 @@
+[NetDev]
+Name=xfrm99
+Kind=xfrm
+
+[Xfrm]
+InterfaceId=7
+Independent=false

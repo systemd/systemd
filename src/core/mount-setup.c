@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <ftw.h>
@@ -16,7 +11,9 @@
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "dev-setup.h"
+#include "dirent-util.h"
 #include "efivars.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "label.h"
@@ -25,13 +22,13 @@
 #include "missing.h"
 #include "mkdir.h"
 #include "mount-setup.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "smack-util.h"
 #include "strv.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 
 typedef enum MountMode {
@@ -234,79 +231,108 @@ int mount_setup_early(void) {
         return mount_points_setup(N_EARLY_MOUNT, false);
 }
 
-int mount_cgroup_controllers(char ***join_controllers) {
+static const char *join_with(const char *controller) {
+
+        static const char* const pairs[] = {
+                "cpu", "cpuacct",
+                "net_cls", "net_prio",
+                NULL
+        };
+
+        const char *const *x, *const *y;
+
+        assert(controller);
+
+        /* This will lookup which controller to mount another controller with. Input is a controller name, and output
+         * is the other controller name. The function works both ways: you can input one and get the other, and input
+         * the other to get the one. */
+
+        STRV_FOREACH_PAIR(x, y, pairs) {
+                if (streq(controller, *x))
+                        return *y;
+                if (streq(controller, *y))
+                        return *x;
+        }
+
+        return NULL;
+}
+
+static int symlink_controller(const char *target, const char *alias) {
+        const char *a;
+        int r;
+
+        assert(target);
+        assert(alias);
+
+        a = strjoina("/sys/fs/cgroup/", alias);
+
+        r = symlink_idempotent(target, a, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create symlink %s: %m", a);
+
+#ifdef SMACK_RUN_LABEL
+        const char *p;
+
+        p = strjoina("/sys/fs/cgroup/", target);
+
+        r = mac_smack_copy(a, p);
+        if (r < 0 && r != -EOPNOTSUPP)
+                return log_error_errno(r, "Failed to copy smack label from %s to %s: %m", p, a);
+#endif
+
+        return 0;
+}
+
+int mount_cgroup_controllers(void) {
         _cleanup_set_free_free_ Set *controllers = NULL;
-        bool has_argument = !!join_controllers;
         int r;
 
         if (!cg_is_legacy_wanted())
                 return 0;
 
         /* Mount all available cgroup controllers that are built into the kernel. */
-
-        if (!has_argument)
-                /* The defaults:
-                 * mount "cpu" + "cpuacct" together, and "net_cls" + "net_prio".
-                 *
-                 * We'd like to add "cpuset" to the mix, but "cpuset" doesn't really
-                 * work for groups with no initialized attributes.
-                 */
-                join_controllers = (char**[]) {
-                        STRV_MAKE("cpu", "cpuacct"),
-                        STRV_MAKE("net_cls", "net_prio"),
-                        NULL,
-                };
-
         r = cg_kernel_controllers(&controllers);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate cgroup controllers: %m");
 
         for (;;) {
                 _cleanup_free_ char *options = NULL, *controller = NULL, *where = NULL;
+                const char *other_controller;
                 MountPoint p = {
                         .what = "cgroup",
                         .type = "cgroup",
                         .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
                         .mode = MNT_IN_CONTAINER,
                 };
-                char ***k = NULL;
 
                 controller = set_steal_first(controllers);
                 if (!controller)
                         break;
 
-                for (k = join_controllers; *k; k++)
-                        if (strv_find(*k, controller))
-                                break;
+                /* Check if we shall mount this together with another controller */
+                other_controller = join_with(controller);
+                if (other_controller) {
+                        _cleanup_free_ char *c = NULL;
 
-                if (*k) {
-                        char **i, **j;
+                        /* Check if the other controller is actually available in the kernel too */
+                        c = set_remove(controllers, other_controller);
+                        if (c) {
 
-                        for (i = *k, j = *k; *i; i++) {
-
-                                if (!streq(*i, controller)) {
-                                        _cleanup_free_ char *t;
-
-                                        t = set_remove(controllers, *i);
-                                        if (!t) {
-                                                if (has_argument)
-                                                        free(*i);
-                                                continue;
-                                        }
-                                }
-
-                                *(j++) = *i;
+                                /* Join the two controllers into one string, and maintain a stable ordering */
+                                if (strcmp(controller, other_controller) < 0)
+                                        options = strjoin(controller, ",", other_controller);
+                                else
+                                        options = strjoin(other_controller, ",", controller);
+                                if (!options)
+                                        return log_oom();
                         }
+                }
 
-                        *j = NULL;
-
-                        options = strv_join(*k, ",");
-                        if (!options)
-                                return log_oom();
-                } else
+                /* The simple case, where there's only one controller to mount together */
+                if (!options)
                         options = TAKE_PTR(controller);
 
-                where = strappend("/sys/fs/cgroup/", options);
+                where = path_join("/sys/fs/cgroup", options);
                 if (!where)
                         return log_oom();
 
@@ -317,35 +343,14 @@ int mount_cgroup_controllers(char ***join_controllers) {
                 if (r < 0)
                         return r;
 
-                if (r > 0 && *k) {
-                        char **i;
-
-                        for (i = *k; *i; i++) {
-                                _cleanup_free_ char *t = NULL;
-
-                                t = strappend("/sys/fs/cgroup/", *i);
-                                if (!t)
-                                        return log_oom();
-
-                                r = symlink(options, t);
-                                if (r >= 0) {
-#ifdef SMACK_RUN_LABEL
-                                        _cleanup_free_ char *src;
-                                        src = strappend("/sys/fs/cgroup/", options);
-                                        if (!src)
-                                                return log_oom();
-                                        r = mac_smack_copy(t, src);
-                                        if (r < 0 && r != -EOPNOTSUPP)
-                                                return log_error_errno(r, "Failed to copy smack label from %s to %s: %m", src, t);
-#endif
-                                } else if (errno != EEXIST)
-                                        return log_error_errno(errno, "Failed to create symlink %s: %m", t);
-                        }
-                }
+                /* Create symlinks from the individual controller names, in case we have a joined mount */
+                if (controller)
+                        (void) symlink_controller(options, controller);
+                if (other_controller)
+                        (void) symlink_controller(options, other_controller);
         }
 
-        /* Now that we mounted everything, let's make the tmpfs the
-         * cgroup file systems are mounted into read-only. */
+        /* Now that we mounted everything, let's make the tmpfs the cgroup file systems are mounted into read-only. */
         (void) mount("tmpfs", "/sys/fs/cgroup", "tmpfs", MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755");
 
         return 0;
@@ -401,6 +406,100 @@ static int relabel_cgroup_filesystems(void) {
 
         return 0;
 }
+
+static int relabel_extra(void) {
+        _cleanup_closedir_ DIR *d = NULL;
+        int r, c = 0;
+
+        /* Support for relabelling additional files or directories after loading the policy. For this, code in the
+         * initrd simply has to drop in *.relabel files into /run/systemd/relabel-extra.d/. We'll read all such files
+         * expecting one absolute path by line and will relabel each (and everyone below that in case the path refers
+         * to a directory). These drop-in files are supposed to be absolutely minimal, and do not understand comments
+         * and such. After the operation succeeded the files are removed, and the drop-in directory as well, if
+         * possible.
+         */
+
+        d = opendir("/run/systemd/relabel-extra.d/");
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_warning_errno(errno, "Failed to open /run/systemd/relabel-extra.d/, ignoring: %m");
+        }
+
+        for (;;) {
+                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_close_ int fd = -1;
+                struct dirent *de;
+
+                errno = 0;
+                de = readdir_no_dot(d);
+                if (!de) {
+                        if (errno != 0)
+                                return log_error_errno(errno, "Failed read directory /run/systemd/relabel-extra.d/, ignoring: %m");
+                        break;
+                }
+
+                if (hidden_or_backup_file(de->d_name))
+                        continue;
+
+                if (!endswith(de->d_name, ".relabel"))
+                        continue;
+
+                if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
+                        continue;
+
+                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (fd < 0) {
+                        log_warning_errno(errno, "Failed to open /run/systemd/relabel-extra.d/%s, ignoring: %m", de->d_name);
+                        continue;
+                }
+
+                f = fdopen(fd, "r");
+                if (!f) {
+                        log_warning_errno(errno, "Failed to convert file descriptor into file object, ignoring: %m");
+                        continue;
+                }
+                TAKE_FD(fd);
+
+                for (;;) {
+                        _cleanup_free_ char *line = NULL;
+
+                        r = read_line(f, LONG_LINE_MAX, &line);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to read from /run/systemd/relabel-extra.d/%s, ignoring: %m", de->d_name);
+                                break;
+                        }
+                        if (r == 0) /* EOF */
+                                break;
+
+                        path_simplify(line, true);
+
+                        if (!path_is_normalized(line)) {
+                                log_warning("Path to relabel is not normalized, ignoring: %s", line);
+                                continue;
+                        }
+
+                        if (!path_is_absolute(line)) {
+                                log_warning("Path to relabel is not absolute, ignoring: %s", line);
+                                continue;
+                        }
+
+                        log_debug("Relabelling additional file/directory '%s'.", line);
+                        (void) nftw(line, nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
+                        c++;
+                }
+
+                if (unlinkat(dirfd(d), de->d_name, 0) < 0)
+                        log_warning_errno(errno, "Failed to remove /run/systemd/relabel-extra.d/%s, ignoring: %m", de->d_name);
+        }
+
+        /* Remove when we completing things. */
+        if (rmdir("/run/systemd/relabel-extra.d") < 0)
+                log_warning_errno(errno, "Failed to remove /run/systemd/relabel-extra.d/ directory: %m");
+
+        return c;
+}
 #endif
 
 int mount_setup(bool loaded_policy) {
@@ -418,20 +517,22 @@ int mount_setup(bool loaded_policy) {
         if (loaded_policy) {
                 usec_t before_relabel, after_relabel;
                 char timespan[FORMAT_TIMESPAN_MAX];
+                const char *i;
+                int n_extra;
 
                 before_relabel = now(CLOCK_MONOTONIC);
 
-                (void) nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
-                (void) nftw("/dev/shm", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
-                (void) nftw("/run", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
+                FOREACH_STRING(i, "/dev", "/dev/shm", "/run")
+                        (void) nftw(i, nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
 
-                r = relabel_cgroup_filesystems();
-                if (r < 0)
-                        return r;
+                (void) relabel_cgroup_filesystems();
+
+                n_extra = relabel_extra();
 
                 after_relabel = now(CLOCK_MONOTONIC);
 
-                log_info("Relabelled /dev, /run and /sys/fs/cgroup in %s.",
+                log_info("Relabelled /dev, /dev/shm, /run, /sys/fs/cgroup%s in %s.",
+                         n_extra > 0 ? ", additional files" : "",
                          format_timespan(timespan, sizeof(timespan), after_relabel - before_relabel, 0));
         }
 #endif
@@ -457,20 +558,9 @@ int mount_setup(bool loaded_policy) {
         (void) mkdir_label("/run/systemd", 0755);
         (void) mkdir_label("/run/systemd/system", 0755);
 
-        /* Set up inaccessible (and empty) file nodes of all types */
-        (void) mkdir_label("/run/systemd/inaccessible", 0000);
-        (void) mknod("/run/systemd/inaccessible/reg", S_IFREG | 0000, 0);
-        (void) mkdir_label("/run/systemd/inaccessible/dir", 0000);
-        (void) mkfifo("/run/systemd/inaccessible/fifo", 0000);
-        (void) mknod("/run/systemd/inaccessible/sock", S_IFSOCK | 0000, 0);
-
-        /* The following two are likely to fail if we lack the privs for it (for example in an userns environment, if
-         * CAP_SYS_MKNOD is missing, or if a device node policy prohibit major/minor of 0 device nodes to be
-         * created). But that's entirely fine. Consumers of these files should carry fallback to use a different node
-         * then, for example /run/systemd/inaccessible/sock, which is close enough in behaviour and semantics for most
-         * uses. */
-        (void) mknod("/run/systemd/inaccessible/chr", S_IFCHR | 0000, makedev(0, 0));
-        (void) mknod("/run/systemd/inaccessible/blk", S_IFBLK | 0000, makedev(0, 0));
+        /* Also create /run/systemd/inaccessible nodes, so that we always have something to mount inaccessible nodes
+         * from. */
+        (void) make_inaccessible_nodes(NULL, UID_INVALID, GID_INVALID);
 
         return 0;
 }

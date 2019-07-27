@@ -1,29 +1,13 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
--->
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_default" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_default</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>A monkey with a typewriter</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -37,8 +21,11 @@
     <refname>sd_bus_default_system</refname>
 
     <refname>sd_bus_open</refname>
+    <refname>sd_bus_open_with_description</refname>
     <refname>sd_bus_open_user</refname>
+    <refname>sd_bus_open_user_with_description</refname>
     <refname>sd_bus_open_system</refname>
+    <refname>sd_bus_open_system_with_description</refname>
     <refname>sd_bus_open_system_remote</refname>
     <refname>sd_bus_open_system_machine</refname>
 
@@ -70,13 +57,31 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_bus_open_with_description</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>description</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_open_user</function></funcdef>
         <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_bus_open_user_with_description</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>description</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_open_system</function></funcdef>
         <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_open_system_with_description</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>description</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -139,6 +144,20 @@
     <function>sd_bus_default_system()</function> to connect to the
     user or system buses.</para>
 
+    <para><function>sd_bus_open_with_description()</function>,
+    <function>sd_bus_open_user_with_description()</function>, and
+    <function>sd_bus_open_system_with_description()</function> are similar to
+    <function>sd_bus_open()</function>, <function>sd_bus_open_user()</function>, and
+    <function>sd_bus_open_system()</function>, but allow a description string to be set, see
+    <citerefentry><refentrytitle>sd_bus_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    <parameter>description</parameter> may be <constant>NULL</constant>, in which case this function
+    is equivalent to <function>sd_bus_open()</function>. This description string is used in log
+    messages about the bus object, and including a "name" for the bus makes them easier to
+    understand. Some messages are emitted during bus initialization, hence using this function is
+    prefereable to setting the description later with
+    <function>sd_bus_open_with_description()</function>. The argument is copied internally and will
+    not be referenced after the function returns.</para>
+
     <para>If the <varname>$DBUS_SESSION_BUS_ADDRESS</varname> environment
     variable is set
     (cf. <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
@@ -159,7 +178,8 @@
     <citerefentry project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     <parameter>host</parameter> consists of an optional user name followed by the
     <literal>@</literal> symbol, and the hostname, optionally followed by a
-    <literal>:</literal> and a machine name. If the machine name is given, a connection
+    <literal>:</literal> and a port, optionally followed by a
+    <literal>/</literal> and a machine name. If the machine name is given, a connection
     is created to the system bus in the specified container on the remote machine, and
     otherwise a connection to the system bus on the specified host is created.</para>
 
@@ -249,36 +269,37 @@
     <para>On success, these calls return 0 or a positive
     integer. On failure, these calls return a negative
     errno-style error code.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
+      <variablelist>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>The specified parameters are invalid.</para></listitem>
-      </varlistentry>
+          <listitem><para>The specified parameters are invalid.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ESOCKTNOSUPPORT</constant></term>
+        <varlistentry>
+          <term><constant>-ESOCKTNOSUPPORT</constant></term>
 
-        <listitem><para>The protocol version required to connect to the selected bus is not supported.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>The protocol version required to connect to the selected bus is not
+          supported.</para></listitem>
+        </varlistentry>
+      </variablelist>
 
-    <para>In addition, any further connection-related errors may be
-    by returned. See <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+      <para>In addition, any further connection-related errors may be by returned. See
+      <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

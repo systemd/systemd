@@ -1,0 +1,32 @@
+#!/bin/bash
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+
+COMMAND="$1"
+KERNEL_VERSION="$2"
+ENTRY_DIR_ABS="$3"
+KERNEL_IMAGE="$4"
+INITRD_OPTIONS_START="5"
+
+if ! [[ $KERNEL_INSTALL_MACHINE_ID ]]; then
+    exit 0
+fi
+
+if [[ $COMMAND != add ]]; then
+     exit 0
+fi
+
+# If the boot dir exists (e.g. $ESP/<machine-id>),
+# create the entry directory ($ESP/<machine-id>/<kernel-version>).
+# This is the only function of this plugin.
+MACHINE_ID_DIR="${ENTRY_DIR_ABS%/*}"
+if ! [ -d "$MACHINE_ID_DIR" ]; then
+    exit 0
+fi
+
+if [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ]; then
+    echo "+mkdir -v -p $ENTRY_DIR_ABS"
+    exec mkdir -v -p "$ENTRY_DIR_ABS"
+else
+    exec mkdir -p "$ENTRY_DIR_ABS"
+fi

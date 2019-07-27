@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <pthread.h>
@@ -11,6 +6,7 @@
 #include <unistd.h>
 
 #include "async.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
@@ -37,10 +33,7 @@ int asynchronous_job(void* (*func)(void *p), void *arg) {
                 goto finish;
         }
 
-        if (sigfillset(&ss) < 0) {
-                r = -errno;
-                goto finish;
-        }
+        assert_se(sigfillset(&ss) >= 0);
 
         /* Block all signals before forking off the thread, so that the new thread is started with all signals
          * blocked. This way the existence of the new thread won't affect signal handling in other threads. */

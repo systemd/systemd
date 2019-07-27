@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
-
 #include "sd-bus.h"
 
 #include "hashmap.h"
@@ -71,8 +65,6 @@ int bus_match_run(sd_bus *bus, struct bus_match_node *root, sd_bus_message *m);
 
 int bus_match_add(struct bus_match_node *root, struct bus_match_component *components, unsigned n_components, struct match_callback *callback);
 int bus_match_remove(struct bus_match_node *root, struct match_callback *callback);
-
-int bus_match_find(struct bus_match_node *root, struct bus_match_component *components, unsigned n_components, sd_bus_message_handler_t callback, void *userdata, struct match_callback **ret);
 
 void bus_match_free(struct bus_match_node *node);
 

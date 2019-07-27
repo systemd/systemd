@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
@@ -435,7 +430,7 @@ _public_ int sd_bus_get_name_creds(
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_unique = NULL, *reply = NULL;
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
-        const char *unique = NULL;
+        const char *unique;
         pid_t pid = 0;
         int r;
 
@@ -464,9 +459,12 @@ _public_ int sd_bus_get_name_creds(
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
-        /* Only query the owner if the caller wants to know it or if
-         * the caller just wants to check whether a name exists */
-        if ((mask & SD_BUS_CREDS_UNIQUE_NAME) || mask == 0) {
+        /* If the name is unique anyway, we can use it directly */
+        unique = name[0] == ':' ? name : NULL;
+
+        /* Only query the owner if the caller wants to know it and the name is not unique anyway, or if the caller just
+         * wants to check whether a name exists */
+        if ((FLAGS_SET(mask, SD_BUS_CREDS_UNIQUE_NAME) && !unique) || mask == 0) {
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.DBus",
@@ -488,6 +486,7 @@ _public_ int sd_bus_get_name_creds(
         if (mask != 0) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 bool need_pid, need_uid, need_selinux, need_separate_calls;
+
                 c = bus_creds_new();
                 if (!c)
                         return -ENOMEM;
@@ -533,7 +532,7 @@ _public_ int sd_bus_get_name_creds(
                                 if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
                                         return r;
 
-                                /* If we got an unknown method error, fall back to the invidual calls... */
+                                /* If we got an unknown method error, fall back to the individual calls... */
                                 need_separate_calls = true;
                                 sd_bus_error_free(&error);
 
@@ -666,7 +665,7 @@ _public_ int sd_bus_get_name_creds(
                                                 NULL,
                                                 &reply,
                                                 "s",
-                                                unique ? unique : name);
+                                                unique ?: name);
                                 if (r < 0)
                                         return r;
 
@@ -693,7 +692,7 @@ _public_ int sd_bus_get_name_creds(
                                                 &error,
                                                 &reply,
                                                 "s",
-                                                unique ? unique : name);
+                                                unique ?: name);
                                 if (r < 0) {
                                         if (!sd_bus_error_has_name(&error, "org.freedesktop.DBus.Error.SELinuxSecurityContextUnknown"))
                                                 return r;
@@ -704,7 +703,7 @@ _public_ int sd_bus_get_name_creds(
                                         if (r < 0)
                                                 return r;
 
-                                        c->label = strndup(p, sz);
+                                        c->label = memdup_suffix0(p, sz);
                                         if (!c->label)
                                                 return -ENOMEM;
 
@@ -804,9 +803,12 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
 
 int bus_add_match_internal(
                 sd_bus *bus,
-                const char *match) {
+                const char *match,
+                uint64_t *ret_counter) {
 
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *e;
+        int r;
 
         assert(bus);
 
@@ -815,17 +817,26 @@ int bus_add_match_internal(
 
         e = append_eavesdrop(bus, match);
 
-        return sd_bus_call_method(
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
                         "AddMatch",
                         NULL,
-                        NULL,
+                        &reply,
                         "s",
                         e);
+        if (r < 0)
+                return r;
+
+        /* If the caller asked for it, return the read counter of the reply */
+        if (ret_counter)
+                *ret_counter = reply->read_counter;
+
+        return r;
 }
+
 int bus_add_match_internal_async(
                 sd_bus *bus,
                 sd_bus_slot **ret_slot,

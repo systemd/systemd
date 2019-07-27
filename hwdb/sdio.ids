@@ -35,6 +35,7 @@
 02d0  Broadcom Corp.
 	044b  Nintendo Wii WLAN daughter card
 	a887  BCM43143 WLAN card
+	a9a6  BCM43438 combo WLAN and Bluetooth Low Energy (BLE)    # As in RPi3B
 	4324  BCM43241 WLAN card
 	4329  BCM4329 WLAN card
 	4330  BCM4330 WLAN card
@@ -82,7 +83,7 @@
 # Syntax:
 # C class  class_name
 
-C 00  Not a SDIO standard interface
+C 00  Non-standard SDIO interface
 C 01  UART standard interface
 C 02  Bluetooth Type-A standard interface
 C 03  Bluetooth Type-B standard interface

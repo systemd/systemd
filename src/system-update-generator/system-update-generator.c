@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <unistd.h>
 
 #include "fs-util.h"
+#include "generator.h"
 #include "log.h"
 #include "proc-cmdline.h"
 #include "special.h"
@@ -19,7 +15,7 @@
  * Implements the logic described in systemd.offline-updates(7).
  */
 
-static const char *arg_dest = "/tmp";
+static const char *arg_dest = NULL;
 
 static int generate_symlink(void) {
         const char *p = NULL;
@@ -48,38 +44,28 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
          */
 
         if (streq(key, "systemd.unit") && !proc_cmdline_value_missing(key, value))
-                log_warning("Offline system update overriden by kernel command line systemd.unit= setting");
+                log_warning("Offline system update overridden by kernel command line systemd.unit= setting");
         else if (!value && runlevel_to_target(key))
-                log_warning("Offline system update overriden by runlevel \"%s\" on the kernel command line", key);
+                log_warning("Offline system update overridden by runlevel \"%s\" on the kernel command line", key);
 
         return 0;
 }
 
-int main(int argc, char *argv[]) {
-        int r, k;
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
+        int r;
 
-        if (argc > 1 && argc != 4) {
-                log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
-        }
-
-        if (argc > 1)
-                arg_dest = argv[2];
-
-        log_set_prohibit_ipc(true);
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
-
-        umask(0022);
+        assert_se(arg_dest = dest_early);
 
         r = generate_symlink();
+        if (r <= 0)
+                return r;
 
-        if (r > 0) {
-                k = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
-                if (k < 0)
-                        log_warning_errno(k, "Failed to parse kernel command line, ignoring: %m");
-        }
+        /* We parse the command line only to emit warnings. */
+        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_GENERATOR_FUNCTION(run);

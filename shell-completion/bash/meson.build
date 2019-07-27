@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 bashcompletiondir = get_option('bashcompletiondir')
 if bashcompletiondir == ''
@@ -10,8 +8,6 @@ if bashcompletiondir == ''
         else
                 bashcompletiondir = join_paths(datadir, 'bash-completion/completions')
         endif
-
-        message('bash completions: @0@'.format(bashcompletiondir))
 endif
 
 if bashcompletiondir != 'no'

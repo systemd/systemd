@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Sebastian Thorarensen
-***/
+#include <sys/socket.h>
 
 #include "journald-server.h"
 

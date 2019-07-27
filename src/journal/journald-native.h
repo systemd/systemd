@@ -1,17 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
-
 #include "journald-server.h"
 
 void server_process_native_message(
                 Server *s,
-                const void *buffer,
+                const char *buffer,
                 size_t buffer_size,
                 const struct ucred *ucred,
                 const struct timeval *tv,

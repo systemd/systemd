@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -23,6 +18,7 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
 
         _cleanup_close_ int control = -1, loop = -1;
         _cleanup_free_ char *loopdev = NULL;
+        unsigned n_attempts = 0;
         struct stat st;
         LoopDevice *d;
         int nr, r;
@@ -50,11 +46,11 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
                 *d = (LoopDevice) {
                         .fd = copy,
                         .nr = -1,
+                        .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
                 };
 
                 *ret = d;
-
-                return 0;
+                return d->fd;
         }
 
         r = stat_verify_regular(&st);
@@ -65,19 +61,31 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         if (control < 0)
                 return -errno;
 
-        nr = ioctl(control, LOOP_CTL_GET_FREE);
-        if (nr < 0)
-                return -errno;
+        /* Loop around LOOP_CTL_GET_FREE, since at the moment we attempt to open the returned device it might
+         * be gone already, taken by somebody else racing against us. */
+        for (;;) {
+                nr = ioctl(control, LOOP_CTL_GET_FREE);
+                if (nr < 0)
+                        return -errno;
 
-        if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
-                return -ENOMEM;
+                if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
+                        return -ENOMEM;
 
-        loop = open(loopdev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
-        if (loop < 0)
-                return -errno;
+                loop = open(loopdev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+                if (loop < 0)
+                        return -errno;
+                if (ioctl(loop, LOOP_SET_FD, fd) < 0) {
+                        if (errno != EBUSY)
+                                return -errno;
 
-        if (ioctl(loop, LOOP_SET_FD, fd) < 0)
-                return -errno;
+                        if (++n_attempts >= 64) /* Give up eventually */
+                                return -EBUSY;
+                } else
+                        break;
+
+                loopdev = mfree(loopdev);
+                loop = safe_close(loop);
+        }
 
         if (ioctl(loop, LOOP_SET_STATUS64, &info) < 0)
                 return -errno;
@@ -93,8 +101,7 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         };
 
         *ret = d;
-
-        return (*ret)->fd;
+        return d->fd;
 }
 
 int loop_device_make_by_path(const char *path, int open_flags, LoopDevice **ret) {

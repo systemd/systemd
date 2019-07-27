@@ -1,0 +1,142 @@
+---
+title: The Boot Loader Interface
+---
+
+# The Boot Loader Interface
+
+systemd can interface with the boot loader to receive performance data and
+other information, and pass control information. This is only supported on EFI
+systems. Data is transferred between the boot loader and systemd in EFI
+variables. All EFI variables use the vendor UUID
+`4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
+
+* The EFI Variable `LoaderTimeInitUSec` contains the timestamp in microseconds
+  when the loader was initialized. This value is the time spent in the firmware
+  for initialization, it is formatted as numeric, NUL-terminated, decimal
+  string, in UTF-16.
+
+* The EFI Variable `LoaderTimeExecUSec` contains the timestamp in microseconds
+  when the loader finished its work and is about to execute the kernel. The
+  time spent in the loader is the difference between `LoaderTimeExecUSec` and
+  `LoaderTimeInitUSec`. This value is formatted the same way as
+  `LoaderTimeInitUSec`.
+
+* The EFI variable `LoaderDevicePartUUID` contains the partition GUID of the
+  ESP the boot loader was run from formatted as NUL-terminated UTF16 string, in
+  normal GUID syntax.
+
+* The EFI variable `LoaderConfigTimeout` contains the boot menu timeout
+  currently in use. It may be modified both by the boot loader and by the
+  host. The value should be formatted as numeric, NUL-terminated, decimal
+  string, in UTF-16. The time is specified in µs.
+
+* Similarly, the EFI variable `LoaderConfigTimeoutOneShot` contains a boot menu
+  timeout for a single following boot. It is set by the OS in order to request
+  display of the boot menu on the following boot. When set overrides
+  `LoaderConfigTimeout`. It is removed automatically after being read by the
+  boot loader, to ensure it only takes effect a single time. This value is
+  formatted the same way as `LoaderConfigTimeout`. If set to `0` the boot menu
+  timeout is turned off, and the menu is shown indefinitely.
+
+* The EFI variable `LoaderEntries` may contain a series of boot loader entry
+  identifiers, one after the other, each individually NUL terminated. This may
+  be used to let the OS know which boot menu entries were discovered by the
+  boot loader. A boot loader entry identifier should be a short, non-empty
+  alphanumeric string (possibly containing `-`, too). The list should be in the
+  order the entries are shown on screen during boot. See below regarding a
+  recommended vocabulary for boot loader entry identifiers.
+
+* The EFI variable `LoaderEntryDefault` contains the default boot loader entry
+  to use. It contains a NUL-terminated boot loader entry identifier.
+
+* Similarly, the EFI variable `LoaderEntryOneShot` contains the default boot
+  loader entry to use for a single following boot. It is set by the OS in order
+  to request booting into a specific menu entry on the following boot. When set
+  overrides `LoaderEntryDefault`. It is removed automatically after being read
+  by the boot loader, to ensure it only takes effect a single time. This value
+  is formatted the same way as `LoaderEntryDefault`.
+
+* The EFI variable `LoaderEntrySelected` contains the boot loader entry
+  identifier that was booted. It is set by the boot loader and read by
+  the OS in order to identify which entry has been used for the current boot.
+
+* The EFI variable `LoaderFeatures` contains a 64bit unsigned integer with a
+  number of flags bits that are set by the boot loader and passed to the OS and
+  indicate the features the boot loader supports. Specifically, the following
+  bits are defined:
+
+  * `1 << 0` → The boot loader honours `LoaderConfigTimeout` when set.
+  * `1 << 1` → The boot loader honours `LoaderConfigTimeoutOneShot` when set.
+  * `1 << 2` → The boot loader honours `LoaderEntryDefault` when set.
+  * `1 << 3` → The boot loader honours `LoaderEntryOneShot` when set.
+  * `1 << 4` → The boot loader supports boot counting as described in [Automatic Boot Assessment](https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT).
+  * `1 << 5` → The boot loader supports looking for boot menu entries in the Extended Boot Loader Partition.
+  * `1 << 6` → The boot loader spports passing a random seed to the OS.
+
+* The EFI variable `LoaderRandomSeed` contains a binary random seed if set. It
+  is set by the boot loader to pass an entropy seed read from the ESP partition
+  to the OS. The system manager then credits this seed to the kernel's entropy
+  pool. It is the responsibility of the boot loader to ensure the quality and
+  integrity of the random seed.
+
+* The EFI variable `LoaderSystemToken` contains binary random data,
+  persistently set by the OS installer. Boot loaders that support passing
+  random seeds to the OS should use this data and combine it with the random
+  seed file read from the ESP. By combining this random data with the random
+  seed read off the disk before generating a seed to pass to the OS and a new
+  seed to store in the ESP the boot loader can protect itself from situations
+  where "golden" OS images that include a random seed are replicated and used
+  on multiple systems. Since the EFI variable storage is usually independent
+  (i.e. in physical NVRAM) of the ESP file system storage, and only the latter
+  is part of "golden" OS images, this ensures that different systems still come
+  up with different random seeds. Note that the `LoaderSystemToken` is
+  generally only written once, by the OS installer, and is usually not touched
+  after that.
+
+If `LoaderTimeInitUSec` and `LoaderTimeExecUSec` are set, `systemd-analyze`
+will include them in its boot-time analysis.  If `LoaderDevicePartUUID` is set,
+systemd will mount the ESP that was used for the boot to `/boot`, but only if
+that directory is empty, and only if no other file systems are mounted
+there. The `systemctl reboot --boot-loader-entry=…` and `systemctl reboot
+--boot-loader-menu=…` commands rely on the `LoaderFeatures` ,
+`LoaderConfigTimeoutOneShot`, `LoaderEntries`, `LoaderEntryOneShot`
+variables. `LoaderRandomSeed` is read by PID during early boot and credited to
+the kernel's random pool.
+
+## Boot Loader Entry Identifiers
+
+While boot loader entries may be named relatively freely, it's highly
+recommended to follow the following rules when picking identifiers for the
+entries, so that programs (and users) can derive basic context and meaning from
+the identifiers as passed in `LoaderEntries`, `LoaderEntryDefault`,
+`LoaderEntryOneShot`, `LoaderEntrySelected`, and possibly show nicely localized
+names for them in UIs.
+
+1. When boot loader entries are defined through [Boot Loader
+   Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION) drop-in files
+   the identifier should be derived directly from the drop-in snippet name, but
+   with the `.conf` (or `.efi` in case of Type #2 entries) suffix removed.
+
+2. Entries automatically discovered by the boot loader (as opposed to being
+   configured in configuration files) should generally have an identifier
+   prefixed with `auto-`.
+
+3. Boot menu entries referring to Microsoft Windows installations should either
+   use the identifier `windows` or use the `windows-` prefix for the
+   identifier. If a menu entry is automatically discovered, it should be
+   prefixed with `auto-`, see above (Example: this means an automatically
+   discovered Windows installation might have the identifier `auto-windows` or
+   `auto-windows-10` or so.).
+
+4. Similar, boot menu entries referring to Apple MacOS X installations should
+   use the identifier `osx` or one that is prefixed with `osx-`. If such an
+   entry is automatically discovered by the boot loader use `auto-osx` as
+   identifier, or `auto-osx-` as prefix for the identifier, see above.
+
+5. If a boot menu entry encapsulates the EFI shell program, it should use the
+   identifier `efi-shell` (or when automatically discovered: `auto-efi-shell`,
+   see above).
+
+6. If a boot menu entry encapsulates a reboot into EFI firmware setup feature,
+   it should use the identifier `reboot-to-firmware-setup` (or
+   `auto-reboot-to-firmware-setup` in case it is automatically discovered).

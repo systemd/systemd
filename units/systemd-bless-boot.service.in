@@ -1,0 +1,22 @@
+#  SPDX-License-Identifier: LGPL-2.1+
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Mark the Current Boot Loader Entry as Good
+Documentation=man:systemd-bless-boot.service(8)
+DefaultDependencies=no
+Requires=boot-complete.target
+After=local-fs.target boot-complete.target
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@rootlibexecdir@/systemd-bless-boot good

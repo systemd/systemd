@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
 
 #include <poll.h>
 #include <string.h>
@@ -16,6 +11,7 @@
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "util.h"
 
 static char* format_uids(char **buf, uid_t* uids, int count) {

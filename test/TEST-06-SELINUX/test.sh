@@ -1,6 +1,4 @@
 #!/bin/bash
-# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
-# ex: ts=8 sw=4 sts=4 et filetype=sh
 set -e
 TEST_DESCRIPTION="SELinux tests"
 TEST_NO_NSPAWN=1
@@ -18,9 +16,7 @@ SETUP_SELINUX=yes
 KERNEL_APPEND="$KERNEL_APPEND selinux=1 security=selinux"
 
 test_setup() {
-    create_empty_image
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
+    create_empty_image_rootdir
 
     # Create what will eventually be our root filesystem onto an overlay
     (
@@ -33,7 +29,6 @@ test_setup() {
         cat <<EOF >$initdir/etc/systemd/system/testsuite.service
 [Unit]
 Description=Testsuite service
-After=multi-user.target
 
 [Service]
 ExecStart=/test-selinux-checks.sh
@@ -95,7 +90,7 @@ EOF
         dracut_install -o sesearch
         dracut_install runcon
         dracut_install checkmodule semodule semodule_package m4 make /usr/libexec/selinux/hll/pp load_policy sefcontext_compile
-    ) || return 1
+    )
 
     # mask some services that we do not want to run in these tests
     ln -s /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
@@ -103,9 +98,6 @@ EOF
     ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.service
     ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
     ln -s /dev/null $initdir/etc/systemd/system/systemd-resolved.service
-
-    ddebug "umount $TESTDIR/root"
-    umount $TESTDIR/root
 }
 
 do_test "$@"

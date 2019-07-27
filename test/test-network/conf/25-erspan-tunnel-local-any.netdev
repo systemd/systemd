@@ -1,0 +1,10 @@
+[NetDev]
+Name=erspan98
+Kind=erspan
+
+[Tunnel]
+ERSPANIndex=124
+Local = any
+Remote = 172.16.1.100
+Key=102
+SerializeTunneledPackets=true

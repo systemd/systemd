@@ -1,14 +1,7 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010-2013 Kay Sievers
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="udevadm"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -16,14 +9,6 @@
   <refentryinfo>
     <title>udevadm</title>
     <productname>systemd</productname>
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Kay</firstname>
-        <surname>Sievers</surname>
-        <email>kay@vrfy.org</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -88,39 +73,40 @@
 
     <refsect2><title>udevadm info
       <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
     </title>
 
-      <para>Queries the udev database for device information
-      stored in the udev database. It can also query the properties
-      of a device from its sysfs representation to help creating udev
-      rules that match this device.</para>
+      <para>Query the udev database for device information.</para>
+
+      <para>Positional arguments should be used to specify one or more devices. Each one may be a device name
+      (in which case it must start with <filename>/dev/</filename>), a sys path (in which case it must start
+      with <filename>/sys/</filename>), or a systemd device unit name (in which case it must end with
+      <literal>.device</literal>, see
+      <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+      </para>
+
       <variablelist>
         <varlistentry>
           <term><option>-q</option></term>
           <term><option>--query=<replaceable>TYPE</replaceable></option></term>
           <listitem>
-            <para>Query the database for the specified type of device
-            data. It needs the <option>--path</option> or
-            <option>--name</option> to identify the specified device.
+            <para>Query the database for the specified type of device data.
             Valid <replaceable>TYPE</replaceable>s are:
             <constant>name</constant>, <constant>symlink</constant>,
             <constant>path</constant>, <constant>property</constant>,
             <constant>all</constant>.</para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><option>-p</option></term>
           <term><option>--path=<replaceable>DEVPATH</replaceable></option></term>
           <listitem>
-            <para>The <filename>/sys</filename> path of the device to
-            query, e.g.
-            <filename><optional>/sys</optional>/class/block/sda</filename>.
-            Note that this option usually is not very useful, since
-            <command>udev</command> can guess the type of the
-            argument, so <command>udevadm info
-            --path=/class/block/sda</command> is equivalent to
-            <command>udevadm info /sys/class/block/sda</command>.</para>
+            <para>The <filename>/sys</filename> path of the device to query, e.g.
+            <filename><optional>/sys</optional>/class/block/sda</filename>. This option is an alternative to
+            the positional argument with a <filename>/sys/</filename> prefix. <command>udevadm info
+            --path=/class/block/sda</command> is equivalent to <command>udevadm info
+            /sys/class/block/sda</command>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -128,11 +114,9 @@
           <term><option>--name=<replaceable>FILE</replaceable></option></term>
           <listitem>
             <para>The name of the device node or a symlink to query,
-            e.g. <filename><optional>/dev</optional>/sda</filename>.
-            Note that this option usually is not very useful, since
-            <command>udev</command> can guess the type of the
-            argument, so <command>udevadm info --name=sda</command> is
-            equivalent to <command>udevadm info /dev/sda</command>.</para>
+            e.g. <filename><optional>/dev</optional>/sda</filename>. This option is an alternative to the
+            positional argument with a <filename>/dev/</filename> prefix. <command>udevadm info
+            --name=sda</command> is equivalent to <command>udevadm info /dev/sda</command>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -156,22 +140,25 @@
           <term><option>-x</option></term>
           <term><option>--export</option></term>
           <listitem>
-            <para>Print output as key/value pairs. Values are enclosed in single quotes.</para>
+            <para>Print output as key/value pairs. Values are enclosed in single quotes.
+            This takes effects only when <option>--query=property</option> or
+            <option>--device-id-of-file=<replaceable>FILE</replaceable></option> is specified.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-P</option></term>
           <term><option>--export-prefix=<replaceable>NAME</replaceable></option></term>
           <listitem>
-            <para>Add a prefix to the key name of exported values.</para>
+            <para>Add a prefix to the key name of exported values.
+            This implies <option>--export</option>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-d</option></term>
           <term><option>--device-id-of-file=<replaceable>FILE</replaceable></option></term>
           <listitem>
-            <para>Print major/minor numbers of the underlying device, where the file
-            lives on.</para>
+            <para>Print major/minor numbers of the underlying device, where the file lives on.
+            If this is specified, all positional arguments are ignored.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -188,20 +175,28 @@
             <para>Cleanup the udev database.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><option>-w<optional>SECONDS</optional></option></term>
+          <term><option>--wait-for-initialization<optional>=SECONDS</optional></option></term>
+          <listitem>
+            <para>Wait for device to be initialized. If argument <replaceable>SECONDS</replaceable>
+            is not specified, the default is to wait forever.</para>
+          </listitem>
+        </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
-
-      <para>In addition, an optional positional argument can be used
-      to specify a device name or a sys path. It must start with
-      <filename>/dev</filename> or <filename>/sys</filename>
-      respectively.</para>
     </refsect2>
 
     <refsect2><title>udevadm trigger
       <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>file</replaceable></arg></title>
+      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
+      </title>
       <para>Request device events from the kernel. Primarily used to replay events at system coldplug time.</para>
+
+      <para>Takes device specifications as positional arguments. See the description of <command>info</command>
+      above.</para>
+
       <variablelist>
         <varlistentry>
           <term><option>-v</option></term>
@@ -230,8 +225,12 @@
           <term><option>-c</option></term>
           <term><option>--action=<replaceable>ACTION</replaceable></option></term>
           <listitem>
-            <para>Type of event to be triggered. The default value is
-            <command>change</command>.</para>
+            <para>Type of event to be triggered. Possible actions are <literal>add</literal>,
+            <literal>remove</literal>, <literal>change</literal>, <literal>move</literal>,
+            <literal>online</literal>, <literal>offline</literal>, <literal>bind</literal>,
+            and <literal>unbind</literal>. Also, the special value <literal>help</literal> can be used
+            to list the possible actions. The default value is <literal>change</literal>.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -239,8 +238,9 @@
           <term><option>--subsystem-match=<replaceable>SUBSYSTEM</replaceable></option></term>
           <listitem>
             <para>Trigger events for devices which belong to a
-            matching subsystem. This option can be specified multiple
-            times and supports shell style pattern matching.</para>
+            matching subsystem. This option supports shell style pattern matching.
+            When this option is specified more than once, then each matching result is ORed, that is,
+            all the devices in each subsystem are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -248,77 +248,74 @@
           <term><option>--subsystem-nomatch=<replaceable>SUBSYSTEM</replaceable></option></term>
           <listitem>
             <para>Do not trigger events for devices which belong to a matching subsystem. This option
-            can be specified multiple times and supports shell style pattern matching.</para>
+            supports shell style pattern matching. When this option is specified more than once,
+            then each matching result is ANDed, that is, devices which do not match all specified
+            subsystems are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-a</option></term>
           <term><option>--attr-match=<replaceable>ATTRIBUTE</replaceable>=<replaceable>VALUE</replaceable></option></term>
           <listitem>
-            <para>Trigger events for devices with a matching sysfs
-            attribute. If a value is specified along with the
-            attribute name, the content of the attribute is matched
-            against the given value using shell style pattern
-            matching. If no value is specified, the existence of the
-            sysfs attribute is checked. This option can be specified
-            multiple times.</para>
+            <para>Trigger events for devices with a matching sysfs attribute. If a value is specified along
+            with the attribute name, the content of the attribute is matched against the given value using
+            shell style pattern matching. If no value is specified, the existence of the sysfs attribute is
+            checked. When this option is specified multiple times, then each matching result is ANDed,
+            that is, only devices which have all specified attributes are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-A</option></term>
           <term><option>--attr-nomatch=<replaceable>ATTRIBUTE</replaceable>=<replaceable>VALUE</replaceable></option></term>
           <listitem>
-            <para>Do not trigger events for devices with a matching
-            sysfs attribute. If a value is specified along with the
-            attribute name, the content of the attribute is matched
-            against the given value using shell style pattern
-            matching. If no value is specified, the existence of the
-            sysfs attribute is checked. This option can be specified
-            multiple times.</para>
+            <para>Do not trigger events for devices with a matching sysfs attribute. If a value is specified
+            along with the attribute name, the content of the attribute is matched against the given value
+            using shell style pattern matching. If no value is specified, the existence of the sysfs attribute
+            is checked. When this option is specified multiple times, then each matching result is ANDed,
+            that is, only devices which have none of the specified attributes are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-p</option></term>
           <term><option>--property-match=<replaceable>PROPERTY</replaceable>=<replaceable>VALUE</replaceable></option></term>
           <listitem>
-            <para>Trigger events for devices with a matching property
-            value. This option can be specified multiple times and
-            supports shell style pattern matching.</para>
+            <para>Trigger events for devices with a matching property value. This option supports shell style
+            pattern matching. When this option is specified more than once, then each matching result is ORed,
+            that is, devices which have one of the specified properties are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-g</option></term>
           <term><option>--tag-match=<replaceable>PROPERTY</replaceable></option></term>
           <listitem>
-            <para>Trigger events for devices with a matching tag. This
-            option can be specified multiple times.</para>
+            <para>Trigger events for devices with a matching tag. When this option is specified multiple times,
+            then each matching result is ANDed, that is, devices which have all specified tags are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-y</option></term>
-          <term><option>--sysname-match=<replaceable>PATH</replaceable></option></term>
+          <term><option>--sysname-match=<replaceable>NAME</replaceable></option></term>
           <listitem>
-            <para>Trigger events for devices for which the last component
-            (i.e. the filename) of the <filename>/sys</filename> path matches
-            the specified <replaceable>PATH</replaceable>. This option can be
-            specified multiple times and also supports shell style pattern
-            matching.</para>
+            <para>Trigger events for devices for which the last component (i.e. the filename) of the
+            <filename>/sys</filename> path matches the specified <replaceable>PATH</replaceable>. This option
+            supports shell style pattern matching. When this option is specified more than once, then each
+            matching result is ORed, that is, all devices which have any of the specified
+            <replaceable>NAME</replaceable> are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>--name-match=<replaceable>NAME</replaceable></option></term>
           <listitem>
-            <para>Trigger events for devices with a matching
-            device path. This option can be specified multiple
-            times.</para>
+            <para>Trigger events for devices with a matching device path. When this option is specified more than once,
+            then each matching result is ORed, that is, all specified devices are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-b</option></term>
           <term><option>--parent-match=<replaceable>SYSPATH</replaceable></option></term>
           <listitem>
-            <para>Trigger events for all children of a given
-            device.</para>
+            <para>Trigger events for all children of a given device. When this option is specified more than once,
+            then each matching result is ORed, that is, all children of each specified device are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -330,6 +327,14 @@
             settle</command>. <command>udevadm settle</command> waits for all
             events to finish. This option only waits for events triggered by
             the same command to finish.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--wait-daemon[=<replaceable>SECONDS</replaceable>]</option></term>
+          <listitem>
+            <para>Before triggering uevents, wait for systemd-udevd daemon to be initialized.
+            Optionally takes timeout value. Default timeout is 5 seconds. This is equivalent to invoke
+            invoking <command>udevadm control --ping</command> before <command>udevadm trigger</command>.</para>
           </listitem>
         </varlistentry>
 
@@ -367,6 +372,10 @@
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
+
+      <para>See
+      <citerefentry><refentrytitle>systemd-udev-settle.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      for more information.</para>
     </refsect2>
 
     <refsect2><title>udevadm control <replaceable>option</replaceable></title>
@@ -376,7 +385,13 @@
           <term><option>-e</option></term>
           <term><option>--exit</option></term>
           <listitem>
-            <para>Signal and wait for systemd-udevd to exit.</para>
+            <para>Signal and wait for systemd-udevd to exit. No option except for
+            <option>--timeout</option> can be specified after this option.
+            Note that <filename>systemd-udevd.service</filename> contains
+            <option>Restart=always</option> and so as a result, this option restarts systemd-udevd.
+            If you want to stop <filename>systemd-udevd.service</filename>, please use the following:
+            <programlisting>systemctl stop systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udevd.service</programlisting>
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -433,6 +448,13 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--ping</option></term>
+          <listitem>
+            <para>Send a ping message to systemd-udevd and wait for the reply. This may be useful to check that
+            systemd-udevd daemon is running.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-t</option></term>
           <term><option>--timeout=</option><replaceable>seconds</replaceable></term>
           <listitem>
@@ -477,14 +499,18 @@
           <term><option>-s</option></term>
           <term><option>--subsystem-match=<replaceable>string[/string]</replaceable></option></term>
           <listitem>
-            <para>Filter kernel uevents and udev events by subsystem[/devtype]. Only events with a matching subsystem value will pass.</para>
+            <para>Filter kernel uevents and udev events by subsystem[/devtype]. Only events with a matching subsystem value will pass.
+            When this option is specified more than once, then each matching result is ORed, that is, all devices in the specified
+            subsystems are monitored.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-t</option></term>
           <term><option>--tag-match=<replaceable>string</replaceable></option></term>
           <listitem>
-            <para>Filter udev events by tag. Only udev events with a given tag attached will pass.</para>
+            <para>Filter udev events by tag. Only udev events with a given tag attached will pass.
+            When this option is specified more than once, then each matching result is ORed, that is, devices which have one of the
+            specified tags are monitored.</para>
           </listitem>
         </varlistentry>
 
@@ -500,9 +526,10 @@
       <variablelist>
         <varlistentry>
           <term><option>-a</option></term>
-          <term><option>--action=<replaceable>string</replaceable></option></term>
+          <term><option>--action=<replaceable>ACTION</replaceable></option></term>
           <listitem>
-            <para>The action string.</para>
+            <para>The action string. The special value <literal>help</literal> may be used to list
+            known values.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

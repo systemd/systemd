@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2015 Tom Gundersen
-***/
-
+#include "memory-util.h"
 #include "siphash24.h"
-#include "util.h"
 
 #define ITERATIONS 10000000ULL
 

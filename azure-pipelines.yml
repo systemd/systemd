@@ -1,0 +1,15 @@
+trigger:
+- master
+
+jobs:
+- job: FuzzBuzz
+  displayName: FuzzBuzz
+
+  pool:
+    vmImage: 'ubuntu-latest'
+
+  steps:
+  - script: |
+      set -e
+      ./travis-ci/managers/fuzzbuzz.sh
+    displayName: 'This is where it gets darker'

@@ -1,11 +1,9 @@
-#compdef busctl
+#compdef busctl                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 
 # busctl(1) completion                               -*- shell-script -*-
 #
 # This file is part of systemd.
-#
-# Copyright 2013 Zbigniew Jędrzejewski-Szmek
 #
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
@@ -20,7 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-(( $+functions[_busctl_command] )) || _busctl_command()
+(( $+functions[_busctl_commands] )) || _busctl_commands()
 {
     local -a _busctl_cmds
     _busctl_cmds=(
@@ -70,4 +68,4 @@ _arguments \
     '--allow-interactive-authorization=[Allow interactive authorization for operation]:boolean:(1 0)' \
     '--timeout=[Maximum time to wait for method call completion]:timeout (seconds)' \
     '--augment-creds=[Extend credential data with data read from /proc/$PID]:boolean:(1 0)' \
-    '*::busctl command:_busctl_command'
+    '*::busctl command:_busctl_commands'

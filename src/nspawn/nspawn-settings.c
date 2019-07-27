@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 #include "alloc-util.h"
 #include "cap-list.h"
@@ -22,6 +17,50 @@
 #include "user-util.h"
 #include "util.h"
 
+Settings *settings_new(void) {
+        Settings *s;
+
+        s = new(Settings, 1);
+        if (!s)
+                return NULL;
+
+        *s = (Settings) {
+                .start_mode = _START_MODE_INVALID,
+                .personality = PERSONALITY_INVALID,
+
+                .resolv_conf = _RESOLV_CONF_MODE_INVALID,
+                .link_journal = _LINK_JOURNAL_INVALID,
+                .timezone = _TIMEZONE_MODE_INVALID,
+
+                .userns_mode = _USER_NAMESPACE_MODE_INVALID,
+                .userns_chown = -1,
+                .uid_shift = UID_INVALID,
+                .uid_range = UID_INVALID,
+
+                .no_new_privileges = -1,
+
+                .read_only = -1,
+                .volatile_mode = _VOLATILE_MODE_INVALID,
+
+                .private_network = -1,
+                .network_veth = -1,
+
+                .full_capabilities = CAPABILITY_QUINTET_NULL,
+
+                .uid = UID_INVALID,
+                .gid = GID_INVALID,
+
+                .console_mode = _CONSOLE_MODE_INVALID,
+                .console_width = (unsigned) -1,
+                .console_height = (unsigned) -1,
+
+                .clone_ns_flags = (unsigned long) -1,
+                .use_cgns = -1,
+        };
+
+        return s;
+}
+
 int settings_load(FILE *f, const char *path, Settings **ret) {
         _cleanup_(settings_freep) Settings *s = NULL;
         int r;
@@ -29,26 +68,9 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         assert(path);
         assert(ret);
 
-        s = new0(Settings, 1);
+        s = settings_new();
         if (!s)
                 return -ENOMEM;
-
-        s->start_mode = _START_MODE_INVALID;
-        s->personality = PERSONALITY_INVALID;
-        s->userns_mode = _USER_NAMESPACE_MODE_INVALID;
-        s->resolv_conf = _RESOLV_CONF_MODE_INVALID;
-        s->link_journal = _LINK_JOURNAL_INVALID;
-        s->timezone = _TIMEZONE_MODE_INVALID;
-        s->uid_shift = UID_INVALID;
-        s->uid_range = UID_INVALID;
-        s->no_new_privileges = -1;
-
-        s->read_only = -1;
-        s->volatile_mode = _VOLATILE_MODE_INVALID;
-        s->userns_chown = -1;
-
-        s->private_network = -1;
-        s->network_veth = -1;
 
         r = config_parse(NULL, path, f,
                          "Exec\0"
@@ -71,12 +93,33 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
                 s->userns_mode = USER_NAMESPACE_NO;
 
         *ret = TAKE_PTR(s);
-
         return 0;
 }
 
-Settings* settings_free(Settings *s) {
+static void free_oci_hooks(OciHook *h, size_t n) {
+        size_t i;
 
+        assert(h || n == 0);
+
+        for (i = 0; i < n; i++) {
+                free(h[i].path);
+                strv_free(h[i].args);
+                strv_free(h[i].env);
+        }
+
+        free(h);
+}
+
+void device_node_array_free(DeviceNode *node, size_t n) {
+        size_t i;
+
+        for (i = 0; i < n; i++)
+                free(node[i].path);
+
+        free(node);
+}
+
+Settings* settings_free(Settings *s) {
         if (!s)
                 return NULL;
 
@@ -90,7 +133,7 @@ Settings* settings_free(Settings *s) {
         strv_free(s->syscall_blacklist);
         rlimit_free_all(s->rlimit);
         free(s->hostname);
-        s->cpuset = cpu_set_mfree(s->cpuset);
+        cpu_set_reset(&s->cpu_set);
 
         strv_free(s->network_interfaces);
         strv_free(s->network_macvlan);
@@ -101,6 +144,27 @@ Settings* settings_free(Settings *s) {
         expose_port_free_all(s->expose_ports);
 
         custom_mount_free_all(s->custom_mounts, s->n_custom_mounts);
+
+        free(s->bundle);
+        free(s->root);
+
+        free_oci_hooks(s->oci_hooks_prestart, s->n_oci_hooks_prestart);
+        free_oci_hooks(s->oci_hooks_poststart, s->n_oci_hooks_poststart);
+        free_oci_hooks(s->oci_hooks_poststop, s->n_oci_hooks_poststop);
+
+        free(s->slice);
+        sd_bus_message_unref(s->properties);
+
+        free(s->supplementary_gids);
+        device_node_array_free(s->extra_nodes, s->n_extra_nodes);
+        free(s->network_namespace_path);
+
+        strv_free(s->sysctl);
+
+#if HAVE_SECCOMP
+        seccomp_release(s->seccomp);
+#endif
+
         return mfree(s);
 }
 
@@ -125,6 +189,26 @@ bool settings_network_veth(Settings *s) {
                 s->network_veth > 0 ||
                 s->network_bridge ||
                 s->network_zone;
+}
+
+int settings_allocate_properties(Settings *s) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        assert(s);
+
+        if (s->properties)
+                return 0;
+
+        r = sd_bus_default_system(&bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new(bus, &s->properties, SD_BUS_MESSAGE_METHOD_CALL);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_volatile_mode, volatile_mode, VolatileMode, "Failed to parse volatile mode");
@@ -182,7 +266,6 @@ int config_parse_capability(
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                int cap;
 
                 r = extract_first_word(&rvalue, &word, NULL, 0);
                 if (r < 0) {
@@ -192,13 +275,13 @@ int config_parse_capability(
                 if (r == 0)
                         break;
 
-                cap = capability_from_name(word);
-                if (cap < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability, ignoring: %s", word);
+                r = capability_from_name(word);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse capability, ignoring: %s", word);
                         continue;
                 }
 
-                u |= UINT64_C(1) << cap;
+                u |= UINT64_C(1) << r;
         }
 
         if (u == 0)
@@ -321,6 +404,34 @@ int config_parse_tmpfs(
         return 0;
 }
 
+int config_parse_inaccessible(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = inaccessible_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid inaccessible file system specification %s: %m", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
 int config_parse_overlay(
                 const char *unit,
                 const char *filename,
@@ -394,9 +505,9 @@ int config_parse_network_zone(
         assert(lvalue);
         assert(rvalue);
 
-        j = strappend("vz-", rvalue);
+        j = strjoin("vz-", rvalue);
         if (!ifname_valid(j)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid network zone name %s, ignoring: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid network zone name, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -692,41 +803,12 @@ int config_parse_cpu_affinity(
                 void *data,
                 void *userdata) {
 
-        _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
         Settings *settings = data;
-        int ncpus;
 
         assert(rvalue);
         assert(settings);
 
-        ncpus = parse_cpu_set_and_warn(rvalue, &cpuset, unit, filename, line, lvalue);
-        if (ncpus < 0)
-                return ncpus;
-
-        if (ncpus == 0) {
-                /* An empty assignment resets the CPU list */
-                settings->cpuset = cpu_set_mfree(settings->cpuset);
-                settings->cpuset_ncpus = 0;
-                return 0;
-        }
-
-        if (!settings->cpuset) {
-                settings->cpuset = TAKE_PTR(cpuset);
-                settings->cpuset_ncpus = (unsigned) ncpus;
-                return 0;
-        }
-
-        if (settings->cpuset_ncpus < (unsigned) ncpus) {
-                CPU_OR_S(CPU_ALLOC_SIZE(settings->cpuset_ncpus), cpuset, settings->cpuset, cpuset);
-                CPU_FREE(settings->cpuset);
-                settings->cpuset = TAKE_PTR(cpuset);
-                settings->cpuset_ncpus = (unsigned) ncpus;
-                return 0;
-        }
-
-        CPU_OR_S(CPU_ALLOC_SIZE((unsigned) ncpus), settings->cpuset, settings->cpuset, cpuset);
-
-        return 0;
+        return parse_cpu_set_extend(rvalue, &settings->cpu_set, true, unit, filename, line, lvalue);
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_resolv_conf, resolv_conf_mode, ResolvConfMode, "Failed to parse resolv.conf mode");

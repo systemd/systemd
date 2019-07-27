@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <signal.h>
@@ -11,8 +6,8 @@
 #include <sys/mman.h>
 
 #include "macro.h"
+#include "memory-util.h"
 #include "sigbus.h"
-#include "util.h"
 
 #define SIGBUS_QUEUE_MAX 64
 
@@ -117,6 +112,10 @@ void sigbus_install(void) {
                 .sa_sigaction = sigbus_handler,
                 .sa_flags = SA_SIGINFO,
         };
+
+        /* make sure that sysconf() is not called from a signal handler because
+        * it is not guaranteed to be async-signal-safe since POSIX.1-2008 */
+        (void) page_size();
 
         n_installed++;
 

@@ -1,30 +1,13 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-  Copyright 2013 Tom Gundersen
--->
-
-<refentry id="nss-resolve" conditional='ENABLE_RESOLVE'>
+<refentry id="nss-resolve" conditional='ENABLE_NSS_RESOLVE'>
 
   <refentryinfo>
     <title>nss-resolve</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -78,6 +61,7 @@
     <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables <command>nss-resolve</command>
     correctly:</para>
 
+    <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
 <programlisting>passwd:         compat mymachines systemd
 group:          compat mymachines systemd
 shadow:         compat

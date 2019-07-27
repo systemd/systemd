@@ -2,9 +2,7 @@
 #  SPDX-License-Identifier: LGPL-2.1+
 #
 #  This file is part of systemd.
-#
-#  Copyright 2015 Zbigniew Jędrzejewski-Szmek
-#  Copyright 2018 Neal Gompa
+#  Copyright © 2018 Neal Gompa
 
 # The contents of this are an example to be copied into systemd.spec.
 #

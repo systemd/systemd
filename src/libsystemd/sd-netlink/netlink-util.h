@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
- This file is part of systemd.
-
- Copyright (C) 2013 Tom Gundersen <teg@jklm.no>
-***/
-
 #include "sd-netlink.h"
 
+#include "in-addr-util.h"
+#include "socket-util.h"
 #include "util.h"
 
 int rtnl_message_new_synthetic_error(sd_netlink *rtnl, int error, uint32_t serial, sd_netlink_message **ret);
@@ -44,3 +40,26 @@ int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias, 
 
 int rtnl_log_parse_error(int r);
 int rtnl_log_create_error(int r);
+
+#define netlink_call_async(nl, ret_slot, message, callback, destroy_callback, userdata) \
+        ({                                                              \
+                int (*_callback_)(sd_netlink *, sd_netlink_message *, typeof(userdata)) = callback; \
+                void (*_destroy_)(typeof(userdata)) = destroy_callback; \
+                sd_netlink_call_async(nl, ret_slot, message,            \
+                                      (sd_netlink_message_handler_t) _callback_, \
+                                      (sd_netlink_destroy_t) _destroy_, \
+                                      userdata, 0, __func__);           \
+        })
+
+#define netlink_add_match(nl, ret_slot, metch, callback, destroy_callback, userdata) \
+        ({                                                              \
+                int (*_callback_)(sd_netlink *, sd_netlink_message *, typeof(userdata)) = callback; \
+                void (*_destroy_)(typeof(userdata)) = destroy_callback; \
+                sd_netlink_add_match(nl, ret_slot, match,               \
+                                     (sd_netlink_message_handler_t) _callback_, \
+                                     (sd_netlink_destroy_t) _destroy_,  \
+                                     userdata, __func__);               \
+        })
+
+int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data);
+int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data);

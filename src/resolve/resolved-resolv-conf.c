@@ -1,17 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
- ***/
 
 #include <resolv.h>
-#include <stdio_ext.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
-#include "fileio-label.h"
 #include "fileio.h"
 #include "ordered-set.h"
 #include "resolved-conf.h"
@@ -19,6 +15,7 @@
 #include "resolved-resolv-conf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util-label.h"
 
 /* A resolv.conf file containing the DNS server and domain data we learnt from uplink, i.e. the full uplink data */
 #define PRIVATE_UPLINK_RESOLV_CONF "/run/systemd/resolve/resolv.conf"
@@ -26,8 +23,48 @@
 /* A resolv.conf file containing the domain data we learnt from uplink, but our own DNS server address. */
 #define PRIVATE_STUB_RESOLV_CONF "/run/systemd/resolve/stub-resolv.conf"
 
-/* A static resolv.conf file containing no domains, but only our own DNS sever address */
+/* A static resolv.conf file containing no domains, but only our own DNS server address */
 #define PRIVATE_STATIC_RESOLV_CONF ROOTLIBEXECDIR "/resolv.conf"
+
+int manager_check_resolv_conf(const Manager *m) {
+        const char *path;
+        struct stat st;
+        int r;
+
+        assert(m);
+
+        /* This warns only when our stub listener is disabled and /etc/resolv.conf is a symlink to
+         * PRIVATE_STATIC_RESOLV_CONF or PRIVATE_STUB_RESOLV_CONF. */
+
+        if (m->dns_stub_listener_mode != DNS_STUB_LISTENER_NO)
+                return 0;
+
+        r = stat("/etc/resolv.conf", &st);
+        if (r < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_warning_errno(errno, "Failed to stat /etc/resolv.conf: %m");
+        }
+
+        FOREACH_STRING(path,
+                       PRIVATE_STUB_RESOLV_CONF,
+                       PRIVATE_STATIC_RESOLV_CONF) {
+
+                struct stat own;
+
+                /* Is it symlinked to our own uplink file? */
+                if (stat(path, &own) >= 0 &&
+                    st.st_dev == own.st_dev &&
+                    st.st_ino == own.st_ino) {
+                        log_warning("DNSStubListener= is disabled, but /etc/resolv.conf is a symlink to %s "
+                                    "which expects DNSStubListener= to be enabled.", path);
+                        return -EOPNOTSUPP;
+                }
+        }
+
+        return 0;
+}
 
 static bool file_is_our_own(const struct stat *st) {
         const char *path;
@@ -54,7 +91,6 @@ static bool file_is_our_own(const struct stat *st) {
 int manager_read_resolv_conf(Manager *m) {
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
-        char line[LINE_MAX];
         unsigned n = 0;
         int r;
 
@@ -102,9 +138,18 @@ int manager_read_resolv_conf(Manager *m) {
         dns_server_mark_all(m->dns_servers);
         dns_search_domain_mark_all(m->search_domains);
 
-        FOREACH_LINE(line, f, r = -errno; goto clear) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 const char *a;
                 char *l;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read /etc/resolv.conf: %m");
+                        goto clear;
+                }
+                if (r == 0)
+                        break;
 
                 n++;
 
@@ -174,6 +219,8 @@ clear:
 }
 
 static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
+        DnsScope *scope;
+
         assert(s);
         assert(f);
         assert(count);
@@ -183,13 +230,12 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
                 return;
         }
 
-        /* Check if the DNS server is limited to particular domains;
-         * resolv.conf does not have a syntax to express that, so it must not
-         * appear as a global name server to avoid routing unrelated domains to
-         * it (which is a privacy violation, will most probably fail anyway,
-         * and adds unnecessary load) */
-        if (dns_server_limited_domains(s)) {
-                log_debug("DNS server %s has route-only domains, not using as global name server", dns_server_string(s));
+        /* Check if the scope this DNS server belongs to is suitable as 'default' route for lookups; resolv.conf does
+         * not have a syntax to express that, so it must not appear as a global name server to avoid routing unrelated
+         * domains to it (which is a privacy violation, will most probably fail anyway, and adds unnecessary load) */
+        scope = dns_server_scope(s);
+        if (scope && !dns_scope_is_default_route(scope)) {
+                log_debug("Scope of DNS server %s has only route-only domains, not using as global name server", dns_server_string(s));
                 return;
         }
 
@@ -278,7 +324,8 @@ static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet 
                        "# See man:systemd-resolved.service(8) for details about the supported modes of\n"
                        "# operation for /etc/resolv.conf.\n"
                        "\n"
-                       "nameserver 127.0.0.53\n", f);
+                       "nameserver 127.0.0.53\n"
+                       "options edns0\n", f);
 
         if (!ordered_set_isempty(domains))
                 write_resolv_conf_search(domains, f);
@@ -311,14 +358,12 @@ int manager_write_resolv_conf(Manager *m) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to open private resolv.conf file for writing: %m");
 
-        (void) __fsetlocking(f_uplink, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f_uplink), 0644);
 
         r = fopen_temporary_label(PRIVATE_STUB_RESOLV_CONF, PRIVATE_STUB_RESOLV_CONF, &f_stub, &temp_path_stub);
         if (r < 0)
                 return log_warning_errno(r, "Failed to open private stub-resolv.conf file for writing: %m");
 
-        (void) __fsetlocking(f_stub, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f_stub), 0644);
 
         r = write_uplink_resolv_conf_contents(f_uplink, dns, domains);

@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <string.h>
@@ -13,10 +8,10 @@
 #include "import-util.h"
 #include "log.h"
 #include "macro.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "util.h"
 
 int import_url_last_component(const char *url, char **ret) {
         const char *e, *p;
@@ -165,7 +160,7 @@ int import_assign_pool_quota_and_warn(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up default quota hierarchy for %s: %m", path);
         if (r > 0)
-                log_info("Set up default quota hierarchy for %s.", path);
+                log_debug("Set up default quota hierarchy for %s.", path);
 
         return 0;
 }

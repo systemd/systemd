@@ -8,8 +8,8 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Remove the Offline System Updates symlink
-Documentation=man:systemd.special(5) man:systemd.offline-updates(7)
+Description=Remove the Offline System Updates Symlink
+Documentation=man:systemd.special(7) man:systemd.offline-updates(7)
 After=system-update.target
 DefaultDependencies=no
 Conflicts=shutdown.target

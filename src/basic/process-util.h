@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <alloca.h>
 #include <errno.h>
 #include <sched.h>
@@ -18,6 +12,7 @@
 #include <sys/resource.h>
 #include <sys/types.h>
 
+#include "alloc-util.h"
 #include "format-util.h"
 #include "ioprio.h"
 #include "macro.h"
@@ -30,15 +25,19 @@
                 if (_pid_ == 0) {                                       \
                         _r_ = ("/proc/self/" field);                    \
                 } else {                                                \
-                        _r_ = alloca(STRLEN("/proc/") + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
-                        sprintf((char*) _r_, "/proc/"PID_FMT"/" field, _pid_);                       \
+                        _r_ = newa(char, STRLEN("/proc/") + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
+                        sprintf((char*) _r_, "/proc/"PID_FMT"/" field, _pid_); \
                 }                                                       \
                 _r_;                                                    \
         })
 
-int get_process_state(pid_t pid);
+typedef enum ProcessCmdlineFlags {
+        PROCESS_CMDLINE_COMM_FALLBACK = 1 << 0,
+        PROCESS_CMDLINE_USE_LOCALE    = 1 << 1,
+} ProcessCmdlineFlags;
+
 int get_process_comm(pid_t pid, char **name);
-int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line);
+int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **line);
 int get_process_exe(pid_t pid, char **name);
 int get_process_uid(pid_t pid, uid_t *uid);
 int get_process_gid(pid_t pid, gid_t *gid);
@@ -74,6 +73,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value);
 
 bool pid_is_alive(pid_t pid);
 bool pid_is_unwaited(pid_t pid);
+int pid_is_my_child(pid_t pid);
 int pid_from_same_root_fs(pid_t pid);
 
 bool is_main_thread(void);
@@ -114,7 +114,7 @@ static inline void* PID_TO_PTR(pid_t pid) {
 
 void valgrind_summary_hack(void);
 
-int pid_compare_func(const void *a, const void *b);
+int pid_compare_func(const pid_t *a, const pid_t *b);
 
 static inline bool nice_is_valid(int n) {
         return n >= PRIO_MIN && n < PRIO_MAX;
@@ -140,13 +140,6 @@ static inline bool pid_is_valid(pid_t p) {
         return p > 0;
 }
 
-static inline int sched_policy_to_string_alloc_with_check(int n, char **s) {
-        if (!sched_policy_is_valid(n))
-                return -EINVAL;
-
-        return sched_policy_to_string_alloc(n, s);
-}
-
 int ioprio_parse_priority(const char *s, int *ret);
 
 pid_t getpid_cached(void);
@@ -155,15 +148,16 @@ void reset_cached_pid(void);
 int must_be_root(void);
 
 typedef enum ForkFlags {
-        FORK_RESET_SIGNALS = 1 << 0,
-        FORK_CLOSE_ALL_FDS = 1 << 1,
-        FORK_DEATHSIG      = 1 << 2,
-        FORK_NULL_STDIO    = 1 << 3,
-        FORK_REOPEN_LOG    = 1 << 4,
-        FORK_LOG           = 1 << 5,
-        FORK_WAIT          = 1 << 6,
-        FORK_NEW_MOUNTNS   = 1 << 7,
-        FORK_MOUNTNS_SLAVE = 1 << 8,
+        FORK_RESET_SIGNALS      = 1 << 0, /* Reset all signal handlers and signal mask */
+        FORK_CLOSE_ALL_FDS      = 1 << 1, /* Close all open file descriptors in the child, except for 0,1,2 */
+        FORK_DEATHSIG           = 1 << 2, /* Set PR_DEATHSIG in the child */
+        FORK_NULL_STDIO         = 1 << 3, /* Connect 0,1,2 to /dev/null */
+        FORK_REOPEN_LOG         = 1 << 4, /* Reopen log connection */
+        FORK_LOG                = 1 << 5, /* Log above LOG_DEBUG log level about failures */
+        FORK_WAIT               = 1 << 6, /* Wait until child exited */
+        FORK_NEW_MOUNTNS        = 1 << 7, /* Run child in its own mount namespace */
+        FORK_MOUNTNS_SLAVE      = 1 << 8, /* Make child's mount namespace MS_SLAVE */
+        FORK_RLIMIT_NOFILE_SAFE = 1 << 9, /* Set RLIMIT_NOFILE soft limit to 1K for select() compat */
 } ForkFlags;
 
 int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds, ForkFlags flags, pid_t *ret_pid);
@@ -172,7 +166,9 @@ static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
         return safe_fork_full(name, NULL, 0, flags, ret_pid);
 }
 
-int fork_agent(const char *name, const int except[], size_t n_except, pid_t *pid, const char *path, ...);
+int namespace_fork(const char *outer_name, const char *inner_name, const int except_fds[], size_t n_except_fds, ForkFlags flags, int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd, pid_t *ret_pid);
+
+int fork_agent(const char *name, const int except[], size_t n_except, pid_t *pid, const char *path, ...) _sentinel_;
 
 int set_oom_score_adjust(int value);
 
@@ -193,7 +189,7 @@ int set_oom_score_adjust(int value);
 #error "Unknown pid_t size"
 #endif
 
-assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX)
+assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
 
 /* Like TAKE_PTR() but for child PIDs, resetting them to 0 */
 #define TAKE_PID(pid)                           \

@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <getopt.h>
@@ -15,6 +10,8 @@
 #include "alloc-util.h"
 #include "log.h"
 #include "macro.h"
+#include "main-func.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "util.h"
 
@@ -103,17 +100,29 @@ static int print_home(const char *n) {
                 }
         }
 
-        log_error("Path %s not known.", n);
-        return -EOPNOTSUPP;
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Path %s not known.", n);
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-path", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [NAME...]\n\n"
                "Show system and user paths.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
-               "     --suffix=SUFFIX    Suffix to append to paths\n",
-               program_invocation_short_name);
+               "     --suffix=SUFFIX    Suffix to append to paths\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -140,8 +149,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -160,15 +168,16 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char* argv[]) {
+static int run(int argc, char* argv[]) {
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         if (argc > optind) {
                 int i, q;
@@ -178,9 +187,10 @@ int main(int argc, char* argv[]) {
                         if (q < 0)
                                 r = q;
                 }
-        } else
-                r = list_homes();
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                return r;
+        } else
+                return list_homes();
 }
+
+DEFINE_MAIN_FUNCTION(run);

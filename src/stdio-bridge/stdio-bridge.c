@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <getopt.h>
@@ -15,15 +10,19 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
+#include "build.h"
 #include "bus-internal.h"
 #include "bus-util.h"
-#include "build.h"
+#include "errno-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "util.h"
 
 #define DEFAULT_BUS_PATH "unix:path=/run/dbus/system_bus_socket"
 
-const char *arg_bus_path = DEFAULT_BUS_PATH;
+static const char *arg_bus_path = DEFAULT_BUS_PATH;
+static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 
 static int help(void) {
 
@@ -31,7 +30,8 @@ static int help(void) {
                "STDIO or socket-activatable proxy to a given DBus endpoint.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "  -p --bus-path=PATH     Path to the kernel bus (default: %s)\n",
+               "  -p --bus-path=PATH     Path to the kernel bus (default: %s)\n"
+               "  -M --machine=MACHINE   Name of machine to connect to\n",
                program_invocation_short_name, DEFAULT_BUS_PATH);
 
         return 0;
@@ -41,12 +41,14 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_MACHINE,
         };
 
         static const struct option options[] = {
                 { "help",            no_argument,       NULL, 'h'         },
                 { "version",         no_argument,       NULL, ARG_VERSION },
                 { "bus-path",        required_argument, NULL, 'p'         },
+                { "machine",         required_argument, NULL, 'M'         },
                 {},
         };
 
@@ -55,35 +57,39 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hsup:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hp:M:", options, NULL)) >= 0) {
 
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
-
-                case '?':
-                        return -EINVAL;
 
                 case 'p':
                         arg_bus_path = optarg;
                         break;
 
-                default:
-                        log_error("Unknown option code %c", c);
+                case 'M':
+                        arg_bus_path = optarg;
+                        arg_transport = BUS_TRANSPORT_MACHINE;
+                        break;
+
+                case '?':
                         return -EINVAL;
+
+                default:
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Unknown option code %c", c);
                 }
         }
 
         return 1;
 }
 
-int main(int argc, char *argv[]) {
-        _cleanup_(sd_bus_unrefp) sd_bus *a = NULL, *b = NULL;
+static int run(int argc, char *argv[]) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *a = NULL, *b = NULL;
         sd_id128_t server_id;
         bool is_unix;
         int r, in_fd, out_fd;
@@ -94,7 +100,7 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = sd_listen_fds(0);
         if (r == 0) {
@@ -103,80 +109,59 @@ int main(int argc, char *argv[]) {
         } else if (r == 1) {
                 in_fd = SD_LISTEN_FDS_START;
                 out_fd = SD_LISTEN_FDS_START;
-        } else {
-                log_error("Illegal number of file descriptors passed.");
-                goto finish;
-        }
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Illegal number of file descriptors passed.");
 
         is_unix =
                 sd_is_socket(in_fd, AF_UNIX, 0, 0) > 0 &&
                 sd_is_socket(out_fd, AF_UNIX, 0, 0) > 0;
 
         r = sd_bus_new(&a);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate bus: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate bus: %m");
 
-        r = sd_bus_set_address(a, arg_bus_path);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set address to connect to: %m");
-                goto finish;
-        }
+        if (arg_transport == BUS_TRANSPORT_MACHINE)
+                r = bus_set_address_system_machine(a, arg_bus_path);
+        else
+                r = sd_bus_set_address(a, arg_bus_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set address to connect to: %m");
 
         r = sd_bus_negotiate_fds(a, is_unix);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set FD negotiation: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set FD negotiation: %m");
 
         r = sd_bus_start(a);
-        if (r < 0) {
-                log_error_errno(r, "Failed to start bus client: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to start bus client: %m");
 
         r = sd_bus_get_bus_id(a, &server_id);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get server ID: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get server ID: %m");
 
         r = sd_bus_new(&b);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate bus: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate bus: %m");
 
         r = sd_bus_set_fd(b, in_fd, out_fd);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set fds: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set fds: %m");
 
         r = sd_bus_set_server(b, 1, server_id);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set server mode: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set server mode: %m");
 
         r = sd_bus_negotiate_fds(b, is_unix);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set FD negotiation: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set FD negotiation: %m");
 
         r = sd_bus_set_anonymous(b, true);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set anonymous authentication: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set anonymous authentication: %m");
 
         r = sd_bus_start(b);
-        if (r < 0) {
-                log_error_errno(r, "Failed to start bus client: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to start bus client: %m");
 
         for (;;) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -185,17 +170,13 @@ int main(int argc, char *argv[]) {
                 struct timespec _ts, *ts;
 
                 r = sd_bus_process(a, &m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to process bus a: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process bus a: %m");
 
                 if (m) {
                         r = sd_bus_send(b, m, NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to send message: %m");
-                                goto finish;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to send message: %m");
                 }
 
                 if (r > 0)
@@ -204,55 +185,40 @@ int main(int argc, char *argv[]) {
                 r = sd_bus_process(b, &m);
                 if (r < 0) {
                         /* treat 'connection reset by peer' as clean exit condition */
-                        if (r == -ECONNRESET)
-                                r = 0;
+                        if (ERRNO_IS_DISCONNECT(r))
+                                return 0;
 
-                        goto finish;
+                        return log_error_errno(r, "Failed to process bus: %m");
                 }
 
                 if (m) {
                         r = sd_bus_send(a, m, NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to send message: %m");
-                                goto finish;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to send message: %m");
                 }
 
                 if (r > 0)
                         continue;
 
                 fd = sd_bus_get_fd(a);
-                if (fd < 0) {
-                        r = fd;
-                        log_error_errno(r, "Failed to get fd: %m");
-                        goto finish;
-                }
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to get fd: %m");
 
                 events_a = sd_bus_get_events(a);
-                if (events_a < 0) {
-                        r = events_a;
-                        log_error_errno(r, "Failed to get events mask: %m");
-                        goto finish;
-                }
+                if (events_a < 0)
+                        return log_error_errno(events_a, "Failed to get events mask: %m");
 
                 r = sd_bus_get_timeout(a, &timeout_a);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get timeout: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get timeout: %m");
 
                 events_b = sd_bus_get_events(b);
-                if (events_b < 0) {
-                        r = events_b;
-                        log_error_errno(r, "Failed to get events mask: %m");
-                        goto finish;
-                }
+                if (events_b < 0)
+                        return log_error_errno(events_b, "Failed to get events mask: %m");
 
                 r = sd_bus_get_timeout(b, &timeout_b);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get timeout: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get timeout: %m");
 
                 t = timeout_a;
                 if (t == (uint64_t) -1 || (timeout_b != (uint64_t) -1 && timeout_b < timeout_a))
@@ -274,18 +240,18 @@ int main(int argc, char *argv[]) {
 
                 {
                         struct pollfd p[3] = {
-                                {.fd = fd,            .events = events_a, },
-                                {.fd = STDIN_FILENO,  .events = events_b & POLLIN, },
-                                {.fd = STDOUT_FILENO, .events = events_b & POLLOUT, }};
+                                {.fd = fd,            .events = events_a           },
+                                {.fd = STDIN_FILENO,  .events = events_b & POLLIN  },
+                                {.fd = STDOUT_FILENO, .events = events_b & POLLOUT },
+                        };
 
                         r = ppoll(p, ELEMENTSOF(p), ts, NULL);
                 }
-                if (r < 0) {
-                        log_error_errno(errno, "ppoll() failed: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(errno, "ppoll() failed: %m");
         }
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
-
 typedef struct Button Button;
 
 #include "logind.h"
@@ -26,7 +20,7 @@ struct Button {
 };
 
 Button* button_new(Manager *m, const char *name);
-void button_free(Button*b);
+void button_free(Button *b);
 int button_open(Button *b);
 int button_set_seat(Button *b, const char *sn);
 int button_check_switches(Button *b);

@@ -2,10 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2013 Intel Corporation. All rights reserved.
-  Copyright (C) 2014 Tom Gundersen
+  Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
 #include "sd-dhcp-server.h"
@@ -14,7 +11,7 @@
 #include "dhcp-internal.h"
 #include "hashmap.h"
 #include "log.h"
-#include "util.h"
+#include "time-util.h"
 
 typedef struct DHCPClientId {
         size_t length;
@@ -72,8 +69,8 @@ typedef struct DHCPRequest {
         uint32_t lifetime;
 } DHCPRequest;
 
-#define log_dhcp_server(client, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
-#define log_dhcp_server_errno(client, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
+#define log_dhcp_server(client, fmt, ...) log_internal(LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
+#define log_dhcp_server_errno(client, error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length);
@@ -81,5 +78,5 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
                             DHCPRequest *req, DHCPPacket *packet,
                             int type, size_t optoffset);
 
-void client_id_hash_func(const void *p, struct siphash *state);
-int client_id_compare_func(const void *_a, const void *_b);
+void client_id_hash_func(const DHCPClientId *p, struct siphash *state);
+int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b);

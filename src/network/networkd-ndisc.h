@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-***/
-
+#include "conf-parser.h"
 #include "networkd-link.h"
+#include "time-util.h"
 
 typedef struct NDiscRDNSS {
         usec_t valid_until;
@@ -26,3 +22,5 @@ static inline char* NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
 int ndisc_configure(Link *link);
 void ndisc_vacuum(Link *link);
 void ndisc_flush(Link *link);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_black_listed_prefix);

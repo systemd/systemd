@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <stdbool.h>
 
 #include "sd-event.h"
@@ -78,7 +72,7 @@ enum JobMode {
         JOB_REPLACE,             /* Replace an existing conflicting job */
         JOB_REPLACE_IRREVERSIBLY,/* Like JOB_REPLACE + produce irreversible jobs */
         JOB_ISOLATE,             /* Start a unit, and stop all others */
-        JOB_FLUSH,               /* Flush out all other queued jobs when queing this one */
+        JOB_FLUSH,               /* Flush out all other queued jobs when queueing this one */
         JOB_IGNORE_DEPENDENCIES, /* Ignore both requirement and ordering dependencies */
         JOB_IGNORE_REQUIREMENTS, /* Ignore requirement dependencies */
         _JOB_MODE_MAX,
@@ -86,12 +80,12 @@ enum JobMode {
 };
 
 enum JobResult {
-        JOB_DONE,                /* Job completed successfully */
+        JOB_DONE,                /* Job completed successfully (or skipped due to a failed ConditionXYZ=) */
         JOB_CANCELED,            /* Job canceled by a conflicting job installation or by explicit cancel request */
         JOB_TIMEOUT,             /* Job timeout elapsed */
         JOB_FAILED,              /* Job failed */
         JOB_DEPENDENCY,          /* A required dependency job did not result in JOB_DONE */
-        JOB_SKIPPED,             /* Negative result of JOB_VERIFY_ACTIVE */
+        JOB_SKIPPED,             /* Negative result of JOB_VERIFY_ACTIVE or skip due to ExecCondition= */
         JOB_INVALID,             /* JOB_RELOAD of inactive unit */
         JOB_ASSERT,              /* Couldn't start a unit, because an assert didn't hold */
         JOB_UNSUPPORTED,         /* Couldn't start a unit, because the unit type is not supported on the system */
@@ -121,7 +115,6 @@ struct Job {
         Unit *unit;
 
         LIST_FIELDS(Job, transaction);
-        LIST_FIELDS(Job, run_queue);
         LIST_FIELDS(Job, dbus_queue);
         LIST_FIELDS(Job, gc_queue);
 
@@ -153,6 +146,8 @@ struct Job {
 
         JobResult result;
 
+        unsigned run_queue_idx;
+
         bool installed:1;
         bool in_run_queue:1;
         bool matters_to_anchor:1;
@@ -162,17 +157,16 @@ struct Job {
         bool irreversible:1;
         bool in_gc_queue:1;
         bool ref_by_private_bus:1;
-        bool reloaded:1;
 };
 
 Job* job_new(Unit *unit, JobType type);
 Job* job_new_raw(Unit *unit);
 void job_unlink(Job *job);
-void job_free(Job *job);
+Job* job_free(Job *job);
 Job* job_install(Job *j);
 int job_install_deserialized(Job *j);
 void job_uninstall(Job *j);
-void job_dump(Job *j, FILE*f, const char *prefix);
+void job_dump(Job *j, FILE *f, const char *prefix);
 int job_serialize(Job *j, FILE *f);
 int job_deserialize(Job *j, FILE *f);
 int job_coldplug(Job *j);
@@ -229,6 +223,8 @@ void job_add_to_gc_queue(Job *j);
 int job_get_before(Job *j, Job*** ret);
 int job_get_after(Job *j, Job*** ret);
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(Job*, job_free);
+
 const char* job_type_to_string(JobType t) _const_;
 JobType job_type_from_string(const char *s) _pure_;
 
@@ -242,3 +238,5 @@ const char* job_result_to_string(JobResult t) _const_;
 JobResult job_result_from_string(const char *s) _pure_;
 
 const char* job_type_to_access_method(JobType t);
+
+int job_compare(Job *a, Job *b, UnitDependency assume_dep);

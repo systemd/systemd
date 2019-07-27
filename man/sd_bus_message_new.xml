@@ -1,0 +1,189 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_message_new" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>sd_bus_message_new</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_message_new</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_message_new</refname>
+    <refname>sd_bus_message_ref</refname>
+    <refname>sd_bus_message_unref</refname>
+    <refname>sd_bus_message_unrefp</refname>
+    <refname>SD_BUS_MESSAGE_METHOD_CALL</refname>
+    <refname>SD_BUS_MESSAGE_METHOD_RETURN</refname>
+    <refname>SD_BUS_MESSAGE_METHOD_ERROR</refname>
+    <refname>SD_BUS_MESSAGE_SIGNAL</refname>
+    <refname>sd_bus_message_get_bus</refname>
+
+    <refpurpose>Create a new bus message object and create or destroy references to it</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcsynopsisinfo><token>enum</token> {
+      <constant>SD_BUS_MESSAGE_METHOD_CALL</constant>,
+      <constant>SD_BUS_MESSAGE_METHOD_RETURN</constant>,
+      <constant>SD_BUS_MESSAGE_METHOD_ERROR</constant>,
+      <constant>SD_BUS_MESSAGE_SIGNAL</constant>,
+};</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_message_new</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>m</parameter></paramdef>
+        <paramdef>uint8_t <parameter>type</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_bus_message *<function>sd_bus_message_ref</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_bus_message *<function>sd_bus_message_unref</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_bus_message_unrefp</function></funcdef>
+        <paramdef>sd_bus_message **<parameter>mp</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_bus *<function>sd_bus_message_get_bus</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_message_new()</function> creates a new bus message object attached to the
+    bus <parameter>bus</parameter> and returns it in the output parameter <parameter>m</parameter>.
+    This object is reference-counted, and will be destroyed when all references are gone. Initially,
+    the caller of this function owns the sole reference to the message object. Note that the message
+    object holds a reference to the bus object, so the bus object will not be destroyed as long as
+    the message exists.</para>
+
+    <para>Note: this is a low-level call. In most cases functions like
+    <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_message_new_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_message_new_method_return</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    and <citerefentry><refentrytitle>sd_bus_message_new_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    that create a message of a certain type and initialize various fields are easier to use.</para>
+
+    <para>The <parameter>type</parameter> parameter specifies the type of the message.  It must be
+    one of <constant>SD_BUS_MESSAGE_METHOD_CALL</constant> — a method call,
+    <constant>SD_BUS_MESSAGE_METHOD_RETURN</constant> — a method call reply,
+    <constant>SD_BUS_MESSAGE_METHOD_ERROR</constant> — an error reply to a method call,
+    <constant>SD_BUS_MESSAGE_SIGNAL</constant> — a broadcast message with no reply.
+    </para>
+
+    <para>The flag to allow interactive authorization is initialized based on the current value set
+    in the bus object, see
+    <citerefentry><refentrytitle>sd_bus_set_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    This may be changed using
+    <citerefentry><refentrytitle>sd_bus_message_set_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+
+    <para><function>sd_bus_message_ref()</function> increases the reference counter of
+    <parameter>m</parameter> by one.</para>
+
+    <para><function>sd_bus_message_unref()</function> decreases the reference counter of
+    <parameter>m</parameter> by one. Once the reference count has dropped to zero, message object is
+    destroyed and cannot be used anymore, so further calls to
+    <function>sd_bus_message_ref()</function> or <function>sd_bus_message_unref()</function> are
+    illegal.</para>
+
+    <para><function>sd_bus_message_unrefp()</function> is similar to
+    <function>sd_bus_message_unref()</function> but takes a pointer to a
+    pointer to an <type>sd_bus_message</type> object. This call is useful in
+    conjunction with GCC's and LLVM's <ulink
+    url="https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html">Clean-up
+    Variable Attribute</ulink>. See
+    <citerefentry><refentrytitle>sd_bus_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for an example how to use the cleanup attribute.</para>
+
+    <para><function>sd_bus_message_ref()</function> and <function>sd_bus_message_unref()</function>
+    execute no operation if the passed in bus object address is
+    <constant>NULL</constant>. <function>sd_bus_message_unrefp()</function> will first dereference
+    its argument, which must not be <constant>NULL</constant>, and will execute no operation if
+    <emphasis>that</emphasis> is <constant>NULL</constant>.
+    </para>
+
+    <para><function>sd_bus_message_get_bus()</function> returns the bus object that message
+    <parameter>m</parameter> is attached to.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_bus_message_new()</function> returns 0 or a positive integer. On
+    failure, it returns a negative errno-style error code.</para>
+
+    <para><function>sd_bus_message_ref()</function> always returns the argument.
+    </para>
+
+    <para><function>sd_bus_message_unref()</function> always returns
+    <constant>NULL</constant>.</para>
+
+    <para><function>sd_bus_message_get_bus()</function> always returns the bus object.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>Specified <parameter>type</parameter> is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
+
+          <listitem><para>The bus parameter <parameter>bus</parameter> is <constant>NULL</constant> or
+          the bus is not connected.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_new_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_new_method_return</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_new_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

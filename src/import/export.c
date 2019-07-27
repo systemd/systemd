@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-***/
 
 #include <getopt.h>
+#include <locale.h>
 
 #include "sd-event.h"
 #include "sd-id128.h"
@@ -18,6 +14,7 @@
 #include "hostname-util.h"
 #include "import-util.h"
 #include "machine-image.h"
+#include "main-func.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "verbs.h"
@@ -81,8 +78,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
         if (argc >= 3)
                 path = argv[2];
-        if (isempty(path) || streq(path, "-"))
-                path = NULL;
+        path = empty_or_dash_to_null(path);
 
         determine_compression_from_filename(path);
 
@@ -99,7 +95,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
                 fd = STDOUT_FILENO;
 
-                (void) readlink_malloc("/proc/self/fd/1", &pretty);
+                (void) fd_get_path(fd, &pretty);
                 log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), import_compress_type_to_string(arg_compress));
         }
 
@@ -158,8 +154,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 
         if (argc >= 3)
                 path = argv[2];
-        if (isempty(path) || streq(path, "-"))
-                path = NULL;
+        path = empty_or_dash_to_null(path);
 
         determine_compression_from_filename(path);
 
@@ -176,7 +171,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 
                 fd = STDOUT_FILENO;
 
-                (void) readlink_malloc("/proc/self/fd/1", &pretty);
+                (void) fd_get_path(fd, &pretty);
                 log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), import_compress_type_to_string(arg_compress));
         }
 
@@ -257,10 +252,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_compress = IMPORT_COMPRESS_GZIP;
                         else if (streq(optarg, "bzip2"))
                                 arg_compress = IMPORT_COMPRESS_BZIP2;
-                        else {
-                                log_error("Unknown format: %s", optarg);
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown format: %s", optarg);
                         break;
 
                 case '?':
@@ -274,7 +268,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int export_main(int argc, char *argv[]) {
-
         static const Verb verbs[] = {
                 { "help", VERB_ANY, VERB_ANY, 0, help       },
                 { "tar",  2,        3,        0, export_tar },
@@ -285,7 +278,7 @@ static int export_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
@@ -294,12 +287,11 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         (void) ignore_signals(SIGPIPE, -1);
 
-        r = export_main(argc, argv);
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return export_main(argc, argv);
 }
+
+DEFINE_MAIN_FUNCTION(run);

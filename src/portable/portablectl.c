@@ -10,22 +10,25 @@
 #include "bus-util.h"
 #include "def.h"
 #include "dirent-util.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
 #include "locale-util.h"
 #include "machine-image.h"
+#include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "spawn-polkit-agent.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "verbs.h"
 
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_ask_password = true;
 static bool arg_quiet = false;
@@ -35,7 +38,7 @@ static bool arg_runtime = false;
 static bool arg_reload = true;
 static bool arg_cat = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 
 static int determine_image(const char *image, bool permit_non_existing, char **ret) {
         int r;
@@ -60,10 +63,9 @@ static int determine_image(const char *image, bool permit_non_existing, char **r
                 return 0;
         }
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Operations on images by path not supported when connecting to remote systems.");
-                return -EOPNOTSUPP;
-        }
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Operations on images by path not supported when connecting to remote systems.");
 
         r = chase_symlinks(image, NULL, CHASE_TRAIL_SLASH | (permit_non_existing ? CHASE_NONEXISTENT : 0), ret);
         if (r < 0)
@@ -133,10 +135,9 @@ static int determine_matches(const char *image, char **l, bool allow_any, char *
 
         } else if (strv_equal(l, STRV_MAKE("-"))) {
 
-                if (!allow_any) {
-                        log_error("Refusing all unit file match.");
-                        return -EINVAL;
-                }
+                if (!allow_any)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Refusing all unit file match.");
 
                 if (!arg_quiet)
                         log_info("(Matching all unit files.)");
@@ -263,7 +264,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         if (arg_cat) {
                 printf("%s-- OS Release: --%s\n", ansi_highlight(), ansi_normal());
@@ -272,17 +273,15 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                 nl = true;
         } else {
                 _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL;
-
                 _cleanup_fclose_ FILE *f;
 
-                f = fmemopen((void*) data, sz, "re");
+                f = fmemopen_unlocked((void*) data, sz, "re");
                 if (!f)
                         return log_error_errno(errno, "Failed to open /etc/os-release buffer: %m");
 
-                r = parse_env_file(f, "/etc/os-release", NEWLINE,
+                r = parse_env_file(f, "/etc/os-release",
                                    "PORTABLE_PRETTY_NAME", &pretty_portable,
-                                   "PRETTY_NAME", &pretty_os,
-                                   NULL);
+                                   "PRETTY_NAME", &pretty_os);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse /etc/os-release: %m");
 
@@ -366,12 +365,12 @@ static int print_changes(sd_bus_message *m) {
                         break;
 
                 if (streq(type, "symlink"))
-                        log_info("Created symlink %s %s %s.", path, special_glyph(ARROW), source);
+                        log_info("Created symlink %s %s %s.", path, special_glyph(SPECIAL_GLYPH_ARROW), source);
                 else if (streq(type, "copy")) {
                         if (isempty(source))
                                 log_info("Copied %s.", path);
                         else
-                                log_info("Copied %s %s %s.", source, special_glyph(ARROW), path);
+                                log_info("Copied %s %s %s.", source, special_glyph(SPECIAL_GLYPH_ARROW), path);
                 } else if (streq(type, "unlink"))
                         log_info("Removed %s.", path);
                 else if (streq(type, "write"))
@@ -501,7 +500,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to list images: %s", bus_error_message(&error, r));
 
-        table = table_new("NAME", "TYPE", "RO", "CRTIME", "MTIME", "USAGE", "STATE");
+        table = table_new("name", "type", "ro", "crtime", "mtime", "usage", "state");
         if (!table)
                 return log_oom();
 
@@ -510,13 +509,13 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         for (;;) {
-                const char *name, *type, *state, *object;
+                const char *name, *type, *state;
                 uint64_t crtime, mtime, usage;
                 TableCell *cell;
                 bool ro_bool;
                 int ro_int;
 
-                r = sd_bus_message_read(reply, "(ssbtttso)", &name, &type, &ro_int, &crtime, &mtime, &usage, &state, &object);
+                r = sd_bus_message_read(reply, "(ssbtttso)", &name, &type, &ro_int, &crtime, &mtime, &usage, &state, NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
                 if (r == 0)
@@ -773,8 +772,14 @@ static int dump_profiles(void) {
 }
 
 static int help(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *link = NULL;
+        int r;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
+
+        r = terminal_urlify_man("portablectl", "1", &link);
+        if (r < 0)
+                return log_oom();
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Attach or detach portable services from the local system.\n\n"
@@ -803,7 +808,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "  read-only NAME|PATH [BOOL]  Mark or unmark portable service image read-only\n"
                "  remove NAME|PATH...         Remove a portable service image\n"
                "  set-limit [NAME|PATH]       Set image or pool size limit (disk quota)\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }
@@ -851,14 +859,13 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
+                        return help(0, NULL, NULL);
 
                 case ARG_VERSION:
                         return version();
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case ARG_NO_LEGEND:
@@ -887,10 +894,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "help"))
                                 return dump_profiles();
 
-                        if (!filename_is_valid(optarg)) {
-                                log_error("Unit profile name not valid: %s", optarg);
-                                return -EINVAL;
-                        }
+                        if (!filename_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unit profile name not valid: %s", optarg);
 
                         arg_profile = optarg;
                         break;
@@ -905,10 +911,9 @@ static int parse_argv(int argc, char *argv[]) {
                                      "copy\n"
                                      "symlink");
                                 return 0;
-                        } else {
-                                log_error("Failed to parse --copy= argument: %s", optarg);
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse --copy= argument: %s", optarg);
 
                         break;
 
@@ -935,8 +940,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
-
+static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",        VERB_ANY, VERB_ANY, 0,            help              },
                 { "list",        VERB_ANY, 1,        VERB_DEFAULT, list_images       },
@@ -952,17 +956,15 @@ int main(int argc, char *argv[]) {
 
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
-        r = dispatch_verb(argc, argv, verbs, NULL);
-
-finish:
-        pager_close();
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return dispatch_verb(argc, argv, verbs, NULL);
 }
+
+DEFINE_MAIN_FUNCTION(run);

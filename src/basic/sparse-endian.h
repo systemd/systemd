@@ -20,16 +20,15 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-#ifndef SPARSE_ENDIAN_H
-#define SPARSE_ENDIAN_H
+#pragma once
 
 #include <byteswap.h>
 #include <endian.h>
 #include <stdint.h>
 
 #ifdef __CHECKER__
-#define __sd_bitwise __attribute__((bitwise))
-#define __sd_force __attribute__((force))
+#define __sd_bitwise __attribute__((__bitwise__))
+#define __sd_force __attribute__((__force__))
 #else
 #define __sd_bitwise
 #define __sd_force
@@ -89,5 +88,3 @@ static inline uint64_t be64toh(be64_t value) { return bswap_64_on_le((uint64_t _
 
 #undef __sd_bitwise
 #undef __sd_force
-
-#endif /* SPARSE_ENDIAN_H */

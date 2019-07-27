@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # German translation for systemd.
-# Copyright (C) 2014 systemd's COPYRIGHT HOLDER
-# This file is distributed under the same license as the systemd package.
 # Christian Kirbach <Christian.Kirbach@gmail.com>, 2014, 2015.
 # Benjamin Steinwender <b@stbe.at>, 2014.
 # Bernd Homuth <dev@hmt.im>, 2015.
@@ -627,7 +625,7 @@ msgstr ""
 "Legitimierung ist zum Festlegen der Eigenschaften von »$(unit)« notwendig."
 
 #~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
-#~ msgstr "Strl+C drücken um laufende Dateisystem-Prüfungen abzubrechen"
+#~ msgstr "Strg+C drücken um laufende Dateisystem-Prüfungen abzubrechen"
 
 #~ msgid "Checking in progress on %d disk (%3.1f%% complete)"
 #~ msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"

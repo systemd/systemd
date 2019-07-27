@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -13,6 +8,7 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 
 static void test_paths(UnitFileScope scope) {
         char template[] = "/tmp/test-path-lookup.XXXXXXX";
@@ -45,6 +41,8 @@ static void test_user_and_global_paths(void) {
         unsigned k = 0;
 
         assert_se(unsetenv("SYSTEMD_UNIT_PATH") == 0);
+        assert_se(unsetenv("XDG_DATA_DIRS") == 0);
+        assert_se(unsetenv("XDG_CONFIG_DIRS") == 0);
 
         assert_se(lookup_paths_init(&lp_global, UNIT_FILE_GLOBAL, 0, NULL) == 0);
         assert_se(lookup_paths_init(&lp_user, UNIT_FILE_USER, 0, NULL) == 0);
@@ -81,9 +79,7 @@ static void print_generator_binary_paths(UnitFileScope scope) {
 }
 
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_paths(UNIT_FILE_SYSTEM);
         test_paths(UNIT_FILE_USER);

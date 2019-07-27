@@ -1,28 +1,12 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.target">
   <refentryinfo>
     <title>systemd.target</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -50,8 +34,8 @@
     <para>This unit type has no specific options. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
-    configuration items are configured in the generic [Unit] and
-    [Install] sections. A separate [Target] section does not exist,
+    configuration items are configured in the generic <literal>[Unit]</literal> and
+    <literal>[Install]</literal> sections. A separate <literal>[Target]</literal> section does not exist,
     since no target-specific options may be configured.</para>
 
     <para>Target units do not offer any additional functionality on
@@ -94,7 +78,8 @@
         some.service, the automatic ordering will not be added.</para></listitem>
 
         <listitem><para>Target units automatically gain <varname>Conflicts=</varname>
-        dependency against <filename>shutdown.target</filename>.</para></listitem>
+        and <varname>Before=</varname> dependencies against
+        <filename>shutdown.target</filename>.</para></listitem>
       </itemizedlist>
     </refsect2>
   </refsect1>

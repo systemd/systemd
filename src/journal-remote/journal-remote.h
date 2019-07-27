@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-***/
-
 #include "sd-event.h"
 
 #include "hashmap.h"
@@ -68,4 +62,4 @@ int journal_remote_handle_raw_source(
                 uint32_t revents,
                 RemoteServer *s);
 
-RemoteServer* journal_remote_server_destroy(RemoteServer *s);
+void journal_remote_server_destroy(RemoteServer *s);

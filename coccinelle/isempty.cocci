@@ -1,60 +1,42 @@
 @@
+/* Disable this transformation for the test-string-util.c */
+position p : script:python() { p[0].file != "src/test/test-string-util.c" };
 expression s;
 @@
-- strv_length(s) == 0
+(
+- strv_length@p(s) == 0
 + strv_isempty(s)
-@@
-expression s;
-@@
-- strv_length(s) <= 0
+|
+- strv_length@p(s) <= 0
 + strv_isempty(s)
-@@
-expression s;
-@@
-- strv_length(s) > 0
+|
+- strv_length@p(s) > 0
 + !strv_isempty(s)
-@@
-expression s;
-@@
-- strv_length(s) != 0
+|
+- strv_length@p(s) != 0
 + !strv_isempty(s)
-@@
-expression s;
-@@
-- strlen(s) == 0
+|
+- strlen@p(s) == 0
 + isempty(s)
-@@
-expression s;
-@@
-- strlen(s) <= 0
+|
+- strlen@p(s) <= 0
 + isempty(s)
-@@
-expression s;
-@@
-- strlen(s) > 0
+|
+- strlen@p(s) > 0
 + !isempty(s)
-@@
-expression s;
-@@
-- strlen(s) != 0
+|
+- strlen@p(s) != 0
 + !isempty(s)
-@@
-expression s;
-@@
-- strlen_ptr(s) == 0
+|
+- strlen_ptr@p(s) == 0
 + isempty(s)
-@@
-expression s;
-@@
-- strlen_ptr(s) <= 0
+|
+- strlen_ptr@p(s) <= 0
 + isempty(s)
-@@
-expression s;
-@@
-- strlen_ptr(s) > 0
+|
+- strlen_ptr@p(s) > 0
 + !isempty(s)
-@@
-expression s;
-@@
-- strlen_ptr(s) != 0
+|
+- strlen_ptr@p(s) != 0
 + !isempty(s)
+)

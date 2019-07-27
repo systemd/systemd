@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 David Herrmann <dh.herrmann@gmail.com>
-***/
 
 /*
  * IPC barrier tests
@@ -21,6 +16,9 @@
 
 #include "barrier.h"
 #include "util.h"
+#include "tests.h"
+#include "virt.h"
+#include "time-util.h"
 
 /* 20ms to test deadlocks; All timings use multiples of this constant as
  * alarm/sleep timers. If this timeout is too small for slow machines to perform
@@ -424,18 +422,26 @@ TEST_BARRIER(test_barrier_pending_exit,
         TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 int main(int argc, char *argv[]) {
+        int v;
+        test_setup_logging(LOG_INFO);
+
+        if (!slow_tests_enabled())
+                return log_tests_skipped("slow tests are disabled");
+
         /*
          * This test uses real-time alarms and sleeps to test for CPU races
          * explicitly. This is highly fragile if your system is under load. We
          * already increased the BASE_TIME value to make the tests more robust,
-         * but that just makes the test take significantly longer. Hence,
-         * disable the test by default, so it will not break CI.
+         * but that just makes the test take significantly longer. Given the recent
+         * issues when running the test in a virtualized environments, limit it
+         * to bare metal machines only, to minimize false-positives in CIs.
          */
-        if (argc < 2)
-                return EXIT_TEST_SKIP;
+        v = detect_virtualization();
+        if (IN_SET(v, -EPERM, -EACCES))
+                return log_tests_skipped("Cannot detect virtualization");
 
-        log_parse_environment();
-        log_open();
+        if (v != VIRTUALIZATION_NONE)
+                return log_tests_skipped("This test requires a baremetal machine");
 
         test_barrier_sync();
         test_barrier_wait_next();

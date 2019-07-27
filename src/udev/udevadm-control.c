@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (C) 2005-2011 Kay Sievers <kay@vrfy.org>
- *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 2 of the License, or
@@ -21,13 +19,16 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "parse-util.h"
 #include "process-util.h"
+#include "syslog-util.h"
 #include "time-util.h"
-#include "udev-util.h"
-#include "udev.h"
-#include "udevadm-util.h"
+#include "udevadm.h"
+#include "udev-ctrl.h"
+#include "util.h"
+#include "virt.h"
 
-static void print_help(void) {
+static int help(void) {
         printf("%s control OPTION\n\n"
                "Control the udev daemon.\n\n"
                "  -h --help                Show this help\n"
@@ -39,139 +40,146 @@ static void print_help(void) {
                "  -R --reload              Reload rules and databases\n"
                "  -p --property=KEY=VALUE  Set a global property for all events\n"
                "  -m --children-max=N      Maximum number of children\n"
+               "     --ping                Wait for udev to respond to a ping message\n"
                "  -t --timeout=SECONDS     Maximum time to block for a reply\n"
                , program_invocation_short_name);
+
+        return 0;
 }
 
-static int adm_control(struct udev *udev, int argc, char *argv[]) {
+int control_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
-        int timeout = 60;
-        int rc = 1, c;
+        usec_t timeout = 60 * USEC_PER_SEC;
+        int c, r;
+
+        enum {
+                ARG_PING = 0x100,
+        };
 
         static const struct option options[] = {
-                { "exit",             no_argument,       NULL, 'e' },
-                { "log-priority",     required_argument, NULL, 'l' },
-                { "stop-exec-queue",  no_argument,       NULL, 's' },
-                { "start-exec-queue", no_argument,       NULL, 'S' },
-                { "reload",           no_argument,       NULL, 'R' },
-                { "reload-rules",     no_argument,       NULL, 'R' }, /* alias for -R */
-                { "property",         required_argument, NULL, 'p' },
-                { "env",              required_argument, NULL, 'p' }, /* alias for -p */
-                { "children-max",     required_argument, NULL, 'm' },
-                { "timeout",          required_argument, NULL, 't' },
-                { "version",          no_argument,       NULL, 'V' },
-                { "help",             no_argument,       NULL, 'h' },
+                { "exit",             no_argument,       NULL, 'e'      },
+                { "log-priority",     required_argument, NULL, 'l'      },
+                { "stop-exec-queue",  no_argument,       NULL, 's'      },
+                { "start-exec-queue", no_argument,       NULL, 'S'      },
+                { "reload",           no_argument,       NULL, 'R'      },
+                { "reload-rules",     no_argument,       NULL, 'R'      }, /* alias for -R */
+                { "property",         required_argument, NULL, 'p'      },
+                { "env",              required_argument, NULL, 'p'      }, /* alias for -p */
+                { "children-max",     required_argument, NULL, 'm'      },
+                { "ping",             no_argument,       NULL, ARG_PING },
+                { "timeout",          required_argument, NULL, 't'      },
+                { "version",          no_argument,       NULL, 'V'      },
+                { "help",             no_argument,       NULL, 'h'      },
                 {}
         };
 
-        if (must_be_root() < 0)
-                return 1;
+        if (running_in_chroot() > 0) {
+                log_info("Running in chroot, ignoring request.");
+                return 0;
+        }
 
-        uctrl = udev_ctrl_new(udev);
-        if (uctrl == NULL)
-                return 2;
+        if (argc <= 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This command expects one or more options.");
+
+        r = udev_ctrl_new(&uctrl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize udev control: %m");
 
         while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'e':
-                        if (udev_ctrl_send_exit(uctrl, timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
+                        r = udev_ctrl_send_exit(uctrl);
+                        if (r == -ENOANO)
+                                log_warning("Cannot specify --exit after --exit, ignoring.");
+                        else if (r < 0)
+                                return log_error_errno(r, "Failed to send exit request: %m");
                         break;
-                case 'l': {
-                        int i;
+                case 'l':
+                        r = log_level_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse log priority '%s': %m", optarg);
 
-                        i = util_log_priority(optarg);
-                        if (i < 0) {
-                                log_error("invalid number '%s'", optarg);
-                                return rc;
-                        }
-                        if (udev_ctrl_send_set_log_level(uctrl, util_log_priority(optarg), timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
+                        r = udev_ctrl_send_set_log_level(uctrl, r);
+                        if (r == -ENOANO)
+                                log_warning("Cannot specify --log-priority after --exit, ignoring.");
+                        else if (r < 0)
+                                return log_error_errno(r, "Failed to send request to set log level: %m");
                         break;
-                }
                 case 's':
-                        if (udev_ctrl_send_stop_exec_queue(uctrl, timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
+                        r = udev_ctrl_send_stop_exec_queue(uctrl);
+                        if (r == -ENOANO)
+                                log_warning("Cannot specify --stop-exec-queue after --exit, ignoring.");
+                        else if (r < 0)
+                                return log_error_errno(r, "Failed to send request to stop exec queue: %m");
                         break;
                 case 'S':
-                        if (udev_ctrl_send_start_exec_queue(uctrl, timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
+                        r = udev_ctrl_send_start_exec_queue(uctrl);
+                        if (r == -ENOANO)
+                                log_warning("Cannot specify --start-exec-queue after --exit, ignoring.");
+                        else if (r < 0)
+                                return log_error_errno(r, "Failed to send request to start exec queue: %m");
                         break;
                 case 'R':
-                        if (udev_ctrl_send_reload(uctrl, timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
+                        r = udev_ctrl_send_reload(uctrl);
+                        if (r == -ENOANO)
+                                log_warning("Cannot specify --reload after --exit, ignoring.");
+                        else if (r < 0)
+                                return log_error_errno(r, "Failed to send reload request: %m");
                         break;
                 case 'p':
-                        if (strchr(optarg, '=') == NULL) {
-                                log_error("expect <KEY>=<value> instead of '%s'", optarg);
-                                return rc;
-                        }
-                        if (udev_ctrl_send_set_env(uctrl, optarg, timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
+                        if (!strchr(optarg, '='))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "expect <KEY>=<value> instead of '%s'", optarg);
+
+                        r = udev_ctrl_send_set_env(uctrl, optarg);
+                        if (r == -ENOANO)
+                                log_warning("Cannot specify --property after --exit, ignoring.");
+                        else if (r < 0)
+                                return log_error_errno(r, "Failed to send request to update environment: %m");
                         break;
                 case 'm': {
-                        char *endp;
-                        int i;
+                        unsigned i;
 
-                        i = strtoul(optarg, &endp, 0);
-                        if (endp[0] != '\0' || i < 1) {
-                                log_error("invalid number '%s'", optarg);
-                                return rc;
-                        }
-                        if (udev_ctrl_send_set_children_max(uctrl, i, timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
-                        break;
-                }
-                case 't': {
-                        int r, seconds;
-                        usec_t s;
-
-                        r = parse_sec(optarg, &s);
+                        r = safe_atou(optarg, &i);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse timeout value '%s'.", optarg);
+                                return log_error_errno(r, "Failed to parse maximum number of events '%s': %m", optarg);
 
-                        if (DIV_ROUND_UP(s, USEC_PER_SEC) > INT_MAX)
-                                log_error("Timeout value is out of range.");
-                        else {
-                                seconds = s != USEC_INFINITY ? (int) DIV_ROUND_UP(s, USEC_PER_SEC) : INT_MAX;
-                                timeout = seconds;
-                                rc = 0;
-                        }
+                        r = udev_ctrl_send_set_children_max(uctrl, i);
+                        if (r == -ENOANO)
+                                log_warning("Cannot specify --children-max after --exit, ignoring.");
+                        else if (r < 0)
+                                return log_error_errno(r, "Failed to send request to set number of children: %m");
                         break;
                 }
+                case ARG_PING:
+                        r = udev_ctrl_send_ping(uctrl);
+                        if (r == -ENOANO)
+                                log_error("Cannot specify --ping after --exit, ignoring.");
+                        else if (r < 0)
+                                return log_error_errno(r, "Failed to send a ping message: %m");
+                        break;
+                case 't':
+                        r = parse_sec(optarg, &timeout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
+                        break;
                 case 'V':
-                        print_version();
-                        rc = 0;
-                        break;
+                        return print_version();
                 case 'h':
-                        print_help();
-                        rc = 0;
-                        break;
+                        return help();
+                case '?':
+                        return -EINVAL;
+                default:
+                        assert_not_reached("Unknown option.");
                 }
 
         if (optind < argc)
-                log_error("Extraneous argument: %s", argv[optind]);
-        else if (optind == 1)
-                log_error("Option missing");
-        return rc;
-}
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Extraneous argument: %s", argv[optind]);
 
-const struct udevadm_cmd udevadm_control = {
-        .name = "control",
-        .cmd = adm_control,
-        .help = "Control the udev daemon",
-};
+        r = udev_ctrl_wait(uctrl, timeout);
+        if (r < 0)
+                return log_error_errno(r, "Failed to wait for daemon to reply: %m");
+
+        return 0;
+}

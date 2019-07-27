@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
-***/
-
-#include <stdio_ext.h>
+#include <fcntl.h>
 
 #include "alloc-util.h"
 #include "async.h"
@@ -14,6 +9,7 @@
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
+#include "dbus-manager.h"
 #include "dbus-service.h"
 #include "dbus-util.h"
 #include "exit-status.h"
@@ -32,6 +28,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, service_result, Service
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_restart, service_restart, ServiceRestart);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_notify_access, notify_access, NotifyAccess);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_emergency_action, emergency_action, EmergencyAction);
+static BUS_DEFINE_PROPERTY_GET(property_get_timeout_abort_usec, "t", Service, service_timeout_abort_usec);
 
 static int property_get_exit_status_set(
                 sd_bus *bus,
@@ -60,7 +57,7 @@ static int property_get_exit_status_set(
                 return r;
 
         SET_FOREACH(id, status_set->status, i) {
-                int val = PTR_TO_INT(id);
+                int32_t val = PTR_TO_INT(id);
 
                 if (val < 0 || val > 255)
                         continue;
@@ -79,10 +76,10 @@ static int property_get_exit_status_set(
                 return r;
 
         SET_FOREACH(id, status_set->signal, i) {
-                int val = PTR_TO_INT(id);
+                int32_t val = PTR_TO_INT(id);
                 const char *str;
 
-                str = signal_to_string(val);
+                str = signal_to_string((int) val);
                 if (!str)
                         continue;
 
@@ -107,10 +104,12 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("RestartUSec", "t", bus_property_get_usec, offsetof(Service, restart_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutStartUSec", "t", bus_property_get_usec, offsetof(Service, timeout_start_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Service, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("TimeoutAbortUSec", "t", property_get_timeout_abort_usec, 0, 0),
+        SD_BUS_PROPERTY("TimeoutCleanUSec", "t", bus_property_get_usec, offsetof(Service, timeout_clean_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeMaxUSec", "t", bus_property_get_usec, offsetof(Service, runtime_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WatchdogUSec", "t", bus_property_get_usec, offsetof(Service, watchdog_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("WatchdogTimestamp", offsetof(Service, watchdog_timestamp), 0),
-        SD_BUS_PROPERTY("PermissionsStartOnly", "b", bus_property_get_bool, offsetof(Service, permissions_start_only), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PermissionsStartOnly", "b", bus_property_get_bool, offsetof(Service, permissions_start_only), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN), /* 😷 deprecated */
         SD_BUS_PROPERTY("RootDirectoryStartOnly", "b", bus_property_get_bool, offsetof(Service, root_directory_start_only), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemainAfterExit", "b", bus_property_get_bool, offsetof(Service, remain_after_exit), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("GuessMainPID", "b", bus_property_get_bool, offsetof(Service, guess_main_pid), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -125,16 +124,23 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("StatusText", "s", NULL, offsetof(Service, status_text), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StatusErrno", "i", bus_property_get_int, offsetof(Service, status_errno), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Service, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("USBFunctionDescriptors", "s", NULL, offsetof(Service, usb_function_descriptors), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("USBFunctionStrings", "s", NULL, offsetof(Service, usb_function_strings), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("ReloadResult", "s", property_get_result, offsetof(Service, reload_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("CleanResult", "s", property_get_result, offsetof(Service, clean_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("USBFunctionDescriptors", "s", NULL, offsetof(Service, usb_function_descriptors), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("USBFunctionStrings", "s", NULL, offsetof(Service, usb_function_strings), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("NRestarts", "u", bus_property_get_unsigned, offsetof(Service, n_restarts), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("OOMPolicy", "s", bus_property_get_oom_policy, offsetof(Service, oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
 
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        BUS_EXEC_COMMAND_LIST_VTABLE("ExecCondition", offsetof(Service, exec_command[SERVICE_EXEC_CONDITION]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPre", offsetof(Service, exec_command[SERVICE_EXEC_START_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_EX_COMMAND_LIST_VTABLE("ExecStartPreEx", offsetof(Service, exec_command[SERVICE_EXEC_START_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStart", offsetof(Service, exec_command[SERVICE_EXEC_START]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_EX_COMMAND_LIST_VTABLE("ExecStartEx", offsetof(Service, exec_command[SERVICE_EXEC_START]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPost", offsetof(Service, exec_command[SERVICE_EXEC_START_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_EX_COMMAND_LIST_VTABLE("ExecStartPostEx", offsetof(Service, exec_command[SERVICE_EXEC_START_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecReload", offsetof(Service, exec_command[SERVICE_EXEC_RELOAD]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStop", offsetof(Service, exec_command[SERVICE_EXEC_STOP]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStopPost", offsetof(Service, exec_command[SERVICE_EXEC_STOP_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
@@ -156,7 +162,7 @@ static int bus_set_transient_exit_status(
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
 
-        const int *status, *signal;
+        const int32_t *status, *signal;
         size_t sz_status, sz_signal, i;
         int r;
 
@@ -176,6 +182,9 @@ static int bus_set_transient_exit_status(
         if (r < 0)
                 return r;
 
+        sz_status /= sizeof(int32_t);
+        sz_signal /= sizeof(int32_t);
+
         if (sz_status == 0 && sz_signal == 0 && !UNIT_WRITE_FLAGS_NOOP(flags)) {
                 exit_status_set_free(status_set);
                 unit_write_settingf(u, flags, name, "%s=", name);
@@ -184,34 +193,34 @@ static int bus_set_transient_exit_status(
 
         for (i = 0; i < sz_status; i++) {
                 if (status[i] < 0 || status[i] > 255)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid status code in %s: %i", name, status[i]);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid status code in %s: %"PRIi32, name, status[i]);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         r = set_ensure_allocated(&status_set->status, NULL);
                         if (r < 0)
                                 return r;
 
-                        r = set_put(status_set->status, INT_TO_PTR(status[i]));
+                        r = set_put(status_set->status, INT_TO_PTR((int) status[i]));
                         if (r < 0)
                                 return r;
 
-                        unit_write_settingf(u, flags, name, "%s=%i", name, status[i]);
+                        unit_write_settingf(u, flags, name, "%s=%"PRIi32, name, status[i]);
                 }
         }
 
         for (i = 0; i < sz_signal; i++) {
                 const char *str;
 
-                str = signal_to_string(signal[i]);
+                str = signal_to_string((int) signal[i]);
                 if (!str)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal in %s: %i", name, signal[i]);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal in %s: %"PRIi32, name, signal[i]);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         r = set_ensure_allocated(&status_set->signal, NULL);
                         if (r < 0)
                                 return r;
 
-                        r = set_put(status_set->signal, INT_TO_PTR(signal[i]));
+                        r = set_put(status_set->signal, INT_TO_PTR((int) signal[i]));
                         if (r < 0)
                                 return r;
 
@@ -257,6 +266,7 @@ static int bus_set_transient_std_fd(
 static BUS_DEFINE_SET_TRANSIENT_PARSE(notify_access, NotifyAccess, notify_access_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(service_type, ServiceType, service_type_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(service_restart, ServiceRestart, service_restart_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(oom_policy, OOMPolicy, oom_policy_from_string);
 static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(bus_name, service_name_is_valid);
 
 static int bus_service_set_transient_property(
@@ -291,6 +301,9 @@ static int bus_service_set_transient_property(
         if (streq(name, "Type"))
                 return bus_set_transient_service_type(u, name, &s->type, message, flags, error);
 
+        if (streq(name, "OOMPolicy"))
+                return bus_set_transient_oom_policy(u, name, &s->oom_policy, message, flags, error);
+
         if (streq(name, "RestartUSec"))
                 return bus_set_transient_usec(u, name, &s->restart_usec, message, flags, error);
 
@@ -317,8 +330,46 @@ static int bus_service_set_transient_property(
         if (streq(name, "NotifyAccess"))
                 return bus_set_transient_notify_access(u, name, &s->notify_access, message, flags, error);
 
-        if (streq(name, "PIDFile"))
-                return bus_set_transient_path(u, name, &s->pid_file, message, flags, error);
+        if (streq(name, "PIDFile")) {
+                _cleanup_free_ char *n = NULL;
+                const char *v, *e;
+
+                r = sd_bus_message_read(message, "s", &v);
+                if (r < 0)
+                        return r;
+
+                if (!isempty(v)) {
+                        n = path_make_absolute(v, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+                        if (!n)
+                                return -ENOMEM;
+
+                        path_simplify(n, true);
+
+                        if (!path_is_normalized(n))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "PIDFile= path '%s' is not valid", n);
+
+                        e = path_startswith(n, "/var/run/");
+                        if (e) {
+                                char *z;
+
+                                z = path_join("/run", e);
+                                if (!z)
+                                        return log_oom();
+
+                                if (!UNIT_WRITE_FLAGS_NOOP(flags))
+                                        log_unit_notice(u, "Transient unit's PIDFile= property references path below legacy directory /var/run, updating %s → %s; please update client accordingly.", n, z);
+
+                                free_and_replace(n, z);
+                        }
+                }
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        free_and_replace(s->pid_file, n);
+                        unit_write_settingf(u, flags, name, "%s=%s", name, strempty(s->pid_file));
+                }
+
+                return 1;
+        }
 
         if (streq(name, "USBFunctionDescriptors"))
                 return bus_set_transient_path(u, name, &s->usb_function_descriptors, message, flags, error);
@@ -342,6 +393,7 @@ static int bus_service_set_transient_property(
                 return bus_set_transient_exit_status(u, name, &s->success_status, message, flags, error);
 
         ci = service_exec_command_from_string(name);
+        ci = (ci >= 0) ? ci : service_exec_ex_command_from_string(name);
         if (ci >= 0)
                 return bus_set_transient_exec_command(u, name, &s->exec_command[ci], message, flags, error);
 
@@ -397,7 +449,7 @@ int bus_service_set_property(
 int bus_service_commit_properties(Unit *u) {
         assert(u);
 
-        unit_update_cgroup_members_masks(u);
+        unit_invalidate_cgroup_members_masks(u);
         unit_realize_cgroup(u);
 
         return 0;

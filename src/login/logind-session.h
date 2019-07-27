@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-***/
-
 typedef struct Session Session;
 typedef enum KillWho KillWho;
 
 #include "list.h"
 #include "login-util.h"
 #include "logind-user.h"
+#include "string-util.h"
 
 typedef enum SessionState {
         SESSION_OPENING,  /* Session scope is being created */
@@ -52,11 +47,19 @@ enum KillWho {
         _KILL_WHO_INVALID = -1
 };
 
+typedef enum TTYValidity {
+        TTY_FROM_PAM,
+        TTY_FROM_UTMP,
+        TTY_UTMP_INCONSISTENT, /* may happen on ssh sessions with multiplexed TTYs */
+        _TTY_VALIDITY_MAX,
+        _TTY_VALIDITY_INVALID = -1,
+} TTYValidity;
+
 struct Session {
         Manager *manager;
 
         const char *id;
-        unsigned int position;
+        unsigned position;
         SessionType type;
         SessionClass class;
 
@@ -66,8 +69,9 @@ struct Session {
 
         dual_timestamp timestamp;
 
-        char *tty;
         char *display;
+        char *tty;
+        TTYValidity tty_validity;
 
         bool remote;
         char *remote_user;
@@ -79,7 +83,7 @@ struct Session {
         char *scope_job;
 
         Seat *seat;
-        unsigned int vtnr;
+        unsigned vtnr;
         int vtfd;
 
         pid_t leader;
@@ -103,6 +107,7 @@ struct Session {
 
         sd_bus_message *create_message;
 
+        /* Set up when a client requested to release the session via the bus */
         sd_event_source *timer_event_source;
 
         char *controller;
@@ -115,9 +120,13 @@ struct Session {
         LIST_FIELDS(Session, gc_queue);
 };
 
-Session *session_new(Manager *m, const char *id);
-void session_free(Session *s);
+int session_new(Session **ret, Manager *m, const char *id);
+Session* session_free(Session *s);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Session *, session_free);
+
 void session_set_user(Session *s, User *u);
+int session_set_leader(Session *s, pid_t pid);
 bool session_may_gc(Session *s, bool drop_not_started);
 void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
@@ -127,7 +136,7 @@ void session_set_idle_hint(Session *s, bool b);
 int session_get_locked_hint(Session *s);
 void session_set_locked_hint(Session *s, bool b);
 int session_create_fifo(Session *s);
-int session_start(Session *s, sd_bus_message *properties);
+int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error);
 int session_stop(Session *s, bool force);
 int session_finalize(Session *s);
 int session_release(Session *s);
@@ -136,18 +145,6 @@ int session_load(Session *s);
 int session_kill(Session *s, KillWho who, int signo);
 
 SessionState session_get_state(Session *u);
-
-extern const sd_bus_vtable session_vtable[];
-int session_node_enumerator(sd_bus *bus, const char *path,void *userdata, char ***nodes, sd_bus_error *error);
-int session_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
-char *session_bus_path(Session *s);
-
-int session_send_signal(Session *s, bool new_session);
-int session_send_changed(Session *s, const char *properties, ...) _sentinel_;
-int session_send_lock(Session *s, bool lock);
-int session_send_lock_all(Manager *m, bool lock);
-
-int session_send_create_reply(Session *s, sd_bus_error *error);
 
 const char* session_state_to_string(SessionState t) _const_;
 SessionState session_state_from_string(const char *s) _pure_;
@@ -161,15 +158,20 @@ SessionClass session_class_from_string(const char *s) _pure_;
 const char *kill_who_to_string(KillWho k) _const_;
 KillWho kill_who_from_string(const char *s) _pure_;
 
+const char* tty_validity_to_string(TTYValidity t) _const_;
+TTYValidity tty_validity_from_string(const char *s) _pure_;
+
 int session_prepare_vt(Session *s);
-void session_restore_vt(Session *s);
 void session_leave_vt(Session *s);
 
 bool session_is_controller(Session *s, const char *sender);
 int session_set_controller(Session *s, const char *sender, bool force, bool prepare);
 void session_drop_controller(Session *s);
 
-int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error);
+static inline bool SESSION_IS_SELF(const char *name) {
+        return isempty(name) || streq(name, "self");
+}
+
+static inline bool SESSION_IS_AUTO(const char *name) {
+        return streq_ptr(name, "auto");
+}

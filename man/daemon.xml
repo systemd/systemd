@@ -1,29 +1,13 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="daemon">
 
   <refentryinfo>
     <title>daemon</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -90,9 +74,10 @@
         <function>setsid()</function> to detach from any terminal and
         create an independent session.</para></listitem>
 
-        <listitem><para>In the child, call <function>fork()</function>
-        again, to ensure that the daemon can never re-acquire a
-        terminal again.</para></listitem>
+        <listitem><para>In the child, call <function>fork()</function> again, to ensure that the daemon can
+        never re-acquire a terminal again. (This relevant if the program — and all its dependencies — does
+        not carefully specify `O_NOCTTY` on each and every single `open()` call that might potentially open a
+        TTY device node.)</para></listitem>
 
         <listitem><para>Call <function>exit()</function> in the first
         child, so that only the second child (the actual daemon
@@ -256,6 +241,10 @@
         <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         and
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+        <listitem><para>As new-style daemons are invoked without a controlling TTY (but as their own session
+        leaders) care should be taken to always specify `O_NOCTTY` on `open()` calls that possibly reference
+        a TTY device node, so that no controlling TTY is accidentally acquired.</para></listitem>
 
       </orderedlist>
 
@@ -606,7 +595,7 @@ AM_CONDITIONAL([HAVE_SYSTEMD], [test "x$with_systemdsystemunitdir" != "xno"])</p
       <citerefentry project='die-net'><refentrytitle>automake</refentrytitle><manvolnum>1</manvolnum></citerefentry>-based
       projects:</para>
 
-      <programlisting>DISTCHECK_CONFIGURE_FLAGS = \
+      <programlisting>AM_DISTCHECK_CONFIGURE_FLAGS = \
   --with-systemdsystemunitdir=$$dc_install_base/$(systemdsystemunitdir)</programlisting>
 
       <para>Finally, unit files should be installed in the system with an automake excerpt like the following:</para>

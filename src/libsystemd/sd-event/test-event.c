@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-***/
 
 #include <sys/wait.h>
 
@@ -11,16 +6,18 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "tests.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 static int prepare_handler(sd_event_source *s, void *userdata) {
@@ -191,7 +188,7 @@ static void test_basic(void) {
 
         got_a = false, got_b = false, got_c = false, got_d = 0;
 
-        /* Add a oneshot handler, trigger it, re-enable it, and trigger
+        /* Add a oneshot handler, trigger it, reenable it, and trigger
          * it again. */
         assert_se(sd_event_add_io(e, &w, d[0], EPOLLIN, io_handler, INT_TO_PTR('d')) >= 0);
         assert_se(sd_event_source_set_enabled(w, SD_EVENT_ONESHOT) >= 0);
@@ -468,7 +465,7 @@ static void test_inotify(unsigned n_create_events) {
                 _cleanup_free_ char *z;
 
                 xsprintf(buf, "%u", i);
-                assert_se(z = strjoin(p, "/", buf));
+                assert_se(z = path_join(p, buf));
 
                 assert_se(touch(z) >= 0);
         }
@@ -486,9 +483,7 @@ static void test_inotify(unsigned n_create_events) {
 }
 
 int main(int argc, char *argv[]) {
-
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         test_basic();
         test_sd_event_now();

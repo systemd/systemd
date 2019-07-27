@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Kay Sievers, Lennart Poettering
-***/
 
 #include <errno.h>
 #include <math.h>
@@ -20,13 +15,16 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "list.h"
 #include "log.h"
 #include "missing.h"
 #include "network-util.h"
 #include "ratelimit.h"
+#include "resolve-private.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -324,7 +322,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
 }
 
 static bool manager_sample_spike_detection(Manager *m, double offset, double delay) {
-        unsigned int i, idx_cur, idx_new, idx_min;
+        unsigned i, idx_cur, idx_new, idx_min;
         double jitter;
         double j;
 
@@ -475,10 +473,9 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         break;
                 }
         }
-        if (!recv_time) {
-                log_error("Invalid packet timestamp.");
-                return -EINVAL;
-        }
+        if (!recv_time)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid packet timestamp.");
 
         if (!m->pending) {
                 log_debug("Unexpected reply. Ignoring.");
@@ -608,7 +605,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         m->dest_time = *recv_time;
         m->spike = spike;
 
-        log_debug("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+"PRI_TIMEX"ppm%s",
+        log_debug("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+"PRIi64"ppm%s",
                   m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_freq / 65536,
                   spike ? " (ignored)" : "");
 
@@ -620,8 +617,9 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 m->good = true;
 
                 server_address_pretty(m->current_server_address, &pretty);
-                log_info("Synchronized to time server %s (%s).", strna(pretty), m->current_server_name->string);
-                sd_notifyf(false, "STATUS=Synchronized to time server %s (%s).", strna(pretty), m->current_server_name->string);
+                /* "for the first time", as further successful syncs will not be logged. */
+                log_info("Synchronized to time server for the first time %s (%s).", strna(pretty), m->current_server_name->string);
+                sd_notifyf(false, "STATUS=Synchronized to time server for the first time %s (%s).", strna(pretty), m->current_server_name->string);
         }
 
         r = manager_arm_timer(m, m->poll_interval_usec);
@@ -633,8 +631,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
 static int manager_listen_setup(Manager *m) {
         union sockaddr_union addr = {};
-        static const int tos = IPTOS_LOWDELAY;
-        static const int on = 1;
         int r;
 
         assert(m);
@@ -655,11 +651,11 @@ static int manager_listen_setup(Manager *m) {
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(m->server_socket, SOL_SOCKET, SO_TIMESTAMPNS, &on, sizeof(on));
+        r = setsockopt_int(m->server_socket, SOL_SOCKET, SO_TIMESTAMPNS, true);
         if (r < 0)
-                return -errno;
+                return r;
 
-        (void) setsockopt(m->server_socket, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
+        (void) setsockopt_int(m->server_socket, IPPROTO_IP, IP_TOS, IPTOS_LOWDELAY);
 
         return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN, manager_receive_response, m);
 }
@@ -731,8 +727,7 @@ void manager_set_server_address(Manager *m, ServerAddress *a) {
         }
 }
 
-static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata) {
-        Manager *m = userdata;
+static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, Manager *m) {
         int r;
 
         assert(q);
@@ -797,7 +792,7 @@ int manager_connect(Manager *m) {
 
         m->event_retry = sd_event_source_unref(m->event_retry);
         if (!ratelimit_below(&m->ratelimit)) {
-                log_debug("Slowing down attempts to contact servers.");
+                log_debug("Delaying attempts to contact servers.");
 
                 r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + RETRY_USEC, 0, manager_retry_connect, m);
                 if (r < 0)
@@ -880,7 +875,7 @@ int manager_connect(Manager *m) {
 
                 log_debug("Resolving %s...", m->current_server_name->string);
 
-                r = sd_resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, m);
+                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create resolver: %m");
 
@@ -944,7 +939,7 @@ void manager_free(Manager *m) {
         sd_resolve_unref(m->resolve);
         sd_event_unref(m->event);
 
-        sd_bus_unref(m->bus);
+        sd_bus_flush_close_unref(m->bus);
 
         free(m);
 }
@@ -959,14 +954,28 @@ static int manager_network_read_link_servers(Manager *m) {
         assert(m);
 
         r = sd_network_get_ntp(&ntp);
-        if (r < 0)
+        if (r < 0) {
+                if (r == -ENOMEM)
+                        log_oom();
+                else
+                        log_debug_errno(r, "Failed to get link NTP servers: %m");
                 goto clear;
+        }
 
         LIST_FOREACH(names, n, m->link_servers)
                 n->marked = true;
 
         STRV_FOREACH(i, ntp) {
                 bool found = false;
+
+                r = dns_name_is_valid_or_address(*i);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to check validity of NTP server name or address '%s': %m", *i);
+                        goto clear;
+                } else if (r == 0) {
+                        log_error("Invalid NTP server name or address, ignoring: %s", *i);
+                        continue;
+                }
 
                 LIST_FOREACH(names, n, m->link_servers)
                         if (streq(n->string, *i)) {
@@ -977,8 +986,10 @@ static int manager_network_read_link_servers(Manager *m) {
 
                 if (!found) {
                         r = server_name_new(m, NULL, SERVER_LINK, *i);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_oom();
                                 goto clear;
+                        }
 
                         changed = true;
                 }
@@ -1012,7 +1023,8 @@ static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t re
 
         sd_network_monitor_flush(m->network_monitor);
 
-        changed = !!manager_network_read_link_servers(m);
+        /* When manager_network_read_link_servers() failed, we assume that the servers are changed. */
+        changed = manager_network_read_link_servers(m);
 
         /* check if the machine is online */
         online = network_is_online();
@@ -1088,10 +1100,10 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
-        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
-        sd_event_set_watchdog(m->event, true);
+        (void) sd_event_set_watchdog(m->event, true);
 
         r = sd_resolve_default(&m->resolve);
         if (r < 0)
@@ -1105,7 +1117,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        manager_network_read_link_servers(m);
+        (void) manager_network_read_link_servers(m);
 
         *ret = TAKE_PTR(m);
 

@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
 journal_client_sources = files('''
         audit-type.c
@@ -36,7 +34,7 @@ endif
 ############################################################
 
 audit_type_includes = [config_h,
-                       missing_h,
+                       missing_audit_h,
                        'linux/audit.h']
 if conf.get('HAVE_AUDIT') == 1
         audit_type_includes += 'libaudit.h'
@@ -113,20 +111,22 @@ endif
 install_data('journald.conf',
              install_dir : pkgsysconfdir)
 
-meson.add_install_script(
-        'sh', '-c',
-        mkdir_p.format('/var/log/journal'))
-meson.add_install_script(
-        'sh', '-c',
-        '''chown 0:0 $DESTDIR/var/log/journal &&
-         chmod 755 $DESTDIR/var/log/journal || :''')
-if get_option('adm-group')
+if get_option('create-log-dirs')
         meson.add_install_script(
                 'sh', '-c',
-                'setfacl -nm g:adm:rx,d:g:adm:rx $DESTDIR/var/log/journal || :')
-endif
-if get_option('wheel-group')
+                mkdir_p.format('/var/log/journal'))
         meson.add_install_script(
                 'sh', '-c',
-                'setfacl -nm g:wheel:rx,d:g:wheel:rx $DESTDIR/var/log/journal || :')
+                '''chown 0:0 $DESTDIR/var/log/journal &&
+                   chmod 755 $DESTDIR/var/log/journal || :''')
+        if get_option('adm-group')
+                meson.add_install_script(
+                        'sh', '-c',
+                        'setfacl -nm g:adm:rx,d:g:adm:rx $DESTDIR/var/log/journal || :')
+        endif
+        if get_option('wheel-group')
+                meson.add_install_script(
+                        'sh', '-c',
+                        'setfacl -nm g:wheel:rx,d:g:wheel:rx $DESTDIR/var/log/journal || :')
+        endif
 endif

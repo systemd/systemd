@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <unistd.h>
 
@@ -11,8 +6,9 @@
 
 #include "parse-util.h"
 #include "strv.h"
+#include "time-util.h"
 
-int main(int argc, char*argv[]) {
+int main(int argc, char *argv[]) {
         _cleanup_strv_free_ char **l = NULL;
         int n, i;
         usec_t duration = USEC_PER_SEC / 10;

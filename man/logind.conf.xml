@@ -1,32 +1,16 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="logind.conf" conditional='ENABLE_LOGIND'
     xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>logind.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -64,7 +48,7 @@
     <para>All options are configured in the
     <literal>[Login]</literal> section:</para>
 
-    <variablelist>
+    <variablelist class='config-directives'>
 
       <varlistentry>
         <term><varname>NAutoVTs=</varname></term>
@@ -195,6 +179,17 @@
         <literal>delay</literal> being active before the inhibitor is
         ignored and the operation executes anyway. Defaults to
         5.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UserStopDelaySec=</varname></term>
+
+        <listitem><para>Specifies how long to keep the user record and per-user service
+        <filename>user@.service</filename> around for a user after they logged out fully. If set to zero, the per-user
+        service is terminated immediately when the last session of the user has ended. If this option is configured to
+        non-zero rapid logout/login cycles are sped up, as the user's service manager is not constantly restarted. If
+        set to <literal>infinity</literal> the per-user service for a user is never terminated again after first login,
+        and continues to run until system shutdown. Defaults to 10s.</para></listitem>
       </varlistentry>
 
       <varlistentry>

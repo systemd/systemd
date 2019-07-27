@@ -1,29 +1,13 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="kernel-command-line">
 
   <refentryinfo>
     <title>kernel-command-line</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -68,12 +52,14 @@
         <term><varname>systemd.unit=</varname></term>
         <term><varname>rd.systemd.unit=</varname></term>
         <term><varname>systemd.dump_core</varname></term>
+        <term><varname>systemd.early_core_pattern=</varname></term>
         <term><varname>systemd.crash_chvt</varname></term>
         <term><varname>systemd.crash_shell</varname></term>
         <term><varname>systemd.crash_reboot</varname></term>
         <term><varname>systemd.confirm_spawn</varname></term>
         <term><varname>systemd.service_watchdogs</varname></term>
         <term><varname>systemd.show_status</varname></term>
+        <term><varname>systemd.status_unit_format=</varname></term>
         <term><varname>systemd.log_target=</varname></term>
         <term><varname>systemd.log_level=</varname></term>
         <term><varname>systemd.log_location=</varname></term>
@@ -104,6 +90,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.run=</varname></term>
+        <term><varname>systemd.run_success_action=</varname></term>
+        <term><varname>systemd.run_failure_action=</varname></term>
+        <listitem>
+          <para>Additional parameters understood by
+          <citerefentry><refentrytitle>systemd-run-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>, to
+          run a command line specified on the kernel command line as system service after booting up.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.early_core_pattern=</varname></term>
+        <listitem>
+          <para>During early boot, the generation of core dump files is disabled until a core dump handler (if any)
+          takes over. This parameter allows to specifies an absolute path where core dump files should be stored until
+          a handler is installed. The path should be absolute and may contain specifiers, see
+          <citerefentry><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.restore_state=</varname></term>
         <listitem>
           <para>This parameter is understood by several system tools
@@ -128,10 +135,13 @@
           enables fully state-less boots were the vendor-supplied OS is used as shipped, with only default
           configuration and no stored state in effect, as <filename>/etc</filename> and <filename>/var</filename> (as
           well as all other resources shipped in the root file system) are reset at boot and lost on shutdown. If this
-          setting is set to <literal>state</literal> the root file system is mounted as usual, however
+          setting is set to <literal>state</literal> the root file system is mounted read-only, however
           <filename>/var</filename> is mounted as a volatile memory file system (<literal>tmpfs</literal>), so that the
-          system boots up with the normal configuration applied, but all state reset at boot and lost at shutdown. For details,
-          see
+          system boots up with the normal configuration applied, but all state reset at boot and lost at shutdown. If
+          this setting is set to <literal>overlay</literal> the root file system is set up as
+          <literal>overlayfs</literal> mount combining the read-only root directory with a writable
+          <literal>tmpfs</literal>, so that no modifications are made to disk, but the file system may be modified
+          nonetheless with all changes being lost at reboot. For details, see
           <citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           and
           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
@@ -259,6 +269,7 @@
         <term><varname>udev.event_timeout=</varname></term>
         <term><varname>rd.udev.event_timeout=</varname></term>
         <term><varname>net.ifnames=</varname></term>
+        <term><varname>net.naming-scheme=</varname></term>
 
         <listitem>
           <para>Parameters understood by the device event managing
@@ -319,7 +330,7 @@
         <listitem>
           <para>Configures the root file system and its file system
           type and mount options, as well as whether it shall be
-          mounted read-only or read-writable initially. For details,
+          mounted read-only or read-write initially. For details,
           see
           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </listitem>
@@ -392,10 +403,11 @@
 
       <varlistentry>
         <term><varname>resume=</varname></term>
+        <term><varname>resumeflags=</varname></term>
 
         <listitem>
           <para>Enables resume from hibernation using the specified
-          device. All
+          device and mount options. All
           <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-like
           paths are supported. For details, see
           <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
@@ -418,6 +430,7 @@
       <title>See Also</title>
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry project='man-pages'><refentrytitle>bootparam</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         <citerefentry project='man-pages'><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,

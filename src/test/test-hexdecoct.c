@@ -1,9 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 
@@ -89,7 +84,7 @@ static void test_unhexmem_one(const char *s, size_t l, int retval) {
                         l = strlen(s);
 
                 assert_se(hex = hexmem(mem, len));
-                answer = strndupa(s, l);
+                answer = strndupa(strempty(s), l);
                 assert_se(streq(delete_chars(answer, WHITESPACE), hex));
         }
 }
@@ -238,7 +233,6 @@ static void test_unbase32hexmem(void) {
         test_unbase32hexmem_one("CPNMUOG=", false, -EINVAL, NULL);
         test_unbase32hexmem_one("CPNMUOJ1E8======", false, -EINVAL, NULL);
 
-        test_unbase32hexmem_one("A", false, -EINVAL, NULL);
         test_unbase32hexmem_one("A", false, -EINVAL, NULL);
         test_unbase32hexmem_one("AAA", false, -EINVAL, NULL);
         test_unbase32hexmem_one("AAAAAA", false, -EINVAL, NULL);
