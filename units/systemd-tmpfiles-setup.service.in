@@ -20,4 +20,4 @@ RefuseManualStop=yes
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootbindir@/systemd-tmpfiles --create --remove --boot --exclude-prefix=/dev
-SuccessExitStatus=65 73
+SuccessExitStatus=DATAERR CANTCREAT
