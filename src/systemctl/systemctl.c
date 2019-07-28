@@ -4911,17 +4911,17 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                 } else if (endswith(name, "ExitStatus") && streq(contents, "aiai")) {
                         const int32_t *status, *signal;
-                        size_t sz_status, sz_signal, i;
+                        size_t n_status, n_signal, i;
 
                         r = sd_bus_message_enter_container(m, 'r', "aiai");
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        r = sd_bus_message_read_array(m, 'i', (const void **) &status, &sz_status);
+                        r = sd_bus_message_read_array(m, 'i', (const void **) &status, &n_status);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        r = sd_bus_message_read_array(m, 'i', (const void **) &signal, &sz_signal);
+                        r = sd_bus_message_read_array(m, 'i', (const void **) &signal, &n_signal);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4929,10 +4929,10 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        sz_status /= sizeof(int32_t);
-                        sz_signal /= sizeof(int32_t);
+                        n_status /= sizeof(int32_t);
+                        n_signal /= sizeof(int32_t);
 
-                        if (all || sz_status > 0 || sz_signal > 0) {
+                        if (all || n_status > 0 || n_signal > 0) {
                                 bool first = true;
 
                                 if (!value) {
@@ -4940,7 +4940,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                         fputc('=', stdout);
                                 }
 
-                                for (i = 0; i < sz_status; i++) {
+                                for (i = 0; i < n_status; i++) {
                                         if (status[i] < 0 || status[i] > 255)
                                                 continue;
 
@@ -4952,7 +4952,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                         printf("%"PRIi32, status[i]);
                                 }
 
-                                for (i = 0; i < sz_signal; i++) {
+                                for (i = 0; i < n_signal; i++) {
                                         const char *str;
 
                                         str = signal_to_string((int) signal[i]);

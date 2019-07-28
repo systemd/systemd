@@ -159,18 +159,18 @@ static int bus_set_transient_exit_status(
                 sd_bus_error *error) {
 
         const int32_t *status, *signal;
-        size_t sz_status, sz_signal, i;
+        size_t n_status, n_signal, i;
         int r;
 
         r = sd_bus_message_enter_container(message, 'r', "aiai");
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read_array(message, 'i', (const void **) &status, &sz_status);
+        r = sd_bus_message_read_array(message, 'i', (const void **) &status, &n_status);
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read_array(message, 'i', (const void **) &signal, &sz_signal);
+        r = sd_bus_message_read_array(message, 'i', (const void **) &signal, &n_signal);
         if (r < 0)
                 return r;
 
@@ -178,16 +178,16 @@ static int bus_set_transient_exit_status(
         if (r < 0)
                 return r;
 
-        sz_status /= sizeof(int32_t);
-        sz_signal /= sizeof(int32_t);
+        n_status /= sizeof(int32_t);
+        n_signal /= sizeof(int32_t);
 
-        if (sz_status == 0 && sz_signal == 0 && !UNIT_WRITE_FLAGS_NOOP(flags)) {
+        if (n_status == 0 && n_signal == 0 && !UNIT_WRITE_FLAGS_NOOP(flags)) {
                 exit_status_set_free(status_set);
                 unit_write_settingf(u, flags, name, "%s=", name);
                 return 1;
         }
 
-        for (i = 0; i < sz_status; i++) {
+        for (i = 0; i < n_status; i++) {
                 if (status[i] < 0 || status[i] > 255)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid status code in %s: %"PRIi32, name, status[i]);
 
@@ -200,7 +200,7 @@ static int bus_set_transient_exit_status(
                 }
         }
 
-        for (i = 0; i < sz_signal; i++) {
+        for (i = 0; i < n_signal; i++) {
                 const char *str;
 
                 str = signal_to_string((int) signal[i]);

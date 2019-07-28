@@ -1439,7 +1439,7 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 
         if (STR_IN_SET(field, "RestartPreventExitStatus", "RestartForceExitStatus", "SuccessExitStatus")) {
                 _cleanup_free_ int *status = NULL, *signal = NULL;
-                size_t sz_status = 0, sz_signal = 0;
+                size_t n_status = 0, n_signal = 0;
                 const char *p;
 
                 for (p = eq;;) {
@@ -1460,17 +1460,17 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                                 if (val < 0)
                                         return log_error_errno(r, "Invalid status or signal %s in %s: %m", word, field);
 
-                                signal = reallocarray(signal, sz_signal + 1, sizeof(int));
+                                signal = reallocarray(signal, n_signal + 1, sizeof(int));
                                 if (!signal)
                                         return log_oom();
 
-                                signal[sz_signal++] = val;
+                                signal[n_signal++] = val;
                         } else {
-                                status = reallocarray(status, sz_status + 1, sizeof(int));
+                                status = reallocarray(status, n_status + 1, sizeof(int));
                                 if (!status)
                                         return log_oom();
 
-                                status[sz_status++] = val;
+                                status[n_status++] = val;
                         }
                 }
 
@@ -1490,11 +1490,11 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append_array(m, 'i', status, sz_status);
+                r = sd_bus_message_append_array(m, 'i', status, n_status * sizeof(int));
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append_array(m, 'i', signal, sz_signal);
+                r = sd_bus_message_append_array(m, 'i', signal, n_signal * sizeof(int));
                 if (r < 0)
                         return bus_log_create_error(r);
 
