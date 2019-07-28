@@ -9,6 +9,7 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "gunicode.h"
+#include "in-addr-util.h"
 #include "memory-util.h"
 #include "pager.h"
 #include "parse-util.h"
@@ -84,6 +85,7 @@ typedef struct TableData {
                 uint64_t uint64;
                 int percent;        /* we use 'int' as datatype for percent values in order to match the result of parse_percent() */
                 int ifindex;
+                union in_addr_union address;
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;
@@ -251,6 +253,12 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_PERCENT:
         case TABLE_IFINDEX:
                 return sizeof(int);
+
+        case TABLE_IN_ADDR:
+                return sizeof(struct in_addr);
+
+        case TABLE_IN6_ADDR:
+                return sizeof(struct in6_addr);
 
         default:
                 assert_not_reached("Uh? Unexpected cell type");
@@ -705,6 +713,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         int percent;
                         int ifindex;
                         bool b;
+                        union in_addr_union address;
                 } buffer;
 
                 switch (type) {
@@ -775,6 +784,16 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_IFINDEX:
                         buffer.ifindex = va_arg(ap, int);
                         data = &buffer.ifindex;
+                        break;
+
+                case TABLE_IN_ADDR:
+                        buffer.address = *va_arg(ap, union in_addr_union *);
+                        data = &buffer.address.in;
+                        break;
+
+                case TABLE_IN6_ADDR:
+                        buffer.address = *va_arg(ap, union in_addr_union *);
+                        data = &buffer.address.in6;
                         break;
 
                 case TABLE_SET_MINIMUM_WIDTH: {
@@ -975,6 +994,12 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 
                 case TABLE_IFINDEX:
                         return CMP(a->ifindex, b->ifindex);
+
+                case TABLE_IN_ADDR:
+                        return CMP(a->address.in.s_addr, b->address.in.s_addr);
+
+                case TABLE_IN6_ADDR:
+                        return memcmp(&a->address.in6, &b->address.in6, FAMILY_ADDRESS_SIZE(AF_INET6));
 
                 default:
                         ;
@@ -1213,6 +1238,18 @@ static const char *table_data_format(TableData *d) {
                         if (asprintf(&p, "%i" , d->ifindex) < 0)
                                 return NULL;
                 }
+
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_IN_ADDR:
+        case TABLE_IN6_ADDR: {
+                _cleanup_free_ char *p = NULL;
+
+                if (in_addr_to_string(d->type == TABLE_IN_ADDR ? AF_INET : AF_INET6,
+                                      &d->address, &p) < 0)
+                        return NULL;
 
                 d->formatted = TAKE_PTR(p);
                 break;
@@ -1748,6 +1785,12 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
 
         case TABLE_IFINDEX:
                 return json_variant_new_integer(ret, d->ifindex);
+
+        case TABLE_IN_ADDR:
+                return json_variant_new_array_bytes(ret, &d->address, FAMILY_ADDRESS_SIZE(AF_INET));
+
+        case TABLE_IN6_ADDR:
+                return json_variant_new_array_bytes(ret, &d->address, FAMILY_ADDRESS_SIZE(AF_INET6));
 
         default:
                 return -EINVAL;
