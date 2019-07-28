@@ -5764,9 +5764,11 @@ int unit_test_trigger_loaded(Unit *u) {
 
         trigger = UNIT_TRIGGER(u);
         if (!trigger)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT), "Refusing to start, unit to trigger not loaded.");
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT),
+                                            "Refusing to start, no unit to trigger.");
         if (trigger->load_state != UNIT_LOADED)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT), "Refusing to start, unit %s to trigger not loaded.", u->id);
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT),
+                                            "Refusing to start, unit %s to trigger not loaded.", trigger->id);
 
         return 0;
 }
