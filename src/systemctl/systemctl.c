@@ -4941,9 +4941,6 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 }
 
                                 for (i = 0; i < n_status; i++) {
-                                        if (status[i] < 0 || status[i] > 255)
-                                                continue;
-
                                         if (first)
                                                 first = false;
                                         else
@@ -4956,15 +4953,16 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                         const char *str;
 
                                         str = signal_to_string((int) signal[i]);
-                                        if (!str)
-                                                continue;
 
                                         if (first)
                                                 first = false;
                                         else
                                                 fputc(' ', stdout);
 
-                                        fputs(str, stdout);
+                                        if (str)
+                                                fputs(str, stdout);
+                                        else
+                                                printf("%"PRIi32, status[i]);
                                 }
 
                                 fputc('\n', stdout);
