@@ -117,7 +117,7 @@ void bitmap_unset(Bitmap *b, unsigned n) {
         b->bitmaps[offset] &= ~bitmask;
 }
 
-bool bitmap_isset(Bitmap *b, unsigned n) {
+bool bitmap_isset(const Bitmap *b, unsigned n) {
         uint64_t bitmask;
         unsigned offset;
 
@@ -134,7 +134,7 @@ bool bitmap_isset(Bitmap *b, unsigned n) {
         return !!(b->bitmaps[offset] & bitmask);
 }
 
-bool bitmap_isclear(Bitmap *b) {
+bool bitmap_isclear(const Bitmap *b) {
         unsigned i;
 
         if (!b)
@@ -148,7 +148,6 @@ bool bitmap_isclear(Bitmap *b) {
 }
 
 void bitmap_clear(Bitmap *b) {
-
         if (!b)
                 return;
 
@@ -157,7 +156,7 @@ void bitmap_clear(Bitmap *b) {
         b->bitmaps_allocated = 0;
 }
 
-bool bitmap_iterate(Bitmap *b, Iterator *i, unsigned *n) {
+bool bitmap_iterate(const Bitmap *b, Iterator *i, unsigned *n) {
         uint64_t bitmask;
         unsigned offset, rem;
 
@@ -192,9 +191,9 @@ bool bitmap_iterate(Bitmap *b, Iterator *i, unsigned *n) {
         return false;
 }
 
-bool bitmap_equal(Bitmap *a, Bitmap *b) {
+bool bitmap_equal(const Bitmap *a, const Bitmap *b) {
         size_t common_n_bitmaps;
-        Bitmap *c;
+        const Bitmap *c;
         unsigned i;
 
         if (a == b)
