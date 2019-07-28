@@ -89,6 +89,7 @@ typedef struct ExitStatusSet {
 
 const char* exit_status_to_string(int code, ExitStatusClass class) _const_;
 const char* exit_status_class(int code) _const_;
+int exit_status_from_string(const char *s) _pure_;
 
 typedef struct ExitStatusMapping {
         const char *name;

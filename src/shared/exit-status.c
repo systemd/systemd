@@ -6,7 +6,9 @@
 
 #include "exit-status.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "set.h"
+#include "string-util.h"
 
 const ExitStatusMapping exit_status_mappings[256] = {
         /* Exit status ranges:
@@ -115,6 +117,21 @@ const char* exit_status_class(int code) {
                 return "BSD";
         default: return NULL;
         }
+}
+
+int exit_status_from_string(const char *s) {
+        uint8_t val;
+        int r;
+
+        for (size_t i = 0; i < ELEMENTSOF(exit_status_mappings); i++)
+                if (streq_ptr(s, exit_status_mappings[i].name))
+                        return i;
+
+        r = safe_atou8(s, &val);
+        if (r < 0)
+                return r;
+
+        return val;
 }
 
 bool is_clean_exit(int code, int status, ExitClean clean, ExitStatusSet *success_status) {
