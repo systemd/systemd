@@ -3936,33 +3936,33 @@ int config_parse_set_status(
 
         FOREACH_WORD(word, l, rvalue, state) {
                 _cleanup_free_ char *temp;
-                int val;
                 Bitmap *bitmap;
 
                 temp = strndup(word, l);
                 if (!temp)
                         return log_oom();
 
-                r = safe_atoi(temp, &val);
-                if (r < 0) {
-                        val = signal_from_string(temp);
+                /* We need to call exit_status_from_string() first, because we want
+                 * to parse numbers as exit statuses, not signals. */
 
-                        if (val <= 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse value, ignoring: %s", word);
+                r = exit_status_from_string(temp);
+                if (r >= 0) {
+                        assert(r >= 0 && r < 256);
+                        bitmap = &status_set->status;
+                } else {
+                        r = signal_from_string(temp);
+
+                        if (r <= 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, 0,
+                                           "Failed to parse value, ignoring: %s", word);
                                 continue;
                         }
                         bitmap = &status_set->signal;
-                } else {
-                        if (val < 0 || val > 255) {
-                                log_syntax(unit, LOG_ERR, filename, line, 0, "Value %d is outside range 0-255, ignoring", val);
-                                continue;
-                        }
-                        bitmap = &status_set->status;
                 }
 
-                r = bitmap_set(bitmap, val);
+                r = bitmap_set(bitmap, r);
                 if (r < 0)
-                        return log_oom();
+                        return log_error_errno(r, "Failed to set signal or status %s: %m", word);
         }
         if (!isempty(state))
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");

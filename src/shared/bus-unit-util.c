@@ -10,6 +10,7 @@
 #include "cpu-set-util.h"
 #include "escape.h"
 #include "exec-util.h"
+#include "exit-status.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
@@ -1444,7 +1445,6 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 
                 for (p = eq;;) {
                         _cleanup_free_ char *word = NULL;
-                        int val;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                         if (r == 0)
@@ -1454,24 +1454,30 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                         if (r < 0)
                                 return log_error_errno(r, "Invalid syntax in %s: %s", field, eq);
 
-                        r = safe_atoi(word, &val);
-                        if (r < 0) {
-                                val = signal_from_string(word);
-                                if (val < 0)
-                                        return log_error_errno(r, "Invalid status or signal %s in %s: %m", word, field);
+                        /* We need to call exit_status_from_string() first, because we want
+                         * to parse numbers as exit statuses, not signals. */
 
-                                signal = reallocarray(signal, n_signal + 1, sizeof(int));
-                                if (!signal)
-                                        return log_oom();
+                        r = exit_status_from_string(word);
+                        if (r >= 0) {
+                                assert(r >= 0 && r < 256);
 
-                                signal[n_signal++] = val;
-                        } else {
                                 status = reallocarray(status, n_status + 1, sizeof(int));
                                 if (!status)
                                         return log_oom();
 
-                                status[n_status++] = val;
-                        }
+                                status[n_status++] = r;
+
+                        } else if ((r = signal_from_string(word)) >= 0) {
+                                signal = reallocarray(signal, n_signal + 1, sizeof(int));
+                                if (!signal)
+                                        return log_oom();
+
+                                signal[n_signal++] = r;
+
+                        } else
+                                /* original r from exit_status_to_string() */
+                                return log_error_errno(r, "Invalid status or signal %s in %s: %m",
+                                                       word, field);
                 }
 
                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
