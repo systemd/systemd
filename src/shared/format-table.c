@@ -78,9 +78,13 @@ typedef struct TableData {
                 uint64_t size;
                 char string[0];
                 int int_val;
+                int8_t int8;
+                int16_t int16;
                 int32_t int32;
                 int64_t int64;
                 unsigned uint_val;
+                uint8_t uint8;
+                uint16_t uint16;
                 uint32_t uint32;
                 uint64_t uint64;
                 int percent;        /* we use 'int' as datatype for percent values in order to match the result of parse_percent() */
@@ -247,6 +251,14 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_INT32:
         case TABLE_UINT32:
                 return sizeof(uint32_t);
+
+        case TABLE_INT16:
+        case TABLE_UINT16:
+                return sizeof(uint16_t);
+
+        case TABLE_INT8:
+        case TABLE_UINT8:
+                return sizeof(uint8_t);
 
         case TABLE_INT:
         case TABLE_UINT:
@@ -705,9 +717,13 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         uint64_t size;
                         usec_t usec;
                         int int_val;
+                        int8_t int8;
+                        int16_t int16;
                         int32_t int32;
                         int64_t int64;
                         unsigned uint_val;
+                        uint8_t uint8;
+                        uint16_t uint16;
                         uint32_t uint32;
                         uint64_t uint64;
                         int percent;
@@ -751,6 +767,24 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         data = &buffer.int_val;
                         break;
 
+                case TABLE_INT8: {
+                        int x = va_arg(ap, int);
+                        assert(x >= INT8_MIN && x <= INT8_MAX);
+
+                        buffer.int8 = x;
+                        data = &buffer.int8;
+                        break;
+                }
+
+                case TABLE_INT16: {
+                        int x = va_arg(ap, int);
+                        assert(x >= INT16_MIN && x <= INT16_MAX);
+
+                        buffer.int16 = x;
+                        data = &buffer.int16;
+                        break;
+                }
+
                 case TABLE_INT32:
                         buffer.int32 = va_arg(ap, int32_t);
                         data = &buffer.int32;
@@ -765,6 +799,24 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         buffer.uint_val = va_arg(ap, unsigned);
                         data = &buffer.uint_val;
                         break;
+
+                case TABLE_UINT8: {
+                        unsigned x = va_arg(ap, unsigned);
+                        assert(x <= UINT8_MAX);
+
+                        buffer.uint8 = x;
+                        data = &buffer.uint8;
+                        break;
+                }
+
+                case TABLE_UINT16: {
+                        unsigned x = va_arg(ap, unsigned);
+                        assert(x <= UINT16_MAX);
+
+                        buffer.uint16 = x;
+                        data = &buffer.uint16;
+                        break;
+                }
 
                 case TABLE_UINT32:
                         buffer.uint32 = va_arg(ap, uint32_t);
@@ -974,6 +1026,12 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_INT:
                         return CMP(a->int_val, b->int_val);
 
+                case TABLE_INT8:
+                        return CMP(a->int8, b->int8);
+
+                case TABLE_INT16:
+                        return CMP(a->int16, b->int16);
+
                 case TABLE_INT32:
                         return CMP(a->int32, b->int32);
 
@@ -982,6 +1040,12 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 
                 case TABLE_UINT:
                         return CMP(a->uint_val, b->uint_val);
+
+                case TABLE_UINT8:
+                        return CMP(a->uint8, b->uint8);
+
+                case TABLE_UINT16:
+                        return CMP(a->uint16, b->uint16);
 
                 case TABLE_UINT32:
                         return CMP(a->uint32, b->uint32);
@@ -1154,6 +1218,30 @@ static const char *table_data_format(TableData *d) {
                 break;
         }
 
+        case TABLE_INT8: {
+                _cleanup_free_ char *p;
+
+                p = new(char, DECIMAL_STR_WIDTH(d->int8) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%" PRIi8, d->int8);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_INT16: {
+                _cleanup_free_ char *p;
+
+                p = new(char, DECIMAL_STR_WIDTH(d->int16) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%" PRIi16, d->int16);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
         case TABLE_INT32: {
                 _cleanup_free_ char *p;
 
@@ -1186,6 +1274,30 @@ static const char *table_data_format(TableData *d) {
                         return NULL;
 
                 sprintf(p, "%u", d->uint_val);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_UINT8: {
+                _cleanup_free_ char *p;
+
+                p = new(char, DECIMAL_STR_WIDTH(d->uint8) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%" PRIu8, d->uint8);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_UINT16: {
+                _cleanup_free_ char *p;
+
+                p = new(char, DECIMAL_STR_WIDTH(d->uint16) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%" PRIu16, d->uint16);
                 d->formatted = TAKE_PTR(p);
                 break;
         }
@@ -1765,6 +1877,12 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
         case TABLE_INT:
                 return json_variant_new_integer(ret, d->int_val);
 
+        case TABLE_INT8:
+                return json_variant_new_integer(ret, d->int8);
+
+        case TABLE_INT16:
+                return json_variant_new_integer(ret, d->int16);
+
         case TABLE_INT32:
                 return json_variant_new_integer(ret, d->int32);
 
@@ -1773,6 +1891,12 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
 
         case TABLE_UINT:
                 return json_variant_new_unsigned(ret, d->uint_val);
+
+        case TABLE_UINT8:
+                return json_variant_new_unsigned(ret, d->uint8);
+
+        case TABLE_UINT16:
+                return json_variant_new_unsigned(ret, d->uint16);
 
         case TABLE_UINT32:
                 return json_variant_new_unsigned(ret, d->uint32);
