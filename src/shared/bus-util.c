@@ -1480,14 +1480,6 @@ int bus_property_get_ulong(
 }
 #endif
 
-int bus_log_parse_error(int r) {
-        return log_error_errno(r, "Failed to parse bus message: %m");
-}
-
-int bus_log_create_error(int r) {
-        return log_error_errno(r, "Failed to create bus message: %m");
-}
-
 /**
  * bus_path_encode_unique() - encode unique object path
  * @b: bus connection or NULL
