@@ -39,9 +39,9 @@ static int property_get_exit_status_set(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExitStatusSet *status_set = userdata;
+        const ExitStatusSet *status_set = userdata;
+        unsigned n;
         Iterator i;
-        void *id;
         int r;
 
         assert(bus);
@@ -56,13 +56,10 @@ static int property_get_exit_status_set(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(id, status_set->status, i) {
-                int32_t val = PTR_TO_INT(id);
+        BITMAP_FOREACH(n, &status_set->status, i) {
+                assert(n < 256);
 
-                if (val < 0 || val > 255)
-                        continue;
-
-                r = sd_bus_message_append_basic(reply, 'i', &val);
+                r = sd_bus_message_append_basic(reply, 'i', &n);
                 if (r < 0)
                         return r;
         }
@@ -75,15 +72,14 @@ static int property_get_exit_status_set(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(id, status_set->signal, i) {
-                int32_t val = PTR_TO_INT(id);
+        BITMAP_FOREACH(n, &status_set->signal, i) {
                 const char *str;
 
-                str = signal_to_string((int) val);
+                str = signal_to_string(n);
                 if (!str)
                         continue;
 
-                r = sd_bus_message_append_basic(reply, 'i', &val);
+                r = sd_bus_message_append_basic(reply, 'i', &n);
                 if (r < 0)
                         return r;
         }
@@ -196,11 +192,7 @@ static int bus_set_transient_exit_status(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid status code in %s: %"PRIi32, name, status[i]);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        r = set_ensure_allocated(&status_set->status, NULL);
-                        if (r < 0)
-                                return r;
-
-                        r = set_put(status_set->status, INT_TO_PTR((int) status[i]));
+                        r = bitmap_set(&status_set->status, status[i]);
                         if (r < 0)
                                 return r;
 
@@ -216,11 +208,7 @@ static int bus_set_transient_exit_status(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal in %s: %"PRIi32, name, signal[i]);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        r = set_ensure_allocated(&status_set->signal, NULL);
-                        if (r < 0)
-                                return r;
-
-                        r = set_put(status_set->signal, INT_TO_PTR((int) signal[i]));
+                        r = bitmap_set(&status_set->signal, signal[i]);
                         if (r < 0)
                                 return r;
 

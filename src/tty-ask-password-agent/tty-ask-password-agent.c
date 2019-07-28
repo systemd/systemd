@@ -39,6 +39,7 @@
 #include "plymouth-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"

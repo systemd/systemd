@@ -6,7 +6,11 @@
 #include "hashmap.h"
 #include "macro.h"
 
-typedef struct Bitmap Bitmap;
+typedef struct Bitmap {
+        uint64_t *bitmaps;
+        size_t n_bitmaps;
+        size_t bitmaps_allocated;
+} Bitmap;
 
 Bitmap *bitmap_new(void);
 Bitmap *bitmap_copy(Bitmap *b);

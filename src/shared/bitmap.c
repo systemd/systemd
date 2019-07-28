@@ -12,12 +12,6 @@
 #include "macro.h"
 #include "memory-util.h"
 
-struct Bitmap {
-        uint64_t *bitmaps;
-        size_t n_bitmaps;
-        size_t bitmaps_allocated;
-};
-
 /* Bitmaps are only meant to store relatively small numbers
  * (corresponding to, say, an enum), so it is ok to limit
  * the max entry. 64k should be plenty. */

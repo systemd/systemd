@@ -134,18 +134,19 @@ int exit_status_from_string(const char *s) {
         return val;
 }
 
-bool is_clean_exit(int code, int status, ExitClean clean, ExitStatusSet *success_status) {
+bool is_clean_exit(int code, int status, ExitClean clean, const ExitStatusSet *success_status) {
         if (code == CLD_EXITED)
                 return status == 0 ||
                        (success_status &&
-                        set_contains(success_status->status, INT_TO_PTR(status)));
+                        bitmap_isset(&success_status->status, status));
 
-        /* If a daemon does not implement handlers for some of the signals that's not considered an unclean shutdown */
+        /* If a daemon does not implement handlers for some of the signals, we do not consider this an
+           unclean shutdown */
         if (code == CLD_KILLED)
                 return
                         (clean == EXIT_CLEAN_DAEMON && IN_SET(status, SIGHUP, SIGINT, SIGTERM, SIGPIPE)) ||
                         (success_status &&
-                         set_contains(success_status->signal, INT_TO_PTR(status)));
+                         bitmap_isset(&success_status->signal, status));
 
         return false;
 }
@@ -153,26 +154,22 @@ bool is_clean_exit(int code, int status, ExitClean clean, ExitStatusSet *success
 void exit_status_set_free(ExitStatusSet *x) {
         assert(x);
 
-        x->status = set_free(x->status);
-        x->signal = set_free(x->signal);
+        bitmap_clear(&x->status);
+        bitmap_clear(&x->signal);
 }
 
-bool exit_status_set_is_empty(ExitStatusSet *x) {
+bool exit_status_set_is_empty(const ExitStatusSet *x) {
         if (!x)
                 return true;
 
-        return set_isempty(x->status) && set_isempty(x->signal);
+        return bitmap_isclear(&x->status) && bitmap_isclear(&x->signal);
 }
 
-bool exit_status_set_test(ExitStatusSet *x, int code, int status) {
-
-        if (exit_status_set_is_empty(x))
-                return false;
-
-        if (code == CLD_EXITED && set_contains(x->status, INT_TO_PTR(status)))
+bool exit_status_set_test(const ExitStatusSet *x, int code, int status) {
+        if (code == CLD_EXITED && bitmap_isset(&x->status, status))
                 return true;
 
-        if (IN_SET(code, CLD_KILLED, CLD_DUMPED) && set_contains(x->signal, INT_TO_PTR(status)))
+        if (IN_SET(code, CLD_KILLED, CLD_DUMPED) && bitmap_isset(&x->signal, status))
                 return true;
 
         return false;

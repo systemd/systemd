@@ -3,9 +3,9 @@
 
 #include <stdbool.h>
 
+#include "bitmap.h"
 #include "hashmap.h"
 #include "macro.h"
-#include "set.h"
 
 /* This defines pretty names for the LSB 'start' verb exit codes. Note that they shouldn't be confused with
  * the LSB 'status' verb exit codes which are defined very differently. For details see:
@@ -83,8 +83,8 @@ typedef enum ExitStatusClass {
 } ExitStatusClass;
 
 typedef struct ExitStatusSet {
-        Set *status;
-        Set *signal;
+        Bitmap status;
+        Bitmap signal;
 } ExitStatusSet;
 
 const char* exit_status_to_string(int code, ExitStatusClass class) _const_;
@@ -103,8 +103,8 @@ typedef enum ExitClean {
         EXIT_CLEAN_COMMAND,
 } ExitClean;
 
-bool is_clean_exit(int code, int status, ExitClean clean, ExitStatusSet *success_status);
+bool is_clean_exit(int code, int status, ExitClean clean, const ExitStatusSet *success_status);
 
 void exit_status_set_free(ExitStatusSet *x);
-bool exit_status_set_is_empty(ExitStatusSet *x);
-bool exit_status_set_test(ExitStatusSet *x, int code, int status);
+bool exit_status_set_is_empty(const ExitStatusSet *x);
+bool exit_status_set_test(const ExitStatusSet *x, int code, int status);
