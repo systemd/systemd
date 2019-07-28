@@ -221,16 +221,19 @@ _noreturn_ static void crash(int sig) {
                         r = wait_for_terminate(pid, &status);
                         if (r < 0)
                                 log_emergency_errno(r, "Caught <%s>, waitpid() failed: %m", signal_to_string(sig));
-                        else if (status.si_code != CLD_DUMPED)
+                        else if (status.si_code != CLD_DUMPED) {
+                                const char *s = status.si_code == CLD_EXITED
+                                        ? exit_status_to_string(status.si_status, EXIT_STATUS_GLIBC)
+                                        : signal_to_string(status.si_status);
+
                                 log_emergency("Caught <%s>, core dump failed (child "PID_FMT", code=%s, status=%i/%s).",
                                               signal_to_string(sig),
-                                              pid, sigchld_code_to_string(status.si_code),
-                                              status.si_status,
-                                              strna(status.si_code == CLD_EXITED
-                                                    ? exit_status_to_string(status.si_status, EXIT_STATUS_MINIMAL)
-                                                    : signal_to_string(status.si_status)));
-                        else
-                                log_emergency("Caught <%s>, dumped core as pid "PID_FMT".", signal_to_string(sig), pid);
+                                              pid,
+                                              sigchld_code_to_string(status.si_code),
+                                              status.si_status, strna(s));
+                        } else
+                                log_emergency("Caught <%s>, dumped core as pid "PID_FMT".",
+                                              signal_to_string(sig), pid);
                 }
         }
 

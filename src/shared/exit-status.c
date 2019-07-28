@@ -8,8 +8,7 @@
 #include "macro.h"
 #include "set.h"
 
-const char* exit_status_to_string(int status, ExitStatusLevel level) {
-
+const ExitStatusMapping exit_status_mappings[256] = {
         /* Exit status ranges:
          *
          *   0…1   │ ISO C, EXIT_SUCCESS + EXIT_FAILURE
@@ -25,224 +24,100 @@ const char* exit_status_to_string(int status, ExitStatusLevel level) {
          *         │ signal or such, and we follow that logic here.)
          */
 
-        switch (status) {  /* We always cover the ISO C ones */
+        [EXIT_SUCCESS] =                 { "SUCCESS",                 EXIT_STATUS_GLIBC },
+        [EXIT_FAILURE] =                 { "FAILURE",                 EXIT_STATUS_GLIBC },
 
-        case EXIT_SUCCESS:
-                return "SUCCESS";
+        [EXIT_CHDIR] =                   { "CHDIR",                   EXIT_STATUS_SYSTEMD },
+        [EXIT_NICE] =                    { "NICE",                    EXIT_STATUS_SYSTEMD },
+        [EXIT_FDS] =                     { "FDS",                     EXIT_STATUS_SYSTEMD },
+        [EXIT_EXEC] =                    { "EXEC",                    EXIT_STATUS_SYSTEMD },
+        [EXIT_MEMORY] =                  { "MEMORY",                  EXIT_STATUS_SYSTEMD },
+        [EXIT_LIMITS] =                  { "LIMITS",                  EXIT_STATUS_SYSTEMD },
+        [EXIT_OOM_ADJUST] =              { "OOM_ADJUST",              EXIT_STATUS_SYSTEMD },
+        [EXIT_SIGNAL_MASK] =             { "SIGNAL_MASK",             EXIT_STATUS_SYSTEMD },
+        [EXIT_STDIN] =                   { "STDIN",                   EXIT_STATUS_SYSTEMD },
+        [EXIT_STDOUT] =                  { "STDOUT",                  EXIT_STATUS_SYSTEMD },
+        [EXIT_CHROOT] =                  { "CHROOT",                  EXIT_STATUS_SYSTEMD },
+        [EXIT_IOPRIO] =                  { "IOPRIO",                  EXIT_STATUS_SYSTEMD },
+        [EXIT_TIMERSLACK] =              { "TIMERSLACK",              EXIT_STATUS_SYSTEMD },
+        [EXIT_SECUREBITS] =              { "SECUREBITS",              EXIT_STATUS_SYSTEMD },
+        [EXIT_SETSCHEDULER] =            { "SETSCHEDULER",            EXIT_STATUS_SYSTEMD },
+        [EXIT_CPUAFFINITY] =             { "CPUAFFINITY",             EXIT_STATUS_SYSTEMD },
+        [EXIT_GROUP] =                   { "GROUP",                   EXIT_STATUS_SYSTEMD },
+        [EXIT_USER] =                    { "USER",                    EXIT_STATUS_SYSTEMD },
+        [EXIT_CAPABILITIES] =            { "CAPABILITIES",            EXIT_STATUS_SYSTEMD },
+        [EXIT_CGROUP] =                  { "CGROUP",                  EXIT_STATUS_SYSTEMD },
+        [EXIT_SETSID] =                  { "SETSID",                  EXIT_STATUS_SYSTEMD },
+        [EXIT_CONFIRM] =                 { "CONFIRM",                 EXIT_STATUS_SYSTEMD },
+        [EXIT_STDERR] =                  { "STDERR",                  EXIT_STATUS_SYSTEMD },
+        [EXIT_PAM] =                     { "PAM",                     EXIT_STATUS_SYSTEMD },
+        [EXIT_NETWORK] =                 { "NETWORK",                 EXIT_STATUS_SYSTEMD },
+        [EXIT_NAMESPACE] =               { "NAMESPACE",               EXIT_STATUS_SYSTEMD },
+        [EXIT_NO_NEW_PRIVILEGES] =       { "NO_NEW_PRIVILEGES",       EXIT_STATUS_SYSTEMD },
+        [EXIT_SECCOMP] =                 { "SECCOMP",                 EXIT_STATUS_SYSTEMD },
+        [EXIT_SELINUX_CONTEXT] =         { "SELINUX_CONTEXT",         EXIT_STATUS_SYSTEMD },
+        [EXIT_PERSONALITY] =             { "PERSONALITY",             EXIT_STATUS_SYSTEMD },
+        [EXIT_APPARMOR_PROFILE] =        { "APPARMOR",                EXIT_STATUS_SYSTEMD },
+        [EXIT_ADDRESS_FAMILIES] =        { "ADDRESS_FAMILIES",        EXIT_STATUS_SYSTEMD },
+        [EXIT_RUNTIME_DIRECTORY] =       { "RUNTIME_DIRECTORY",       EXIT_STATUS_SYSTEMD },
+        [EXIT_CHOWN] =                   { "CHOWN",                   EXIT_STATUS_SYSTEMD },
+        [EXIT_SMACK_PROCESS_LABEL] =     { "SMACK_PROCESS_LABEL",     EXIT_STATUS_SYSTEMD },
+        [EXIT_KEYRING] =                 { "KEYRING",                 EXIT_STATUS_SYSTEMD },
+        [EXIT_STATE_DIRECTORY] =         { "STATE_DIRECTORY",         EXIT_STATUS_SYSTEMD },
+        [EXIT_CACHE_DIRECTORY] =         { "CACHE_DIRECTORY",         EXIT_STATUS_SYSTEMD },
+        [EXIT_LOGS_DIRECTORY] =          { "LOGS_DIRECTORY",          EXIT_STATUS_SYSTEMD },
+        [EXIT_CONFIGURATION_DIRECTORY] = { "CONFIGURATION_DIRECTORY", EXIT_STATUS_SYSTEMD },
+        [EXIT_NUMA_POLICY] =             { "NUMA_POLICY",             EXIT_STATUS_SYSTEMD },
+        [EXIT_EXCEPTION] =               { "EXCEPTION",               EXIT_STATUS_SYSTEMD },
 
-        case EXIT_FAILURE:
-                return "FAILURE";
+        [EXIT_INVALIDARGUMENT] =         { "INVALIDARGUMENT",         EXIT_STATUS_LSB },
+        [EXIT_NOTIMPLEMENTED] =          { "NOTIMPLEMENTED",          EXIT_STATUS_LSB },
+        [EXIT_NOPERMISSION] =            { "NOPERMISSION",            EXIT_STATUS_LSB },
+        [EXIT_NOTINSTALLED] =            { "NOTINSTALLED",            EXIT_STATUS_LSB },
+        [EXIT_NOTCONFIGURED] =           { "NOTCONFIGURED",           EXIT_STATUS_LSB },
+        [EXIT_NOTRUNNING] =              { "NOTRUNNING",              EXIT_STATUS_LSB },
+
+        [EX_USAGE] =                     { "USAGE",                   EXIT_STATUS_BSD },
+        [EX_DATAERR] =                   { "DATAERR",                 EXIT_STATUS_BSD },
+        [EX_NOINPUT] =                   { "NOINPUT",                 EXIT_STATUS_BSD },
+        [EX_NOUSER] =                    { "NOUSER",                  EXIT_STATUS_BSD },
+        [EX_NOHOST] =                    { "NOHOST",                  EXIT_STATUS_BSD },
+        [EX_UNAVAILABLE] =               { "UNAVAILABLE",             EXIT_STATUS_BSD },
+        [EX_SOFTWARE] =                  { "SOFTWARE",                EXIT_STATUS_BSD },
+        [EX_OSERR] =                     { "OSERR",                   EXIT_STATUS_BSD },
+        [EX_OSFILE] =                    { "OSFILE",                  EXIT_STATUS_BSD },
+        [EX_CANTCREAT] =                 { "CANTCREAT",               EXIT_STATUS_BSD },
+        [EX_IOERR] =                     { "IOERR",                   EXIT_STATUS_BSD },
+        [EX_TEMPFAIL] =                  { "TEMPFAIL",                EXIT_STATUS_BSD },
+        [EX_PROTOCOL] =                  { "PROTOCOL",                EXIT_STATUS_BSD },
+        [EX_NOPERM] =                    { "NOPERM",                  EXIT_STATUS_BSD },
+        [EX_CONFIG] =                    { "CONFIG",                  EXIT_STATUS_BSD },
+};
+
+const char* exit_status_to_string(int code, ExitStatusClass class) {
+        if (code < 0 || (size_t) code >= ELEMENTSOF(exit_status_mappings))
+                return NULL;
+        return FLAGS_SET(exit_status_mappings[code].class, class) ? exit_status_mappings[code].name : NULL;
+}
+
+const char* exit_status_class(int code) {
+        if (code < 0 || (size_t) code >= ELEMENTSOF(exit_status_mappings))
+                return NULL;
+
+        switch (exit_status_mappings[code].class) {
+        case EXIT_STATUS_GLIBC:
+                return "glibc";
+        case EXIT_STATUS_SYSTEMD:
+                return "systemd";
+        case EXIT_STATUS_LSB:
+                return "LSB";
+        case EXIT_STATUS_BSD:
+                return "BSD";
+        default: return NULL;
         }
-
-        if (IN_SET(level, EXIT_STATUS_SYSTEMD, EXIT_STATUS_LSB, EXIT_STATUS_FULL)) {
-                switch (status) { /* Optionally we cover our own ones */
-
-                case EXIT_CHDIR:
-                        return "CHDIR";
-
-                case EXIT_NICE:
-                        return "NICE";
-
-                case EXIT_FDS:
-                        return "FDS";
-
-                case EXIT_EXEC:
-                        return "EXEC";
-
-                case EXIT_MEMORY:
-                        return "MEMORY";
-
-                case EXIT_LIMITS:
-                        return "LIMITS";
-
-                case EXIT_OOM_ADJUST:
-                        return "OOM_ADJUST";
-
-                case EXIT_SIGNAL_MASK:
-                        return "SIGNAL_MASK";
-
-                case EXIT_STDIN:
-                        return "STDIN";
-
-                case EXIT_STDOUT:
-                        return "STDOUT";
-
-                case EXIT_CHROOT:
-                        return "CHROOT";
-
-                case EXIT_IOPRIO:
-                        return "IOPRIO";
-
-                case EXIT_TIMERSLACK:
-                        return "TIMERSLACK";
-
-                case EXIT_SECUREBITS:
-                        return "SECUREBITS";
-
-                case EXIT_SETSCHEDULER:
-                        return "SETSCHEDULER";
-
-                case EXIT_CPUAFFINITY:
-                        return "CPUAFFINITY";
-
-                case EXIT_GROUP:
-                        return "GROUP";
-
-                case EXIT_USER:
-                        return "USER";
-
-                case EXIT_CAPABILITIES:
-                        return "CAPABILITIES";
-
-                case EXIT_CGROUP:
-                        return "CGROUP";
-
-                case EXIT_SETSID:
-                        return "SETSID";
-
-                case EXIT_CONFIRM:
-                        return "CONFIRM";
-
-                case EXIT_STDERR:
-                        return "STDERR";
-
-                case EXIT_PAM:
-                        return "PAM";
-
-                case EXIT_NETWORK:
-                        return "NETWORK";
-
-                case EXIT_NAMESPACE:
-                        return "NAMESPACE";
-
-                case EXIT_NO_NEW_PRIVILEGES:
-                        return "NO_NEW_PRIVILEGES";
-
-                case EXIT_SECCOMP:
-                        return "SECCOMP";
-
-                case EXIT_SELINUX_CONTEXT:
-                        return "SELINUX_CONTEXT";
-
-                case EXIT_PERSONALITY:
-                        return "PERSONALITY";
-
-                case EXIT_APPARMOR_PROFILE:
-                        return "APPARMOR";
-
-                case EXIT_ADDRESS_FAMILIES:
-                        return "ADDRESS_FAMILIES";
-
-                case EXIT_RUNTIME_DIRECTORY:
-                        return "RUNTIME_DIRECTORY";
-
-                case EXIT_CHOWN:
-                        return "CHOWN";
-
-                case EXIT_SMACK_PROCESS_LABEL:
-                        return "SMACK_PROCESS_LABEL";
-
-                case EXIT_KEYRING:
-                        return "KEYRING";
-
-                case EXIT_STATE_DIRECTORY:
-                        return "STATE_DIRECTORY";
-
-                case EXIT_CACHE_DIRECTORY:
-                        return "CACHE_DIRECTORY";
-
-                case EXIT_LOGS_DIRECTORY:
-                        return "LOGS_DIRECTORY";
-
-                case EXIT_CONFIGURATION_DIRECTORY:
-                        return "CONFIGURATION_DIRECTORY";
-
-                case EXIT_NUMA_POLICY:
-                        return "NUMA_POLICY";
-
-                case EXIT_EXCEPTION:
-                        return "EXCEPTION";
-                }
-        }
-
-        if (IN_SET(level, EXIT_STATUS_LSB, EXIT_STATUS_FULL)) {
-                switch (status) { /* Optionally we support LSB ones */
-
-                case EXIT_INVALIDARGUMENT:
-                        return "INVALIDARGUMENT";
-
-                case EXIT_NOTIMPLEMENTED:
-                        return "NOTIMPLEMENTED";
-
-                case EXIT_NOPERMISSION:
-                        return "NOPERMISSION";
-
-                case EXIT_NOTINSTALLED:
-                        return "NOTINSTALLED";
-
-                case EXIT_NOTCONFIGURED:
-                        return "NOTCONFIGURED";
-
-                case EXIT_NOTRUNNING:
-                        return "NOTRUNNING";
-                }
-        }
-
-        if (level == EXIT_STATUS_FULL) {
-                switch (status) { /* Optionally, we support BSD exit statusses */
-
-                case EX_USAGE:
-                        return "USAGE";
-
-                case EX_DATAERR:
-                        return "DATAERR";
-
-                case EX_NOINPUT:
-                        return "NOINPUT";
-
-                case EX_NOUSER:
-                        return "NOUSER";
-
-                case EX_NOHOST:
-                        return "NOHOST";
-
-                case EX_UNAVAILABLE:
-                        return "UNAVAILABLE";
-
-                case EX_SOFTWARE:
-                        return "SOFTWARE";
-
-                case EX_OSERR:
-                        return "OSERR";
-
-                case EX_OSFILE:
-                        return "OSFILE";
-
-                case EX_CANTCREAT:
-                        return "CANTCREAT";
-
-                case EX_IOERR:
-                        return "IOERR";
-
-                case EX_TEMPFAIL:
-                        return "TEMPFAIL";
-
-                case EX_PROTOCOL:
-                        return "PROTOCOL";
-
-                case EX_NOPERM:
-                        return "NOPERM";
-
-                case EX_CONFIG:
-                        return "CONFIG";
-                }
-        }
-
-        return NULL;
 }
 
 bool is_clean_exit(int code, int status, ExitClean clean, ExitStatusSet *success_status) {
-
         if (code == CLD_EXITED)
                 return status == 0 ||
                        (success_status &&

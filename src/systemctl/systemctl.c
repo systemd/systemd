@@ -4380,7 +4380,7 @@ static void print_status_info(
 
                         printf("status=%i", p->status);
 
-                        c = exit_status_to_string(p->status, EXIT_STATUS_SYSTEMD);
+                        c = exit_status_to_string(p->status, EXIT_STATUS_GLIBC | EXIT_STATUS_SYSTEMD);
                         if (c)
                                 printf("/%s", c);
 
@@ -4421,7 +4421,8 @@ static void print_status_info(
 
                                         printf("status=%i", i->exit_status);
 
-                                        c = exit_status_to_string(i->exit_status, EXIT_STATUS_SYSTEMD);
+                                        c = exit_status_to_string(i->exit_status,
+                                                                  EXIT_STATUS_GLIBC | EXIT_STATUS_SYSTEMD);
                                         if (c)
                                                 printf("/%s", c);
 
