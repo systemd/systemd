@@ -1341,6 +1341,19 @@ static char *align_string_mem(const char *str, const char *url, size_t new_lengt
         return ret;
 }
 
+static const char* table_data_color(TableData *d) {
+        assert(d);
+
+        if (d->color)
+                return d->color;
+
+        /* Let's implicitly color all "empty" cells in grey, in case an "empty_string" is set that is not empty */
+        if (d->type == TABLE_EMPTY)
+                return ansi_grey();
+
+        return NULL;
+}
+
 int table_print(Table *t, FILE *f) {
         size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width,
                 i, j, table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
@@ -1614,16 +1627,16 @@ int table_print(Table *t, FILE *f) {
                         if (j > 0)
                                 fputc(' ', f); /* column separator */
 
-                        if (d->color && colors_enabled()) {
+                        if (table_data_color(d) && colors_enabled()) {
                                 if (row == t->data) /* first undo header underliner */
                                         fputs(ANSI_NORMAL, f);
 
-                                fputs(d->color, f);
+                                fputs(table_data_color(d), f);
                         }
 
                         fputs(field, f);
 
-                        if (colors_enabled() && (d->color || row == t->data))
+                        if (colors_enabled() && (table_data_color(d) || row == t->data))
                                 fputs(ANSI_NORMAL, f);
                 }
 
