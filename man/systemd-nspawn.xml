@@ -368,12 +368,16 @@
         <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         details.</para>
 
-        <para>Note that setting this option to <option>yes</option> or <option>state</option> will only work correctly
-        with operating systems in the container that can boot up with only <filename>/usr</filename> mounted, and are
-        able to automatically populate <filename>/var</filename>, and also <filename>/etc</filename> in case of
-        <literal>--volatile=yes</literal>. The <option>overlay</option> option does not require any particular
-        preparations in the OS, but do note that <literal>overlayfs</literal> behaviour differs from regular file
-        systems in a number of ways, and hence compatibility is limited.</para></listitem>
+        <para>Note that setting this option to <option>yes</option> or <option>state</option> will only work
+        correctly with operating systems in the container that can boot up with only
+        <filename>/usr/</filename> mounted, and are able to automatically populate <filename>/var/</filename>
+        (and <filename>/etc/</filename> in case of <literal>--volatile=yes</literal>). Specifically, this
+        means that operating systems that follow the historic split of <filename>/bin/</filename> and
+        <filename>/lib/</filename> (and related directories) from <filename>/usr/</filename> (i.e. where the
+        former are not symlinks into the latter) are not supported by <literal>--volatile=yes</literal> as
+        container payload. The <option>overlay</option> option does not require any particular preparations
+        in the OS, but do note that <literal>overlayfs</literal> behaviour differs from regular file systems
+        in a number of ways, and hence compatibility is limited.</para></listitem>
       </varlistentry>
 
       <varlistentry>
