@@ -1007,14 +1007,33 @@ static int setup_volatile_yes(
 
         bool tmpfs_mounted = false, bind_mounted = false;
         char template[] = "/tmp/nspawn-volatile-XXXXXX";
-        _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ char *buf = NULL, *bindir = NULL;
         const char *f, *t, *options;
+        struct stat st;
         int r;
 
         assert(directory);
 
-        /* --volatile=yes means we mount a tmpfs to the root dir, and the original /usr to use inside it, and that
-           read-only. */
+        /* --volatile=yes means we mount a tmpfs to the root dir, and the original /usr to use inside it, and
+         * that read-only. Before we start setting this up let's validate if the image has the /usr merge
+         * implemented, and let's output a friendly log message if it hasn't. */
+
+        bindir = path_join(directory, "/bin");
+        if (!bindir)
+                return log_oom();
+        if (lstat(bindir, &st) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to stat /bin directory below image: %m");
+
+                /* ENOENT is fine, just means the image is probably just a naked /usr and we can create the
+                 * rest. */
+        } else if (S_ISDIR(st.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
+                                       "Sorry, --volatile=yes mode is not supported with OS images that have not merged /bin/, /sbin/, /lib/, /lib64/ into /usr/. "
+                                       "Please work with your distribution and help them adopt the merged /usr scheme.");
+        else if (!S_ISLNK(st.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Error starting image: if --volatile=yes is used /bin must be a symlink (for merged /usr support) or non-existent (in which case a symlink is created automatically).");
 
         if (!mkdtemp(template))
                 return log_error_errno(errno, "Failed to create temporary directory: %m");
