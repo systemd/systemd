@@ -20,13 +20,19 @@ typedef enum TableDataType {
         TABLE_SIZE,
         TABLE_BPS,
         TABLE_INT,
+        TABLE_INT8,
+        TABLE_INT16,
         TABLE_INT32,
         TABLE_INT64,
         TABLE_UINT,
+        TABLE_UINT8,
+        TABLE_UINT16,
         TABLE_UINT32,
         TABLE_UINT64,
         TABLE_PERCENT,
         TABLE_IFINDEX,
+        TABLE_IN_ADDR,  /* Takes a union in_addr_union (or a struct in_addr) */
+        TABLE_IN6_ADDR, /* Takes a union in_addr_union (or a struct in6_addr) */
         _TABLE_DATA_TYPE_MAX,
 
         /* The following are not really data types, but commands for table_add_cell_many() to make changes to
