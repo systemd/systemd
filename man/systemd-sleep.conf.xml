@@ -168,11 +168,10 @@
       <varlistentry>
         <term><varname>HibernateDelaySec=</varname></term>
 
-        <listitem><para>The amount of time in seconds
-        that will pass before the system is automatically
-        put into hibernate when using
-        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        </para></listitem>
+        <listitem><para>The amount of time the system spends in suspend mode before the system is
+        automatically put into hibernate mode, when using
+        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Defaults
+        to 2h.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
