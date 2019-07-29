@@ -1339,7 +1339,7 @@ static const char *table_data_format(TableData *d) {
         }
 
         case TABLE_IFINDEX: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
                 char name[IF_NAMESIZE + 1];
 
                 if (format_ifname(d->ifindex, name)) {
