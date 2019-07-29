@@ -19,6 +19,21 @@ Janitorial Clean-ups:
 
 Features:
 
+* beef up s2h to implement a battery watch loop: instead of entering
+  hibernation unconditionally after coming back from resume make a decision
+  based on the battery load level: if battery level is above a specific
+  threshold, go to suspend again, only hibernate if below it. This means we'd
+  stick to suspend usually, but fall back to hibernation only when battery runs
+  empty (well, subject to our sampling interval). Related to this, check if we
+  can make ACPI _BTP (i.e. /sys/class/power_supply/*/alarm) work for us too,
+  i.e. see if it can wake up machines from suspend, so that we could resume
+  automatically when the system is low on power and move automatically to
+  hibernation mode. (see
+  https://uefi.org/sites/default/files/resources/ACPI%206_2_A_Sept29.pdf
+  section 10.2.2.8 and
+  https://docs.microsoft.com/en-us/windows-hardware/design/device-experiences/modern-standby-wake-sources
+  at the end).
+
 * add an explicit "vertical" mode to format-table, so that "systemctl
   status"-like outputs (i.e. with a series of field names left and values
   right) become genuine first class citizens, and we gain automatic, sane JSON
