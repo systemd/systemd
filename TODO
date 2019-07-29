@@ -83,8 +83,6 @@ Features:
 * make rfkill uaccess controllable by default, i.e. steal rule from
   gnome-bluetooth and friends
 
-* warn if udev rules files are marked executable (docker?)
-
 * tweak journald context caching. In addition to caching per-process attributes
   keyed by PID, cache per-cgroup attributes (i.e. the various xattrs we read)
   keyed by cgroup path, and guarded by ctime changes. This should provide us
@@ -115,9 +113,6 @@ Features:
   ConfigurationDirectory=.
 
 * when no locale is configured, default to UEFI's PlatformLang variable
-
-* When logind.conf contains HandleLidSwitch=suspend-then-hibernate and we can't
-  hibernate because the swap partition isn't large enough, still suspend
 
 * bootctl,sd-boot: actually honour the "architecture" key
 
@@ -154,7 +149,8 @@ Features:
   non-zero "tries done" count
 
 * maybe set a special xattr on cgroups that have delegate=yes set, to make it
-  easy to mark cut points
+  easy to mark cut points, then use this information in "systemd-cgls" to show
+  them (e.g. color delegated subtrees in a different color)
 
 * introduce an option (or replacement) for "systemctl show" that outputs all
   properties as JSON, similar to busctl's new JSON output. In contrast to that

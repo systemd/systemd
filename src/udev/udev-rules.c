@@ -1186,6 +1186,8 @@ static int parse_file(UdevRules *rules, const char *filename) {
                 return -errno;
         }
 
+        (void) fd_warn_permissions(filename, fileno(f));
+
         if (null_or_empty_fd(fileno(f))) {
                 log_debug("Skipping empty file: %s", filename);
                 return 0;
