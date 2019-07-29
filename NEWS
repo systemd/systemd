@@ -353,33 +353,64 @@ CHANGES WITH 243 in spe:
           service configuration for systemd-timesyncd.
 
         * "localectl list-locales" won't list non-UTF-8 locales anymore. It's
-          2019. (You can set non-UTF-8 locales though, if you know there name.)
+          2019. (You can set non-UTF-8 locales though, if you know their name.)
 
         * If variable assignments in sysctl.d/ files are prefixed with "-" any
           failures to apply them are now ignored.
 
+        * systemd-random-seed.service now optionally credits entropy when
+          applying the seed to the system. Set $SYSTEMD_RANDOM_SEED_CREDIT to
+          true for the service to enable this behaviour, but please consult the
+          documentation first, since this comes with a couple of caveats.
+
+        * systemd-random-seed.service is now a synchronization point for the
+          point in time where the kernel's entropy pool is fully
+          initialized. Order services that require /dev/urandom to be correctly
+          initialized after this service.
+
+        * The systemd-boot boot loader has been updated to optionally maintain
+          a random seed file in the EFI System Partition (ESP). During the boot
+          phase, this random seed is read and updated with a new seed
+          crytographically derived from it. Another derived seed is passed to
+          the OS. The latter seed is then credited to the kernel's entropy pool
+          very early during userspace initialization (from PID 1). This allows
+          systems to boot up with a fully initialized kernel entropy pool from
+          earliest boot on, and thus entirely removes all entropy pool
+          initialization delays from systems using systemd-boot. Special care
+          is taken to ensure different seeds are derived on system images
+          replicated to multiple systems.
+
+        * bootctl gained a new verb "is-installed" that checks whether
+          systemd-boot is currently installed.
+
+        * A new document has been added describing systemd's use and support
+          for the kernel's entropy pool subsystem:
+
+          https://systemd.io/RANDOM_SEEDS
+
         Contributions from: Aaron Barany, Adrian Bunk, Alan Jenkins, Andrej
         Valek, Anita Zhang, Arian van Putten, Balint Reczey, Bastien Nocera,
         Ben Boeckel, Benjamin Robin, camoz, Chen Qi, Chris Chiu, Chris Down,
-        Christian Kellner, Connor Reeder, Daniele Medri, Dan Streetman, Dave
-        Reisner, Dave Ross, David Art, David Tardon, Debarshi Ray, Dominick
-        Grift, Donald Buczek, Douglas Christman, Eric DeVolder, Evgeny
-        Vereshchagin, Feldwor, Felix Riemann, Florian Dollinger, Franck Bui,
-        Frantisek Sumsal, Franz Pletz, Hans de Goede, Insun Pyo, Ivan
-        Shapovalov, Iwan Timmer, Jack, Jakob Unterwurzacher, Jan Klötzke, Jan
-        Pokorný, Jan Synacek, Jeka Pats, Jérémy Rosen, Jiri Pirko, Joe Lin,
-        Joerg Behrmann, Joe Richey, Jóhann B. Guðmundsson, Johannes Schmitz,
-        Jonathan Rouleau, Jorge Niedbalski, Kai Lüke, Karel Zak, Kashyap
-        Chamarthy, Krayushkin Konstantin, Lennart Poettering, Lubomir Rintel,
-        Luca Boccassi, Luís Ferreira, Marc-André Lureau, Markus Felten, Martin
-        Pitt, Michael Biebl, Michael Olbrich, Michael Prokop, Michael
-        Stapelberg, Michael Zhivich, Michal Koutný, Michal Sekletar, Mike
-        Gilbert, Milan Broz, mpe85, Oliver Harley, pan93412, Paul Menzel,
-        pEJipE, Peter A. Bigot, Philip Withnall, Piotr Drąg, Rafael Fontenelle,
-        Roberto Santalla, root, RussianNeuroMancer, Sebastian Jennen, Simon
-        Schricker, Susant Sahani, Thadeu Lima de Souza Cascardo, Theo
-        Ouzhinski, Thomas Weißschuh, Tomas Mraz, Topi Miettinen, ven, Wieland
-        Hoffmann, Xi Ruoyao, Yuri Chornoivan, Yu Watanabe, Zach Smith, Zbigniew
+        Christian Kellner, Clinton Roy, Connor Reeder, Daniele Medri, Dan
+        Streetman, Dave Reisner, Dave Ross, David Art, David Tardon, Debarshi
+        Ray, Dominick Grift, Donald Buczek, Douglas Christman, Eric DeVolder,
+        Evgeny Vereshchagin, Feldwor, Felix Riemann, Florian Dollinger, Franck
+        Bui, Frantisek Sumsal, Franz Pletz, Hans de Goede, Iago López Galeiras,
+        Insun Pyo, Ivan Shapovalov, Iwan Timmer, Jack, Jakob Unterwurzacher,
+        Jan Klötzke, Jan Pokorný, Jan Synacek, Jeka Pats, Jérémy Rosen, Jiri
+        Pirko, Joe Lin, Joerg Behrmann, Joe Richey, Jóhann B. Guðmundsson,
+        Johannes Schmitz, Jonathan Rouleau, Jorge Niedbalski, Kai Lüke, Karel
+        Zak, Kashyap Chamarthy, Krayushkin Konstantin, Lennart Poettering,
+        Lubomir Rintel, Luca Boccassi, Luís Ferreira, Marc-André Lureau, Markus
+        Felten, Martin Pitt, Michael Biebl, Michael Olbrich, Michael Prokop,
+        Michael Stapelberg, Michael Zhivich, Michal Koutný, Michal Sekletar,
+        Mike Gilbert, Milan Broz, mpe85, Network Silence, Oliver Harley,
+        pan93412, Paul Menzel, pEJipE, Peter A. Bigot, Philip Withnall, Piotr
+        Drąg, Rafael Fontenelle, Roberto Santalla, root, RussianNeuroMancer,
+        Sebastian Jennen, Shreyas Behera, Simon Schricker, Susant Sahani,
+        Thadeu Lima de Souza Cascardo, Theo Ouzhinski, Thomas Haller, Thomas
+        Weißschuh, Tomas Mraz, Topi Miettinen, ven, Wieland Hoffmann, Xi
+        Ruoyao, Yuri Chornoivan, Yu Watanabe, Zach Smith, Zbigniew
         Jędrzejewski-Szmek, Zhang Xianwei
 
         – Somewhere, SOME-TI-ME
