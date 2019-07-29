@@ -418,6 +418,27 @@ int table_add_cell_stringf(Table *t, TableCell **ret_cell, const char *format, .
         return table_add_cell(t, ret_cell, TABLE_STRING, buffer);
 }
 
+int table_fill_empty(Table *t, size_t until_column) {
+        int r;
+
+        assert(t);
+
+        /* Fill the rest of the current line with empty cells until we reach the specified column. Will add
+         * at least one cell. Pass 0 in order to fill a line to the end or insert an empty line. */
+
+        if (until_column >= t->n_columns)
+                return -EINVAL;
+
+        do {
+                r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+
+        } while ((t->n_cells % t->n_columns) != until_column);
+
+        return 0;
+}
+
 int table_dup_cell(Table *t, TableCell *cell) {
         size_t i;
 

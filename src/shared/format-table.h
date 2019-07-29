@@ -59,6 +59,8 @@ static inline int table_add_cell(Table *t, TableCell **ret_cell, TableDataType t
 }
 int table_add_cell_stringf(Table *t, TableCell **ret_cell, const char *format, ...) _printf_(3, 4);
 
+int table_fill_empty(Table *t, size_t until_column);
+
 int table_dup_cell(Table *t, TableCell *cell);
 
 int table_set_minimum_width(Table *t, TableCell *cell, size_t minimum_width);
