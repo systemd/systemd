@@ -4,6 +4,7 @@ src/import/org.freedesktop.import1.policy
 src/locale/org.freedesktop.locale1.policy
 src/login/org.freedesktop.login1.policy
 src/machine/org.freedesktop.machine1.policy
+src/network/org.freedesktop.network1.policy
 src/portable/org.freedesktop.portable1.policy
 src/resolve/org.freedesktop.resolve1.policy
 src/timedate/org.freedesktop.timedate1.policy
