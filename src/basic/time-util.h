@@ -136,7 +136,8 @@ int get_timezone(char **timezone);
 time_t mktime_or_timegm(struct tm *tm, bool utc);
 struct tm *localtime_or_gmtime_r(const time_t *t, struct tm *tm, bool utc);
 
-unsigned long usec_to_jiffies(usec_t usec);
+uint32_t usec_to_jiffies(usec_t usec);
+usec_t jiffies_to_usec(uint32_t jiffies);
 
 bool in_utc_timezone(void);
 
