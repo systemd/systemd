@@ -116,9 +116,6 @@ Features:
 
 * when no locale is configured, default to UEFI's PlatformLang variable
 
-* When logind.conf contains HandleLidSwitch=suspend-then-hibernate and we can't
-  hibernate because the swap partition isn't large enough, still suspend
-
 * bootctl,sd-boot: actually honour the "architecture" key
 
 * add a new syscall group "@esoteric" for more esoteric stuff such as bpf() and
