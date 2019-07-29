@@ -3878,15 +3878,19 @@ int exec_spawn(Unit *unit,
                                unit->manager->user_lookup_fds[1],
                                &exit_status);
 
-                if (r < 0)
+                if (r < 0) {
+                        const char *status =
+                                exit_status_to_string(exit_status,
+                                                      EXIT_STATUS_GLIBC | EXIT_STATUS_SYSTEMD);
+
                         log_struct_errno(LOG_ERR, r,
                                          "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                          LOG_UNIT_ID(unit),
                                          LOG_UNIT_INVOCATION_ID(unit),
                                          LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
-                                                          exit_status_to_string(exit_status, EXIT_STATUS_SYSTEMD),
-                                                          command->path),
+                                                          status, command->path),
                                          "EXECUTABLE=%s", command->path);
+                }
 
                 _exit(exit_status);
         }

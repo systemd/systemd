@@ -852,27 +852,35 @@
 
       <varlistentry>
         <term><varname>SuccessExitStatus=</varname></term>
-        <listitem><para>Takes a list of exit status definitions that,
-        when returned by the main service process, will be considered
-        successful termination, in addition to the normal successful
-        exit code 0 and the signals <constant>SIGHUP</constant>,
-        <constant>SIGINT</constant>, <constant>SIGTERM</constant>, and
-        <constant>SIGPIPE</constant>. Exit status definitions can
-        either be numeric exit codes or termination signal names,
-        separated by spaces. For example:
-
-        <programlisting>SuccessExitStatus=1 2 8 SIGKILL</programlisting>
-
-        ensures that exit codes 1, 2, 8 and
-        the termination signal <constant>SIGKILL</constant> are
-        considered clean service terminations.
-        </para>
+        <listitem><para>Takes a list of exit status definitions that, when returned by the main service
+        process, will be considered successful termination, in addition to the normal successful exit code 0
+        and the signals <constant>SIGHUP</constant>, <constant>SIGINT</constant>,
+        <constant>SIGTERM</constant>, and <constant>SIGPIPE</constant>. Exit status definitions can be
+        numeric exit codes, termination code names, or termination signal names, separated by spaces. See the
+        Process Exit Codes section in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        a list of termination codes names (for this setting only the part without the
+        <literal>EXIT_</literal> or <literal>EX_</literal> prefix should be used). See
+        <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        a list of signal names.</para>
 
         <para>This option may appear more than once, in which case the
         list of successful exit statuses is merged. If the empty
         string is assigned to this option, the list is reset, all
         prior assignments of this option will have no
-        effect.</para></listitem>
+        effect.</para>
+
+        <example>
+          <title>A service with with the the <varname>SuccessExitStatus=</varname> setting</title>
+
+          <programlisting>SuccessExitStatus=TEMPFAIL 250 SIGUSR1</programlisting>
+
+          <para>Exit codes 75 (<constant>TEMPFAIL</constant>), 250, and the termination signal
+          <constant>SIGKILL</constant> are considered clean service terminations.</para>
+        </example>
+
+        <para>Note: <command>systemd-analyze exit-codes</command> may be used to list exit
+        codes and translate between numerical code values and names.</para></listitem>
       </varlistentry>
 
       <varlistentry>

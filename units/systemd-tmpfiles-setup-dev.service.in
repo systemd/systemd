@@ -19,4 +19,4 @@ Before=sysinit.target local-fs-pre.target systemd-udevd.service shutdown.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootbindir@/systemd-tmpfiles --prefix=/dev --create --boot
-SuccessExitStatus=65 73
+SuccessExitStatus=DATAERR CANTCREAT

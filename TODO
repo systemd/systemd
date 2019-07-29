@@ -235,9 +235,6 @@ Features:
 
 * add --vacuum-xyz options to coredumpctl, matching those journalctl already has.
 
-* SuccessExitStatus= and friends should probably also accept symbolic exit
-  codes names, i.e. error codes from the list maintained in exit-codes.[ch]
-
 * introduce Ephemeral= unit file switch, that creates an ephemeral copy of all
   files and directories that are left writable for a unit, and which are
   removed after the unit goes down again. A bit like --ephemeral for

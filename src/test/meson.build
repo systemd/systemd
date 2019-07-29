@@ -305,6 +305,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-exit-status.c'],
+         [],
+         []],
+
         [['src/test/test-specifier.c'],
          [],
          []],

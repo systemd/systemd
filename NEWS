@@ -105,6 +105,11 @@ CHANGES WITH 243 in spe:
           long number (with the length varying by architecture), so they can be
           unambiguously distinguished.
 
+        * SuccessExitStatus=, RestartPreventExitStatus=, and
+          RestartForceExitStatus= now accept exit code names (e.g. "DATAERR" is
+          equivalent to "65"). systemd-analyze learnt a new 'exit-codes' verb
+          to display those exit code name mappings.
+
         * /usr/sbin/halt.local is no longer supported. Implementation in
           distributions was inconsistent and it seems this functionality was
           very rarely used.

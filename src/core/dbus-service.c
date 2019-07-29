@@ -39,9 +39,9 @@ static int property_get_exit_status_set(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExitStatusSet *status_set = userdata;
+        const ExitStatusSet *status_set = userdata;
+        unsigned n;
         Iterator i;
-        void *id;
         int r;
 
         assert(bus);
@@ -56,13 +56,10 @@ static int property_get_exit_status_set(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(id, status_set->status, i) {
-                int32_t val = PTR_TO_INT(id);
+        BITMAP_FOREACH(n, &status_set->status, i) {
+                assert(n < 256);
 
-                if (val < 0 || val > 255)
-                        continue;
-
-                r = sd_bus_message_append_basic(reply, 'i', &val);
+                r = sd_bus_message_append_basic(reply, 'i', &n);
                 if (r < 0)
                         return r;
         }
@@ -75,15 +72,14 @@ static int property_get_exit_status_set(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(id, status_set->signal, i) {
-                int32_t val = PTR_TO_INT(id);
+        BITMAP_FOREACH(n, &status_set->signal, i) {
                 const char *str;
 
-                str = signal_to_string((int) val);
+                str = signal_to_string(n);
                 if (!str)
                         continue;
 
-                r = sd_bus_message_append_basic(reply, 'i', &val);
+                r = sd_bus_message_append_basic(reply, 'i', &n);
                 if (r < 0)
                         return r;
         }
@@ -163,18 +159,18 @@ static int bus_set_transient_exit_status(
                 sd_bus_error *error) {
 
         const int32_t *status, *signal;
-        size_t sz_status, sz_signal, i;
+        size_t n_status, n_signal, i;
         int r;
 
         r = sd_bus_message_enter_container(message, 'r', "aiai");
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read_array(message, 'i', (const void **) &status, &sz_status);
+        r = sd_bus_message_read_array(message, 'i', (const void **) &status, &n_status);
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read_array(message, 'i', (const void **) &signal, &sz_signal);
+        r = sd_bus_message_read_array(message, 'i', (const void **) &signal, &n_signal);
         if (r < 0)
                 return r;
 
@@ -182,25 +178,21 @@ static int bus_set_transient_exit_status(
         if (r < 0)
                 return r;
 
-        sz_status /= sizeof(int32_t);
-        sz_signal /= sizeof(int32_t);
+        n_status /= sizeof(int32_t);
+        n_signal /= sizeof(int32_t);
 
-        if (sz_status == 0 && sz_signal == 0 && !UNIT_WRITE_FLAGS_NOOP(flags)) {
+        if (n_status == 0 && n_signal == 0 && !UNIT_WRITE_FLAGS_NOOP(flags)) {
                 exit_status_set_free(status_set);
                 unit_write_settingf(u, flags, name, "%s=", name);
                 return 1;
         }
 
-        for (i = 0; i < sz_status; i++) {
+        for (i = 0; i < n_status; i++) {
                 if (status[i] < 0 || status[i] > 255)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid status code in %s: %"PRIi32, name, status[i]);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        r = set_ensure_allocated(&status_set->status, NULL);
-                        if (r < 0)
-                                return r;
-
-                        r = set_put(status_set->status, INT_TO_PTR((int) status[i]));
+                        r = bitmap_set(&status_set->status, status[i]);
                         if (r < 0)
                                 return r;
 
@@ -208,7 +200,7 @@ static int bus_set_transient_exit_status(
                 }
         }
 
-        for (i = 0; i < sz_signal; i++) {
+        for (i = 0; i < n_signal; i++) {
                 const char *str;
 
                 str = signal_to_string((int) signal[i]);
@@ -216,11 +208,7 @@ static int bus_set_transient_exit_status(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal in %s: %"PRIi32, name, signal[i]);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        r = set_ensure_allocated(&status_set->signal, NULL);
-                        if (r < 0)
-                                return r;
-
-                        r = set_put(status_set->signal, INT_TO_PTR((int) signal[i]));
+                        r = bitmap_set(&status_set->signal, signal[i]);
                         if (r < 0)
                                 return r;
 
