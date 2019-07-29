@@ -4,7 +4,7 @@ CHANGES WITH 243 in spe:
 
         * This release enables unprivileged programs (i.e. requiring neither
           setuid nor file capabilities) to send ICMP Echo (i.e. ping) requests
-          by turning on the net.ipv4.ping_group_range sysctl of the Linux
+          by turning on the "net.ipv4.ping_group_range" sysctl of the Linux
           kernel for the whole UNIX group range, i.e. all processes. This
           change should be reasonably safe, as the kernel support for it was
           specifically implemented to allow safe access to ICMP Echo for
@@ -12,20 +12,21 @@ CHANGES WITH 243 in spe:
           disabled again by setting the parameter to "1 0".
 
         * Previously, filters defined with SystemCallFilter= would have the
-          effect that an calling an offending system call would terminate the
-          calling thread. This behaviour never made much sense, since killing
-          individual threads of unsuspecting processes is likely to create more
-          problems than it solves. With this release the default action changed
-          from killing the thread to killing the whole process. For this to
-          work correctly both a kernel version (>= 4.14) and a libseccomp
-          version (>= 2.4.0) supporting this new seccomp action is required. If
-          an older kernel or libseccomp is used the old behaviour continues to
-          be used. This change does not affect any services that have no system
-          call filters defined, or that use SystemCallErrorNumber= (and thus
-          see EPERM or another error instead of being killed when calling an
-          offending system call). Note that systemd documentation always
-          claimed that the whole process is killed. With this change behaviour
-          is thus adjusted to match the documentation.
+          effect that any calling of an offending system call would terminate
+          the calling thread. This behaviour never made much sense, since
+          killing individual threads of unsuspecting processes is likely to
+          create more problems than it solves. With this release the default
+          action changed from killing the thread to killing the whole
+          process. For this to work correctly both a kernel version (>= 4.14)
+          and a libseccomp version (>= 2.4.0) supporting this new seccomp
+          action is required. If an older kernel or libseccomp is used the old
+          behaviour continues to be used. This change does not affect any
+          services that have no system call filters defined, or that use
+          SystemCallErrorNumber= (and thus see EPERM or another error instead
+          of being killed when calling an offending system call). Note that
+          systemd documentation always claimed that the whole process is
+          killed. With this change behaviour is thus adjusted to match the
+          documentation.
 
         * The "kernel.pid_max" sysctl is now bumped to 4194304 by default,
           i.e. the full 22bit range the kernel allows, up from the old 16bit
@@ -69,13 +70,13 @@ CHANGES WITH 243 in spe:
         * Man pages are not built by default anymore (html pages were already
           disabled by default), to make development builds quicker. When
           building systemd for a full installation with documentation, meson
-          should be called -Dman=true and/or -Dhtml=true as appropriate. The
-          default was changed based on the assumption that quick one-off or
-          repeated development builds are much more common than full optimized
-          builds for installation, and people need to pass various other
-          options to when doing "proper" builds anyway, so the gain from making
-          development builds quicker is bigger than the one time disruption for
-          packagers.
+          should be called with -Dman=true and/or -Dhtml=true as
+          appropriate. The default was changed based on the assumption that
+          quick one-off or repeated development builds are much more common
+          than full optimized builds for installation, and people need to pass
+          various other options to when doing "proper" builds anyway, so the
+          gain from making development builds quicker is bigger than the one
+          time disruption for packagers.
 
           Two scripts are created in the *build* directory to generate and
           preview man and html pages on demand, e.g.:
@@ -121,11 +122,11 @@ CHANGES WITH 243 in spe:
           interfaces should really be matched.
 
         * A new setting NUMAPolicy= may be used to set process memory
-          allocation policy. Setting can be specified in system.conf and hence
-          will set the default policy for PID1. Default policy can be
-          overridden on per-service basis. Related setting NUMAMask= is used to
-          specify NUMA node mask that should be associated with the selected
-          policy.
+          allocation policy. This setting can be specified in
+          /etc/systemd/system.conf and hence will set the default policy for
+          PID1. The default policy can be overridden on a per-service
+          basis. The related setting NUMAMask= is used to specify NUMA node
+          mask that should be associated with the selected policy.
 
         * PID 1 will now listen to Out-Of-Memory (OOM) events the kernel
           generates when processes it manages are reaching their memory limits,
@@ -138,7 +139,7 @@ CHANGES WITH 243 in spe:
           the IO accounting data is included in the resource log message
           generated whenever a unit stops.
 
-        * units may now configure an explicit time-out to apply to when killed
+        * Units may now configure an explicit time-out to wait for when killed
           with SIGABRT, for example when a service watchdog is hit. Previously,
           the regular TimeoutStopSec= time-out was applied in this case too —
           now a separate time-out may be set using TimeoutAbortSec=.
@@ -192,7 +193,7 @@ CHANGES WITH 243 in spe:
           only a boolean option was allowed (yes/no), having yes as the
           default.  If this option is set to 'no-negative', negative answers
           are skipped from being cached while keeping the same cache heuristics
-          for positive answers.  The default remains as "yes" (i. e. caching is
+          for positive answers.  The default remains as "yes" (i.e. caching is
           enabled).
 
         * The predictable naming scheme for network devices now supports
@@ -207,11 +208,11 @@ CHANGES WITH 243 in spe:
           associated with (AssociatedWith=).
 
         * systemd-networkd's DHCPv4 support now understands a new MaxAttempts=
-          option for configuring the maximum number of attempts to request a
-          DHCP lease. It also learnt a new BlackList= option for blacklisting
-          DHCP servers (a similar setting has also been added to the IPv6 RA
-          client), as well as a SendRelease= option for configuring whether to
-          send a DHCP RELEASE message when terminating.
+          option for configuring the maximum number of DHCP lease requests.  It
+          also learnt a new BlackList= option for blacklisting DHCP servers (a
+          similar setting has also been added to the IPv6 RA client), as well
+          as a SendRelease= option for configuring whether to send a DHCP
+          RELEASE message when terminating.
 
         * systemd-networkd's DHCPv4 and DHCPv6 stacks can now be configured
           separately in the [DHCPv4] and [DHCPv6] sections.
@@ -345,7 +346,7 @@ CHANGES WITH 243 in spe:
           (for exit code 255 or cases of abnormal termination).
 
         * A new service systemd-pstore.service has been added that pulls data
-          from from /sys/fs/pstore/ and saves it to /var/lib/pstore for later
+          from /sys/fs/pstore/ and saves it to /var/lib/pstore for later
           review.
 
         * timedatectl gained new verbs for configuring per-interface NTP
