@@ -1653,7 +1653,7 @@ static int dump_exit_codes(int argc, char *argv[], void *userdata) {
 
                         r = table_add_many(table,
                                            TABLE_STRING, exit_status_mappings[i].name,
-                                           TABLE_UINT, i,
+                                           TABLE_INT, (int) i,
                                            TABLE_STRING, exit_status_class(i));
                         if (r < 0)
                                 return r;
@@ -1669,7 +1669,7 @@ static int dump_exit_codes(int argc, char *argv[], void *userdata) {
                         assert(code >= 0 && (size_t) code < ELEMENTSOF(exit_status_mappings));
                         r = table_add_many(table,
                                            TABLE_STRING, exit_status_mappings[code].name ?: "-",
-                                           TABLE_UINT, code,
+                                           TABLE_INT, code,
                                            TABLE_STRING, exit_status_class(code) ?: "-");
                         if (r < 0)
                                 return r;
