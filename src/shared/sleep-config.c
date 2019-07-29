@@ -82,7 +82,7 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
         if (!sc->hybrid_states)
                 sc->hybrid_states = strv_new("disk");
         if (sc->hibernate_delay_sec == 0)
-                sc->hibernate_delay_sec = 180 * USEC_PER_MINUTE;
+                sc->hibernate_delay_sec = 2 * USEC_PER_HOUR;
 
         /* ensure values set for all required fields */
         if (!sc->suspend_states || !sc->hibernate_modes
