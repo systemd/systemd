@@ -877,7 +877,10 @@
 
           <para>Exit codes 75 (<constant>TEMPFAIL</constant>), 250, and the termination signal
           <constant>SIGKILL</constant> are considered clean service terminations.</para>
-        </example></listitem>
+        </example>
+
+        <para>Note: <command>systemd-analyze exit-codes</command> may be used to list exit
+        codes and translate between numerical code values and names.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -24,6 +24,7 @@
 #include "conf-files.h"
 #include "copy.h"
 #include "def.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -1637,6 +1638,48 @@ static void dump_syscall_filter(const SyscallFilterSet *set) {
                 printf("    %s%s%s\n", syscall[0] == '@' ? ansi_underline() : "", syscall, ansi_normal());
 }
 
+static int dump_exit_codes(int argc, char *argv[], void *userdata) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        int r;
+
+        table = table_new("name", "code", "class");
+        if (!table)
+                return log_oom();
+
+        if (strv_isempty(strv_skip(argv, 1)))
+                for (size_t i = 0; i < ELEMENTSOF(exit_status_mappings); i++) {
+                        if (!exit_status_mappings[i].name)
+                                continue;
+
+                        r = table_add_many(table,
+                                           TABLE_STRING, exit_status_mappings[i].name,
+                                           TABLE_UINT, i,
+                                           TABLE_STRING, exit_status_class(i));
+                        if (r < 0)
+                                return r;
+                }
+        else
+                for (int i = 1; i < argc; i++) {
+                        int code;
+
+                        code = exit_status_from_string(argv[i]);
+                        if (code < 0)
+                                return log_error_errno(r, "Invalid exit code \"%s\": %m", argv[i]);
+
+                        assert(code >= 0 && (size_t) code < ELEMENTSOF(exit_status_mappings));
+                        r = table_add_many(table,
+                                           TABLE_STRING, exit_status_mappings[code].name ?: "-",
+                                           TABLE_UINT, code,
+                                           TABLE_STRING, exit_status_class(code) ?: "-");
+                        if (r < 0)
+                                return r;
+                }
+
+        (void) pager_open(arg_pager_flags);
+
+        return table_print(table, NULL);
+}
+
 static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         bool first = true;
 
@@ -2165,6 +2208,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  dump                     Output state serialization of service manager\n"
                "  cat-config               Show configuration file and drop-ins\n"
                "  unit-paths               List load directories for units\n"
+               "  exit-codes               List exit code definitions\n"
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
                "  condition CONDITION...   Evaluate conditions and asserts\n"
                "  verify FILE...           Check unit files for correctness\n"
@@ -2368,6 +2412,7 @@ static int run(int argc, char *argv[]) {
                 { "dump",              VERB_ANY, 1,        0,            dump                   },
                 { "cat-config",        2,        VERB_ANY, 0,            cat_config             },
                 { "unit-paths",        1,        1,        0,            dump_unit_paths        },
+                { "exit-codes",        VERB_ANY, VERB_ANY, 0,            dump_exit_codes        },
                 { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },
                 { "condition",         2,        VERB_ANY, 0,            do_condition           },
                 { "verify",            2,        VERB_ANY, 0,            do_verify              },

@@ -86,6 +86,12 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">exit-codes</arg>
+      <arg choice="opt" rep="repeat"><replaceable>CODE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">condition</arg>
       <arg choice="plain"><replaceable>CONDITION</replaceable>…</arg>
     </cmdsynopsis>
@@ -363,6 +369,30 @@ $ eog targets.svg</programlisting>
       itself, and does not communicate with the running manager. Use
       <programlisting>systemctl [--user] [--global] show -p UnitPath --value</programlisting>
       to retrieve the actual list that the manager uses, with any empty directories omitted.</para>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze exit-codes <optional><replaceable>CODE</replaceable>...</optional></command></title>
+
+      <para>This command prints a list of exit codes along with their "class", i.e. the source of the
+      definition (one of <literal>glibc</literal>, <literal>systemd</literal>, <literal>LSB</literal>, or
+      <literal>BSD</literal>), see the Process Exit Codes section in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      If no additional arguments are specified, all known codes are are shown. Otherwise, only the
+      definitions for the specified codes are shown.</para>
+
+      <example>
+        <title><command>Show some example exit code names</command></title>
+
+        <programlisting>$ systemd-analyze exit-codes 0 1 {63..65}
+NAME    CODE CLASS
+SUCCESS 0    glibc
+FAILURE 1    glibc
+-       63   -
+USAGE   64   BSD
+DATAERR 65   BSD
+</programlisting>
+      </example>
     </refsect2>
 
     <refsect2>
