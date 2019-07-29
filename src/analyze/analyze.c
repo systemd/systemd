@@ -1646,6 +1646,10 @@ static int dump_exit_status(int argc, char *argv[], void *userdata) {
         if (!table)
                 return log_oom();
 
+        r = table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
+        if (r < 0)
+                return log_error_errno(r, "Failed to right-align status: %m");
+
         if (strv_isempty(strv_skip(argv, 1)))
                 for (size_t i = 0; i < ELEMENTSOF(exit_status_mappings); i++) {
                         if (!exit_status_mappings[i].name)
