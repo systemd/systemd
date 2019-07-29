@@ -356,6 +356,10 @@ int table_add_cell_full(
         assert(type >= 0);
         assert(type < _TABLE_DATA_TYPE_MAX);
 
+        /* Special rule: patch NULL data fields to the empty field */
+        if (!data)
+                type = TABLE_EMPTY;
+
         /* Determine the cell adjacent to the current one, but one row up */
         if (t->n_cells >= t->n_columns)
                 assert_se(p = t->data[t->n_cells - t->n_columns]);
