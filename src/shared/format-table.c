@@ -121,6 +121,8 @@ struct Table {
         size_t n_sort_map;
 
         bool *reverse_map;
+
+        char *empty_string;
 };
 
 Table *table_new_raw(size_t n_columns) {
@@ -212,6 +214,7 @@ Table *table_unref(Table *t) {
         free(t->display_map);
         free(t->sort_map);
         free(t->reverse_map);
+        free(t->empty_string);
 
         return mfree(t);
 }
@@ -859,6 +862,12 @@ void table_set_width(Table *t, size_t width) {
         t->width = width;
 }
 
+int table_set_empty_string(Table *t, const char *empty) {
+        assert(t);
+
+        return free_and_strdup(&t->empty_string, empty);
+}
+
 int table_set_display(Table *t, size_t first_column, ...) {
         size_t allocated, column;
         va_list ap;
@@ -1016,7 +1025,7 @@ static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
         return CMP(*a, *b);
 }
 
-static const char *table_data_format(TableData *d) {
+static const char *table_data_format(Table *t, TableData *d) {
         assert(d);
 
         if (d->formatted)
@@ -1024,7 +1033,7 @@ static const char *table_data_format(TableData *d) {
 
         switch (d->type) {
         case TABLE_EMPTY:
-                return "";
+                return strempty(t->empty_string);
 
         case TABLE_STRING:
                 if (d->uppercase) {
@@ -1225,11 +1234,11 @@ static const char *table_data_format(TableData *d) {
         return d->formatted;
 }
 
-static int table_data_requested_width(TableData *d, size_t *ret) {
+static int table_data_requested_width(Table *table, TableData *d, size_t *ret) {
         const char *t;
         size_t l;
 
-        t = table_data_format(d);
+        t = table_data_format(table, d);
         if (!t)
                 return -ENOMEM;
 
@@ -1372,7 +1381,7 @@ int table_print(Table *t, FILE *f) {
 
                         assert_se(d = row[t->display_map ? t->display_map[j] : j]);
 
-                        r = table_data_requested_width(d, &req);
+                        r = table_data_requested_width(t, d, &req);
                         if (r < 0)
                                 return r;
 
@@ -1539,7 +1548,7 @@ int table_print(Table *t, FILE *f) {
 
                         assert_se(d = row[t->display_map ? t->display_map[j] : j]);
 
-                        field = table_data_format(d);
+                        field = table_data_format(t, d);
                         if (!field)
                                 return -ENOMEM;
 
