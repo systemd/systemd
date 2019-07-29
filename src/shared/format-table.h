@@ -43,6 +43,10 @@ typedef enum TableDataType {
         _TABLE_DATA_TYPE_INVALID = -1,
 } TableDataType;
 
+/* PIDs are just 32bit signed integers on Linux */
+#define TABLE_PID TABLE_INT32
+assert_cc(sizeof(pid_t) == sizeof(int32_t));
+
 typedef struct Table Table;
 typedef struct TableCell TableCell;
 
