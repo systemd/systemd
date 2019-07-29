@@ -989,28 +989,52 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
         _cleanup_free_ char *p = NULL;
         LockFile t = LOCK_FILE_INIT;
         struct stat st;
+        bool exclusive;
         int r;
 
         assert(path);
         assert(global);
         assert(local);
 
-        /* Locks an image path. This actually creates two locks: one
-         * "local" one, next to the image path itself, which might be
-         * shared via NFS. And another "global" one, in /run, that
-         * uses the device/inode number. This has the benefit that we
-         * can even lock a tree that is a mount point, correctly. */
+        /* Locks an image path. This actually creates two locks: one "local" one, next to the image path
+         * itself, which might be shared via NFS. And another "global" one, in /run, that uses the
+         * device/inode number. This has the benefit that we can even lock a tree that is a mount point,
+         * correctly. */
 
         if (!path_is_absolute(path))
                 return -EINVAL;
+
+        switch (operation & (LOCK_SH|LOCK_EX)) {
+        case LOCK_SH:
+                exclusive = false;
+                break;
+        case LOCK_EX:
+                exclusive = true;
+                break;
+        default:
+                return -EINVAL;
+        }
 
         if (getenv_bool("SYSTEMD_NSPAWN_LOCK") == 0) {
                 *local = *global = (LockFile) LOCK_FILE_INIT;
                 return 0;
         }
 
-        if (path_equal(path, "/"))
-                return -EBUSY;
+        /* Prohibit taking exclusive locks on the host image. We can't allow this, since we ourselves are
+         * running off it after all, and we don't want any images to manipulate the host image. We make an
+         * exception for shared locks however: we allow those (and make them NOPs since there's no point in
+         * taking them if there can't be exclusive locks). Strictly speaking these are questionable as well,
+         * since it means changes made to the host might propagate to the container as they happen (and a
+         * shared lock kinda suggests that no changes happen at all while it is in place), but it's too
+         * useful not to allow read-only containers off the host root, hence let's support this, and trust
+         * the user to do the right thing with this. */
+        if (path_equal(path, "/")) {
+                if (exclusive)
+                        return -EBUSY;
+
+                *local = *global = (LockFile) LOCK_FILE_INIT;
+                return 0;
+        }
 
         if (stat(path, &st) >= 0) {
                 if (S_ISBLK(st.st_mode))
@@ -1024,12 +1048,12 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
                         return -ENOMEM;
         }
 
-        /* For block devices we don't need the "local" lock, as the major/minor lock above should be sufficient, since
-         * block devices are device local anyway. */
-        if (!path_startswith(path, "/dev")) {
+        /* For block devices we don't need the "local" lock, as the major/minor lock above should be
+         * sufficient, since block devices are host local anyway. */
+        if (!path_startswith(path, "/dev/")) {
                 r = make_lock_file_for(path, operation, &t);
                 if (r < 0) {
-                        if ((operation & LOCK_SH) && r == -EROFS)
+                        if (!exclusive && r == -EROFS)
                                 log_debug_errno(r, "Failed to create shared lock for '%s', ignoring: %m", path);
                         else
                                 return r;

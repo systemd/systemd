@@ -3264,8 +3264,24 @@ static int outer_child(
                          "Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
         }
 
-        if (!dissected_image) {
-                /* Turn directory into bind mount */
+        if (path_equal(directory, "/")) {
+                /* If the directory we shall boot is the host, let's operate on a bind mount at a different
+                 * place, so that we can make changes to its mount structure (for example, to implement
+                 * --volatile=) without this interfering with our ability to access files such as
+                 * /etc/localtime to copy into the container. Note that we use a fixed place for this
+                 * (instead of a temporary directory, since we are living in our own mount namspace here
+                 * already, and thus don't need to be afraid of colliding with anyone else's mounts).*/
+                (void) mkdir_p("/run/systemd/nspawn-root", 0755);
+
+                r = mount_verbose(LOG_ERR, "/", "/run/systemd/nspawn-root", NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
+                        return r;
+
+                directory = "/run/systemd/nspawn-root";
+
+        } else if (!dissected_image) {
+                /* Turn directory into bind mount (we need that so that we can move the bind mount to root
+                 * later on). */
                 r = mount_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
                 if (r < 0)
                         return r;
@@ -4018,7 +4034,7 @@ static int load_settings(void) {
                         p = file_in_same_dir(arg_image, fn);
                         if (!p)
                                 return log_oom();
-                } else if (arg_directory) {
+                } else if (arg_directory && !path_equal(arg_directory, "/")) {
                         p = file_in_same_dir(arg_directory, fn);
                         if (!p)
                                 return log_oom();
@@ -4740,8 +4756,12 @@ static int run(int argc, char *argv[]) {
         if (arg_directory) {
                 assert(!arg_image);
 
-                if (path_equal(arg_directory, "/") && !arg_ephemeral) {
-                        log_error("Spawning container on root directory is not supported. Consider using --ephemeral.");
+                /* Safety precaution: let's not allow running images from the live host OS image, as long as
+                 * /var from the host will propagate into container dynamically (because bad things happen if
+                 * two systems write to the same /var). Let's allow it for the special cases where /var is
+                 * either copied (i.e. --ephemeral) or replaced (i.e. --volatile=yes|state). */
+                if (path_equal(arg_directory, "/") && !(arg_ephemeral || IN_SET(arg_volatile_mode, VOLATILE_YES, VOLATILE_STATE))) {
+                        log_error("Spawning container on root directory is not supported. Consider using --ephemeral, --volatile=yes or --volatile=state.");
                         r = -EINVAL;
                         goto finish;
                 }
@@ -4770,7 +4790,9 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = image_path_lock(np, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
+                        /* We take an exclusive lock on this image, since it's our private, ephemeral copy
+                         * only owned by us and noone else. */
+                        r = image_path_lock(np, LOCK_EX|LOCK_NB, &tree_global_lock, &tree_local_lock);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to lock %s: %m", np);
                                 goto finish;
@@ -4890,7 +4912,8 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = image_path_lock(np, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
+                        /* Always take an exclusive lock on our own ephemeral copy. */
+                        r = image_path_lock(np, LOCK_EX|LOCK_NB, &tree_global_lock, &tree_local_lock);
                         if (r < 0) {
                                 r = log_error_errno(r, "Failed to create image lock: %m");
                                 goto finish;
