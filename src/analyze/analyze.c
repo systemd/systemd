@@ -2126,12 +2126,17 @@ static int do_security(int argc, char *argv[], void *userdata) {
 }
 
 static int help(int argc, char *argv[], void *userdata) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_free_ char *link = NULL, *dot_link = NULL;
         int r;
 
         (void) pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("systemd-analyze", "1", &link);
+        if (r < 0)
+                return log_oom();
+
+        /* Not using terminal_urlify_man() for this, since we don't want the "man page" text suffix in this case. */
+        r = terminal_urlify("man:dot(1)", "dot(1)", &dot_link);
         if (r < 0)
                 return log_oom();
 
@@ -2159,7 +2164,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  blame                    Print list of running units ordered by time to init\n"
                "  critical-chain [UNIT...] Print a tree of the time critical chain of units\n"
                "  plot                     Output SVG graphic showing service initialization\n"
-               "  dot [UNIT...]            Output dependency graph in man:dot(1) format\n"
+               "  dot [UNIT...]            Output dependency graph in %s format\n"
                "  log-level [LEVEL]        Get/set logging threshold for manager\n"
                "  log-target [TARGET]      Get/set logging target for manager\n"
                "  dump                     Output state serialization of service manager\n"
@@ -2175,6 +2180,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  security [UNIT...]       Analyze security of unit\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , dot_link
                , link
         );
 
