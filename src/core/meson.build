@@ -212,6 +212,12 @@ meson.add_install_script('sh', '-c', mkdir_p.format(systemsleepdir))
 meson.add_install_script('sh', '-c', mkdir_p.format(systemgeneratordir))
 meson.add_install_script('sh', '-c', mkdir_p.format(usergeneratordir))
 
+if conf.get('SYSTEMD_LINK_UNITS') == 1
+        meson.add_install_script('sh', '-c',
+                                 mkdir_p.format(join_paths(pkgsysconfdir, 'system/multi-user.target.wants')))
+        meson.add_install_script('sh', '-c',
+                                 mkdir_p.format(join_paths(pkgsysconfdir, 'system/getty.target.wants')))
+endif
 meson.add_install_script('sh', '-c',
                          mkdir_p.format(join_paths(pkgsysconfdir, 'user')))
 meson.add_install_script('sh', '-c',
