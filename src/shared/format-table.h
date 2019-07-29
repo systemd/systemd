@@ -49,6 +49,10 @@ typedef enum TableDataType {
         _TABLE_DATA_TYPE_INVALID = -1,
 } TableDataType;
 
+/* PIDs are just 32bit signed integers on Linux */
+#define TABLE_PID TABLE_INT32
+assert_cc(sizeof(pid_t) == sizeof(int32_t));
+
 typedef struct Table Table;
 typedef struct TableCell TableCell;
 
@@ -64,6 +68,8 @@ static inline int table_add_cell(Table *t, TableCell **ret_cell, TableDataType t
         return table_add_cell_full(t, ret_cell, type, data, (size_t) -1, (size_t) -1, (unsigned) -1, (unsigned) -1, (unsigned) -1);
 }
 int table_add_cell_stringf(Table *t, TableCell **ret_cell, const char *format, ...) _printf_(3, 4);
+
+int table_fill_empty(Table *t, size_t until_column);
 
 int table_dup_cell(Table *t, TableCell *cell);
 
@@ -83,6 +89,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...);
 
 void table_set_header(Table *table, bool b);
 void table_set_width(Table *t, size_t width);
+int table_set_empty_string(Table *t, const char *empty);
 int table_set_display(Table *t, size_t first_column, ...);
 int table_set_sort(Table *t, size_t first_column, ...);
 int table_set_reverse(Table *t, size_t column, bool b);

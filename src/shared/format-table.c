@@ -127,6 +127,8 @@ struct Table {
         size_t n_sort_map;
 
         bool *reverse_map;
+
+        char *empty_string;
 };
 
 Table *table_new_raw(size_t n_columns) {
@@ -218,6 +220,7 @@ Table *table_unref(Table *t) {
         free(t->display_map);
         free(t->sort_map);
         free(t->reverse_map);
+        free(t->empty_string);
 
         return mfree(t);
 }
@@ -373,6 +376,10 @@ int table_add_cell_full(
         assert(type >= 0);
         assert(type < _TABLE_DATA_TYPE_MAX);
 
+        /* Special rule: patch NULL data fields to the empty field */
+        if (!data)
+                type = TABLE_EMPTY;
+
         /* Determine the cell adjacent to the current one, but one row up */
         if (t->n_cells >= t->n_columns)
                 assert_se(p = t->data[t->n_cells - t->n_columns]);
@@ -429,6 +436,27 @@ int table_add_cell_stringf(Table *t, TableCell **ret_cell, const char *format, .
                 return -ENOMEM;
 
         return table_add_cell(t, ret_cell, TABLE_STRING, buffer);
+}
+
+int table_fill_empty(Table *t, size_t until_column) {
+        int r;
+
+        assert(t);
+
+        /* Fill the rest of the current line with empty cells until we reach the specified column. Will add
+         * at least one cell. Pass 0 in order to fill a line to the end or insert an empty line. */
+
+        if (until_column >= t->n_columns)
+                return -EINVAL;
+
+        do {
+                r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return r;
+
+        } while ((t->n_cells % t->n_columns) != until_column);
+
+        return 0;
 }
 
 int table_dup_cell(Table *t, TableCell *cell) {
@@ -930,6 +958,12 @@ void table_set_width(Table *t, size_t width) {
         t->width = width;
 }
 
+int table_set_empty_string(Table *t, const char *empty) {
+        assert(t);
+
+        return free_and_strdup(&t->empty_string, empty);
+}
+
 int table_set_display(Table *t, size_t first_column, ...) {
         size_t allocated, column;
         va_list ap;
@@ -1105,7 +1139,7 @@ static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
         return CMP(*a, *b);
 }
 
-static const char *table_data_format(TableData *d) {
+static const char *table_data_format(Table *t, TableData *d) {
         assert(d);
 
         if (d->formatted)
@@ -1113,7 +1147,7 @@ static const char *table_data_format(TableData *d) {
 
         switch (d->type) {
         case TABLE_EMPTY:
-                return "";
+                return strempty(t->empty_string);
 
         case TABLE_STRING:
                 if (d->uppercase) {
@@ -1374,11 +1408,11 @@ static const char *table_data_format(TableData *d) {
         return d->formatted;
 }
 
-static int table_data_requested_width(TableData *d, size_t *ret) {
+static int table_data_requested_width(Table *table, TableData *d, size_t *ret) {
         const char *t;
         size_t l;
 
-        t = table_data_format(d);
+        t = table_data_format(table, d);
         if (!t)
                 return -ENOMEM;
 
@@ -1456,6 +1490,19 @@ static char *align_string_mem(const char *str, const char *url, size_t new_lengt
         return ret;
 }
 
+static const char* table_data_color(TableData *d) {
+        assert(d);
+
+        if (d->color)
+                return d->color;
+
+        /* Let's implicitly color all "empty" cells in grey, in case an "empty_string" is set that is not empty */
+        if (d->type == TABLE_EMPTY)
+                return ansi_grey();
+
+        return NULL;
+}
+
 int table_print(Table *t, FILE *f) {
         size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width,
                 i, j, table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
@@ -1521,7 +1568,7 @@ int table_print(Table *t, FILE *f) {
 
                         assert_se(d = row[t->display_map ? t->display_map[j] : j]);
 
-                        r = table_data_requested_width(d, &req);
+                        r = table_data_requested_width(t, d, &req);
                         if (r < 0)
                                 return r;
 
@@ -1688,7 +1735,7 @@ int table_print(Table *t, FILE *f) {
 
                         assert_se(d = row[t->display_map ? t->display_map[j] : j]);
 
-                        field = table_data_format(d);
+                        field = table_data_format(t, d);
                         if (!field)
                                 return -ENOMEM;
 
@@ -1729,16 +1776,16 @@ int table_print(Table *t, FILE *f) {
                         if (j > 0)
                                 fputc(' ', f); /* column separator */
 
-                        if (d->color && colors_enabled()) {
+                        if (table_data_color(d) && colors_enabled()) {
                                 if (row == t->data) /* first undo header underliner */
                                         fputs(ANSI_NORMAL, f);
 
-                                fputs(d->color, f);
+                                fputs(table_data_color(d), f);
                         }
 
                         fputs(field, f);
 
-                        if (colors_enabled() && (d->color || row == t->data))
+                        if (colors_enabled() && (table_data_color(d) || row == t->data))
                                 fputs(ANSI_NORMAL, f);
                 }
 

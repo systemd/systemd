@@ -15,6 +15,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "json.h"
 #include "locale-util.h"
 #include "log.h"
@@ -141,17 +142,27 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
 }
 
 static int list_bus_names(int argc, char **argv, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
-        _cleanup_free_ char **merged = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_hashmap_free_ Hashmap *names = NULL;
-        char **i;
-        int r;
-        size_t max_i = 0;
-        unsigned n = 0;
-        void *v;
-        char *k;
+        _cleanup_(table_unrefp) Table *table = NULL;
         Iterator iterator;
+        char **i, *k;
+        void *v;
+        int r;
+
+        enum {
+                COLUMN_ACTIVATABLE,
+                COLUMN_NAME,
+                COLUMN_PID,
+                COLUMN_PROCESS,
+                COLUMN_USER,
+                COLUMN_CONNECTION,
+                COLUMN_UNIT,
+                COLUMN_SESSION,
+                COLUMN_DESCRIPTION,
+                COLUMN_MACHINE,
+        };
 
         if (!arg_unique && !arg_acquired && !arg_activatable)
                 arg_unique = arg_acquired = arg_activatable = true;
@@ -164,81 +175,95 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to list names: %m");
 
-        (void) pager_open(arg_pager_flags);
-
         names = hashmap_new(&string_hash_ops);
         if (!names)
                 return log_oom();
 
         STRV_FOREACH(i, acquired) {
-                max_i = MAX(max_i, strlen(*i));
-
                 r = hashmap_put(names, *i, NAME_IS_ACQUIRED);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add to hashmap: %m");
         }
 
         STRV_FOREACH(i, activatable) {
-                max_i = MAX(max_i, strlen(*i));
-
                 r = hashmap_put(names, *i, NAME_IS_ACTIVATABLE);
                 if (r < 0 && r != -EEXIST)
                         return log_error_errno(r, "Failed to add to hashmap: %m");
         }
 
-        merged = new(char*, hashmap_size(names) + 1);
-        if (!merged)
+        table = table_new("activatable", "name", "pid", "process", "user", "connection", "unit", "session", "description", "machine");
+        if (!table)
                 return log_oom();
 
-        HASHMAP_FOREACH_KEY(v, k, names, iterator)
-                merged[n++] = k;
+        r = table_set_align_percent(table, table_get_cell(table, 0, COLUMN_PID), 100);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set alignment: %m");
 
-        merged[n] = NULL;
-        strv_sort(merged);
+        r = table_set_empty_string(table, "-");
+        if (r < 0)
+                return log_error_errno(r, "Failed to set empty string: %m");
 
-        if (arg_legend) {
-                printf("%-*s %*s %-*s %-*s %-*s %-*s %-*s %-*s",
-                       (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER", 13, "CONNECTION", 25, "UNIT", 10, "SESSION", 19, "DESCRIPTION");
+        r = table_set_sort(table, COLUMN_NAME, (size_t) -1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set sort column: %m");
 
-                if (arg_show_machine)
-                        puts(" MACHINE");
-                else
-                        putchar('\n');
-        }
+        if (arg_show_machine)
+                r = table_set_display(table, COLUMN_NAME, COLUMN_PID, COLUMN_PROCESS, COLUMN_USER, COLUMN_CONNECTION, COLUMN_UNIT, COLUMN_SESSION, COLUMN_DESCRIPTION, COLUMN_MACHINE, (size_t) -1);
+        else
+                r = table_set_display(table, COLUMN_NAME, COLUMN_PID, COLUMN_PROCESS, COLUMN_USER, COLUMN_CONNECTION, COLUMN_UNIT, COLUMN_SESSION, COLUMN_DESCRIPTION, (size_t) -1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set columns to display: %m");
 
-        STRV_FOREACH(i, merged) {
+        table_set_header(table, arg_legend);
+
+        HASHMAP_FOREACH_KEY(v, k, names, iterator) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                sd_id128_t mid;
 
-                if (hashmap_get(names, *i) == NAME_IS_ACTIVATABLE) {
-                        /* Activatable */
+                if (v == NAME_IS_ACTIVATABLE) {
+                        r = table_add_many(
+                                        table,
+                                        TABLE_INT, PTR_TO_INT(v),
+                                        TABLE_STRING, k,
+                                        TABLE_EMPTY,
+                                        TABLE_EMPTY,
+                                        TABLE_EMPTY,
+                                        TABLE_STRING, "(activatable)", TABLE_SET_COLOR, ansi_grey(),
+                                        TABLE_EMPTY,
+                                        TABLE_EMPTY,
+                                        TABLE_EMPTY,
+                                        TABLE_EMPTY);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to fill line: %m");
 
-                        printf("%-*s", (int) max_i, *i);
-                        printf("          - -               -                (activatable) -                         -         ");
-                        if (arg_show_machine)
-                                puts(" -");
-                        else
-                                putchar('\n');
                         continue;
-
                 }
 
-                if (!arg_unique && (*i)[0] == ':')
+                assert(v == NAME_IS_ACQUIRED);
+
+                if (!arg_unique && k[0] == ':')
                         continue;
 
-                if (!arg_acquired && (*i)[0] != ':')
+                if (!arg_acquired && k[0] != ':')
                         continue;
 
-                printf("%-*s", (int) max_i, *i);
+                r = table_add_many(table,
+                                   TABLE_INT, PTR_TO_INT(v),
+                                   TABLE_STRING, k);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add name %s to table: %m", k);
 
                 r = sd_bus_get_name_creds(
-                                bus, *i,
+                                bus, k,
                                 (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) |
                                 SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|
                                 SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_SESSION|
                                 SD_BUS_CREDS_DESCRIPTION, &creds);
-                if (r >= 0) {
-                        const char *unique, *session, *unit, *cn;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to acquire credentials of service %s, ignoring: %m", k);
+
+                        r = table_fill_empty(table, COLUMN_MACHINE);
+                } else {
+                        const char *unique = NULL, *session = NULL, *unit = NULL, *cn = NULL;
                         pid_t pid;
                         uid_t uid;
 
@@ -246,11 +271,15 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                         if (r >= 0) {
                                 const char *comm = NULL;
 
-                                sd_bus_creds_get_comm(creds, &comm);
+                                (void) sd_bus_creds_get_comm(creds, &comm);
 
-                                printf(" %10lu %-15s", (unsigned long) pid, strna(comm));
+                                r = table_add_many(table,
+                                                   TABLE_PID, pid,
+                                                   TABLE_STRING, strna(comm));
                         } else
-                                fputs("          - -              ", stdout);
+                                r = table_add_many(table, TABLE_EMPTY, TABLE_EMPTY);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add fields to table: %m");
 
                         r = sd_bus_creds_get_euid(creds, &uid);
                         if (r >= 0) {
@@ -260,56 +289,60 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                                 if (!u)
                                         return log_oom();
 
-                                if (strlen(u) > 16)
-                                        u[16] = 0;
-
-                                printf(" %-16s", u);
+                                r = table_add_cell(table, NULL, TABLE_STRING, u);
                         } else
-                                fputs(" -               ", stdout);
+                                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add field to table: %m");
 
-                        r = sd_bus_creds_get_unique_name(creds, &unique);
-                        if (r >= 0)
-                                printf(" %-13s", unique);
-                        else
-                                fputs(" -            ", stdout);
+                        (void) sd_bus_creds_get_unique_name(creds, &unique);
+                        (void) sd_bus_creds_get_unit(creds, &unit);
+                        (void) sd_bus_creds_get_session(creds, &session);
+                        (void) sd_bus_creds_get_description(creds, &cn);
 
-                        r = sd_bus_creds_get_unit(creds, &unit);
-                        if (r >= 0) {
-                                _cleanup_free_ char *e;
-
-                                e = ellipsize(unit, 25, 100);
-                                if (!e)
-                                        return log_oom();
-
-                                printf(" %-25s", e);
-                        } else
-                                fputs(" -                        ", stdout);
-
-                        r = sd_bus_creds_get_session(creds, &session);
-                        if (r >= 0)
-                                printf(" %-10s", session);
-                        else
-                                fputs(" -         ", stdout);
-
-                        r = sd_bus_creds_get_description(creds, &cn);
-                        if (r >= 0)
-                                printf(" %-19s", cn);
-                        else
-                                fputs(" -                  ", stdout);
-
-                } else
-                        printf("          - -               -                -             -                         -          -                  ");
+                        r = table_add_many(
+                                        table,
+                                        TABLE_STRING, unique,
+                                        TABLE_STRING, unit,
+                                        TABLE_STRING, session,
+                                        TABLE_STRING, cn);
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add fields to table: %m");
 
                 if (arg_show_machine) {
-                        r = sd_bus_get_name_machine_id(bus, *i, &mid);
-                        if (r >= 0) {
+                        sd_id128_t mid;
+
+                        r = sd_bus_get_name_machine_id(bus, k, &mid);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to acquire credentials of service %s, ignoring: %m", k);
+                        else {
                                 char m[SD_ID128_STRING_MAX];
-                                printf(" %s\n", sd_id128_to_string(mid, m));
-                        } else
-                                puts(" -");
-                } else
-                        putchar('\n');
+
+                                r = table_add_cell(table, NULL, TABLE_STRING, sd_id128_to_string(mid, m));
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to add field to table: %m");
+
+                                continue; /* line fully filled, no need to fill the remainder below */
+                        }
+                }
+
+                r = table_fill_empty(table, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to fill line: %m");
         }
+
+        if (IN_SET(arg_json, JSON_OFF, JSON_PRETTY))
+                (void) pager_open(arg_pager_flags);
+
+        if (arg_json)
+                r = table_print_json(table, stdout, (arg_json == JSON_PRETTY ? JSON_FORMAT_PRETTY : JSON_FORMAT_NEWLINE) | JSON_FORMAT_COLOR_AUTO);
+        else
+                r = table_print(table, stdout);
+        if (r < 0)
+                return log_error_errno(r, "Failed to show table: %m");
+
+
 
         return 0;
 }
