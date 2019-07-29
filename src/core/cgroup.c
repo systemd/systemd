@@ -202,10 +202,15 @@ void cgroup_context_done(CGroupContext *c) {
 
         c->ip_filters_ingress = strv_free(c->ip_filters_ingress);
         c->ip_filters_egress = strv_free(c->ip_filters_egress);
+
+        cpu_set_reset(&c->cpuset_cpus);
+        cpu_set_reset(&c->cpuset_mems);
 }
 
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         _cleanup_free_ char *disable_controllers_str = NULL;
+        _cleanup_free_ char *cpuset_cpus = NULL;
+        _cleanup_free_ char *cpuset_mems = NULL;
         CGroupIODeviceLimit *il;
         CGroupIODeviceWeight *iw;
         CGroupIODeviceLatency *l;
@@ -224,6 +229,9 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
 
         (void) cg_mask_to_string(c->disable_controllers, &disable_controllers_str);
 
+        cpuset_cpus = cpu_set_to_range_string(&c->cpuset_cpus);
+        cpuset_mems = cpu_set_to_range_string(&c->cpuset_mems);
+
         fprintf(f,
                 "%sCPUAccounting=%s\n"
                 "%sIOAccounting=%s\n"
@@ -237,6 +245,8 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sStartupCPUShares=%" PRIu64 "\n"
                 "%sCPUQuotaPerSecSec=%s\n"
                 "%sCPUQuotaPeriodSec=%s\n"
+                "%sAllowedCPUs=%s\n"
+                "%sAllowedMemoryNodes=%s\n"
                 "%sIOWeight=%" PRIu64 "\n"
                 "%sStartupIOWeight=%" PRIu64 "\n"
                 "%sBlockIOWeight=%" PRIu64 "\n"
@@ -265,6 +275,8 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->startup_cpu_shares,
                 prefix, format_timespan(u, sizeof(u), c->cpu_quota_per_sec_usec, 1),
                 prefix, format_timespan(v, sizeof(v), c->cpu_quota_period_usec, 1),
+                prefix, cpuset_cpus,
+                prefix, cpuset_mems,
                 prefix, c->io_weight,
                 prefix, c->startup_io_weight,
                 prefix, c->blockio_weight,
@@ -796,6 +808,16 @@ static uint64_t cgroup_cpu_weight_to_shares(uint64_t weight) {
                      CGROUP_CPU_SHARES_MIN, CGROUP_CPU_SHARES_MAX);
 }
 
+static void cgroup_apply_unified_cpuset(Unit *u, CPUSet cpus, const char *name) {
+        _cleanup_free_ char *buf = NULL;
+
+        buf = cpu_set_to_range_string(&cpus);
+        if (!buf)
+            return;
+
+        (void) set_attribute_and_warn(u, "cpuset", name, buf);
+}
+
 static bool cgroup_context_has_io_config(CGroupContext *c) {
         return c->io_accounting ||
                 c->io_weight != CGROUP_WEIGHT_INVALID ||
@@ -1034,6 +1056,11 @@ static void cgroup_context_apply(
                         cgroup_apply_legacy_cpu_shares(u, shares);
                         cgroup_apply_legacy_cpu_quota(u, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
                 }
+        }
+
+        if ((apply_mask & CGROUP_MASK_CPUSET) && !is_local_root) {
+                cgroup_apply_unified_cpuset(u, c->cpuset_cpus, "cpuset.cpus");
+                cgroup_apply_unified_cpuset(u, c->cpuset_mems, "cpuset.mems");
         }
 
         /* The 'io' controller attributes are not exported on the host's root cgroup (being a pure cgroup v2
@@ -1407,6 +1434,9 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
             cgroup_context_has_cpu_shares(c) ||
             c->cpu_quota_per_sec_usec != USEC_INFINITY)
                 mask |= CGROUP_MASK_CPU;
+
+        if (c->cpuset_cpus.set || c->cpuset_mems.set)
+                mask |= CGROUP_MASK_CPUSET;
 
         if (cgroup_context_has_io_config(c) || cgroup_context_has_blockio_config(c))
                 mask |= CGROUP_MASK_IO | CGROUP_MASK_BLKIO;
@@ -3559,5 +3589,33 @@ static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] =
         [CGROUP_CLOSED] = "closed",
         [CGROUP_STRICT] = "strict",
 };
+
+int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
+        _cleanup_free_ char *v = NULL;
+        int r;
+
+        assert(u);
+        assert(cpus);
+
+        if (!u->cgroup_path)
+                return -ENODATA;
+
+        if ((u->cgroup_realized_mask & CGROUP_MASK_CPUSET) == 0)
+                return -ENODATA;
+
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENODATA;
+        if (r > 0)
+                r = cg_get_attribute("cpuset", u->cgroup_path, name, &v);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+
+        return parse_cpu_set_full(v, cpus, false, NULL, NULL, 0, NULL);
+}
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_device_policy, CGroupDevicePolicy);

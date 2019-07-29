@@ -215,6 +215,36 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>AllowedCPUs=</varname></term>
+
+        <listitem>
+          <para>Restrict processes to be executed on specific CPUs. Takes a list of CPU indices or ranges separated by either
+          whitespace or commas. CPU ranges are specified by the lower and upper CPU indices separated by a dash.</para>
+
+          <para>Setting <varname>AllowedCPUs=</varname> doesn't guarantee that all of the CPUs will be used by the processes
+          as it may be limited by parent units. The effective configuration is reported as <varname>EffectiveCPUs=</varname>.</para>
+
+          <para>This setting is supported only with the unified control group hierarchy.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AllowedMemoryNodes=</varname></term>
+
+        <listitem>
+          <para>Restrict processes to be executed on specific memory NUMA nodes. Takes a list of memory NUMA nodes indices
+          or ranges separated by either whitespace or commas. Memory NUMA nodes ranges are specified by the lower and upper
+          CPU indices separated by a dash.</para>
+
+          <para>Setting <varname>AllowedMemoryNodes=</varname> doesn't guarantee that all of the memory NUMA nodes will
+          be used by the processes as it may be limited by parent units. The effective configuration is reported as
+          <varname>EffectiveMemoryNodes=</varname>.</para>
+
+          <para>This setting is supported only with the unified control group hierarchy.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MemoryAccounting=</varname></term>
 
         <listitem>

@@ -435,6 +435,22 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
                 return bus_append_cg_cpu_shares_parse(m, field, eq);
 
+        if (STR_IN_SET(field, "AllowedCPUs", "AllowedMemoryNodes")) {
+                _cleanup_(cpu_set_reset) CPUSet cpuset = {};
+                _cleanup_free_ uint8_t *array = NULL;
+                size_t allocated;
+
+                r = parse_cpu_set(eq, &cpuset);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
+
+                r = cpu_set_to_dbus(&cpuset, &array, &allocated);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to serialize CPUSet: %m");
+
+                return bus_append_byte_array(m, field, array, allocated);
+        }
+
         if (STR_IN_SET(field, "BlockIOWeight", "StartupBlockIOWeight"))
 
                 return bus_append_cg_blkio_weight_parse(m, field, eq);

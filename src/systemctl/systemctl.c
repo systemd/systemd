@@ -5411,7 +5411,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 bus_print_property_value(name, expected_value, value, strempty(fields));
 
                         return 1;
-                } else if (contents[0] == SD_BUS_TYPE_BYTE && STR_IN_SET(name, "CPUAffinity", "NUMAMask")) {
+                } else if (contents[0] == SD_BUS_TYPE_BYTE && STR_IN_SET(name, "CPUAffinity", "NUMAMask", "AllowedCPUs", "AllowedMemoryNodes", "EffectiveCPUs", "EffectiveMemoryNodes")) {
                         _cleanup_free_ char *affinity = NULL;
                         _cleanup_(cpu_set_reset) CPUSet set = {};
                         const void *a;
