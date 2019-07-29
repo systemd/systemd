@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "cgroup-util.h"
+#include "cpu-set-util.h"
 #include "ip-address-access.h"
 #include "list.h"
 #include "time-util.h"
@@ -76,6 +77,9 @@ struct CGroupContext {
         uint64_t cpu_weight;
         uint64_t startup_cpu_weight;
         usec_t cpu_quota_per_sec_usec;
+
+        CPUSet cpuset_cpus;
+        CPUSet cpuset_mems;
 
         uint64_t io_weight;
         uint64_t startup_io_weight;
@@ -205,3 +209,4 @@ const char* cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
 CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;
 
 bool unit_cgroup_delegate(Unit *u);
+int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name);
