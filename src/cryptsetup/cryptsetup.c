@@ -81,7 +81,10 @@ static int parse_one_option(const char *option) {
         assert(option);
 
         /* Handled outside of this tool */
-        if (STR_IN_SET(option, "noauto", "auto", "nofail", "fail", "_netdev"))
+        if (STR_IN_SET(option, "noauto", "auto", "nofail", "fail", "_netdev", "keyfile-timeout"))
+                return 0;
+
+        if (startswith(option, "keyfile-timeout="))
                 return 0;
 
         if ((val = startswith(option, "cipher="))) {
