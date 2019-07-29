@@ -3881,7 +3881,7 @@ int exec_spawn(Unit *unit,
                 if (r < 0) {
                         const char *status =
                                 exit_status_to_string(exit_status,
-                                                      EXIT_STATUS_GLIBC | EXIT_STATUS_SYSTEMD);
+                                                      EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD);
 
                         log_struct_errno(LOG_ERR, r,
                                          "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
