@@ -149,7 +149,8 @@ Features:
   non-zero "tries done" count
 
 * maybe set a special xattr on cgroups that have delegate=yes set, to make it
-  easy to mark cut points
+  easy to mark cut points, then use this information in "systemd-cgls" to show
+  them (e.g. color delegated subtrees in a different color)
 
 * introduce an option (or replacement) for "systemctl show" that outputs all
   properties as JSON, similar to busctl's new JSON output. In contrast to that
