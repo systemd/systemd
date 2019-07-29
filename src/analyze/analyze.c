@@ -2217,7 +2217,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  dump                     Output state serialization of service manager\n"
                "  cat-config               Show configuration file and drop-ins\n"
                "  unit-paths               List load directories for units\n"
-               "  exit-status              List exit status definitions\n"
+               "  exit-status [STATUS...]  List exit status definitions\n"
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
                "  condition CONDITION...   Evaluate conditions and asserts\n"
                "  verify FILE...           Check unit files for correctness\n"
