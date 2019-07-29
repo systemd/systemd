@@ -393,6 +393,16 @@ CHANGES WITH 243 in spe:
 
           https://systemd.io/RANDOM_SEEDS
 
+        * When the system is hibernated the swap device to write the
+          hibernation image to is now automatically picked from all available
+          swap devices, preferring the swap device with the highest configured
+          priority over all others, and picking the device with the most free
+          space if there are multiple devices with the highest priority.
+
+        * /etc/crypttab support has learnt a new keyfile-timeout= per-device
+          option that permits selecting the timout how long to wait for a
+          device with an encryption key before asking for the password.
+
         Contributions from: Aaron Barany, Adrian Bunk, Alan Jenkins, Andrej
         Valek, Anita Zhang, Arian van Putten, Balint Reczey, Bastien Nocera,
         Ben Boeckel, Benjamin Robin, camoz, Chen Qi, Chris Chiu, Chris Down,
@@ -412,11 +422,11 @@ CHANGES WITH 243 in spe:
         Mike Gilbert, Milan Broz, mpe85, Network Silence, Oliver Harley,
         pan93412, Paul Menzel, pEJipE, Peter A. Bigot, Philip Withnall, Piotr
         Drąg, Rafael Fontenelle, Roberto Santalla, root, RussianNeuroMancer,
-        Sebastian Jennen, Shreyas Behera, Simon Schricker, Susant Sahani,
-        Thadeu Lima de Souza Cascardo, Theo Ouzhinski, Thomas Haller, Thomas
-        Weißschuh, Tomas Mraz, Topi Miettinen, ven, Wieland Hoffmann, Xi
-        Ruoyao, Yuri Chornoivan, Yu Watanabe, Zach Smith, Zbigniew
-        Jędrzejewski-Szmek, Zhang Xianwei
+        Sebastian Jennen, shinygold, Shreyas Behera, Simon Schricker, Susant
+        Sahani, Thadeu Lima de Souza Cascardo, Theo Ouzhinski, Thiebaud
+        Weksteen, Thomas Haller, Thomas Weißschuh, Tomas Mraz, Topi Miettinen,
+        ven, Wieland Hoffmann, Xi Ruoyao, Yuri Chornoivan, Yu Watanabe, Zach
+        Smith, Zbigniew Jędrzejewski-Szmek, Zhang Xianwei
 
         – Somewhere, SOME-TI-ME
 
