@@ -1275,7 +1275,7 @@ static int link_status_one(
                         r = table_add_many(table,
                                            TABLE_EMPTY,
                                            TABLE_STRING, "Speed:",
-                                           TABLE_BPS, info->speed);
+                                           TABLE_BPS, (uint64_t) info->speed);
                         if (r < 0)
                                 return r;
                 }
