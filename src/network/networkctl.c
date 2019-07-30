@@ -107,20 +107,6 @@ static void setup_state_to_color(const char *state, const char **on, const char 
                 *on = *off = "";
 }
 
-typedef struct VxLanInfo {
-        uint32_t vni;
-        uint32_t link;
-
-        int local_family;
-        int group_family;
-
-        union in_addr_union local;
-        union in_addr_union group;
-
-        uint16_t dest_port;
-
-} VxLanInfo;
-
 typedef struct LinkInfo {
         char name[IFNAMSIZ+1];
         char netdev_kind[NETDEV_KIND_MAX];
@@ -149,9 +135,6 @@ typedef struct LinkInfo {
         uint32_t stp_state;
         uint16_t priority;
         uint8_t mcast_igmp_version;
-
-        /* vxlan info */
-        VxLanInfo vxlan_info;
 
         /* ethtool info */
         int autonegotiation;
@@ -199,30 +182,6 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                 (void) sd_netlink_message_read_u32(m, IFLA_BR_STP_STATE, &info->stp_state);
                 (void) sd_netlink_message_read_u16(m, IFLA_BR_PRIORITY, &info->priority);
                 (void) sd_netlink_message_read_u8(m, IFLA_BR_MCAST_IGMP_VERSION, &info->mcast_igmp_version);
-
-        } else if (streq(received_kind, "vxlan")) {
-                (void) sd_netlink_message_read_u32(m, IFLA_VXLAN_ID, &info->vxlan_info.vni);
-
-                r = sd_netlink_message_read_in_addr(m, IFLA_VXLAN_GROUP, &info->vxlan_info.group.in);
-                if (r >= 0)
-                        info->vxlan_info.group_family = AF_INET;
-                else {
-                        r = sd_netlink_message_read_in6_addr(m, IFLA_VXLAN_GROUP6, &info->vxlan_info.group.in6);
-                        if (r >= 0)
-                                info->vxlan_info.group_family = AF_INET6;
-                }
-
-                r = sd_netlink_message_read_in_addr(m, IFLA_VXLAN_LOCAL, &info->vxlan_info.local.in);
-                if (r >= 0)
-                        info->vxlan_info.local_family = AF_INET;
-                else {
-                        r = sd_netlink_message_read_in6_addr(m, IFLA_VXLAN_LOCAL6, &info->vxlan_info.local.in6);
-                        if (r >= 0)
-                                info->vxlan_info.local_family = AF_INET6;
-                }
-
-                (void) sd_netlink_message_read_u32(m, IFLA_VXLAN_LINK, &info->vxlan_info.link);
-                (void) sd_netlink_message_read_u16(m, IFLA_VXLAN_PORT, &info->vxlan_info.dest_port);
         }
 
         strncpy(info->netdev_kind, received_kind, IFNAMSIZ);
@@ -1182,54 +1141,6 @@ static int link_status_one(
                                    TABLE_UINT8, info->mcast_igmp_version);
                 if (r < 0)
                         return r;
-
-        } else if (streq_ptr(info->netdev_kind, "vxlan")) {
-                if (info->vxlan_info.vni > 0) {
-                        r = table_add_many(table,
-                                           TABLE_EMPTY,
-                                           TABLE_STRING, "VNI:",
-                                           TABLE_UINT32, info->vxlan_info.vni);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (IN_SET(info->vxlan_info.group_family, AF_INET, AF_INET6)) {
-                        r = table_add_many(table,
-                                           TABLE_EMPTY,
-                                           TABLE_STRING, "Group:",
-                                           info->vxlan_info.group_family == AF_INET ? TABLE_IN_ADDR : TABLE_IN6_ADDR,
-                                           &info->vxlan_info.group);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (IN_SET(info->vxlan_info.local_family, AF_INET, AF_INET6)) {
-                        r = table_add_many(table,
-                                           TABLE_EMPTY,
-                                           TABLE_STRING, "Local:",
-                                           info->vxlan_info.local_family == AF_INET ? TABLE_IN_ADDR : TABLE_IN6_ADDR,
-                                           &info->vxlan_info.local);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (info->vxlan_info.dest_port > 0) {
-                        r = table_add_many(table,
-                                           TABLE_EMPTY,
-                                           TABLE_STRING, "Destination Port:",
-                                           TABLE_UINT16, be16toh(info->vxlan_info.dest_port));
-                        if (r < 0)
-                                return r;
-                }
-
-                if (info->vxlan_info.link > 0) {
-                        r = table_add_many(table,
-                                           TABLE_EMPTY,
-                                           TABLE_STRING, "Underlying Device:",
-                                           TABLE_IFINDEX, info->vxlan_info.link);
-                        if (r < 0)
-                                 return r;
-                }
         }
 
         if (info->has_bitrates) {
