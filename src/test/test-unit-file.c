@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "path-lookup.h"
+#include "set.h"
 #include "strv.h"
 #include "tests.h"
 #include "unit-file.h"
@@ -24,7 +25,7 @@ static void test_unit_validate_alias_symlink_and_warn(void) {
         assert_se(unit_validate_alias_symlink_and_warn("/path/a.slice", "/other/b.slice") == -EINVAL);
 }
 
-static void test_unit_file_build_name_map(void) {
+static void test_unit_file_build_name_map(char **ids) {
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_hashmap_free_ Hashmap *unit_ids = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_names = NULL;
@@ -53,13 +54,32 @@ static void test_unit_file_build_name_map(void) {
         assert_se(IN_SET(r, 0, 1));
         if (r == 0)
                 log_debug("Cache rebuild skipped based on mtime.");
+
+
+        char **id;
+        STRV_FOREACH(id, ids) {
+                 const char *fragment, *name;
+                 Iterator it;
+                 _cleanup_set_free_free_ Set *names = NULL;
+                 log_info("*** %s ***", *id);
+                 r = unit_file_find_fragment(unit_ids,
+                                             unit_names,
+                                             *id,
+                                             &fragment,
+                                             &names);
+                 assert(r == 0);
+                 log_info("fragment: %s", fragment);
+                 log_info("names:");
+                 SET_FOREACH(name, names, it)
+                         log_info("    %s", name);
+        }
 }
 
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
         test_unit_validate_alias_symlink_and_warn();
-        test_unit_file_build_name_map();
+        test_unit_file_build_name_map(strv_skip(argv, 1));
 
         return 0;
 }
