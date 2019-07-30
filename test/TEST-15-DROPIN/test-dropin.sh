@@ -109,10 +109,148 @@ test_template_dropins () {
 
     create_services foo bar@ yup@
 
+    # Declare some deps to check if the body was loaded
+    cat >>/etc/systemd/system/bar@.service <<EOF
+[Unit]
+After=bar-template-after.device
+EOF
+
+    cat >>/etc/systemd/system/yup@.service <<EOF
+[Unit]
+After=yup-template-after.device
+EOF
+
     ln -s /etc/systemd/system/bar@.service /etc/systemd/system/foo.service.wants/bar@1.service
     check_ok foo Wants bar@1.service
 
-    clear_services foo bar@ yup@
+    echo "*** test bar-alias@.service→bar@.service, but instance symlinks point to yup@.service ***"
+    ln -s bar@.service  /etc/systemd/system/bar-alias@.service
+    ln -s bar@1.service /etc/systemd/system/bar-alias@1.service
+    ln -s yup@.service  /etc/systemd/system/bar-alias@2.service
+    ln -s yup@3.service /etc/systemd/system/bar-alias@3.service
+
+    # create some dropin deps
+    mkdir -p /etc/systemd/system/bar@{,0,1,2,3}.service.requires/
+    mkdir -p /etc/systemd/system/yup@{,0,1,2,3}.service.requires/
+    mkdir -p /etc/systemd/system/bar-alias@{,0,1,2,3}.service.requires/
+
+    ln -s ../bar-template-requires.device /etc/systemd/system/bar@.service.requires/
+    ln -s ../bar-0-requires.device /etc/systemd/system/bar@0.service.requires/
+    ln -s ../bar-1-requires.device /etc/systemd/system/bar@1.service.requires/
+    ln -s ../bar-2-requires.device /etc/systemd/system/bar@2.service.requires/
+    ln -s ../bar-3-requires.device /etc/systemd/system/bar@3.service.requires/
+
+    ln -s ../yup-template-requires.device /etc/systemd/system/yup@.service.requires/
+    ln -s ../yup-0-requires.device /etc/systemd/system/yup@0.service.requires/
+    ln -s ../yup-1-requires.device /etc/systemd/system/yup@1.service.requires/
+    ln -s ../yup-2-requires.device /etc/systemd/system/yup@2.service.requires/
+    ln -s ../yup-3-requires.device /etc/systemd/system/yup@3.service.requires/
+
+    ln -s ../bar-alias-template-requires.device /etc/systemd/system/bar-alias@.service.requires/
+    ln -s ../bar-alias-0-requires.device /etc/systemd/system/bar-alias@0.service.requires/
+    ln -s ../bar-alias-1-requires.device /etc/systemd/system/bar-alias@1.service.requires/
+    ln -s ../bar-alias-2-requires.device /etc/systemd/system/bar-alias@2.service.requires/
+    ln -s ../bar-alias-3-requires.device /etc/systemd/system/bar-alias@3.service.requires/
+
+    systemctl daemon-reload
+
+    echo '*** bar@0 is aliased by bar-alias@0 ***'
+    systemctl show -p Names,Requires bar@0
+    systemctl show -p Names,Requires bar-alias@0
+    check_ok bar@0 Names bar@0
+    check_ko bar@0 Names bar-alias@0
+
+    check_ok bar@0 After bar-template-after.device
+
+    check_ok bar@0 Requires bar-0-requires.device
+    check_ko bar@0 Requires bar-alias-0-requires.device
+    check_ok bar@0 Requires bar-template-requires.device
+    check_ko bar@0 Requires bar-alias-template-requires.device
+    check_ko bar@0 Requires yup-template-requires.device
+
+    check_ok bar-alias@0 After bar-template-after.device
+
+    check_ok bar-alias@0 Requires bar-0-requires.device
+    check_ok bar-alias@0 Requires bar-alias-0-requires.device
+    check_ok bar-alias@0 Requires bar-template-requires.device
+    check_ok bar-alias@0 Requires bar-alias-template-requires.device
+    check_ko bar-alias@0 Requires yup-template-requires.device
+    check_ko bar-alias@0 Requires yup-0-requires.device
+
+    echo '*** bar@1 is aliased by bar-alias@1 ***'
+    systemctl show -p Names,Requires bar@1
+    systemctl show -p Names,Requires bar-alias@1
+    check_ok bar@1 Names bar@1
+    check_ko bar@1 Names bar-alias@1
+
+    check_ok bar@1 After bar-template-after.device
+
+    check_ok bar@1 Requires bar-1-requires.device
+    check_ko bar@1 Requires bar-alias-1-requires.device
+    check_ok bar@1 Requires bar-template-requires.device
+    # See https://github.com/systemd/systemd/pull/13119#discussion_r308145418
+    check_ko bar@1 Requires bar-alias-template-requires.device
+    check_ko bar@1 Requires yup-template-requires.device
+    check_ko bar@1 Requires yup-1-requires.device
+
+    check_ok bar-alias@1 After bar-template-after.device
+
+    check_ok bar-alias@1 Requires bar-1-requires.device
+    check_ok bar-alias@1 Requires bar-alias-1-requires.device
+    check_ok bar-alias@1 Requires bar-template-requires.device
+    check_ok bar-alias@1 Requires bar-alias-template-requires.device
+    check_ko bar-alias@1 Requires yup-template-requires.device
+    check_ko bar-alias@1 Requires yup-1-requires.device
+
+    echo '*** bar-alias@2 aliases yup@2, bar@2 is independent ***'
+    systemctl show -p Names,Requires bar@2
+    systemctl show -p Names,Requires bar-alias@2
+    check_ok bar@2 Names bar@2
+    check_ko bar@2 Names bar-alias@2
+
+    check_ok bar@2 After bar-template-after.device
+
+    check_ok bar@2 Requires bar-2-requires.device
+    check_ko bar@2 Requires bar-alias-2-requires.device
+    check_ok bar@2 Requires bar-template-requires.device
+    check_ko bar@2 Requires bar-alias-template-requires.device
+    check_ko bar@2 Requires yup-template-requires.device
+    check_ko bar@2 Requires yup-2-requires.device
+
+    check_ko bar-alias@2 After bar-template-after.device
+
+    check_ko bar-alias@2 Requires bar-2-requires.device
+    check_ok bar-alias@2 Requires bar-alias-2-requires.device
+    check_ko bar-alias@2 Requires bar-template-requires.device
+    check_ok bar-alias@2 Requires bar-alias-template-requires.device
+    check_ok bar-alias@2 Requires yup-template-requires.device
+    check_ok bar-alias@2 Requires yup-2-requires.device
+
+    echo '*** bar-alias@3 aliases yup@3, bar@3 is independent ***'
+    systemctl show -p Names,Requires bar@3
+    systemctl show -p Names,Requires bar-alias@3
+    check_ok bar@3 Names bar@3
+    check_ko bar@3 Names bar-alias@3
+
+    check_ok bar@3 After bar-template-after.device
+
+    check_ok bar@3 Requires bar-3-requires.device
+    check_ko bar@3 Requires bar-alias-3-requires.device
+    check_ok bar@3 Requires bar-template-requires.device
+    check_ko bar@3 Requires bar-alias-template-requires.device
+    check_ko bar@3 Requires yup-template-requires.device
+    check_ko bar@3 Requires yup-3-requires.device
+
+    check_ok bar-alias@3 After bar-template-after.device
+
+    check_ok bar-alias@3 Requires bar-3-requires.device
+    check_ok bar-alias@3 Requires bar-alias-3-requires.device
+    check_ok bar-alias@3 Requires bar-template-requires.device
+    check_ok bar-alias@3 Requires bar-alias-template-requires.device
+    check_ko bar-alias@3 Requires yup-template-requires.device
+    check_ko bar-alias@3 Requires yup-3-requires.device
+
+    clear_services foo {bar,yup,bar-alias}@{,1,2,3}
 }
 
 test_alias_dropins () {
