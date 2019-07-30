@@ -471,7 +471,12 @@ static void test_exec_restrictnamespaces(Manager *m) {
 }
 
 static void test_exec_systemcallfilter_system(Manager *m) {
-#if HAVE_SECCOMP
+/* Skip this particular test case when running under ASan, as
+ * LSan intermittently segfaults when accessing memory right
+ * after the test finishes. Generally, ASan & LSan don't like
+ * the seccomp stuff.
+ */
+#if HAVE_SECCOMP && !HAS_FEATURE_ADDRESS_SANITIZER
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
