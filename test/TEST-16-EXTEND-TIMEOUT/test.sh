@@ -30,11 +30,11 @@ test_setup() {
         setup_testsuite
     )
     # mask some services that we do not want to run in these tests
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.service
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-resolved.service
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.service
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
 
     setup_nspawn_root
 }
