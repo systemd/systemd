@@ -47,9 +47,6 @@
 #include "terminal-util.h"
 #include "verbs.h"
 
-/* Kernel defines MODULE_NAME_LEN as 64 - sizeof(unsigned long). So, 64 is enough. */
-#define NETDEV_KIND_MAX 64
-
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_all = false;
@@ -109,7 +106,6 @@ static void setup_state_to_color(const char *state, const char **on, const char 
 
 typedef struct LinkInfo {
         char name[IFNAMSIZ+1];
-        char netdev_kind[NETDEV_KIND_MAX];
         int ifindex;
         unsigned short iftype;
         struct ether_addr mac_address;
@@ -126,15 +122,6 @@ typedef struct LinkInfo {
 
         uint64_t tx_bitrate;
         uint64_t rx_bitrate;
-
-        /* bridge info */
-        uint32_t forward_delay;
-        uint32_t hello_time;
-        uint32_t max_age;
-        uint32_t ageing_time;
-        uint32_t stp_state;
-        uint16_t priority;
-        uint8_t mcast_igmp_version;
 
         /* ethtool info */
         int autonegotiation;
@@ -155,47 +142,10 @@ static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
         return CMP(a->ifindex, b->ifindex);
 }
 
-static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
-        const char *received_kind;
-        int r;
-
-        assert(m);
-        assert(info);
-
-        r = sd_netlink_message_enter_container(m, IFLA_LINKINFO);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_read_string(m, IFLA_INFO_KIND, &received_kind);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_enter_container(m, IFLA_INFO_DATA);
-        if (r < 0)
-                return r;
-
-        if (streq(received_kind, "bridge")) {
-                (void) sd_netlink_message_read_u32(m, IFLA_BR_FORWARD_DELAY, &info->forward_delay);
-                (void) sd_netlink_message_read_u32(m, IFLA_BR_HELLO_TIME, &info->hello_time);
-                (void) sd_netlink_message_read_u32(m, IFLA_BR_MAX_AGE, &info->max_age);
-                (void) sd_netlink_message_read_u32(m, IFLA_BR_AGEING_TIME, &info->ageing_time);
-                (void) sd_netlink_message_read_u32(m, IFLA_BR_STP_STATE, &info->stp_state);
-                (void) sd_netlink_message_read_u16(m, IFLA_BR_PRIORITY, &info->priority);
-                (void) sd_netlink_message_read_u8(m, IFLA_BR_MCAST_IGMP_VERSION, &info->mcast_igmp_version);
-        }
-
-        strncpy(info->netdev_kind, received_kind, IFNAMSIZ);
-
-        (void) sd_netlink_message_exit_container(m);
-        (void) sd_netlink_message_exit_container(m);
-
-        return 0;
-}
-
 static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
         const char *name;
-        int ifindex, r;
         uint16_t type;
+        int ifindex, r;
 
         assert(m);
         assert(info);
@@ -251,9 +201,6 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
                 info->has_stats64 = true;
         else if (sd_netlink_message_read(m, IFLA_STATS, sizeof info->stats, &info->stats) >= 0)
                 info->has_stats = true;
-
-        /* fill kind info */
-        (void) decode_netdev(m, info);
 
         return 1;
 }
@@ -1112,33 +1059,6 @@ static int link_status_one(
                                            info->max_mtu > 0 ? "max: " : "",
                                            info->max_mtu > 0 ? max_str : "",
                                            info->min_mtu > 0 || info->max_mtu > 0 ? ")" : "");
-                if (r < 0)
-                        return r;
-        }
-
-        if (streq_ptr(info->netdev_kind, "bridge")) {
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "Forward Delay:",
-                                   TABLE_TIMESPAN_MSEC, jiffies_to_usec(info->forward_delay),
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "Hello Time:",
-                                   TABLE_TIMESPAN_MSEC, jiffies_to_usec(info->hello_time),
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "Max Age:",
-                                   TABLE_TIMESPAN_MSEC, jiffies_to_usec(info->max_age),
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "Ageing Time:",
-                                   TABLE_TIMESPAN_MSEC, jiffies_to_usec(info->ageing_time),
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "Priority:",
-                                   TABLE_UINT16, info->priority,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "STP:",
-                                   TABLE_BOOLEAN, info->stp_state > 0,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "Multicast IGMP Version:",
-                                   TABLE_UINT8, info->mcast_igmp_version);
                 if (r < 0)
                         return r;
         }
