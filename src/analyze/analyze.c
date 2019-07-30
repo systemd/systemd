@@ -1546,6 +1546,53 @@ static int get_or_set_log_target(int argc, char *argv[], void *userdata) {
         return (argc == 1) ? get_log_target(argc, argv, userdata) : set_log_target(argc, argv, userdata);
 }
 
+static bool strv_fnmatch_strv_or_empty(char* const* patterns, char **strv, int flags) {
+        char **s;
+        STRV_FOREACH(s, strv)
+                if (strv_fnmatch_or_empty(patterns, *s, flags))
+                        return true;
+
+        return false;
+}
+
+static int do_unit_files(int argc, char *argv[], void *userdata) {
+        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_hashmap_free_ Hashmap *unit_ids = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_names = NULL;
+        char **patterns = strv_skip(argv, 1);
+        Iterator i;
+        const char *k, *dst;
+        char **v;
+        int r;
+
+        r = lookup_paths_init(&lp, arg_scope, 0, NULL);
+        if (r < 0)
+                return log_error_errno(r, "lookup_paths_init() failed: %m");
+
+        r = unit_file_build_name_map(&lp, NULL, &unit_ids, &unit_names, NULL);
+        if (r < 0)
+                return log_error_errno(r, "unit_file_build_name_map() failed: %m");
+
+        HASHMAP_FOREACH_KEY(dst, k, unit_ids, i) {
+                if (!strv_fnmatch_or_empty(patterns, k, FNM_NOESCAPE) &&
+                    !strv_fnmatch_or_empty(patterns, dst, FNM_NOESCAPE))
+                        continue;
+
+                printf("ids: %s → %s\n", k, dst);
+        }
+
+        HASHMAP_FOREACH_KEY(v, k, unit_names, i) {
+                if (!strv_fnmatch_or_empty(patterns, k, FNM_NOESCAPE) &&
+                    !strv_fnmatch_strv_or_empty(patterns, v, FNM_NOESCAPE))
+                        continue;
+
+                _cleanup_free_ char *j = strv_join(v, ", ");
+                printf("aliases: %s ← %s\n", k, j);
+        }
+
+        return 0;
+}
+
 static int dump_unit_paths(int argc, char *argv[], void *userdata) {
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         int r;
@@ -2216,6 +2263,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  log-target [TARGET]      Get/set logging target for manager\n"
                "  dump                     Output state serialization of service manager\n"
                "  cat-config               Show configuration file and drop-ins\n"
+               "  unit-files               List files and symlinks for units\n"
                "  unit-paths               List load directories for units\n"
                "  exit-status [STATUS...]  List exit status definitions\n"
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
@@ -2419,8 +2467,10 @@ static int run(int argc, char *argv[]) {
                 { "get-log-level",     VERB_ANY, 1,        0,            get_log_level          },
                 { "set-log-target",    2,        2,        0,            set_log_target         },
                 { "get-log-target",    VERB_ANY, 1,        0,            get_log_target         },
+
                 { "dump",              VERB_ANY, 1,        0,            dump                   },
                 { "cat-config",        2,        VERB_ANY, 0,            cat_config             },
+                { "unit-files",        VERB_ANY, VERB_ANY, 0,            do_unit_files          },
                 { "unit-paths",        1,        1,        0,            dump_unit_paths        },
                 { "exit-status",       VERB_ANY, VERB_ANY, 0,            dump_exit_status       },
                 { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },

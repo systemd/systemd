@@ -2723,7 +2723,7 @@ int unit_file_lookup_state(
                 break;
 
         default:
-                assert_not_reached("Unexpect unit file type.");
+                assert_not_reached("Unexpected unit file type.");
         }
 
         *ret = state;

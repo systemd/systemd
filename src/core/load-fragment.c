@@ -4555,251 +4555,48 @@ int config_parse_ip_filter_bpf_progs(
         return 0;
 }
 
-#define FOLLOW_MAX 8
-
-static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
-        char *id = NULL;
-        unsigned c = 0;
-        int fd, r;
-        FILE *f;
-
-        assert(filename);
-        assert(*filename);
-        assert(_f);
-        assert(names);
-
-        /* This will update the filename pointer if the loaded file is
-         * reached by a symlink. The old string will be freed. */
-
-        for (;;) {
-                char *target, *name;
-
-                if (c++ >= FOLLOW_MAX)
-                        return -ELOOP;
-
-                path_simplify(*filename, false);
-
-                /* Add the file name we are currently looking at to
-                 * the names of this unit, but only if it is a valid
-                 * unit name. */
-                name = basename(*filename);
-                if (unit_name_is_valid(name, UNIT_NAME_ANY)) {
-
-                        id = set_get(names, name);
-                        if (!id) {
-                                id = strdup(name);
-                                if (!id)
-                                        return -ENOMEM;
-
-                                r = set_consume(names, id);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-
-                /* Try to open the file name, but don't if its a symlink */
-                fd = open(*filename, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-                if (fd >= 0)
-                        break;
-
-                if (errno != ELOOP)
-                        return -errno;
-
-                /* Hmm, so this is a symlink. Let's read the name, and follow it manually */
-                r = readlink_and_make_absolute(*filename, &target);
-                if (r < 0)
-                        return r;
-
-                free_and_replace(*filename, target);
-        }
-
-        f = fdopen(fd, "r");
-        if (!f) {
-                safe_close(fd);
-                return -errno;
-        }
-
-        *_f = f;
-        *_final = id;
-
-        return 0;
-}
-
 static int merge_by_names(Unit **u, Set *names, const char *id) {
         char *k;
         int r;
 
         assert(u);
         assert(*u);
-        assert(names);
 
-        /* Let's try to add in all symlink names we found */
+        /* Let's try to add in all names that are aliases of this unit */
         while ((k = set_steal_first(names))) {
+                _cleanup_free_ _unused_ char *free_k = k;
 
-                /* First try to merge in the other name into our
-                 * unit */
+                /* First try to merge in the other name into our unit */
                 r = unit_merge_by_name(*u, k);
                 if (r < 0) {
                         Unit *other;
 
-                        /* Hmm, we couldn't merge the other unit into
-                         * ours? Then let's try it the other way
-                         * round */
+                        /* Hmm, we couldn't merge the other unit into ours? Then let's try it the other way
+                         * round. */
 
-                        /* If the symlink name we are looking at is unit template, then
-                           we must search for instance of this template */
-                        if (unit_name_is_valid(k, UNIT_NAME_TEMPLATE) && (*u)->instance) {
-                                _cleanup_free_ char *instance = NULL;
+                        other = manager_get_unit((*u)->manager, k);
+                        if (!other)
+                                return r; /* return previous failure */
 
-                                r = unit_name_replace_instance(k, (*u)->instance, &instance);
-                                if (r < 0)
-                                        return r;
+                        r = unit_merge(other, *u);
+                        if (r < 0)
+                                return r;
 
-                                other = manager_get_unit((*u)->manager, instance);
-                        } else
-                                other = manager_get_unit((*u)->manager, k);
-
-                        free(k);
-
-                        if (other) {
-                                r = unit_merge(other, *u);
-                                if (r >= 0) {
-                                        *u = other;
-                                        return merge_by_names(u, names, NULL);
-                                }
-                        }
-
-                        return r;
+                        *u = other;
+                        return merge_by_names(u, names, NULL);
                 }
 
-                if (id == k)
+                if (streq_ptr(id, k))
                         unit_choose_id(*u, id);
-
-                free(k);
-        }
-
-        return 0;
-}
-
-static int load_from_path(Unit *u, const char *path) {
-        _cleanup_set_free_free_ Set *symlink_names = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *filename = NULL;
-        char *id = NULL;
-        Unit *merged;
-        struct stat st;
-        int r;
-
-        assert(u);
-        assert(path);
-
-        symlink_names = set_new(&string_hash_ops);
-        if (!symlink_names)
-                return -ENOMEM;
-
-        if (path_is_absolute(path)) {
-
-                filename = strdup(path);
-                if (!filename)
-                        return -ENOMEM;
-
-                r = open_follow(&filename, &f, symlink_names, &id);
-                if (r < 0) {
-                        filename = mfree(filename);
-                        if (r != -ENOENT)
-                                return r;
-                }
-
-        } else  {
-                char **p;
-
-                STRV_FOREACH(p, u->manager->lookup_paths.search_path) {
-
-                        /* Instead of opening the path right away, we manually
-                         * follow all symlinks and add their name to our unit
-                         * name set while doing so */
-                        filename = path_make_absolute(path, *p);
-                        if (!filename)
-                                return -ENOMEM;
-
-                        if (u->manager->unit_path_cache &&
-                            !set_get(u->manager->unit_path_cache, filename))
-                                r = -ENOENT;
-                        else
-                                r = open_follow(&filename, &f, symlink_names, &id);
-                        if (r >= 0)
-                                break;
-
-                        /* ENOENT means that the file is missing or is a dangling symlink.
-                         * ENOTDIR means that one of paths we expect to be is a directory
-                         * is not a directory, we should just ignore that.
-                         * EACCES means that the directory or file permissions are wrong.
-                         */
-                        if (r == -EACCES)
-                                log_debug_errno(r, "Cannot access \"%s\": %m", filename);
-                        else if (!IN_SET(r, -ENOENT, -ENOTDIR))
-                                return r;
-
-                        filename = mfree(filename);
-                        /* Empty the symlink names for the next run */
-                        set_clear_free(symlink_names);
-                }
-        }
-
-        if (!filename)
-                /* Hmm, no suitable file found? */
-                return 0;
-
-        if (!unit_type_may_alias(u->type) && set_size(symlink_names) > 1) {
-                log_unit_warning(u, "Unit type of %s does not support alias names, refusing loading via symlink.", u->id);
-                return -ELOOP;
-        }
-
-        merged = u;
-        r = merge_by_names(&merged, symlink_names, id);
-        if (r < 0)
-                return r;
-
-        if (merged != u) {
-                u->load_state = UNIT_MERGED;
-                return 0;
-        }
-
-        if (fstat(fileno(f), &st) < 0)
-                return -errno;
-
-        if (null_or_empty(&st)) {
-                u->load_state = UNIT_MASKED;
-                u->fragment_mtime = 0;
-        } else {
-                u->load_state = UNIT_LOADED;
-                u->fragment_mtime = timespec_load(&st.st_mtim);
-
-                /* Now, parse the file contents */
-                r = config_parse(u->id, filename, f,
-                                 UNIT_VTABLE(u)->sections,
-                                 config_item_perf_lookup, load_fragment_gperf_lookup,
-                                 CONFIG_PARSE_ALLOW_INCLUDE, u);
-                if (r < 0)
-                        return r;
-        }
-
-        free_and_replace(u->fragment_path, filename);
-
-        if (u->source_path) {
-                if (stat(u->source_path, &st) >= 0)
-                        u->source_mtime = timespec_load(&st.st_mtim);
-                else
-                        u->source_mtime = 0;
         }
 
         return 0;
 }
 
 int unit_load_fragment(Unit *u) {
+        const char *fragment;
+        _cleanup_set_free_free_ Set *names = NULL;
         int r;
-        Iterator i;
-        const char *t;
 
         assert(u);
         assert(u->load_state == UNIT_STUB);
@@ -4810,78 +4607,88 @@ int unit_load_fragment(Unit *u) {
                 return 0;
         }
 
-        /* First, try to find the unit under its id. We always look
-         * for unit files in the default directories, to make it easy
-         * to override things by placing things in /etc/systemd/system */
-        r = load_from_path(u, u->id);
+        /* Possibly rebuild the fragment map to catch new units */
+        r = unit_file_build_name_map(&u->manager->lookup_paths,
+                                     &u->manager->unit_cache_mtime,
+                                     &u->manager->unit_id_map,
+                                     &u->manager->unit_name_map,
+                                     &u->manager->unit_path_cache);
+        if (r < 0)
+                log_error_errno(r, "Failed to rebuild name map: %m");
+
+        r = unit_file_find_fragment(u->manager->unit_id_map,
+                                    u->manager->unit_name_map,
+                                    u->id,
+                                    &fragment,
+                                    &names);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        if (fragment) {
+                /* Open the file, check if this is a mask, otherwise read. */
+                _cleanup_fclose_ FILE *f = NULL;
+                struct stat st;
+
+                /* Try to open the file name. A symlink is OK, for example for linked files or masks. We
+                 * expect that all symlinks within the lookup paths have been already resolved, but we don't
+                 * verify this here. */
+                f = fopen(fragment, "re");
+                if (!f)
+                        return log_unit_notice_errno(u, errno, "Failed to open %s: %m", fragment);
+
+                if (fstat(fileno(f), &st) < 0)
+                        return -errno;
+
+                r = free_and_strdup(&u->fragment_path, fragment);
+                if (r < 0)
+                        return r;
+
+                if (null_or_empty(&st)) {
+                        u->load_state = UNIT_MASKED;
+                        u->fragment_mtime = 0;
+                } else {
+                        u->load_state = UNIT_LOADED;
+                        u->fragment_mtime = timespec_load(&st.st_mtim);
+
+                        /* Now, parse the file contents */
+                        r = config_parse(u->id, fragment, f,
+                                         UNIT_VTABLE(u)->sections,
+                                         config_item_perf_lookup, load_fragment_gperf_lookup,
+                                         CONFIG_PARSE_ALLOW_INCLUDE, u);
+                        if (r == -ENOEXEC)
+                                log_unit_notice_errno(u, r, "Unit configuration has fatal error, unit will not be started.");
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        /* We do the merge dance here because for some unit types, the unit might have aliases which are not
+         * declared in the file system. In particular, this is true (and frequent) for device and swap units.
+         */
+        Unit *merged;
+        const char *id = u->id;
+        _cleanup_free_ char *free_id = NULL;
+
+        if (fragment) {
+                id = basename(fragment);
+                if (unit_name_is_valid(id, UNIT_NAME_TEMPLATE)) {
+                        assert(u->instance); /* If we're not trying to use a template for non-instanced unit,
+                                              * this must be set. */
+
+                        r = unit_name_replace_instance(id, u->instance, &free_id);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to build id (%s + %s): %m", id, u->instance);
+                        id = free_id;
+                }
+        }
+
+        merged = u;
+        r = merge_by_names(&merged, names, id);
         if (r < 0)
                 return r;
 
-        /* Try to find an alias we can load this with */
-        if (u->load_state == UNIT_STUB) {
-                SET_FOREACH(t, u->names, i) {
-
-                        if (t == u->id)
-                                continue;
-
-                        r = load_from_path(u, t);
-                        if (r < 0)
-                                return r;
-
-                        if (u->load_state != UNIT_STUB)
-                                break;
-                }
-        }
-
-        /* And now, try looking for it under the suggested (originally linked) path */
-        if (u->load_state == UNIT_STUB && u->fragment_path) {
-
-                r = load_from_path(u, u->fragment_path);
-                if (r < 0)
-                        return r;
-
-                if (u->load_state == UNIT_STUB)
-                        /* Hmm, this didn't work? Then let's get rid
-                         * of the fragment path stored for us, so that
-                         * we don't point to an invalid location. */
-                        u->fragment_path = mfree(u->fragment_path);
-        }
-
-        /* Look for a template */
-        if (u->load_state == UNIT_STUB && u->instance) {
-                _cleanup_free_ char *k = NULL;
-
-                r = unit_name_template(u->id, &k);
-                if (r < 0)
-                        return r;
-
-                r = load_from_path(u, k);
-                if (r < 0) {
-                        if (r == -ENOEXEC)
-                                log_unit_notice(u, "Unit configuration has fatal error, unit will not be started.");
-                        return r;
-                }
-
-                if (u->load_state == UNIT_STUB) {
-                        SET_FOREACH(t, u->names, i) {
-                                _cleanup_free_ char *z = NULL;
-
-                                if (t == u->id)
-                                        continue;
-
-                                r = unit_name_template(t, &z);
-                                if (r < 0)
-                                        return r;
-
-                                r = load_from_path(u, z);
-                                if (r < 0)
-                                        return r;
-
-                                if (u->load_state != UNIT_STUB)
-                                        break;
-                        }
-                }
-        }
+        if (merged != u)
+                u->load_state = UNIT_MERGED;
 
         return 0;
 }

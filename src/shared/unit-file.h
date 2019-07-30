@@ -3,10 +3,13 @@
 
 #include <stdbool.h>
 
+#include "hashmap.h"
+#include "time-util.h"
 #include "unit-name.h"
 
 typedef enum UnitFileState UnitFileState;
 typedef enum UnitFileScope UnitFileScope;
+typedef struct LookupPaths LookupPaths;
 
 enum UnitFileState {
         UNIT_FILE_ENABLED,
@@ -35,3 +38,19 @@ enum UnitFileScope {
 
 bool unit_type_may_alias(UnitType type) _const_;
 bool unit_type_may_template(UnitType type) _const_;
+
+int unit_validate_alias_symlink_and_warn(const char *filename, const char *target);
+
+int unit_file_build_name_map(
+                const LookupPaths *lp,
+                usec_t *ret_time,
+                Hashmap **ret_unit_ids_map,
+                Hashmap **ret_unit_names_map,
+                Set **ret_path_cache);
+
+int unit_file_find_fragment(
+                Hashmap *unit_ids_map,
+                Hashmap *unit_name_map,
+                const char *unit_name,
+                const char **ret_fragment_path,
+                Set **names);

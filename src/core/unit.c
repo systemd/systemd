@@ -959,6 +959,9 @@ int unit_merge_by_name(Unit *u, const char *name) {
         Unit *other;
         int r;
 
+        /* Either add name to u, or if a unit with name already exists, merge it with u.
+         * If name is a template, do the same for name@instance, where instance is u's instance. */
+
         assert(u);
         assert(name);
 
