@@ -28,22 +28,22 @@ CHANGES WITH 243 in spe:
           killed. With this change behaviour is thus adjusted to match the
           documentation.
 
-        * The "kernel.pid_max" sysctl is now bumped to 4194304 by default,
-          i.e. the full 22bit range the kernel allows, up from the old 16bit
-          range. This should improve security and robustness a bit, as PID
-          collisions are made less likely (though certainly still
-          possible). There are rumours this might create compatibility
+        * On 64 bit systems, the "kernel.pid_max" sysctl is now bumped to
+          4194304 by default, i.e. the full 22bit range the kernel allows, up
+          from the old 16bit range. This should improve security and
+          robustness, as PID collisions are made less likely (though certainly
+          still possible). There are rumours this might create compatibility
           problems, though at this moment no practical ones are known to
           us. Downstream distributions are hence advised to undo this change in
           their builds if they are concerned about maximum compatibility, but
           for everybody else we recommend leaving the value bumped. Besides
           improving security and robustness this should also simplify things as
           the maximum number of allowed concurrent tasks was previously bounded
-          by both "kernel.pid_max" and "kernel.threads-max" and now only a
-          single knob is left ("kernel.threads-max"). There have been concerns
-          that usability is affected by this change because larger PID numbers
-          are harder to type, but we believe the change from 5 digit PIDs to 7
-          digit PIDs is not too hampering for usability.
+          by both "kernel.pid_max" and "kernel.threads-max" and now effectively
+          only a single knob is left ("kernel.threads-max"). There have been
+          concerns that usability is affected by this change because larger PID
+          numbers are harder to type, but we believe the change from 5 digits
+          to 7 digits doesn't hamper usability.
 
         * MemoryLow= and MemoryMin= gained hierarchy-aware counterparts,
           DefaultMemoryLow= and DefaultMemoryMin=, which can be used to
@@ -70,13 +70,13 @@ CHANGES WITH 243 in spe:
         * Man pages are not built by default anymore (html pages were already
           disabled by default), to make development builds quicker. When
           building systemd for a full installation with documentation, meson
-          should be called with -Dman=true and/or -Dhtml=true as
-          appropriate. The default was changed based on the assumption that
-          quick one-off or repeated development builds are much more common
-          than full optimized builds for installation, and people need to pass
-          various other options to when doing "proper" builds anyway, so the
-          gain from making development builds quicker is bigger than the one
-          time disruption for packagers.
+          should be called with -Dman=true and/or -Dhtml=true as appropriate.
+          The default was changed based on the assumption that quick one-off or
+          repeated development builds are much more common than full optimized
+          builds for installation, and people need to pass various other
+          options to when doing "proper" builds anyway, so the gain from making
+          development builds quicker is bigger than the one time disruption for
+          packagers.
 
           Two scripts are created in the *build* directory to generate and
           preview man and html pages on demand, e.g.:
@@ -85,7 +85,7 @@ CHANGES WITH 243 in spe:
           build/man/html systemd.index
 
         * libidn2 is used by default if both libidn2 and libidn are installed.
-          Please use -Dlibidn=true when libidn is favorable.
+          Please use -Dlibidn=true if libidn is preferred.
 
         * The D-Bus "wire format" of the CPUAffinity= attribute is changed on
           big-endian machines. Before, bytes were written and read in native
@@ -104,11 +104,6 @@ CHANGES WITH 243 in spe:
           format is 8191 (four digits), while the old format always used a very
           long number (with the length varying by architecture), so they can be
           unambiguously distinguished.
-
-        * SuccessExitStatus=, RestartPreventExitStatus=, and
-          RestartForceExitStatus= now accept exit status names (e.g. "DATAERR"
-          is equivalent to "65"). systemd-analyze learnt a new 'exit-status'
-          verb to display those exit status name mappings.
 
         * /usr/sbin/halt.local is no longer supported. Implementation in
           distributions was inconsistent and it seems this functionality was
@@ -151,7 +146,7 @@ CHANGES WITH 243 in spe:
 
         * Services may now send a special WATCHDOG=trigger message with
           sd_notify() to trigger an immediate "watchdog missed" event, and thus
-          request service take down. This is useful both for testing watchdog
+          trigger service termination. This is useful both for testing watchdog
           handling, but also for defining error paths in services, that shall
           be handled the same way as watchdog events.
 
@@ -196,13 +191,19 @@ CHANGES WITH 243 in spe:
         * systemd-resolved "Cache=" configuration option in resolved.conf has
           been extended to also accept the 'no-negative' value. Previously,
           only a boolean option was allowed (yes/no), having yes as the
-          default.  If this option is set to 'no-negative', negative answers
-          are skipped from being cached while keeping the same cache heuristics
-          for positive answers.  The default remains as "yes" (i.e. caching is
-          enabled).
+          default. If this option is set to 'no-negative', negative answers are
+          not cached while the old cache heuristics are used positive answers.
+          The default remains unchanged.
 
         * The predictable naming scheme for network devices now supports
           generating predictable names for "netdevsim" devices.
+
+          Moreover, the "en" prefix was dropped from the ID_NET_NAME_ONBOARD
+          udev property.
+
+          Those two changes form a new net.naming-policy-scheme= entry.
+          Distributions which want to preserve naming stability may want to set
+          the -Ddefault-net-naming-scheme= configuration option.
 
         * systemd-networkd now supports MACsec, nlmon, IPVTAP and Xfrm
           interfaces natively.
@@ -267,6 +268,9 @@ CHANGES WITH 243 in spe:
           SpeedMeterIntervalSec=, to measure bitrate of network interfaces. The
           measured speed may be shown by 'networkctl status'.
 
+        * "networkctl status" now displays MTU and queue lengths, and more
+          detailed information about VXLAN and bridge devices.
+
         * systemd-networkd's .network and .link files gained a new Property=
           setting in the [Match] section, to match against devices with
           specific udev properties.
@@ -281,39 +285,55 @@ CHANGES WITH 243 in spe:
 
         * A new tool systemd-network-generator has been added that may generate
           .network, .netdev and .link files from IP configuration specified on
-          the kernel command line, compatible with the format Dracut expects.
+          the kernel command line in the format used by Dracut.
 
         * The CriticalConnection= setting in .network files is now deprecated,
           and replaced by a new KeepConfiguration= setting which allows more
           detailed configuration of the IP configuration to keep in place.
 
-        * systemd-analyze gained a new "timestamp" verb for parsing and
-          converting timestamps. It's similar to the existing "systemd-analyze
-          calendar" command which does the same for recurring calendar
-          events. It also gained a new "condition" verb for parsing and testing
-          ConditionXYZ= expressions.
+        * systemd-analyze gained a few new verbs:
+
+          - "systemd-analyze timestamp" parses and converts timestamps. This is
+            similar to the existing "systemd-analyze calendar" command which
+            does the same for recurring calendar events.
+
+          - "systemd-analyze timespan" parses and converts timespans (i.e.
+            durations as opposed to points in time).
+
+          - "systemd-analyze condition" will parse and test ConditionXYZ=
+            expressions.
+
+          - "systemd-analyze exit-status" will parse and convert exit status
+            codes to their names and back.
+
+          - "systemd-analyze unit-files" will print a list of all unit
+            file paths and unit aliases.
+
+        * SuccessExitStatus=, RestartPreventExitStatus=, and
+          RestartForceExitStatus= now accept exit status names (e.g. "DATAERR"
+          is equivalent to "65"). Those exit status name mappings may be
+          displayed with the sytemd-analyze exit-status verb describe above.
 
         * systemd-logind now exposes a per-session SetBrightness() bus call,
           which may be used to securely change the brightness of a kernel
           brightness device, if it belongs to the session's seat. By using this
           call unprivileged clients can make changes to "backlight" and "leds"
-          devices securely with strict requirements on session
-          membership. Desktop environments may use this to generically make
-          brightness changes to such devices without shipping private SUID
-          binaries or specific udev rules for that purpose.
+          devices securely with strict requirements on session membership.
+          Desktop environments may use this to generically make brightness
+          changes to such devices without shipping private SUID binaries or
+          udev rules for that purpose.
 
         * "udevadm info" gained a --wait-for-initialization switch to wait for
           a device to be initialized.
 
         * systemd-hibernate-resume-generator will now look for resumeflags= on
           the kernel command line, which is similar to rootflags= and may be
-          used to configure device timeouts for waiting for the hibernation
-          device to show up.
+          used to configure device timeout for the hibernation device.
 
         * sd-event learnt a new API call sd_event_source_disable_unref() for
           disabling and unref'ing an event source in a single function. A
           related call sd_event_source_disable_unrefp() has been added for use
-          with GCC's cleanup extension.
+          with gcc's cleanup extension.
 
         * The sd-id128.h public API gained a new definition
           SD_ID128_UUID_FORMAT_STR for formatting a 128bit ID in UUID format
@@ -328,27 +348,26 @@ CHANGES WITH 243 in spe:
           kernel command line option systemd.status_unit_format=.
 
         * PID 1 now understands a new option KExecWatchdogSec= in
-          /etc/systemd/system.conf. It allows configuration of a watchdog
-          timeout to write to a hardware watchdog device on kexec-based
-          reboots. Previously this functionality was only available for regular
-          reboots. This option defaults to off, since it depends on drivers and
-          software setup whether the watchdog is correctly reset again after
-          the kexec completed, and thus for the general case not clear if safe
-          (since it might cause unwanted watchdog reboots after the kexec
-          completed otherwise). Moreover, the old ShutdownWatchdogSec= setting
-          has been renamed to RebootWatchdogSec= to more clearly communicate
-          what it is about. The old name of the setting is still accepted for
-          compatibility.
+          /etc/systemd/system.conf to set a watchdog timeout for kexec reboots.
+          Previously watchdog functionality was only available for regular
+          reboots. The new setting defaults to off, because we don't know in
+          the general case if the watchdog will be reset after kexec (some
+          drivers do reset it, but not all), and the new userspace might not be
+          configured to handle the watchdog.
+
+          Moreover, the old ShutdownWatchdogSec= setting has been renamed to
+          RebootWatchdogSec= to more clearly communicate what it is about. The
+          old name is still accepted for compatibility.
 
         * The systemd.debug_shell kernel command line option now optionally
-          takes a tty name to spawn the debug shell on, which allows selecting
-          a different tty than the built-in default.
+          takes a tty name to spawn the debug shell on, which allows a
+          different tty to be selected than the built-in default.
 
         * Service units gained a new ExecCondition= setting which will run
           before ExecStartPre= and either continue execution of the unit (for
           clean exit codes), stop execution without marking the unit failed
           (for exit codes 1 through 254), or stop execution and fail the unit
-          (for exit code 255 or cases of abnormal termination).
+          (for exit code 255 or abnormal termination).
 
         * A new service systemd-pstore.service has been added that pulls data
           from /sys/fs/pstore/ and saves it to /var/lib/pstore for later
@@ -368,25 +387,36 @@ CHANGES WITH 243 in spe:
           true for the service to enable this behaviour, but please consult the
           documentation first, since this comes with a couple of caveats.
 
-        * systemd-random-seed.service is now a synchronization point for the
-          point in time where the kernel's entropy pool is fully
-          initialized. Order services that require /dev/urandom to be correctly
-          initialized after this service.
+        * systemd-random-seed.service is now a synchronization point for full
+          initialization of the kernel's entropy pool. Services that require
+          /dev/urandom to be correctly initialized should be ordered after this
+          service.
 
         * The systemd-boot boot loader has been updated to optionally maintain
           a random seed file in the EFI System Partition (ESP). During the boot
           phase, this random seed is read and updated with a new seed
-          crytographically derived from it. Another derived seed is passed to
+          cryptographically derived from it. Another derived seed is passed to
           the OS. The latter seed is then credited to the kernel's entropy pool
           very early during userspace initialization (from PID 1). This allows
           systems to boot up with a fully initialized kernel entropy pool from
           earliest boot on, and thus entirely removes all entropy pool
           initialization delays from systems using systemd-boot. Special care
           is taken to ensure different seeds are derived on system images
-          replicated to multiple systems.
+          replicated to multiple systems. "bootctl status" will show whether
+          a seed was received from the boot loader.
 
-        * bootctl gained a new verb "is-installed" that checks whether
-          systemd-boot is currently installed.
+        * bootctl gained two new verbs:
+
+          - "bootctl random-seed" will generate the file in ESP and an EFI
+            variable to allow a random seed to be passed to the OS as described
+            above.
+
+          - "bootctl is-installed" checks whether systemd-boot is currently
+            installed.
+
+        * bootctl will warn if it detects that boot entries are misconfigured
+          (for example if the kernel image was removed without purging the
+          bootloader entry).
 
         * A new document has been added describing systemd's use and support
           for the kernel's entropy pool subsystem:
