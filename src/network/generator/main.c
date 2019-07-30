@@ -22,8 +22,8 @@ static int network_save(Network *network, const char *dest_dir) {
 
         assert(network);
 
-        r = asprintf(&filename, "%s-initrd-%s.network",
-                     isempty(network->ifname) ? "99" : "98",
+        r = asprintf(&filename, "%s-%s.network",
+                     isempty(network->ifname) ? "91" : "90",
                      isempty(network->ifname) ? "default" : network->ifname);
         if (r < 0)
                 return log_oom();
@@ -44,7 +44,7 @@ static int netdev_save(NetDev *netdev, const char *dest_dir) {
 
         assert(netdev);
 
-        r = asprintf(&filename, "98-initrd-%s.netdev",
+        r = asprintf(&filename, "90-%s.netdev",
                      netdev->ifname);
         if (r < 0)
                 return log_oom();
@@ -65,7 +65,7 @@ static int link_save(Link *link, const char *dest_dir) {
 
         assert(link);
 
-        r = asprintf(&filename, "98-initrd-%s.link",
+        r = asprintf(&filename, "90-%s.link",
                      link->ifname);
         if (r < 0)
                 return log_oom();
