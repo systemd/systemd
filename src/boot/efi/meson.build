@@ -7,6 +7,7 @@ efi_headers = files('''
         graphics.h
         linux.h
         measure.h
+        missing_efi.h
         pe.h
         random-seed.h
         sha256.h

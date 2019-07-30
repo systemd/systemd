@@ -1,6 +1,7 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include "missing_efi.h"
 #include "random-seed.h"
 #include "sha256.h"
 #include "util.h"
