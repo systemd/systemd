@@ -223,7 +223,7 @@ _noreturn_ static void crash(int sig) {
                                 log_emergency_errno(r, "Caught <%s>, waitpid() failed: %m", signal_to_string(sig));
                         else if (status.si_code != CLD_DUMPED) {
                                 const char *s = status.si_code == CLD_EXITED
-                                        ? exit_status_to_string(status.si_status, EXIT_STATUS_GLIBC)
+                                        ? exit_status_to_string(status.si_status, EXIT_STATUS_LIBC)
                                         : signal_to_string(status.si_status);
 
                                 log_emergency("Caught <%s>, core dump failed (child "PID_FMT", code=%s, status=%i/%s).",

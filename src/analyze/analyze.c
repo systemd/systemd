@@ -1638,13 +1638,17 @@ static void dump_syscall_filter(const SyscallFilterSet *set) {
                 printf("    %s%s%s\n", syscall[0] == '@' ? ansi_underline() : "", syscall, ansi_normal());
 }
 
-static int dump_exit_codes(int argc, char *argv[], void *userdata) {
+static int dump_exit_status(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
-        table = table_new("name", "code", "class");
+        table = table_new("name", "status", "class");
         if (!table)
                 return log_oom();
+
+        r = table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
+        if (r < 0)
+                return log_error_errno(r, "Failed to right-align status: %m");
 
         if (strv_isempty(strv_skip(argv, 1)))
                 for (size_t i = 0; i < ELEMENTSOF(exit_status_mappings); i++) {
@@ -1653,24 +1657,24 @@ static int dump_exit_codes(int argc, char *argv[], void *userdata) {
 
                         r = table_add_many(table,
                                            TABLE_STRING, exit_status_mappings[i].name,
-                                           TABLE_UINT, i,
+                                           TABLE_INT, (int) i,
                                            TABLE_STRING, exit_status_class(i));
                         if (r < 0)
                                 return r;
                 }
         else
                 for (int i = 1; i < argc; i++) {
-                        int code;
+                        int status;
 
-                        code = exit_status_from_string(argv[i]);
-                        if (code < 0)
-                                return log_error_errno(r, "Invalid exit code \"%s\": %m", argv[i]);
+                        status = exit_status_from_string(argv[i]);
+                        if (status < 0)
+                                return log_error_errno(r, "Invalid exit status \"%s\": %m", argv[i]);
 
-                        assert(code >= 0 && (size_t) code < ELEMENTSOF(exit_status_mappings));
+                        assert(status >= 0 && (size_t) status < ELEMENTSOF(exit_status_mappings));
                         r = table_add_many(table,
-                                           TABLE_STRING, exit_status_mappings[code].name ?: "-",
-                                           TABLE_UINT, code,
-                                           TABLE_STRING, exit_status_class(code) ?: "-");
+                                           TABLE_STRING, exit_status_mappings[status].name ?: "-",
+                                           TABLE_INT, status,
+                                           TABLE_STRING, exit_status_class(status) ?: "-");
                         if (r < 0)
                                 return r;
                 }
@@ -2213,7 +2217,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  dump                     Output state serialization of service manager\n"
                "  cat-config               Show configuration file and drop-ins\n"
                "  unit-paths               List load directories for units\n"
-               "  exit-codes               List exit code definitions\n"
+               "  exit-status [STATUS...]  List exit status definitions\n"
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
                "  condition CONDITION...   Evaluate conditions and asserts\n"
                "  verify FILE...           Check unit files for correctness\n"
@@ -2418,7 +2422,7 @@ static int run(int argc, char *argv[]) {
                 { "dump",              VERB_ANY, 1,        0,            dump                   },
                 { "cat-config",        2,        VERB_ANY, 0,            cat_config             },
                 { "unit-paths",        1,        1,        0,            dump_unit_paths        },
-                { "exit-codes",        VERB_ANY, VERB_ANY, 0,            dump_exit_codes        },
+                { "exit-status",       VERB_ANY, VERB_ANY, 0,            dump_exit_status       },
                 { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },
                 { "condition",         2,        VERB_ANY, 0,            do_condition           },
                 { "verify",            2,        VERB_ANY, 0,            do_verify              },

@@ -75,11 +75,11 @@ enum {
 };
 
 typedef enum ExitStatusClass {
-        EXIT_STATUS_GLIBC   = 1 << 0,  /* libc EXIT_STATUS/EXIT_FAILURE */
+        EXIT_STATUS_LIBC    = 1 << 0,  /* libc EXIT_STATUS/EXIT_FAILURE */
         EXIT_STATUS_SYSTEMD = 1 << 1,  /* systemd's own exit codes */
         EXIT_STATUS_LSB     = 1 << 2,  /* LSB exit codes */
         EXIT_STATUS_BSD     = 1 << 3,  /* BSD (EX_xyz) exit codes */
-        EXIT_STATUS_FULL    = EXIT_STATUS_GLIBC | EXIT_STATUS_SYSTEMD | EXIT_STATUS_LSB | EXIT_STATUS_BSD,
+        EXIT_STATUS_FULL    = EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD | EXIT_STATUS_LSB | EXIT_STATUS_BSD,
 } ExitStatusClass;
 
 typedef struct ExitStatusSet {

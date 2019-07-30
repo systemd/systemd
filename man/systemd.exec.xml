@@ -2718,8 +2718,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
     </table>
 
     <para>The following service exit codes are defined by the <ulink
-    url="https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB specification
-    </ulink>.
+    url="https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB specification</ulink>.
     </para>
 
     <table>

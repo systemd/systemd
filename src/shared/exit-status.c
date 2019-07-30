@@ -26,8 +26,8 @@ const ExitStatusMapping exit_status_mappings[256] = {
          *         │ signal or such, and we follow that logic here.)
          */
 
-        [EXIT_SUCCESS] =                 { "SUCCESS",                 EXIT_STATUS_GLIBC },
-        [EXIT_FAILURE] =                 { "FAILURE",                 EXIT_STATUS_GLIBC },
+        [EXIT_SUCCESS] =                 { "SUCCESS",                 EXIT_STATUS_LIBC },
+        [EXIT_FAILURE] =                 { "FAILURE",                 EXIT_STATUS_LIBC },
 
         [EXIT_CHDIR] =                   { "CHDIR",                   EXIT_STATUS_SYSTEMD },
         [EXIT_NICE] =                    { "NICE",                    EXIT_STATUS_SYSTEMD },
@@ -107,8 +107,8 @@ const char* exit_status_class(int code) {
                 return NULL;
 
         switch (exit_status_mappings[code].class) {
-        case EXIT_STATUS_GLIBC:
-                return "glibc";
+        case EXIT_STATUS_LIBC:
+                return "libc";
         case EXIT_STATUS_SYSTEMD:
                 return "systemd";
         case EXIT_STATUS_LSB:
