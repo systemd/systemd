@@ -1608,6 +1608,52 @@ static int dump_unit_paths(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int dump_exit_status(int argc, char *argv[], void *userdata) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        int r;
+
+        table = table_new("name", "status", "class");
+        if (!table)
+                return log_oom();
+
+        r = table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
+        if (r < 0)
+                return log_error_errno(r, "Failed to right-align status: %m");
+
+        if (strv_isempty(strv_skip(argv, 1)))
+                for (size_t i = 0; i < ELEMENTSOF(exit_status_mappings); i++) {
+                        if (!exit_status_mappings[i].name)
+                                continue;
+
+                        r = table_add_many(table,
+                                           TABLE_STRING, exit_status_mappings[i].name,
+                                           TABLE_INT, (int) i,
+                                           TABLE_STRING, exit_status_class(i));
+                        if (r < 0)
+                                return r;
+                }
+        else
+                for (int i = 1; i < argc; i++) {
+                        int status;
+
+                        status = exit_status_from_string(argv[i]);
+                        if (status < 0)
+                                return log_error_errno(r, "Invalid exit status \"%s\": %m", argv[i]);
+
+                        assert(status >= 0 && (size_t) status < ELEMENTSOF(exit_status_mappings));
+                        r = table_add_many(table,
+                                           TABLE_STRING, exit_status_mappings[status].name ?: "-",
+                                           TABLE_INT, status,
+                                           TABLE_STRING, exit_status_class(status) ?: "-");
+                        if (r < 0)
+                                return r;
+                }
+
+        (void) pager_open(arg_pager_flags);
+
+        return table_print(table, NULL);
+}
+
 #if HAVE_SECCOMP
 
 static int load_kernel_syscalls(Set **ret) {
@@ -1683,52 +1729,6 @@ static void dump_syscall_filter(const SyscallFilterSet *set) {
 
         NULSTR_FOREACH(syscall, set->value)
                 printf("    %s%s%s\n", syscall[0] == '@' ? ansi_underline() : "", syscall, ansi_normal());
-}
-
-static int dump_exit_status(int argc, char *argv[], void *userdata) {
-        _cleanup_(table_unrefp) Table *table = NULL;
-        int r;
-
-        table = table_new("name", "status", "class");
-        if (!table)
-                return log_oom();
-
-        r = table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
-        if (r < 0)
-                return log_error_errno(r, "Failed to right-align status: %m");
-
-        if (strv_isempty(strv_skip(argv, 1)))
-                for (size_t i = 0; i < ELEMENTSOF(exit_status_mappings); i++) {
-                        if (!exit_status_mappings[i].name)
-                                continue;
-
-                        r = table_add_many(table,
-                                           TABLE_STRING, exit_status_mappings[i].name,
-                                           TABLE_INT, (int) i,
-                                           TABLE_STRING, exit_status_class(i));
-                        if (r < 0)
-                                return r;
-                }
-        else
-                for (int i = 1; i < argc; i++) {
-                        int status;
-
-                        status = exit_status_from_string(argv[i]);
-                        if (status < 0)
-                                return log_error_errno(r, "Invalid exit status \"%s\": %m", argv[i]);
-
-                        assert(status >= 0 && (size_t) status < ELEMENTSOF(exit_status_mappings));
-                        r = table_add_many(table,
-                                           TABLE_STRING, exit_status_mappings[status].name ?: "-",
-                                           TABLE_INT, status,
-                                           TABLE_STRING, exit_status_class(status) ?: "-");
-                        if (r < 0)
-                                return r;
-                }
-
-        (void) pager_open(arg_pager_flags);
-
-        return table_print(table, NULL);
 }
 
 static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
