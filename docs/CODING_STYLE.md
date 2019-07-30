@@ -236,7 +236,7 @@ title: Coding Style
   p = foobar_unref(p);
   ```
 
-  which will always work regardless if `p` is initialized or not,x and
+  which will always work regardless if `p` is initialized or not, and
   guarantees that `p` is `NULL` afterwards, all in just one line.
 
 ## Error Handling
