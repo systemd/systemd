@@ -705,12 +705,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertEqual(1,         int(read_link_attr('bridge99', 'bridge', 'stp_state')))
         self.assertEqual(3,         int(read_link_attr('bridge99', 'bridge', 'multicast_igmp_version')))
 
-        output = check_output(*networkctl_cmd, 'status', 'bridge99')
-        print(output)
-        self.assertRegex(output, 'Priority: 9')
-        self.assertRegex(output, 'STP: yes')
-        self.assertRegex(output, 'Multicast IGMP Version: 3')
-
     def test_bond(self):
         copy_unit_to_networkd_unit_path('25-bond.netdev', '25-bond-balanced-tlb.netdev')
         start_networkd()
@@ -1271,12 +1265,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '00:11:22:33:44:55 dst 10.0.0.5 self permanent')
         self.assertRegex(output, '00:11:22:33:44:66 dst 10.0.0.6 self permanent')
         self.assertRegex(output, '00:11:22:33:44:77 dst 10.0.0.7 self permanent')
-
-        output = check_output(*networkctl_cmd, 'status', 'vxlan99')
-        print(output)
-        self.assertRegex(output, 'VNI: 999')
-        self.assertRegex(output, 'Destination Port: 5555')
-        self.assertRegex(output, 'Underlying Device: test1')
 
     def test_macsec(self):
         copy_unit_to_networkd_unit_path('25-macsec.netdev', '25-macsec.network', '25-macsec.key',

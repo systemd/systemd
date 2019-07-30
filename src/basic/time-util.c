@@ -1414,8 +1414,8 @@ struct tm *localtime_or_gmtime_r(const time_t *t, struct tm *tm, bool utc) {
         return utc ? gmtime_r(t, tm) : localtime_r(t, tm);
 }
 
-static uint32_t sysconf_clock_ticks_cached(void) {
-        static thread_local uint32_t hz = 0;
+unsigned long usec_to_jiffies(usec_t u) {
+        static thread_local unsigned long hz = 0;
         long r;
 
         if (hz == 0) {
@@ -1425,17 +1425,7 @@ static uint32_t sysconf_clock_ticks_cached(void) {
                 hz = r;
         }
 
-        return hz;
-}
-
-uint32_t usec_to_jiffies(usec_t u) {
-        uint32_t hz = sysconf_clock_ticks_cached();
-        return DIV_ROUND_UP(u, USEC_PER_SEC / hz);
-}
-
-usec_t jiffies_to_usec(uint32_t j) {
-        uint32_t hz = sysconf_clock_ticks_cached();
-        return DIV_ROUND_UP(j * USEC_PER_SEC, hz);
+        return DIV_ROUND_UP(u , USEC_PER_SEC / hz);
 }
 
 usec_t usec_shift_clock(usec_t x, clockid_t from, clockid_t to) {
