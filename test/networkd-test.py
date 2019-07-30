@@ -66,7 +66,8 @@ def setUpModule():
     # create static systemd-network user for networkd-test-router.service (it
     # needs to do some stuff as root and can't start as user; but networkd
     # still insists on the user)
-    subprocess.call(['adduser', '--system', '--no-create-home', 'systemd-network'])
+    if subprocess.call(['getent', 'passwd', 'systemd-network']) != 0:
+        subprocess.call(['useradd', '--system', '--no-create-home', 'systemd-network'])
 
     for d in ['/etc/systemd/network', '/run/systemd/network',
               '/run/systemd/netif', '/run/systemd/resolve']:
