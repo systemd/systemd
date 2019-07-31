@@ -462,7 +462,7 @@ int unit_file_find_fragment(
 
                 r = unit_ids_map_get(unit_ids_map, template, &fragment);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
-                        return log_debug_errno(r, "Cannot load template %s: %m", *t);
+                        return log_debug_errno(r, "Cannot load template %s: %m", template);
 
                 if (fragment) {
                         /* Add any aliases of the original name to the set of names */
