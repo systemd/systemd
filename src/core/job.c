@@ -1153,8 +1153,11 @@ void job_add_to_run_queue(Job *j) {
                         log_warning_errno(r, "Failed to enable job run queue event source, ignoring: %m");
         }
 
-        prioq_put(j->manager->run_queue, j, &j->run_queue_idx);
-        j->in_run_queue = true;
+        r = prioq_put(j->manager->run_queue, j, &j->run_queue_idx);
+        if (r < 0)
+                log_warning_errno(r, "Failed put job in run queue, ignoring: %m");
+        else
+                j->in_run_queue = true;
 }
 
 void job_add_to_dbus_queue(Job *j) {
