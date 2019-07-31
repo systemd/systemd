@@ -46,30 +46,30 @@ STATIC_DESTRUCTOR_REGISTER(arg_disks, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_default_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_default_keyfile, freep);
 
-static int split_keyspec(const char *keyspec, char **keyfile, char **keydev) {
+static int split_keyspec(const char *keyspec, char **ret_keyfile, char **ret_keydev) {
         _cleanup_free_ char *kfile = NULL, *kdev = NULL;
-        char *c;
+        const char *c;
 
         assert(keyspec);
-        assert(keyfile);
-        assert(keydev);
+        assert(ret_keyfile);
+        assert(ret_keydev);
 
         c = strrchr(keyspec, ':');
         if (c) {
                 kfile = strndup(keyspec, c-keyspec);
                 kdev = strdup(c + 1);
-                if (!*kfile || !*kdev)
+                if (!kfile || !kdev)
                         return log_oom();
         } else {
                 /* No keydev specified */
                 kfile = strdup(keyspec);
                 kdev = NULL;
-                if (!*kfile)
+                if (!kfile)
                         return log_oom();
         }
 
-        *keyfile = TAKE_PTR(kfile);
-        *keydev = TAKE_PTR(kdev);
+        *ret_keyfile = TAKE_PTR(kfile);
+        *ret_keydev = TAKE_PTR(kdev);
 
         return 0;
 }
