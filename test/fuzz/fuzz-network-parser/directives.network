@@ -208,6 +208,7 @@ SourcePort=
 DestinationPort=
 IPProtocol=
 InvertRule=
+Family=
 [IPv6PrefixDelegation]
 RouterPreference=
 DNSLifetimeSec=

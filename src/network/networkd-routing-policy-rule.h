@@ -36,7 +36,8 @@ struct RoutingPolicyRule {
         uint32_t fwmask;
         uint32_t priority;
 
-        int family;
+        AddressFamily address_family; /* Specified by Family= */
+        int family; /* Automatically determined by From= or To= */
         unsigned char to_prefixlen;
         unsigned char from_prefixlen;
 
@@ -77,3 +78,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_device);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_port_range);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_ip_protocol);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_invert);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_family);

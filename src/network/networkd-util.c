@@ -24,8 +24,15 @@ static const char * const link_local_address_family_table[_ADDRESS_FAMILY_MAX] =
         [ADDRESS_FAMILY_FALLBACK_IPV4] = "ipv4-fallback",
 };
 
+static const char * const routing_policy_rule_address_family_table[_ADDRESS_FAMILY_MAX] = {
+        [ADDRESS_FAMILY_YES]           = "both",
+        [ADDRESS_FAMILY_IPV4]          = "ipv4",
+        [ADDRESS_FAMILY_IPV6]          = "ipv6",
+};
+
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(address_family, AddressFamily, ADDRESS_FAMILY_YES);
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(link_local_address_family, AddressFamily, ADDRESS_FAMILY_YES);
+DEFINE_STRING_TABLE_LOOKUP(routing_policy_rule_address_family, AddressFamily);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_address_family,
                          AddressFamily, "Failed to parse option");
 

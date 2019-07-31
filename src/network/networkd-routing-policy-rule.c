@@ -11,6 +11,7 @@
 #include "networkd-routing-policy-rule.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
+#include "networkd-util.h"
 #include "parse-util.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -569,11 +570,45 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
 }
 
 int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
+        int r;
+
         if (section_is_invalid(rule->section))
                 return -EINVAL;
 
-        if (rule->family == AF_UNSPEC)
+        if ((rule->family == AF_INET && FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6)) ||
+            (rule->family == AF_INET6 && FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4)))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "%s: address family specified by Family= conflicts with the address "
+                                "specified by To= or From=. Ignoring [RoutingPolicyRule] section from line %u.",
+                                rule->section->filename, rule->section->line);
+
+        if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_IPV6)) {
+                _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule6 = NULL;
+
+                assert(rule->family == AF_UNSPEC);
+
+                /* When Family=both, we need to copy the section, AF_INET and AF_INET6. */
+
+                r = routing_policy_rule_new_static(rule->network, NULL, 0, &rule6);
+                if (r < 0)
+                        return r;
+
+                r = routing_policy_rule_copy(rule6, rule);
+                if (r < 0)
+                        return r;
+
                 rule->family = AF_INET;
+                rule6->family = AF_INET6;
+
+                TAKE_PTR(rule6);
+        }
+
+        if (rule->family == AF_UNSPEC) {
+                if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6))
+                        rule->family = AF_INET6;
+                else
+                        rule->family = AF_INET;
+        }
 
         return 0;
 }
@@ -968,6 +1003,46 @@ int config_parse_routing_policy_rule_invert(
 
         n->invert_rule = r;
 
+        n = NULL;
+
+        return 0;
+}
+
+int config_parse_routing_policy_rule_family(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        Network *network = userdata;
+        AddressFamily a;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        a = routing_policy_rule_address_family_from_string(rvalue);
+        if (a < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Invalid address family '%s', ignoring.", rvalue);
+                return 0;
+        }
+
+        n->address_family = a;
         n = NULL;
 
         return 0;
