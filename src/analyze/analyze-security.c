@@ -1494,6 +1494,8 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                 }
         }
 
+        assert(weight_sum > 0);
+
         if (details_table) {
                 size_t row;
 
