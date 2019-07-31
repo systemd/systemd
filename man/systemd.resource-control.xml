@@ -655,37 +655,32 @@
         <term><varname>DeviceAllow=</varname></term>
 
         <listitem>
-          <para>Control access to specific device nodes by the
-          executed processes. Takes two space-separated strings: a
-          device node specifier followed by a combination of
-          <constant>r</constant>, <constant>w</constant>,
-          <constant>m</constant> to control
-          <emphasis>r</emphasis>eading, <emphasis>w</emphasis>riting,
-          or creation of the specific device node(s) by the unit
-          (<emphasis>m</emphasis>knod), respectively. This controls
-          the <literal>devices.allow</literal> and
-          <literal>devices.deny</literal> control group
-          attributes. For details about these control group
-          attributes, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v1/devices.txt">devices.txt</ulink>.</para>
+          <para>Control access to specific device nodes by the executed processes. Takes two space-separated
+          strings: a device node specifier followed by a combination of <constant>r</constant>,
+          <constant>w</constant>, <constant>m</constant> to control <emphasis>r</emphasis>eading,
+          <emphasis>w</emphasis>riting, or creation of the specific device node(s) by the unit
+          (<emphasis>m</emphasis>knod), respectively. On cgroup-v1 this controls the
+          <literal>devices.allow</literal> control group attribute. For details about this control group
+          attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroup-v1/devices.txt">devices.txt</ulink>. On
+          cgroup-v2 this functionality is implemented using eBPF filtering.</para>
 
-          <para>The device node specifier is either a path to a device
-          node in the file system, starting with
-          <filename>/dev/</filename>, or a string starting with either
-          <literal>char-</literal> or <literal>block-</literal>
-          followed by a device group name, as listed in
-          <filename>/proc/devices</filename>. The latter is useful to
-          whitelist all current and future devices belonging to a
-          specific device group at once. The device group is matched
-          according to filename globbing rules, you may hence use the
-          <literal>*</literal> and <literal>?</literal>
-          wildcards. Examples: <filename>/dev/sda5</filename> is a
-          path to a device node, referring to an ATA or SCSI block
-          device. <literal>char-pts</literal> and
-          <literal>char-alsa</literal> are specifiers for all pseudo
-          TTYs and all ALSA sound devices,
-          respectively. <literal>char-cpu/*</literal> is a specifier
-          matching all CPU related device groups.</para>
+          <para>The device node specifier is either a path to a device node in the file system, starting with
+          <filename>/dev/</filename>, or a string starting with either <literal>char-</literal> or
+          <literal>block-</literal> followed by a device group name, as listed in
+          <filename>/proc/devices</filename>. The latter is useful to whitelist all current and future
+          devices belonging to a specific device group at once. The device group is matched according to
+          filename globbing rules, you may hence use the <literal>*</literal> and <literal>?</literal>
+          wildcards. (Note that such globbing wildcards are not available for device node path
+          specifications!) In order to match device nodes by numeric major/minor, use device node paths in
+          the <filename>/dev/char/</filename> and <filename>/dev/block/</filename> directories. However,
+          matching devices by major/minor is generally not recommended as assignments are neither stable nor
+          portable between systems or different kernel versions.</para>
+
+          <para>Examples: <filename>/dev/sda5</filename> is a path to a device node, referring to an ATA or
+          SCSI block device. <literal>char-pts</literal> and <literal>char-alsa</literal> are specifiers for
+          all pseudo TTYs and all ALSA sound devices, respectively. <literal>char-cpu/*</literal> is a
+          specifier matching all CPU related device groups.</para>
 
           <para>Note that whitelists defined this way should only reference device groups which are
           resolvable at the time the unit is started. Any device groups not resolvable then are not added to
