@@ -53,10 +53,6 @@ CHANGES WITH 243 in spe:
         * Memory protection directives can now take a value of zero, allowing
           explicit opting out of a default value propagated by an ancestor.
 
-        * A new setting DisableControllers= has been added that may be used to
-          explicitly disable one or more cgroups controllers for a unit and all
-          its children.
-
         * systemd now defaults to the "unified" cgroup hierarchy setup during
           build-time, i.e. -Ddefault-hierarchy=unified is now the build-time
           default. Previously, -Ddefault-hierarchy=hybrid was the default. This
