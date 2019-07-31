@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #include <getopt.h>
 
-#include "log.h"
+#include "fd-util.h"
 #include "fs-util.h"
+#include "log.h"
 #include "main-func.h"
 
 static char *arg_root = NULL;
@@ -97,6 +98,9 @@ static int run(int argc, char **argv) {
                         log_error_errno(r, "failed: %m");
                 else
                         log_info("→ %s", p);
+
+                if (FLAGS_SET(arg_flags, CHASE_OPEN))
+                        safe_close(r);
         }
 
         return 0;
