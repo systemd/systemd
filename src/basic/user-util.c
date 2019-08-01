@@ -620,16 +620,19 @@ int take_etc_passwd_lock(const char *root) {
         return fd;
 }
 
-bool valid_user_group_name(const char *u) {
+bool valid_user_group_name_full(const char *u, bool strict) {
         const char *i;
         long sz;
 
         /* Checks if the specified name is a valid user/group name. Also see POSIX IEEE Std 1003.1-2008, 2016 Edition,
          * 3.437. We are a bit stricter here however. Specifically we deviate from POSIX rules:
          *
-         * - We don't allow any dots (this would break chown syntax which permits dots as user/group name separator)
          * - We require that names fit into the appropriate utmp field
          * - We don't allow empty user names
+         * - No dots or digits in the first character
+         *
+         * If strict==true, additionally:
+         * - We don't allow any dots (this conflicts with chown syntax which permits dots as user/group name separator)
          *
          * Note that other systems are even more restrictive, and don't permit underscores or uppercase characters.
          */
@@ -642,13 +645,13 @@ bool valid_user_group_name(const char *u) {
             u[0] != '_')
                 return false;
 
-        for (i = u+1; *i; i++) {
-                if (!(*i >= 'a' && *i <= 'z') &&
-                    !(*i >= 'A' && *i <= 'Z') &&
-                    !(*i >= '0' && *i <= '9') &&
-                    !IN_SET(*i, '_', '-'))
+        for (i = u+1; *i; i++)
+                if (!((*i >= 'a' && *i <= 'z') ||
+                      (*i >= 'A' && *i <= 'Z') ||
+                      (*i >= '0' && *i <= '9') ||
+                      IN_SET(*i, '_', '-') ||
+                      (!strict && *i == '.')))
                         return false;
-        }
 
         sz = sysconf(_SC_LOGIN_NAME_MAX);
         assert_se(sz > 0);
@@ -662,15 +665,15 @@ bool valid_user_group_name(const char *u) {
         return true;
 }
 
-bool valid_user_group_name_or_id(const char *u) {
+bool valid_user_group_name_or_id_full(const char *u, bool strict) {
 
-        /* Similar as above, but is also fine with numeric UID/GID specifications, as long as they are in the right
-         * range, and not the invalid user ids. */
+        /* Similar as above, but is also fine with numeric UID/GID specifications, as long as they are in the
+         * right range, and not the invalid user ids. */
 
         if (isempty(u))
                 return false;
 
-        if (valid_user_group_name(u))
+        if (valid_user_group_name_full(u, strict))
                 return true;
 
         return parse_uid(u, NULL) >= 0;
