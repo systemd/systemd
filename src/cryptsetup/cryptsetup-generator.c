@@ -50,9 +50,13 @@ static int split_keyspec(const char *keyspec, char **ret_keyfile, char **ret_key
         _cleanup_free_ char *keyfile = NULL, *keydev = NULL;
         const char *c;
 
-        assert(keyspec);
         assert(ret_keyfile);
         assert(ret_keydev);
+
+        if (!keyspec) {
+                *ret_keyfile = *ret_keydev = NULL;
+                return 0;
+        }
 
         c = strrchr(keyspec, ':');
         if (c) {
@@ -567,7 +571,7 @@ static int add_crypttab_devices(void) {
         }
 
         for (;;) {
-                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keydev = NULL, *keyfile = NULL, *keyspec = NULL, *options = NULL;
+                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyspec = NULL, *options = NULL, *keyfile = NULL, *keydev = NULL;
                 crypto_device *d = NULL;
                 char *l, *uuid;
                 int k;
