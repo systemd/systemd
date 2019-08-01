@@ -47,29 +47,33 @@ STATIC_DESTRUCTOR_REGISTER(arg_default_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_default_keyfile, freep);
 
 static int split_keyspec(const char *keyspec, char **ret_keyfile, char **ret_keydev) {
-        _cleanup_free_ char *kfile = NULL, *kdev = NULL;
+        _cleanup_free_ char *keyfile = NULL, *keydev = NULL;
         const char *c;
 
-        assert(keyspec);
         assert(ret_keyfile);
         assert(ret_keydev);
 
+        if (!keyspec) {
+                *ret_keyfile = *ret_keydev = NULL;
+                return 0;
+        }
+
         c = strrchr(keyspec, ':');
         if (c) {
-                kfile = strndup(keyspec, c-keyspec);
-                kdev = strdup(c + 1);
-                if (!kfile || !kdev)
+                keyfile = strndup(keyspec, c-keyspec);
+                keydev = strdup(c + 1);
+                if (!keyfile || !keydev)
                         return log_oom();
         } else {
                 /* No keydev specified */
-                kfile = strdup(keyspec);
-                kdev = NULL;
-                if (!kfile)
+                keyfile = strdup(keyspec);
+                keydev = NULL;
+                if (!keyfile)
                         return log_oom();
         }
 
-        *ret_keyfile = TAKE_PTR(kfile);
-        *ret_keydev = TAKE_PTR(kdev);
+        *ret_keyfile = TAKE_PTR(keyfile);
+        *ret_keydev = TAKE_PTR(keydev);
 
         return 0;
 }
@@ -567,7 +571,7 @@ static int add_crypttab_devices(void) {
         }
 
         for (;;) {
-                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keydev = NULL, *keyfile = NULL, *keyspec = NULL, *options = NULL;
+                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyspec = NULL, *options = NULL, *keyfile = NULL, *keydev = NULL;
                 crypto_device *d = NULL;
                 char *l, *uuid;
                 int k;
