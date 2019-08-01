@@ -385,12 +385,12 @@ static void test_is_wanted(void) {
 static void test_cg_tests(void) {
         int all, hybrid, systemd, r;
 
-        r = cg_unified_flush();
+        r = cg_unified();
         if (r == -ENOMEDIUM) {
                 log_notice_errno(r, "Skipping cg hierarchy tests: %m");
                 return;
         }
-        assert_se(r == 0);
+        assert_se(r >= 0);
 
         all = cg_all_unified();
         assert_se(IN_SET(all, 0, 1));

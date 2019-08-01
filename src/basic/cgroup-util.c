@@ -2526,20 +2526,20 @@ int cg_kernel_controllers(Set **ret) {
         return 0;
 }
 
-static thread_local CGroupUnified unified_cache = CGROUP_UNIFIED_UNKNOWN;
-
-/* The hybrid mode was initially implemented in v232 and simply mounted cgroup2 on /sys/fs/cgroup/systemd.  This
- * unfortunately broke other tools (such as docker) which expected the v1 "name=systemd" hierarchy on
- * /sys/fs/cgroup/systemd.  From v233 and on, the hybrid mode mountnbs v2 on /sys/fs/cgroup/unified and maintains
- * "name=systemd" hierarchy on /sys/fs/cgroup/systemd for compatibility with other tools.
+/* The hybrid mode was initially implemented in v232 and simply mounted cgroup2 on
+ * /sys/fs/cgroup/systemd. This unfortunately broke other tools (such as docker) which expected the v1
+ * "name=systemd" hierarchy on /sys/fs/cgroup/systemd. From v233 and on, the hybrid mode mounts v2 on
+ * /sys/fs/cgroup/unified and maintains "name=systemd" hierarchy on /sys/fs/cgroup/systemd for compatibility
+ * with other tools.
  *
- * To keep live upgrade working, we detect and support v232 layout.  When v232 layout is detected, to keep cgroup v2
- * process management but disable the compat dual layout, we return %true on
- * cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) and %false on cg_hybrid_unified().
+ * To keep live upgrade working, we detect and support v232 layout. When v232 layout is detected, to keep
+ * cgroup v2 process management but disable the compat dual layout, we return true on
+ * cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) and false on cg_hybrid_unified().
  */
 static thread_local bool unified_systemd_v232;
 
-static int cg_unified_update(void) {
+int cg_unified_cached(bool flush) {
+        static thread_local CGroupUnified unified_cache = CGROUP_UNIFIED_UNKNOWN;
 
         struct statfs fs;
 
@@ -2548,8 +2548,10 @@ static int cg_unified_update(void) {
          * have any other trouble determining if the unified hierarchy
          * is supported. */
 
-        if (unified_cache >= CGROUP_UNIFIED_NONE)
-                return 0;
+        if (flush)
+                unified_cache = CGROUP_UNIFIED_UNKNOWN;
+        else if (unified_cache >= CGROUP_UNIFIED_NONE)
+                return unified_cache;
 
         if (statfs("/sys/fs/cgroup/", &fs) < 0)
                 return log_debug_errno(errno, "statfs(\"/sys/fs/cgroup/\") failed: %m");
@@ -2585,20 +2587,20 @@ static int cg_unified_update(void) {
                                        "Unknown filesystem type %llx mounted on /sys/fs/cgroup.",
                                        (unsigned long long)fs.f_type);
 
-        return 0;
+        return unified_cache;
 }
 
 int cg_unified_controller(const char *controller) {
         int r;
 
-        r = cg_unified_update();
+        r = cg_unified_cached(false);
         if (r < 0)
                 return r;
 
-        if (unified_cache == CGROUP_UNIFIED_NONE)
+        if (r == CGROUP_UNIFIED_NONE)
                 return false;
 
-        if (unified_cache >= CGROUP_UNIFIED_ALL)
+        if (r >= CGROUP_UNIFIED_ALL)
                 return true;
 
         return streq_ptr(controller, SYSTEMD_CGROUP_CONTROLLER);
@@ -2607,27 +2609,21 @@ int cg_unified_controller(const char *controller) {
 int cg_all_unified(void) {
         int r;
 
-        r = cg_unified_update();
+        r = cg_unified_cached(false);
         if (r < 0)
                 return r;
 
-        return unified_cache >= CGROUP_UNIFIED_ALL;
+        return r >= CGROUP_UNIFIED_ALL;
 }
 
 int cg_hybrid_unified(void) {
         int r;
 
-        r = cg_unified_update();
+        r = cg_unified_cached(false);
         if (r < 0)
                 return r;
 
-        return unified_cache == CGROUP_UNIFIED_SYSTEMD && !unified_systemd_v232;
-}
-
-int cg_unified_flush(void) {
-        unified_cache = CGROUP_UNIFIED_UNKNOWN;
-
-        return cg_unified_update();
+        return r == CGROUP_UNIFIED_SYSTEMD && !unified_systemd_v232;
 }
 
 int cg_enable_everywhere(
@@ -2740,10 +2736,10 @@ int cg_enable_everywhere(
 
 bool cg_is_unified_wanted(void) {
         static thread_local int wanted = -1;
-        int r;
         bool b;
         const bool is_default = DEFAULT_HIERARCHY == CGROUP_UNIFIED_ALL;
         _cleanup_free_ char *c = NULL;
+        int r;
 
         /* If we have a cached value, return that. */
         if (wanted >= 0)
@@ -2751,8 +2747,9 @@ bool cg_is_unified_wanted(void) {
 
         /* If the hierarchy is already mounted, then follow whatever
          * was chosen for it. */
-        if (cg_unified_flush() >= 0)
-                return (wanted = unified_cache >= CGROUP_UNIFIED_ALL);
+        r = cg_unified_cached(true);
+        if (r >= 0)
+                return (wanted = r >= CGROUP_UNIFIED_ALL);
 
         /* If we were explicitly passed systemd.unified_cgroup_hierarchy,
          * respect that. */
@@ -2777,8 +2774,7 @@ bool cg_is_legacy_wanted(void) {
                 return wanted;
 
         /* Check if we have cgroup v2 already mounted. */
-        if (cg_unified_flush() >= 0 &&
-            unified_cache == CGROUP_UNIFIED_ALL)
+        if (cg_unified_cached(true) == CGROUP_UNIFIED_ALL)
                 return (wanted = false);
 
         /* Otherwise, assume that at least partial legacy is wanted,
@@ -2801,8 +2797,7 @@ bool cg_is_hybrid_wanted(void) {
 
         /* If the hierarchy is already mounted, then follow whatever
          * was chosen for it. */
-        if (cg_unified_flush() >= 0 &&
-            unified_cache == CGROUP_UNIFIED_ALL)
+        if (cg_unified_cached(true) == CGROUP_UNIFIED_ALL)
                 return (wanted = false);
 
         /* Otherwise, let's see what the kernel command line has to say.
