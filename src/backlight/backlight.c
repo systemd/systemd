@@ -13,7 +13,7 @@
 #include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
-#include "proc-cmdline.h"
+#include "reboot-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"

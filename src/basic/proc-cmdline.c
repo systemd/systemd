@@ -306,14 +306,3 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
 
         return ret;
 }
-
-int shall_restore_state(void) {
-        bool ret;
-        int r;
-
-        r = proc_cmdline_get_bool("systemd.restore_state", &ret);
-        if (r < 0)
-                return r;
-
-        return r > 0 ? ret : true;
-}
