@@ -48,6 +48,7 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "chown-recursive.h"
+#include "cgroup-setup.h"
 #include "cpu-set-util.h"
 #include "def.h"
 #include "env-file.h"

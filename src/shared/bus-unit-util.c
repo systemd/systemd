@@ -5,6 +5,7 @@
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "cap-list.h"
+#include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "condition.h"
 #include "cpu-set-util.h"

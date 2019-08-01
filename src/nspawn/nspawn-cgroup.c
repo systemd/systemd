@@ -3,6 +3,7 @@
 #include <sys/mount.h>
 
 #include "alloc-util.h"
+#include "cgroup-setup.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"

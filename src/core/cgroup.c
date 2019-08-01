@@ -11,6 +11,7 @@
 #include "bpf-firewall.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
+#include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
 #include "fd-util.h"

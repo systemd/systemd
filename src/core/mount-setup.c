@@ -11,6 +11,7 @@
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "conf-files.h"
+#include "cgroup-setup.h"
 #include "dev-setup.h"
 #include "efivars.h"
 #include "fd-util.h"

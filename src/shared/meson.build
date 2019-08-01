@@ -33,6 +33,8 @@ shared_sources = files('''
         bus-wait-for-units.h
         calendarspec.c
         calendarspec.h
+        cgroup-setup.c
+        cgroup-setup.h
         cgroup-show.c
         cgroup-show.h
         clean-ipc.c
