@@ -15,7 +15,7 @@
 #include "device-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
-#include "efivars.h"
+#include "efi-loader.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"

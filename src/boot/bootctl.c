@@ -24,6 +24,7 @@
 #include "bootspec.h"
 #include "copy.h"
 #include "dirent-util.h"
+#include "efi-loader.h"
 #include "efivars.h"
 #include "env-util.h"
 #include "escape.h"

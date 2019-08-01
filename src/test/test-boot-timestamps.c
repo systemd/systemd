@@ -5,7 +5,7 @@
 
 #include "acpi-fpdt.h"
 #include "boot-timestamps.h"
-#include "efivars.h"
+#include "efi-loader.h"
 #include "log.h"
 #include "tests.h"
 #include "util.h"
