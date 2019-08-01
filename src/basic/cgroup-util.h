@@ -258,7 +258,10 @@ bool cg_ns_supported(void);
 int cg_all_unified(void);
 int cg_hybrid_unified(void);
 int cg_unified_controller(const char *controller);
-int cg_unified_flush(void);
+int cg_unified_cached(bool flush);
+static inline int cg_unified(void) {
+        return cg_unified_cached(true);
+}
 
 bool cg_is_unified_wanted(void);
 bool cg_is_legacy_wanted(void);

@@ -4720,7 +4720,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        r = cg_unified_flush();
+        r = cg_unified();
         if (r < 0) {
                 log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
                 goto finish;
