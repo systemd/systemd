@@ -1368,10 +1368,10 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                STRV_FOREACH(p, l) {
+                STRV_FOREACH(p, l)
                         if (!isempty(*p) && !valid_user_group_name_or_id(*p))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid supplementary group names");
-                }
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Invalid supplementary group names");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
