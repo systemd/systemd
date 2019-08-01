@@ -54,3 +54,5 @@ int unit_file_find_fragment(
                 const char *unit_name,
                 const char **ret_fragment_path,
                 Set **names);
+
+const char* runlevel_to_target(const char *rl);

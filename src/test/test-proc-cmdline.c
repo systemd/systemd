@@ -212,24 +212,6 @@ static void test_proc_cmdline_key_startswith(void) {
         assert_se(!proc_cmdline_key_startswith("foo-bar", "foo_xx"));
 }
 
-static void test_runlevel_to_target(void) {
-        log_info("/* %s */", __func__);
-
-        in_initrd_force(false);
-        assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
-        assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("rd.unknown-runlevel"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("3"), SPECIAL_MULTI_USER_TARGET));
-        assert_se(streq_ptr(runlevel_to_target("rd.rescue"), NULL));
-
-        in_initrd_force(true);
-        assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
-        assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("rd.unknown-runlevel"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("3"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("rd.rescue"), SPECIAL_RESCUE_TARGET));
-}
-
 int main(void) {
         log_parse_environment();
         log_open();
@@ -244,7 +226,6 @@ int main(void) {
         test_proc_cmdline_get_key();
         test_proc_cmdline_get_bool();
         test_proc_cmdline_get_key_many();
-        test_runlevel_to_target();
 
         return 0;
 }

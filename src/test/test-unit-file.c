@@ -2,6 +2,7 @@
 
 #include "path-lookup.h"
 #include "set.h"
+#include "special.h"
 #include "strv.h"
 #include "tests.h"
 #include "unit-file.h"
@@ -75,11 +76,30 @@ static void test_unit_file_build_name_map(char **ids) {
         }
 }
 
+static void test_runlevel_to_target(void) {
+        log_info("/* %s */", __func__);
+
+        in_initrd_force(false);
+        assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
+        assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
+        assert_se(streq_ptr(runlevel_to_target("rd.unknown-runlevel"), NULL));
+        assert_se(streq_ptr(runlevel_to_target("3"), SPECIAL_MULTI_USER_TARGET));
+        assert_se(streq_ptr(runlevel_to_target("rd.rescue"), NULL));
+
+        in_initrd_force(true);
+        assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
+        assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
+        assert_se(streq_ptr(runlevel_to_target("rd.unknown-runlevel"), NULL));
+        assert_se(streq_ptr(runlevel_to_target("3"), NULL));
+        assert_se(streq_ptr(runlevel_to_target("rd.rescue"), SPECIAL_RESCUE_TARGET));
+}
+
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
         test_unit_validate_alias_symlink_and_warn();
         test_unit_file_build_name_map(strv_skip(argv, 1));
+        test_runlevel_to_target();
 
         return 0;
 }
