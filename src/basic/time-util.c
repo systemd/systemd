@@ -1191,7 +1191,10 @@ bool ntp_synced(void) {
         if (adjtimex(&txc) < 0)
                 return false;
 
-        if (txc.status & STA_UNSYNC)
+        /* Consider the system clock synchronized if the reported maximum error is smaller than the maximum
+         * value (16 seconds). Ignore the STA_UNSYNC flag as it may have been set to prevent the kernel from
+         * touching the RTC. */
+        if (txc.maxerror >= 16000000)
                 return false;
 
         return true;
