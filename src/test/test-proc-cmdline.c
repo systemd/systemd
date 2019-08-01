@@ -30,12 +30,26 @@ static void test_proc_cmdline_override(void) {
         log_info("/* %s */", __func__);
 
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
+        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=differnt") == 0);
 
-        /* Test if the override works */
+        /* First test if the overrides for /proc/cmdline still work */
         _cleanup_free_ char *line = NULL, *value = NULL;
         assert_se(proc_cmdline(&line) >= 0);
 
         /* Test if parsing makes uses of the override */
+        assert_se(streq(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
+        assert_se(proc_cmdline_get_key("foo_bar", 0, &value) > 0 && streq_ptr(value, "quux"));
+        value = mfree(value);
+
+        assert_se(proc_cmdline_get_key("some_arg_with_space", 0, &value) > 0 && streq_ptr(value, "foo bar"));
+        value = mfree(value);
+
+        assert_se(proc_cmdline_get_key("and_one_more", 0, &value) > 0 && streq_ptr(value, "zzz aaa"));
+        value = mfree(value);
+
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=") == 0);
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
+
         assert_se(streq(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
         assert_se(proc_cmdline_get_key("foo_bar", 0, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
@@ -140,6 +154,24 @@ static void test_proc_cmdline_get_bool(void) {
 
         log_info("/* %s */", __func__);
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar bar-waldo=1 x_y-z=0 quux=miep\nda=yes\nthe=1") == 0);
+        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=") == 0);
+
+        assert_se(proc_cmdline_get_bool("", &value) == -EINVAL);
+        assert_se(proc_cmdline_get_bool("abc", &value) == 0 && value == false);
+        assert_se(proc_cmdline_get_bool("foo_bar", &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("foo-bar", &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("bar-waldo", &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("bar_waldo", &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("x_y-z", &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("x-y-z", &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("x-y_z", &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("x_y_z", &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("quux", &value) == -EINVAL && value == false);
+        assert_se(proc_cmdline_get_bool("da", &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("the", &value) > 0 && value == true);
+
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=") == 0);
+        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=foo_bar bar-waldo=1 x_y-z=0 quux=miep\nda=yes\nthe=1") == 0);
 
         assert_se(proc_cmdline_get_bool("", &value) == -EINVAL);
         assert_se(proc_cmdline_get_bool("abc", &value) == 0 && value == false);

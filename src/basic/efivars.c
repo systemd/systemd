@@ -222,4 +222,29 @@ int efi_set_variable_string(sd_id128_t vendor, const char *name, const char *v) 
         return efi_set_variable(vendor, name, u16, (char16_strlen(u16) + 1) * sizeof(char16_t));
 }
 
+int efi_systemd_options_variable(char **line) {
+        const char *e;
+        int r;
+
+        assert(line);
+
+        /* For testing purposes it is sometimes useful to be able to override this */
+        e = secure_getenv("SYSTEMD_EFI_OPTIONS");
+        if (e) {
+                char *m;
+
+                m = strdup(e);
+                if (!m)
+                        return -ENOMEM;
+
+                *line = m;
+                return 0;
+        }
+
+        r = efi_get_variable_string(EFI_VENDOR_SYSTEMD, "SystemdOptions", line);
+        if (r == -ENOENT)
+                return -ENODATA;
+
+        return r;
+}
 #endif
