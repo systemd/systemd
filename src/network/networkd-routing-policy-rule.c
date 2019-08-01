@@ -23,7 +23,6 @@ int routing_policy_rule_new(RoutingPolicyRule **ret) {
                 return -ENOMEM;
 
         *rule = (RoutingPolicyRule) {
-                .family = AF_INET,
                 .table = RT_TABLE_MAIN,
         };
 
@@ -555,6 +554,16 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
         return 1;
 }
 
+int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
+        if (section_is_invalid(rule->section))
+                return -EINVAL;
+
+        if (rule->family == AF_UNSPEC)
+                rule->family = AF_INET;
+
+        return 0;
+}
+
 static int parse_fwmark_fwmask(const char *s, uint32_t *fwmark, uint32_t *fwmask) {
         _cleanup_free_ char *f = NULL;
         char *p;
@@ -767,7 +776,10 @@ int config_parse_routing_policy_rule_prefix(
                 prefixlen = &n->from_prefixlen;
         }
 
-        r = in_addr_prefix_from_string_auto(rvalue, &n->family, buffer, prefixlen);
+        if (n->family == AF_UNSPEC)
+                r = in_addr_prefix_from_string_auto(rvalue, &n->family, buffer, prefixlen);
+        else
+                r = in_addr_prefix_from_string(rvalue, n->family, buffer, prefixlen);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "RPDB rule prefix is invalid, ignoring assignment: %s", rvalue);
                 return 0;
