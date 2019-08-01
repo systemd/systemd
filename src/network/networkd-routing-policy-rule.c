@@ -3,6 +3,7 @@
 #include <net/if.h>
 #include <linux/fib_rules.h>
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "fileio.h"
@@ -989,6 +990,7 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
         SET_FOREACH(rule, rules, i) {
                 _cleanup_free_ char *from_str = NULL, *to_str = NULL;
                 bool space = false;
+                const char *family_str;
 
                 fputs("RULE=", f);
 
@@ -1012,6 +1014,12 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                                 to_str, rule->to_prefixlen);
                         space = true;
                 }
+
+                family_str = af_to_name(rule->family);
+                if (family_str)
+                fprintf(f, "%sfamily=%s",
+                        space ? " " : "",
+                        family_str);
 
                 if (rule->tos != 0) {
                         fprintf(f, "%stos=%hhu",
@@ -1135,6 +1143,13 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                         continue;
                                 }
 
+                        } else if (streq(a, "family")) {
+                                r = af_from_name(b);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to parse RPDB rule family, ignoring: %s", b);
+                                        continue;
+                                }
+                                rule->family = r;
                         } else if (streq(a, "tos")) {
                                 r = safe_atou8(b, &rule->tos);
                                 if (r < 0) {
