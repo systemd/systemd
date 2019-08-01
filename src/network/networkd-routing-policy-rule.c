@@ -1028,6 +1028,10 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         space = true;
                 }
 
+                fprintf(f, "%spriority=%"PRIu32,
+                        space ? " " : "",
+                        rule->priority);
+
                 if (rule->fwmark != 0) {
                         fprintf(f, "%sfwmark=%"PRIu32"/%"PRIu32,
                                 space ? " " : "",
@@ -1160,6 +1164,12 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                 r = safe_atou32(b, &rule->table);
                                 if (r < 0) {
                                         log_error_errno(r, "Failed to parse RPDB rule table, ignoring: %s", b);
+                                        continue;
+                                }
+                        } else if (streq(a, "priority")) {
+                                r = safe_atou32(b, &rule->priority);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to parse RPDB rule priority, ignoring: %s", b);
                                         continue;
                                 }
                         } else if (streq(a, "fwmark")) {
