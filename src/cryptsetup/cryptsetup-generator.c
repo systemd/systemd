@@ -44,9 +44,13 @@ static int split_keyspec(const char *keyspec, char **ret_keyfile, char **ret_key
         _cleanup_free_ char *keyfile = NULL, *keydev = NULL;
         const char *c;
 
-        assert(keyspec);
         assert(ret_keyfile);
         assert(ret_keydev);
+
+        if (!keyspec) {
+                *ret_keyfile = *ret_keydev = NULL;
+                return 0;
+        }
 
         c = strrchr(keyspec, ':');
         if (c) {
