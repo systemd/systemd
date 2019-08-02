@@ -121,6 +121,20 @@ static sd_event *event_resolve(sd_event *e) {
         return e == SD_EVENT_DEFAULT ? default_event : e;
 }
 
+#define event_resolve_with_assert_return(e) \
+        ({ \
+                sd_event *_e = (e); \
+                \
+                assert_return(_e, -EINVAL);\
+                \
+                _e = event_resolve(_e); \
+                \
+                assert_return(_e, -ENOPKG); \
+                assert_return(!event_pid_changed(e), -ECHILD); \
+                \
+                _e; \
+        })
+
 static int pending_prioq_compare(const void *a, const void *b) {
         const sd_event_source *x = a, *y = b;
         int r;
@@ -891,14 +905,12 @@ _public_ int sd_event_add_io(
         _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
+        e = event_resolve_with_assert_return(e);
+
         assert_return(fd >= 0, -EBADF);
         assert_return(!(events & ~(EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLPRI|EPOLLERR|EPOLLHUP|EPOLLET)), -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        assert_return(!event_pid_changed(e), -ECHILD);
 
         s = source_new(e, !ret, SOURCE_IO);
         if (!s)
@@ -996,12 +1008,10 @@ _public_ int sd_event_add_time(
         struct clock_data *d;
         int r;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
+        e = event_resolve_with_assert_return(e);
+
         assert_return(accuracy != (uint64_t) -1, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        assert_return(!event_pid_changed(e), -ECHILD);
 
         if (!clock_supported(clock)) /* Checks whether the kernel supports the clock */
                 return -EOPNOTSUPP;
@@ -1076,12 +1086,10 @@ _public_ int sd_event_add_signal(
         sigset_t ss;
         int r;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
+        e = event_resolve_with_assert_return(e);
+
         assert_return(SIGNAL_VALID(sig), -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        assert_return(!event_pid_changed(e), -ECHILD);
 
         if (!callback)
                 callback = signal_exit_callback;
@@ -1136,15 +1144,13 @@ _public_ int sd_event_add_child(
         _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
+        e = event_resolve_with_assert_return(e);
+
         assert_return(pid > 1, -EINVAL);
         assert_return(!(options & ~(WEXITED|WSTOPPED|WCONTINUED)), -EINVAL);
         assert_return(options != 0, -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        assert_return(!event_pid_changed(e), -ECHILD);
 
         r = hashmap_ensure_allocated(&e->child_sources, NULL);
         if (r < 0)
@@ -1193,12 +1199,10 @@ _public_ int sd_event_add_defer(
         _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
+        e = event_resolve_with_assert_return(e);
+
         assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        assert_return(!event_pid_changed(e), -ECHILD);
 
         s = source_new(e, !ret, SOURCE_DEFER);
         if (!s)
@@ -1228,12 +1232,10 @@ _public_ int sd_event_add_post(
         _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
+        e = event_resolve_with_assert_return(e);
+
         assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        assert_return(!event_pid_changed(e), -ECHILD);
 
         r = set_ensure_allocated(&e->post_sources, NULL);
         if (r < 0)
@@ -1267,12 +1269,10 @@ _public_ int sd_event_add_exit(
         _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
+        e = event_resolve_with_assert_return(e);
+
         assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        assert_return(!event_pid_changed(e), -ECHILD);
 
         r = prioq_ensure_allocated(&e->exit, exit_prioq_compare);
         if (r < 0)
@@ -1606,13 +1606,11 @@ _public_ int sd_event_add_inotify(
         struct stat st;
         int r;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
+        e = event_resolve_with_assert_return(e);
+
         assert_return(path, -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        assert_return(!event_pid_changed(e), -ECHILD);
 
         /* Refuse IN_MASK_ADD since we coalesce watches on the same inode, and hence really don't want to merge
          * masks. Or in other words, this whole code exists only to manage IN_MASK_ADD type operations for you, hence
@@ -3052,10 +3050,8 @@ static void event_close_inode_data_fds(sd_event *e) {
 _public_ int sd_event_prepare(sd_event *e) {
         int r;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
-        assert_return(!event_pid_changed(e), -ECHILD);
+        e = event_resolve_with_assert_return(e);
+
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(e->state == SD_EVENT_INITIAL, -EBUSY);
 
@@ -3113,10 +3109,8 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         unsigned ev_queue_max;
         int r, m, i;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
-        assert_return(!event_pid_changed(e), -ECHILD);
+        e = event_resolve_with_assert_return(e);
+
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(e->state == SD_EVENT_ARMED, -EBUSY);
 
@@ -3233,10 +3227,8 @@ _public_ int sd_event_dispatch(sd_event *e) {
         sd_event_source *p;
         int r;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
-        assert_return(!event_pid_changed(e), -ECHILD);
+        e = event_resolve_with_assert_return(e);
+
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(e->state == SD_EVENT_PENDING, -EBUSY);
 
@@ -3275,10 +3267,8 @@ static void event_log_delays(sd_event *e) {
 _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         int r;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
-        assert_return(!event_pid_changed(e), -ECHILD);
+        e = event_resolve_with_assert_return(e);
+
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(e->state == SD_EVENT_INITIAL, -EBUSY);
 
@@ -3322,10 +3312,8 @@ _public_ int sd_event_loop(sd_event *e) {
         _cleanup_(sd_event_unrefp) sd_event *ref = NULL;
         int r;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
-        assert_return(!event_pid_changed(e), -ECHILD);
+        e = event_resolve_with_assert_return(e);
+
         assert_return(e->state == SD_EVENT_INITIAL, -EBUSY);
 
         ref = sd_event_ref(e);
@@ -3341,29 +3329,23 @@ _public_ int sd_event_loop(sd_event *e) {
 
 _public_ int sd_event_get_fd(sd_event *e) {
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
-        assert_return(!event_pid_changed(e), -ECHILD);
+        e = event_resolve_with_assert_return(e);
 
         return e->epoll_fd;
 }
 
 _public_ int sd_event_get_state(sd_event *e) {
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
-        assert_return(!event_pid_changed(e), -ECHILD);
+
+        e = event_resolve_with_assert_return(e);
 
         return e->state;
 }
 
 _public_ int sd_event_get_exit_code(sd_event *e, int *code) {
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
+
+        e = event_resolve_with_assert_return(e);
+
         assert_return(code, -EINVAL);
-        assert_return(!event_pid_changed(e), -ECHILD);
 
         if (!e->exit_requested)
                 return -ENODATA;
@@ -3373,11 +3355,10 @@ _public_ int sd_event_get_exit_code(sd_event *e, int *code) {
 }
 
 _public_ int sd_event_exit(sd_event *e, int code) {
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
+
+        e = event_resolve_with_assert_return(e);
+
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        assert_return(!event_pid_changed(e), -ECHILD);
 
         e->exit_requested = true;
         e->exit_code = code;
@@ -3386,11 +3367,10 @@ _public_ int sd_event_exit(sd_event *e, int code) {
 }
 
 _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
+
+        e = event_resolve_with_assert_return(e);
+
         assert_return(usec, -EINVAL);
-        assert_return(!event_pid_changed(e), -ECHILD);
 
         if (!TRIPLE_TIMESTAMP_HAS_CLOCK(clock))
                 return -EOPNOTSUPP;
@@ -3437,11 +3417,10 @@ _public_ int sd_event_default(sd_event **ret) {
 }
 
 _public_ int sd_event_get_tid(sd_event *e, pid_t *tid) {
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
+
+        e = event_resolve_with_assert_return(e);
+
         assert_return(tid, -EINVAL);
-        assert_return(!event_pid_changed(e), -ECHILD);
 
         if (e->tid != 0) {
                 *tid = e->tid;
@@ -3454,10 +3433,7 @@ _public_ int sd_event_get_tid(sd_event *e, pid_t *tid) {
 _public_ int sd_event_set_watchdog(sd_event *e, int b) {
         int r;
 
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
-        assert_return(!event_pid_changed(e), -ECHILD);
+        e = event_resolve_with_assert_return(e);
 
         if (e->watchdog == !!b)
                 return e->watchdog;
@@ -3508,19 +3484,15 @@ fail:
 }
 
 _public_ int sd_event_get_watchdog(sd_event *e) {
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
-        assert_return(!event_pid_changed(e), -ECHILD);
+
+        e = event_resolve_with_assert_return(e);
 
         return e->watchdog;
 }
 
 _public_ int sd_event_get_iteration(sd_event *e, uint64_t *ret) {
-        assert_return(e, -EINVAL);
-        e = event_resolve(e);
-        assert_return(e, -ENOPKG);
-        assert_return(!event_pid_changed(e), -ECHILD);
+
+        e = event_resolve_with_assert_return(e);
 
         *ret = e->iteration;
         return 0;
