@@ -42,13 +42,16 @@ int main(int argc, char *argv[]) {
                 assert_se(f && f->current_offset > 0);
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
+                if (r < 0)
+                        log_error_errno(r, "journal_file_move_to_object failed: %m");
                 assert_se(r >= 0);
 
                 r = journal_file_copy_entry(f, new_journal, o, f->current_offset);
+                if (r < 0)
+                        log_error_errno(r, "journal_file_copy_entry failed: %m");
                 assert_se(r >= 0);
 
-                n++;
-                if (n > 10000)
+                if (++n >= 10000)
                         break;
         }
 
