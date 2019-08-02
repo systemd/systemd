@@ -316,14 +316,25 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
                 Iterator i;
 
                 if (apply_mode || apply_uid || apply_gid) {
-                        log_device_debug(dev, "Setting permissions %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
+                        log_device_debug(dev, "Setting permissions %s, uid=" UID_FMT ", gid=" GID_FMT ", mode=%#o",
+                                         devnode,
+                                         uid_is_valid(uid) ? uid : stats.st_uid,
+                                         gid_is_valid(gid) ? gid : stats.st_gid,
+                                         mode != MODE_INVALID ? mode & 0777 : stats.st_mode & 0777);
 
                         r = chmod_and_chown(devnode, mode, uid, gid);
                         if (r < 0)
                                 log_device_warning_errno(dev, r, "Failed to set owner/mode of %s to uid=" UID_FMT ", gid=" GID_FMT ", mode=%#o: %m",
-                                                         devnode, uid, gid, mode);
+                                                         devnode,
+                                                         uid_is_valid(uid) ? uid : stats.st_uid,
+                                                         gid_is_valid(gid) ? gid : stats.st_gid,
+                                                         mode != MODE_INVALID ? mode & 0777 : stats.st_mode & 0777);
                 } else
-                        log_device_debug(dev, "Preserve permissions of %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
+                        log_device_debug(dev, "Preserve permissions of %s, uid=" UID_FMT ", gid=" GID_FMT ", mode=%#o",
+                                         devnode,
+                                         uid_is_valid(uid) ? uid : stats.st_uid,
+                                         gid_is_valid(gid) ? gid : stats.st_gid,
+                                         mode != MODE_INVALID ? mode & 0777 : stats.st_mode & 0777);
 
                 /* apply SECLABEL{$module}=$label */
                 ORDERED_HASHMAP_FOREACH_KEY(label, name, seclabel_list, i) {
@@ -409,8 +420,7 @@ int udev_node_add(sd_device *dev, bool apply,
                 const char *id_filename = NULL;
 
                 (void) device_get_id_filename(dev, &id_filename);
-                log_device_debug(dev, "Handling device node '%s', devnum=%s, mode=%#o, uid="UID_FMT", gid="GID_FMT,
-                                 devnode, strnull(id_filename), mode, uid, gid);
+                log_device_debug(dev, "Handling device node '%s', devnum=%s", devnode, strnull(id_filename));
         }
 
         r = node_permissions_apply(dev, apply, mode, uid, gid, seclabel_list);
