@@ -37,6 +37,7 @@
 #include "user-util.h"
 
 typedef struct Spawn {
+        sd_device *device;
         const char *cmd;
         pid_t pid;
         usec_t timeout_warn_usec;
@@ -550,7 +551,8 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
         l = read(fd, p, size - 1);
         if (l < 0) {
                 if (errno != EAGAIN)
-                        log_error_errno(errno, "Failed to read stdout of '%s': %m", spawn->cmd);
+                        log_device_error_errno(spawn->device, errno,
+                                               "Failed to read stdout of '%s': %m", spawn->cmd);
 
                 return 0;
         }
@@ -569,8 +571,8 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                         return 0;
 
                 STRV_FOREACH(q, v)
-                        log_debug("'%s'(%s) '%s'", spawn->cmd,
-                                  fd == spawn->fd_stdout ? "out" : "err", *q);
+                        log_device_debug(spawn->device, "'%s'(%s) '%s'", spawn->cmd,
+                                         fd == spawn->fd_stdout ? "out" : "err", *q);
         }
 
         return 0;
@@ -584,8 +586,9 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         kill_and_sigcont(spawn->pid, SIGKILL);
 
-        log_error("Spawned process '%s' ["PID_FMT"] timed out after %s, killing", spawn->cmd, spawn->pid,
-                  format_timespan(timeout, sizeof(timeout), spawn->timeout_usec, USEC_PER_SEC));
+        log_device_error(spawn->device, "Spawned process '%s' ["PID_FMT"] timed out after %s, killing",
+                         spawn->cmd, spawn->pid,
+                         format_timespan(timeout, sizeof(timeout), spawn->timeout_usec, USEC_PER_SEC));
 
         return 1;
 }
@@ -596,8 +599,9 @@ static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 
         assert(spawn);
 
-        log_warning("Spawned process '%s' ["PID_FMT"] is taking longer than %s to complete", spawn->cmd, spawn->pid,
-                    format_timespan(timeout, sizeof(timeout), spawn->timeout_warn_usec, USEC_PER_SEC));
+        log_device_warning(spawn->device, "Spawned process '%s' ["PID_FMT"] is taking longer than %s to complete",
+                           spawn->cmd, spawn->pid,
+                           format_timespan(timeout, sizeof(timeout), spawn->timeout_warn_usec, USEC_PER_SEC));
 
         return 1;
 }
@@ -611,18 +615,18 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
         switch (si->si_code) {
         case CLD_EXITED:
                 if (si->si_status == 0)
-                        log_debug("Process '%s' succeeded.", spawn->cmd);
+                        log_device_debug(spawn->device, "Process '%s' succeeded.", spawn->cmd);
                 else
-                        log_full(spawn->accept_failure ? LOG_DEBUG : LOG_WARNING,
-                                 "Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
+                        log_device_full(spawn->device, spawn->accept_failure ? LOG_DEBUG : LOG_WARNING, 0,
+                                        "Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
                 ret = si->si_status;
                 break;
         case CLD_KILLED:
         case CLD_DUMPED:
-                log_error("Process '%s' terminated by signal %s.", spawn->cmd, signal_to_string(si->si_status));
+                log_device_error(spawn->device, "Process '%s' terminated by signal %s.", spawn->cmd, signal_to_string(si->si_status));
                 break;
         default:
-                log_error("Process '%s' failed due to unknown reason.", spawn->cmd);
+                log_device_error(spawn->device, "Process '%s' failed due to unknown reason.", spawn->cmd);
         }
 
         sd_event_exit(sd_event_source_get_event(s), ret);
@@ -704,19 +708,21 @@ int udev_event_spawn(UdevEvent *event,
         /* pipes from child to parent */
         if (result || log_get_max_level() >= LOG_INFO)
                 if (pipe2(outpipe, O_NONBLOCK|O_CLOEXEC) != 0)
-                        return log_error_errno(errno, "Failed to create pipe for command '%s': %m", cmd);
+                        return log_device_error_errno(event->dev, errno,
+                                                      "Failed to create pipe for command '%s': %m", cmd);
 
         if (log_get_max_level() >= LOG_INFO)
                 if (pipe2(errpipe, O_NONBLOCK|O_CLOEXEC) != 0)
-                        return log_error_errno(errno, "Failed to create pipe for command '%s': %m", cmd);
+                        return log_device_error_errno(event->dev, errno,
+                                                      "Failed to create pipe for command '%s': %m", cmd);
 
         argv = strv_split_full(cmd, NULL, SPLIT_QUOTES|SPLIT_RELAX);
         if (!argv)
                 return log_oom();
 
         if (isempty(argv[0]))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid command '%s'", cmd);
+                return log_device_error_errno(event->dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Invalid command '%s'", cmd);
 
         /* allow programs in /usr/lib/udev/ to be called without the path */
         if (!path_is_absolute(argv[0])) {
@@ -733,11 +739,12 @@ int udev_event_spawn(UdevEvent *event,
         if (r < 0)
                 return log_device_error_errno(event->dev, r, "Failed to get device properties");
 
-        log_debug("Starting '%s'", cmd);
+        log_device_debug(event->dev, "Starting '%s'", cmd);
 
         r = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork() to execute command '%s': %m", cmd);
+                return log_device_error_errno(event->dev, r,
+                                              "Failed to fork() to execute command '%s': %m", cmd);
         if (r == 0) {
                 if (rearrange_stdio(-1, outpipe[WRITE_END], errpipe[WRITE_END]) < 0)
                         _exit(EXIT_FAILURE);
@@ -754,6 +761,7 @@ int udev_event_spawn(UdevEvent *event,
         errpipe[WRITE_END] = safe_close(errpipe[WRITE_END]);
 
         spawn = (Spawn) {
+                .device = event->dev,
                 .cmd = cmd,
                 .pid = pid,
                 .accept_failure = accept_failure,
@@ -767,7 +775,8 @@ int udev_event_spawn(UdevEvent *event,
         };
         r = spawn_wait(&spawn);
         if (r < 0)
-                return log_error_errno(r, "Failed to wait for spawned command '%s': %m", cmd);
+                return log_device_error_errno(event->dev, r,
+                                              "Failed to wait for spawned command '%s': %m", cmd);
 
         if (result)
                 result[spawn.result_len] = '\0';
