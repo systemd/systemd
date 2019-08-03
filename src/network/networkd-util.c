@@ -8,14 +8,14 @@
 #include "string-util.h"
 #include "util.h"
 
-static const char * const address_family_boolean_table[_ADDRESS_FAMILY_BOOLEAN_MAX] = {
+static const char * const address_family_table[_ADDRESS_FAMILY_MAX] = {
         [ADDRESS_FAMILY_NO]            = "no",
         [ADDRESS_FAMILY_YES]           = "yes",
         [ADDRESS_FAMILY_IPV4]          = "ipv4",
         [ADDRESS_FAMILY_IPV6]          = "ipv6",
 };
 
-static const char * const link_local_address_family_boolean_table[_ADDRESS_FAMILY_BOOLEAN_MAX] = {
+static const char * const link_local_address_family_table[_ADDRESS_FAMILY_MAX] = {
         [ADDRESS_FAMILY_NO]            = "no",
         [ADDRESS_FAMILY_YES]           = "yes",
         [ADDRESS_FAMILY_IPV4]          = "ipv4",
@@ -24,12 +24,12 @@ static const char * const link_local_address_family_boolean_table[_ADDRESS_FAMIL
         [ADDRESS_FAMILY_FALLBACK_IPV4] = "ipv4-fallback",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(address_family_boolean, AddressFamilyBoolean, ADDRESS_FAMILY_YES);
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(link_local_address_family_boolean, AddressFamilyBoolean, ADDRESS_FAMILY_YES);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family_boolean, link_local_address_family_boolean,
-                         AddressFamilyBoolean, "Failed to parse option");
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(address_family, AddressFamily, ADDRESS_FAMILY_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(link_local_address_family, AddressFamily, ADDRESS_FAMILY_YES);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_address_family,
+                         AddressFamily, "Failed to parse option");
 
-int config_parse_address_family_boolean_with_kernel(
+int config_parse_address_family_with_kernel(
                 const char* unit,
                 const char *filename,
                 unsigned line,
@@ -41,7 +41,7 @@ int config_parse_address_family_boolean_with_kernel(
                 void *data,
                 void *userdata) {
 
-        AddressFamilyBoolean *fwd = data, s;
+        AddressFamily *fwd = data, s;
 
         assert(filename);
         assert(lvalue);
@@ -56,7 +56,7 @@ int config_parse_address_family_boolean_with_kernel(
          * is gone, hence silently accept the old setting, but turn it
          * to "no". */
 
-        s = address_family_boolean_from_string(rvalue);
+        s = address_family_from_string(rvalue);
         if (s < 0) {
                 if (streq(rvalue, "kernel"))
                         s = ADDRESS_FAMILY_NO;

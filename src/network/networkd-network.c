@@ -395,7 +395,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
 
                 /* If LinkLocalAddressing= is not set, then set to ADDRESS_FAMILY_IPV6 later. */
-                .link_local = _ADDRESS_FAMILY_BOOLEAN_INVALID,
+                .link_local = _ADDRESS_FAMILY_INVALID,
 
                 .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
                 .ipv6_accept_ra = -1,

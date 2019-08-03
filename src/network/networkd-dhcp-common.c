@@ -18,7 +18,7 @@ int config_parse_dhcp(
                 void *data,
                 void *userdata) {
 
-        AddressFamilyBoolean *dhcp = data, s;
+        AddressFamily *dhcp = data, s;
 
         assert(filename);
         assert(lvalue);
@@ -26,10 +26,10 @@ int config_parse_dhcp(
         assert(data);
 
         /* Note that this is mostly like
-         * config_parse_address_family_boolean(), except that it
+         * config_parse_address_family(), except that it
          * understands some old names for the enum values */
 
-        s = address_family_boolean_from_string(rvalue);
+        s = address_family_from_string(rvalue);
         if (s < 0) {
 
                 /* Previously, we had a slightly different enum here,
@@ -51,7 +51,7 @@ int config_parse_dhcp(
 
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "DHCP=%s is deprecated, please use DHCP=%s instead.",
-                           rvalue, address_family_boolean_to_string(s));
+                           rvalue, address_family_to_string(s));
         }
 
         *dhcp = s;

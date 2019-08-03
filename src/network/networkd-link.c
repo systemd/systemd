@@ -150,7 +150,7 @@ static bool link_dhcp4_server_enabled(Link *link) {
         return link->network->dhcp_server;
 }
 
-bool link_ipv4ll_enabled(Link *link, AddressFamilyBoolean mask) {
+bool link_ipv4ll_enabled(Link *link, AddressFamily mask) {
         assert(link);
         assert((mask & ~(ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4)) == 0);
 
@@ -242,7 +242,7 @@ static bool link_ipv4_forward_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
+        if (link->network->ip_forward == _ADDRESS_FAMILY_INVALID)
                 return false;
 
         return link->network->ip_forward & ADDRESS_FAMILY_IPV4;
@@ -260,7 +260,7 @@ static bool link_ipv6_forward_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
+        if (link->network->ip_forward == _ADDRESS_FAMILY_INVALID)
                 return false;
 
         if (link_sysctl_ipv6_enabled(link) == 0)
