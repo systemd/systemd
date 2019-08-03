@@ -58,6 +58,44 @@ void routing_policy_rule_free(RoutingPolicyRule *rule) {
         free(rule);
 }
 
+static int routing_policy_rule_copy(RoutingPolicyRule *dest, RoutingPolicyRule *src) {
+        _cleanup_free_ char *iif = NULL, *oif = NULL;
+
+        assert(dest);
+        assert(src);
+
+        if (src->iif) {
+                iif = strdup(src->iif);
+                if (!iif)
+                        return -ENOMEM;
+        }
+
+        if (src->oif) {
+                oif = strdup(src->oif);
+                if (!oif)
+                        return -ENOMEM;
+        }
+
+        dest->family = src->family;
+        dest->from = src->from;
+        dest->from_prefixlen = src->from_prefixlen;
+        dest->to = src->to;
+        dest->to_prefixlen = src->to_prefixlen;
+        dest->invert_rule = src->invert_rule;
+        dest->tos = src->tos;
+        dest->fwmark = src->fwmark;
+        dest->fwmask = src->fwmask;
+        dest->priority = src->priority;
+        dest->table = src->table;
+        dest->iif = TAKE_PTR(iif);
+        dest->oif = TAKE_PTR(oif);
+        dest->protocol = src->protocol;
+        dest->sport = src->sport;
+        dest->dport = src->dport;
+
+        return 0;
+}
+
 static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
         assert(rule);
 
@@ -221,46 +259,21 @@ int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule) {
 
 static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPolicyRule *in, RoutingPolicyRule **ret) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
-        _cleanup_free_ char *iif = NULL, *oif = NULL;
         int r;
 
         assert(m);
         assert(rules);
         assert(in);
 
-        if (in->iif) {
-                iif = strdup(in->iif);
-                if (!iif)
-                        return -ENOMEM;
-        }
-
-        if (in->oif) {
-                oif = strdup(in->oif);
-                if (!oif)
-                        return -ENOMEM;
-        }
-
         r = routing_policy_rule_new(&rule);
         if (r < 0)
                 return r;
 
         rule->manager = m;
-        rule->family = in->family;
-        rule->from = in->from;
-        rule->from_prefixlen = in->from_prefixlen;
-        rule->to = in->to;
-        rule->to_prefixlen = in->to_prefixlen;
-        rule->invert_rule = in->invert_rule;
-        rule->tos = in->tos;
-        rule->fwmark = in->fwmark;
-        rule->fwmask = in->fwmask;
-        rule->priority = in->priority;
-        rule->table = in->table;
-        rule->iif = TAKE_PTR(iif);
-        rule->oif = TAKE_PTR(oif);
-        rule->protocol = in->protocol;
-        rule->sport = in->sport;
-        rule->dport = in->dport;
+
+        r = routing_policy_rule_copy(rule, in);
+        if (r < 0)
+                return r;
 
         r = set_ensure_allocated(rules, &routing_policy_rule_hash_ops);
         if (r < 0)
