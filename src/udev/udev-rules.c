@@ -1401,8 +1401,10 @@ static int get_property_from_string(char *line, char **ret_key, char **ret_value
         key = skip_leading_chars(line, NULL);
 
         /* comment or empty line */
-        if (IN_SET(key[0], '#', '\0'))
+        if (IN_SET(key[0], '#', '\0')) {
+                *ret_key = *ret_value = NULL;
                 return 0;
+        }
 
         /* split key/value */
         val = strchr(key, '=');
@@ -1429,7 +1431,7 @@ static int get_property_from_string(char *line, char **ret_key, char **ret_value
 
         *ret_key = key;
         *ret_value = val;
-        return 0;
+        return 1;
 }
 
 static int import_parent_into_properties(sd_device *dev, const char *filter) {
@@ -1681,6 +1683,8 @@ static int udev_rule_apply_token_to_event(
                                                      line);
                                 continue;
                         }
+                        if (r == 0)
+                                continue;
 
                         r = device_add_property(dev, key, value);
                         if (r < 0)
@@ -1719,6 +1723,8 @@ static int udev_rule_apply_token_to_event(
                                                      line);
                                 continue;
                         }
+                        if (r == 0)
+                                continue;
 
                         r = device_add_property(dev, key, value);
                         if (r < 0)
