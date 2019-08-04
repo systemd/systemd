@@ -457,8 +457,7 @@ _public_ int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **key, const char **val
         if (hwdb->properties_modified)
                 return -EAGAIN;
 
-        ordered_hashmap_iterate(hwdb->properties, &hwdb->properties_iterator, (void **)&entry, &k);
-        if (!k)
+        if (!ordered_hashmap_iterate(hwdb->properties, &hwdb->properties_iterator, (void **)&entry, &k))
                 return 0;
 
         *key = k;

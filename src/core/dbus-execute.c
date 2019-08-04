@@ -1000,16 +1000,11 @@ int bus_property_get_exec_ex_command_list(
 }
 
 static char *exec_command_flags_to_exec_chars(ExecCommandFlags flags) {
-        char *res = NULL;
-
-        asprintf(&res, "%s%s%s%s%s",
-                FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE)   ? "-" : "",
-                FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND)    ? ":" : "",
-                FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED) ? "+" : "",
-                FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "",
-                FLAGS_SET(flags, EXEC_COMMAND_AMBIENT_MAGIC)    ? "!!" : "");
-
-        return res;
+        return strjoin(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE)   ? "-" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND)    ? ":" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED) ? "+" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_AMBIENT_MAGIC)    ? "!!" : "");
 }
 
 int bus_set_transient_exec_command(
