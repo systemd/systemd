@@ -61,6 +61,25 @@ typedef struct Context {
         LIST_HEAD(UnitStatusInfo, units);
 } Context;
 
+#define log_unit_full(unit, level, error, ...)                          \
+        ({                                                              \
+                const UnitStatusInfo *_u = (unit);                      \
+                log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, \
+                                    "UNIT=", _u->name, NULL, NULL, ##__VA_ARGS__); \
+        })
+
+#define log_unit_debug(unit, ...)   log_unit_full(unit, LOG_DEBUG, 0, ##__VA_ARGS__)
+#define log_unit_info(unit, ...)    log_unit_full(unit, LOG_INFO, 0, ##__VA_ARGS__)
+#define log_unit_notice(unit, ...)  log_unit_full(unit, LOG_NOTICE, 0, ##__VA_ARGS__)
+#define log_unit_warning(unit, ...) log_unit_full(unit, LOG_WARNING, 0, ##__VA_ARGS__)
+#define log_unit_error(unit, ...)   log_unit_full(unit, LOG_ERR, 0, ##__VA_ARGS__)
+
+#define log_unit_debug_errno(unit, error, ...)   log_unit_full(unit, LOG_DEBUG, error, ##__VA_ARGS__)
+#define log_unit_info_errno(unit, error, ...)    log_unit_full(unit, LOG_INFO, error, ##__VA_ARGS__)
+#define log_unit_notice_errno(unit, error, ...)  log_unit_full(unit, LOG_NOTICE, error, ##__VA_ARGS__)
+#define log_unit_warning_errno(unit, error, ...) log_unit_full(unit, LOG_WARNING, error, ##__VA_ARGS__)
+#define log_unit_error_errno(unit, error, ...)   log_unit_full(unit, LOG_ERR, error, ##__VA_ARGS__)
+
 static void unit_status_info_clear(UnitStatusInfo *p) {
         assert(p);
 
@@ -95,7 +114,7 @@ static void context_clear(Context *c) {
         }
 }
 
-static int context_add_ntp_service(Context *c, const char *s) {
+static int context_add_ntp_service(Context *c, const char *s, const char *source) {
         UnitStatusInfo *u;
 
         if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
@@ -117,6 +136,7 @@ static int context_add_ntp_service(Context *c, const char *s) {
         }
 
         LIST_APPEND(units, c->units, u);
+        log_unit_debug(u, "added from %s.", source);
 
         return 0;
 }
@@ -131,7 +151,7 @@ static int context_parse_ntp_services_from_environment(Context *c) {
         if (!env)
                 return 0;
 
-        log_debug("Using list of ntp services from environment variable $SYSTEMD_TIMEDATED_NTP_SERVICES.");
+        log_debug("Using list of ntp services from environment variable $SYSTEMD_TIMEDATED_NTP_SERVICES=%s.", env);
 
         for (p = env;;) {
                 _cleanup_free_ char *word = NULL;
@@ -146,7 +166,7 @@ static int context_parse_ntp_services_from_environment(Context *c) {
                         break;
                 }
 
-                r = context_add_ntp_service(c, word);
+                r = context_add_ntp_service(c, word, "$SYSTEMD_TIMEDATED_NTP_SERVICES");
                 if (r < 0)
                         log_warning_errno(r, "Failed to add NTP service \"%s\", ignoring: %m", word);
         }
@@ -190,7 +210,7 @@ static int context_parse_ntp_services_from_disk(Context *c) {
                         if (isempty(word) || startswith("#", word))
                                 continue;
 
-                        r = context_add_ntp_service(c, word);
+                        r = context_add_ntp_service(c, word, *f);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add NTP service \"%s\", ignoring: %m", word);
                 }
@@ -400,7 +420,7 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
                                 NULL,
                                 u);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
+                        return log_unit_error_errno(u, r, "Failed to get properties: %s", bus_error_message(&error, r));
         }
 
         return 0;
@@ -431,7 +451,9 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
         if (n == 0) {
                 c->slot_job_removed = sd_bus_slot_unref(c->slot_job_removed);
 
-                (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP", NULL);
+                (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+                                                      "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP",
+                                                      NULL);
         }
 
         return 0;
@@ -457,6 +479,8 @@ static int unit_start_or_stop(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *erro
                 "ss",
                 u->name,
                 "replace");
+        log_unit_full(u, r < 0 ? LOG_WARNING : LOG_DEBUG, r,
+                      "%s unit: %m", start ? "Starting" : "Stopping");
         if (r < 0)
                 return r;
 
@@ -480,8 +504,12 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
 
         /* Call context_update_ntp_status() to update UnitStatusInfo before calling this. */
 
-        if (streq(u->unit_file_state, "enabled") == enable)
+        if (streq(u->unit_file_state, "enabled") == enable) {
+                log_unit_debug(u, "already %sd.", enable_disable(enable));
                 return 0;
+        }
+
+        log_unit_info(u, "%s unit.", enable ? "Enabling" : "Disabling");
 
         if (enable)
                 r = sd_bus_call_method(
@@ -683,7 +711,9 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                    "DAYLIGHT=%i", daylight,
                    LOG_MESSAGE("Changed time zone to '%s' (%s).", c->zone, tzname[daylight]));
 
-        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone", NULL);
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+                                              "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone",
+                                              NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
@@ -723,8 +753,8 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         /* 1. Write new configuration file */
         r = context_write_data_local_rtc(c);
         if (r < 0) {
-                log_error_errno(r, "Failed to set RTC to local/UTC: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to set RTC to local/UTC: %m");
+                log_error_errno(r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
+                return sd_bus_error_set_errnof(error, r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
         }
 
         /* 2. Tell the kernel our timezone */
@@ -775,7 +805,9 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
 
         log_info("RTC configured to %s time.", c->local_rtc ? "local" : "UTC");
 
-        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "LocalRTC", NULL);
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+                                              "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "LocalRTC",
+                                              NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
@@ -880,6 +912,7 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
         sd_bus *bus = sd_bus_message_get_bus(m);
         Context *c = userdata;
         UnitStatusInfo *u;
+        const UnitStatusInfo *selected = NULL;
         int enable, interactive, q, r;
 
         assert(m);
@@ -952,6 +985,7 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                                 continue;
 
                         r = unit_start_or_stop(u, bus, error, enable);
+                        selected = u;
                         break;
                 }
 
@@ -962,16 +996,22 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                                 continue;
 
                         r = unit_start_or_stop(u, bus, error, enable);
+                        selected = u;
                         break;
                 }
 
         if (r < 0)
                 return r;
+        if (enable && !selected)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No NTP service found to enable.");
 
         if (slot)
                 c->slot_job_removed = TAKE_PTR(slot);
 
-        log_info("Set NTP to %sd", enable_disable(enable));
+        if (selected)
+                log_info("Set NTP to enabled (%s).", selected->name);
+        else
+                log_info("Set NTP to disabled.");
 
         return sd_bus_reply_method_return(m, NULL);
 }
