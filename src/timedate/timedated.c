@@ -272,31 +272,25 @@ static int context_read_data(Context *c) {
 
 static int context_write_data_timezone(Context *c) {
         _cleanup_free_ char *p = NULL;
-        int r = 0;
 
         assert(c);
 
         if (isempty(c->zone)) {
                 if (unlink("/etc/localtime") < 0 && errno != ENOENT)
-                        r = -errno;
-
-                return r;
+                        return -errno;
+                return 0;
         }
 
         p = path_join("../usr/share/zoneinfo", c->zone);
         if (!p)
                 return log_oom();
 
-        r = symlink_atomic(p, "/etc/localtime");
-        if (r < 0)
-                return r;
-
-        return 0;
+        return symlink_atomic(p, "/etc/localtime");
 }
 
 static int context_write_data_local_rtc(Context *c) {
-        int r;
         _cleanup_free_ char *s = NULL, *w = NULL;
+        int r;
 
         assert(c);
 
@@ -543,19 +537,16 @@ static int property_get_rtc_time(
                 void *userdata,
                 sd_bus_error *error) {
 
-        struct tm tm;
-        usec_t t;
+        struct tm tm = {};
+        usec_t t = 0;
         int r;
 
-        zero(tm);
         r = clock_get_hwclock(&tm);
-        if (r == -EBUSY) {
+        if (r == -EBUSY)
                 log_warning("/dev/rtc is busy. Is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
-                t = 0;
-        } else if (r == -ENOENT) {
+        else if (r == -ENOENT)
                 log_debug("/dev/rtc not found.");
-                t = 0; /* no RTC found */
-        } else if (r < 0)
+        else if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to read RTC: %m");
         else
                 t = (usec_t) timegm(&tm) * USEC_PER_SEC;
