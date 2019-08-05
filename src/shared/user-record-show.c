@@ -1,0 +1,466 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
+
+#include "format-util.h"
+#include "fs-util.h"
+#include "group-record.h"
+#include "process-util.h"
+#include "rlimit-util.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "user-record-show.h"
+#include "user-util.h"
+#include "userdb.h"
+
+const char *user_record_state_color(const char *state) {
+        if (STR_IN_SET(state, "unfixated", "absent"))
+                return ansi_grey();
+        else if (streq(state, "active"))
+                return ansi_highlight_green();
+        else if (streq(state, "locked"))
+                 return ansi_highlight_yellow();
+
+        return NULL;
+}
+
+void user_record_show(UserRecord *hr, bool show_full_group_info) {
+        const char *hd, *ip, *shell;
+        UserStorage storage;
+        usec_t t;
+        size_t k;
+        int r, b;
+
+        printf("   User name: %s\n",
+               user_record_user_name_and_realm(hr));
+
+        if (hr->state) {
+                const char *color;
+
+                color = user_record_state_color(hr->state);
+
+                printf("       State: %s%s%s\n",
+                       strempty(color), hr->state, color ? ansi_normal() : "");
+        }
+
+        printf(" Disposition: %s\n", user_disposition_to_string(user_record_disposition(hr)));
+
+        if (hr->last_change_usec != USEC_INFINITY) {
+                char buf[FORMAT_TIMESTAMP_MAX];
+                printf(" Last Change: %s\n", format_timestamp(buf, sizeof(buf), hr->last_change_usec));
+        }
+
+        if (hr->last_password_change_usec != USEC_INFINITY &&
+            hr->last_password_change_usec != hr->last_change_usec) {
+                char buf[FORMAT_TIMESTAMP_MAX];
+                printf(" Last Passw.: %s\n", format_timestamp(buf, sizeof(buf), hr->last_password_change_usec));
+        }
+
+        r = user_record_test_blocked(hr);
+        switch (r) {
+
+        case -ESTALE:
+                printf("    Login OK: %sno%s (last change time is in the future)\n", ansi_highlight_red(), ansi_normal());
+                break;
+
+        case -ENOLCK:
+                printf("    Login OK: %sno%s (record is locked)\n", ansi_highlight_red(), ansi_normal());
+                break;
+
+        case -EL2HLT:
+                printf("    Login OK: %sno%s (record not valid yet))\n", ansi_highlight_red(), ansi_normal());
+                break;
+
+        case -EL3HLT:
+                printf("    Login OK: %sno%s (record not valid anymore))\n", ansi_highlight_red(), ansi_normal());
+                break;
+
+        default: {
+                usec_t y;
+
+                if (r < 0) {
+                        errno = -r;
+                        printf("    Login OK: %sno%s (%m)\n", ansi_highlight_red(), ansi_normal());
+                        break;
+                }
+
+                if (is_nologin_shell(user_record_shell(hr))) {
+                        printf("    Login OK: %sno%s (nologin shell)\n", ansi_highlight_red(), ansi_normal());
+                        break;
+                }
+
+                y = user_record_ratelimit_next_try(hr);
+                if (y != USEC_INFINITY && y > now(CLOCK_REALTIME)) {
+                        printf("    Login OK: %sno%s (ratelimit)\n", ansi_highlight_red(), ansi_normal());
+                        break;
+                }
+
+                printf("    Login OK: %syes%s\n", ansi_highlight_green(), ansi_normal());
+                break;
+        }}
+
+        r = user_record_test_password_change_required(hr);
+        switch (r) {
+
+        case -EKEYREVOKED:
+                printf(" Password OK: %schange now%s\n", ansi_highlight_yellow(), ansi_normal());
+                break;
+
+        case -EOWNERDEAD:
+                printf(" Password OK: %sexpired%s (change now!)\n", ansi_highlight_yellow(), ansi_normal());
+                break;
+
+        case -EKEYREJECTED:
+                printf(" Password OK: %sexpired%s (for good)\n", ansi_highlight_red(), ansi_normal());
+                break;
+
+        case -EKEYEXPIRED:
+                printf(" Password OK: %sexpires soon%s\n", ansi_highlight_yellow(), ansi_normal());
+                break;
+
+        case -ENETDOWN:
+                printf(" Password OK: %sno timestamp%s\n", ansi_highlight_red(), ansi_normal());
+                break;
+
+        case -EROFS:
+                printf(" Password OK: %schange not permitted%s\n", ansi_highlight_yellow(), ansi_normal());
+                break;
+
+        default:
+                if (r < 0) {
+                        errno = -r;
+                        printf(" Password OK: %sno%s (%m)\n", ansi_highlight_yellow(), ansi_normal());
+                        break;
+                }
+
+                printf(" Password OK: %syes%s\n", ansi_highlight_green(), ansi_normal());
+                break;
+        }
+
+        if (uid_is_valid(hr->uid))
+                printf("         UID: " UID_FMT "\n", hr->uid);
+        if (gid_is_valid(hr->gid)) {
+                if (show_full_group_info) {
+                        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+
+                        r = groupdb_by_gid(hr->gid, 0, &gr);
+                        if (r < 0) {
+                                errno = -r;
+                                printf("         GID: " GID_FMT " (unresolvable: %m)\n", hr->gid);
+                        } else
+                                printf("         GID: " GID_FMT " (%s)\n", hr->gid, gr->group_name);
+                } else
+                        printf("         GID: " GID_FMT "\n", hr->gid);
+        } else if (uid_is_valid(hr->uid)) /* Show UID as GID if not separately configured */
+                printf("         GID: " GID_FMT "\n", (gid_t) hr->uid);
+
+        if (show_full_group_info) {
+                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+
+                r = membershipdb_by_user(hr->user_name, 0, &iterator);
+                if (r < 0) {
+                        errno = -r;
+                        printf(" Aux. Groups: (can't acquire: %m)\n");
+                } else {
+                        const char *prefix = " Aux. Groups:";
+
+                        for (;;) {
+                                _cleanup_free_ char *group = NULL;
+
+                                r = membershipdb_iterator_get(iterator, NULL, &group);
+                                if (r == -ESRCH)
+                                        break;
+                                if (r < 0) {
+                                        errno = -r;
+                                        printf("%s (can't iterate: %m)\n", prefix);
+                                        break;
+                                }
+
+                                printf("%s %s\n", prefix, group);
+                                prefix = "             ";
+                        }
+                }
+        }
+
+        if (hr->real_name && !streq(hr->real_name, hr->user_name))
+                printf("   Real Name: %s\n", hr->real_name);
+
+        hd = user_record_home_directory(hr);
+        if (hd)
+                printf("   Directory: %s\n", hd);
+
+        storage = user_record_storage(hr);
+        if (storage >= 0) /* Let's be political, and clarify which storage we like, and which we don't. About CIFS we don't complain. */
+                printf("     Storage: %s%s\n", user_storage_to_string(storage),
+                       storage == USER_LUKS ? " (strong encryption)" :
+                       storage == USER_FSCRYPT ? " (weak encryption)" :
+                       IN_SET(storage, USER_DIRECTORY, USER_SUBVOLUME) ? " (no encryption)" : "");
+
+        ip = user_record_image_path(hr);
+        if (ip && !streq_ptr(ip, hd))
+                printf("  Image Path: %s\n", ip);
+
+        b = user_record_removable(hr);
+        if (b >= 0)
+                printf("   Removable: %s\n", yes_no(b));
+
+        shell = user_record_shell(hr);
+        if (shell)
+                printf("       Shell: %s\n", shell);
+
+        if (hr->email_address)
+                printf("       Email: %s\n", hr->email_address);
+        if (hr->location)
+                printf("    Location: %s\n", hr->location);
+        if (hr->password_hint)
+                printf(" Passw. Hint: %s\n", hr->password_hint);
+        if (hr->icon_name)
+                printf("   Icon Name: %s\n", hr->icon_name);
+
+        if (hr->time_zone)
+                printf("   Time Zone: %s\n", hr->time_zone);
+
+        if (hr->preferred_language)
+                printf("    Language: %s\n", hr->preferred_language);
+
+        if (!strv_isempty(hr->environment)) {
+                char **i;
+
+                STRV_FOREACH(i, hr->environment) {
+                        printf(i == hr->environment ?
+                               " Environment: %s\n" :
+                               "              %s\n", *i);
+                }
+        }
+
+        if (hr->locked >= 0)
+                printf("      Locked: %s\n", yes_no(hr->locked));
+
+        if (hr->not_before_usec != UINT64_MAX) {
+                char buf[FORMAT_TIMESTAMP_MAX];
+                printf("  Not Before: %s\n", format_timestamp(buf, sizeof(buf), hr->not_before_usec));
+        }
+
+        if (hr->not_after_usec != UINT64_MAX) {
+                char buf[FORMAT_TIMESTAMP_MAX];
+                printf("   Not After: %s\n", format_timestamp(buf, sizeof(buf), hr->not_after_usec));
+        }
+
+        if (hr->umask != MODE_INVALID)
+                printf("       UMask: 0%03o\n", hr->umask);
+
+        if (nice_is_valid(hr->nice_level))
+                printf("        Nice: %i\n", hr->nice_level);
+
+        for (int j = 0; j < _RLIMIT_MAX; j++) {
+                if (hr->rlimits[j])
+                        printf("       Limit: RLIMIT_%s=%" PRIu64 ":%" PRIu64 "\n",
+                               rlimit_to_string(j), (uint64_t) hr->rlimits[j]->rlim_cur, (uint64_t) hr->rlimits[j]->rlim_max);
+        }
+
+        if (hr->tasks_max != UINT64_MAX)
+                printf("   Tasks Max: %" PRIu64 "\n", hr->tasks_max);
+
+        if (hr->memory_high != UINT64_MAX) {
+                char buf[FORMAT_BYTES_MAX];
+                printf(" Memory High: %s\n", format_bytes(buf, sizeof(buf), hr->memory_high));
+        }
+
+        if (hr->memory_max != UINT64_MAX) {
+                char buf[FORMAT_BYTES_MAX];
+                printf("  Memory Max: %s\n", format_bytes(buf, sizeof(buf), hr->memory_max));
+        }
+
+        if (hr->cpu_weight != UINT64_MAX)
+                printf("  CPU Weight: %" PRIu64 "\n", hr->cpu_weight);
+
+        if (hr->io_weight != UINT64_MAX)
+                printf("   IO Weight: %" PRIu64 "\n", hr->io_weight);
+
+        if (hr->access_mode != MODE_INVALID)
+                printf(" Access Mode: 0%03oo\n", user_record_access_mode(hr));
+
+        if (storage == USER_LUKS) {
+                printf("LUKS Discard: %s\n", yes_no(user_record_luks_discard(hr)));
+
+                if (!sd_id128_is_null(hr->luks_uuid))
+                        printf("   LUKS UUID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(hr->luks_uuid));
+                if (!sd_id128_is_null(hr->partition_uuid))
+                        printf("   Part UUID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(hr->partition_uuid));
+                if (!sd_id128_is_null(hr->file_system_uuid))
+                        printf("     FS UUID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(hr->file_system_uuid));
+
+                if (hr->file_system_type)
+                        printf(" File System: %s\n", user_record_file_system_type(hr));
+
+                if (hr->luks_cipher)
+                        printf(" LUKS Cipher: %s\n", hr->luks_cipher);
+                if (hr->luks_cipher_mode)
+                        printf(" Cipher Mode: %s\n", hr->luks_cipher_mode);
+                if (hr->luks_volume_key_size != UINT64_MAX)
+                        printf("  Volume Key: %" PRIu64 "bit\n", hr->luks_volume_key_size * 8);
+
+                if (hr->luks_pbkdf_type)
+                        printf("  PBKDF Type: %s\n", hr->luks_pbkdf_type);
+                if (hr->luks_pbkdf_hash_algorithm)
+                        printf("  PBKDF Hash: %s\n", hr->luks_pbkdf_hash_algorithm);
+                if (hr->luks_pbkdf_time_cost_usec != UINT64_MAX) {
+                        char buf[FORMAT_TIMESPAN_MAX];
+                        printf("  PBKDF Time: %s\n", format_timespan(buf, sizeof(buf), hr->luks_pbkdf_time_cost_usec, 0));
+                }
+                if (hr->luks_pbkdf_memory_cost != UINT64_MAX) {
+                        char buf[FORMAT_BYTES_MAX];
+                        printf(" PBKDF Bytes: %s\n", format_bytes(buf, sizeof(buf), hr->luks_pbkdf_memory_cost));
+                }
+                if (hr->luks_pbkdf_parallel_threads != UINT64_MAX)
+                        printf("PBKDF Thread: %" PRIu64 "\n", hr->luks_pbkdf_parallel_threads);
+
+        } else if (storage == USER_CIFS) {
+
+                if (hr->cifs_service)
+                        printf("CIFS Service: %s\n", hr->cifs_service);
+        }
+
+        if (hr->cifs_user_name)
+                printf("   CIFS User: %s\n", user_record_cifs_user_name(hr));
+        if (hr->cifs_domain)
+                printf(" CIFS Domain: %s\n", hr->cifs_domain);
+
+        if (storage != USER_CLASSIC)
+                printf(" Mount Flags: %s %s %s\n",
+                       hr->nosuid ? "nosuid" : "suid",
+                       hr->nodev ? "nodev" : "dev",
+                       hr->noexec ? "noexec" : "exec");
+
+        if (hr->skeleton_directory)
+                printf("  Skel. Dir.: %s\n", user_record_skeleton_directory(hr));
+
+        if (hr->disk_size != UINT64_MAX) {
+                char buf[FORMAT_BYTES_MAX];
+                printf("   Disk Size: %s\n", format_bytes(buf, sizeof(buf), hr->disk_size));
+        }
+
+        if (hr->disk_usage != UINT64_MAX) {
+                char buf[FORMAT_BYTES_MAX];
+                printf("  Disk Usage: %s\n", format_bytes(buf, sizeof(buf), hr->disk_usage));
+        }
+
+        if (hr->disk_free != UINT64_MAX) {
+                char buf[FORMAT_BYTES_MAX];
+                printf("   Disk Free: %s\n", format_bytes(buf, sizeof(buf), hr->disk_free));
+        }
+
+        if (hr->disk_floor != UINT64_MAX) {
+                char buf[FORMAT_BYTES_MAX];
+                printf("  Disk Floor: %s\n", format_bytes(buf, sizeof(buf), hr->disk_floor));
+        }
+
+        if (hr->disk_ceiling != UINT64_MAX) {
+                char buf[FORMAT_BYTES_MAX];
+                printf("Disk Ceiling: %s\n", format_bytes(buf, sizeof(buf), hr->disk_ceiling));
+        }
+
+        if (hr->good_authentication_counter != UINT64_MAX)
+                printf("  Good Auth.: %" PRIu64 "\n", hr->good_authentication_counter);
+
+        if (hr->last_good_authentication_usec != UINT64_MAX) {
+                char buf[FORMAT_TIMESTAMP_MAX];
+                printf("   Last Good: %s\n", format_timestamp(buf, sizeof(buf), hr->last_good_authentication_usec));
+        }
+
+        if (hr->bad_authentication_counter != UINT64_MAX)
+                printf("   Bad Auth.: %" PRIu64 "\n", hr->bad_authentication_counter);
+
+        if (hr->last_bad_authentication_usec != UINT64_MAX) {
+                char buf[FORMAT_TIMESTAMP_MAX];
+                printf("    Last Bad: %s\n", format_timestamp(buf, sizeof(buf), hr->last_bad_authentication_usec));
+        }
+
+        t = user_record_ratelimit_next_try(hr);
+        if (t != USEC_INFINITY) {
+                usec_t n = now(CLOCK_REALTIME);
+
+                if (t <= n)
+                        printf("    Next Try: anytime\n");
+                else {
+                        char buf[FORMAT_TIMESPAN_MAX];
+                        printf("    Next Try: %sin %s%s\n",
+                               ansi_highlight_red(),
+                               format_timespan(buf, sizeof(buf), t - n, USEC_PER_SEC),
+                               ansi_normal());
+                }
+        }
+
+        if (storage != USER_CLASSIC) {
+                char buf[FORMAT_TIMESPAN_MAX];
+                printf(" Auth. Limit: %" PRIu64 " attempts per %s\n", user_record_ratelimit_burst(hr),
+                       format_timespan(buf, sizeof(buf), user_record_ratelimit_interval_usec(hr), 0));
+        }
+
+        if (hr->enforce_password_policy >= 0)
+                printf(" Passwd Pol.: %s\n", yes_no(hr->enforce_password_policy));
+
+        if (hr->password_change_min_usec != UINT64_MAX ||
+            hr->password_change_max_usec != UINT64_MAX ||
+            hr->password_change_warn_usec != UINT64_MAX ||
+            hr->password_change_inactive_usec != UINT64_MAX) {
+
+                char buf[FORMAT_TIMESPAN_MAX];
+                printf(" Passwd Chg.:");
+
+                if (hr->password_change_min_usec != UINT64_MAX) {
+                        printf(" min %s", format_timespan(buf, sizeof(buf), hr->password_change_min_usec, 0));
+
+                        if (hr->password_change_max_usec != UINT64_MAX)
+                                printf(" …");
+                }
+
+                if (hr->password_change_max_usec != UINT64_MAX)
+                        printf(" max %s", format_timespan(buf, sizeof(buf), hr->password_change_max_usec, 0));
+
+                if (hr->password_change_warn_usec != UINT64_MAX)
+                        printf("/warn %s", format_timespan(buf, sizeof(buf), hr->password_change_warn_usec, 0));
+
+                if (hr->password_change_inactive_usec != UINT64_MAX)
+                        printf("/inactive %s", format_timespan(buf, sizeof(buf), hr->password_change_inactive_usec, 0));
+
+                printf("\n");
+        }
+
+        if (hr->password_change_now >= 0)
+                printf("Pas. Ch. Now: %s\n", yes_no(hr->password_change_now));
+
+        if (!strv_isempty(hr->ssh_authorized_keys))
+                printf("SSH Pub. Key: %zu\n", strv_length(hr->ssh_authorized_keys));
+
+        if (!strv_isempty(hr->pkcs11_token_uri)) {
+                char **i;
+
+                STRV_FOREACH(i, hr->pkcs11_token_uri)
+                        printf(i == hr->pkcs11_token_uri ?
+                               "  Sec. Token: %s\n" :
+                               "              %s\n", *i);
+        }
+
+        k = strv_length(hr->hashed_password);
+        if (k == 0)
+                printf("   Passwords: %snone%s\n",
+                       user_record_disposition(hr) == USER_REGULAR ? ansi_highlight_yellow() : ansi_normal(), ansi_normal());
+        else
+                printf("   Passwords: %zu\n", k);
+
+        if (hr->signed_locally >= 0)
+                printf("  Local Sig.: %s\n", yes_no(hr->signed_locally));
+
+        if (hr->stop_delay_usec != UINT64_MAX) {
+                char buf[FORMAT_TIMESPAN_MAX];
+                printf("  Stop Delay: %s\n", format_timespan(buf, sizeof(buf), hr->stop_delay_usec, 0));
+        }
+
+        if (hr->auto_login >= 0)
+                printf("Autom. Login: %s\n", yes_no(hr->auto_login));
+
+        if (hr->kill_processes >= 0)
+                printf("  Kill Proc.: %s\n", yes_no(hr->kill_processes));
+
+        if (hr->service)
+                printf("     Service: %s\n", hr->service);
+}
