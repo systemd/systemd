@@ -339,7 +339,7 @@ int button_open(Button *b) {
                 return log_error_errno(errno, "Failed to get input name for %s: %m", p);
 
         (void) button_set_mask(b->name, fd);
-        
+
         b->io_event_source = sd_event_source_unref(b->io_event_source);
         r = sd_event_add_io(b->manager->event, &b->io_event_source, fd, EPOLLIN, button_dispatch, b);
         if (r < 0)
