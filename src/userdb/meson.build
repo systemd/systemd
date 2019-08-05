@@ -9,3 +9,7 @@ systemd_userdbd_sources = files('''
         userdbd-manager.h
         userdbd.c
 '''.split())
+
+userdbctl_sources = files('''
+        userdbctl.c
+'''.split())
