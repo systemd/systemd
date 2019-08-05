@@ -18,8 +18,8 @@ const ExitStatusMapping exit_status_mappings[256] = {
          *   8…63  │ (Currently unmapped)
          *  64…78  │ BSD defined exit codes
          *  79…199 │ (Currently unmapped)
-         * 200…241 │ systemd's private error codes (might be extended to 254 in future development)
-         * 242…254 │ (Currently unmapped, but see above)
+         * 200…242 │ systemd's private error codes (might be extended to 254 in future development)
+         * 243…254 │ (Currently unmapped, but see above)
          *
          *   255   │ EXIT_EXCEPTION (We use this to propagate exit-by-signal events. It's frequently used by others apps (like bash)
          *         │ to indicate exit reason that cannot really be expressed in a single exit status value — such as a propagated
@@ -99,7 +99,7 @@ const ExitStatusMapping exit_status_mappings[256] = {
 const char* exit_status_to_string(int code, ExitStatusClass class) {
         if (code < 0 || (size_t) code >= ELEMENTSOF(exit_status_mappings))
                 return NULL;
-        return FLAGS_SET(exit_status_mappings[code].class, class) ? exit_status_mappings[code].name : NULL;
+        return class & exit_status_mappings[code].class ? exit_status_mappings[code].name : NULL;
 }
 
 const char* exit_status_class(int code) {

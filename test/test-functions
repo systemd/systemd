@@ -209,6 +209,7 @@ $KERNEL_APPEND \
 -nographic \
 -kernel $KERNEL_BIN \
 -drive format=raw,cache=unsafe,file=${TESTDIR}/rootdisk.img \
+$QEMU_OPTIONS \
 "
 
     if [[ "$INITRD" && "$SKIP_INITRD" != "yes" ]]; then
