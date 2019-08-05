@@ -243,20 +243,6 @@ static int context_ntp_service_is_active(Context *c) {
         return count;
 }
 
-static int context_ntp_service_is_enabled(Context *c) {
-        UnitStatusInfo *info;
-        int count = 0;
-
-        assert(c);
-
-        /* Call context_update_ntp_status() to update UnitStatusInfo before calling this. */
-
-        LIST_FOREACH(units, info, c->units)
-                count += !STRPTR_IN_SET(info->unit_file_state, "masked", "masked-runtime", "disabled", "bad");
-
-        return count;
-}
-
 static int context_ntp_service_exists(Context *c) {
         UnitStatusInfo *info;
         int count = 0;
@@ -961,43 +947,38 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                         return r;
         }
 
-        if (!enable)
+        if (enable)
                 LIST_FOREACH(units, u, c->units) {
+                        bool enable_this_one = !selected;
+
                         if (!streq(u->load_state, "loaded"))
                                 continue;
 
-                        q = unit_enable_or_disable(u, bus, error, enable);
-                        if (q < 0)
-                                r = q;
-
-                        q = unit_start_or_stop(u, bus, error, enable);
-                        if (q < 0)
-                                r = q;
-                }
-
-        else if (context_ntp_service_is_enabled(c) <= 0)
-                LIST_FOREACH(units, u, c->units) {
-                        if (!streq(u->load_state, "loaded"))
-                                continue;
-
-                        r = unit_enable_or_disable(u, bus, error, enable);
+                        r = unit_enable_or_disable(u, bus, error, enable_this_one);
                         if (r < 0)
-                                continue;
+                                /* If enablement failed, don't start this unit. */
+                                enable_this_one = false;
 
-                        r = unit_start_or_stop(u, bus, error, enable);
-                        selected = u;
-                        break;
+                        r = unit_start_or_stop(u, bus, error, enable_this_one);
+                        if (r < 0)
+                                log_unit_warning_errno(u, r, "Failed to %s %sd NTP unit, ignoring: %m",
+                                                       enable_this_one ? "start" : "stop",
+                                                       enable_disable(enable_this_one));
+                        if (enable_this_one)
+                                selected = u;
                 }
-
         else
                 LIST_FOREACH(units, u, c->units) {
-                        if (!streq(u->load_state, "loaded") ||
-                            !streq(u->unit_file_state, "enabled"))
+                        if (!streq(u->load_state, "loaded"))
                                 continue;
 
-                        r = unit_start_or_stop(u, bus, error, enable);
-                        selected = u;
-                        break;
+                        q = unit_enable_or_disable(u, bus, error, false);
+                        if (q < 0)
+                                r = q;
+
+                        q = unit_start_or_stop(u, bus, error, false);
+                        if (q < 0)
+                                r = q;
                 }
 
         if (r < 0)
