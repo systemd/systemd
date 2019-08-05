@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "exit-status.h"
+#include "string-util.h"
 #include "tests.h"
 
 static void test_exit_status_to_string(void) {
@@ -31,11 +32,21 @@ static void test_exit_status_from_string(void) {
         assert_se(exit_status_from_string("FAILURE") == 1);
 }
 
+static void test_exit_status_NUMA_POLICY(void) {
+        log_info("/* %s */", __func__);
+
+        assert_se(streq(exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_FULL), "NUMA_POLICY"));
+        assert_se(streq(exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_SYSTEMD), "NUMA_POLICY"));
+        assert_se(!exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_BSD));
+        assert_se(!exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_LSB));
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         test_exit_status_to_string();
         test_exit_status_from_string();
+        test_exit_status_NUMA_POLICY();
 
         return 0;
 }

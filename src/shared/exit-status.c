@@ -99,7 +99,7 @@ const ExitStatusMapping exit_status_mappings[256] = {
 const char* exit_status_to_string(int code, ExitStatusClass class) {
         if (code < 0 || (size_t) code >= ELEMENTSOF(exit_status_mappings))
                 return NULL;
-        return FLAGS_SET(exit_status_mappings[code].class, class) ? exit_status_mappings[code].name : NULL;
+        return class & exit_status_mappings[code].class ? exit_status_mappings[code].name : NULL;
 }
 
 const char* exit_status_class(int code) {
