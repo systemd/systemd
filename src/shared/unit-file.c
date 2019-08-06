@@ -415,7 +415,7 @@ int unit_file_find_fragment(
                 return -ENOMEM;
 
         /* The unit always has its own name if it's not a template. */
-        if (unit_name_is_valid(unit_name, UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE)) {
+        if (IN_SET(name_type, UNIT_NAME_PLAIN, UNIT_NAME_INSTANCE)) {
                 r = set_put_strdup(names, unit_name);
                 if (r < 0)
                         return r;
@@ -430,12 +430,12 @@ int unit_file_find_fragment(
                 /* Add any aliases of the original name to the set of names */
                 nnn = hashmap_get(unit_name_map, basename(fragment));
                 STRV_FOREACH(t, nnn) {
-                        if (instance && unit_name_is_valid(*t, UNIT_NAME_TEMPLATE)) {
+                        if (name_type == UNIT_NAME_INSTANCE && unit_name_is_valid(*t, UNIT_NAME_TEMPLATE)) {
                                 char *inst;
 
                                 r = unit_name_replace_instance(*t, instance, &inst);
                                 if (r < 0)
-                                    return log_debug_errno(r, "Cannot build instance name %s+%s: %m", *t, instance);
+                                        return log_debug_errno(r, "Cannot build instance name %s+%s: %m", *t, instance);
 
                                 if (!streq(unit_name, inst))
                                         log_debug("%s: %s has alias %s", __func__, unit_name, inst);
