@@ -5874,7 +5874,7 @@ static int cat(int argc, char *argv[], void *userdata) {
         bool first = true;
         int r;
 
-        /* Include all units by default - i.e. continue as if the --all
+        /* Include all units by default — i.e. continue as if the --all
          * option was used */
         if (strv_isempty(arg_states))
                 arg_all = true;
