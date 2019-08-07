@@ -37,12 +37,33 @@
         _values 'class' "$_class[@]"
     }
 
-(( $+functions[_resolvectl_none] )) ||
-    _resolvectl_none() {
-        _alternative : \
-                     'domain:DNS address:' \
-                     'address:email address:'
-    }
+(( $+functions[_resolvectl_commands] )) ||
+    _resolvectl_commands() {
+    local -a _resolvectl_cmds
+    _resolvectl_cmds=(
+        default-route:"Configure per-interface default-route setting"
+        dns:"Configure per-interface DNS configuration"
+        dnsovertls:"Configure per-interface dnsovertls enabled status"
+        dnssec:"Configure per-interface dnssec enabled status"
+        domain:"Configure per-interface search and route-only domains"
+        flush-caches:"Flushes all DNS resource record caches the service maintains locally"
+        llmnr:"Configure per-interface llmnr enabled status"
+        mdns:"Configure per-interface mdns enabled status"
+        nta:"Configure per-interface nta domains"
+        openpgp:"Retrieve openpgp keys for an email"
+        query:"Resolve domain names, IPv4 and IPv6 addresses"
+        reset-server-features:"Flushes all feature level information the resolver has learned about specific servers"
+        reset-statistics:"Resets the statistics counter show in statistics to zero"
+        revert:"Revert the per-interfce DNS configuration"
+        service:"Resolve DNS-SD and SRV services"
+        status:"Show the global and per-link DNS settings currently in effect"
+        tlsa:"Query tlsa public keys stored as TLSA resource records"
+    )
+
+    if (( CURRENT == 1 )); then
+        _describe -t commands 'resolvectl commands' _resolvectl_cmds
+    fi
+}
 
 _arguments \
     {-h,--help}'[Print a short help text and exit]' \
@@ -63,4 +84,4 @@ _arguments \
     '--search=no[Do not use search domains]' \
     '--statistics[Show resolver statistics]' \
     '--reset-statistics[Reset resolver statistics]' \
-    '*::default: _resolvectl_none'
+    '*::default: _resolvectl_commands'
