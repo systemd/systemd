@@ -1755,9 +1755,6 @@ static void mount_enumerate(Manager *m) {
                         goto fail;
                 }
                 
-                r = sd_event_source_set_preempt_dispatch_count(m->mount_event_source, 5);
-                if (r < 0)
-                        goto fail;
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
         }
