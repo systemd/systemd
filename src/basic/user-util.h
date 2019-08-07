@@ -127,3 +127,5 @@ int putsgent_sane(const struct sgrp *sg, FILE *stream);
 #endif
 
 int make_salt(char **ret);
+
+bool is_nologin_shell(const char *shell);
