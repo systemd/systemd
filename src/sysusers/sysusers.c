@@ -428,7 +428,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                         .pw_passwd = (char*) "x",
 
                         /* We default to the root directory as home */
-                        .pw_dir = i->home ? i->home : (char*) "/",
+                        .pw_dir = i->home ?: (char*) "/",
 
                         /* Initialize the shell to nologin, with one exception:
                          * for root we patch in something special */
@@ -522,13 +522,13 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         ORDERED_HASHMAP_FOREACH(i, todo_uids, iterator) {
                 struct spwd n = {
                         .sp_namp = i->name,
-                        .sp_pwdp = (char*) "!!",
+                        .sp_pwdp = (char*) "!!", /* lock this password, and make it invalid */
                         .sp_lstchg = lstchg,
                         .sp_min = -1,
                         .sp_max = -1,
                         .sp_warn = -1,
                         .sp_inact = -1,
-                        .sp_expire = -1,
+                        .sp_expire = i->uid == 0 ? -1 : 1, /* lock account as a whole, unless this is root */
                         .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
                 };
 
