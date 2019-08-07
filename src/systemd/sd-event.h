@@ -144,6 +144,7 @@ int sd_event_source_get_child_pid(sd_event_source *s, pid_t *pid);
 int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *ret);
 int sd_event_source_set_destroy_callback(sd_event_source *s, sd_event_destroy_t callback);
 int sd_event_source_get_destroy_callback(sd_event_source *s, sd_event_destroy_t *ret);
+int sd_event_source_set_preempt_dispatch_count(sd_event_source *s, unsigned count);
 int sd_event_source_get_floating(sd_event_source *s);
 int sd_event_source_set_floating(sd_event_source *s, int b);
 

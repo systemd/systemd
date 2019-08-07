@@ -66,6 +66,10 @@ struct sd_event_source {
         unsigned prepare_index;
         uint64_t pending_iteration;
         uint64_t prepare_iteration;
+        uint64_t preempted_iteration; /*The iteration that dispatched_count is greater than preempt_dispatch_count*/
+        unsigned pending_count; /*times of pending not dispatched*/
+        unsigned dispatched_count; /*consecutive dispatched count*/
+        unsigned preempt_dispatch_count; /*Will be preempted by lower priority if dispatched count reaches to this*/
 
         sd_event_destroy_t destroy_callback;
 

@@ -26,6 +26,10 @@
 #include "strxcpyx.h"
 #include "time-util.h"
 
+#define DEFAULT_PREEMPTED_ITERATION_COUNT (3)
+#define DEFAULT_PREEMPT_DISPATCH_COUNT (10)
+#define DEFAULT_PREEMPT_PENDING_COUNT (10)
+#define DEFAULT_PREEMPT_ITERATION_COUNT (30)
 #define DEFAULT_ACCURACY_USEC (250 * USEC_PER_MSEC)
 
 static const char* const event_source_type_table[_SOURCE_EVENT_SOURCE_TYPE_MAX] = {
@@ -107,7 +111,11 @@ struct sd_event {
         unsigned n_sources;
 
         LIST_HEAD(sd_event_source, sources);
-
+        
+        /*last dispatched source, its type is sd_event_source,
+         * here use void to avoid accessing its members,
+         * for it may have been freed already.*/
+        void *last_source;
         usec_t last_run, last_log;
         unsigned delays[sizeof(usec_t) * 8];
 };
@@ -119,6 +127,39 @@ static void event_gc_inode_data(sd_event *e, struct inode_data *d);
 
 static sd_event *event_resolve(sd_event *e) {
         return e == SD_EVENT_DEFAULT ? default_event : e;
+}
+
+static int preempt_prioq_compare(const sd_event_source *x, const sd_event_source *y) {
+        if((x->priority > SD_EVENT_PRIORITY_NORMAL && x->type != SOURCE_DEFER)
+                || (y->priority > SD_EVENT_PRIORITY_NORMAL && y->type != SOURCE_DEFER)) {
+                return 0; /*only high priority evnets can preempt*/
+        }
+
+        if(x->priority <= y->priority) {
+                if(x->dispatched_count >= x->preempt_dispatch_count)
+                        return 1;
+                if(y->type != SOURCE_DEFER) { /*pending state for defer event is always true*/
+                        /*y has lower priority, but its pending count is greater than x, so y wins*/
+                        if(y->pending_count >= (x->pending_count + DEFAULT_PREEMPT_PENDING_COUNT))
+                                return 1;
+                        /*y has lower priority, but is in pending longer than x, so y wins*/
+                        if(x->pending_iteration >= (y->pending_iteration + DEFAULT_PREEMPT_ITERATION_COUNT))
+                                return 1;
+                }
+        } else {
+                if(y->dispatched_count >= y->preempt_dispatch_count)
+                        return -1;
+                if(x->type != SOURCE_DEFER) { /*pending state for defer event is always true*/
+                        /*x has lower priority, but its pending count is greater than y, so x wins*/
+                        if(x->pending_count >= (y->pending_count + DEFAULT_PREEMPT_PENDING_COUNT))
+                                return -1;
+                        /*x has lower priority, but is in pending longer than y, so x wins*/
+                        if(y->pending_iteration >= (x->pending_iteration + DEFAULT_PREEMPT_ITERATION_COUNT))
+                                return -1;
+                }
+        }
+
+        return 0;
 }
 
 static int pending_prioq_compare(const void *a, const void *b) {
@@ -133,6 +174,10 @@ static int pending_prioq_compare(const void *a, const void *b) {
                 return -1;
         if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
                 return 1;
+
+         r = preempt_prioq_compare(a, b);
+         if(r)
+                return r;
 
         /* Lower priority values first */
         r = CMP(x->priority, y->priority);
@@ -802,6 +847,17 @@ static int source_set_pending(sd_event_source *s, bool b) {
         assert(s);
         assert(s->type != SOURCE_EXIT);
 
+        if (b && s->pending == b)
+                s->pending_count++;
+        else
+                s->pending_count = (b ? 1 : 0);
+        if (b && s->preempted_iteration &&
+                (s->pending_count >= DEFAULT_PREEMPTED_ITERATION_COUNT ||
+                s->event->iteration >= (s->preempted_iteration + DEFAULT_PREEMPTED_ITERATION_COUNT)) ) {
+                s->dispatched_count = 0;
+                s->preempted_iteration = 0;
+        }
+
         if (s->pending == b)
                 return 0;
 
@@ -869,6 +925,7 @@ static sd_event_source *source_new(sd_event *e, bool floating, EventSourceType t
                 .type = type,
                 .pending_index = PRIOQ_IDX_NULL,
                 .prepare_index = PRIOQ_IDX_NULL,
+                .preempt_dispatch_count = DEFAULT_PREEMPT_DISPATCH_COUNT,
         };
 
         if (!floating)
@@ -1988,6 +2045,8 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                                 return r;
                 }
 
+                s->pending_count = 0;
+
                 switch (s->type) {
 
                 case SOURCE_IO:
@@ -2780,6 +2839,19 @@ static int process_inotify(sd_event *e) {
         return done;
 }
 
+static void source_dispatch_pre(sd_event_source *s) {
+        if(s->event->last_source == s) {
+                s->dispatched_count++;
+                if(s->dispatched_count >= s->preempt_dispatch_count)
+                        s->preempted_iteration = s->event->iteration;
+        } else {
+                s->preempted_iteration = 0;
+                s->dispatched_count = 0;
+        }
+        s->event->last_source = s;
+        s->pending_count = 0;
+}
+
 static int source_dispatch(sd_event_source *s) {
         EventSourceType saved_type;
         int r = 0;
@@ -2820,6 +2892,7 @@ static int source_dispatch(sd_event_source *s) {
                         return r;
         }
 
+        source_dispatch_pre(s);
         s->dispatching = true;
 
         switch (s->type) {
@@ -3518,6 +3591,13 @@ _public_ int sd_event_source_get_destroy_callback(sd_event_source *s, sd_event_d
                 *ret = s->destroy_callback;
 
         return !!s->destroy_callback;
+}
+
+_public_ int sd_event_source_set_preempt_dispatch_count(sd_event_source *s, unsigned count) {
+        assert_return(s, -EINVAL);
+
+        s->preempt_dispatch_count = count;
+        return 0;
 }
 
 _public_ int sd_event_source_get_floating(sd_event_source *s) {
