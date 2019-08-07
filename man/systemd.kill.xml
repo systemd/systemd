@@ -79,7 +79,7 @@
         signal (see below) is sent to all remaining processes of the
         unit's control group. If set to <option>none</option>, no
         process is killed. In this case, only the stop command will be
-        executed on unit stop, but no process be killed otherwise.
+        executed on unit stop, but no process will be killed otherwise.
         Processes remaining alive after stop are left in their control
         group and the control group continues to exist after stop
         unless it is empty.</para>
