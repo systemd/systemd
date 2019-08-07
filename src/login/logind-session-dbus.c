@@ -43,7 +43,7 @@ static int property_get_user(
         if (!p)
                 return -ENOMEM;
 
-        return sd_bus_message_append(reply, "(uo)", (uint32_t) s->user->uid, p);
+        return sd_bus_message_append(reply, "(uo)", (uint32_t) s->user->user_record->uid, p);
 }
 
 static int property_get_name(
@@ -61,7 +61,7 @@ static int property_get_name(
         assert(reply);
         assert(s);
 
-        return sd_bus_message_append(reply, "s", s->user->name);
+        return sd_bus_message_append(reply, "s", s->user->user_record->user_name);
 }
 
 static int property_get_seat(
@@ -168,7 +168,7 @@ int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus
                         "org.freedesktop.login1.manage",
                         NULL,
                         false,
-                        s->user->uid,
+                        s->user->user_record->uid,
                         &s->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -210,7 +210,7 @@ int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_erro
                         "org.freedesktop.login1.lock-sessions",
                         NULL,
                         false,
-                        s->user->uid,
+                        s->user->user_record->uid,
                         &s->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -246,7 +246,7 @@ static int method_set_idle_hint(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        if (uid != 0 && uid != s->user->uid)
+        if (uid != 0 && uid != s->user->user_record->uid)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may set idle hint");
 
         r = session_set_idle_hint(s, b);
@@ -279,7 +279,7 @@ static int method_set_locked_hint(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        if (uid != 0 && uid != s->user->uid)
+        if (uid != 0 && uid != s->user->user_record->uid)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may set locked hint");
 
         session_set_locked_hint(s, b);
@@ -318,7 +318,7 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
                         "org.freedesktop.login1.manage",
                         NULL,
                         false,
-                        s->user->uid,
+                        s->user->user_record->uid,
                         &s->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -354,7 +354,7 @@ static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_e
         if (r < 0)
                 return r;
 
-        if (uid != 0 && (force || uid != s->user->uid))
+        if (uid != 0 && (force || uid != s->user->user_record->uid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may take control");
 
         r = session_set_controller(s, sd_bus_message_get_sender(message), force, true);
@@ -523,7 +523,7 @@ static int method_set_brightness(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        if (uid != 0 && uid != s->user->uid)
+        if (uid != 0 && uid != s->user->user_record->uid)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may change brightness.");
 
         r = sd_device_new_from_subsystem_sysname(&d, subsystem, name);
@@ -822,7 +822,7 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
                   "session_fd=%d seat=%s vtnr=%u",
                   s->id,
                   p,
-                  (uint32_t) s->user->uid,
+                  (uint32_t) s->user->user_record->uid,
                   s->user->runtime_path,
                   fifo_fd,
                   s->seat ? s->seat->id : "",
@@ -834,7 +834,7 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
                         p,
                         s->user->runtime_path,
                         fifo_fd,
-                        (uint32_t) s->user->uid,
+                        (uint32_t) s->user->user_record->uid,
                         s->seat ? s->seat->id : "",
                         (uint32_t) s->vtnr,
                         false);
