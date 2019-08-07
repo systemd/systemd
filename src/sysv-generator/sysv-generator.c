@@ -765,7 +765,7 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                         if (!(st.st_mode & S_IXUSR))
                                 continue;
 
-                        if (!S_ISREG(st.st_mode))
+                        if (!S_ISREG(st.st_mode) && !S_ISLNK(st.st_mode))
                                 continue;
 
                         name = sysv_translate_name(de->d_name);
