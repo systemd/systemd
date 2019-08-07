@@ -29,6 +29,7 @@
 #include "bus-util.h"
 #include "clean-ipc.h"
 #include "clock-util.h"
+#include "core-varlink.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
 #include "dbus-unit.h"
@@ -44,8 +45,8 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "io-util.h"
 #include "install.h"
+#include "io-util.h"
 #include "label.h"
 #include "locale-setup.h"
 #include "log.h"
@@ -1346,6 +1347,7 @@ Manager* manager_free(Manager *m) {
         lookup_paths_flush_generator(&m->lookup_paths);
 
         bus_done(m);
+        manager_varlink_done(m);
 
         exec_runtime_vacuum(m);
         hashmap_free(m->exec_runtime_by_id);
@@ -1702,6 +1704,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to deserialized tracked clients, ignoring: %m");
                 m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
+
+                r = manager_varlink_init(m);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set up Varlink server, ignoring: %m");
 
                 /* Third, fire things up! */
                 manager_coldplug(m);

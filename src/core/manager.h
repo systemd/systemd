@@ -16,6 +16,7 @@
 #include "list.h"
 #include "prioq.h"
 #include "ratelimit.h"
+#include "varlink.h"
 
 struct libmnt_monitor;
 typedef struct Unit Unit;
@@ -422,6 +423,8 @@ struct Manager {
         unsigned notifygen;
 
         bool honor_device_enumeration;
+
+        VarlinkServer *varlink_server;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
