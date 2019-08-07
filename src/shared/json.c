@@ -3977,6 +3977,27 @@ int json_dispatch_string(const char *name, JsonVariant *variant, JsonDispatchFla
         return 0;
 }
 
+int json_dispatch_const_string(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        const char **s = userdata;
+
+        assert(variant);
+        assert(s);
+
+        if (json_variant_is_null(variant)) {
+                *s = NULL;
+                return 0;
+        }
+
+        if (!json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        if ((flags & JSON_SAFE) && !string_is_safe(json_variant_string(variant)))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains unsafe characters, refusing.", strna(name));
+
+        *s = json_variant_string(variant);
+        return 0;
+}
+
 int json_dispatch_strv(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         _cleanup_strv_free_ char **l = NULL;
         char ***s = userdata;
