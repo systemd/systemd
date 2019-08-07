@@ -53,6 +53,12 @@ typedef enum TableDataType {
 #define TABLE_PID TABLE_INT32
 assert_cc(sizeof(pid_t) == sizeof(int32_t));
 
+/* UIDs/GIDs are just 32bit unsigned integers on Linux */
+#define TABLE_UID TABLE_UINT32
+#define TABLE_GID TABLE_UINT32
+assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+assert_cc(sizeof(gid_t) == sizeof(uint32_t));
+
 typedef struct Table Table;
 typedef struct TableCell TableCell;
 
