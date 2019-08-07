@@ -1,4 +1,4 @@
-#compdef systemd-resolve                    -*- shell-script -*-
+#compdef resolvectl systemd-resolve         -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # This file is part of systemd.
@@ -16,29 +16,29 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-(( $+functions[_systemd-resolve_protocols] )) ||
-    _systemd-resolve_protocols() {
+(( $+functions[_resolvectl_protocols] )) ||
+    _resolvectl_protocols() {
         local -a _protocol
         _protocol=( $(_call_program protocol ${service} --legend=no --protocol help; echo help) )
         _values 'protocol' "$_protocol[@]"
     }
 
-(( $+functions[_systemd-resolve_types] )) ||
-    _systemd-resolve_types() {
+(( $+functions[_resolvectl_types] )) ||
+    _resolvectl_types() {
         local -a _type
         _type=( $(_call_program type ${service} --legend=no --type help; echo help) )
         _values 'type' "$_type[@]"
     }
 
-(( $+functions[_systemd-resolve_classes] )) ||
-    _systemd-resolve_classes() {
+(( $+functions[_resolvectl_classes] )) ||
+    _resolvectl_classes() {
         local -a _class
         _class=( $(_call_program class ${service} --legend=no --class help; echo help) )
         _values 'class' "$_class[@]"
     }
 
-(( $+functions[_systemd-resolve_none] )) ||
-    _systemd-resolve_none() {
+(( $+functions[_resolvectl_none] )) ||
+    _resolvectl_none() {
         _alternative : \
                      'domain:DNS address:' \
                      'address:email address:'
@@ -51,9 +51,9 @@ _arguments \
     '-4[Resolve IPv4 addresses]' \
     '-6[Resolve IPv6 addresses]' \
     {-i+,--interface=}'[Look on interface]:interface:_net_interfaces' \
-    {-p+,--protocol=}'[Look via protocol]:protocol:_systemd-resolve_protocols' \
-    {-t+,--type=}'[Query RR with DNS type]:type:_systemd-resolve_types' \
-    {-c+,--class=}'[Query RR with DNS class]:class:_systemd-resolve_classes' \
+    {-p+,--protocol=}'[Look via protocol]:protocol:_resolvectl_protocols' \
+    {-t+,--type=}'[Query RR with DNS type]:type:_resolvectl_types' \
+    {-c+,--class=}'[Query RR with DNS class]:class:_resolvectl_classes' \
     '--service[Resolve services]' \
     '--service-address=no[Do not resolve address for services]' \
     '--service-txt=no[Do not resolve TXT records for services]' \
@@ -63,4 +63,4 @@ _arguments \
     '--search=no[Do not use search domains]' \
     '--statistics[Show resolver statistics]' \
     '--reset-statistics[Reset resolver statistics]' \
-    '*::default: _systemd-resolve_none'
+    '*::default: _resolvectl_none'
