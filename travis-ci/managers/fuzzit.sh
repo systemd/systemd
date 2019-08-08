@@ -46,7 +46,7 @@ chmod +x fuzzit
 
 find out/ -maxdepth 1 -name 'fuzz-*' -executable -type f -exec basename '{}' \; | xargs --verbose -n1 -I%FUZZER% ./fuzzit c job ${FUZZIT_ARGS} %FUZZER%-asan-ubsan out/%FUZZER% ${FUZZIT_ADDITIONAL_FILES}
 
-export SANITIZER="memory"
+export SANITIZER="memory -fsanitize-memory-track-origins"
 FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT}"
 tools/oss-fuzz.sh
 
