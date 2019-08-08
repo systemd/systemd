@@ -32,7 +32,7 @@ fi
 
 # Because we want Fuzzit to run on every pull-request and Travis/Azure doesnt support encrypted keys
 # on pull-request we use a write-only key which is ok for now. maybe there will be a better solution in the future
-FUZZIT_API_KEY=7c1bd82fe0927ffe1b4bf1e2e86cc812b28dfe08a7080a7bf498e98715884a163402ee37ba95d4b1637247deffcea43e
+FUZZIT_API_KEY=6a8445a23c4a8ef6743ddecf8ab368300976dae9313bbe54f1cbf30801773b2a3095d4c34daab8d308b6f2e8b254c90e
 FUZZIT_ADDITIONAL_FILES="./out/src/shared/libsystemd-shared-*.so"
 
 # ASan options are borrowed almost verbatim from OSS-Fuzz
@@ -45,37 +45,37 @@ chmod +x fuzzit
 ./fuzzit auth ${FUZZIT_API_KEY}
 
 # The following was generated with
-# ./fuzzit get targets | jq --raw-output '.target_name + " " + .id' | grep -v -- '-msan$' | perl -alne 'printf("./fuzzit c job \${FUZZIT_ARGS} %s ./out/%s \${FUZZIT_ADDITIONAL_FILES}\n", $F[1], $F[0])'
-./fuzzit c job ${FUZZIT_ARGS} 2ODbhEjfRF2AZtrUotMh ./out/fuzz-bus-label ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} 62XnUyWTLAvIRh1vFkEw ./out/fuzz-journald-stream ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} 6AdGwIiI3l1Edu9V4fvF ./out/fuzz-env-file ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} 7ubB4DVu2EiYgPVtRUNV ./out/fuzz-calendarspec ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} 8D0NrVtSwTpl23a9k0vv ./out/fuzz-nspawn-oci ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} 8tbrzwxsaIPalIRBHtK8 ./out/fuzz-link-parser ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} 9T5He9cANxHTBLaBURpz ./out/fuzz-journald-kmsg ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} BRaEBuU7QVlSp1HOjlDb ./out/fuzz-udev-database ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} DcE70rAA2mhrxdyBRH90 ./out/fuzz-udev-rules ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} KH6VEpV0ZoWynASJHm8z ./out/fuzz-dhcp6-client ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} MZNs1JG5UQstaIvfHYgb ./out/fuzz-netdev-parser ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} P1MpkewCNQCYLdMFggnU ./out/fuzz-journald-audit ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} RmD47BxVRbAZlq07XW30 ./out/fuzz-unit-file ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} S0dGMaaGwkvsLc0IqIJ7 ./out/fuzz-catalog ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} X7qIoGLAoBgjVf19SfvY ./out/fuzz-compress ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} YAfecldFs2xaXn0Ws1BE ./out/fuzz-dns-packet ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} bgRZAE9E5uXRbUX76tId ./out/fuzz-ndisc-rs ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} cXCm75EhdDf5t2sSBLRC ./out/fuzz-hostname-util ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} cbgsYEyX6776MHFotO9O ./out/fuzz-nspawn-settings ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} d8lokp0LCLYgQwI7vyx6 ./out/fuzz-journald-native-fd ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} eoc9rbm2jKqIEg6Kdonv ./out/fuzz-network-parser ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} ezQIlJWCX3xPUJdhLnWM ./out/fuzz-dhcp-server ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} ge3eTzephghWD3Stw2TE ./out/fuzz-journald-syslog ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} nPIt1SCDkGkSFDth5RlG ./out/fuzz-json ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} nU0lRNNkQrXirDMNOpR1 ./out/fuzz-varlink ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} pzrzgLQY2cG8Iexb0tOt ./out/fuzz-journal-remote ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} qCWFcENjlfWJX0Q3cIOT ./out/fuzz-journald-native ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} s7d3LuRbkETCPSyxUvW8 ./out/fuzz-time-util ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} udjVYJfH4N01vaHNF5Kv ./out/fuzz-lldp ${FUZZIT_ADDITIONAL_FILES}
-./fuzzit c job ${FUZZIT_ARGS} vbYVccyWoDdgqzrQeln8 ./out/fuzz-bus-message ${FUZZIT_ADDITIONAL_FILES}
+# ./fuzzit get targets | jq --raw-output '.target_name + " " + .id' | grep -v -- '-msan$' | perl -alne '$F[0] =~ s/-asan-ubsan$//; printf("./fuzzit c job \${FUZZIT_ARGS} %s ./out/%s \${FUZZIT_ADDITIONAL_FILES}\n", $F[1], $F[0])'
+./fuzzit c job ${FUZZIT_ARGS} fuzz-bus-label-asan-ubsan ./out/fuzz-bus-label ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-bus-message-asan-ubsan ./out/fuzz-bus-message ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-calendarspec-asan-ubsan ./out/fuzz-calendarspec ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-catalog-asan-ubsan ./out/fuzz-catalog ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-compress-asan-ubsan ./out/fuzz-compress ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-dhcp-server-asan-ubsan ./out/fuzz-dhcp-server ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-dhcp6-client-asan-ubsan ./out/fuzz-dhcp6-client ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-dns-packet-asan-ubsan ./out/fuzz-dns-packet ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-env-file-asan-ubsan ./out/fuzz-env-file ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-hostname-util-asan-ubsan ./out/fuzz-hostname-util ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-journal-remote-asan-ubsan ./out/fuzz-journal-remote ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-journald-audit-asan-ubsan ./out/fuzz-journald-audit ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-journald-kmsg-asan-ubsan ./out/fuzz-journald-kmsg ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-journald-native-asan-ubsan ./out/fuzz-journald-native ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-journald-native-fd-asan-ubsan ./out/fuzz-journald-native-fd ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-journald-stream-asan-ubsan ./out/fuzz-journald-stream ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-journald-syslog-asan-ubsan ./out/fuzz-journald-syslog ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-json-asan-ubsan ./out/fuzz-json ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-link-parser-asan-ubsan ./out/fuzz-link-parser ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-lldp-asan-ubsan ./out/fuzz-lldp ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-ndisc-rs-asan-ubsan ./out/fuzz-ndisc-rs ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-netdev-parser-asan-ubsan ./out/fuzz-netdev-parser ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-network-parser-asan-ubsan ./out/fuzz-network-parser ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-nspawn-oci-asan-ubsan ./out/fuzz-nspawn-oci ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-nspawn-settings-asan-ubsan ./out/fuzz-nspawn-settings ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-time-util-asan-ubsan ./out/fuzz-time-util ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-udev-database-asan-ubsan ./out/fuzz-udev-database ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-udev-rules-asan-ubsan ./out/fuzz-udev-rules ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-unit-file-asan-ubsan ./out/fuzz-unit-file ${FUZZIT_ADDITIONAL_FILES}
+./fuzzit c job ${FUZZIT_ARGS} fuzz-varlink-asan-ubsan ./out/fuzz-varlink ${FUZZIT_ADDITIONAL_FILES}
 
 export SANITIZER="memory"
 FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT}"
