@@ -355,6 +355,100 @@ static void user_start_service(User *u) {
                                "Failed to start user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
 }
 
+static int update_slice_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        _cleanup_(user_record_unrefp) UserRecord *ur = userdata;
+
+        assert(m);
+        assert(ur);
+
+        if (sd_bus_message_is_method_error(m, NULL)) {
+                log_warning_errno(sd_bus_message_get_errno(m),
+                                  "Failed to update slice of %s, ignoring: %s",
+                                  ur->user_name,
+                                  sd_bus_message_get_error(m)->message);
+
+                return 0;
+        }
+
+        log_debug("Successfully set slice parameters of %s.", ur->user_name);
+        return 0;
+}
+
+static int user_update_slice(User *u) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        assert(u);
+
+        if (u->user_record->tasks_max == UINT64_MAX &&
+            u->user_record->memory_high == UINT64_MAX &&
+            u->user_record->memory_max == UINT64_MAX &&
+            u->user_record->cpu_weight == UINT64_MAX &&
+            u->user_record->io_weight == UINT64_MAX)
+                return 0;
+
+        r = sd_bus_message_new_method_call(
+                        u->manager->bus,
+                        &m,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "SetUnitProperties");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "sb", u->slice, true);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (u->user_record->tasks_max != UINT64_MAX) {
+                r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", u->user_record->tasks_max);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (u->user_record->memory_max != UINT64_MAX) {
+                r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", u->user_record->memory_max);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (u->user_record->memory_high != UINT64_MAX) {
+                r = sd_bus_message_append(m, "(sv)", "MemoryHigh", "t", u->user_record->memory_high);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (u->user_record->cpu_weight != UINT64_MAX) {
+                r = sd_bus_message_append(m, "(sv)", "CPUWeight", "t", u->user_record->cpu_weight);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (u->user_record->io_weight != UINT64_MAX) {
+                r = sd_bus_message_append(m, "(sv)", "IOWeight", "t", u->user_record->io_weight);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call_async(u->manager->bus, NULL, m, update_slice_callback, u->user_record, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to change user slice properties: %m");
+
+        /* Ref the user record pointer, so that the slot keeps it pinned */
+        user_record_ref(u->user_record);
+
+        return 0;
+}
+
 int user_start(User *u) {
         assert(u);
 
@@ -373,6 +467,9 @@ int user_start(User *u) {
         /* Save the user data so far, because pam_systemd will read the XDG_RUNTIME_DIR out of it while starting up
          * systemd --user.  We need to do user_save_internal() because we have not "officially" started yet. */
         user_save_internal(u);
+
+        /* Set slice parameters */
+        (void) user_update_slice(u);
 
         /* Start user@UID.service */
         user_start_service(u);
