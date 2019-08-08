@@ -190,12 +190,12 @@ boot, in order to ensure the entropy pool is filled up quickly.
    master images of an OS are created, and thus replicated into every
    installation. If OS image builders carefully reset the random seed file
    before generating the image it should be safe to credit entropy, which can
-   be enabled by setting the `$SYSTEMD_RANDOM_SEED` environment variable for
-   the service to `1`. Note however, that this service typically runs
-   relatively late during early boot: long after the initial RAM disk
-   (`initrd`) completed, and after the `/var/` file system became
-   writable. This is usually too late for many applications, it is hence not
-   advised to rely exclusively on this functionality to seed the kernel's
+   be enabled by setting the `$SYSTEMD_RANDOM_SEED_CREDIT` environment variable
+   for the service to `1` (or even `force`, see man page). Note however, that
+   this service typically runs relatively late during early boot: long after
+   the initial RAM disk (`initrd`) completed, and after the `/var/` file system
+   became writable. This is usually too late for many applications, it is hence
+   not advised to rely exclusively on this functionality to seed the kernel's
    entropy pool. Also note that this service synchronously waits until the
    kernel's entropy pool is initialized before completing start-up. It may thus
    be used by other services as synchronization point to order against, if they
