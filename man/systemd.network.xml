@@ -2207,6 +2207,27 @@ DHCP=yes</programlisting>
     </example>
 
     <example>
+      <title>IPv6 Prefix Delegation</title>
+
+      <programlisting># /etc/systemd/network/55-ipv6-pd-upstream.network
+[Match]
+Name=enp1s0
+
+[Network]
+DHCP=ipv6</programlisting>
+
+      <programlisting># /etc/systemd/network/56-ipv6-pd-downstream.network
+[Match]
+Name=enp2s0
+
+[Network]
+IPv6PrefixDelegation=dhcpv6</programlisting>
+
+      <para>This will enable IPv6 PD on the interface enp1s0 as an upstream interface where the
+      DHCPv6 client is running and enp2s0 as a downstream interface where the prefix is delegated to.</para>
+    </example>
+
+    <example>
       <title>A bridge with two enslaved links</title>
 
       <programlisting># /etc/systemd/network/25-bridge-static.network
