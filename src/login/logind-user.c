@@ -656,6 +656,18 @@ static bool user_unit_active(User *u) {
         return false;
 }
 
+static usec_t user_get_stop_delay(User *u) {
+        assert(u);
+
+        if (u->user_record->stop_delay_usec != UINT64_MAX)
+                return u->user_record->stop_delay_usec;
+
+        if (user_record_removable(u->user_record) > 0)
+                return 0; /* For removable users lower the stop delay to zero */
+
+        return u->manager->user_stop_delay;
+}
+
 bool user_may_gc(User *u, bool drop_not_started) {
         int r;
 
@@ -668,12 +680,16 @@ bool user_may_gc(User *u, bool drop_not_started) {
                 return false;
 
         if (u->last_session_timestamp != USEC_INFINITY) {
+                usec_t user_stop_delay;
+
                 /* All sessions have been closed. Let's see if we shall leave the user record around for a bit */
 
-                if (u->manager->user_stop_delay == USEC_INFINITY)
+                user_stop_delay = user_get_stop_delay(u);
+
+                if (user_stop_delay == USEC_INFINITY)
                         return false; /* Leave it around forever! */
-                if (u->manager->user_stop_delay > 0 &&
-                    now(CLOCK_MONOTONIC) < usec_add(u->last_session_timestamp, u->manager->user_stop_delay))
+                if (user_stop_delay > 0 &&
+                    now(CLOCK_MONOTONIC) < usec_add(u->last_session_timestamp, user_stop_delay))
                         return false; /* Leave it around for a bit longer. */
         }
 
@@ -826,6 +842,7 @@ static int user_stop_timeout_callback(sd_event_source *es, uint64_t usec, void *
 }
 
 void user_update_last_session_timer(User *u) {
+        usec_t user_stop_delay;
         int r;
 
         assert(u);
@@ -844,7 +861,8 @@ void user_update_last_session_timer(User *u) {
 
         assert(!u->timer_event_source);
 
-        if (IN_SET(u->manager->user_stop_delay, 0, USEC_INFINITY))
+        user_stop_delay = user_get_stop_delay(u);
+        if (IN_SET(user_stop_delay, 0, USEC_INFINITY))
                 return;
 
         if (sd_event_get_state(u->manager->event) == SD_EVENT_FINISHED) {
@@ -855,7 +873,7 @@ void user_update_last_session_timer(User *u) {
         r = sd_event_add_time(u->manager->event,
                               &u->timer_event_source,
                               CLOCK_MONOTONIC,
-                              usec_add(u->last_session_timestamp, u->manager->user_stop_delay), 0,
+                              usec_add(u->last_session_timestamp, user_stop_delay), 0,
                               user_stop_timeout_callback, u);
         if (r < 0)
                 log_warning_errno(r, "Failed to enqueue user stop event source, ignoring: %m");
@@ -865,7 +883,7 @@ void user_update_last_session_timer(User *u) {
 
                 log_debug("Last session of user '%s' logged out, terminating user context in %s.",
                           u->user_record->user_name,
-                          format_timespan(s, sizeof(s), u->manager->user_stop_delay, USEC_PER_MSEC));
+                          format_timespan(s, sizeof(s), user_stop_delay, USEC_PER_MSEC));
         }
 }
 
