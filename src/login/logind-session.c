@@ -750,7 +750,10 @@ static int session_stop_scope(Session *s, bool force) {
         s->scope_job = mfree(s->scope_job);
 
         /* Optionally, let's kill everything that's left now. */
-        if (force || manager_shall_kill(s->manager, s->user->user_record->user_name)) {
+        if (force ||
+            (s->user->user_record->kill_processes != 0 &&
+             (s->user->user_record->kill_processes > 0 ||
+              manager_shall_kill(s->manager, s->user->user_record->user_name)))) {
 
                 r = manager_stop_unit(s->manager, s->scope, &error, &s->scope_job);
                 if (r < 0) {
