@@ -603,7 +603,7 @@ static int assess_ip_address_allow(
                 d = strdup("Service defines IP address whitelist with non-localhost entries");
                 b = 5;
         } else if (info->ip_address_allow_localhost) {
-                d = strdup("Service defines IP address whitelits with only localhost entries");
+                d = strdup("Service defines IP address whitelist with only localhost entries");
                 b = 2;
         } else {
                 d = strdup("Service blocks all IP address ranges");
