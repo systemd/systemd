@@ -260,6 +260,8 @@ static int address_add_internal(Link *link, Set **addresses,
         r = set_put(*addresses, address);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return -EEXIST;
 
         address->link = link;
 

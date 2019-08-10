@@ -209,7 +209,11 @@ int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule) {
                 if (r < 0)
                         return r;
 
-                return set_put(m->rules, rule);
+                r = set_put(m->rules, rule);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        routing_policy_rule_free(rule);
         }
 
         return -ENOENT;
@@ -265,6 +269,8 @@ static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPoli
         r = set_put(*rules, rule);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return -EEXIST;
 
         if (ret)
                 *ret = rule;
@@ -1180,8 +1186,8 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                         log_warning_errno(r, "Failed to add RPDB rule to saved DB, ignoring: %s", p);
                         continue;
                 }
-
-                rule = NULL;
+                if (r > 0)
+                        rule = NULL;
         }
 
         return 0;
