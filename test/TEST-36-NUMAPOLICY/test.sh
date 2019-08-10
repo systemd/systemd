@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+
 TEST_DESCRIPTION="test MUMAPolicy= and NUMAMask= options"
 TEST_NO_NSPAWN=1
 QEMU_OPTIONS="-numa node,nodeid=0"
@@ -41,7 +42,7 @@ EOF
         cp testsuite.sh $initdir/
 
         setup_testsuite
-    ) || return 1
+    )
     setup_nspawn_root
 
     ddebug "umount $TESTDIR/root"
