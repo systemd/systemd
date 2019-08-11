@@ -103,6 +103,7 @@ static int acquire_xbootldr(bool unprivileged_mode, sd_id128_t *ret_uuid) {
                 log_debug_errno(r, "Didn't find an XBOOTLDR partition, using the ESP as $BOOT.");
                 if (ret_uuid)
                         *ret_uuid = SD_ID128_NULL;
+                arg_xbootldr_path = mfree(arg_xbootldr_path);
                 return 0;
         }
         if (r < 0)
