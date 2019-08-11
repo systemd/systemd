@@ -1176,7 +1176,11 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                puts(arg_dollar_boot_path());
+                const char *path = arg_dollar_boot_path();
+                if (!path)
+                        return log_error_errno(SYNTHETIC_ERRNO(EACCES), "Failed to determine XBOOTLDR location: %m");
+
+                puts(path);
         }
 
         if (arg_print_esp_path || arg_print_dollar_boot_path)
