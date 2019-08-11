@@ -1818,6 +1818,8 @@ int manager_request_product_uuid(Manager *m, Link *link) {
                 r = set_put(m->duids_requesting_uuid, duid);
                 if (r < 0)
                         return log_oom();
+
+                link_ref(link);
         }
 
         if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
