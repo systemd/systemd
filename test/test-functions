@@ -22,6 +22,7 @@ source "$os_release"
 [[ "$ID" = "arch" || " $ID_LIKE " = *" arch "* ]] && LOOKS_LIKE_ARCH=yes || LOOKS_LIKE_ARCH=""
 [[ " $ID_LIKE " = *" suse "* ]] && LOOKS_LIKE_SUSE=yes || LOOKS_LIKE_SUSE=""
 KERNEL_VER="${KERNEL_VER-$(uname -r)}"
+ARCH=${ARCH:-$(uname -m)}
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-infinity}"
 NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-infinity}"
 TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
@@ -249,7 +250,6 @@ find_qemu_bin() {
         [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v kvm qemu-kvm 2>/dev/null | grep '^/' -m1)"
     fi
 
-    [[ -n "$ARCH" ]] || ARCH="$(uname -m)"
     case $ARCH in
     x86_64)
         # QEMU's own build system calls it qemu-system-x86_64
@@ -314,7 +314,6 @@ run_qemu() {
         if [[ "$LOOKS_LIKE_ARCH" ]]; then
             KERNEL_BIN=/boot/vmlinuz-linux
         else
-            [ "$ARCH" ] || ARCH=$(uname -m)
             case $ARCH in
                 ppc64*)
                 KERNEL_BIN="/boot/vmlinux-$KERNEL_VER"
