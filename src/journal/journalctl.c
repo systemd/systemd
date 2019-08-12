@@ -1539,7 +1539,8 @@ static int get_possible_units(
         "_SYSTEMD_USER_UNIT\0"       \
         "USER_UNIT\0"                \
         "COREDUMP_USER_UNIT\0"       \
-        "OBJECT_SYSTEMD_USER_UNIT\0"
+        "OBJECT_SYSTEMD_USER_UNIT\0" \
+        "_SYSTEMD_USER_SLICE\0"
 
 static int add_units(sd_journal *j) {
         _cleanup_strv_free_ char **patterns = NULL;

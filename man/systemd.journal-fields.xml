@@ -188,6 +188,7 @@
         <term><varname>_SYSTEMD_SLICE=</varname></term>
         <term><varname>_SYSTEMD_UNIT=</varname></term>
         <term><varname>_SYSTEMD_USER_UNIT=</varname></term>
+        <term><varname>_SYSTEMD_USER_SLICE=</varname></term>
         <term><varname>_SYSTEMD_SESSION=</varname></term>
         <term><varname>_SYSTEMD_OWNER_UID=</varname></term>
 
