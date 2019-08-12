@@ -544,7 +544,12 @@
         the unit
         (<literal>_SYSTEMD_UNIT=<replaceable>UNIT</replaceable></literal>),
         along with additional matches for messages from systemd and
-        messages about coredumps for the specified unit.</para>
+        messages about coredumps for the specified unit. A match
+        is also added for <literal>_SYSTEMD_SLICE=<replaceable>UNIT</replaceable></literal>,
+        such that if the provided <replaceable>UNIT</replaceable> is a
+        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        unit, all logs of the children of the slice will be logged.
+       </para>
 
         <para>This parameter can be specified multiple times.</para>
         </listitem>
@@ -558,7 +563,11 @@
         (<literal>_SYSTEMD_USER_UNIT=</literal> and
         <literal>_UID=</literal>) and additional matches for messages
         from session systemd and messages about coredumps for the
-        specified unit.</para>
+        specified unit. A match
+        is also added for <literal>_SYSTEMD_USER_SLICE=<replaceable>UNIT</replaceable></literal>,
+        such that if the provided <replaceable>UNIT</replaceable> is a
+        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        unit, all logs of the children of the unit will be logged.</para>
 
         <para>This parameter can be specified multiple times.</para>
         </listitem>
