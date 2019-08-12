@@ -103,6 +103,7 @@ static int acquire_xbootldr(bool unprivileged_mode, sd_id128_t *ret_uuid) {
                 log_debug_errno(r, "Didn't find an XBOOTLDR partition, using the ESP as $BOOT.");
                 if (ret_uuid)
                         *ret_uuid = SD_ID128_NULL;
+                arg_xbootldr_path = mfree(arg_xbootldr_path);
                 return 0;
         }
         if (r < 0)
@@ -1175,7 +1176,11 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                puts(arg_dollar_boot_path());
+                const char *path = arg_dollar_boot_path();
+                if (!path)
+                        return log_error_errno(SYNTHETIC_ERRNO(EACCES), "Failed to determine XBOOTLDR location: %m");
+
+                puts(path);
         }
 
         if (arg_print_esp_path || arg_print_dollar_boot_path)
