@@ -470,7 +470,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
          * "systemd-user" we simply set XDG_RUNTIME_DIR and
          * leave. */
 
-        pam_get_item(handle, PAM_SERVICE, (const void**) &service);
+        (void) pam_get_item(handle, PAM_SERVICE, (const void**) &service);
         if (streq_ptr(service, "systemd-user")) {
                 char rt[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
 
@@ -492,10 +492,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         /* Otherwise, we ask logind to create a session for us */
 
-        pam_get_item(handle, PAM_XDISPLAY, (const void**) &display);
-        pam_get_item(handle, PAM_TTY, (const void**) &tty);
-        pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
-        pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
+        (void) pam_get_item(handle, PAM_XDISPLAY, (const void**) &display);
+        (void) pam_get_item(handle, PAM_TTY, (const void**) &tty);
+        (void) pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
+        (void) pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
 
         seat = getenv_harder(handle, "XDG_SEAT", NULL);
         cvtnr = getenv_harder(handle, "XDG_VTNR", NULL);
