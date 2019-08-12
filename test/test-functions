@@ -379,7 +379,7 @@ run_qemu() {
     fi
 
     kernel_params+=(
-        "root=/dev/sda1"
+        "root=/dev/vda1"
         "rw"
         "raid=noautodetect"
         "rd.luks=0"
@@ -403,7 +403,7 @@ run_qemu() {
         -m "$QEMU_MEM"
         -nographic
         -kernel "$KERNEL_BIN"
-        -drive "format=raw,cache=unsafe,file=$image"
+        -drive "if=virtio,format=raw,cache=unsafe,file=$image"
     )
 
     if [[ -n "${QEMU_OPTIONS:=}" ]]; then
