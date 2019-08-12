@@ -50,28 +50,30 @@ static int parse_argv(
         assert(argc == 0 || argv);
 
         for (i = 0; i < (unsigned) argc; i++) {
-                if (startswith(argv[i], "class=")) {
+                const char *p;
+
+                if ((p = startswith(argv[i], "class="))) {
                         if (class)
-                                *class = argv[i] + 6;
+                                *class = p;
 
-                } else if (startswith(argv[i], "type=")) {
+                } else if ((p = startswith(argv[i], "type="))) {
                         if (type)
-                                *type = argv[i] + 5;
+                                *type = p;
 
-                } else if (startswith(argv[i], "desktop=")) {
+                } else if ((p = startswith(argv[i], "desktop="))) {
                         if (desktop)
-                                *desktop = argv[i] + 8;
+                                *desktop = p;
 
                 } else if (streq(argv[i], "debug")) {
                         if (debug)
                                 *debug = true;
 
-                } else if (startswith(argv[i], "debug=")) {
+                } else if ((p = startswith(argv[i], "debug="))) {
                         int k;
 
-                        k = parse_boolean(argv[i] + 6);
+                        k = parse_boolean(p);
                         if (k < 0)
-                                pam_syslog(handle, LOG_WARNING, "Failed to parse debug= argument, ignoring.");
+                                pam_syslog(handle, LOG_WARNING, "Failed to parse debug= argument, ignoring: %s", p);
                         else if (debug)
                                 *debug = k;
 
@@ -97,7 +99,7 @@ static int get_user_data(
 
         r = pam_get_user(handle, &username, NULL);
         if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to get user name.");
+                pam_syslog(handle, LOG_ERR, "Failed to get user name: %s", pam_strerror(handle, r));
                 return r;
         }
 
@@ -383,7 +385,7 @@ static int update_environment(pam_handle_t *handle, const char *key, const char 
 
         r = pam_misc_setenv(handle, key, value, 0);
         if (r != PAM_SUCCESS)
-                pam_syslog(handle, LOG_ERR, "Failed to set environment variable %s.", key);
+                pam_syslog(handle, LOG_ERR, "Failed to set environment variable %s: %s", key, pam_strerror(handle, r));
 
         return r;
 }
@@ -478,7 +480,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 if (validate_runtime_directory(handle, rt, pw->pw_uid)) {
                         r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", rt, 0);
                         if (r != PAM_SUCCESS) {
-                                pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
+                                pam_syslog(handle, LOG_ERR, "Failed to set runtime dir: %s", pam_strerror(handle, r));
                                 return r;
                         }
                 }
@@ -737,7 +739,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         r = pam_set_data(handle, "systemd.existing", INT_TO_PTR(!!existing), NULL);
         if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to install existing flag.");
+                pam_syslog(handle, LOG_ERR, "Failed to install existing flag: %s", pam_strerror(handle, r));
                 return r;
         }
 
@@ -750,7 +752,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
                 r = pam_set_data(handle, "systemd.session-fd", FD_TO_PTR(session_fd), NULL);
                 if (r != PAM_SUCCESS) {
-                        pam_syslog(handle, LOG_ERR, "Failed to install session fd.");
+                        pam_syslog(handle, LOG_ERR, "Failed to install session fd: %s", pam_strerror(handle, r));
                         safe_close(session_fd);
                         return r;
                 }
