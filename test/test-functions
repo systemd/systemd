@@ -9,6 +9,7 @@ LOOKS_LIKE_DEBIAN=$(source $os_release && [[ "$ID" = "debian" || " $ID_LIKE " = 
 LOOKS_LIKE_ARCH=$(source $os_release && [[ "$ID" = "arch" || " $ID_LIKE " = *" arch "* ]] && echo yes || :)
 LOOKS_LIKE_SUSE=$(source $os_release && [[ " $ID_LIKE " = *" suse "* ]] && echo yes || :)
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
+ARCH=${ARCH:-$(uname -m)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-infinity}"
 NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-infinity}"
@@ -230,7 +231,6 @@ function find_qemu_bin() {
         [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a kvm qemu-kvm 2>/dev/null | grep '^/' -m1)
     fi
 
-    [ "$ARCH" ] || ARCH=$(uname -m)
     case $ARCH in
     x86_64)
         # QEMU's own build system calls it qemu-system-x86_64
@@ -294,7 +294,6 @@ run_qemu() {
         if [[ "$LOOKS_LIKE_ARCH" ]]; then
             KERNEL_BIN=/boot/vmlinuz-linux
         else
-            [ "$ARCH" ] || ARCH=$(uname -m)
             case $ARCH in
                 ppc64*)
                 KERNEL_BIN=/boot/vmlinux-$KERNEL_VER
