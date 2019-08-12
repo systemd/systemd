@@ -303,8 +303,6 @@ run_qemu() {
             && KERNEL_BIN="$EFI_MOUNT/$MACHINE_ID/$KERNEL_VER/linux"
     fi
 
-    local CONSOLE=ttyS0
-
     rm -f "$initdir"/{testok,failed,skipped}
     # make sure the initdir is not mounted to avoid concurrent access
     cleanup_initdir
@@ -317,7 +315,6 @@ run_qemu() {
             case $ARCH in
                 ppc64*)
                 KERNEL_BIN="/boot/vmlinux-$KERNEL_VER"
-                CONSOLE=hvc0
                 ;;
                 *)
                 KERNEL_BIN="/boot/vmlinuz-$KERNEL_VER"
@@ -326,10 +323,19 @@ run_qemu() {
         fi
     fi
 
+    local CONSOLE
+    case $ARCH in
+        aarch64*) CONSOLE=ttyAMA0 ;;
+        ppc64*) CONSOLE=hvc0 ;;
+        s390*) CONSOLE=ttysclp0 ;;
+        *) CONSOLE=ttyS0 ;;
+    esac
+
     local default_fedora_initrd="/boot/initramfs-${KERNEL_VER}.img"
     local default_debian_initrd="/boot/initrd.img-${KERNEL_VER}"
     local default_arch_initrd="/boot/initramfs-linux-fallback.img"
     local default_suse_initrd="/boot/initrd-${KERNEL_VER}"
+
     if [[ ! "$INITRD" ]]; then
         if [[ -e "$default_fedora_initrd" ]]; then
             INITRD="$default_fedora_initrd"
