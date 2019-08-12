@@ -420,6 +420,8 @@ install_systemd() {
 
     # enable debug logging in PID1
     echo LogLevel=debug >> $initdir/etc/systemd/system.conf
+    # store coredumps in journal
+    echo Storage=journal >> $initdir/etc/systemd/coredump.conf
 }
 
 get_ldpath() {
