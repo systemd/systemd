@@ -568,11 +568,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         /* Talk to logind over the message bus */
 
-        r = sd_bus_open_system(&bus);
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror_safe(r));
-                return PAM_SESSION_ERR;
-        }
+        r = pam_acquire_bus_connection(handle, &bus);
+        if (r != PAM_SUCCESS)
+                return r;
 
         if (debug) {
                 pam_syslog(handle, LOG_DEBUG, "Asking logind to create session: "
@@ -744,6 +742,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 }
         }
 
+        /* Let's release the D-Bus connection, after all the session might live quite a long time, and we are
+         * not going to process the bus connection in that time, so let's better close before the daemon
+         * kicks us off because we are not processing anything. */
+        (void) pam_release_bus_connection(handle);
         return PAM_SUCCESS;
 }
 
@@ -752,8 +754,6 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 int flags,
                 int argc, const char **argv) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const void *existing = NULL;
         const char *id;
         int r;
@@ -766,17 +766,15 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         id = pam_getenv(handle, "XDG_SESSION_ID");
         if (id && !existing) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
-                /* Before we go and close the FIFO we need to tell
-                 * logind that this is a clean session shutdown, so
-                 * that it doesn't just go and slaughter us
-                 * immediately after closing the fd */
+                /* Before we go and close the FIFO we need to tell logind that this is a clean session
+                 * shutdown, so that it doesn't just go and slaughter us immediately after closing the fd */
 
-                r = sd_bus_open_system(&bus);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror_safe(r));
-                        return PAM_SESSION_ERR;
-                }
+                r = pam_acquire_bus_connection(handle, &bus);
+                if (r != PAM_SUCCESS)
+                        return r;
 
                 r = sd_bus_call_method(bus,
                                        "org.freedesktop.login1",
@@ -793,11 +791,9 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 }
         }
 
-        /* Note that we are knowingly leaking the FIFO fd here. This
-         * way, logind can watch us die. If we closed it here it would
-         * not have any clue when that is completed. Given that one
-         * cannot really have multiple PAM sessions open from the same
-         * process this means we will leak one FD at max. */
+        /* Note that we are knowingly leaking the FIFO fd here. This way, logind can watch us die. If we
+         * closed it here it would not have any clue when that is completed. Given that one cannot really
+         * have multiple PAM sessions open from the same process this means we will leak one FD at max. */
 
         return PAM_SUCCESS;
 }
