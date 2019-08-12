@@ -389,7 +389,7 @@ sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION*:pnE3216*:*
 # Medion Akoya E3221 MD61237
 sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION:pnE3221MD61237:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
- 
+
 # Medion Akoya E3222 MD62450
 sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION*:pnE3222*:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
