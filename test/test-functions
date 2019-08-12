@@ -250,27 +250,23 @@ find_qemu_bin() {
         [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v kvm qemu-kvm 2>/dev/null | grep '^/' -m1)"
     fi
 
+    local _arch
     case $ARCH in
-    x86_64)
-        # QEMU's own build system calls it qemu-system-x86_64
-        [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v qemu-system-x86_64 2>/dev/null | grep '^/' -m1)"
-        ;;
-    i*86)
-        # new i386 version of QEMU
-        [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v qemu-system-i386 2>/dev/null | grep '^/' -m1)"
-
-        # i386 version of QEMU
-        [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v qemu 2>/dev/null | grep '^/' -m1)"
-        ;;
-    ppc64*)
-        [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v qemu-system-ppc64 2>/dev/null | grep '^/' -m1)"
-        ;;
+    aarch64*) _arch=aarch64 ;;
+    arm*) _arch=arm ;;
+    i*86) _arch=i386 ;;
+    ppc64*) _arch=ppc64 ;;
+    *) _arch=$ARCH ;;
     esac
+
+    [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu-system-$_arch qemu 2>/dev/null | grep '^/' -m1) || :
 
     if [[ ! -e "$QEMU_BIN" ]]; then
         echo "Could not find a suitable QEMU binary" >&2
         return 1
     fi
+
+    return 0
 }
 
 # Compares argument #1=X.Y.Z (X&Y&Z = numeric) to the version of the installed qemu
