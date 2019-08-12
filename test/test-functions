@@ -363,7 +363,7 @@ run_qemu() {
     fi
 
     KERNEL_APPEND="$PARAMS \
-root=/dev/sda1 \
+root=/dev/vda1 \
 rw \
 raid=noautodetect \
 rd.luks=0 \
@@ -384,7 +384,7 @@ $KERNEL_APPEND \
 -m $QEMU_MEM \
 -nographic \
 -kernel $KERNEL_BIN \
--drive format=raw,cache=unsafe,file=$image \
+-drive if=virtio,format=raw,cache=unsafe,file=$image \
 $QEMU_OPTIONS \
 "
 
