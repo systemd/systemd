@@ -28,6 +28,7 @@
 #include "hostname-util.h"
 #include "login-util.h"
 #include "macro.h"
+#include "pam-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -233,17 +234,15 @@ static int export_legacy_dbus_address(
                 return PAM_SUCCESS;
 
         if (asprintf(&t, DEFAULT_USER_BUS_ADDRESS_FMT, runtime) < 0)
-                goto error;
+                return pam_log_oom(handle);
 
         r = pam_misc_setenv(handle, "DBUS_SESSION_BUS_ADDRESS", t, 0);
-        if (r != PAM_SUCCESS)
-                goto error;
+        if (r != PAM_SUCCESS) {
+                pam_syslog(handle, LOG_ERR, "Failed to set bus variable: %s", pam_strerror(handle, r));
+                return r;
+        }
 
         return PAM_SUCCESS;
-
-error:
-        pam_syslog(handle, LOG_ERR, "Failed to set bus variable.");
-        return r;
 }
 
 static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
@@ -255,31 +254,31 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
 
         if (streq(limit, "infinity")) {
                 r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", (uint64_t)-1);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
-                        return r;
-                }
-        } else {
-                r = parse_permille(limit);
-                if (r >= 0) {
-                        r = sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", (uint32_t) (((uint64_t) r * UINT32_MAX) / 1000U));
-                        if (r < 0) {
-                                pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
-                                return r;
-                        }
-                } else {
-                        r = parse_size(limit, 1024, &val);
-                        if (r >= 0) {
-                                r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", val);
-                                if (r < 0) {
-                                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
-                                        return r;
-                                }
-                        } else
-                                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.memory_max: %s, ignoring.", limit);
-                }
+                if (r < 0)
+                        return pam_bus_log_create_error(handle, r);
+
+                return 0;
         }
 
+        r = parse_permille(limit);
+        if (r >= 0) {
+                r = sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", (uint32_t) (((uint64_t) r * UINT32_MAX) / 1000U));
+                if (r < 0)
+                        return pam_bus_log_create_error(handle, r);
+
+                return 0;
+        }
+
+        r = parse_size(limit, 1024, &val);
+        if (r >= 0) {
+                r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", val);
+                if (r < 0)
+                        return pam_bus_log_create_error(handle, r);
+
+                return 0;
+        }
+
+        pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.memory_max, ignoring: %s", limit);
         return 0;
 }
 
@@ -315,12 +314,10 @@ static int append_session_tasks_max(pam_handle_t *handle, sd_bus_message *m, con
         r = safe_atou64(limit, &val);
         if (r >= 0) {
                 r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", val);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
-                        return r;
-                }
+                if (r < 0)
+                        return pam_bus_log_create_error(handle, r);
         } else
-                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.tasks_max: %s, ignoring.", limit);
+                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.tasks_max, ignoring: %s", limit);
 
         return 0;
 }
@@ -335,14 +332,12 @@ static int append_session_cg_weight(pam_handle_t *handle, sd_bus_message *m, con
         r = cg_weight_parse(limit, &val);
         if (r >= 0) {
                 r = sd_bus_message_append(m, "(sv)", field, "t", val);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
-                        return r;
-                }
+                if (r < 0)
+                        return pam_bus_log_create_error(handle, r);
         } else if (streq(field, "CPUWeight"))
-                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.cpu_weight: %s, ignoring.", limit);
+                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.cpu_weight, ignoring: %s", limit);
         else
-                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.io_weight: %s, ignoring.", limit);
+                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.io_weight, ignoring: %s", limit);
 
         return 0;
 }
@@ -599,10 +594,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         "CreateSession");
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to create CreateSession method call: %s", strerror_safe(r));
-                return PAM_SESSION_ERR;
-        }
+        if (r < 0)
+                return pam_bus_log_create_error(handle, r);
 
         r = sd_bus_message_append(m, "uusssssussbss",
                         (uint32_t) pw->pw_uid,
@@ -618,16 +611,12 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         remote,
                         remote_user,
                         remote_host);
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
-                return PAM_SESSION_ERR;
-        }
+        if (r < 0)
+                return pam_bus_log_create_error(handle, r);
 
         r = sd_bus_message_open_container(m, 'a', "(sv)");
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to open message container: %s", strerror_safe(r));
-                return PAM_SYSTEM_ERR;
-        }
+        if (r < 0)
+                return pam_bus_log_create_error(handle, r);
 
         r = append_session_memory_max(handle, m, memory_max);
         if (r < 0)
@@ -650,10 +639,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return PAM_SESSION_ERR;
 
         r = sd_bus_message_close_container(m);
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to close message container: %s", strerror_safe(r));
-                return PAM_SYSTEM_ERR;
-        }
+        if (r < 0)
+                return pam_bus_log_create_error(handle, r);
 
         r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
@@ -677,10 +664,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                 &seat,
                                 &vtnr,
                                 &existing);
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to parse message: %s", strerror_safe(r));
-                return PAM_SESSION_ERR;
-        }
+        if (r < 0)
+                return pam_bus_log_parse_error(handle, r);
 
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "Reply from logind: "
