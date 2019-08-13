@@ -1668,12 +1668,16 @@ setup_suse() {
     inst_simple "/usr/lib/systemd/system/haveged.service"
 }
 
+_umount_dir() {
+    if mountpoint -q $1; then
+        ddebug "umount $1"
+        umount $1
+    fi
+}
+
 _test_setup_cleanup() {
     # only umount if create_empty_image_rootdir() was called to mount it
-    if [[ $TEST_SETUP_CLEANUP_ROOTDIR ]]; then
-        ddebug "umount $TESTDIR/root"
-        umount $TESTDIR/root
-    fi
+    [[ -z $TEST_SETUP_CLEANUP_ROOTDIR ]] || _umount_dir $TESTDIR/root
 }
 
 # can be overridden in specific test
@@ -1685,10 +1689,7 @@ _test_cleanup() {
     # (post-test) cleanup should always ignore failure and cleanup as much as possible
     (
         set +e
-        if mountpoint $TESTDIR/root; then
-            ddebug "umount $TESTDIR/root"
-            umount $TESTDIR/root
-        fi
+        _umount_dir $TESTDIR/root
         if [[ $LOOPDEV && -b $LOOPDEV ]]; then
             ddebug "losetup -d $LOOPDEV"
             losetup -d $LOOPDEV
