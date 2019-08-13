@@ -135,6 +135,9 @@ if have_gnu_efi
                 compile_args += ['-mno-sse',
                                  '-mno-mmx']
         endif
+        if get_option('werror') == true
+                compile_args += ['-Werror']
+        endif
 
         efi_ldflags = ['-T',
                        join_paths(efi_ldsdir, arch_lds),
