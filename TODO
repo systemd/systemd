@@ -19,6 +19,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* adjust OOM score slightly for journald
+
+* beef up hibernation to optionally do swapon/swapoff immediately before/after
+  the hibernation
+
 * beef up s2h to implement a battery watch loop: instead of entering
   hibernation unconditionally after coming back from resume make a decision
   based on the battery load level: if battery level is above a specific
@@ -449,9 +454,6 @@ Features:
 * mount: automatically search for "main" partition of an image has multiple
   partitions
 
-* expose the "privileged" flag of ExecCommand on the bus, and open it up to
-  transient units
-
 * in nss-systemd, if we run inside of RootDirectory= with PrivateUsers= set,
   find a way to map the User=/Group= of the service to the right name. This way
   a user/group for a service only has to exist on the host for the right
@@ -754,7 +756,6 @@ Features:
 
 * journal:
   - consider introducing implicit _TTY= + _PPID= + _EUID= + _EGID= + _FSUID= + _FSGID= fields
-  - import and delete pstore filesystem content at startup
   - journald: also get thread ID from client, plus thread name
   - journal: when waiting for journal additions in the client always sleep at least 1s or so, in order to minimize wakeups
   - add API to close/reopen/get fd for journal client fd in libsystemd-journal.
@@ -1024,7 +1025,6 @@ Features:
    - Make sure ID_PATH is always exported and complete for
      network devices where possible, so we can safely rely
      on Path= matching
-   - check MTUBytes parsing (expecting size_t but we are using unsigned)
 
 * sd-rtnl:
    - add support for more attribute types
