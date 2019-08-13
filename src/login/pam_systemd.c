@@ -25,13 +25,16 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hostname-util.h"
+#include "locale-util.h"
 #include "login-util.h"
 #include "macro.h"
 #include "pam-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "strv.h"
@@ -473,6 +476,138 @@ fail:
         return false;
 }
 
+static int pam_putenv_and_log(pam_handle_t *handle, const char *e, bool debug) {
+        int r;
+
+        assert(handle);
+        assert(e);
+
+        r = pam_putenv(handle, e);
+        if (r != PAM_SUCCESS) {
+                pam_syslog(handle, LOG_ERR, "Failed to set PAM environment variable %s: %s", e, pam_strerror(handle, r));
+                return r;
+        }
+
+        if (debug)
+                pam_syslog(handle, LOG_DEBUG, "PAM environment variable %s set based on user record.", e);
+
+        return PAM_SUCCESS;
+}
+
+static int apply_user_record_settings(pam_handle_t *handle, UserRecord *ur, bool debug) {
+        char **i;
+        int r;
+
+        assert(handle);
+        assert(ur);
+
+        if (ur->umask != MODE_INVALID) {
+                umask(ur->umask);
+
+                if (debug)
+                        pam_syslog(handle, LOG_DEBUG, "Set user umask to %04o based on user record.", ur->umask);
+        }
+
+        STRV_FOREACH(i, ur->environment) {
+                _cleanup_free_ char *n = NULL;
+                const char *e;
+
+                assert_se(e = strchr(*i, '=')); /* environment was already validated while parsing JSON record, this thus must hold */
+
+                n = strndup(*i, e - *i);
+                if (!n)
+                        return pam_log_oom(handle);
+
+                if (pam_getenv(handle, n)) {
+                        if (debug)
+                                pam_syslog(handle, LOG_DEBUG, "PAM environment variable $%s already set, not changing based on record.", *i);
+                        continue;
+                }
+
+                r = pam_putenv_and_log(handle, *i, debug);
+                if (r != PAM_SUCCESS)
+                        return r;
+        }
+
+        if (ur->email_address) {
+                if (pam_getenv(handle, "EMAIL")) {
+                        if (debug)
+                                pam_syslog(handle, LOG_DEBUG, "PAM environment variable $EMAIL already set, not changing based on user record.");
+                } else {
+                        _cleanup_free_ char *joined = NULL;
+
+                        joined = strjoin("EMAIL=", ur->email_address);
+                        if (!joined)
+                                return pam_log_oom(handle);
+
+                        r = pam_putenv_and_log(handle, joined, debug);
+                        if (r != PAM_SUCCESS)
+                                return r;
+                }
+        }
+
+        if (ur->time_zone) {
+                if (pam_getenv(handle, "TZ")) {
+                        if (debug)
+                                pam_syslog(handle, LOG_DEBUG, "PAM environment variable $TZ already set, not changing based on user record.");
+                } else if (!timezone_is_valid(ur->time_zone, LOG_DEBUG)) {
+                        if (debug)
+                                pam_syslog(handle, LOG_DEBUG, "Time zone specified in user record is not valid locally, not setting $TZ.");
+                } else {
+                        _cleanup_free_ char *joined = NULL;
+
+                        joined = strjoin("TZ=:", ur->time_zone);
+                        if (!joined)
+                                return pam_log_oom(handle);
+
+                        r = pam_putenv_and_log(handle, joined, debug);
+                        if (r != PAM_SUCCESS)
+                                return r;
+                }
+        }
+
+        if (ur->preferred_language) {
+                if (pam_getenv(handle, "LANG")) {
+                        if (debug)
+                                pam_syslog(handle, LOG_DEBUG, "PAM environment variable $LANG already set, not changing based on user record.");
+                } else if (!locale_is_valid(ur->preferred_language)) {
+                        if (debug)
+                                pam_syslog(handle, LOG_DEBUG, "Preferred language specified in user record is not valid locally, not setting $LANG.");
+                } else {
+                        _cleanup_free_ char *joined = NULL;
+
+                        joined = strjoin("LANG=", ur->preferred_language);
+                        if (!joined)
+                                return pam_log_oom(handle);
+
+                        r = pam_putenv_and_log(handle, joined, debug);
+                        if (r != PAM_SUCCESS)
+                                return r;
+                }
+        }
+
+        if (nice_is_valid(ur->nice_level)) {
+                if (nice(ur->nice_level) < 0)
+                        pam_syslog(handle, LOG_ERR, "Failed to set nice level to %i, ignoring: %s", ur->nice_level, strerror_safe(errno));
+                else if (debug)
+                        pam_syslog(handle, LOG_DEBUG, "Nice level set, based on user record.");
+        }
+
+        for (int rl = 0; rl < _RLIMIT_MAX; rl++) {
+
+                if (!ur->rlimits[rl])
+                        continue;
+
+                r = setrlimit_closest(rl, ur->rlimits[rl]);
+                if (r < 0)
+                        pam_syslog(handle, LOG_ERR, "Failed to set resource limit %s, ignoring: %s", rlimit_to_string(rl), strerror_safe(r));
+                else if (debug)
+                        pam_syslog(handle, LOG_DEBUG, "Resource limit %s set, based on user record.", rlimit_to_string(rl));
+        }
+
+        return PAM_SUCCESS;
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *handle,
                 int flags,
@@ -537,6 +672,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 }
 
                 r = export_legacy_dbus_address(handle, ur->uid, rt);
+                if (r != PAM_SUCCESS)
+                        return r;
+
+                r = apply_user_record_settings(handle, ur, debug);
                 if (r != PAM_SUCCESS)
                         return r;
 
@@ -797,9 +936,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 }
         }
 
+        r = apply_user_record_settings(handle, ur, debug);
+        if (r != PAM_SUCCESS)
+                return r;
+
         /* Let's release the D-Bus connection, after all the session might live quite a long time, and we are
-         * not going to process the bus connection in that time, so let's better close before the daemon
-         * kicks us off because we are not processing anything. */
+         * not going to use the bus connection in that time, so let's better close before the daemon kicks us
+         * off because we are not processing anything. */
         (void) pam_release_bus_connection(handle);
         return PAM_SUCCESS;
 }
