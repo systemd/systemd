@@ -539,7 +539,7 @@ create_empty_image() {
     fi
     rm -f "$TESTDIR/rootdisk.img"
     # Create the blank file to use as a root filesystem
-    dd if=/dev/null of="$TESTDIR/rootdisk.img" bs=1M seek="$_size"
+    truncate -s "${_size}M" "$TESTDIR/rootdisk.img"
     LOOPDEV=$(losetup --show -P -f $TESTDIR/rootdisk.img)
     [ -b "$LOOPDEV" ] || return 1
     echo "LOOPDEV=$LOOPDEV" >> $STATEFILE
