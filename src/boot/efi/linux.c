@@ -6,24 +6,24 @@
 #include "linux.h"
 #include "util.h"
 
-#ifdef __x86_64__
-typedef VOID(*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct boot_params *params);
-static VOID linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
-        handover_f handover;
-
-        asm volatile ("cli");
-        handover = (handover_f)((UINTN)params->hdr.code32_start + 512 + params->hdr.handover_offset);
-        handover(image, ST, params);
-}
+#ifdef __i386__
+#define __regparm0__ __attribute__((regparm(0)))
 #else
-typedef VOID(*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct boot_params *params) __attribute__((regparm(0)));
+#define __regparm0__
+#endif
+
+typedef VOID(*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct boot_params *params) __regparm0__;
 static VOID linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
         handover_f handover;
+        UINTN start = (UINTN)params->hdr.code32_start;
 
-        handover = (handover_f)((UINTN)params->hdr.code32_start + params->hdr.handover_offset);
+#ifdef __x86_64__
+        asm volatile ("cli");
+        start += 512;
+#endif
+        handover = (handover_f)(start + params->hdr.handover_offset);
         handover(image, ST, params);
 }
-#endif
 
 EFI_STATUS linux_exec(EFI_HANDLE *image,
                       CHAR8 *cmdline, UINTN cmdline_len,
