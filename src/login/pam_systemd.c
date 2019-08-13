@@ -393,6 +393,7 @@ static int update_environment(pam_handle_t *handle, const char *key, const char 
 static bool validate_runtime_directory(pam_handle_t *handle, const char *path, uid_t uid) {
         struct stat st;
 
+        assert(handle);
         assert(path);
 
         /* Just some extra paranoia: let's not set $XDG_RUNTIME_DIR if the directory we'd set it to isn't actually set
