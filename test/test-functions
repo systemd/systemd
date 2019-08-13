@@ -23,6 +23,10 @@ if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
 fi
 
 PATH_TO_INIT=$ROOTLIBDIR/systemd
+[ "$SYSTEMD_JOURNALD" ] || SYSTEMD_JOURNALD=$(which -a $BUILD_DIR/systemd-journald $ROOTLIBDIR/systemd-journald 2>/dev/null | grep '^/' -m1)
+[ "$SYSTEMD" ] || SYSTEMD=$(which -a $BUILD_DIR/systemd $ROOTLIBDIR/systemd 2>/dev/null | grep '^/' -m1)
+[ "$SYSTEMD_NSPAWN" ] || SYSTEMD_NSPAWN=$(which -a $BUILD_DIR/systemd-nspawn systemd-nspawn 2>/dev/null | grep '^/' -m1)
+[ "$JOURNALCTL" ] || JOURNALCTL=$(which -a $BUILD_DIR/journalctl journalctl 2>/dev/null | grep '^/' -m1)
 
 BASICTOOLS="test sh bash setsid loadkeys setfont login sulogin gzip sleep echo head tail cat mount umount cryptsetup date dmsetup modprobe sed cmp tee rm true false chmod chown ln xargs"
 DEBUGTOOLS="df free ls stty ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname find vi mv"
@@ -38,7 +42,7 @@ is_built_with_asan() {
     fi
 
     # Borrowed from https://github.com/google/oss-fuzz/blob/cd9acd02f9d3f6e80011cc1e9549be526ce5f270/infra/base-images/base-runner/bad_build_check#L182
-    local _asan_calls=$(objdump -dC $BUILD_DIR/systemd-journald | egrep "callq\s+[0-9a-f]+\s+<__asan" -c)
+    local _asan_calls=$(objdump -dC $SYSTEMD_JOURNALD | egrep "callq\s+[0-9a-f]+\s+<__asan" -c)
     if (( $_asan_calls < 1000 )); then
         return 1
     else
@@ -56,9 +60,9 @@ if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
     QEMU_SMP=4
 
     # We need to correctly distinguish between gcc's and clang's ASan DSOs.
-    if ldd $BUILD_DIR/systemd | grep -q libasan.so; then
+    if ldd $SYSTEMD | grep -q libasan.so; then
         ASAN_COMPILER=gcc
-    elif ldd $BUILD_DIR/systemd | grep -q libclang_rt.asan; then
+    elif ldd $SYSTEMD | grep -q libclang_rt.asan; then
         ASAN_COMPILER=clang
 
         # As clang's ASan DSO is usually in a non-standard path, let's check if
@@ -66,8 +70,8 @@ if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
         # We're not setting the LD_LIBRARY_PATH automagically here, because
         # user should encounter (and fix) the same issue when running the unit
         # tests (meson test)
-        if ldd "$BUILD_DIR/systemd" | grep -q "libclang_rt.asan.*not found"; then
-            _asan_rt_name="$(ldd $BUILD_DIR/systemd | awk '/libclang_rt.asan/ {print $1; exit}')"
+        if ldd "$SYSTEMD" | grep -q "libclang_rt.asan.*not found"; then
+            _asan_rt_name="$(ldd $SYSTEMD | awk '/libclang_rt.asan/ {print $1; exit}')"
             _asan_rt_path="$(find /usr/lib* /usr/local/lib* -type f -name "$_asan_rt_name" 2>/dev/null | sed 1q)"
             echo >&2 "clang's ASan DSO ($_asan_rt_name) is not present in the runtime library path"
             echo >&2 "Consider setting LD_LIBRARY_PATH=${_asan_rt_path%/*}"
@@ -240,7 +244,7 @@ $QEMU_OPTIONS \
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
 
-    local _nspawn_cmd="$BUILD_DIR/systemd-nspawn $NSPAWN_ARGUMENTS --register=no --kill-signal=SIGKILL --directory=$TESTDIR/$1 $PATH_TO_INIT $KERNEL_APPEND"
+    local _nspawn_cmd="$SYSTEMD_NSPAWN $NSPAWN_ARGUMENTS --register=no --kill-signal=SIGKILL --directory=$TESTDIR/$1 $PATH_TO_INIT $KERNEL_APPEND"
     if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
         _nspawn_cmd="timeout --foreground $NSPAWN_TIMEOUT $_nspawn_cmd"
     fi
@@ -585,7 +589,7 @@ check_asan_reports() {
         fi
 
         pids=$(
-            "$BUILD_DIR/journalctl" -D "$root/var/log/journal" | perl -alne '
+            "$JOURNALCTL" -D "$root/var/log/journal" | perl -alne '
                  BEGIN {
                      %services_to_ignore = (
                          "dbus-daemon" => undef,
@@ -596,7 +600,7 @@ check_asan_reports() {
         if [[ ! -z "$pids" ]]; then
             ret=$(($ret+1))
             for pid in $pids; do
-                "$BUILD_DIR/journalctl" -D "$root/var/log/journal" _PID=$pid --no-pager
+                "$JOURNALCTL" -D "$root/var/log/journal" _PID=$pid --no-pager
             done
         fi
     fi
