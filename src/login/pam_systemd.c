@@ -660,7 +660,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         return PAM_SUCCESS;
                 } else {
                         pam_syslog(handle, LOG_ERR, "Failed to create session: %s", bus_error_message(&error, r));
-                        return PAM_SYSTEM_ERR;
+                        return PAM_SESSION_ERR;
                 }
         }
 
