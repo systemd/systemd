@@ -240,7 +240,7 @@ static void test_config_parse_match_strv(void) {
                                        "!baz",
                                        "KEY=val",
                                        "KEY2=val with space",
-                                       "KEY3=val with \"quotation\"")));
+                                       "KEY3=val with \\quotation\\")));
 }
 
 int main(int argc, char **argv) {
