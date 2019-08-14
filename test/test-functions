@@ -102,7 +102,7 @@ function find_qemu_bin() {
         [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu 2>/dev/null | grep '^/' -m1)
         ;;
     ppc64*)
-        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu-system-$ARCH 2>/dev/null | grep '^/' -m1)
+        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu-system-ppc64 2>/dev/null | grep '^/' -m1)
         ;;
     esac
 
