@@ -2,6 +2,7 @@
 
 rules = files('''
         60-block.rules
+        60-block-scheduler.rules
         60-cdrom_id.rules
         60-drm.rules
         60-evdev.rules
