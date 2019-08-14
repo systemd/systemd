@@ -1948,6 +1948,8 @@ static int link_append_to_master(Link *link, NetDev *netdev) {
         r = set_put(master->slaves, link);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return 0;
 
         link_ref(link);
         return 0;
@@ -2725,6 +2727,8 @@ int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *re
 
 configure:
         while ((link = set_steal_first(manager->links_requesting_uuid))) {
+                link_unref(link);
+
                 r = link_configure(link);
                 if (r < 0)
                         link_enter_failed(link);
@@ -2797,6 +2801,8 @@ static int link_configure_duid(Link *link) {
                 r = set_put(m->duids_requesting_uuid, duid);
                 if (r < 0)
                         return log_oom();
+
+                link_ref(link);
         }
 
         return 0;

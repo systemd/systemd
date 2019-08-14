@@ -399,6 +399,8 @@ static int route_add_internal(
         r = set_put(*routes, route);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return -EEXIST;
 
         route->link = link;
 
