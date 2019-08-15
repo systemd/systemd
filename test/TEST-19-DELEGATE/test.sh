@@ -4,7 +4,7 @@ TEST_DESCRIPTION="test cgroup delegation in the unified hierarchy"
 TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
-QEMU_TIMEOUT=180
+QEMU_TIMEOUT=600
 UNIFIED_CGROUP_HIERARCHY=yes
 
 test_setup() {
