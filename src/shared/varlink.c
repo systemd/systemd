@@ -287,6 +287,8 @@ int varlink_connect_address(Varlink **ret, const char *address) {
         if (v->fd < 0)
                 return -errno;
 
+        v->fd = fd_move_above_stdio(v->fd);
+
         if (connect(v->fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0) {
                 if (!IN_SET(errno, EAGAIN, EINPROGRESS))
                         return -errno;
@@ -2219,6 +2221,8 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
+
+        fd = fd_move_above_stdio(fd);
 
         (void) sockaddr_un_unlink(&sockaddr.un);
 
