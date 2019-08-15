@@ -488,7 +488,7 @@ int unit_file_find_fragment(
                                 }
 
                                 if (!streq(unit_name, inst))
-                                        log_info("%s: %s has alias %s", __func__, unit_name, inst);
+                                        log_debug("%s: %s has alias %s", __func__, unit_name, inst);
                                 r = set_consume(names, TAKE_PTR(inst));
                                 if (r < 0)
                                         return r;
