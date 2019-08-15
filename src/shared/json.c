@@ -1757,6 +1757,9 @@ void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const cha
         if (((flags & (JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_COLOR)) == JSON_FORMAT_COLOR_AUTO) && colors_enabled())
                 flags |= JSON_FORMAT_COLOR;
 
+        if (((flags & (JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_PRETTY)) == JSON_FORMAT_PRETTY_AUTO))
+                flags |= on_tty() ? JSON_FORMAT_PRETTY : JSON_FORMAT_NEWLINE;
+
         if (flags & JSON_FORMAT_SSE)
                 fputs("data: ", f);
         if (flags & JSON_FORMAT_SEQ)

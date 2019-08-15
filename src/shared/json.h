@@ -161,14 +161,15 @@ struct json_variant_foreach_state {
 int json_variant_get_source(JsonVariant *v, const char **ret_source, unsigned *ret_line, unsigned *ret_column);
 
 typedef enum JsonFormatFlags {
-        JSON_FORMAT_NEWLINE    = 1 << 0, /* suffix with newline */
-        JSON_FORMAT_PRETTY     = 1 << 1, /* add internal whitespace to appeal to human readers */
-        JSON_FORMAT_COLOR      = 1 << 2, /* insert ANSI color sequences */
-        JSON_FORMAT_COLOR_AUTO = 1 << 3, /* insert ANSI color sequences if colors_enabled() says so */
-        JSON_FORMAT_SOURCE     = 1 << 4, /* prefix with source filename/line/column */
-        JSON_FORMAT_SSE        = 1 << 5, /* prefix/suffix with W3C server-sent events */
-        JSON_FORMAT_SEQ        = 1 << 6, /* prefix/suffix with RFC 7464 application/json-seq */
-        JSON_FORMAT_FLUSH      = 1 << 7, /* call fflush() after dumping JSON */
+        JSON_FORMAT_NEWLINE     = 1 << 0, /* suffix with newline */
+        JSON_FORMAT_PRETTY      = 1 << 1, /* add internal whitespace to appeal to human readers */
+        JSON_FORMAT_PRETTY_AUTO = 1 << 2, /* same, but only if connected to a tty (and JSON_FORMAT_NEWLINE otherwise) */
+        JSON_FORMAT_COLOR       = 1 << 3, /* insert ANSI color sequences */
+        JSON_FORMAT_COLOR_AUTO  = 1 << 4, /* insert ANSI color sequences if colors_enabled() says so */
+        JSON_FORMAT_SOURCE      = 1 << 5, /* prefix with source filename/line/column */
+        JSON_FORMAT_SSE         = 1 << 6, /* prefix/suffix with W3C server-sent events */
+        JSON_FORMAT_SEQ         = 1 << 7, /* prefix/suffix with RFC 7464 application/json-seq */
+        JSON_FORMAT_FLUSH       = 1 << 8, /* call fflush() after dumping JSON */
 } JsonFormatFlags;
 
 int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret);
