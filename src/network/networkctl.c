@@ -893,7 +893,7 @@ static int dump_lldp_neighbors(Table *table, const char *prefix, int ifindex) {
                                            "%s on port %s%s%s%s",
                                            strna(system_name), strna(port_id),
                                            isempty(port_description) ? "" : " (",
-                                           port_description,
+                                           strempty(port_description),
                                            isempty(port_description) ? "" : ")");
                 if (r < 0)
                         return r;
