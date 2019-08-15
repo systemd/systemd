@@ -32,6 +32,7 @@ static inline int missing_pivot_root(const char *new_root, const char *put_old) 
 /* ======================================================================= */
 
 #if !HAVE_MEMFD_CREATE
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
 #  if ! (defined __NR_memfd_create && __NR_memfd_create > 0)
 #    if defined __NR_memfd_create
 #      undef __NR_memfd_create
@@ -78,6 +79,7 @@ static inline int missing_memfd_create(const char *name, unsigned int flags) {
 /* ======================================================================= */
 
 #if !HAVE_GETRANDOM
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
 #  if ! (defined __NR_getrandom && __NR_getrandom > 0)
 #    if defined __NR_getrandom
 #      undef __NR_getrandom
@@ -140,6 +142,7 @@ static inline pid_t missing_gettid(void) {
 /* ======================================================================= */
 
 #if !HAVE_NAME_TO_HANDLE_AT
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
 #  if ! (defined __NR_name_to_handle_at && __NR_name_to_handle_at > 0)
 #    if defined __NR_name_to_handle_at
 #      undef __NR_name_to_handle_at
@@ -180,6 +183,7 @@ static inline int missing_name_to_handle_at(int fd, const char *name, struct fil
 /* ======================================================================= */
 
 #if !HAVE_SETNS
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
 #  if ! (defined __NR_setns && __NR_setns > 0)
 #    if defined __NR_setns
 #      undef __NR_setns
@@ -220,6 +224,7 @@ static inline pid_t raw_getpid(void) {
 /* ======================================================================= */
 
 #if !HAVE_RENAMEAT2
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
 #  if ! (defined __NR_renameat2 && __NR_renameat2 > 0)
 #    if defined __NR_renameat2
 #      undef __NR_renameat2
@@ -320,6 +325,7 @@ static inline key_serial_t missing_request_key(const char *type, const char *des
 /* ======================================================================= */
 
 #if !HAVE_COPY_FILE_RANGE
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
 #  if ! (defined __NR_copy_file_range && __NR_copy_file_range > 0)
 #    if defined __NR_copy_file_range
 #      undef __NR_copy_file_range
@@ -361,6 +367,7 @@ static inline ssize_t missing_copy_file_range(int fd_in, loff_t *off_in,
 /* ======================================================================= */
 
 #if !HAVE_BPF
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
 #  if ! (defined __NR_bpf && __NR_bpf > 0)
 #    if defined __NR_bpf
 #      undef __NR_bpf
@@ -401,6 +408,7 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 /* ======================================================================= */
 
 #ifndef __IGNORE_pkey_mprotect
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
 #  if ! (defined __NR_pkey_mprotect && __NR_pkey_mprotect > 0)
 #    if defined __NR_pkey_mprotect
 #      undef __NR_pkey_mprotect
@@ -436,6 +444,7 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 /* ======================================================================= */
 
 #if !HAVE_STATX
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
 #  if ! (defined __NR_statx && __NR_statx > 0)
 #    if defined __NR_statx
 #      undef __NR_statx
