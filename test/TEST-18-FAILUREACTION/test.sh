@@ -3,7 +3,7 @@ set -e
 TEST_DESCRIPTION="FailureAction= operation"
 
 . $TEST_BASE_DIR/test-functions
-QEMU_TIMEOUT=180
+QEMU_TIMEOUT=600
 
 test_setup() {
     create_empty_image_rootdir
