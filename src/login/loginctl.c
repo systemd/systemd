@@ -94,7 +94,7 @@ static int show_table(Table *table, const char *word) {
         assert(table);
         assert(word);
 
-        if (table_get_rows(table) > 1) {
+        if (table_get_rows(table) > 1 || OUTPUT_MODE_IS_JSON(arg_output)) {
                 r = table_set_sort(table, (size_t) 0, (size_t) -1);
                 if (r < 0)
                         return log_error_errno(r, "Failed to sort table: %m");
@@ -846,23 +846,11 @@ static int show_session(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (argc <= 1) {
-                const char *session, *p = "/org/freedesktop/login1/session/self";
-
+                /* If no argument is specified inspect the manager itself */
                 if (properties)
-                        /* If no argument is specified inspect the manager itself */
                         return show_properties(bus, "/org/freedesktop/login1", &new_line);
 
-                /* And in the pretty case, show data of the calling session */
-                session = getenv("XDG_SESSION_ID");
-                if (session) {
-                        r = get_session_path(bus, session, &error, &path);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get session path: %s", bus_error_message(&error, r));
-
-                        p = path;
-                }
-
-                return print_session_status_info(bus, p, &new_line);
+                return print_session_status_info(bus, "/org/freedesktop/login1/session/auto", &new_line);
         }
 
         for (i = 1; i < argc; i++) {
@@ -895,8 +883,7 @@ static int show_user(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (argc <= 1) {
-                /* If not argument is specified inspect the manager
-                 * itself */
+                /* If no argument is specified inspect the manager itself */
                 if (properties)
                         return show_properties(bus, "/org/freedesktop/login1", &new_line);
 
@@ -953,12 +940,11 @@ static int show_seat(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (argc <= 1) {
-                /* If not argument is specified inspect the manager
-                 * itself */
+                /* If no argument is specified inspect the manager itself */
                 if (properties)
                         return show_properties(bus, "/org/freedesktop/login1", &new_line);
 
-                return print_seat_status_info(bus, "/org/freedesktop/login1/seat/self", &new_line);
+                return print_seat_status_info(bus, "/org/freedesktop/login1/seat/auto", &new_line);
         }
 
         for (i = 1; i < argc; i++) {
@@ -1005,11 +991,8 @@ static int activate(int argc, char *argv[], void *userdata) {
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (argc < 2) {
-                /* No argument? Let's either use $XDG_SESSION_ID (if specified), or an empty
-                 * session name, in which case logind will try to guess our session. */
-
                 short_argv[0] = argv[0];
-                short_argv[1] = getenv("XDG_SESSION_ID") ?: (char*) "";
+                short_argv[1] = (char*) "";
                 short_argv[2] = NULL;
 
                 argv = short_argv;
@@ -1030,7 +1013,7 @@ static int activate(int argc, char *argv[], void *userdata) {
                                 &error, NULL,
                                 "s", argv[i]);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, -r));
+                        return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
         }
 
         return 0;
@@ -1529,6 +1512,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

@@ -11,6 +11,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "env-file.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -21,6 +22,7 @@
 #include "machine.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
 #include "special.h"
@@ -52,7 +54,7 @@ Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
                 goto fail;
 
         if (class != MACHINE_HOST) {
-                m->state_file = strappend("/run/systemd/machines/", m->name);
+                m->state_file = path_join("/run/systemd/machines", m->name);
                 if (!m->state_file)
                         goto fail;
         }
@@ -530,29 +532,20 @@ int machine_kill(Machine *m, KillWho who, int signo) {
         return manager_kill_unit(m->manager, m->unit, signo, NULL);
 }
 
-int machine_openpt(Machine *m, int flags) {
+int machine_openpt(Machine *m, int flags, char **ret_slave) {
         assert(m);
 
         switch (m->class) {
 
-        case MACHINE_HOST: {
-                int fd;
+        case MACHINE_HOST:
 
-                fd = posix_openpt(flags);
-                if (fd < 0)
-                        return -errno;
-
-                if (unlockpt(fd) < 0)
-                        return -errno;
-
-                return fd;
-        }
+                return openpt_allocate(flags, ret_slave);
 
         case MACHINE_CONTAINER:
                 if (m->leader <= 0)
                         return -EINVAL;
 
-                return openpt_in_namespace(m->leader, flags);
+                return openpt_allocate_in_namespace(m->leader, flags, ret_slave);
 
         default:
                 return -EOPNOTSUPP;
@@ -629,7 +622,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
         if (k != 3) {
                 if (ferror(f))
-                        return -errno;
+                        return errno_or_else(EIO);
 
                 return -EBADMSG;
         }
@@ -660,7 +653,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         k = fscanf(f, GID_FMT " " GID_FMT " " GID_FMT "\n", &gid_base, &gid_shift, &gid_range);
         if (k != 3) {
                 if (ferror(f))
-                        return -errno;
+                        return errno_or_else(EIO);
 
                 return -EBADMSG;
         }

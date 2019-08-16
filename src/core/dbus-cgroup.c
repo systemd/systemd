@@ -10,6 +10,7 @@
 #include "cgroup.h"
 #include "dbus-cgroup.h"
 #include "dbus-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "limits-util.h"
@@ -348,6 +349,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("BlockIOWriteBandwidth", "a(st)", property_get_blockio_device_bandwidths, 0, 0),
         SD_BUS_PROPERTY("MemoryAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, memory_accounting), 0),
         SD_BUS_PROPERTY("DefaultMemoryLow", "t", NULL, offsetof(CGroupContext, default_memory_low), 0),
+        SD_BUS_PROPERTY("DefaultMemoryMin", "t", NULL, offsetof(CGroupContext, default_memory_min), 0),
         SD_BUS_PROPERTY("MemoryMin", "t", NULL, offsetof(CGroupContext, memory_min), 0),
         SD_BUS_PROPERTY("MemoryLow", "t", NULL, offsetof(CGroupContext, memory_low), 0),
         SD_BUS_PROPERTY("MemoryHigh", "t", NULL, offsetof(CGroupContext, memory_high), 0),
@@ -361,6 +363,8 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IPAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, ip_accounting), 0),
         SD_BUS_PROPERTY("IPAddressAllow", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_allow), 0),
         SD_BUS_PROPERTY("IPAddressDeny", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_deny), 0),
+        SD_BUS_PROPERTY("IPIngressFilterPath", "as", NULL, offsetof(CGroupContext, ip_filters_ingress), 0),
+        SD_BUS_PROPERTY("IPEgressFilterPath", "as", NULL, offsetof(CGroupContext, ip_filters_egress), 0),
         SD_BUS_PROPERTY("DisableControllers", "as", property_get_cgroup_mask, offsetof(CGroupContext, disable_controllers), 0),
         SD_BUS_VTABLE_END
 };
@@ -457,6 +461,80 @@ static int bus_cgroup_set_transient_property(
                                         c->disable_controllers |= mask;
 
                                 unit_write_settingf(u, flags, name, "%s=%s", name, strempty(t));
+                        }
+                }
+
+                return 1;
+        } else if (STR_IN_SET(name, "IPIngressFilterPath", "IPEgressFilterPath")) {
+                char ***filters;
+                size_t n = 0;
+
+                filters = streq(name, "IPIngressFilterPath") ? &c->ip_filters_ingress : &c->ip_filters_egress;
+                r = sd_bus_message_enter_container(message, 'a', "s");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        const char *path;
+
+                        r = sd_bus_message_read(message, "s", &path);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        if (!path_is_normalized(path) || !path_is_absolute(path))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects a normalized absolute path.", name);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags) && !strv_contains(*filters, path)) {
+                                r = strv_extend(filters, path);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+                        n++;
+                }
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        char **entry;
+                        size_t size = 0;
+
+                        if (n == 0)
+                                *filters = strv_free(*filters);
+
+                        unit_invalidate_cgroup_bpf(u);
+                        f = open_memstream_unlocked(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fputs(name, f);
+                        fputs("=\n", f);
+
+                        STRV_FOREACH(entry, *filters)
+                                fprintf(f, "%s=%s\n", name, *entry);
+
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_setting(u, flags, name, buf);
+
+                        if (*filters) {
+                                r = bpf_firewall_supported();
+                                if (r < 0)
+                                        return r;
+                                if (r != BPF_FIREWALL_SUPPORTED_WITH_MULTI) {
+                                        static bool warned = false;
+
+                                        log_full(warned ? LOG_DEBUG : LOG_WARNING,
+                                                 "Transient unit %s configures an IP firewall with BPF, but the local system does not support BPF/cgroup firewalling with mulitiple filters.\n"
+                                                 "Starting this unit will fail! (This warning is only shown for the first started transient unit using IP firewalling.)", u->id);
+                                        warned = true;
+                                }
                         }
                 }
 
@@ -612,6 +690,7 @@ BUS_DEFINE_SET_CGROUP_WEIGHT(cpu_shares, CGROUP_MASK_CPU, CGROUP_CPU_SHARES_IS_O
 BUS_DEFINE_SET_CGROUP_WEIGHT(io_weight, CGROUP_MASK_IO, CGROUP_WEIGHT_IS_OK, CGROUP_WEIGHT_INVALID);
 BUS_DEFINE_SET_CGROUP_WEIGHT(blockio_weight, CGROUP_MASK_BLKIO, CGROUP_BLKIO_WEIGHT_IS_OK, CGROUP_BLKIO_WEIGHT_INVALID);
 BUS_DEFINE_SET_CGROUP_LIMIT(memory, CGROUP_MASK_MEMORY, physical_memory_scale, 1);
+BUS_DEFINE_SET_CGROUP_LIMIT(memory_protection, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 BUS_DEFINE_SET_CGROUP_LIMIT(swap, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 BUS_DEFINE_SET_CGROUP_LIMIT(tasks_max, CGROUP_MASK_PIDS, system_tasks_max_scale, 1);
 #pragma GCC diagnostic pop
@@ -671,16 +750,16 @@ int bus_cgroup_set_property(
                 return bus_cgroup_set_boolean(u, name, &c->memory_accounting, CGROUP_MASK_MEMORY, message, flags, error);
 
         if (streq(name, "MemoryMin"))
-                return bus_cgroup_set_memory(u, name, &c->memory_min, message, flags, error);
+                return bus_cgroup_set_memory_protection(u, name, &c->memory_min, message, flags, error);
 
         if (streq(name, "MemoryLow"))
-                return bus_cgroup_set_memory(u, name, &c->memory_low, message, flags, error);
+                return bus_cgroup_set_memory_protection(u, name, &c->memory_low, message, flags, error);
 
         if (streq(name, "DefaultMemoryMin"))
-                return bus_cgroup_set_memory(u, name, &c->default_memory_min, message, flags, error);
+                return bus_cgroup_set_memory_protection(u, name, &c->default_memory_min, message, flags, error);
 
         if (streq(name, "DefaultMemoryLow"))
-                return bus_cgroup_set_memory(u, name, &c->default_memory_low, message, flags, error);
+                return bus_cgroup_set_memory_protection(u, name, &c->default_memory_low, message, flags, error);
 
         if (streq(name, "MemoryHigh"))
                 return bus_cgroup_set_memory(u, name, &c->memory_high, message, flags, error);
@@ -695,16 +774,16 @@ int bus_cgroup_set_property(
                 return bus_cgroup_set_memory(u, name, &c->memory_limit, message, flags, error);
 
         if (streq(name, "MemoryMinScale"))
-                return bus_cgroup_set_memory_scale(u, name, &c->memory_min, message, flags, error);
+                return bus_cgroup_set_memory_protection_scale(u, name, &c->memory_min, message, flags, error);
 
         if (streq(name, "MemoryLowScale"))
-                return bus_cgroup_set_memory_scale(u, name, &c->memory_low, message, flags, error);
+                return bus_cgroup_set_memory_protection_scale(u, name, &c->memory_low, message, flags, error);
 
         if (streq(name, "DefaultMemoryMinScale"))
-                return bus_cgroup_set_memory_scale(u, name, &c->default_memory_min, message, flags, error);
+                return bus_cgroup_set_memory_protection_scale(u, name, &c->default_memory_min, message, flags, error);
 
         if (streq(name, "DefaultMemoryLowScale"))
-                return bus_cgroup_set_memory_scale(u, name, &c->default_memory_low, message, flags, error);
+                return bus_cgroup_set_memory_protection_scale(u, name, &c->default_memory_low, message, flags, error);
 
         if (streq(name, "MemoryHighScale"))
                 return bus_cgroup_set_memory_scale(u, name, &c->memory_high, message, flags, error);
@@ -1414,7 +1493,7 @@ int bus_cgroup_set_property(
 
                                 errno = 0;
                                 if (!inet_ntop(item->family, &item->address, buffer, sizeof(buffer)))
-                                        return errno > 0 ? -errno : -EINVAL;
+                                        return errno_or_else(EINVAL);
 
                                 fprintf(f, "%s=%s/%u\n", name, buffer, item->prefixlen);
                         }
@@ -1424,21 +1503,6 @@ int bus_cgroup_set_property(
                                 return r;
 
                         unit_write_setting(u, flags, name, buf);
-
-                        if (*list) {
-                                r = bpf_firewall_supported();
-                                if (r < 0)
-                                        return r;
-                                if (r == BPF_FIREWALL_UNSUPPORTED) {
-                                        static bool warned = false;
-
-                                        log_full(warned ? LOG_DEBUG : LOG_WARNING,
-                                                 "Transient unit %s configures an IP firewall, but the local system does not support BPF/cgroup firewalling.\n"
-                                                 "Proceeding WITHOUT firewalling in effect! (This warning is only shown for the first started transient unit using IP firewalling.)", u->id);
-
-                                        warned = true;
-                                }
-                        }
                 }
 
                 return 1;

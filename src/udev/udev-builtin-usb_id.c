@@ -196,7 +196,7 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
                              desc->bInterfaceProtocol) != 7)
                         continue;
 
-                if (strstr(ifs_str, if_str) != NULL)
+                if (strstr(ifs_str, if_str))
                         continue;
 
                 memcpy(&ifs_str[strpos], if_str, 8),
@@ -455,7 +455,7 @@ fallback:
         return 0;
 }
 
-const struct udev_builtin udev_builtin_usb_id = {
+const UdevBuiltin udev_builtin_usb_id = {
         .name = "usb_id",
         .cmd = builtin_usb_id,
         .help = "USB device properties",

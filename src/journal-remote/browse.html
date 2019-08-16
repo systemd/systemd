@@ -182,7 +182,7 @@
 
                 function machineLoad() {
                         var request = new XMLHttpRequest();
-                        request.open("GET", "/machine");
+                        request.open("GET", "machine");
                         request.onreadystatechange = machineOnResult;
                         request.setRequestHeader("Accept", "application/json");
                         request.send(null);
@@ -243,7 +243,7 @@
                                         range = "";
                         }
 
-                        var url = "/entries";
+                        var url = "entries";
 
                         if (localStorage["filter"] != "" && localStorage["filter"] != null) {
                                 url += "?_SYSTEMD_UNIT=" + escape(localStorage["filter"]);
@@ -410,7 +410,7 @@
 
                 function onMessageClick(t) {
                         var request = new XMLHttpRequest();
-                        request.open("GET", "/entries?discrete");
+                        request.open("GET", "entries?discrete");
                         request.onreadystatechange = onResultMessageClick;
                         request.setRequestHeader("Accept", "application/json");
                         request.setRequestHeader("Range", "entries=" + t + ":0:1");
@@ -492,7 +492,7 @@
 
                 function onFilterFocus(w) {
                         var request = new XMLHttpRequest();
-                        request.open("GET", "/fields/_SYSTEMD_UNIT");
+                        request.open("GET", "fields/_SYSTEMD_UNIT");
                         request.onreadystatechange = onResultFilterFocus;
                         request.setRequestHeader("Accept", "application/json");
                         request.send(null);

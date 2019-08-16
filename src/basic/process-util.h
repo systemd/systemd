@@ -31,9 +31,13 @@
                 _r_;                                                    \
         })
 
-int get_process_state(pid_t pid);
+typedef enum ProcessCmdlineFlags {
+        PROCESS_CMDLINE_COMM_FALLBACK = 1 << 0,
+        PROCESS_CMDLINE_USE_LOCALE    = 1 << 1,
+} ProcessCmdlineFlags;
+
 int get_process_comm(pid_t pid, char **name);
-int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line);
+int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **line);
 int get_process_exe(pid_t pid, char **name);
 int get_process_uid(pid_t pid, uid_t *uid);
 int get_process_gid(pid_t pid, gid_t *gid);
@@ -185,7 +189,7 @@ int set_oom_score_adjust(int value);
 #error "Unknown pid_t size"
 #endif
 
-assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX)
+assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
 
 /* Like TAKE_PTR() but for child PIDs, resetting them to 0 */
 #define TAKE_PID(pid)                           \
@@ -194,5 +198,3 @@ assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX)
                 (pid) = 0;                      \
                 _pid_;                          \
         })
-
-int cpus_in_affinity_mask(void);

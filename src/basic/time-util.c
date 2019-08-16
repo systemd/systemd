@@ -267,13 +267,12 @@ static char *format_timestamp_internal(
 
         assert(buf);
 
-        if (l <
-            3 +                  /* week day */
-            1 + 10 +             /* space and date */
-            1 + 8 +              /* space and time */
-            (us ? 1 + 6 : 0) +   /* "." and microsecond part */
-            1 + 1 +              /* space and shortest possible zone */
-            1)
+        if (l < (size_t) (3 +                  /* week day */
+                          1 + 10 +             /* space and date */
+                          1 + 8 +              /* space and time */
+                          (us ? 1 + 6 : 0) +   /* "." and microsecond part */
+                          1 + 1 +              /* space and shortest possible zone */
+                          1))
                 return NULL; /* Not enough space even for the shortest form. */
         if (t <= 0 || t == USEC_INFINITY)
                 return NULL; /* Timestamp is unset */
@@ -575,7 +574,6 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
          */
 
         assert(t);
-        assert(usec);
 
         if (t[0] == '@' && !with_tz)
                 return parse_sec(t + 1, usec);
@@ -803,8 +801,8 @@ finish:
         else
                 return -EINVAL;
 
-        *usec = ret;
-
+        if (usec)
+                *usec = ret;
         return 0;
 }
 
@@ -861,7 +859,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
         if (munmap(shared, sizeof *shared) != 0)
                 return negative_errno();
 
-        if (tmp.return_value == 0)
+        if (tmp.return_value == 0 && usec)
                 *usec = tmp.usec;
 
         return tmp.return_value;
@@ -923,7 +921,6 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
         bool something = false;
 
         assert(t);
-        assert(usec);
         assert(default_unit > 0);
 
         p = t;
@@ -935,7 +932,8 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                 if (*s != 0)
                         return -EINVAL;
 
-                *usec = USEC_INFINITY;
+                if (usec)
+                        *usec = USEC_INFINITY;
                 return 0;
         }
 
@@ -1007,8 +1005,8 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                 }
         }
 
-        *usec = r;
-
+        if (usec)
+                *usec = r;
         return 0;
 }
 
@@ -1193,7 +1191,10 @@ bool ntp_synced(void) {
         if (adjtimex(&txc) < 0)
                 return false;
 
-        if (txc.status & STA_UNSYNC)
+        /* Consider the system clock synchronized if the reported maximum error is smaller than the maximum
+         * value (16 seconds). Ignore the STA_UNSYNC flag as it may have been set to prevent the kernel from
+         * touching the RTC. */
+        if (txc.maxerror >= 16000000)
                 return false;
 
         return true;
@@ -1416,8 +1417,8 @@ struct tm *localtime_or_gmtime_r(const time_t *t, struct tm *tm, bool utc) {
         return utc ? gmtime_r(t, tm) : localtime_r(t, tm);
 }
 
-unsigned long usec_to_jiffies(usec_t u) {
-        static thread_local unsigned long hz = 0;
+static uint32_t sysconf_clock_ticks_cached(void) {
+        static thread_local uint32_t hz = 0;
         long r;
 
         if (hz == 0) {
@@ -1427,7 +1428,17 @@ unsigned long usec_to_jiffies(usec_t u) {
                 hz = r;
         }
 
-        return DIV_ROUND_UP(u , USEC_PER_SEC / hz);
+        return hz;
+}
+
+uint32_t usec_to_jiffies(usec_t u) {
+        uint32_t hz = sysconf_clock_ticks_cached();
+        return DIV_ROUND_UP(u, USEC_PER_SEC / hz);
+}
+
+usec_t jiffies_to_usec(uint32_t j) {
+        uint32_t hz = sysconf_clock_ticks_cached();
+        return DIV_ROUND_UP(j * USEC_PER_SEC, hz);
 }
 
 usec_t usec_shift_clock(usec_t x, clockid_t from, clockid_t to) {

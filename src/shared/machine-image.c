@@ -87,8 +87,8 @@ static char **image_settings_path(Image *image) {
 
         fn = strjoina(image->name, ".nspawn");
 
-        FOREACH_STRING(s, "/etc/systemd/nspawn/", "/run/systemd/nspawn/") {
-                l[i] = strappend(s, fn);
+        FOREACH_STRING(s, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
+                l[i] = path_join(s, fn);
                 if (!l[i])
                         return NULL;
 
@@ -146,10 +146,7 @@ static int image_new(
         if (!i->name)
                 return -ENOMEM;
 
-        if (path)
-                i->path = strjoin(path, "/", filename);
-        else
-                i->path = strdup(filename);
+        i->path = path_join(path, filename);
         if (!i->path)
                 return -ENOMEM;
 
@@ -200,12 +197,13 @@ static int image_make(
                 const struct stat *st,
                 Image **ret) {
 
-        _cleanup_free_ char *pretty_buffer = NULL;
+        _cleanup_free_ char *pretty_buffer = NULL, *parent = NULL;
         struct stat stbuf;
         bool read_only;
         int r;
 
         assert(dfd >= 0 || dfd == AT_FDCWD);
+        assert(path || dfd == AT_FDCWD);
         assert(filename);
 
         /* We explicitly *do* follow symlinks here, since we want to allow symlinking trees, raw files and block
@@ -219,6 +217,13 @@ static int image_make(
                         return -errno;
 
                 st = &stbuf;
+        }
+
+        if (!path) {
+                if (dfd == AT_FDCWD)
+                        (void) safe_getcwd(&parent);
+                else
+                        (void) fd_get_path(dfd, &parent);
         }
 
         read_only =
@@ -359,7 +364,7 @@ static int image_make(
 
                 block_fd = openat(dfd, filename, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
                 if (block_fd < 0)
-                        log_debug_errno(errno, "Failed to open block device %s/%s, ignoring: %m", path, filename);
+                        log_debug_errno(errno, "Failed to open block device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
                 else {
                         /* Refresh stat data after opening the node */
                         if (fstat(block_fd, &stbuf) < 0)
@@ -373,13 +378,13 @@ static int image_make(
                                 int state = 0;
 
                                 if (ioctl(block_fd, BLKROGET, &state) < 0)
-                                        log_debug_errno(errno, "Failed to issue BLKROGET on device %s/%s, ignoring: %m", path, filename);
+                                        log_debug_errno(errno, "Failed to issue BLKROGET on device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
                                 else if (state)
                                         read_only = true;
                         }
 
                         if (ioctl(block_fd, BLKGETSIZE64, &size) < 0)
-                                log_debug_errno(errno, "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m", path, filename);
+                                log_debug_errno(errno, "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
 
                         block_fd = safe_close(block_fd);
                 }
@@ -395,7 +400,7 @@ static int image_make(
                 if (r < 0)
                         return r;
 
-                if (size != 0 && size != UINT64_MAX)
+                if (!IN_SET(size, 0, UINT64_MAX))
                         (*ret)->usage = (*ret)->usage_exclusive = (*ret)->limit = (*ret)->limit_exclusive = size;
 
                 return 0;
@@ -436,7 +441,7 @@ int image_find(ImageClass class, const char *name, Image **ret) {
                         if (errno != ENOENT)
                                 return -errno;
 
-                        raw = strappend(name, ".raw");
+                        raw = strjoin(name, ".raw");
                         if (!raw)
                                 return -ENOMEM;
 
@@ -984,28 +989,52 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
         _cleanup_free_ char *p = NULL;
         LockFile t = LOCK_FILE_INIT;
         struct stat st;
+        bool exclusive;
         int r;
 
         assert(path);
         assert(global);
         assert(local);
 
-        /* Locks an image path. This actually creates two locks: one
-         * "local" one, next to the image path itself, which might be
-         * shared via NFS. And another "global" one, in /run, that
-         * uses the device/inode number. This has the benefit that we
-         * can even lock a tree that is a mount point, correctly. */
+        /* Locks an image path. This actually creates two locks: one "local" one, next to the image path
+         * itself, which might be shared via NFS. And another "global" one, in /run, that uses the
+         * device/inode number. This has the benefit that we can even lock a tree that is a mount point,
+         * correctly. */
 
         if (!path_is_absolute(path))
                 return -EINVAL;
+
+        switch (operation & (LOCK_SH|LOCK_EX)) {
+        case LOCK_SH:
+                exclusive = false;
+                break;
+        case LOCK_EX:
+                exclusive = true;
+                break;
+        default:
+                return -EINVAL;
+        }
 
         if (getenv_bool("SYSTEMD_NSPAWN_LOCK") == 0) {
                 *local = *global = (LockFile) LOCK_FILE_INIT;
                 return 0;
         }
 
-        if (path_equal(path, "/"))
-                return -EBUSY;
+        /* Prohibit taking exclusive locks on the host image. We can't allow this, since we ourselves are
+         * running off it after all, and we don't want any images to manipulate the host image. We make an
+         * exception for shared locks however: we allow those (and make them NOPs since there's no point in
+         * taking them if there can't be exclusive locks). Strictly speaking these are questionable as well,
+         * since it means changes made to the host might propagate to the container as they happen (and a
+         * shared lock kinda suggests that no changes happen at all while it is in place), but it's too
+         * useful not to allow read-only containers off the host root, hence let's support this, and trust
+         * the user to do the right thing with this. */
+        if (path_equal(path, "/")) {
+                if (exclusive)
+                        return -EBUSY;
+
+                *local = *global = (LockFile) LOCK_FILE_INIT;
+                return 0;
+        }
 
         if (stat(path, &st) >= 0) {
                 if (S_ISBLK(st.st_mode))
@@ -1019,12 +1048,12 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
                         return -ENOMEM;
         }
 
-        /* For block devices we don't need the "local" lock, as the major/minor lock above should be sufficient, since
-         * block devices are device local anyway. */
-        if (!path_startswith(path, "/dev")) {
+        /* For block devices we don't need the "local" lock, as the major/minor lock above should be
+         * sufficient, since block devices are host local anyway. */
+        if (!path_startswith(path, "/dev/")) {
                 r = make_lock_file_for(path, operation, &t);
                 if (r < 0) {
-                        if ((operation & LOCK_SH) && r == -EROFS)
+                        if (!exclusive && r == -EROFS)
                                 log_debug_errno(r, "Failed to create shared lock for '%s', ignoring: %m", path);
                         else
                                 return r;

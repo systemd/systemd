@@ -4,6 +4,7 @@ OriginalName=
 Path=
 Driver=
 Type=
+Property=
 Host=
 Virtualization=
 KernelCommandLine=

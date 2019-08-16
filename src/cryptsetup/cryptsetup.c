@@ -81,7 +81,10 @@ static int parse_one_option(const char *option) {
         assert(option);
 
         /* Handled outside of this tool */
-        if (STR_IN_SET(option, "noauto", "auto", "nofail", "fail", "_netdev"))
+        if (STR_IN_SET(option, "noauto", "auto", "nofail", "fail", "_netdev", "keyfile-timeout"))
+                return 0;
+
+        if (startswith(option, "keyfile-timeout="))
                 return 0;
 
         if ((val = startswith(option, "cipher="))) {
@@ -487,7 +490,6 @@ static int attach_tcrypt(
 static int attach_luks_or_plain(struct crypt_device *cd,
                                 const char *name,
                                 const char *key_file,
-                                const char *data_device,
                                 char **passwords,
                                 uint32_t flags) {
         int r = 0;
@@ -497,16 +499,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
         assert(name);
         assert(key_file || passwords);
 
-        if (!arg_type || STR_IN_SET(arg_type, ANY_LUKS, CRYPT_LUKS1)) {
-                r = crypt_load(cd, CRYPT_LUKS, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load LUKS superblock on device %s: %m", crypt_get_device_name(cd));
-
-                if (data_device)
-                        r = crypt_set_data_device(cd, data_device);
-        }
-
-        if ((!arg_type && r < 0) || streq_ptr(arg_type, CRYPT_PLAIN)) {
+        if ((!arg_type && !crypt_get_type(cd)) || streq_ptr(arg_type, CRYPT_PLAIN)) {
                 struct crypt_params_plain params = {
                         .offset = arg_offset,
                         .skip = arg_skip,
@@ -544,15 +537,15 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                 /* for CRYPT_PLAIN limit reads from keyfile to key length, and ignore keyfile-size */
                 arg_keyfile_size = arg_key_size;
 
-                /* In contrast to what the name crypt_setup() might suggest this doesn't actually format
+                /* In contrast to what the name crypt_format() might suggest this doesn't actually format
                  * anything, it just configures encryption parameters when used for plain mode. */
                 r = crypt_format(cd, CRYPT_PLAIN, cipher, cipher_mode, NULL, NULL, arg_keyfile_size, &params);
+                if (r < 0)
+                        return log_error_errno(r, "Loading of cryptographic parameters failed: %m");
 
                 /* hash == NULL implies the user passed "plain" */
                 pass_volume_key = (params.hash == NULL);
         }
-        if (r < 0)
-                return log_error_errno(r, "Loading of cryptographic parameters failed: %m");
 
         log_info("Set cipher %s, mode %s, key size %i bits for device %s.",
                  crypt_get_cipher(cd),
@@ -647,6 +640,11 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
+        crypt_set_log_callback(NULL, cryptsetup_log_glue, NULL);
+        if (DEBUG_LOGGING)
+                /* libcryptsetup won't even consider debug messages by default */
+                crypt_set_debug_level(CRYPT_DEBUG_ALL);
+
         umask(0022);
 
         if (streq(argv[1], "attach")) {
@@ -715,6 +713,30 @@ static int run(int argc, char *argv[]) {
                                 log_warning("Key file %s is world-readable. This is not a good idea!", key_file);
                 }
 
+                if (!arg_type || STR_IN_SET(arg_type, ANY_LUKS, CRYPT_LUKS1)) {
+                        r = crypt_load(cd, CRYPT_LUKS, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to load LUKS superblock on device %s: %m", crypt_get_device_name(cd));
+
+                        if (arg_header) {
+                                r = crypt_set_data_device(cd, argv[3]);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set LUKS data device %s: %m", argv[3]);
+                        }
+#ifdef CRYPT_ANY_TOKEN
+                        /* Tokens are available in LUKS2 only, but it is ok to call (and fail) with LUKS1. */
+                        if (!key_file) {
+                                r = crypt_activate_by_token(cd, argv[2], CRYPT_ANY_TOKEN, NULL, flags);
+                                if (r >= 0) {
+                                        log_debug("Volume %s activated with LUKS token id %i.", argv[2], r);
+                                        return 0;
+                                }
+
+                                log_debug_errno(r, "Token activation unsuccessful for device %s: %m", crypt_get_device_name(cd));
+                        }
+#endif
+                }
+
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
                         _cleanup_strv_free_erase_ char **passwords = NULL;
 
@@ -732,7 +754,6 @@ static int run(int argc, char *argv[]) {
                                 r = attach_luks_or_plain(cd,
                                                          argv[2],
                                                          key_file,
-                                                         arg_header ? argv[3] : NULL,
                                                          passwords,
                                                          flags);
                         if (r >= 0)

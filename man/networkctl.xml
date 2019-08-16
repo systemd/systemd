@@ -58,6 +58,17 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term>
+          <option>-s</option>
+          <option>--stats</option>
+        </term>
+
+        <listitem>
+          <para>Show link statistics with <command>status</command>.</para>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
@@ -269,6 +280,13 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         ::/96                                 3
        ::1/128                                0</programlisting></para>
         </listitem>
+      </varlistentry>
+
+       <varlistentry>
+        <term>
+          <command>delete</command>
+        </term>
+        <listitem><para>Deletes virtual netdevs. Takes interface name or index number.</para></listitem>
       </varlistentry>
 
     </variablelist>

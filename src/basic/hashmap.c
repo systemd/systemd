@@ -11,6 +11,7 @@
 #include "macro.h"
 #include "memory-util.h"
 #include "mempool.h"
+#include "missing.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "set.h"
@@ -285,7 +286,11 @@ _destructor_ static void cleanup_pools(void) {
         /* The pool is only allocated by the main thread, but the memory can
          * be passed to other threads. Let's clean up if we are the main thread
          * and no other threads are live. */
-        if (!is_main_thread())
+        /* We build our own is_main_thread() here, which doesn't use C11
+         * TLS based caching of the result. That's because valgrind apparently
+         * doesn't like malloc() (which C11 TLS internally uses) to be called
+         * from a GCC destructors. */
+        if (getpid() != gettid())
                 return;
 
         r = get_proc_field("/proc/self/status", "Threads", WHITESPACE, &t);
@@ -728,8 +733,8 @@ bool internal_hashmap_iterate(HashmapBase *h, Iterator *i, void **value, const v
         return true;
 }
 
-bool set_iterate(Set *s, Iterator *i, void **value) {
-        return internal_hashmap_iterate(HASHMAP_BASE(s), i, value, NULL);
+bool set_iterate(const Set *s, Iterator *i, void **value) {
+        return internal_hashmap_iterate(HASHMAP_BASE((Set*) s), i, value, NULL);
 }
 
 #define HASHMAP_FOREACH_IDX(idx, h, i) \
@@ -1761,6 +1766,32 @@ int set_consume(Set *s, void *value) {
                 free(value);
 
         return r;
+}
+
+int hashmap_put_strdup(Hashmap **h, const char *k, const char *v) {
+        int r;
+
+        r = hashmap_ensure_allocated(h, &string_hash_ops_free_free);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *kdup = NULL, *vdup = NULL;
+        kdup = strdup(k);
+        vdup = strdup(v);
+        if (!kdup || !vdup)
+                return -ENOMEM;
+
+        r = hashmap_put(*h, kdup, vdup);
+        if (r < 0) {
+                if (r == -EEXIST && streq(v, hashmap_get(*h, kdup)))
+                        return 0;
+                return r;
+        }
+
+        assert(r > 0); /* 0 would mean vdup is already in the hashmap, which cannot be */
+        kdup = vdup = NULL;
+
+        return 0;
 }
 
 int set_put_strdup(Set *s, const char *p) {

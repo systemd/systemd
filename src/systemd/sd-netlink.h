@@ -18,11 +18,10 @@
 ***/
 
 #include <inttypes.h>
+#include <net/ethernet.h>
+#include <netinet/in.h>
 #include <linux/neighbour.h>
 #include <linux/rtnetlink.h>
-#include <net/ethernet.h>
-#include <netinet/ether.h>
-#include <netinet/in.h>
 
 #include "sd-event.h"
 
@@ -105,6 +104,7 @@ int sd_netlink_message_read_cache_info(sd_netlink_message *m, unsigned short typ
 int sd_netlink_message_read_in_addr(sd_netlink_message *m, unsigned short type, struct in_addr *data);
 int sd_netlink_message_read_in6_addr(sd_netlink_message *m, unsigned short type, struct in6_addr *data);
 int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short type);
+int sd_netlink_message_enter_array(sd_netlink_message *m, unsigned short type);
 int sd_netlink_message_exit_container(sd_netlink_message *m);
 
 int sd_netlink_message_open_array(sd_netlink_message *m, uint16_t type);

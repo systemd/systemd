@@ -7,6 +7,7 @@
 #include <sys/un.h>
 
 #include "alloc-util.h"
+#include "main-func.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
@@ -34,66 +35,49 @@ static int send_on_socket(int fd, const char *socket_name, const void *packet, s
         return 0;
 }
 
-int main(int argc, char *argv[]) {
-        _cleanup_free_ char *packet = NULL;
+static int run(int argc, char *argv[]) {
+        _cleanup_(erase_and_freep) char *packet = NULL;
         _cleanup_close_ int fd = -1;
         size_t length = 0;
         int r;
 
         log_setup_service();
 
-        if (argc != 3) {
-                log_error("Wrong number of arguments.");
-                return EXIT_FAILURE;
-        }
+        if (argc != 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Wrong number of arguments.");
 
         if (streq(argv[1], "1")) {
-                _cleanup_string_free_erase_ char *line = NULL;
+                _cleanup_(erase_and_freep) char *line = NULL;
 
                 r = read_line(stdin, LONG_LINE_MAX, &line);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to read password: %m");
-                        goto finish;
-                }
-                if (r == 0) {
-                        log_error("Got EOF while reading password.");
-                        r = -EIO;
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read password: %m");
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Got EOF while reading password.");
 
                 packet = strjoin("+", line);
-                if (!packet) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!packet)
+                        return log_oom();
 
                 length = 1 + strlen(line) + 1;
 
         } else if (streq(argv[1], "0")) {
                 packet = strdup("-");
-                if (!packet) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!packet)
+                        return log_oom();
 
                 length = 1;
 
-        } else {
-                log_error("Invalid first argument %s", argv[1]);
-                r = -EINVAL;
-                goto finish;
-        }
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid first argument %s", argv[1]);
 
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (fd < 0) {
-                r = log_error_errno(errno, "socket() failed: %m");
-                goto finish;
-        }
+        if (fd < 0)
+                return log_error_errno(errno, "socket() failed: %m");
 
-        r = send_on_socket(fd, argv[2], packet, length);
-
-finish:
-        explicit_bzero_safe(packet, length);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return send_on_socket(fd, argv[2], packet, length);
 }
+
+DEFINE_MAIN_FUNCTION(run);

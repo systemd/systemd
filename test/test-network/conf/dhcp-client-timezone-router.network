@@ -5,6 +5,6 @@ Name=veth99
 IPv6AcceptRA=false
 DHCP=ipv4
 
-[DHCP]
+[DHCPv4]
 UseRoutes=true
 UseTimezone=true

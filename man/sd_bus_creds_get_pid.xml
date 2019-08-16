@@ -325,12 +325,14 @@
     <filename>/proc/<replaceable>pid</replaceable>/task/<replaceable>tid</replaceable>/comm</filename>).
     </para>
 
-    <para><function>sd_bus_creds_get_exe()</function> will retrieve
-    the path to the program executable (as stored in the
-    <filename>/proc/<replaceable>pid</replaceable>/exe</filename>
-    link, but with the <literal> (deleted)</literal> suffix removed). Note
-    that kernel threads do not have an executable path, in which case
-    -ENXIO is returned.</para>
+    <para><function>sd_bus_creds_get_exe()</function> will retrieve the path to the program executable (as
+    stored in the <filename>/proc/<replaceable>pid</replaceable>/exe</filename> link, but with the <literal>
+    (deleted)</literal> suffix removed). Note that kernel threads do not have an executable path, in which
+    case -ENXIO is returned. Note that this property should not be used for more than explanatory
+    information, in particular it should not be used for security-relevant decisions. That's because the
+    executable might have been replaced or removed by the time the value can be processed. Moreover, the
+    kernel exports this information in an ambiguous way (i.e. a deleted executable cannot be safely
+    distinguished from one whose name suffix is <literal> (deleted)</literal>.</para>
 
     <para><function>sd_bus_creds_get_cmdline()</function> will
     retrieve an array of command line arguments (as stored in

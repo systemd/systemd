@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <netinet/in.h>
 #include <linux/if_link.h>
 
 #include "netdev/netdev.h"
@@ -29,7 +30,9 @@ typedef struct IPVlan {
 } IPVlan;
 
 DEFINE_NETDEV_CAST(IPVLAN, IPVlan);
+DEFINE_NETDEV_CAST(IPVTAP, IPVlan);
 extern const NetDevVTable ipvlan_vtable;
+extern const NetDevVTable ipvtap_vtable;
 
 const char *ipvlan_mode_to_string(IPVlanMode d) _const_;
 IPVlanMode ipvlan_mode_from_string(const char *d) _pure_;
@@ -39,3 +42,5 @@ IPVlanFlags ipvlan_flags_from_string(const char *d) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ipvlan_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipvlan_flags);
+
+IPVlanMode link_get_ipvlan_mode(Link *link);

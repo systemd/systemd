@@ -23,7 +23,14 @@ preprocess() {
     # get this value from config.h, however the autopkgtest fails with
     # it
     SYSTEM_UID_MAX=$(awk 'BEGIN { uid=999 } /^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }' /etc/login.defs)
-    sed "s/SYSTEM_UID_MAX/${SYSTEM_UID_MAX}/g" "$in"
+
+    # we can't rely on config.h to get the nologin path, as autopkgtest
+    # uses pre-compiled binaries, so extract it from the systemd-sysusers
+    # binary which we are about to execute
+    NOLOGIN=$(strings $(type -p systemd-sysusers) | grep nologin)
+
+    sed -e "s/SYSTEM_UID_MAX/${SYSTEM_UID_MAX}/g" \
+        -e "s#NOLOGIN#${NOLOGIN}#g" "$in"
 }
 
 compare() {

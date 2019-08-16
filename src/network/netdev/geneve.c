@@ -10,6 +10,7 @@
 #include "geneve.h"
 #include "netlink-util.h"
 #include "parse-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "missing.h"
@@ -17,6 +18,15 @@
 
 #define GENEVE_FLOW_LABEL_MAX_MASK 0xFFFFFU
 #define DEFAULT_GENEVE_DESTINATION_PORT 6081
+
+static const char* const geneve_df_table[_NETDEV_GENEVE_DF_MAX] = {
+        [NETDEV_GENEVE_DF_NO] = "no",
+        [NETDEV_GENEVE_DF_YES] = "yes",
+        [NETDEV_GENEVE_DF_INHERIT] = "inherit",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(geneve_df, GeneveDF, NETDEV_GENEVE_DF_YES);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_geneve_df, geneve_df, GeneveDF, "Failed to parse Geneve IPDoNotFragment= setting");
 
 /* callback for geneve netdev's created without a backing Link */
 static int geneve_netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
@@ -92,7 +102,11 @@ static int netdev_geneve_create(NetDev *netdev) {
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_REMOTE/IFLA_GENEVE_REMOTE6 attribute: %m");
         }
 
-        if (v->ttl > 0) {
+        if (v->inherit) {
+                r = sd_netlink_message_append_u8(m, IFLA_GENEVE_TTL_INHERIT, 1);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_TTL_INHERIT attribute: %m");
+        } else {
                 r = sd_netlink_message_append_u8(m, IFLA_GENEVE_TTL, v->ttl);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_TTL attribute: %m");
@@ -124,6 +138,12 @@ static int netdev_geneve_create(NetDev *netdev) {
                 r = sd_netlink_message_append_u32(m, IFLA_GENEVE_LABEL, htobe32(v->flow_label));
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_LABEL attribute: %m");
+        }
+
+        if (v->geneve_df != _NETDEV_GENEVE_DF_INVALID) {
+                r = sd_netlink_message_append_u8(m, IFLA_GENEVE_DF, v->geneve_df);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_DF attribute: %m");
         }
 
         r = sd_netlink_message_close_container(m);
@@ -255,6 +275,47 @@ int config_parse_geneve_flow_label(const char *unit,
         return 0;
 }
 
+int config_parse_geneve_ttl(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
+        Geneve *v = userdata;
+        unsigned f;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "inherit"))
+                v->inherit = true;
+        else {
+                r = safe_atou(rvalue, &f);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse Geneve TTL '%s', ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+
+                if (f > 255) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid Geneve TTL '%s'. TTL must be <= 255. Ignoring assignment.", rvalue);
+                        return 0;
+                }
+
+                v->ttl = f;
+        }
+
+        return 0;
+}
+
 static int netdev_geneve_verify(NetDev *netdev, const char *filename) {
         Geneve *v = GENEVE(netdev);
 
@@ -262,10 +323,10 @@ static int netdev_geneve_verify(NetDev *netdev, const char *filename) {
         assert(v);
         assert(filename);
 
-        if (v->ttl == 0) {
-                log_warning("Invalid Geneve TTL value '0' configured in '%s'. Ignoring", filename);
-                return -EINVAL;
-        }
+        if (v->id > GENEVE_VID_MAX)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "%s: Geneve without valid VNI (or Virtual Network Identifier) configured. Ignoring.",
+                                                filename);
 
         return 0;
 }
@@ -280,6 +341,7 @@ static void geneve_init(NetDev *netdev) {
         assert(v);
 
         v->id = GENEVE_VID_MAX + 1;
+        v->geneve_df = _NETDEV_GENEVE_DF_INVALID;
         v->dest_port = DEFAULT_GENEVE_DESTINATION_PORT;
         v->udpcsum = false;
         v->udp6zerocsumtx = false;
@@ -293,4 +355,5 @@ const NetDevVTable geneve_vtable = {
         .create = netdev_geneve_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_geneve_verify,
+        .generate_mac = true,
 };

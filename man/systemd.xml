@@ -70,8 +70,14 @@
       <varlistentry>
         <term><option>--test</option></term>
 
-        <listitem><para>Determine startup sequence, dump it and exit.
-        This is an option useful for debugging only.</para></listitem>
+        <listitem><para>Determine the initial start-up transaction (i.e. the list of jobs enqueued at
+        start-up), dump it and exit — without actually executing any of the determined jobs. This option is
+        useful for debugging only. Note that during regular service manager start-up additional units not
+        shown by this operation may be started, because hardware, socket, bus or other kinds of activation
+        might add additional jobs as the transaction is executed. Use <option>--system</option> to request
+        the initial transaction of the system service manager (this is also the implied default), combine
+        with <option>--user</option> to request the initial transaction of the per-user service manager
+        instead.</para></listitem>
       </varlistentry>
       <varlistentry>
         <term><option>--dump-configuration-items</option></term>
@@ -83,9 +89,8 @@
       <varlistentry>
         <term><option>--dump-bus-properties</option></term>
 
-        <listitem><para>Dump exposed bus properties. This outputs
-        a terse but complete list of properties exposed to dbus.
-        </para></listitem>
+        <listitem><para>Dump exposed bus properties. This outputs a terse but complete list of properties
+        exposed on D-Bus.</para></listitem>
       </varlistentry>
       <varlistentry>
         <term><option>--unit=</option></term>
@@ -94,23 +99,20 @@
         not specified, defaults to
         <filename>default.target</filename>.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--system</option></term>
         <term><option>--user</option></term>
 
-        <listitem><para>For <option>--system</option>, tell systemd to
-        run a system instance, even if the process ID is not 1, i.e.
-        systemd is not run as init process. <option>--user</option>
-        does the opposite, running a user instance even if the process
-        ID is 1. Normally, it should not be necessary to pass these
-        options, as systemd automatically detects the mode it is
-        started in. These options are hence of little use except for
-        debugging. Note that it is not supported booting and
-        maintaining a full system with systemd running in
-        <option>--system</option> mode, but PID not 1. In practice,
-        passing <option>--system</option> explicitly is only useful in
-        conjunction with <option>--test</option>.</para></listitem>
+        <listitem><para>When used in conjunction with <option>--test</option>, selects whether to calculate
+        the initial transaction for the system instance or for a per-user instance. These options have no
+        effect when invoked without <option>--test</option>, as during regular
+        (i.e. non-<option>--test</option>) invocations the service manager will automatically detect whether
+        it shall operate in system or per-user mode, by checking whether the PID it is run as is 1 or
+        not. Note that it is not supported booting and maintaining a system with the service manager running
+        in <option>--system</option> mode but with a PID other than 1.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--dump-core</option></term>
 
@@ -232,8 +234,6 @@
         <option>tty</option>,
         <option>journal</option>,
         <option>journal+console</option>,
-        <option>syslog</option>,
-        <option>syslog+console</option>,
         <option>kmsg</option>,
         <option>kmsg+console</option>.  If the
         argument is omitted
@@ -582,7 +582,7 @@
         <filename>exit.target</filename> unit when this signal is
         received. This is mostly equivalent to <command>systemctl
         --user start exit.target
-        --job-mode=replace-irreversible</command>.</para></listitem>
+        --job-mode=replace-irreversibly</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -590,7 +590,7 @@
 
         <listitem><para>Upon receiving this signal the systemd system manager will start the
         <filename>ctrl-alt-del.target</filename> unit. This is mostly equivalent to
-        <command>systemctl start ctrl-alt-del.target --job-mode=replace-irreversible</command>. If
+        <command>systemctl start ctrl-alt-del.target --job-mode=replace-irreversibly</command>. If
         this signal is received more than 7 times per 2s, an immediate reboot is triggered. Note
         that pressing
         <keycombo><keycap>Ctrl</keycap><keycap>Alt</keycap><keycap>Del</keycap></keycombo> on the
@@ -682,7 +682,7 @@
         <listitem><para>Halts the machine, starts the
         <filename>halt.target</filename> unit. This is mostly
         equivalent to <command>systemctl start halt.target
-        --job-mode=replace-irreversible</command>.</para>
+        --job-mode=replace-irreversibly</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -692,7 +692,7 @@
         <listitem><para>Powers off the machine, starts the
         <filename>poweroff.target</filename> unit. This is mostly
         equivalent to <command>systemctl start poweroff.target
-        --job-mode=replace-irreversible</command>.</para>
+        --job-mode=replace-irreversibly</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -702,7 +702,7 @@
         <listitem><para>Reboots the machine, starts the
         <filename>reboot.target</filename> unit. This is mostly
         equivalent to <command>systemctl start reboot.target
-        --job-mode=replace-irreversible</command>.</para>
+        --job-mode=replace-irreversibly</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -712,7 +712,7 @@
         <listitem><para>Reboots the machine via kexec, starts the
         <filename>kexec.target</filename> unit. This is mostly
         equivalent to <command>systemctl start kexec.target
-        --job-mode=replace-irreversible</command>.</para>
+        --job-mode=replace-irreversibly</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -1025,6 +1025,16 @@
         However, the process command line option <option>--show-status=</option>
         takes precedence over both this kernel command line option and the
         configuration file option.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.status_unit_format=</varname></term>
+
+        <listitem><para>Takes either <option>name</option> or <option>description</option> as the value. If
+        <option>name</option>, the system manager will use unit names in status messages. If specified,
+        overrides the system manager configuration file option <option>StatusUnitFormat=</option>, see
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>

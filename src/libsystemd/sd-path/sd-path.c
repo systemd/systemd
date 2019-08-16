@@ -58,10 +58,7 @@ static int from_home_dir(const char *envname, const char *suffix, char **buffer,
         if (r < 0)
                 return r;
 
-        if (endswith(h, "/"))
-                cc = strappend(h, suffix);
-        else
-                cc = strjoin(h, "/", suffix);
+        cc = path_join(h, suffix);
         if (!cc)
                 return -ENOMEM;
 
@@ -86,7 +83,7 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
         if (r < 0)
                 return r;
 
-        fn = strappend(c, "/user-dirs.dirs");
+        fn = path_join(c, "user-dirs.dirs");
         if (!fn)
                 return -ENOMEM;
 
@@ -144,7 +141,7 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
                         if (r < 0)
                                 return r;
 
-                        cc = strappend(h, p+5);
+                        cc = path_join(h, p+5);
                         if (!cc)
                                 return -ENOMEM;
 
@@ -182,7 +179,7 @@ fallback:
                 if (r < 0)
                         return r;
 
-                cc = strappend(h, "/Desktop");
+                cc = path_join(h, "Desktop");
                 if (!cc)
                         return -ENOMEM;
 
@@ -328,8 +325,9 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
 }
 
 _public_ int sd_path_home(uint64_t type, const char *suffix, char **path) {
-        char *buffer = NULL, *cc;
+        _cleanup_free_ char *buffer = NULL;
         const char *ret;
+        char *cc;
         int r;
 
         assert_return(path, -EINVAL);
@@ -354,7 +352,7 @@ _public_ int sd_path_home(uint64_t type, const char *suffix, char **path) {
                 if (!buffer)
                         return -ENOMEM;
 
-                *path = buffer;
+                *path = TAKE_PTR(buffer);
                 return 0;
         }
 
@@ -369,23 +367,16 @@ _public_ int sd_path_home(uint64_t type, const char *suffix, char **path) {
                                 return -ENOMEM;
                 }
 
-                *path = buffer;
+                *path = TAKE_PTR(buffer);
                 return 0;
         }
 
         suffix += strspn(suffix, "/");
-
-        if (endswith(ret, "/"))
-                cc = strappend(ret, suffix);
-        else
-                cc = strjoin(ret, "/", suffix);
-
-        free(buffer);
-
+        cc = path_join(ret, suffix);
         if (!cc)
                 return -ENOMEM;
 
-        *path = cc;
+        *path = TAKE_PTR(cc);
         return 0;
 }
 
@@ -397,9 +388,9 @@ static int search_from_environment(
                 bool env_search_sufficient,
                 const char *first, ...) {
 
+        _cleanup_strv_free_ char **l = NULL;
         const char *e;
         char *h = NULL;
-        char **l = NULL;
         int r;
 
         assert(list);
@@ -412,7 +403,7 @@ static int search_from_environment(
                                 return -ENOMEM;
 
                         if (env_search_sufficient) {
-                                *list = l;
+                                *list = TAKE_PTR(l);
                                 return 0;
                         }
                 }
@@ -433,37 +424,27 @@ static int search_from_environment(
                 e = secure_getenv(env_home);
                 if (e && path_is_absolute(e)) {
                         h = strdup(e);
-                        if (!h) {
-                                strv_free(l);
+                        if (!h)
                                 return -ENOMEM;
-                        }
                 }
         }
 
         if (!h && home_suffix) {
                 e = secure_getenv("HOME");
                 if (e && path_is_absolute(e)) {
-                        if (endswith(e, "/"))
-                                h = strappend(e, home_suffix);
-                        else
-                                h = strjoin(e, "/", home_suffix);
-
-                        if (!h) {
-                                strv_free(l);
+                        h = path_join(e, home_suffix);
+                        if (!h)
                                 return -ENOMEM;
-                        }
                 }
         }
 
         if (h) {
                 r = strv_consume_prepend(&l, h);
-                if (r < 0) {
-                        strv_free(l);
+                if (r < 0)
                         return -ENOMEM;
-                }
         }
 
-        *list = l;
+        *list = TAKE_PTR(l);
         return 0;
 }
 
@@ -621,12 +602,7 @@ _public_ int sd_path_search(uint64_t type, const char *suffix, char ***paths) {
 
         j = n;
         STRV_FOREACH(i, l) {
-
-                if (endswith(*i, "/"))
-                        *j = strappend(*i, suffix);
-                else
-                        *j = strjoin(*i, "/", suffix);
-
+                *j = path_join(*i, suffix);
                 if (!*j)
                         return -ENOMEM;
 

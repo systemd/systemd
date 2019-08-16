@@ -52,8 +52,8 @@ static void test_copy_file_fd(void) {
         char in_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
         char out_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
         _cleanup_close_ int in_fd = -1, out_fd = -1;
-        char text[] = "boohoo\nfoo\n\tbar\n";
-        char buf[64] = {0};
+        const char *text = "boohoo\nfoo\n\tbar\n";
+        char buf[64] = {};
 
         log_info("%s", __func__);
 
@@ -67,7 +67,7 @@ static void test_copy_file_fd(void) {
         assert_se(copy_file_fd(in_fn, out_fd, COPY_REFLINK) >= 0);
         assert_se(lseek(out_fd, SEEK_SET, 0) == 0);
 
-        assert_se(read(out_fd, buf, sizeof(buf)) == sizeof(text) - 1);
+        assert_se(read(out_fd, buf, sizeof buf) == (ssize_t) strlen(text));
         assert_se(streq(buf, text));
 
         unlink(in_fn);
@@ -92,7 +92,7 @@ static void test_copy_tree(void) {
         STRV_FOREACH(p, files) {
                 _cleanup_free_ char *f;
 
-                assert_se(f = strappend(original_dir, *p));
+                assert_se(f = path_join(original_dir, *p));
 
                 assert_se(mkdir_parents(f, 0755) >= 0);
                 assert_se(write_string_file(f, "file", WRITE_STRING_FILE_CREATE) == 0);
@@ -101,8 +101,8 @@ static void test_copy_tree(void) {
         STRV_FOREACH_PAIR(link, p, links) {
                 _cleanup_free_ char *f, *l;
 
-                assert_se(f = strappend(original_dir, *p));
-                assert_se(l = strappend(original_dir, *link));
+                assert_se(f = path_join(original_dir, *p));
+                assert_se(l = path_join(original_dir, *link));
 
                 assert_se(mkdir_parents(l, 0755) >= 0);
                 assert_se(symlink(f, l) == 0);
@@ -117,7 +117,7 @@ static void test_copy_tree(void) {
                 _cleanup_free_ char *buf, *f;
                 size_t sz;
 
-                assert_se(f = strappend(copy_dir, *p));
+                assert_se(f = path_join(copy_dir, *p));
 
                 assert_se(access(f, F_OK) == 0);
                 assert_se(read_full_file(f, &buf, &sz) == 0);

@@ -33,8 +33,8 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
 
         assert(fd >= 0);
 
-        /* This returns the first error we run into, but nevertheless
-         * tries to go on. This closes the passed fd. */
+        /* This returns the first error we run into, but nevertheless tries to go on. This closes the passed
+         * fd, in all cases, including on failure.. */
 
         if (!(flags & REMOVE_PHYSICAL)) {
 
@@ -85,7 +85,7 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                         is_dir = de->d_type == DT_DIR;
 
                 if (is_dir) {
-                        int subdir_fd;
+                        _cleanup_close_ int subdir_fd = -1;
 
                         /* if root_dev is set, remove subdirectories only if device is same */
                         if (root_dev && st.st_dev != root_dev->st_dev)
@@ -104,13 +104,10 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                                 if (ret == 0 && r != -ENOENT)
                                         ret = r;
 
-                                safe_close(subdir_fd);
                                 continue;
                         }
-                        if (r) {
-                                safe_close(subdir_fd);
+                        if (r > 0)
                                 continue;
-                        }
 
                         if ((flags & REMOVE_SUBVOLUME) && st.st_ino == 256) {
 
@@ -122,24 +119,18 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                                                 if (ret == 0)
                                                         ret = r;
 
-                                                safe_close(subdir_fd);
                                                 continue;
                                         }
 
-                                        /* ENOTTY, then it wasn't a
-                                         * btrfs subvolume, continue
-                                         * below. */
-                                } else {
+                                        /* ENOTTY, then it wasn't a btrfs subvolume, continue below. */
+                                } else
                                         /* It was a subvolume, continue. */
-                                        safe_close(subdir_fd);
                                         continue;
-                                }
                         }
 
-                        /* We pass REMOVE_PHYSICAL here, to avoid
-                         * doing the fstatfs() to check the file
+                        /* We pass REMOVE_PHYSICAL here, to avoid doing the fstatfs() to check the file
                          * system type again for each directory */
-                        r = rm_rf_children(subdir_fd, flags | REMOVE_PHYSICAL, root_dev);
+                        r = rm_rf_children(TAKE_FD(subdir_fd), flags | REMOVE_PHYSICAL, root_dev);
                         if (r < 0 && ret == 0)
                                 ret = r;
 
@@ -170,9 +161,8 @@ int rm_rf(const char *path, RemoveFlags flags) {
         if (FLAGS_SET(flags, REMOVE_ONLY_DIRECTORIES|REMOVE_SUBVOLUME))
                 return -EINVAL;
 
-        /* We refuse to clean the root file system with this
-         * call. This is extra paranoia to never cause a really
-         * seriously broken system. */
+        /* We refuse to clean the root file system with this call. This is extra paranoia to never cause a
+         * really seriously broken system. */
         if (path_equal_or_files_same(path, "/", AT_SYMLINK_NOFOLLOW))
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                        "Attempted to remove entire root file system (\"%s\"), and we can't allow that.",
@@ -184,6 +174,9 @@ int rm_rf(const char *path, RemoveFlags flags) {
                 if (r >= 0)
                         return r;
 
+                if (FLAGS_SET(flags, REMOVE_MISSING_OK) && r == -ENOENT)
+                        return 0;
+
                 if (!IN_SET(r, -ENOTTY, -EINVAL, -ENOTDIR))
                         return r;
 
@@ -192,34 +185,45 @@ int rm_rf(const char *path, RemoveFlags flags) {
 
         fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
         if (fd < 0) {
+                if (FLAGS_SET(flags, REMOVE_MISSING_OK) && errno == ENOENT)
+                        return 0;
+
                 if (!IN_SET(errno, ENOTDIR, ELOOP))
                         return -errno;
 
-                if (!(flags & REMOVE_PHYSICAL)) {
-                        if (statfs(path, &s) < 0)
-                                return -errno;
+                if (FLAGS_SET(flags, REMOVE_ONLY_DIRECTORIES))
+                        return 0;
 
-                        if (is_physical_fs(&s))
-                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
-                                                       "Attempted to remove files from a disk file system under \"%s\", refusing.",
-                                                       path);
+                if (FLAGS_SET(flags, REMOVE_ROOT)) {
+
+                        if (!FLAGS_SET(flags, REMOVE_PHYSICAL)) {
+                                if (statfs(path, &s) < 0)
+                                        return -errno;
+
+                                if (is_physical_fs(&s))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                               "Attempted to remove files from a disk file system under \"%s\", refusing.",
+                                                               path);
+                        }
+
+                        if (unlink(path) < 0) {
+                                if (FLAGS_SET(flags, REMOVE_MISSING_OK) && errno == ENOENT)
+                                        return 0;
+
+                                return -errno;
+                        }
                 }
-
-                if ((flags & REMOVE_ROOT) && !(flags & REMOVE_ONLY_DIRECTORIES))
-                        if (unlink(path) < 0 && errno != ENOENT)
-                                return -errno;
 
                 return 0;
         }
 
         r = rm_rf_children(fd, flags, NULL);
 
-        if (flags & REMOVE_ROOT) {
-                if (rmdir(path) < 0) {
-                        if (r == 0 && errno != ENOENT)
-                                r = -errno;
-                }
-        }
+        if (FLAGS_SET(flags, REMOVE_ROOT) &&
+            rmdir(path) < 0 &&
+            r >= 0 &&
+            (!FLAGS_SET(flags, REMOVE_MISSING_OK) || errno != ENOENT))
+                r = -errno;
 
         return r;
 }

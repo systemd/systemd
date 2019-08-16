@@ -116,6 +116,9 @@ sensor:modalias:acpi:INVN6500*:dmi:*svn*ASUSTeK*:*pn*TP300LA*
 sensor:modalias:acpi:INVN6500*:dmi:*svn*ASUSTeK*:*pn*TP300LD*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
+sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pn*Q551LN*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
+
 sensor:modalias:acpi:KXJ2109*:dmi:*:svnASUSTeK*:pnME176C*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
@@ -166,7 +169,7 @@ sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnP02BD6_HI-122LP:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Chuwi Hi13
-sensor:modalias:acpi:KIOX000A*:dmi:svnChuwi*:pnHi13
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnChuwi*:pnHi13:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Chuwi HiBook
@@ -285,6 +288,12 @@ sensor:modalias:acpi:BMA250*:dmi:*:bvritWORKS.G.WI71C.JGBMRB*:*:svnInsyde:pni71c
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
+# Irbis TW90
+#########################################
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnIRBIS:pnTW90:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
 # iOTA 360
 #########################################
 sensor:modalias:acpi:KIOX000A*:dmi:*svn*iOTA*:*pn*IOTA2210*
@@ -363,8 +372,8 @@ sensor:modalias:acpi:*BOSC0200*:dmi:*:svnLENOVO*:pn80U1:*
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnLINX*:pnLINX1010B:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
-# Linx 12X64
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnLINX*:pnLINX12X64:*
+# Linx 12X64 and 12V64
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnLINX*:pnLINX12*64:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
@@ -375,6 +384,14 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnMEDION:pnAkoyaE2212TMD99720:*
 
 # Medion Akoya E3216 MD60900
 sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION*:pnE3216*:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+# Medion Akoya E3221 MD61237
+sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION:pnE3221MD61237:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+# Medion Akoya E3222 MD62450
+sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION*:pnE3222*:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
@@ -489,6 +506,11 @@ sensor:modalias:acpi:KIOX010A*:dmi:*:svnTECLAST:pnF5:*
 # Teclast F6 Pro
 sensor:modalias:acpi:KIOX010A*:dmi:*:svnTECLAST:pnF6Pro:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+ ACCEL_LOCATION=display
+
+sensor:modalias:acpi:KIOX020A*:dmi:*:svnTECLAST:pnF6Pro:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+ ACCEL_LOCATION=base
 
 #########################################
 # Trekstor

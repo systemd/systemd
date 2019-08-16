@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <linux/fou.h>
 #include <linux/ip.h>
 #include <linux/if_tunnel.h>
@@ -44,10 +44,9 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
 
         assert(m);
         assert(t);
-        assert(t->family == AF_INET);
 
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
+        if (link || t->assign_to_loopback) {
+                r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
         }
@@ -136,10 +135,9 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
         }
 
         assert(t);
-        assert(t->family == AF_INET);
 
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
+        if (link || t->assign_to_loopback) {
+                r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
         }
@@ -239,11 +237,10 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
                 t = IP6GRETAP(netdev);
 
         assert(t);
-        assert(t->family == AF_INET6);
         assert(m);
 
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
+        if (link || t->assign_to_loopback) {
+                r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
         }
@@ -287,11 +284,9 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
                 t = VTI6(netdev);
 
         assert(t);
-        assert((netdev->kind == NETDEV_KIND_VTI && t->family == AF_INET) ||
-               (netdev->kind == NETDEV_KIND_VTI6 && t->family == AF_INET6));
 
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
+        if (link || t->assign_to_loopback) {
+                r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_LINK attribute: %m");
         }
@@ -330,10 +325,9 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         assert(netdev);
         assert(m);
         assert(t);
-        assert(t->family == AF_INET6);
 
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
+        if (link || t->assign_to_loopback) {
+                r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
         }
@@ -435,8 +429,8 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         assert(t);
 
-        if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_IPIP, NETDEV_KIND_SIT, NETDEV_KIND_GRE, NETDEV_KIND_GRETAP) &&
-            t->family != AF_INET)
+        if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_IPIP, NETDEV_KIND_SIT, NETDEV_KIND_GRE) &&
+            !IN_SET(t->family, AF_UNSPEC, AF_INET))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "vti/ipip/sit/gre tunnel without a local/remote IPv4 address configured in %s. Ignoring", filename);
 
@@ -445,8 +439,8 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "gretap/erspan tunnel without a remote IPv4 address configured in %s. Ignoring", filename);
 
-        if (IN_SET(netdev->kind, NETDEV_KIND_VTI6, NETDEV_KIND_IP6TNL, NETDEV_KIND_IP6GRE, NETDEV_KIND_IP6GRETAP) &&
-            t->family != AF_INET6)
+        if ((IN_SET(netdev->kind, NETDEV_KIND_VTI6, NETDEV_KIND_IP6TNL) && t->family != AF_INET6) ||
+            (netdev->kind == NETDEV_KIND_IP6GRE && !IN_SET(t->family, AF_UNSPEC, AF_INET6)))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "vti6/ip6tnl/ip6gre tunnel without a local/remote IPv6 address configured in %s. Ignoring", filename);
 
@@ -466,6 +460,10 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         if (netdev->kind == NETDEV_KIND_ERSPAN && (t->erspan_index >= (1 << 20) || t->erspan_index == 0))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Invalid erspan index %d. Ignoring", t->erspan_index);
+
+        /* netlink_message_append_in_addr_union() is used for vti/vti6. So, t->family cannot be AF_UNSPEC. */
+        if (netdev->kind == NETDEV_KIND_VTI)
+                t->family = AF_INET;
 
         return 0;
 }
@@ -778,6 +776,7 @@ const NetDevVTable ipip_vtable = {
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable sit_vtable = {
@@ -787,6 +786,7 @@ const NetDevVTable sit_vtable = {
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable vti_vtable = {
@@ -796,6 +796,7 @@ const NetDevVTable vti_vtable = {
         .fill_message_create = netdev_vti_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable vti6_vtable = {
@@ -805,6 +806,7 @@ const NetDevVTable vti6_vtable = {
         .fill_message_create = netdev_vti_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable gre_vtable = {
@@ -814,6 +816,7 @@ const NetDevVTable gre_vtable = {
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable gretap_vtable = {
@@ -823,6 +826,7 @@ const NetDevVTable gretap_vtable = {
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable ip6gre_vtable = {
@@ -832,6 +836,7 @@ const NetDevVTable ip6gre_vtable = {
         .fill_message_create = netdev_ip6gre_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable ip6gretap_vtable = {
@@ -841,6 +846,7 @@ const NetDevVTable ip6gretap_vtable = {
         .fill_message_create = netdev_ip6gre_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable ip6tnl_vtable = {
@@ -850,6 +856,7 @@ const NetDevVTable ip6tnl_vtable = {
         .fill_message_create = netdev_ip6tnl_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };
 
 const NetDevVTable erspan_vtable = {
@@ -859,4 +866,5 @@ const NetDevVTable erspan_vtable = {
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .generate_mac = true,
 };

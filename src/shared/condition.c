@@ -21,6 +21,7 @@
 #include "cap-list.h"
 #include "cgroup-util.h"
 #include "condition.h"
+#include "cpu-set-util.h"
 #include "efivars.h"
 #include "env-file.h"
 #include "extract-word.h"
@@ -113,7 +114,7 @@ static int condition_test_kernel_command_line(Condition *c) {
                 _cleanup_free_ char *word = NULL;
                 bool found;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -206,6 +207,7 @@ static int condition_test_kernel_version(Condition *c) {
         OrderOperator order;
         struct utsname u;
         const char *p;
+        bool first = true;
 
         assert(c);
         assert(c->parameter);
@@ -214,13 +216,49 @@ static int condition_test_kernel_version(Condition *c) {
         assert_se(uname(&u) >= 0);
 
         p = c->parameter;
-        order = parse_order(&p);
 
-        /* No prefix? Then treat as glob string */
-        if (order < 0)
-                return fnmatch(skip_leading_chars(c->parameter, NULL), u.release, 0) == 0;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                const char *s;
+                int r;
 
-        return test_order(str_verscmp(u.release, skip_leading_chars(p, NULL)), order);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse condition string \"%s\": %m", p);
+                if (r == 0)
+                        break;
+
+                s = strstrip(word);
+                order = parse_order(&s);
+                if (order >= 0) {
+                        s += strspn(s, WHITESPACE);
+                        if (isempty(s)) {
+                                if (first) {
+                                        /* For backwards compatibility, allow whitespace between the operator and
+                                         * value, without quoting, but only in the first expression. */
+                                        word = mfree(word);
+                                        r = extract_first_word(&p, &word, NULL, 0);
+                                        if (r < 0)
+                                                return log_debug_errno(r, "Failed to parse condition string \"%s\": %m", p);
+                                        if (r == 0)
+                                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected end of expression: %s", p);
+                                        s = word;
+                                } else
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected end of expression: %s", p);
+                        }
+
+                        r = test_order(str_verscmp(u.release, s), order);
+                } else
+                        /* No prefix? Then treat as glob string */
+                        r = fnmatch(s, u.release, 0) == 0;
+
+                if (r == 0)
+                        return false;
+
+                first = false;
+        }
+
+        return true;
 }
 
 static int condition_test_memory(Condition *c) {
@@ -683,31 +721,31 @@ static int condition_test_null(Condition *c) {
 int condition_test(Condition *c) {
 
         static int (*const condition_tests[_CONDITION_TYPE_MAX])(Condition *c) = {
-                [CONDITION_PATH_EXISTS] = condition_test_path_exists,
-                [CONDITION_PATH_EXISTS_GLOB] = condition_test_path_exists_glob,
-                [CONDITION_PATH_IS_DIRECTORY] = condition_test_path_is_directory,
-                [CONDITION_PATH_IS_SYMBOLIC_LINK] = condition_test_path_is_symbolic_link,
-                [CONDITION_PATH_IS_MOUNT_POINT] = condition_test_path_is_mount_point,
-                [CONDITION_PATH_IS_READ_WRITE] = condition_test_path_is_read_write,
-                [CONDITION_DIRECTORY_NOT_EMPTY] = condition_test_directory_not_empty,
-                [CONDITION_FILE_NOT_EMPTY] = condition_test_file_not_empty,
-                [CONDITION_FILE_IS_EXECUTABLE] = condition_test_file_is_executable,
-                [CONDITION_KERNEL_COMMAND_LINE] = condition_test_kernel_command_line,
-                [CONDITION_KERNEL_VERSION] = condition_test_kernel_version,
-                [CONDITION_VIRTUALIZATION] = condition_test_virtualization,
-                [CONDITION_SECURITY] = condition_test_security,
-                [CONDITION_CAPABILITY] = condition_test_capability,
-                [CONDITION_HOST] = condition_test_host,
-                [CONDITION_AC_POWER] = condition_test_ac_power,
-                [CONDITION_ARCHITECTURE] = condition_test_architecture,
-                [CONDITION_NEEDS_UPDATE] = condition_test_needs_update,
-                [CONDITION_FIRST_BOOT] = condition_test_first_boot,
-                [CONDITION_USER] = condition_test_user,
-                [CONDITION_GROUP] = condition_test_group,
+                [CONDITION_PATH_EXISTS]              = condition_test_path_exists,
+                [CONDITION_PATH_EXISTS_GLOB]         = condition_test_path_exists_glob,
+                [CONDITION_PATH_IS_DIRECTORY]        = condition_test_path_is_directory,
+                [CONDITION_PATH_IS_SYMBOLIC_LINK]    = condition_test_path_is_symbolic_link,
+                [CONDITION_PATH_IS_MOUNT_POINT]      = condition_test_path_is_mount_point,
+                [CONDITION_PATH_IS_READ_WRITE]       = condition_test_path_is_read_write,
+                [CONDITION_DIRECTORY_NOT_EMPTY]      = condition_test_directory_not_empty,
+                [CONDITION_FILE_NOT_EMPTY]           = condition_test_file_not_empty,
+                [CONDITION_FILE_IS_EXECUTABLE]       = condition_test_file_is_executable,
+                [CONDITION_KERNEL_COMMAND_LINE]      = condition_test_kernel_command_line,
+                [CONDITION_KERNEL_VERSION]           = condition_test_kernel_version,
+                [CONDITION_VIRTUALIZATION]           = condition_test_virtualization,
+                [CONDITION_SECURITY]                 = condition_test_security,
+                [CONDITION_CAPABILITY]               = condition_test_capability,
+                [CONDITION_HOST]                     = condition_test_host,
+                [CONDITION_AC_POWER]                 = condition_test_ac_power,
+                [CONDITION_ARCHITECTURE]             = condition_test_architecture,
+                [CONDITION_NEEDS_UPDATE]             = condition_test_needs_update,
+                [CONDITION_FIRST_BOOT]               = condition_test_first_boot,
+                [CONDITION_USER]                     = condition_test_user,
+                [CONDITION_GROUP]                    = condition_test_group,
                 [CONDITION_CONTROL_GROUP_CONTROLLER] = condition_test_control_group_controller,
-                [CONDITION_NULL] = condition_test_null,
-                [CONDITION_CPUS] = condition_test_cpus,
-                [CONDITION_MEMORY] = condition_test_memory,
+                [CONDITION_NULL]                     = condition_test_null,
+                [CONDITION_CPUS]                     = condition_test_cpus,
+                [CONDITION_MEMORY]                   = condition_test_memory,
         };
 
         int r, b;
@@ -746,20 +784,23 @@ bool condition_test_list(Condition *first, const char *(*to_string)(ConditionTyp
                 r = condition_test(c);
 
                 if (logger) {
+                        const char *p = c->type == CONDITION_NULL ? "true" : c->parameter;
+                        assert(p);
+
                         if (r < 0)
-                                logger(userdata, LOG_WARNING, r, __FILE__, __LINE__, __func__,
+                                logger(userdata, LOG_WARNING, r, PROJECT_FILE, __LINE__, __func__,
                                        "Couldn't determine result for %s=%s%s%s, assuming failed: %m",
                                        to_string(c->type),
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
-                                       c->parameter);
+                                       p);
                         else
-                                logger(userdata, LOG_DEBUG, 0, __FILE__, __LINE__, __func__,
+                                logger(userdata, LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__,
                                        "%s=%s%s%s %s.",
                                        to_string(c->type),
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
-                                       c->parameter,
+                                       p,
                                        condition_result_to_string(c->result));
                 }
 

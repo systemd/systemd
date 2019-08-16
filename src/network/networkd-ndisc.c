@@ -9,6 +9,8 @@
 #include "sd-ndisc.h"
 
 #include "missing_network.h"
+#include "networkd-dhcp6.h"
+#include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-route.h"
 #include "strv.h"
@@ -17,7 +19,7 @@
 #define NDISC_RDNSS_MAX 64U
 #define NDISC_PREFIX_LFT_MIN 7200U
 
-static int ndisc_netlink_message_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int ndisc_netlink_route_message_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -25,12 +27,55 @@ static int ndisc_netlink_message_handler(sd_netlink *rtnl, sd_netlink_message *m
 
         link->ndisc_messages--;
 
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
+        if (r < 0 && r != -EEXIST) {
                 log_link_error_errno(link, r, "Could not set NDisc route or address: %m");
+                link_enter_failed(link);
+                return 1;
+        }
 
         if (link->ndisc_messages == 0) {
                 link->ndisc_configured = true;
+                r = link_request_set_routes(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return 1;
+                }
+                link_check_ready(link);
+        }
+
+        return 1;
+}
+
+static int ndisc_netlink_address_message_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->ndisc_messages > 0);
+
+        link->ndisc_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_link_error_errno(link, r, "Could not set NDisc route or address: %m");
+                link_enter_failed(link);
+                return 1;
+        } else if (r >= 0)
+                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+
+        if (link->ndisc_messages == 0) {
+                link->ndisc_configured = true;
+                r = link_request_set_routes(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return 1;
+                }
                 link_check_ready(link);
         }
 
@@ -39,7 +84,7 @@ static int ndisc_netlink_message_handler(sd_netlink *rtnl, sd_netlink_message *m
 
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
-        struct in6_addr gateway;
+        union in_addr_union gateway;
         uint16_t lifetime;
         unsigned preference;
         uint32_t mtu;
@@ -58,31 +103,35 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (lifetime == 0) /* not a default router */
                 return 0;
 
-        r = sd_ndisc_router_get_address(rt, &gateway);
+        r = sd_ndisc_router_get_address(rt, &gateway.in6);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
 
-        SET_FOREACH(address, link->addresses, i)
-                if (!memcmp(&gateway, &address->in_addr.in6, sizeof(address->in_addr.in6))) {
-                        char buffer[INET6_ADDRSTRLEN];
+        SET_FOREACH(address, link->addresses, i) {
+                if (address->family != AF_INET6)
+                        continue;
+                if (in_addr_equal(AF_INET6, &gateway, &address->in_addr)) {
+                        _cleanup_free_ char *buffer = NULL;
 
+                        (void) in_addr_to_string(AF_INET6, &address->in_addr, &buffer);
                         log_link_debug(link, "No NDisc route added, gateway %s matches local address",
-                                       inet_ntop(AF_INET6,
-                                                 &address->in_addr.in6,
-                                                 buffer, sizeof(buffer)));
+                                       strnull(buffer));
                         return 0;
                 }
+        }
 
-        SET_FOREACH(address, link->addresses_foreign, i)
-                if (!memcmp(&gateway, &address->in_addr.in6, sizeof(address->in_addr.in6))) {
-                        char buffer[INET6_ADDRSTRLEN];
+        SET_FOREACH(address, link->addresses_foreign, i) {
+                if (address->family != AF_INET6)
+                        continue;
+                if (in_addr_equal(AF_INET6, &gateway, &address->in_addr)) {
+                        _cleanup_free_ char *buffer = NULL;
 
+                        (void) in_addr_to_string(AF_INET6, &address->in_addr, &buffer);
                         log_link_debug(link, "No NDisc route added, gateway %s matches local address",
-                                       inet_ntop(AF_INET6,
-                                                 &address->in_addr.in6,
-                                                 buffer, sizeof(buffer)));
+                                       strnull(buffer));
                         return 0;
                 }
+        }
 
         r = sd_ndisc_router_get_preference(rt, &preference);
         if (r < 0)
@@ -107,18 +156,18 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         route->priority = link->network->dhcp_route_metric;
         route->protocol = RTPROT_RA;
         route->pref = preference;
-        route->gw.in6 = gateway;
+        route->gw = gateway;
         route->lifetime = time_now + lifetime * USEC_PER_SEC;
         route->mtu = mtu;
 
-        r = route_configure(route, link, ndisc_netlink_message_handler);
+        r = route_configure(route, link, ndisc_netlink_route_message_handler);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Could not set default route: %m");
                 link_enter_failed(link);
                 return r;
         }
-
-        link->ndisc_messages++;
+        if (r > 0)
+                link->ndisc_messages++;
 
         return 0;
 }
@@ -199,14 +248,14 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (address->cinfo.ifa_valid == 0)
                 return 0;
 
-        r = address_configure(address, link, ndisc_netlink_message_handler, true);
+        r = address_configure(address, link, ndisc_netlink_address_message_handler, true);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Could not set SLAAC address: %m");
                 link_enter_failed(link);
                 return r;
         }
-
-        link->ndisc_messages++;
+        if (r > 0)
+                link->ndisc_messages++;
 
         return 0;
 }
@@ -249,14 +298,14 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix address: %m");
 
-        r = route_configure(route, link, ndisc_netlink_message_handler);
+        r = route_configure(route, link, ndisc_netlink_route_message_handler);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Could not set prefix route: %m");
                 link_enter_failed(link);
                 return r;
         }
-
-        link->ndisc_messages++;
+        if (r > 0)
+                link->ndisc_messages++;
 
         return 0;
 }
@@ -310,14 +359,14 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get route address: %m");
 
-        r = route_configure(route, link, ndisc_netlink_message_handler);
+        r = route_configure(route, link, ndisc_netlink_route_message_handler);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Could not set additional route: %m");
                 link_enter_failed(link);
                 return r;
         }
-
-        link->ndisc_messages++;
+        if (r > 0)
+                link->ndisc_messages++;
 
         return 0;
 }
@@ -553,9 +602,49 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
+static int ndisc_prefix_is_black_listed(Link *link, sd_ndisc_router *rt) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        for (r = sd_ndisc_router_option_rewind(rt); ; r = sd_ndisc_router_option_next(rt)) {
+                union in_addr_union a;
+                uint8_t type;
+
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to iterate through options: %m");
+                if (r == 0) /* EOF */
+                        return false;
+
+                r = sd_ndisc_router_option_get_type(rt, &type);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to get RA option type: %m");
+
+                if (type != SD_NDISC_OPTION_PREFIX_INFORMATION)
+                        continue;
+
+                r = sd_ndisc_router_prefix_get_address(rt, &a.in6);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to get prefix address: %m");
+
+                if (set_contains(link->network->ndisc_black_listed_prefix, &a.in6)) {
+                        if (DEBUG_LOGGING) {
+                                _cleanup_free_ char *b = NULL;
+
+                                (void) in_addr_to_string(AF_INET6, &a, &b);
+                                log_link_debug(link, "Prefix '%s' is black listed, ignoring", strna(b));
+                        }
+
+                        return true;
+                }
+        }
+}
+
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         uint64_t flags;
-        int r = 0;
+        int r;
 
         assert(link);
         assert(link->network);
@@ -577,8 +666,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 }
         }
 
-        (void) ndisc_router_process_default(link, rt);
-        (void) ndisc_router_process_options(link, rt);
+        if (ndisc_prefix_is_black_listed(link, rt) == 0) {
+                (void) ndisc_router_process_default(link, rt);
+                (void) ndisc_router_process_options(link, rt);
+        }
 
         return r;
 }
@@ -667,4 +758,76 @@ void ndisc_flush(Link *link) {
 
         link->ndisc_rdnss = set_free_free(link->ndisc_rdnss);
         link->ndisc_dnssl = set_free_free(link->ndisc_dnssl);
+}
+
+int config_parse_ndisc_black_listed_prefix(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                network->ndisc_black_listed_prefix = set_free_free(network->ndisc_black_listed_prefix);
+                return 0;
+        }
+
+        for (p = rvalue;;) {
+                _cleanup_free_ char *n = NULL;
+                _cleanup_free_ struct in6_addr *a = NULL;
+                union in_addr_union ip;
+
+                r = extract_first_word(&p, &n, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse NDISC black listed prefix, ignoring assignment: %s",
+                                   rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = in_addr_from_string(AF_INET6, n, &ip);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "NDISC black listed prefix is invalid, ignoring assignment: %s", n);
+                        continue;
+                }
+
+                if (set_contains(network->ndisc_black_listed_prefix, &ip.in6))
+                        continue;
+
+                r = set_ensure_allocated(&network->ndisc_black_listed_prefix, &in6_addr_hash_ops);
+                if (r < 0)
+                        return log_oom();
+
+                a = newdup(struct in6_addr, &ip.in6, 1);
+                if (!a)
+                        return log_oom();
+
+                r = set_put(network->ndisc_black_listed_prefix, a);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to store NDISC black listed prefix '%s', ignoring assignment: %m", n);
+                        continue;
+                }
+
+                TAKE_PTR(a);
+        }
+
+        return 0;
 }

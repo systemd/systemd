@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "io-util.h"
@@ -22,38 +23,6 @@ enum {
         IMPORTER_STATE_EOF,         /* done */
 };
 
-static int iovw_put(struct iovec_wrapper *iovw, void* data, size_t len) {
-        if (iovw->count >= ENTRY_FIELD_COUNT_MAX)
-                return -E2BIG;
-
-        if (!GREEDY_REALLOC(iovw->iovec, iovw->size_bytes, iovw->count + 1))
-                return log_oom();
-
-        iovw->iovec[iovw->count++] = IOVEC_MAKE(data, len);
-        return 0;
-}
-
-static void iovw_free_contents(struct iovec_wrapper *iovw) {
-        iovw->iovec = mfree(iovw->iovec);
-        iovw->size_bytes = iovw->count = 0;
-}
-
-static void iovw_rebase(struct iovec_wrapper *iovw, char *old, char *new) {
-        size_t i;
-
-        for (i = 0; i < iovw->count; i++)
-                iovw->iovec[i].iov_base = (char*) iovw->iovec[i].iov_base - old + new;
-}
-
-size_t iovw_size(struct iovec_wrapper *iovw) {
-        size_t n = 0, i;
-
-        for (i = 0; i < iovw->count; i++)
-                n += iovw->iovec[i].iov_len;
-
-        return n;
-}
-
 void journal_importer_cleanup(JournalImporter *imp) {
         if (imp->fd >= 0 && !imp->passive_fd) {
                 log_debug("Closing %s (fd=%d)", imp->name ?: "importer", imp->fd);
@@ -62,7 +31,7 @@ void journal_importer_cleanup(JournalImporter *imp) {
 
         free(imp->name);
         free(imp->buf);
-        iovw_free_contents(&imp->iovw);
+        iovw_free_contents(&imp->iovw, false);
 }
 
 static char* realloc_buffer(JournalImporter *imp, size_t size) {
@@ -94,7 +63,7 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
 
                         c = memchr(imp->buf + start, '\n',
                                    imp->filled - start);
-                        if (c != NULL)
+                        if (c)
                                 break;
                 }
 
@@ -453,7 +422,7 @@ int journal_importer_push_data(JournalImporter *imp, const char *data, size_t si
                                        "Failed to store received data of size %zu "
                                        "(in addition to existing %zu bytes with %zu filled): %s",
                                        size, imp->size, imp->filled,
-                                       strerror(ENOMEM));
+                                       strerror_safe(ENOMEM));
 
         memcpy(imp->buf + imp->filled, data, size);
         imp->filled += size;
@@ -466,7 +435,7 @@ void journal_importer_drop_iovw(JournalImporter *imp) {
 
         /* This function drops processed data that along with the iovw that points at it */
 
-        iovw_free_contents(&imp->iovw);
+        iovw_free_contents(&imp->iovw, false);
 
         /* possibly reset buffer position */
         remain = imp->filled - imp->offset;

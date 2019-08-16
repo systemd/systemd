@@ -14,6 +14,8 @@ typedef struct Manager Manager;
 #include <sys/capability.h>
 
 #include "cgroup-util.h"
+#include "cpu-set-util.h"
+#include "exec-util.h"
 #include "fdset.h"
 #include "list.h"
 #include "missing_resource.h"
@@ -87,14 +89,6 @@ struct ExecStatus {
         int status;   /* as in sigingo_t::si_status */
 };
 
-typedef enum ExecCommandFlags {
-        EXEC_COMMAND_IGNORE_FAILURE   = 1 << 0,
-        EXEC_COMMAND_FULLY_PRIVILEGED = 1 << 1,
-        EXEC_COMMAND_NO_SETUID        = 1 << 2,
-        EXEC_COMMAND_AMBIENT_MAGIC    = 1 << 3,
-        EXEC_COMMAND_NO_ENV_EXPAND    = 1 << 4,
-} ExecCommandFlags;
-
 /* Stores information about commands we execute. Covers both configuration settings as well as runtime data. */
 struct ExecCommand {
         char *path;
@@ -138,6 +132,19 @@ typedef struct ExecDirectory {
         mode_t mode;
 } ExecDirectory;
 
+typedef enum ExecCleanMask {
+        /* In case you wonder why the bitmask below doesn't use "directory" in its name: we want to keep this
+         * generic so that .timer timestamp files can nicely be covered by this too, and similar. */
+        EXEC_CLEAN_RUNTIME       = 1U << EXEC_DIRECTORY_RUNTIME,
+        EXEC_CLEAN_STATE         = 1U << EXEC_DIRECTORY_STATE,
+        EXEC_CLEAN_CACHE         = 1U << EXEC_DIRECTORY_CACHE,
+        EXEC_CLEAN_LOGS          = 1U << EXEC_DIRECTORY_LOGS,
+        EXEC_CLEAN_CONFIGURATION = 1U << EXEC_DIRECTORY_CONFIGURATION,
+        EXEC_CLEAN_NONE          = 0,
+        EXEC_CLEAN_ALL           = (1U << _EXEC_DIRECTORY_TYPE_MAX) - 1,
+        _EXEC_CLEAN_MASK_INVALID = -1,
+} ExecCleanMask;
+
 /* Encodes configuration parameters applied to invoked commands. Does not carry runtime data, but only configuration
  * changes sourced from unit files and suchlike. ExecContext objects are usually embedded into Unit objects, and do not
  * change after being loaded. */
@@ -172,8 +179,8 @@ struct ExecContext {
         int cpu_sched_policy;
         int cpu_sched_priority;
 
-        unsigned cpuset_ncpus;
-        cpu_set_t *cpuset;
+        CPUSet cpu_set;
+        NUMAPolicy numa_policy;
 
         ExecInput std_input;
         ExecOutput std_output;
@@ -375,6 +382,9 @@ void exec_context_free_log_extra_fields(ExecContext *c);
 
 void exec_context_revert_tty(ExecContext *c);
 
+int exec_context_get_clean_directories(ExecContext *c, char **prefix, ExecCleanMask mask, char ***ret);
+int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret);
+
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
@@ -407,3 +417,6 @@ ExecKeyringMode exec_keyring_mode_from_string(const char *s) _pure_;
 
 const char* exec_directory_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;
+
+const char* exec_resource_type_to_string(ExecDirectoryType i) _const_;
+ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;

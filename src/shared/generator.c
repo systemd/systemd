@@ -31,7 +31,7 @@ int generator_open_unit_file(
         FILE *f;
         int r;
 
-        unit = strjoina(dest, "/", name);
+        unit = prefix_roota(dest, name);
 
         r = fopen_unlocked(unit, "wxe", &f);
         if (r < 0) {
@@ -156,15 +156,15 @@ int generator_write_fsck_deps(
         if (path_equal(where, "/")) {
                 const char *lnk;
 
-                lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/"SPECIAL_FSCK_ROOT_SERVICE);
+                lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/" SPECIAL_FSCK_ROOT_SERVICE);
 
-                mkdir_parents(lnk, 0755);
-                if (symlink(SYSTEM_DATA_UNIT_PATH "/"SPECIAL_FSCK_ROOT_SERVICE, lnk) < 0)
+                (void) mkdir_parents(lnk, 0755);
+                if (symlink(SYSTEM_DATA_UNIT_PATH "/" SPECIAL_FSCK_ROOT_SERVICE, lnk) < 0)
                         return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
 
         } else {
                 _cleanup_free_ char *_fsck = NULL;
-                const char *fsck;
+                const char *fsck, *dep;
 
                 if (in_initrd() && path_equal(where, "/sysroot")) {
                         r = write_fsck_sysroot_service(dir, what);
@@ -172,7 +172,15 @@ int generator_write_fsck_deps(
                                 return r;
 
                         fsck = SPECIAL_FSCK_ROOT_SERVICE;
+                        dep = "Requires";
                 } else {
+                        /* When this is /usr, then let's add a Wants= dependency, otherwise a Requires=
+                         * dependency. Why? We can't possibly unmount /usr during shutdown, but if we have a
+                         * Requires= from /usr onto a fsck@.service unit and that unit is shut down, then
+                         * we'd have to unmount /usr too.  */
+
+                        dep = !in_initrd() && path_equal(where, "/usr") ? "Wants" : "Requires";
+
                         r = unit_name_from_path_instance("systemd-fsck", what, ".service", &_fsck);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create fsck service name: %m");
@@ -181,9 +189,9 @@ int generator_write_fsck_deps(
                 }
 
                 fprintf(f,
-                        "Requires=%1$s\n"
-                        "After=%1$s\n",
-                        fsck);
+                        "%1$s=%2$s\n"
+                        "After=%2$s\n",
+                        dep, fsck);
         }
 
         return 0;
@@ -319,7 +327,7 @@ int generator_hook_up_mkswap(
                 return log_error_errno(r, "Failed to make unit instance name from path \"%s\": %m",
                                        node);
 
-        unit_file = strjoina(dir, "/", unit);
+        unit_file = prefix_roota(dir, unit);
         log_debug("Creating %s", unit_file);
 
         escaped = cescape(node);
@@ -394,7 +402,7 @@ int generator_hook_up_mkfs(
                 return log_error_errno(r, "Failed to make unit instance name from path \"%s\": %m",
                                        node);
 
-        unit_file = strjoina(dir, "/", unit);
+        unit_file = prefix_roota(dir, unit);
         log_debug("Creating %s", unit_file);
 
         escaped = cescape(node);
@@ -466,7 +474,7 @@ int generator_hook_up_growfs(
                 return log_error_errno(r, "Failed to make unit name from path \"%s\": %m",
                                        where);
 
-        unit_file = strjoina(dir, "/", unit);
+        unit_file = prefix_roota(dir, unit);
         log_debug("Creating %s", unit_file);
 
         f = fopen(unit_file, "wxe");

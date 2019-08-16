@@ -158,7 +158,7 @@ static int enumerate_print_list(struct udev_enumerate *enumerate) {
 
                 device = udev_device_new_from_syspath(udev_enumerate_get_udev(enumerate),
                                                       udev_list_entry_get_name(list_entry));
-                if (device != NULL) {
+                if (device) {
                         log_info("device: '%s' (%s)",
                                  udev_device_get_syspath(device),
                                  udev_device_get_subsystem(device));
@@ -249,7 +249,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate '%s'", subsystem == NULL ? "<all>" : subsystem);
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_add_match_subsystem(udev_enumerate, subsystem);
         udev_enumerate_scan_devices(udev_enumerate);
@@ -258,7 +258,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate 'net' + duplicated scan + null + zero");
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_add_match_subsystem(udev_enumerate, "net");
         udev_enumerate_scan_devices(udev_enumerate);
@@ -278,7 +278,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate 'block'");
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_add_match_subsystem(udev_enumerate,"block");
         r = udev_enumerate_add_match_is_initialized(udev_enumerate);
@@ -292,7 +292,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate 'not block'");
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_add_nomatch_subsystem(udev_enumerate, "block");
         udev_enumerate_scan_devices(udev_enumerate);
@@ -301,7 +301,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate 'pci, mem, vc'");
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_add_match_subsystem(udev_enumerate, "pci");
         udev_enumerate_add_match_subsystem(udev_enumerate, "mem");
@@ -312,7 +312,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate 'subsystem'");
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_scan_subsystems(udev_enumerate);
         enumerate_print_list(udev_enumerate);
@@ -320,7 +320,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
 
         log_info("enumerate 'property IF_FS_*=filesystem'");
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return -1;
         udev_enumerate_add_match_property(udev_enumerate, "ID_FS*", "filesystem");
         udev_enumerate_scan_devices(udev_enumerate);
@@ -433,19 +433,20 @@ static void test_util_resolve_subsys_kernel(void) {
 }
 
 static void test_list(void) {
-        struct udev_list list = {};
+        _cleanup_(udev_list_freep) struct udev_list *list = NULL;
         struct udev_list_entry *e;
 
         /* empty list */
-        udev_list_init(&list, false);
-        assert_se(!udev_list_get_entry(&list));
+        assert_se(list = udev_list_new(false));
+        assert_se(!udev_list_get_entry(list));
+        list = udev_list_free(list);
 
         /* unique == false */
-        udev_list_init(&list, false);
-        assert_se(udev_list_entry_add(&list, "aaa", "hoge"));
-        assert_se(udev_list_entry_add(&list, "aaa", "hogehoge"));
-        assert_se(udev_list_entry_add(&list, "bbb", "foo"));
-        e = udev_list_get_entry(&list);
+        assert_se(list = udev_list_new(false));
+        assert_se(udev_list_entry_add(list, "aaa", "hoge"));
+        assert_se(udev_list_entry_add(list, "aaa", "hogehoge"));
+        assert_se(udev_list_entry_add(list, "bbb", "foo"));
+        e = udev_list_get_entry(list);
         assert_se(e);
         assert_se(streq_ptr(udev_list_entry_get_name(e), "aaa"));
         assert_se(streq_ptr(udev_list_entry_get_value(e), "hoge"));
@@ -462,14 +463,14 @@ static void test_list(void) {
         assert_se(!udev_list_entry_get_by_name(e, "aaa"));
         assert_se(!udev_list_entry_get_by_name(e, "bbb"));
         assert_se(!udev_list_entry_get_by_name(e, "ccc"));
-        udev_list_cleanup(&list);
+        list = udev_list_free(list);
 
         /* unique == true */
-        udev_list_init(&list, true);
-        assert_se(udev_list_entry_add(&list, "aaa", "hoge"));
-        assert_se(udev_list_entry_add(&list, "aaa", "hogehoge"));
-        assert_se(udev_list_entry_add(&list, "bbb", "foo"));
-        e = udev_list_get_entry(&list);
+        assert_se(list = udev_list_new(true));
+        assert_se(udev_list_entry_add(list, "aaa", "hoge"));
+        assert_se(udev_list_entry_add(list, "aaa", "hogehoge"));
+        assert_se(udev_list_entry_add(list, "bbb", "foo"));
+        e = udev_list_get_entry(list);
         assert_se(e);
         assert_se(streq_ptr(udev_list_entry_get_name(e), "aaa"));
         assert_se(streq_ptr(udev_list_entry_get_value(e), "hogehoge"));
@@ -487,7 +488,6 @@ static void test_list(void) {
         assert_se(streq_ptr(udev_list_entry_get_name(e), "aaa"));
         assert_se(streq_ptr(udev_list_entry_get_value(e), "hogehoge"));
         assert_se(!udev_list_entry_get_by_name(e, "ccc"));
-        udev_list_cleanup(&list);
 }
 
 static int parse_args(int argc, char *argv[], const char **syspath, const char **subsystem) {

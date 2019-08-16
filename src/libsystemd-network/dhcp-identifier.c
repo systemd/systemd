@@ -190,7 +190,7 @@ int dhcp_identifier_set_iaid(
                                 /* device is under renaming */
                                 return -EBUSY;
 
-                        name = net_get_name(device);
+                        name = net_get_name_persistent(device);
                 }
         }
 

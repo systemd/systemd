@@ -159,6 +159,7 @@ static int run(int argc, char *argv[]) {
         char **i;
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

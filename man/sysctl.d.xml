@@ -59,6 +59,12 @@
     <filename>/proc/sys/net/ipv4/conf/enp3s0.200/forwarding</filename>.
     </para>
 
+    <para>Any access permission errors and attempts to write variables not defined on the local system are
+    logged, but do not cause the the service to fail. Moreover, if a variable assignment is prefixed with a
+    single <literal>-</literal> character, failure to set the variable will be logged, but will not cause the
+    service to fail. All other errors when setting variables cause the service to return failure at the end
+    (other variables are still processed).</para>
+
     <para>The settings configured with <filename>sysctl.d</filename>
     files will be applied early on boot. The network
     interface-specific options will also be applied individually for

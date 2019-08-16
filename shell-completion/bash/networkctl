@@ -32,13 +32,13 @@ _networkctl() {
     local i verb comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
-        [STANDALONE]='-a --all -h --help --version --no-pager --no-legend'
+        [STANDALONE]='-a --all -h --help --version --no-pager --no-legend -s --stats'
         [ARG]=''
     )
 
     local -A VERBS=(
         [STANDALONE]='label'
-        [LINKS]='status list lldp'
+        [LINKS]='status list lldp delete'
     )
 
     _init_completion || return

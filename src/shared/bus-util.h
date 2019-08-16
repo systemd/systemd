@@ -114,8 +114,11 @@ assert_cc(sizeof(pid_t) == sizeof(uint32_t));
 assert_cc(sizeof(mode_t) == sizeof(uint32_t));
 #define bus_property_get_mode ((sd_bus_property_get_t) NULL)
 
-int bus_log_parse_error(int r);
-int bus_log_create_error(int r);
+#define bus_log_parse_error(r) \
+        log_error_errno(r, "Failed to parse bus message: %m")
+
+#define bus_log_create_error(r) \
+        log_error_errno(r, "Failed to create bus message: %m")
 
 #define BUS_DEFINE_PROPERTY_GET_GLOBAL(function, bus_type, val)         \
         int function(sd_bus *bus,                                       \
@@ -179,3 +182,5 @@ static inline int bus_open_system_watch_bind(sd_bus **ret) {
 }
 
 int bus_reply_pair_array(sd_bus_message *m, char **l);
+
+extern const struct hash_ops bus_message_hash_ops;

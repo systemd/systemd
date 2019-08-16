@@ -32,7 +32,11 @@ static inline int missing_pivot_root(const char *new_root, const char *put_old) 
 /* ======================================================================= */
 
 #if !HAVE_MEMFD_CREATE
-#  ifndef __NR_memfd_create
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#  if ! (defined __NR_memfd_create && __NR_memfd_create > 0)
+#    if defined __NR_memfd_create
+#      undef __NR_memfd_create
+#    endif
 #    if defined __x86_64__
 #      define __NR_memfd_create 319
 #    elif defined __arm__
@@ -75,7 +79,11 @@ static inline int missing_memfd_create(const char *name, unsigned int flags) {
 /* ======================================================================= */
 
 #if !HAVE_GETRANDOM
-#  ifndef __NR_getrandom
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#  if ! (defined __NR_getrandom && __NR_getrandom > 0)
+#    if defined __NR_getrandom
+#      undef __NR_getrandom
+#    endif
 #    if defined __x86_64__
 #      define __NR_getrandom 318
 #    elif defined(__i386__)
@@ -134,7 +142,11 @@ static inline pid_t missing_gettid(void) {
 /* ======================================================================= */
 
 #if !HAVE_NAME_TO_HANDLE_AT
-#  ifndef __NR_name_to_handle_at
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#  if ! (defined __NR_name_to_handle_at && __NR_name_to_handle_at > 0)
+#    if defined __NR_name_to_handle_at
+#      undef __NR_name_to_handle_at
+#    endif
 #    if defined(__x86_64__)
 #      define __NR_name_to_handle_at 303
 #    elif defined(__i386__)
@@ -171,7 +183,11 @@ static inline int missing_name_to_handle_at(int fd, const char *name, struct fil
 /* ======================================================================= */
 
 #if !HAVE_SETNS
-#  ifndef __NR_setns
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#  if ! (defined __NR_setns && __NR_setns > 0)
+#    if defined __NR_setns
+#      undef __NR_setns
+#    endif
 #    if defined(__x86_64__)
 #      define __NR_setns 308
 #    elif defined(__i386__)
@@ -208,7 +224,11 @@ static inline pid_t raw_getpid(void) {
 /* ======================================================================= */
 
 #if !HAVE_RENAMEAT2
-#  ifndef __NR_renameat2
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#  if ! (defined __NR_renameat2 && __NR_renameat2 > 0)
+#    if defined __NR_renameat2
+#      undef __NR_renameat2
+#    endif
 #    if defined __x86_64__
 #      define __NR_renameat2 316
 #    elif defined __arm__
@@ -305,7 +325,11 @@ static inline key_serial_t missing_request_key(const char *type, const char *des
 /* ======================================================================= */
 
 #if !HAVE_COPY_FILE_RANGE
-#  ifndef __NR_copy_file_range
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#  if ! (defined __NR_copy_file_range && __NR_copy_file_range > 0)
+#    if defined __NR_copy_file_range
+#      undef __NR_copy_file_range
+#    endif
 #    if defined(__x86_64__)
 #      define __NR_copy_file_range 326
 #    elif defined(__i386__)
@@ -343,7 +367,11 @@ static inline ssize_t missing_copy_file_range(int fd_in, loff_t *off_in,
 /* ======================================================================= */
 
 #if !HAVE_BPF
-#  ifndef __NR_bpf
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#  if ! (defined __NR_bpf && __NR_bpf > 0)
+#    if defined __NR_bpf
+#      undef __NR_bpf
+#    endif
 #    if defined __i386__
 #      define __NR_bpf 357
 #    elif defined __x86_64__
@@ -380,7 +408,11 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 /* ======================================================================= */
 
 #ifndef __IGNORE_pkey_mprotect
-#  ifndef __NR_pkey_mprotect
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#  if ! (defined __NR_pkey_mprotect && __NR_pkey_mprotect > 0)
+#    if defined __NR_pkey_mprotect
+#      undef __NR_pkey_mprotect
+#    endif
 #    if defined __i386__
 #      define __NR_pkey_mprotect 380
 #    elif defined __x86_64__
@@ -391,6 +423,8 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 #      define __NR_pkey_mprotect 394
 #    elif defined __powerpc__
 #      define __NR_pkey_mprotect 386
+#    elif defined __s390__
+#      define __NR_pkey_mprotect 384
 #    elif defined _MIPS_SIM
 #      if _MIPS_SIM == _MIPS_SIM_ABI32
 #        define __NR_pkey_mprotect 4363
@@ -410,7 +444,11 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 /* ======================================================================= */
 
 #if !HAVE_STATX
-#  ifndef __NR_statx
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#  if ! (defined __NR_statx && __NR_statx > 0)
+#    if defined __NR_statx
+#      undef __NR_statx
+#    endif
 #    if defined __aarch64__ || defined __arm__
 #      define __NR_statx 397
 #    elif defined __alpha__
@@ -443,4 +481,46 @@ static inline ssize_t missing_statx(int dfd, const char *filename, unsigned flag
 }
 
 #  define statx missing_statx
+#endif
+
+#if !HAVE_SET_MEMPOLICY
+
+enum {
+        MPOL_DEFAULT,
+        MPOL_PREFERRED,
+        MPOL_BIND,
+        MPOL_INTERLEAVE,
+        MPOL_LOCAL,
+};
+
+static inline long missing_set_mempolicy(int mode, const unsigned long *nodemask,
+                           unsigned long maxnode) {
+        long i;
+#  ifdef __NR_set_mempolicy
+        i = syscall(__NR_set_mempolicy, mode, nodemask, maxnode);
+#  else
+        errno = ENOSYS;
+        i = -1;
+#  endif
+        return i;
+}
+
+#  define set_mempolicy missing_set_mempolicy
+#endif
+
+#if !HAVE_GET_MEMPOLICY
+static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
+                           unsigned long maxnode, void *addr,
+                           unsigned long flags) {
+        long i;
+#  ifdef __NR_get_mempolicy
+        i = syscall(__NR_get_mempolicy, mode, nodemask, maxnode, addr, flags);
+#  else
+        errno = ENOSYS;
+        i = -1;
+#  endif
+        return i;
+}
+
+#define get_mempolicy missing_get_mempolicy
 #endif

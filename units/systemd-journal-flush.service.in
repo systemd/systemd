@@ -18,6 +18,7 @@ RequiresMountsFor=/var/log/journal
 
 [Service]
 ExecStart=@rootbindir@/journalctl --flush
+ExecStop=@rootbindir@/journalctl --smart-relinquish-var
 Type=oneshot
 RemainAfterExit=yes
 TimeoutSec=90s

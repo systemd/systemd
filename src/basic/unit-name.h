@@ -10,9 +10,9 @@
 
 typedef enum UnitNameFlags {
         UNIT_NAME_PLAIN    = 1 << 0, /* Allow foo.service */
-        UNIT_NAME_INSTANCE = 1 << 1, /* Allow foo@bar.service */
-        UNIT_NAME_TEMPLATE = 1 << 2, /* Allow foo@.service */
-        UNIT_NAME_ANY = UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE,
+        UNIT_NAME_TEMPLATE = 1 << 1, /* Allow foo@.service */
+        UNIT_NAME_INSTANCE = 1 << 2, /* Allow foo@bar.service */
+        UNIT_NAME_ANY = UNIT_NAME_PLAIN|UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE,
 } UnitNameFlags;
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) _pure_;
@@ -20,13 +20,11 @@ bool unit_prefix_is_valid(const char *p) _pure_;
 bool unit_instance_is_valid(const char *i) _pure_;
 bool unit_suffix_is_valid(const char *s) _pure_;
 
-static inline int unit_prefix_and_instance_is_valid(const char *p) {
-        /* For prefix+instance and instance the same rules apply */
-        return unit_instance_is_valid(p);
+int unit_name_to_prefix(const char *n, char **ret);
+int unit_name_to_instance(const char *n, char **ret);
+static inline int unit_name_classify(const char *n) {
+        return unit_name_to_instance(n, NULL);
 }
-
-int unit_name_to_prefix(const char *n, char **prefix);
-int unit_name_to_instance(const char *n, char **instance);
 int unit_name_to_prefix_and_instance(const char *n, char **ret);
 
 UnitType unit_name_to_type(const char *n) _pure_;

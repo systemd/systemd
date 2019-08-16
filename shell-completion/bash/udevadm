@@ -48,7 +48,8 @@ _udevadm() {
     local -A OPTS=(
         [COMMON]='-h --help -V --version'
         [DEBUG]='-d --debug'
-        [INFO_STANDALONE]='-r --root -a --attribute-walk -x --export -e --export-db -c --cleanup-db'
+        [INFO_STANDALONE]='-r --root -a --attribute-walk -x --export -e --export-db -c --cleanup-db
+                           -w --wait-for-initialization'
         [INFO_ARG]='-q --query -p --path -n --name -P --export-prefix -d --device-id-of-file'
         [TRIGGER_STANDALONE]='-v --verbose -n --dry-run -w --settle --wait-daemon'
         [TRIGGER_ARG]='-t --type -c --action -s --subsystem-match -S --subsystem-nomatch
@@ -118,7 +119,7 @@ _udevadm() {
                         comps='devices subsystems'
                         ;;
                     -c|--action)
-                        comps='add change remove bind unbind'
+                        comps=$( udevadm trigger --action help )
                         ;;
                     -y|--sysname-match|-b|--parent-match)
                         comps=$( __get_all_sysdevs )
@@ -195,7 +196,7 @@ _udevadm() {
             if __contains_word "$prev" ${OPTS[TEST]}; then
                 case $prev in
                     -a|--action)
-                        comps='add change remove bind unbind'
+                        comps=$( udevadm test --action help )
                         ;;
                     -N|--resolve-names)
                         comps='early late never'

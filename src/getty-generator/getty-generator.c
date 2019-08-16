@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
@@ -94,7 +95,7 @@ static int verify_tty(const char *name) {
 
         errno = 0;
         if (isatty(fd) <= 0)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         return 0;
 }
@@ -189,9 +190,11 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                        "sclp_line0",
                        "ttysclp0",
                        "3270!tty1") {
-                const char *p;
+                _cleanup_free_ char *p = NULL;
 
-                p = strjoina("/sys/class/tty/", j);
+                p = path_join("/sys/class/tty", j);
+                if (!p)
+                        return -ENOMEM;
                 if (access(p, F_OK) < 0)
                         continue;
 

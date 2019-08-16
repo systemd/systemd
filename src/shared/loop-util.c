@@ -18,6 +18,7 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
 
         _cleanup_close_ int control = -1, loop = -1;
         _cleanup_free_ char *loopdev = NULL;
+        unsigned n_attempts = 0;
         struct stat st;
         LoopDevice *d;
         int nr, r;
@@ -60,19 +61,31 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         if (control < 0)
                 return -errno;
 
-        nr = ioctl(control, LOOP_CTL_GET_FREE);
-        if (nr < 0)
-                return -errno;
+        /* Loop around LOOP_CTL_GET_FREE, since at the moment we attempt to open the returned device it might
+         * be gone already, taken by somebody else racing against us. */
+        for (;;) {
+                nr = ioctl(control, LOOP_CTL_GET_FREE);
+                if (nr < 0)
+                        return -errno;
 
-        if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
-                return -ENOMEM;
+                if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
+                        return -ENOMEM;
 
-        loop = open(loopdev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
-        if (loop < 0)
-                return -errno;
+                loop = open(loopdev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+                if (loop < 0)
+                        return -errno;
+                if (ioctl(loop, LOOP_SET_FD, fd) < 0) {
+                        if (errno != EBUSY)
+                                return -errno;
 
-        if (ioctl(loop, LOOP_SET_FD, fd) < 0)
-                return -errno;
+                        if (++n_attempts >= 64) /* Give up eventually */
+                                return -EBUSY;
+                } else
+                        break;
+
+                loopdev = mfree(loopdev);
+                loop = safe_close(loop);
+        }
 
         if (ioctl(loop, LOOP_SET_STATUS64, &info) < 0)
                 return -errno;

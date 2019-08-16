@@ -37,7 +37,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "unit-name.h"
+#include "unit-file.h"
 
 #define UNIT_FILE_FOLLOW_SYMLINK_MAX 64
 
@@ -96,25 +96,6 @@ static void presets_freep(Presets *p) {
 
         free(p->rules);
         p->n_rules = 0;
-}
-
-bool unit_type_may_alias(UnitType type) {
-        return IN_SET(type,
-                      UNIT_SERVICE,
-                      UNIT_SOCKET,
-                      UNIT_TARGET,
-                      UNIT_DEVICE,
-                      UNIT_TIMER,
-                      UNIT_PATH);
-}
-
-bool unit_type_may_template(UnitType type) {
-        return IN_SET(type,
-                      UNIT_SERVICE,
-                      UNIT_SOCKET,
-                      UNIT_TARGET,
-                      UNIT_TIMER,
-                      UNIT_PATH);
 }
 
 static const char *const unit_file_type_table[_UNIT_FILE_TYPE_MAX] = {
@@ -794,7 +775,7 @@ static int find_symlinks_fd(
                         if (!path_is_absolute(dest)) {
                                 char *x;
 
-                                x = prefix_root(root_dir, dest);
+                                x = path_join(root_dir, dest);
                                 if (!x)
                                         return -ENOMEM;
 
@@ -1377,7 +1358,7 @@ static int unit_file_load_or_readlink(
 
                 if (path_is_absolute(target))
                         /* This is an absolute path, prefix the root so that we always deal with fully qualified paths */
-                        info->symlink_target = prefix_root(root_dir, target);
+                        info->symlink_target = path_join(root_dir, target);
                 else
                         /* This is a relative path, take it relative to the dir the symlink is located in. */
                         info->symlink_target = file_in_same_dir(path, target);
@@ -1424,7 +1405,7 @@ static int unit_file_search(
         STRV_FOREACH(p, paths->search_path) {
                 _cleanup_free_ char *path = NULL;
 
-                path = strjoin(*p, "/", info->name);
+                path = path_join(*p, info->name);
                 if (!path)
                         return -ENOMEM;
 
@@ -1447,7 +1428,7 @@ static int unit_file_search(
                 STRV_FOREACH(p, paths->search_path) {
                         _cleanup_free_ char *path = NULL;
 
-                        path = strjoin(*p, "/", template);
+                        path = path_join(*p, template);
                         if (!path)
                                 return -ENOMEM;
 
@@ -1840,7 +1821,7 @@ static int install_info_symlink_link(
         if (r > 0)
                 return 0;
 
-        path = strjoin(config_path, "/", i->name);
+        path = path_join(config_path, i->name);
         if (!path)
                 return -ENOMEM;
 
@@ -2188,7 +2169,7 @@ int unit_file_link(
                 if (!unit_name_is_valid(fn, UNIT_NAME_ANY))
                         return -EINVAL;
 
-                full = prefix_root(paths.root_dir, *i);
+                full = path_join(paths.root_dir, *i);
                 if (!full)
                         return -ENOMEM;
 
@@ -2308,7 +2289,7 @@ int unit_file_revert(
                                         has_vendor = true;
                         }
 
-                        dropin = strappend(path, ".d");
+                        dropin = strjoin(path, ".d");
                         if (!dropin)
                                 return -ENOMEM;
 
@@ -2379,7 +2360,7 @@ int unit_file_revert(
                 STRV_FOREACH(j, fs) {
                         _cleanup_free_ char *t = NULL;
 
-                        t = strjoin(*i, "/", *j);
+                        t = path_join(*i, *j);
                         if (!t)
                                 return -ENOMEM;
 
@@ -2742,7 +2723,7 @@ int unit_file_lookup_state(
                 break;
 
         default:
-                assert_not_reached("Unexpect unit file type.");
+                assert_not_reached("Unexpected unit file type.");
         }
 
         *ret = state;

@@ -507,6 +507,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--what=</option></term>
+
+        <listitem>
+          <para>Select what type of per-unit resources to remove when the <command>clean</command> command is
+          invoked, see below. Takes one of <constant>configuration</constant>, <constant>state</constant>,
+          <constant>cache</constant>, <constant>logs</constant>, <constant>runtime</constant> to select the
+          type of resource. This option may be specified more than once, in which case all specified resource
+          types are removed. Also accepts the special value <constant>all</constant> as a shortcut for
+          specifiying all five resource types. If this option is not specified defaults to the combination of
+          <constant>cache</constant> and <constant>runtime</constant>, i.e. the two kinds of resources that
+          are generally considered to be redundant and can be reconstructed on next invocation.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-f</option></term>
         <term><option>--force</option></term>
 
@@ -801,8 +816,14 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           <term><command>stop <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
-            <para>Stop (deactivate) one or more units specified on the
-            command line.</para>
+            <para>Stop (deactivate) one or more units specified on the command line.</para>
+
+            <para>This command will fail if the unit does exist or if stopping of the unit is prohibited (see
+            <varname>RefuseManualStop=</varname> in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+            It will <emphasis>not</emphasis> fail if any of the commands configured to stop the unit
+            (<varname>ExecStop=</varname>, etc.) fail, because the manager will still forcibly terminate the
+            unit.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -902,6 +923,24 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             unit. Use <option>--kill-who=</option> to select which
             process to kill. Use <option>--signal=</option> to select
             the signal to send.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>clean <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Remove the configuration, state, cache, logs or runtime data of the specified units. Use
+            <option>--what=</option> to select which kind of resource to remove. For service units this may
+            be used to remove the directories configured with <varname>ConfigurationDirectory=</varname>,
+            <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>,
+            <varname>LogsDirectory=</varname> and <varname>RuntimeDirectory=</varname>, see
+            <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details. For timer units this may be used to clear out the persistent timestamp data if
+            <varname>Persistent=</varname> is used and <option>--what=state</option> is selected, see
+            <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+            command only applies to units that use either of these settings. If <option>--what=</option> is
+            not specified, both the cache and runtime data are removed (as these two types of data are
+            generally redundant and reproducible on the next invocation of the unit).</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1058,18 +1097,22 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             next reboot. The syntax of the property assignment follows
             closely the syntax of assignments in unit files.</para>
 
-            <para>Example: <command>systemctl set-property foobar.service CPUShares=777</command></para>
+            <para>Example: <command>systemctl set-property foobar.service CPUWeight=200</command></para>
 
             <para>If the specified unit appears to be inactive, the
             changes will be only stored on disk as described
             previously hence they will be effective when the unit will
             be started.</para>
 
-            <para>Note that this command allows changing multiple
-            properties at the same time, which is preferable over
-            setting them individually. Like with unit file configuration
-            settings, assigning an empty list will reset the property.
-            </para>
+            <para>Note that this command allows changing multiple properties at the same time, which is
+            preferable over setting them individually.</para>
+
+            <para>Example: <command>systemctl set-property foobar.service CPUWeight=200 MemoryMax=2G IPAccounting=yes</command></para>
+
+            <para>Like with unit file configuration settings, assigning an empty setting usually resets a
+            property to its defaults.</para>
+
+            <para>Example: <command>systemctl set-property avahi-daemon.service IPAddressDeny=</command></para>
           </listitem>
         </varlistentry>
 
@@ -1341,7 +1384,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                   </row>
                   <row>
                     <entry><literal>indirect</literal></entry>
-                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> unit file section, listing other unit files that might be enabled, or it has an alias under a different name through a symlink that is not specified in Also=. For template unit file, an instance different than the one specified in <varname>DefaultInstance=</varname> is enabled.</entry>
+                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> unit file section, listing other unit files that might be enabled, or it has an alias under a different name through a symlink that is not specified in <varname>Also=</varname>. For template unit file, an instance different than the one specified in <varname>DefaultInstance=</varname> is enabled.</entry>
                     <entry>0</entry>
                   </row>
                   <row>

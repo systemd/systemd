@@ -1376,7 +1376,7 @@ static int add_file_by_name(
         if (!file_type_wanted(j->flags, filename))
                 return 0;
 
-        path = strjoina(prefix, "/", filename);
+        path = prefix_roota(prefix, filename);
         return add_any_file(j, -1, path);
 }
 
@@ -1392,7 +1392,7 @@ static void remove_file_by_name(
         assert(prefix);
         assert(filename);
 
-        path = strjoina(prefix, "/", filename);
+        path = prefix_roota(prefix, filename);
         f = ordered_hashmap_get(j->files, path);
         if (!f)
                 return;
@@ -1553,10 +1553,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
         /* Adds a journal file directory to watch. If the directory is already tracked this updates the inotify watch
          * and reenumerates directory contents */
 
-        if (dirname)
-                path = strjoin(prefix, "/", dirname);
-        else
-                path = strdup(prefix);
+        path = path_join(prefix, dirname);
         if (!path) {
                 r = -ENOMEM;
                 goto fail;
@@ -1734,7 +1731,7 @@ static void remove_directory(sd_journal *j, Directory *d) {
                 hashmap_remove(j->directories_by_wd, INT_TO_PTR(d->wd));
 
                 if (j->inotify_fd >= 0)
-                        inotify_rm_watch(j->inotify_fd, d->wd);
+                        (void) inotify_rm_watch(j->inotify_fd, d->wd);
         }
 
         hashmap_remove(j->directories_by_path, d->path);

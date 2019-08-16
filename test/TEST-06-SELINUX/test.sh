@@ -16,9 +16,7 @@ SETUP_SELINUX=yes
 KERNEL_APPEND="$KERNEL_APPEND selinux=1 security=selinux"
 
 test_setup() {
-    create_empty_image
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
+    create_empty_image_rootdir
 
     # Create what will eventually be our root filesystem onto an overlay
     (
@@ -92,17 +90,14 @@ EOF
         dracut_install -o sesearch
         dracut_install runcon
         dracut_install checkmodule semodule semodule_package m4 make /usr/libexec/selinux/hll/pp load_policy sefcontext_compile
-    ) || return 1
+    )
 
     # mask some services that we do not want to run in these tests
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.service
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-resolved.service
-
-    ddebug "umount $TESTDIR/root"
-    umount $TESTDIR/root
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.service
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
 }
 
 do_test "$@"

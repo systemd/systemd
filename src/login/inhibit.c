@@ -270,6 +270,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 
@@ -283,7 +284,6 @@ static int run(int argc, char *argv[]) {
 
         if (arg_action == ACTION_LIST)
                 return print_inhibitors(bus);
-
         else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_strv_free_ char **arguments = NULL;
@@ -294,8 +294,13 @@ static int run(int argc, char *argv[]) {
                 /* Ignore SIGINT and allow the forked process to receive it */
                 (void) ignore_signals(SIGINT, -1);
 
-                if (!arg_who)
-                        arg_who = w = strv_join(argv + optind, " ");
+                if (!arg_who) {
+                        w = strv_join(argv + optind, " ");
+                        if (!w)
+                                return log_oom();
+
+                        arg_who = w;
+                }
 
                 if (!arg_mode)
                         arg_mode = "block";

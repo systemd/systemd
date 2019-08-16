@@ -64,5 +64,10 @@ available functionality:
     of active alerts can be found
     [here](https://lgtm.com/projects/g/systemd/systemd/alerts/?mode=list).
 
+15. Each PR is automatically tested with [Address Sanitizer](https://clang.llvm.org/docs/AddressSanitizer.html)
+    and [Undefined Behavior Sanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html).
+    See [Testing systemd using sanitizers](https://systemd.io/TESTING_WITH_SANITIZERS)
+    for more information.
+
 Access to Coverity and oss-fuzz reports is limited. Please reach out to the
 maintainers if you need access.

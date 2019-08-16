@@ -32,6 +32,7 @@ int in_addr_is_localhost(int family, const union in_addr_union *u);
 
 bool in4_addr_is_non_local(const struct in_addr *a);
 
+bool in4_addr_equal(const struct in_addr *a, const struct in_addr *b);
 int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_union *b);
 int in_addr_prefix_intersect(int family, const union in_addr_union *a, unsigned aprefixlen, const union in_addr_union *b, unsigned bprefixlen);
 int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen);
@@ -72,3 +73,4 @@ static inline size_t FAMILY_ADDRESS_SIZE(int family) {
 #define IN_ADDR_NULL ((union in_addr_union) { .in6 = {} })
 
 extern const struct hash_ops in_addr_data_hash_ops;
+extern const struct hash_ops in6_addr_hash_ops;

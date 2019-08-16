@@ -423,13 +423,9 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Will call us back */
 
-        master = machine_openpt(m, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        master = machine_openpt(m, O_RDWR|O_NOCTTY|O_CLOEXEC, &pty_name);
         if (master < 0)
                 return master;
-
-        r = ptsname_namespace(master, &pty_name);
-        if (r < 0)
-                return r;
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -514,17 +510,12 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
         if (r == 0)
                 return 1; /* Will call us back */
 
-        master = machine_openpt(m, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        master = machine_openpt(m, O_RDWR|O_NOCTTY|O_CLOEXEC, &pty_name);
         if (master < 0)
                 return master;
 
-        r = ptsname_namespace(master, &pty_name);
-        if (r < 0)
-                return r;
-
         p = path_startswith(pty_name, "/dev/pts/");
-        if (!p)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "PTS name %s is invalid", pty_name);
+        assert(p);
 
         r = container_bus_new(m, error, &allocated_bus);
         if (r < 0)
@@ -630,13 +621,9 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (r == 0)
                 return 1; /* Will call us back */
 
-        master = machine_openpt(m, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        master = machine_openpt(m, O_RDWR|O_NOCTTY|O_CLOEXEC, &pty_name);
         if (master < 0)
                 return master;
-
-        r = ptsname_namespace(master, &pty_name);
-        if (r < 0)
-                return r;
 
         p = path_startswith(pty_name, "/dev/pts/");
         assert(p);
@@ -1396,7 +1383,7 @@ char *machine_bus_path(Machine *m) {
         if (!e)
                 return NULL;
 
-        return strappend("/org/freedesktop/machine1/machine/", e);
+        return strjoin("/org/freedesktop/machine1/machine/", e);
 }
 
 int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {

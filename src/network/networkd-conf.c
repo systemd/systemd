@@ -11,17 +11,33 @@
 #include "extract-word.h"
 #include "hexdecoct.h"
 #include "networkd-conf.h"
+#include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-speed-meter.h"
 #include "string-table.h"
 
 int manager_parse_config_file(Manager *m) {
+        int r;
+
         assert(m);
 
-        return config_parse_many_nulstr(PKGSYSCONFDIR "/networkd.conf",
-                                        CONF_PATHS_NULSTR("systemd/networkd.conf.d"),
-                                        "DHCP\0",
-                                        config_item_perf_lookup, networkd_gperf_lookup,
-                                        CONFIG_PARSE_WARN, m);
+        r = config_parse_many_nulstr(PKGSYSCONFDIR "/networkd.conf",
+                                     CONF_PATHS_NULSTR("systemd/networkd.conf.d"),
+                                     "Network\0DHCP\0",
+                                     config_item_perf_lookup, networkd_gperf_lookup,
+                                     CONFIG_PARSE_WARN, m);
+        if (r < 0)
+                return r;
+
+        if (m->use_speed_meter && m->speed_meter_interval_usec < SPEED_METER_MINIMUM_TIME_INTERVAL) {
+                char buf[FORMAT_TIMESPAN_MAX];
+
+                log_warning("SpeedMeterIntervalSec= is too small, using %s.",
+                            format_timespan(buf, sizeof buf, SPEED_METER_MINIMUM_TIME_INTERVAL, USEC_PER_SEC));
+                m->speed_meter_interval_usec = SPEED_METER_MINIMUM_TIME_INTERVAL;
+        }
+
+        return 0;
 }
 
 static const char* const duid_type_table[_DUID_TYPE_MAX] = {

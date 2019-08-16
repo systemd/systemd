@@ -6,9 +6,7 @@ TEST_DESCRIPTION="FailureAction= operation"
 QEMU_TIMEOUT=180
 
 test_setup() {
-    create_empty_image
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
+    create_empty_image_rootdir
 
     (
         LOG_LEVEL=5
@@ -30,18 +28,15 @@ EOF
         cp testsuite.sh $initdir/
 
         setup_testsuite
-    ) || return 1
+    )
     setup_nspawn_root
 
     # mask some services that we do not want to run in these tests
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.service
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-resolved.service
-
-    ddebug "umount $TESTDIR/root"
-    umount $TESTDIR/root
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.service
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
+    ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
 }
 
 do_test "$@"

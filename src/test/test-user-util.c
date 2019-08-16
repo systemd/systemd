@@ -191,6 +191,20 @@ static void test_get_group_creds_one(const char *id, const char *name, gid_t gid
         assert_se(rgid == gid);
 }
 
+static void test_make_salt(void) {
+        log_info("/* %s */", __func__);
+
+        _cleanup_free_ char *s, *t;
+
+        assert_se(make_salt(&s) == 0);
+        log_info("got %s", s);
+
+        assert_se(make_salt(&t) == 0);
+        log_info("got %s", t);
+
+        assert(!streq(s, t));
+}
+
 int main(int argc, char *argv[]) {
         test_uid_to_name_one(0, "root");
         test_uid_to_name_one(UID_NOBODY, NOBODY_USER_NAME);
@@ -205,8 +219,8 @@ int main(int argc, char *argv[]) {
 
         test_get_user_creds_one("root", "root", 0, 0, "/root", "/bin/sh");
         test_get_user_creds_one("0", "root", 0, 0, "/root", "/bin/sh");
-        test_get_user_creds_one(NOBODY_USER_NAME, NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", "/sbin/nologin");
-        test_get_user_creds_one("65534", NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", "/sbin/nologin");
+        test_get_user_creds_one(NOBODY_USER_NAME, NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", NOLOGIN);
+        test_get_user_creds_one("65534", NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", NOLOGIN);
 
         test_get_group_creds_one("root", "root", 0);
         test_get_group_creds_one("0", "root", 0);
@@ -220,6 +234,8 @@ int main(int argc, char *argv[]) {
         test_valid_user_group_name_or_id();
         test_valid_gecos();
         test_valid_home();
+
+        test_make_salt();
 
         return 0;
 }

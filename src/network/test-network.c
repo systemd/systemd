@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <arpa/inet.h>
 #include <sys/param.h>
 
 #include "sd-device.h"
@@ -15,32 +16,31 @@
 static void test_deserialize_in_addr(void) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         _cleanup_free_ struct in6_addr *addresses6 = NULL;
-        struct in_addr  a, b, c;
-        struct in6_addr d, e, f;
+        union in_addr_union a, b, c, d, e, f;
         int size;
         const char *addresses_string = "192.168.0.1 0:0:0:0:0:FFFF:204.152.189.116 192.168.0.2 ::1 192.168.0.3 1:0:0:0:0:0:0:8";
 
-        assert_se(inet_pton(AF_INET, "0:0:0:0:0:FFFF:204.152.189.116", &a) == 0);
-        assert_se(inet_pton(AF_INET6, "192.168.0.1", &d) == 0);
+        assert_se(in_addr_from_string(AF_INET, "0:0:0:0:0:FFFF:204.152.189.116", &a) < 0);
+        assert_se(in_addr_from_string(AF_INET6, "192.168.0.1", &d) < 0);
 
-        assert_se(inet_pton(AF_INET, "192.168.0.1", &a) == 1);
-        assert_se(inet_pton(AF_INET, "192.168.0.2", &b) == 1);
-        assert_se(inet_pton(AF_INET, "192.168.0.3", &c) == 1);
-        assert_se(inet_pton(AF_INET6, "0:0:0:0:0:FFFF:204.152.189.116", &d) == 1);
-        assert_se(inet_pton(AF_INET6, "::1", &e) == 1);
-        assert_se(inet_pton(AF_INET6, "1:0:0:0:0:0:0:8", &f) == 1);
+        assert_se(in_addr_from_string(AF_INET, "192.168.0.1", &a) >= 0);
+        assert_se(in_addr_from_string(AF_INET, "192.168.0.2", &b) >= 0);
+        assert_se(in_addr_from_string(AF_INET, "192.168.0.3", &c) >= 0);
+        assert_se(in_addr_from_string(AF_INET6, "0:0:0:0:0:FFFF:204.152.189.116", &d) >= 0);
+        assert_se(in_addr_from_string(AF_INET6, "::1", &e) >= 0);
+        assert_se(in_addr_from_string(AF_INET6, "1:0:0:0:0:0:0:8", &f) >= 0);
 
         assert_se((size = deserialize_in_addrs(&addresses, addresses_string)) >= 0);
         assert_se(size == 3);
-        assert_se(!memcmp(&a, &addresses[0], sizeof(struct in_addr)));
-        assert_se(!memcmp(&b, &addresses[1], sizeof(struct in_addr)));
-        assert_se(!memcmp(&c, &addresses[2], sizeof(struct in_addr)));
+        assert_se(in_addr_equal(AF_INET, &a, (union in_addr_union *) &addresses[0]));
+        assert_se(in_addr_equal(AF_INET, &b, (union in_addr_union *) &addresses[1]));
+        assert_se(in_addr_equal(AF_INET, &c, (union in_addr_union *) &addresses[2]));
 
         assert_se((size = deserialize_in6_addrs(&addresses6, addresses_string)) >= 0);
         assert_se(size == 3);
-        assert_se(!memcmp(&d, &addresses6[0], sizeof(struct in6_addr)));
-        assert_se(!memcmp(&e, &addresses6[1], sizeof(struct in6_addr)));
-        assert_se(!memcmp(&f, &addresses6[2], sizeof(struct in6_addr)));
+        assert_se(in_addr_equal(AF_INET6, &d, (union in_addr_union *) &addresses6[0]));
+        assert_se(in_addr_equal(AF_INET6, &e, (union in_addr_union *) &addresses6[1]));
+        assert_se(in_addr_equal(AF_INET6, &f, (union in_addr_union *) &addresses6[2]));
 }
 
 static void test_deserialize_dhcp_routes(void) {
@@ -121,7 +121,7 @@ static int test_load_config(Manager *manager) {
 
 static void test_network_get(Manager *manager, sd_device *loopback) {
         Network *network;
-        const struct ether_addr mac = {};
+        const struct ether_addr mac = ETHER_ADDR_NULL;
 
         /* let's assume that the test machine does not have a .network file
            that applies to the loopback device... */
@@ -146,13 +146,13 @@ static void test_address_equality(void) {
         a2->family = AF_INET;
         assert_se(address_equal(a1, a2));
 
-        assert_se(inet_pton(AF_INET, "192.168.3.9", &a1->in_addr.in));
+        assert_se(in_addr_from_string(AF_INET, "192.168.3.9", &a1->in_addr) >= 0);
         assert_se(!address_equal(a1, a2));
-        assert_se(inet_pton(AF_INET, "192.168.3.9", &a2->in_addr.in));
+        assert_se(in_addr_from_string(AF_INET, "192.168.3.9", &a2->in_addr) >= 0);
         assert_se(address_equal(a1, a2));
-        assert_se(inet_pton(AF_INET, "192.168.3.10", &a1->in_addr_peer.in));
+        assert_se(in_addr_from_string(AF_INET, "192.168.3.10", &a1->in_addr_peer) >= 0);
         assert_se(address_equal(a1, a2));
-        assert_se(inet_pton(AF_INET, "192.168.3.11", &a2->in_addr_peer.in));
+        assert_se(in_addr_from_string(AF_INET, "192.168.3.11", &a2->in_addr_peer) >= 0);
         assert_se(address_equal(a1, a2));
         a1->prefixlen = 10;
         assert_se(!address_equal(a1, a2));
@@ -163,14 +163,14 @@ static void test_address_equality(void) {
         assert_se(!address_equal(a1, a2));
 
         a2->family = AF_INET6;
-        assert_se(inet_pton(AF_INET6, "2001:4ca0:4f01::2", &a1->in_addr.in6));
-        assert_se(inet_pton(AF_INET6, "2001:4ca0:4f01::2", &a2->in_addr.in6));
+        assert_se(in_addr_from_string(AF_INET6, "2001:4ca0:4f01::2", &a1->in_addr) >= 0);
+        assert_se(in_addr_from_string(AF_INET6, "2001:4ca0:4f01::2", &a2->in_addr) >= 0);
         assert_se(address_equal(a1, a2));
 
         a2->prefixlen = 8;
         assert_se(address_equal(a1, a2));
 
-        assert_se(inet_pton(AF_INET6, "2001:4ca0:4f01::1", &a2->in_addr.in6));
+        assert_se(in_addr_from_string(AF_INET6, "2001:4ca0:4f01::1", &a2->in_addr) >= 0);
         assert_se(!address_equal(a1, a2));
 }
 

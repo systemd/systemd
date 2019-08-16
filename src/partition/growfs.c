@@ -129,7 +129,8 @@ static int maybe_resize_slave_device(const char *mountpath, dev_t main_devno) {
 
 #if HAVE_LIBCRYPTSETUP
         crypt_set_log_callback(NULL, cryptsetup_log_glue, NULL);
-        crypt_set_debug_level(1);
+        if (DEBUG_LOGGING)
+                crypt_set_debug_level(CRYPT_DEBUG_ALL);
 #endif
 
         r = get_block_device_harder(mountpath, &devno);

@@ -273,7 +273,6 @@ static int oci_rlimits(const char *name, JsonVariant *v, JsonDispatchFlags flags
                         {}
                 };
 
-
                 r = json_dispatch(e, table, oci_unexpected, flags, &data);
                 if (r < 0)
                         return r;
@@ -1266,8 +1265,7 @@ struct cpu_data {
         uint64_t shares;
         uint64_t quota;
         uint64_t period;
-        cpu_set_t *cpuset;
-        unsigned ncpus;
+        CPUSet cpu_set;
 };
 
 static int oci_cgroup_cpu_shares(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
@@ -1302,21 +1300,20 @@ static int oci_cgroup_cpu_quota(const char *name, JsonVariant *v, JsonDispatchFl
 
 static int oci_cgroup_cpu_cpus(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         struct cpu_data *data = userdata;
-        cpu_set_t *set;
+        CPUSet set;
         const char *n;
-        int ncpus;
+        int r;
 
         assert(data);
 
         assert_se(n = json_variant_string(v));
 
-        ncpus = parse_cpu_set(n, &set);
-        if (ncpus < 0)
-                return json_log(v, flags, ncpus, "Failed to parse CPU set specification: %s", n);
+        r = parse_cpu_set(n, &set);
+        if (r < 0)
+                return json_log(v, flags, r, "Failed to parse CPU set specification: %s", n);
 
-        CPU_FREE(data->cpuset);
-        data->cpuset = set;
-        data->ncpus = ncpus;
+        cpu_set_reset(&data->cpu_set);
+        data->cpu_set = set;
 
         return 0;
 }
@@ -1345,13 +1342,12 @@ static int oci_cgroup_cpu(const char *name, JsonVariant *v, JsonDispatchFlags fl
 
         r = json_dispatch(v, table, oci_unexpected, flags, &data);
         if (r < 0) {
-                CPU_FREE(data.cpuset);
+                cpu_set_reset(&data.cpu_set);
                 return r;
         }
 
-        CPU_FREE(s->cpuset);
-        s->cpuset = data.cpuset;
-        s->cpuset_ncpus = data.ncpus;
+        cpu_set_reset(&s->cpu_set);
+        s->cpu_set = data.cpu_set;
 
         if (data.shares != UINT64_MAX) {
                 r = settings_allocate_properties(s);
@@ -1656,13 +1652,19 @@ static int oci_seccomp_action_from_string(const char *name, uint32_t *ret) {
                 const char *name;
                 uint32_t action;
         } table[] = {
-                { "SCMP_ACT_ALLOW", SCMP_ACT_ALLOW        },
-                { "SCMP_ACT_ERRNO", SCMP_ACT_ERRNO(EPERM) }, /* the OCI spec doesn't document the error, but it appears EPERM is supposed to be used */
-                { "SCMP_ACT_KILL",  SCMP_ACT_KILL         },
-#ifdef SCMP_ACT_LOG
-                { "SCMP_ACT_LOG",   SCMP_ACT_LOG          },
+                { "SCMP_ACT_ALLOW",         SCMP_ACT_ALLOW        },
+                { "SCMP_ACT_ERRNO",         SCMP_ACT_ERRNO(EPERM) }, /* the OCI spec doesn't document the error, but it appears EPERM is supposed to be used */
+                { "SCMP_ACT_KILL",          SCMP_ACT_KILL         },
+#ifdef SCMP_ACT_KILL_PROCESS
+                { "SCMP_ACT_KILL_PROCESS",  SCMP_ACT_KILL_PROCESS },
 #endif
-                { "SCMP_ACT_TRAP",  SCMP_ACT_TRAP         },
+#ifdef SCMP_ACT_KILL_THREAD
+                { "SCMP_ACT_KILL_THREAD",   SCMP_ACT_KILL_THREAD  },
+#endif
+#ifdef SCMP_ACT_LOG
+                { "SCMP_ACT_LOG",           SCMP_ACT_LOG          },
+#endif
+                { "SCMP_ACT_TRAP",          SCMP_ACT_TRAP         },
 
                 /* We don't support SCMP_ACT_TRACE because that requires a tracer, and that doesn't really make sense
                  * here */
@@ -2090,13 +2092,9 @@ static int oci_hook_timeout(const char *name, JsonVariant *v, JsonDispatchFlags 
         uintmax_t k;
 
         k = json_variant_unsigned(v);
-        if (k == 0)
-                return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                "Hook timeout cannot be zero.");
-
-        if (k > (UINT64_MAX-1/USEC_PER_SEC))
-                return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                "Hook timeout too large.");
+        if (k == 0 || k > (UINT64_MAX-1)/USEC_PER_SEC)
+                return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
+                                "Hook timeout value out of range.");
 
         *u = k * USEC_PER_SEC;
         return 0;

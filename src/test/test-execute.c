@@ -33,7 +33,13 @@ static bool can_unshare;
 
 typedef void (*test_function_t)(Manager *m);
 
-static void check(const char *func, Manager *m, Unit *unit, int status_expected, int code_expected) {
+static int cld_dumped_to_killed(int code) {
+        /* Depending on the system, seccomp version, … some signals might result in dumping, others in plain
+         * killing. Let's ignore the difference here, and map both cases to CLD_KILLED */
+        return code == CLD_DUMPED ? CLD_KILLED : code;
+}
+
+static void wait_for_service_finish(Manager *m, Unit *unit) {
         Service *service = NULL;
         usec_t ts;
         usec_t timeout = 2 * USEC_PER_MINUTE;
@@ -61,17 +67,49 @@ static void check(const char *func, Manager *m, Unit *unit, int status_expected,
                         exit(EXIT_FAILURE);
                 }
         }
+}
+
+static void check_main_result(const char *func, Manager *m, Unit *unit, int status_expected, int code_expected) {
+        Service *service = NULL;
+
+        assert_se(m);
+        assert_se(unit);
+
+        wait_for_service_finish(m, unit);
+
+        service = SERVICE(unit);
         exec_status_dump(&service->main_exec_status, stdout, "\t");
+
+        if (cld_dumped_to_killed(service->main_exec_status.code) != cld_dumped_to_killed(code_expected)) {
+                log_error("%s: %s: exit code %d, expected %d",
+                          func, unit->id,
+                          service->main_exec_status.code, code_expected);
+                abort();
+        }
+
         if (service->main_exec_status.status != status_expected) {
                 log_error("%s: %s: exit status %d, expected %d",
                           func, unit->id,
                           service->main_exec_status.status, status_expected);
                 abort();
         }
-        if (service->main_exec_status.code != code_expected) {
-                log_error("%s: %s: exit code %d, expected %d",
+}
+
+static void check_service_result(const char *func, Manager *m, Unit *unit, ServiceResult result_expected) {
+        Service *service = NULL;
+
+        assert_se(m);
+        assert_se(unit);
+
+        wait_for_service_finish(m, unit);
+
+        service = SERVICE(unit);
+
+        if (service->result != result_expected) {
+                log_error("%s: %s: service end result %s, expected %s",
                           func, unit->id,
-                          service->main_exec_status.code, code_expected);
+                          service_result_to_string(service->result),
+                          service_result_to_string(result_expected));
                 abort();
         }
 }
@@ -165,7 +203,17 @@ static void test(const char *func, Manager *m, const char *unit_name, int status
 
         assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
         assert_se(unit_start(unit) >= 0);
-        check(func, m, unit, status_expected, code_expected);
+        check_main_result(func, m, unit, status_expected, code_expected);
+}
+
+static void test_service(const char *func, Manager *m, const char *unit_name, ServiceResult result_expected) {
+        Unit *unit;
+
+        assert_se(unit_name);
+
+        assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
+        assert_se(unit_start(unit) >= 0);
+        check_service_result(func, m, unit, result_expected);
 }
 
 static void test_exec_bindpaths(Manager *m) {
@@ -179,13 +227,12 @@ static void test_exec_bindpaths(Manager *m) {
 }
 
 static void test_exec_cpuaffinity(Manager *m) {
-        _cleanup_cpu_free_ cpu_set_t *c = NULL;
-        unsigned n;
+        _cleanup_(cpu_set_reset) CPUSet c = {};
 
-        assert_se(c = cpu_set_malloc(&n));
-        assert_se(sched_getaffinity(0, CPU_ALLOC_SIZE(n), c) >= 0);
+        assert_se(cpu_set_realloc(&c, 8192) >= 0); /* just allocate the maximum possible size */
+        assert_se(sched_getaffinity(0, c.allocated, c.set) >= 0);
 
-        if (CPU_ISSET_S(0, CPU_ALLOC_SIZE(n), c) == 0) {
+        if (!CPU_ISSET_S(0, c.allocated, c.set)) {
                 log_notice("Cannot use CPU 0, skipping %s", __func__);
                 return;
         }
@@ -193,8 +240,8 @@ static void test_exec_cpuaffinity(Manager *m) {
         test(__func__, m, "exec-cpuaffinity1.service", 0, CLD_EXITED);
         test(__func__, m, "exec-cpuaffinity2.service", 0, CLD_EXITED);
 
-        if (CPU_ISSET_S(1, CPU_ALLOC_SIZE(n), c) == 0 ||
-            CPU_ISSET_S(2, CPU_ALLOC_SIZE(n), c) == 0) {
+        if (!CPU_ISSET_S(1, c.allocated, c.set) ||
+            !CPU_ISSET_S(2, c.allocated, c.set)) {
                 log_notice("Cannot use CPU 1 or 2, skipping remaining tests in %s", __func__);
                 return;
         }
@@ -424,7 +471,12 @@ static void test_exec_restrictnamespaces(Manager *m) {
 }
 
 static void test_exec_systemcallfilter_system(Manager *m) {
-#if HAVE_SECCOMP
+/* Skip this particular test case when running under ASan, as
+ * LSan intermittently segfaults when accessing memory right
+ * after the test finishes. Generally, ASan & LSan don't like
+ * the seccomp stuff.
+ */
+#if HAVE_SECCOMP && !HAS_FEATURE_ADDRESS_SANITIZER
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
@@ -711,6 +763,11 @@ static void test_exec_standardoutput_append(Manager *m) {
         test(__func__, m, "exec-standardoutput-append.service", 0, CLD_EXITED);
 }
 
+static void test_exec_condition(Manager *m) {
+        test_service(__func__, m, "exec-condition-failed.service", SERVICE_FAILURE_EXIT_CODE);
+        test_service(__func__, m, "exec-condition-skip.service", SERVICE_SKIP_CONDITION);
+}
+
 typedef struct test_entry {
         test_function_t f;
         const char *name;
@@ -740,7 +797,6 @@ static int run_tests(UnitFileScope scope, const test_entry tests[], char **patte
         return 0;
 }
 
-
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_free_ char *test_execute_path = NULL;
@@ -750,6 +806,7 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_ambientcapabilities),
                 entry(test_exec_bindpaths),
                 entry(test_exec_capabilityboundingset),
+                entry(test_exec_condition),
                 entry(test_exec_cpuaffinity),
                 entry(test_exec_environment),
                 entry(test_exec_environmentfile),

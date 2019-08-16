@@ -31,8 +31,6 @@ option('telinit-path', type : 'string', value : '/lib/sysvinit/telinit',
        description : 'path to telinit')
 option('rc-local', type : 'string',
        value : '/etc/rc.local')
-option('halt-local', type : 'string',
-       value : '/usr/sbin/halt.local')
 
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')
@@ -43,12 +41,13 @@ option('mount-path', type : 'string', description : 'path to mount')
 option('umount-path', type : 'string', description : 'path to umount')
 option('loadkeys-path', type : 'string', description : 'path to loadkeys')
 option('setfont-path', type : 'string', description : 'path to setfont')
+option('nologin-path', type : 'string', description : 'path to nologin')
 
 option('debug-shell', type : 'string', value : '/bin/sh',
        description : 'path to debug shell binary')
 option('debug-tty', type : 'string', value : '/dev/tty9',
        description : 'specify the tty device for debug shell')
-option('debug-extra', type : 'array', choices : ['hashmap', 'mmap-cache', 'siphash', 'udev'], value : [],
+option('debug-extra', type : 'array', choices : ['hashmap', 'mmap-cache', 'siphash'], value : [],
        description : 'enable extra debugging')
 option('memory-accounting-default', type : 'boolean',
        description : 'enable MemoryAccounting= by default')
@@ -79,6 +78,8 @@ option('binfmt', type : 'boolean',
        description : 'support for custom binary formats')
 option('coredump', type : 'boolean',
        description : 'install the coredump handler')
+option('pstore', type : 'boolean',
+       description : 'install the pstore archival tool')
 option('logind', type : 'boolean',
        description : 'install the systemd-logind stack')
 option('hostnamed', type : 'boolean',
@@ -97,6 +98,8 @@ option('timesyncd', type : 'boolean',
        description : 'install the systemd-timesyncd daemon')
 option('remote', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'support for "journal over the network"')
+option('create-log-dirs', type : 'boolean',
+       description : 'create /var/log/journal{,/remote}')
 option('nss-myhostname', type : 'boolean',
        description : 'install nss-myhostname module')
 option('nss-mymachines', type : 'combo', choices : ['auto', 'true', 'false'],
@@ -126,6 +129,7 @@ option('hwdb', type : 'boolean',
 option('rfkill', type : 'boolean',
        description : 'support for the rfkill tools')
 option('man', type : 'combo', choices : ['auto', 'true', 'false'],
+       value : 'false',
        description : 'build and install man pages')
 option('html', type : 'combo', choices : ['auto', 'true', 'false'],
        value : 'false',
@@ -157,11 +161,14 @@ option('fallback-hostname', type : 'string', value : 'localhost',
 option('compat-gateway-hostname', type : 'boolean', value : 'false',
        description : 'allow "gateway" as the symbolic name for default gateway')
 option('default-hierarchy', type : 'combo',
-       choices : ['legacy', 'hybrid', 'unified'], value : 'hybrid',
+       choices : ['legacy', 'hybrid', 'unified'], value : 'unified',
        description : 'default cgroup hierarchy')
 option('default-net-naming-scheme', type : 'combo',
        choices : ['latest', 'v238', 'v239', 'v240'],
        description : 'default net.naming-scheme= value')
+option('status-unit-format-default', type : 'combo',
+       choices : ['description', 'name'],
+       description : 'use unit name or description in messages by default')
 option('time-epoch', type : 'integer', value : '-1',
        description : 'time epoch for time clients')
 option('system-uid-max', type : 'integer', value : '-1',
@@ -207,7 +214,7 @@ option('default-dnssec', type : 'combo',
        value : 'allow-downgrade')
 option('default-dns-over-tls', type : 'combo',
        description : 'default DNS-over-TLS mode',
-       choices : ['opportunistic', 'no'],
+       choices : ['yes', 'opportunistic', 'no'],
        value : 'no')
 option('dns-over-tls', type : 'combo', choices : ['auto', 'gnutls', 'openssl', 'true', 'false'],
        description : 'DNS-over-TLS support')
@@ -329,3 +336,9 @@ option('oss-fuzz', type : 'boolean', value : 'false',
        description : 'build against oss-fuzz')
 option('llvm-fuzz', type : 'boolean', value : 'false',
        description : 'build against LLVM libFuzzer')
+option('fuzzbuzz', type : 'boolean', value : 'false',
+       description : 'build against FuzzBuzz')
+option('fuzzbuzz-engine', type : 'string',
+       description : 'the name of the FuzzBuzz fuzzing engine')
+option('fuzzbuzz-engine-dir', type : 'string',
+       description : 'the directory where the FuzzBuzz fuzzing engine is')

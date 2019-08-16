@@ -247,6 +247,11 @@ static int guess_type(const char **name, bool *is_usr, bool *is_collection, cons
         if (path_equal(n, "kernel/install.d"))
                 ext = ".install";
 
+        if (path_equal(n, "systemd/ntp-units.d")) {
+                coll = true;
+                ext = ".list";
+        }
+
         if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
                 coll = true;
                 ext = ".preset";

@@ -21,6 +21,7 @@
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stdio-util.h"
@@ -174,6 +175,12 @@ int write_string_file_ts(
         /* We don't know how to verify whether the file contents was already on-disk. */
         assert(!((flags & WRITE_STRING_FILE_VERIFY_ON_FAILURE) && (flags & WRITE_STRING_FILE_SYNC)));
 
+        if (flags & WRITE_STRING_FILE_MKDIR_0755) {
+                r = mkdir_parents(fn, 0755);
+                if (r < 0)
+                        return r;
+        }
+
         if (flags & WRITE_STRING_FILE_ATOMIC) {
                 assert(flags & WRITE_STRING_FILE_CREATE);
 
@@ -291,7 +298,7 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         errno = 0;
         k = fread(buf, 1, l + accept_extra_nl + 1, f);
         if (ferror(f))
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         if (k != l && k != l + accept_extra_nl)
                 return 0;
@@ -375,7 +382,7 @@ int read_full_stream_full(
                         l += k;
 
                 if (ferror(f)) {
-                        r = errno > 0 ? -errno : -EIO;
+                        r = errno_or_else(EIO);
                         goto finalize;
                 }
 
@@ -582,10 +589,7 @@ static int search_and_fopen_internal(const char *path, const char *mode, const c
                 _cleanup_free_ char *p = NULL;
                 FILE *f;
 
-                if (root)
-                        p = strjoin(root, *i, "/", path);
-                else
-                        p = strjoin(*i, "/", path);
+                p = path_join(root, *i, path);
                 if (!p)
                         return -ENOMEM;
 
@@ -657,7 +661,7 @@ int fflush_and_check(FILE *f) {
         fflush(f);
 
         if (ferror(f))
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         return 0;
 }
@@ -772,7 +776,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, funlockfile);
 int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
         size_t n = 0, allocated = 0, count = 0;
         _cleanup_free_ char *buffer = NULL;
-        int r;
+        int r, tty = -1;
 
         assert(f);
 
@@ -847,6 +851,17 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
                         count++;
 
                         if (eol != EOL_NONE) {
+                                /* If we are on a tty, we can't wait for more input. But we expect only
+                                 * \n as the single EOL marker, so there is no need to wait. We check
+                                 * this condition last to avoid isatty() check if not necessary. */
+
+                                if (tty < 0)
+                                        tty = isatty(fileno(f));
+                                if (tty > 0)
+                                        break;
+                        }
+
+                        if (eol != EOL_NONE) {
                                 previous_eol |= eol;
                                 continue;
                         }
@@ -884,7 +899,7 @@ int safe_fgetc(FILE *f, char *ret) {
         k = fgetc(f);
         if (k == EOF) {
                 if (ferror(f))
-                        return errno > 0 ? -errno : -EIO;
+                        return errno_or_else(EIO);
 
                 if (ret)
                         *ret = 0;

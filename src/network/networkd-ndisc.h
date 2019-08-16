@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include "conf-parser.h"
 #include "networkd-link.h"
 #include "time-util.h"
 
@@ -21,3 +22,5 @@ static inline char* NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
 int ndisc_configure(Link *link);
 void ndisc_vacuum(Link *link);
 void ndisc_flush(Link *link);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_black_listed_prefix);

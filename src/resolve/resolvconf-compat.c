@@ -82,7 +82,7 @@ static int parse_search_domain(const char *string) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&string, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&string, &word, NULL, EXTRACT_UNQUOTE);
                 if (r < 0)
                         return r;
                 if (r == 0)

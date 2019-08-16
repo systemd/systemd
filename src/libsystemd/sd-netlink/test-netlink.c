@@ -2,6 +2,7 @@
 
 #include <net/if.h>
 #include <netinet/ether.h>
+#include <linux/genetlink.h>
 
 #include "sd-netlink.h"
 
@@ -11,6 +12,7 @@
 #include "missing.h"
 #include "netlink-util.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "util.h"
 
@@ -507,6 +509,48 @@ static void test_message(sd_netlink *rtnl) {
         assert_se(sd_netlink_message_get_errno(m) == -ETIMEDOUT);
 }
 
+static void test_array(void) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+
+        assert_se(sd_genl_socket_open(&genl) >= 0);
+        assert_se(sd_genl_message_new(genl, SD_GENL_ID_CTRL, CTRL_CMD_GETFAMILY, &m) >= 0);
+
+        assert_se(sd_netlink_message_open_container(m, CTRL_ATTR_MCAST_GROUPS) >= 0);
+        for (unsigned i = 0; i < 10; i++) {
+                char name[STRLEN("hoge") + DECIMAL_STR_MAX(uint32_t)];
+                uint32_t id = i + 1000;
+
+                xsprintf(name, "hoge%" PRIu32, id);
+                assert_se(sd_netlink_message_open_array(m, i + 1) >= 0);
+                assert_se(sd_netlink_message_append_u32(m, CTRL_ATTR_MCAST_GRP_ID, id) >= 0);
+                assert_se(sd_netlink_message_append_string(m, CTRL_ATTR_MCAST_GRP_NAME, name) >= 0);
+                assert_se(sd_netlink_message_close_container(m) >= 0);
+        }
+        assert_se(sd_netlink_message_close_container(m) >= 0);
+
+        rtnl_message_seal(m);
+        assert_se(sd_netlink_message_rewind(m) >= 0);
+
+        assert_se(sd_netlink_message_enter_container(m, CTRL_ATTR_MCAST_GROUPS) >= 0);
+        for (unsigned i = 0; i < 10; i++) {
+                char expected[STRLEN("hoge") + DECIMAL_STR_MAX(uint32_t)];
+                const char *name;
+                uint32_t id;
+
+                assert_se(sd_netlink_message_enter_array(m, i + 1) >= 0);
+                assert_se(sd_netlink_message_read_u32(m, CTRL_ATTR_MCAST_GRP_ID, &id) >= 0);
+                assert_se(sd_netlink_message_read_string(m, CTRL_ATTR_MCAST_GRP_NAME, &name) >= 0);
+                assert_se(sd_netlink_message_exit_container(m) >= 0);
+
+                assert_se(id == i + 1000);
+                xsprintf(expected, "hoge%" PRIu32, id);
+                assert_se(streq(name, expected));
+        }
+        assert_se(sd_netlink_message_exit_container(m) >= 0);
+
+}
+
 int main(void) {
         sd_netlink *rtnl;
         sd_netlink_message *m;
@@ -524,6 +568,7 @@ int main(void) {
         test_route(rtnl);
         test_message(rtnl);
         test_container(rtnl);
+        test_array();
 
         if_loopback = (int) if_nametoindex("lo");
         assert_se(if_loopback > 0);

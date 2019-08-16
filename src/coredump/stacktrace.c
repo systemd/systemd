@@ -108,7 +108,7 @@ static int thread_callback(Dwfl_Thread *thread, void *userdata) {
         return DWARF_CB_OK;
 }
 
-int coredump_make_stack_trace(int fd, const char *executable, char **ret) {
+static int make_stack_trace(int fd, const char *executable, char **ret) {
 
         static const Dwfl_Callbacks callbacks = {
                 .find_elf = dwfl_build_id_find_elf,
@@ -182,4 +182,14 @@ finish:
         free(buf);
 
         return r;
+}
+
+void coredump_make_stack_trace(int fd, const char *executable, char **ret) {
+        int r;
+
+        r = make_stack_trace(fd, executable, ret);
+        if (r == -EINVAL)
+                log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
+        else if (r < 0)
+                log_warning_errno(r, "Failed to generate stack trace: %m");
 }

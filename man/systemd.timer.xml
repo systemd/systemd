@@ -35,9 +35,9 @@
     this unit type. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
-    configuration items are configured in the generic [Unit] and
-    [Install] sections. The timer specific configuration options are
-    configured in the [Timer] section.</para>
+    configuration items are configured in the generic <literal>[Unit]</literal> and
+    <literal>[Install]</literal> sections. The timer specific configuration options are
+    configured in the <literal>[Timer]</literal> section.</para>
 
     <para>For each timer file, a matching unit file must exist,
     describing the unit to activate when the timer elapses. By
@@ -286,28 +286,31 @@
       <varlistentry>
         <term><varname>Persistent=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, the time
-        when the service unit was last triggered is stored on disk.
-        When the timer is activated, the service unit is triggered
-        immediately if it would have been triggered at least once
-        during the time when the timer was inactive. This is useful to
-        catch up on missed runs of the service when the machine was
-        off. Note that this setting only has an effect on timers
-        configured with <varname>OnCalendar=</varname>. Defaults
-        to <varname>false</varname>.
-        </para></listitem>
+        <listitem><para>Takes a boolean argument. If true, the time when the service unit was last triggered
+        is stored on disk.  When the timer is activated, the service unit is triggered immediately if it
+        would have been triggered at least once during the time when the timer was inactive. This is useful
+        to catch up on missed runs of the service when the system was powered down. Note that this setting
+        only has an effect on timers configured with <varname>OnCalendar=</varname>. Defaults to
+        <varname>false</varname>.</para>
+
+        <para>Use <command>systemctl clean --what=state …</command> on the timer unit to remove the timestamp
+        file maintained by this option from disk. In particular, use this command before uninstalling a timer
+        unit. See
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>WakeSystem=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, an elapsing
-        timer will cause the system to resume from suspend, should it
-        be suspended and if the system supports this. Note that this
-        option will only make sure the system resumes on the
-        appropriate times, it will not take care of suspending it
-        again after any work that is to be done is finished. Defaults
-        to <varname>false</varname>.</para></listitem>
+        <listitem><para>Takes a boolean argument. If true, an elapsing timer will cause the system to resume
+        from suspend, should it be suspended and if the system supports this. Note that this option will only
+        make sure the system resumes on the appropriate times, it will not take care of suspending it again
+        after any work that is to be done is finished. Defaults to
+        <varname>false</varname>.</para>
+
+        <para>Note that this functionality requires privileges and is thus generally only available in the
+        system service manager.</para></listitem>
       </varlistentry>
 
       <varlistentry>

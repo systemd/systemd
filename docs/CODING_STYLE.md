@@ -201,6 +201,19 @@ title: Coding Style
   array. In that case use STRLEN, which evaluates to a static constant and
   doesn't force the compiler to create a VLA.
 
+- Please use C's downgrade-to-bool feature only for expressions that are
+  actually booleans (or "boolean-like"), and not for variables that are really
+  numeric. Specifically, if you have an `int b` and it's only used in a boolean
+  sense, by all means check its state with `if (b) …` — but if `b` can actually
+  have more than two semantic values, and you want to compare for non-zero,
+  then please write that explicitly with `if (b != 0) …`. This helps readability
+  as the value range and semantical behaviour is directly clear from the
+  condition check. As a special addition: when dealing with pointers which you
+  want to check for non-NULL-ness, you may also use downgrade-to-bool feature.
+
+- Please do not use yoda comparisons, i.e. please prefer the more readable `if
+  (a == 7)` over the less readable `if (7 == a)`.
+
 ## Destructors
 
 - The destructors always deregister the object from the next bigger object, not
@@ -223,7 +236,7 @@ title: Coding Style
   p = foobar_unref(p);
   ```
 
-  which will always work regardless if `p` is initialized or not,x and
+  which will always work regardless if `p` is initialized or not, and
   guarantees that `p` is `NULL` afterwards, all in just one line.
 
 ## Error Handling

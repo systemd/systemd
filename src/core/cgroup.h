@@ -114,6 +114,9 @@ struct CGroupContext {
         LIST_HEAD(IPAddressAccessItem, ip_address_allow);
         LIST_HEAD(IPAddressAccessItem, ip_address_deny);
 
+        char **ip_filters_ingress;
+        char **ip_filters_egress;
+
         /* For legacy hierarchies */
         uint64_t cpu_shares;
         uint64_t startup_cpu_shares;
@@ -197,6 +200,7 @@ int unit_watch_cgroup(Unit *u);
 int unit_watch_cgroup_memory(Unit *u);
 
 void unit_add_to_cgroup_empty_queue(Unit *u);
+int unit_check_oom(Unit *u);
 
 int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path);
 
@@ -248,3 +252,5 @@ const char* cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
 CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;
 
 bool unit_cgroup_delegate(Unit *u);
+
+int compare_job_priority(const void *a, const void *b);

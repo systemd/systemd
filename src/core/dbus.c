@@ -784,7 +784,7 @@ static int manager_dispatch_sync_bus_names(sd_event_source *es, void *userdata) 
                          * changed, so synthesize a name owner changed signal. */
 
                         if (!streq_ptr(unique, s->bus_name_owner))
-                                UNIT_VTABLE(u)->bus_name_owner_change(u, name, s->bus_name_owner, unique);
+                                UNIT_VTABLE(u)->bus_name_owner_change(u, s->bus_name_owner, unique);
                 } else {
                         /* So, the name we're watching is not on the bus.
                          * This either means it simply hasn't appeared yet,
@@ -793,7 +793,7 @@ static int manager_dispatch_sync_bus_names(sd_event_source *es, void *userdata) 
                          * and synthesize a name loss signal in this case. */
 
                         if (s->bus_name_owner)
-                                UNIT_VTABLE(u)->bus_name_owner_change(u, name, s->bus_name_owner, NULL);
+                                UNIT_VTABLE(u)->bus_name_owner_change(u, s->bus_name_owner, NULL);
                 }
         }
 

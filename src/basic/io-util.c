@@ -257,8 +257,90 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value) {
         char *x;
 
-        x = strappend(field, value);
+        x = strjoin(field, value);
         if (x)
                 iovec[(*n_iovec)++] = IOVEC_MAKE_STRING(x);
         return x;
+}
+
+char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value) {
+        char *x;
+
+        x = set_iovec_string_field(iovec, n_iovec, field, value);
+        free(value);
+        return x;
+}
+
+struct iovec_wrapper *iovw_new(void) {
+        return malloc0(sizeof(struct iovec_wrapper));
+}
+
+void iovw_free_contents(struct iovec_wrapper *iovw, bool free_vectors) {
+        if (free_vectors)
+                for (size_t i = 0; i < iovw->count; i++)
+                        free(iovw->iovec[i].iov_base);
+
+        iovw->iovec = mfree(iovw->iovec);
+        iovw->count = 0;
+        iovw->size_bytes = 0;
+}
+
+struct iovec_wrapper *iovw_free_free(struct iovec_wrapper *iovw) {
+        iovw_free_contents(iovw, true);
+
+        return mfree(iovw);
+}
+
+struct iovec_wrapper *iovw_free(struct iovec_wrapper *iovw) {
+        iovw_free_contents(iovw, false);
+
+        return mfree(iovw);
+}
+
+int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
+        if (iovw->count >= IOV_MAX)
+                return -E2BIG;
+
+        if (!GREEDY_REALLOC(iovw->iovec, iovw->size_bytes, iovw->count + 1))
+                return log_oom();
+
+        iovw->iovec[iovw->count++] = IOVEC_MAKE(data, len);
+        return 0;
+}
+
+int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const char *value) {
+        _cleanup_free_ char *x = NULL;
+        int r;
+
+        x = strjoin(field, value);
+        if (!x)
+                return log_oom();
+
+        r = iovw_put(iovw, x, strlen(x));
+        if (r >= 0)
+                TAKE_PTR(x);
+
+        return r;
+}
+
+int iovw_put_string_field_free(struct iovec_wrapper *iovw, const char *field, char *value) {
+        _cleanup_free_ _unused_ char *free_ptr = value;
+
+        return iovw_put_string_field(iovw, field, value);
+}
+
+void iovw_rebase(struct iovec_wrapper *iovw, char *old, char *new) {
+        size_t i;
+
+        for (i = 0; i < iovw->count; i++)
+                iovw->iovec[i].iov_base = (char *)iovw->iovec[i].iov_base - old + new;
+}
+
+size_t iovw_size(struct iovec_wrapper *iovw) {
+        size_t n = 0, i;
+
+        for (i = 0; i < iovw->count; i++)
+                n += iovw->iovec[i].iov_len;
+
+        return n;
 }

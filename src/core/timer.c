@@ -146,7 +146,7 @@ static int timer_setup_persistent(Timer *t) {
                 if (r < 0)
                         return r;
 
-                t->stamp_path = strappend("/var/lib/systemd/timers/stamp-", UNIT(t)->id);
+                t->stamp_path = strjoin("/var/lib/systemd/timers/stamp-", UNIT(t)->id);
         } else {
                 const char *e;
 
@@ -430,28 +430,16 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
 
                         case TIMER_UNIT_ACTIVE:
                                 leave_around = true;
-                                base = trigger->inactive_exit_timestamp.monotonic;
-
-                                if (base <= 0)
-                                        base = t->last_trigger.monotonic;
-
+                                base = MAX(trigger->inactive_exit_timestamp.monotonic, t->last_trigger.monotonic);
                                 if (base <= 0)
                                         continue;
-                                base = MAX(base, t->last_trigger.monotonic);
-
                                 break;
 
                         case TIMER_UNIT_INACTIVE:
                                 leave_around = true;
-                                base = trigger->inactive_enter_timestamp.monotonic;
-
-                                if (base <= 0)
-                                        base = t->last_trigger.monotonic;
-
+                                base = MAX(trigger->inactive_enter_timestamp.monotonic, t->last_trigger.monotonic);
                                 if (base <= 0)
                                         continue;
-                                base = MAX(base, t->last_trigger.monotonic);
-
                                 break;
 
                         default:
@@ -845,6 +833,41 @@ static void timer_timezone_change(Unit *u) {
         }
 }
 
+static int timer_clean(Unit *u, ExecCleanMask mask) {
+        Timer *t = TIMER(u);
+        int r;
+
+        assert(t);
+        assert(mask != 0);
+
+        if (t->state != TIMER_DEAD)
+                return -EBUSY;
+
+        if (!IN_SET(mask, EXEC_CLEAN_STATE))
+                return -EUNATCH;
+
+        r = timer_setup_persistent(t);
+        if (r < 0)
+                return r;
+
+        if (!t->stamp_path)
+                return -EUNATCH;
+
+        if (unlink(t->stamp_path) && errno != ENOENT)
+                return log_unit_error_errno(u, errno, "Failed to clean stamp file of timer: %m");
+
+        return 0;
+}
+
+static int timer_can_clean(Unit *u, ExecCleanMask *ret) {
+        Timer *t = TIMER(u);
+
+        assert(t);
+
+        *ret = t->persistent ? EXEC_CLEAN_STATE : 0;
+        return 0;
+}
+
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
         [TIMER_ACTIVE] = "OnActiveSec",
         [TIMER_BOOT] = "OnBootSec",
@@ -883,6 +906,9 @@ const UnitVTable timer_vtable = {
 
         .start = timer_start,
         .stop = timer_stop,
+
+        .clean = timer_clean,
+        .can_clean = timer_can_clean,
 
         .serialize = timer_serialize,
         .deserialize_item = timer_deserialize_item,

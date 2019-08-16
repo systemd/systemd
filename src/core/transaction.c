@@ -6,9 +6,10 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "dbus-unit.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "transaction.h"
-#include "dbus-unit.h"
 
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);
 
@@ -353,6 +354,11 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
         Unit *u;
         void *v;
         int r;
+        static const UnitDependency directions[] = {
+                UNIT_BEFORE,
+                UNIT_AFTER,
+        };
+        size_t d;
 
         assert(tr);
         assert(j);
@@ -441,25 +447,33 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
         j->marker = from ? from : j;
         j->generation = generation;
 
-        /* We assume that the dependencies are bidirectional, and
-         * hence can ignore UNIT_AFTER */
-        HASHMAP_FOREACH_KEY(v, u, j->unit->dependencies[UNIT_BEFORE], i) {
-                Job *o;
+        /* Actual ordering of jobs depends on the unit ordering dependency and job types. We need to traverse
+         * the graph over 'before' edges in the actual job execution order. We traverse over both unit
+         * ordering dependencies and we test with job_compare() whether it is the 'before' edge in the job
+         * execution ordering. */
+        for (d = 0; d < ELEMENTSOF(directions); d++) {
+                HASHMAP_FOREACH_KEY(v, u, j->unit->dependencies[directions[d]], i) {
+                        Job *o;
 
-                /* Is there a job for this unit? */
-                o = hashmap_get(tr->jobs, u);
-                if (!o) {
-                        /* Ok, there is no job for this in the
-                         * transaction, but maybe there is already one
-                         * running? */
-                        o = u->job;
-                        if (!o)
+                        /* Is there a job for this unit? */
+                        o = hashmap_get(tr->jobs, u);
+                        if (!o) {
+                                /* Ok, there is no job for this in the
+                                 * transaction, but maybe there is already one
+                                 * running? */
+                                o = u->job;
+                                if (!o)
+                                        continue;
+                        }
+
+                        /* Cut traversing if the job j is not really *before* o. */
+                        if (job_compare(j, o, directions[d]) >= 0)
                                 continue;
-                }
 
-                r = transaction_verify_order_one(tr, o, j, generation, e);
-                if (r < 0)
-                        return r;
+                        r = transaction_verify_order_one(tr, o, j, generation, e);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         /* Ok, let's backtrack, and remember that this entry is not on

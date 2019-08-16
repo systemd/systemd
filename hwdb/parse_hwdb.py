@@ -126,7 +126,7 @@ def property_grammar():
              ('KEYBOARD_LED_NUMLOCK', Literal('0')),
              ('KEYBOARD_LED_CAPSLOCK', Literal('0')),
              ('ACCEL_MOUNT_MATRIX', mount_matrix),
-             ('ACCEL_LOCATION', STRING),
+             ('ACCEL_LOCATION', Or(('display', 'base'))),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
@@ -178,10 +178,6 @@ def check_one_default(prop, settings):
     if len(defaults) > 1:
         error('More than one star entry: {!r}', prop)
 
-def check_one_accel_location(prop, value):
-    if value not in ['base', 'display']:
-        error('Wrong accel location: {!r}', prop)
-
 def check_one_mount_matrix(prop, value):
     numbers = [s for s in value if s not in {';', ','}]
     if len(numbers) != 9:
@@ -224,8 +220,6 @@ def check_properties(groups):
                 check_one_default(prop, parsed.VALUE.SETTINGS)
             elif parsed.NAME == 'ACCEL_MOUNT_MATRIX':
                 check_one_mount_matrix(prop, parsed.VALUE)
-            elif parsed.NAME == 'ACCEL_LOCATION':
-                check_one_accel_location(prop, parsed.VALUE)
             elif parsed.NAME.startswith('KEYBOARD_KEY_'):
                 check_one_keycode(prop, parsed.VALUE)
 

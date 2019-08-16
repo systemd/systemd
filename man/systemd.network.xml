@@ -113,7 +113,7 @@
           <listitem>
             <para>A whitespace-separated list of shell-style globs
             matching the driver currently bound to the device, as
-            exposed by the udev property <literal>DRIVER</literal>
+            exposed by the udev property <literal>ID_NET_DRIVER</literal>
             of its parent device, or if that is not set the driver
             as exposed by <literal>ethtool -i</literal> of the
             device itself. If the list is prefixed with a "!", the
@@ -136,6 +136,21 @@
             matching the device name, as exposed by the udev property
             <literal>INTERFACE</literal>. If the list is prefixed
             with a "!", the test is inverted.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Property=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of udev property name with its value after a equal
+            (<literal>=</literal>). If multiple properties are specified, the test results are ANDed.
+            If the list is prefixed with a "!", the test is inverted. If a value contains white
+            spaces, then please quote whole key and value pair. If a value contains quotation, then
+            please escape the quotation with <literal>\</literal>.</para>
+
+            <para>Example: if a .network file has the following:
+            <programlisting>Property=ID_MODEL_ID=9999 "ID_VENDOR_FROM_DATABASE=vendor name" "KEY=with \"quotation\""</programlisting>
+            then, the .network file matches only when an interface has all the above three properties.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -309,8 +324,8 @@
             specified through DHCP is not used for name resolution.
             See option <option>UseDomains=</option> below.</para>
 
-            <para>See the <literal>[DHCP]</literal> section below for further configuration options for the DHCP client
-            support.</para>
+            <para>See the <literal>[DHCPv4]</literal> or <literal>[DHCPv6]</literal> section below for
+            further configuration options for the DHCP client support.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -326,9 +341,16 @@
           <term><varname>LinkLocalAddressing=</varname></term>
           <listitem>
             <para>Enables link-local address autoconfiguration. Accepts <literal>yes</literal>,
-            <literal>no</literal>, <literal>ipv4</literal>, or <literal>ipv6</literal>. If
-            <varname>Bridge=</varname> is set, defaults to <literal>no</literal>, and if not,
-            defaults to <literal>ipv6</literal>.</para>
+            <literal>no</literal>, <literal>ipv4</literal>, <literal>ipv6</literal>,
+            <literal>fallback</literal>, or <literal>ipv4-fallback</literal>. If
+            <literal>fallback</literal> or <literal>ipv4-fallback</literal> is specified, then an IPv4
+            link-local address is configured only when DHCPv4 fails. If <literal>fallback</literal>,
+            an IPv6 link-local address is always configured, and if <literal>ipv4-fallback</literal>,
+            the address is not configured. Note that, the fallback mechanism works only when DHCPv4
+            client is enabled, that is, it requires <literal>DHCP=yes</literal> or
+            <literal>DHCP=ipv4</literal>. If <varname>Bridge=</varname> is set, defaults to
+            <literal>no</literal>, and if not, defaults to <literal>ipv6</literal>.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -338,6 +360,15 @@
             non-IPv4LL hosts to communicate with IPv4LL-only hosts. Defaults
             to false.
             </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DefaultRouteOnDevice=</varname></term>
+          <listitem>
+            <para>Takes a boolean. If set to true, sets up the default route bound to the interface.
+            Defaults to false. This is useful when creating routes on point-to-point interfaces.
+            This is equivalent to e.g. the following.
+            <programlisting>ip route add default dev veth99</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -379,12 +410,15 @@
         <varlistentry>
           <term><varname>DNSOverTLS=</varname></term>
           <listitem>
-            <para>Takes false or
-            <literal>opportunistic</literal>. When set to <literal>opportunistic</literal>, enables
+            <para>Takes a boolean or <literal>opportunistic</literal>.
+            When true, enables
             <ulink
             url="https://tools.ietf.org/html/rfc7858">DNS-over-TLS</ulink>
-            support on the link. This option defines a
-            per-interface setting for
+            support on the link.
+            When set to <literal>opportunistic</literal>, compatibility with
+            non-DNS-over-TLS servers is increased, by automatically
+            turning off DNS-over-TLS servers in this case.
+            This option defines a per-interface setting for
             <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
             global <varname>DNSOverTLS=</varname> option. Defaults to
             false. This setting is read by
@@ -620,11 +654,10 @@
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6AcceptRA=</varname></term>
-          <listitem><para>Takes a boolean. Controls IPv6 Router Advertisement (RA) reception support for the interface.
-          If true, RAs are accepted; if false, RAs are ignored, independently of the local forwarding state.
-          If unset, the kernel's default is used, and RAs are accepted only when local forwarding
-          is disabled for that interface.  When RAs are accepted, they may trigger the start of the DHCPv6 client if
-          the relevant flags are set in the RA data, or if no routers are found on the link.</para>
+          <listitem><para>Takes a boolean. Controls IPv6 Router Advertisement (RA) reception support
+          for the interface. If true, RAs are accepted; if false, RAs are ignored, independently of the
+          local forwarding state. When RAs are accepted, they may trigger the start of the DHCPv6
+          client if the relevant flags are set in the RA data, or if no routers are found on the link.</para>
 
           <para>Further settings for the IPv6 RA support may be configured in the
           <literal>[IPv6AcceptRA]</literal> section, see below.</para>
@@ -634,10 +667,11 @@
           documentation regarding <literal>accept_ra</literal>, but note that systemd's setting of
           <constant>1</constant> (i.e. true) corresponds to kernel's setting of <constant>2</constant>.</para>
 
-          <para>Note that if this option is enabled a userspace implementation of the IPv6 RA protocol is
-          used, and the kernel's own implementation remains disabled, since `networkd` needs to know all
-          details supplied in the advertisements, and these are not available from the kernel if the kernel's
-          own implementation is used.</para>
+          <para>Note that kernel's implementation of the IPv6 RA protocol is always disabled,
+          regardless of this setting. If this option is enabled, a userspace implementation of the IPv6
+          RA protocol is used, and the kernel's own implementation remains disabled, since
+          <command>systemd-networkd</command> needs to know all details supplied in the advertisements,
+          and these are not available from the kernel if the kernel's own implementation is used.</para>
         </listitem>
         </varlistentry>
         <varlistentry>
@@ -822,6 +856,30 @@
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Xfrm=</varname></term>
+        <listitem>
+          <para>The name of the xfrm to create on the link. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This option may be specified more than once.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>KeepConfiguration=</varname></term>
+        <listitem>
+          <para>Takes a boolean or one of <literal>static</literal>, <literal>dhcp-on-stop</literal>,
+          <literal>dhcp</literal>. When <literal>static</literal>, <command>systemd-networkd</command>
+          will not drop static addresses and routes on starting up process. When set to
+          <literal>dhcp-on-stop</literal>, <command>systemd-networkd</command> will not drop addresses
+          and routes on stopping the daemon. When <literal>dhcp</literal>,
+          the addresses and routes provided by a DHCP server will never be dropped even if the DHCP
+          lease expires. This is contrary to the DHCP specification, but may be the best choice if,
+          e.g., the root filesystem relies on this connection. The setting <literal>dhcp</literal>
+          implies <literal>dhcp-on-stop</literal>, and <literal>yes</literal> implies
+          <literal>dhcp</literal> and <literal>static</literal>. Defaults to
+          <literal>dhcp-on-stop</literal>.</para>
+        </listitem>
+      </varlistentry>
 
       </variablelist>
 
@@ -958,9 +1016,9 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>MACAddress=</varname></term>
+          <term><varname>LinkLayerAddress=</varname></term>
           <listitem>
-            <para>The hardware address of the neighbor.</para>
+            <para>The link layer address (MAC address or IP address) of the neighbor.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1028,8 +1086,9 @@
         <varlistentry>
           <term><varname>Table=</varname></term>
           <listitem>
-            <para>Specifies the routing table identifier to lookup if the rule
-            selector matches. The table identifier for a route (a number between 1 and 4294967295).</para>
+            <para>Specifies the routing table identifier to lookup if the rule selector matches. Takes
+            one of <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>,
+            or a number between 1 and 4294967295. Defaults to <literal>main</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1166,15 +1225,19 @@
           <term><varname>Protocol=</varname></term>
           <listitem>
             <para>The protocol identifier for the route. Takes a number between 0 and 255 or the special values
-            <literal>kernel</literal>, <literal>boot</literal> and <literal>static</literal>. Defaults to
-            <literal>static</literal>.
+            <literal>kernel</literal>, <literal>boot</literal>, <literal>static</literal>,
+            <literal>ra</literal> and <literal>dhcp</literal>. Defaults to <literal>static</literal>.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Type=</varname></term>
           <listitem>
-            <para>Specifies the type for the route. If <literal>unicast</literal>, a regular route is defined, i.e. a
+            <para>Specifies the type for the route. Takes one of <literal>unicast</literal>,
+            <literal>local</literal>, <literal>broadcast</literal>, <literal>anycast</literal>,
+            <literal>multicast</literal>, <literal>blackhole</literal>, <literal>unreachable</literal>,
+            <literal>prohibit</literal>, <literal>throw</literal>, <literal>nat</literal>, and
+            <literal>xresolve</literal>. If <literal>unicast</literal>, a regular route is defined, i.e. a
             route indicating the path to take to a destination network address. If <literal>blackhole</literal>, packets
             to the defined route are discarded silently. If <literal>unreachable</literal>, packets to the defined route
             are discarded and the ICMP message "Host Unreachable" is generated. If <literal>prohibit</literal>, packets
@@ -1212,6 +1275,22 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>FastOpenNoCookie=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When true enables TCP fastopen without a cookie on a per-route basis.
+            When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>TTLPropagate=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When true enables TTL propagation at Label Switched Path (LSP) egress.
+            When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
         <term><varname>MTUBytes=</varname></term>
         <listitem>
           <para>The maximum transmission unit in bytes to set for the
@@ -1225,9 +1304,9 @@
   </refsect1>
 
   <refsect1>
-    <title>[DHCP] Section Options</title>
-      <para>The <literal>[DHCP]</literal> section configures the
-      DHCPv4 and DHCP6 client, if it is enabled with the
+    <title>[DHCPv4] Section Options</title>
+      <para>The <literal>[DHCPv4]</literal> section configures the
+      DHCPv4 client, if it is enabled with the
       <varname>DHCP=</varname> setting described above:</para>
 
       <variablelist class='network-directives'>
@@ -1241,6 +1320,14 @@
             <para>This corresponds to the <option>nameserver</option>
             option in <citerefentry
             project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>RoutesToDNS=</varname></term>
+          <listitem>
+            <para>When true, the routes to the DNS servers received from the DHCP server will be
+            configured. When <varname>UseDNS=</varname> is disabled, this setting is ignored.
+            Defaults to false.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1350,17 +1437,6 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>CriticalConnection=</varname></term>
-          <listitem>
-            <para>When true, the connection will never be torn down
-            even if the DHCP lease expires. This is contrary to the
-            DHCP specification, but may be the best choice if, say,
-            the root filesystem relies on this connection. Defaults to
-            false.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><varname>ClientIdentifier=</varname></term>
           <listitem>
             <para>The DHCPv4 client identifier to use. Takes one of <literal>mac</literal>, <literal>duid</literal> or <literal>duid-only</literal>.
@@ -1386,6 +1462,16 @@
             it represents. The information contained in this option is a string that represents the user class of which
             the client is a member. Each class sets an identifying string of information to be used by the DHCP
             service to classify clients. Takes a whitespace-separated list of strings.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>MaxAttempts=</varname></term>
+          <listitem>
+            <para>Specifies how many times the DHCPv4 client configuration should be attempted. Takes a
+            number or <literal>infinity</literal>. Defaults to <literal>infinity</literal>.
+            Note that the time between retries is increased exponentially, so the network will not be
+            overloaded even if this number is high.</para>
           </listitem>
         </varlistentry>
 
@@ -1454,6 +1540,38 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>SendRelease=</varname></term>
+          <listitem>
+            <para>When true, the DHCPv4 client sends a DHCP release packet when it stops.
+            Defaults to false.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>BlackList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected.</para>
+          </listitem>
+        </varlistentry>
+
+       </variablelist>
+   </refsect1>
+
+  <refsect1>
+    <title>[DHCPv6] Section Options</title>
+      <para>The <literal>[DHCPv6]</literal> section configures the DHCPv6 client, if it is enabled with the
+      <varname>DHCP=</varname> setting described above, or invoked by the IPv6 Router Advertisement:</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>UseDNS=</varname></term>
+          <term><varname>UseNTP=</varname></term>
+          <listitem>
+            <para>As in the <literal>[DHCPv4]</literal> section.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>RapidCommit=</varname></term>
           <listitem>
             <para>Takes a boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server through
@@ -1483,7 +1601,7 @@
         </varlistentry>
 
       </variablelist>
-    </refsect1>
+  </refsect1>
 
   <refsect1>
     <title>[IPv6AcceptRA] Section Options</title>
@@ -1546,6 +1664,13 @@
           <listitem>
             <para>When true (the default), the onlink prefix received in the Router Advertisement will be used and take
             precedence over any statically configured ones.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>BlackList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv6 prefixes. IPv6 prefixes supplied via router advertisements in the list are ignored.</para>
           </listitem>
         </varlistentry>
 
@@ -1877,6 +2002,32 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>ProxyARP=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Configures whether proxy ARP to be enabled on this port.
+            When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>ProxyARPWiFi=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Configures whether proxy ARP to be enabled on this port
+            which meets extended requirements by IEEE 802.11 and Hotspot 2.0 specifications.
+            When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MulticastRouter=</varname></term>
+          <listitem>
+            <para>Configures this port for having multicast routers attached. A port with a multicast
+            router will receive all multicast traffic. Takes one of <literal>no</literal>
+            to disable multicast routers on this port, <literal>query</literal> to let the system detect
+            the presence of routers, <literal>permanent</literal> to permanently enable multicast traffic
+            forwarding on this port, or <literal>temporary</literal> to enable multicast routers temporarily
+            on this port, not depending on incoming queries. When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Cost=</varname></term>
           <listitem>
             <para>Sets the "cost" of sending packets of this interface.
@@ -1914,11 +2065,38 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>Destination=</varname></term>
+          <listitem>
+            <para>Takes an IP address of the destination VXLAN tunnel endpoint.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>VLANId=</varname></term>
           <listitem>
             <para>The VLAN ID for the new static MAC table entry. If
             omitted, no VLAN ID information is appended to the new static MAC
             table entry.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>VNI=</varname></term>
+          <listitem>
+            <para>The VXLAN Network Identifier (or VXLAN Segment ID) to use to connect to
+            the remote VXLAN tunnel endpoint. Takes a number in the range 1-16777215.
+            Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>AssociatedWith=</varname></term>
+          <listitem>
+            <para>Specifies where the address is associated with. Takes one of <literal>use</literal>,
+            <literal>self</literal>, <literal>master</literal> or <literal>router</literal>.
+            <literal>use</literal> means the address is in use. User space can use this option to
+            indicate to the kernel that the fdb entry is in use. <literal>self</literal> means
+            the address is associated with the port drivers fdb. Usually hardware. <literal>master</literal>
+            means the address is associated with master devices fdb. <literal>router</literal> means
+            the destination address is associated with a router. Note that it's valid if the referenced
+            device is a VXLAN type device and has route shortcircuit enabled. Defaults to <literal>self</literal>.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -2026,6 +2204,27 @@ DHCP=yes</programlisting>
 
       <para>This will enable DHCPv4 and DHCPv6 on all interfaces with names starting with
       <literal>en</literal> (i.e. ethernet interfaces).</para>
+    </example>
+
+    <example>
+      <title>IPv6 Prefix Delegation</title>
+
+      <programlisting># /etc/systemd/network/55-ipv6-pd-upstream.network
+[Match]
+Name=enp1s0
+
+[Network]
+DHCP=ipv6</programlisting>
+
+      <programlisting># /etc/systemd/network/56-ipv6-pd-downstream.network
+[Match]
+Name=enp2s0
+
+[Network]
+IPv6PrefixDelegation=dhcpv6</programlisting>
+
+      <para>This will enable IPv6 PD on the interface enp1s0 as an upstream interface where the
+      DHCPv6 client is running and enp2s0 as a downstream interface where the prefix is delegated to.</para>
     </example>
 
     <example>
@@ -2197,6 +2396,29 @@ Name=enp0s25
 [Network]
 MACVTAP=macvtap-test
 </programlisting>
+    </example>
+
+    <example>
+      <title>A Xfrm interface with physical underlying device.</title>
+
+      <programlisting># /etc/systemd/network/27-xfrm.netdev
+[NetDev]
+Name=xfrm0
+
+[Xfrm]
+InterfaceId=7</programlisting>
+
+      <programlisting># /etc/systemd/network/27-eth0.network
+[Match]
+Name=eth0
+
+[Network]
+Xfrm=xfrm0</programlisting>
+
+      <para>This creates a <literal>xfrm0</literal> interface and binds it to the <literal>eth0</literal> device.
+      This allows hardware based ipsec offloading to the <literal>eth0</literal> nic.
+      If offloading is not needed, xfrm interfaces can be assigned to the <literal>lo</literal> device.
+      </para>
     </example>
   </refsect1>
 

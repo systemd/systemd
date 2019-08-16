@@ -70,4 +70,5 @@ const NetDevVTable vxcan_vtable = {
         .fill_message_create = netdev_vxcan_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_vxcan_verify,
+        .generate_mac = true,
 };

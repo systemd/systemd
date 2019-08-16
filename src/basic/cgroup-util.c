@@ -43,14 +43,14 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
+static int cg_enumerate_items(const char *controller, const char *path, FILE **_f, const char *item) {
         _cleanup_free_ char *fs = NULL;
         FILE *f;
         int r;
 
         assert(_f);
 
-        r = cg_get_path(controller, path, "cgroup.procs", &fs);
+        r = cg_get_path(controller, path, item, &fs);
         if (r < 0)
                 return r;
 
@@ -60,6 +60,10 @@ int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) 
 
         *_f = f;
         return 0;
+}
+
+int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
+        return cg_enumerate_items(controller, path, _f, "cgroup.procs");
 }
 
 int cg_read_pid(FILE *f, pid_t *_pid) {
@@ -77,7 +81,7 @@ int cg_read_pid(FILE *f, pid_t *_pid) {
                 if (feof(f))
                         return 0;
 
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
         }
 
         if (ul <= 0)
@@ -91,10 +95,9 @@ int cg_read_event(
                 const char *controller,
                 const char *path,
                 const char *event,
-                char **val) {
+                char **ret) {
 
         _cleanup_free_ char *events = NULL, *content = NULL;
-        char *p, *line;
         int r;
 
         r = cg_get_path(controller, path, "cgroup.events", &events);
@@ -105,22 +108,33 @@ int cg_read_event(
         if (r < 0)
                 return r;
 
-        p = content;
-        while ((line = strsep(&p, "\n"))) {
-                char *key;
+        for (const char *p = content;;) {
+                _cleanup_free_ char *line = NULL, *key = NULL, *val = NULL;
+                const char *q;
 
-                key = strsep(&line, " ");
-                if (!key || !line)
+                r = extract_first_word(&p, &line, "\n", 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENOENT;
+
+                q = line;
+                r = extract_first_word(&q, &key, " ", 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         return -EINVAL;
 
-                if (strcmp(key, event))
+                if (!streq(key, event))
                         continue;
 
-                *val = strdup(line);
+                val = strdup(q);
+                if (!val)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(val);
                 return 0;
         }
-
-        return -ENOENT;
 }
 
 bool cg_ns_supported(void) {
@@ -211,14 +225,15 @@ int cg_rmdir(const char *controller, const char *path) {
         return 0;
 }
 
-int cg_kill(
+static int cg_kill_items(
                 const char *controller,
                 const char *path,
                 int sig,
                 CGroupFlags flags,
                 Set *s,
                 cg_kill_log_func_t log_kill,
-                void *userdata) {
+                void *userdata,
+                const char *item) {
 
         _cleanup_set_free_ Set *allocated_set = NULL;
         bool done = false;
@@ -249,7 +264,7 @@ int cg_kill(
                 pid_t pid = 0;
                 done = true;
 
-                r = cg_enumerate_processes(controller, path, &f);
+                r = cg_enumerate_items(controller, path, &f, item);
                 if (r < 0) {
                         if (ret >= 0 && r != -ENOENT)
                                 return r;
@@ -312,6 +327,31 @@ int cg_kill(
         return ret;
 }
 
+int cg_kill(
+                const char *controller,
+                const char *path,
+                int sig,
+                CGroupFlags flags,
+                Set *s,
+                cg_kill_log_func_t log_kill,
+                void *userdata) {
+        int r;
+
+        r = cg_kill_items(controller, path, sig, flags, s, log_kill, userdata, "cgroup.procs");
+        if (r < 0 || sig != SIGKILL)
+                return r;
+
+        /* Only in case of killing with SIGKILL and when using cgroupsv2, kill remaining threads manually as
+           a workaround for kernel bug. It was fixed in 5.2-rc5 (c03cd7738a83). */
+        r = cg_unified_controller(controller);
+        if (r < 0)
+                return r;
+        if (r == 0) /* doesn't apply to legacy hierarchy */
+                return 0;
+
+        return cg_kill_items(controller, path, sig, flags, s, log_kill, userdata, "cgroup.threads");
+}
+
 int cg_kill_recursive(
                 const char *controller,
                 const char *path,
@@ -348,7 +388,7 @@ int cg_kill_recursive(
         while ((r = cg_read_subgroup(d, &fn)) > 0) {
                 _cleanup_free_ char *p = NULL;
 
-                p = strjoin(path, "/", fn);
+                p = path_join(empty_to_root(path), fn);
                 free(fn);
                 if (!p)
                         return -ENOMEM;
@@ -482,7 +522,7 @@ int cg_migrate_recursive(
         while ((r = cg_read_subgroup(d, &fn)) > 0) {
                 _cleanup_free_ char *p = NULL;
 
-                p = strjoin(pfrom, "/", fn);
+                p = path_join(empty_to_root(pfrom), fn);
                 free(fn);
                 if (!p)
                         return -ENOMEM;
@@ -570,13 +610,13 @@ static int join_path_legacy(const char *controller, const char *path, const char
         dn = controller_to_dirname(controller);
 
         if (isempty(path) && isempty(suffix))
-                t = strappend("/sys/fs/cgroup/", dn);
+                t = path_join("/sys/fs/cgroup", dn);
         else if (isempty(path))
-                t = strjoin("/sys/fs/cgroup/", dn, "/", suffix);
+                t = path_join("/sys/fs/cgroup", dn, suffix);
         else if (isempty(suffix))
-                t = strjoin("/sys/fs/cgroup/", dn, "/", path);
+                t = path_join("/sys/fs/cgroup", dn, path);
         else
-                t = strjoin("/sys/fs/cgroup/", dn, "/", path, "/", suffix);
+                t = path_join("/sys/fs/cgroup", dn, path, suffix);
         if (!t)
                 return -ENOMEM;
 
@@ -592,11 +632,11 @@ static int join_path_unified(const char *path, const char *suffix, char **fs) {
         if (isempty(path) && isempty(suffix))
                 t = strdup("/sys/fs/cgroup");
         else if (isempty(path))
-                t = strappend("/sys/fs/cgroup/", suffix);
+                t = path_join("/sys/fs/cgroup", suffix);
         else if (isempty(suffix))
-                t = strappend("/sys/fs/cgroup/", path);
+                t = path_join("/sys/fs/cgroup", path);
         else
-                t = strjoin("/sys/fs/cgroup/", path, "/", suffix);
+                t = path_join("/sys/fs/cgroup", path, suffix);
         if (!t)
                 return -ENOMEM;
 
@@ -623,7 +663,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
                 else if (!path)
                         t = strdup(suffix);
                 else
-                        t = strjoin(path, "/", suffix);
+                        t = path_join(path, suffix);
                 if (!t)
                         return -ENOMEM;
 
@@ -730,10 +770,8 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
         if (nftw(fs, trim_cb, 64, FTW_DEPTH|FTW_MOUNT|FTW_PHYS) != 0) {
                 if (errno == ENOENT)
                         r = 0;
-                else if (errno > 0)
-                        r = -errno;
                 else
-                        r = -EIO;
+                        r = errno_or_else(EIO);
         }
 
         if (delete_root) {
@@ -1227,7 +1265,7 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
                 while ((r = cg_read_subgroup(d, &fn)) > 0) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = strjoin(path, "/", fn);
+                        p = path_join(path, fn);
                         free(fn);
                         if (!p)
                                 return -ENOMEM;
@@ -1638,9 +1676,8 @@ int cg_path_get_user_unit(const char *path, char **ret) {
         if (!t)
                 return -ENXIO;
 
-        /* And from here on it looks pretty much the same as for a
-         * system unit, hence let's use the same parser from here
-         * on. */
+        /* And from here on it looks pretty much the same as for a system unit, hence let's use the same
+         * parser. */
         return cg_path_get_unit(t, ret);
 }
 
@@ -1884,7 +1921,7 @@ char *cg_escape(const char *p) {
         }
 
         if (need_prefix)
-                return strappend("_", p);
+                return strjoin("_", p);
 
         return strdup(p);
 }
@@ -2462,8 +2499,8 @@ int cg_kernel_controllers(Set **ret) {
                         if (feof(f))
                                 break;
 
-                        if (ferror(f) && errno > 0)
-                                return -errno;
+                        if (ferror(f))
+                                return errno_or_else(EIO);
 
                         return -EBADMSG;
                 }

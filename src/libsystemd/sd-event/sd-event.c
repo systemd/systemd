@@ -23,6 +23,7 @@
 #include "signal-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strxcpyx.h"
 #include "time-util.h"
 
 #define DEFAULT_ACCURACY_USEC (250 * USEC_PER_MSEC)
@@ -338,6 +339,12 @@ fail:
 }
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_event, sd_event, event_free);
+
+_public_ sd_event_source* sd_event_source_disable_unref(sd_event_source *s) {
+        if (s)
+                (void) sd_event_source_set_enabled(s, SD_EVENT_OFF);
+        return sd_event_source_unref(s);
+}
 
 static bool event_pid_changed(sd_event *e) {
         assert(e);
@@ -3242,15 +3249,16 @@ _public_ int sd_event_dispatch(sd_event *e) {
 }
 
 static void event_log_delays(sd_event *e) {
-        char b[ELEMENTSOF(e->delays) * DECIMAL_STR_MAX(unsigned) + 1];
-        unsigned i;
-        int o;
+        char b[ELEMENTSOF(e->delays) * DECIMAL_STR_MAX(unsigned) + 1], *p;
+        size_t l, i;
 
-        for (i = o = 0; i < ELEMENTSOF(e->delays); i++) {
-                o += snprintf(&b[o], sizeof(b) - o, "%u ", e->delays[i]);
+        p = b;
+        l = sizeof(b);
+        for (i = 0; i < ELEMENTSOF(e->delays); i++) {
+                l = strpcpyf(&p, l, "%u ", e->delays[i]);
                 e->delays[i] = 0;
         }
-        log_debug("Event loop iterations: %.*s", o, b);
+        log_debug("Event loop iterations: %s", b);
 }
 
 _public_ int sd_event_run(sd_event *e, uint64_t timeout) {

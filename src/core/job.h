@@ -85,7 +85,7 @@ enum JobResult {
         JOB_TIMEOUT,             /* Job timeout elapsed */
         JOB_FAILED,              /* Job failed */
         JOB_DEPENDENCY,          /* A required dependency job did not result in JOB_DONE */
-        JOB_SKIPPED,             /* Negative result of JOB_VERIFY_ACTIVE */
+        JOB_SKIPPED,             /* Negative result of JOB_VERIFY_ACTIVE or skip due to ExecCondition= */
         JOB_INVALID,             /* JOB_RELOAD of inactive unit */
         JOB_ASSERT,              /* Couldn't start a unit, because an assert didn't hold */
         JOB_UNSUPPORTED,         /* Couldn't start a unit, because the unit type is not supported on the system */
@@ -115,7 +115,6 @@ struct Job {
         Unit *unit;
 
         LIST_FIELDS(Job, transaction);
-        LIST_FIELDS(Job, run_queue);
         LIST_FIELDS(Job, dbus_queue);
         LIST_FIELDS(Job, gc_queue);
 
@@ -146,6 +145,8 @@ struct Job {
         char **deserialized_clients;
 
         JobResult result;
+
+        unsigned run_queue_idx;
 
         bool installed:1;
         bool in_run_queue:1;
@@ -237,3 +238,5 @@ const char* job_result_to_string(JobResult t) _const_;
 JobResult job_result_from_string(const char *s) _pure_;
 
 const char* job_type_to_access_method(JobType t);
+
+int job_compare(Job *a, Job *b, UnitDependency assume_dep);

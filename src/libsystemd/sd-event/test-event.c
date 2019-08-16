@@ -10,6 +10,7 @@
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
@@ -464,7 +465,7 @@ static void test_inotify(unsigned n_create_events) {
                 _cleanup_free_ char *z;
 
                 xsprintf(buf, "%u", i);
-                assert_se(z = strjoin(p, "/", buf));
+                assert_se(z = path_join(p, buf));
 
                 assert_se(touch(z) >= 0);
         }

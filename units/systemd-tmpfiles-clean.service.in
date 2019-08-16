@@ -18,5 +18,5 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 ExecStart=@rootbindir@/systemd-tmpfiles --clean
-SuccessExitStatus=65
+SuccessExitStatus=DATAERR
 IOSchedulingClass=idle

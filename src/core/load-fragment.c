@@ -18,6 +18,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "all-units.h"
+#include "bpf-firewall.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-util.h"
@@ -71,6 +72,47 @@ static int parse_socket_protocol(const char *s) {
         return r;
 }
 
+int parse_crash_chvt(const char *value, int *data) {
+        int b;
+
+        if (safe_atoi(value, data) >= 0)
+                return 0;
+
+        b = parse_boolean(value);
+        if (b < 0)
+                return b;
+
+        if (b > 0)
+                *data = 0; /* switch to where kmsg goes */
+        else
+                *data = -1; /* turn off switching */
+
+        return 0;
+}
+
+int parse_confirm_spawn(const char *value, char **console) {
+        char *s;
+        int r;
+
+        r = value ? parse_boolean(value) : 1;
+        if (r == 0) {
+                *console = NULL;
+                return 0;
+        }
+
+        if (r > 0) /* on with default tty */
+                s = strdup("/dev/console");
+        else if (is_path(value)) /* on with fully qualified path */
+                s = strdup(value);
+        else /* on with only a tty file name, not a fully qualified path */
+                s = strjoin("/dev/", value);
+        if (!s)
+                return -ENOMEM;
+
+        *console = s;
+        return 0;
+}
+
 DEFINE_CONFIG_PARSE(config_parse_socket_protocol, parse_socket_protocol, "Failed to parse socket protocol");
 DEFINE_CONFIG_PARSE(config_parse_exec_secure_bits, secure_bits_from_string, "Failed to parse secure bits");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_collect_mode, collect_mode, CollectMode, "Failed to parse garbage collection mode");
@@ -92,6 +134,7 @@ DEFINE_CONFIG_PARSE_PTR(config_parse_blockio_weight, cg_blkio_weight_parse, uint
 DEFINE_CONFIG_PARSE_PTR(config_parse_cg_weight, cg_weight_parse, uint64_t, "Invalid weight");
 DEFINE_CONFIG_PARSE_PTR(config_parse_cpu_shares, cg_cpu_shares_parse, uint64_t, "Invalid CPU shares");
 DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_flags, mount_propagation_flags_from_string, unsigned long, "Failed to parse mount flag");
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1, "Invalid NUMA policy type");
 
 int config_parse_unit_deps(
                 const char *unit,
@@ -291,7 +334,7 @@ int config_parse_unit_path_strv_printf(
         for (p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -595,7 +638,7 @@ int config_parse_exec(
 
                 semicolon = false;
 
-                r = extract_first_word_and_warn(&p, &firstword, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
+                r = extract_first_word_and_warn(&p, &firstword, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
                 if (r <= 0)
                         return 0;
 
@@ -676,7 +719,7 @@ int config_parse_exec(
                         NULSTR_FOREACH(prefix, DEFAULT_PATH_NULSTR) {
                                 _cleanup_free_ char *fullpath = NULL;
 
-                                fullpath = strjoin(prefix, "/", path);
+                                fullpath = path_join(prefix, path);
                                 if (!fullpath)
                                         return log_oom();
 
@@ -741,7 +784,7 @@ int config_parse_exec(
                                 continue;
                         }
 
-                        r = extract_first_word_and_warn(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
+                        r = extract_first_word_and_warn(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
                         if (r == 0)
                                 break;
                         if (r < 0)
@@ -1211,6 +1254,33 @@ int config_parse_exec_cpu_sched_policy(const char *unit,
         return 0;
 }
 
+int config_parse_numa_mask(const char *unit,
+                           const char *filename,
+                           unsigned line,
+                           const char *section,
+                           unsigned section_line,
+                           const char *lvalue,
+                           int ltype,
+                           const char *rvalue,
+                           void *data,
+                           void *userdata) {
+        int r;
+        NUMAPolicy *p = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_cpu_set_extend(rvalue, &p->nodes, true, unit, filename, line, lvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse NUMA node mask, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return r;
+}
+
 int config_parse_exec_cpu_sched_prio(const char *unit,
                                      const char *filename,
                                      unsigned line,
@@ -1263,42 +1333,13 @@ int config_parse_exec_cpu_affinity(const char *unit,
                                    void *userdata) {
 
         ExecContext *c = data;
-        _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
-        int ncpus;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        ncpus = parse_cpu_set_and_warn(rvalue, &cpuset, unit, filename, line, lvalue);
-        if (ncpus < 0)
-                return ncpus;
-
-        if (ncpus == 0) {
-                /* An empty assignment resets the CPU list */
-                c->cpuset = cpu_set_mfree(c->cpuset);
-                c->cpuset_ncpus = 0;
-                return 0;
-        }
-
-        if (!c->cpuset) {
-                c->cpuset = TAKE_PTR(cpuset);
-                c->cpuset_ncpus = (unsigned) ncpus;
-                return 0;
-        }
-
-        if (c->cpuset_ncpus < (unsigned) ncpus) {
-                CPU_OR_S(CPU_ALLOC_SIZE(c->cpuset_ncpus), cpuset, c->cpuset, cpuset);
-                CPU_FREE(c->cpuset);
-                c->cpuset = TAKE_PTR(cpuset);
-                c->cpuset_ncpus = (unsigned) ncpus;
-                return 0;
-        }
-
-        CPU_OR_S(CPU_ALLOC_SIZE((unsigned) ncpus), c->cpuset, c->cpuset, cpuset);
-
-        return 0;
+        return parse_cpu_set_extend(rvalue, &c->cpu_set, true, unit, filename, line, lvalue);
 }
 
 int config_parse_capability_set(
@@ -2203,7 +2244,7 @@ int config_parse_environ(
         for (p = rvalue;; ) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -2271,7 +2312,7 @@ int config_parse_pass_environ(
         for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -2347,7 +2388,7 @@ int config_parse_unset_environ(
         for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -2422,7 +2463,7 @@ int config_parse_log_extra_fields(
                 struct iovec *t;
                 const char *eq;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -2546,17 +2587,18 @@ int config_parse_unit_condition_string(
                 return 0;
         }
 
-        trigger = rvalue[0] == '|';
+        trigger = *rvalue == '|';
         if (trigger)
-                rvalue++;
+                rvalue += 1 + strspn(rvalue + 1, WHITESPACE);
 
-        negate = rvalue[0] == '!';
+        negate = *rvalue == '!';
         if (negate)
-                rvalue++;
+                rvalue += 1 + strspn(rvalue + 1, WHITESPACE);
 
         r = unit_full_printf(u, rvalue, &s);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                 return 0;
         }
 
@@ -2646,7 +2688,7 @@ int config_parse_unit_requires_mounts_for(
         for (;;) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -2841,7 +2883,7 @@ int config_parse_syscall_archs(
                 _cleanup_free_ char *word = NULL;
                 uint32_t a;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -2945,7 +2987,7 @@ int config_parse_address_families(
                 _cleanup_free_ char *word = NULL;
                 int af;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -3137,7 +3179,7 @@ int config_parse_memory_limit(
                         bytes = physical_memory_scale(r, 1000U);
 
                 if (bytes >= UINT64_MAX ||
-                    (bytes <= 0 && !streq(lvalue, "MemorySwapMax"))) {
+                    (bytes <= 0 && !STR_IN_SET(lvalue, "MemorySwapMax", "MemoryLow", "MemoryMin", "DefaultMemoryLow", "DefaultMemoryMin"))) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Memory limit '%s' out of range, ignoring.", rvalue);
                         return 0;
                 }
@@ -3264,7 +3306,7 @@ int config_parse_delegate(
                         _cleanup_free_ char *word = NULL;
                         CGroupController cc;
 
-                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                         if (r == 0)
                                 break;
                         if (r == -ENOMEM)
@@ -3321,7 +3363,7 @@ int config_parse_device_allow(
                 return 0;
         }
 
-        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -3392,7 +3434,7 @@ int config_parse_io_device_weight(
                 return 0;
         }
 
-        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -3466,7 +3508,7 @@ int config_parse_io_device_latency(
                 return 0;
         }
 
-        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -3540,7 +3582,7 @@ int config_parse_io_limit(
                 return 0;
         }
 
-        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -3631,7 +3673,7 @@ int config_parse_blockio_device_weight(
                 return 0;
         }
 
-        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -3709,7 +3751,7 @@ int config_parse_blockio_bandwidth(
                 return 0;
         }
 
-        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -3829,7 +3871,7 @@ int config_parse_exec_directories(
         for (p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -3894,37 +3936,33 @@ int config_parse_set_status(
 
         FOREACH_WORD(word, l, rvalue, state) {
                 _cleanup_free_ char *temp;
-                int val;
-                Set **set;
+                Bitmap *bitmap;
 
                 temp = strndup(word, l);
                 if (!temp)
                         return log_oom();
 
-                r = safe_atoi(temp, &val);
-                if (r < 0) {
-                        val = signal_from_string(temp);
+                /* We need to call exit_status_from_string() first, because we want
+                 * to parse numbers as exit statuses, not signals. */
 
-                        if (val <= 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse value, ignoring: %s", word);
-                                continue;
-                        }
-                        set = &status_set->signal;
+                r = exit_status_from_string(temp);
+                if (r >= 0) {
+                        assert(r >= 0 && r < 256);
+                        bitmap = &status_set->status;
                 } else {
-                        if (val < 0 || val > 255) {
-                                log_syntax(unit, LOG_ERR, filename, line, 0, "Value %d is outside range 0-255, ignoring", val);
+                        r = signal_from_string(temp);
+
+                        if (r <= 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, 0,
+                                           "Failed to parse value, ignoring: %s", word);
                                 continue;
                         }
-                        set = &status_set->status;
+                        bitmap = &status_set->signal;
                 }
 
-                r = set_ensure_allocated(set, NULL);
+                r = bitmap_set(bitmap, r);
                 if (r < 0)
-                        return log_oom();
-
-                r = set_put(*set, INT_TO_PTR(val));
-                if (r < 0)
-                        return log_oom();
+                        return log_error_errno(r, "Failed to set signal or status %s: %m", word);
         }
         if (!isempty(state))
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
@@ -3965,7 +4003,7 @@ int config_parse_namespace_path_strv(
                 const char *w;
                 bool ignore_enoent = false, shall_prefix = false;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -4043,7 +4081,7 @@ int config_parse_temporary_filesystems(
                 _cleanup_free_ char *word = NULL, *path = NULL, *resolved = NULL;
                 const char *w;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -4119,7 +4157,7 @@ int config_parse_bind_paths(
                 char *s = NULL, *d = NULL;
                 bool rbind = true, ignore_enoent = false;
 
-                r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -4148,7 +4186,7 @@ int config_parse_bind_paths(
 
                 /* Optionally, the destination is specified. */
                 if (p && p[-1] == ':') {
-                        r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                        r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0) {
@@ -4177,7 +4215,7 @@ int config_parse_bind_paths(
                         if (p && p[-1] == ':') {
                                 _cleanup_free_ char *options = NULL;
 
-                                r = extract_first_word(&p, &options, NULL, EXTRACT_QUOTES);
+                                r = extract_first_word(&p, &options, NULL, EXTRACT_UNQUOTE);
                                 if (r == -ENOMEM)
                                         return log_oom();
                                 if (r < 0) {
@@ -4457,72 +4495,62 @@ int config_parse_disable_controllers(
         return 0;
 }
 
-#define FOLLOW_MAX 8
+int config_parse_ip_filter_bpf_progs(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
-        char *id = NULL;
-        unsigned c = 0;
-        int fd, r;
-        FILE *f;
+        _cleanup_free_ char *resolved = NULL;
+        Unit *u = userdata;
+        char ***paths = data;
+        int r;
 
         assert(filename);
-        assert(*filename);
-        assert(_f);
-        assert(names);
+        assert(lvalue);
+        assert(rvalue);
+        assert(paths);
 
-        /* This will update the filename pointer if the loaded file is
-         * reached by a symlink. The old string will be freed. */
-
-        for (;;) {
-                char *target, *name;
-
-                if (c++ >= FOLLOW_MAX)
-                        return -ELOOP;
-
-                path_simplify(*filename, false);
-
-                /* Add the file name we are currently looking at to
-                 * the names of this unit, but only if it is a valid
-                 * unit name. */
-                name = basename(*filename);
-                if (unit_name_is_valid(name, UNIT_NAME_ANY)) {
-
-                        id = set_get(names, name);
-                        if (!id) {
-                                id = strdup(name);
-                                if (!id)
-                                        return -ENOMEM;
-
-                                r = set_consume(names, id);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-
-                /* Try to open the file name, but don't if its a symlink */
-                fd = open(*filename, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-                if (fd >= 0)
-                        break;
-
-                if (errno != ELOOP)
-                        return -errno;
-
-                /* Hmm, so this is a symlink. Let's read the name, and follow it manually */
-                r = readlink_and_make_absolute(*filename, &target);
-                if (r < 0)
-                        return r;
-
-                free_and_replace(*filename, target);
+        if (isempty(rvalue)) {
+                *paths = strv_free(*paths);
+                return 0;
         }
 
-        f = fdopen(fd, "r");
-        if (!f) {
-                safe_close(fd);
-                return -errno;
+        r = unit_full_printf(u, rvalue, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                return 0;
         }
 
-        *_f = f;
-        *_final = id;
+        r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
+
+        if (strv_contains(*paths, resolved))
+                return 0;
+
+        r = strv_extend(paths, resolved);
+        if (r < 0)
+                return log_oom();
+
+        r = bpf_firewall_supported();
+        if (r < 0)
+                return r;
+        if (r != BPF_FIREWALL_SUPPORTED_WITH_MULTI) {
+                static bool warned = false;
+
+                log_full(warned ? LOG_DEBUG : LOG_WARNING,
+                         "File %s:%u configures an IP firewall with BPF programs (%s=%s), but the local system does not support BPF/cgroup based firewalling with multiple filters.\n"
+                         "Starting this unit will fail! (This warning is only shown for the first loaded unit using IP firewalling.)", filename, line, lvalue, rvalue);
+
+                warned = true;
+        }
 
         return 0;
 }
@@ -4533,175 +4561,42 @@ static int merge_by_names(Unit **u, Set *names, const char *id) {
 
         assert(u);
         assert(*u);
-        assert(names);
 
-        /* Let's try to add in all symlink names we found */
+        /* Let's try to add in all names that are aliases of this unit */
         while ((k = set_steal_first(names))) {
+                _cleanup_free_ _unused_ char *free_k = k;
 
-                /* First try to merge in the other name into our
-                 * unit */
+                /* First try to merge in the other name into our unit */
                 r = unit_merge_by_name(*u, k);
                 if (r < 0) {
                         Unit *other;
 
-                        /* Hmm, we couldn't merge the other unit into
-                         * ours? Then let's try it the other way
-                         * round */
+                        /* Hmm, we couldn't merge the other unit into ours? Then let's try it the other way
+                         * round. */
 
-                        /* If the symlink name we are looking at is unit template, then
-                           we must search for instance of this template */
-                        if (unit_name_is_valid(k, UNIT_NAME_TEMPLATE) && (*u)->instance) {
-                                _cleanup_free_ char *instance = NULL;
+                        other = manager_get_unit((*u)->manager, k);
+                        if (!other)
+                                return r; /* return previous failure */
 
-                                r = unit_name_replace_instance(k, (*u)->instance, &instance);
-                                if (r < 0)
-                                        return r;
+                        r = unit_merge(other, *u);
+                        if (r < 0)
+                                return r;
 
-                                other = manager_get_unit((*u)->manager, instance);
-                        } else
-                                other = manager_get_unit((*u)->manager, k);
-
-                        free(k);
-
-                        if (other) {
-                                r = unit_merge(other, *u);
-                                if (r >= 0) {
-                                        *u = other;
-                                        return merge_by_names(u, names, NULL);
-                                }
-                        }
-
-                        return r;
+                        *u = other;
+                        return merge_by_names(u, names, NULL);
                 }
 
-                if (id == k)
+                if (streq_ptr(id, k))
                         unit_choose_id(*u, id);
-
-                free(k);
-        }
-
-        return 0;
-}
-
-static int load_from_path(Unit *u, const char *path) {
-        _cleanup_set_free_free_ Set *symlink_names = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *filename = NULL;
-        char *id = NULL;
-        Unit *merged;
-        struct stat st;
-        int r;
-
-        assert(u);
-        assert(path);
-
-        symlink_names = set_new(&string_hash_ops);
-        if (!symlink_names)
-                return -ENOMEM;
-
-        if (path_is_absolute(path)) {
-
-                filename = strdup(path);
-                if (!filename)
-                        return -ENOMEM;
-
-                r = open_follow(&filename, &f, symlink_names, &id);
-                if (r < 0) {
-                        filename = mfree(filename);
-                        if (r != -ENOENT)
-                                return r;
-                }
-
-        } else  {
-                char **p;
-
-                STRV_FOREACH(p, u->manager->lookup_paths.search_path) {
-
-                        /* Instead of opening the path right away, we manually
-                         * follow all symlinks and add their name to our unit
-                         * name set while doing so */
-                        filename = path_make_absolute(path, *p);
-                        if (!filename)
-                                return -ENOMEM;
-
-                        if (u->manager->unit_path_cache &&
-                            !set_get(u->manager->unit_path_cache, filename))
-                                r = -ENOENT;
-                        else
-                                r = open_follow(&filename, &f, symlink_names, &id);
-                        if (r >= 0)
-                                break;
-
-                        /* ENOENT means that the file is missing or is a dangling symlink.
-                         * ENOTDIR means that one of paths we expect to be is a directory
-                         * is not a directory, we should just ignore that.
-                         * EACCES means that the directory or file permissions are wrong.
-                         */
-                        if (r == -EACCES)
-                                log_debug_errno(r, "Cannot access \"%s\": %m", filename);
-                        else if (!IN_SET(r, -ENOENT, -ENOTDIR))
-                                return r;
-
-                        filename = mfree(filename);
-                        /* Empty the symlink names for the next run */
-                        set_clear_free(symlink_names);
-                }
-        }
-
-        if (!filename)
-                /* Hmm, no suitable file found? */
-                return 0;
-
-        if (!unit_type_may_alias(u->type) && set_size(symlink_names) > 1) {
-                log_unit_warning(u, "Unit type of %s does not support alias names, refusing loading via symlink.", u->id);
-                return -ELOOP;
-        }
-
-        merged = u;
-        r = merge_by_names(&merged, symlink_names, id);
-        if (r < 0)
-                return r;
-
-        if (merged != u) {
-                u->load_state = UNIT_MERGED;
-                return 0;
-        }
-
-        if (fstat(fileno(f), &st) < 0)
-                return -errno;
-
-        if (null_or_empty(&st)) {
-                u->load_state = UNIT_MASKED;
-                u->fragment_mtime = 0;
-        } else {
-                u->load_state = UNIT_LOADED;
-                u->fragment_mtime = timespec_load(&st.st_mtim);
-
-                /* Now, parse the file contents */
-                r = config_parse(u->id, filename, f,
-                                 UNIT_VTABLE(u)->sections,
-                                 config_item_perf_lookup, load_fragment_gperf_lookup,
-                                 CONFIG_PARSE_ALLOW_INCLUDE, u);
-                if (r < 0)
-                        return r;
-        }
-
-        free_and_replace(u->fragment_path, filename);
-
-        if (u->source_path) {
-                if (stat(u->source_path, &st) >= 0)
-                        u->source_mtime = timespec_load(&st.st_mtim);
-                else
-                        u->source_mtime = 0;
         }
 
         return 0;
 }
 
 int unit_load_fragment(Unit *u) {
+        const char *fragment;
+        _cleanup_set_free_free_ Set *names = NULL;
         int r;
-        Iterator i;
-        const char *t;
 
         assert(u);
         assert(u->load_state == UNIT_STUB);
@@ -4712,78 +4607,88 @@ int unit_load_fragment(Unit *u) {
                 return 0;
         }
 
-        /* First, try to find the unit under its id. We always look
-         * for unit files in the default directories, to make it easy
-         * to override things by placing things in /etc/systemd/system */
-        r = load_from_path(u, u->id);
+        /* Possibly rebuild the fragment map to catch new units */
+        r = unit_file_build_name_map(&u->manager->lookup_paths,
+                                     &u->manager->unit_cache_mtime,
+                                     &u->manager->unit_id_map,
+                                     &u->manager->unit_name_map,
+                                     &u->manager->unit_path_cache);
+        if (r < 0)
+                log_error_errno(r, "Failed to rebuild name map: %m");
+
+        r = unit_file_find_fragment(u->manager->unit_id_map,
+                                    u->manager->unit_name_map,
+                                    u->id,
+                                    &fragment,
+                                    &names);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        if (fragment) {
+                /* Open the file, check if this is a mask, otherwise read. */
+                _cleanup_fclose_ FILE *f = NULL;
+                struct stat st;
+
+                /* Try to open the file name. A symlink is OK, for example for linked files or masks. We
+                 * expect that all symlinks within the lookup paths have been already resolved, but we don't
+                 * verify this here. */
+                f = fopen(fragment, "re");
+                if (!f)
+                        return log_unit_notice_errno(u, errno, "Failed to open %s: %m", fragment);
+
+                if (fstat(fileno(f), &st) < 0)
+                        return -errno;
+
+                r = free_and_strdup(&u->fragment_path, fragment);
+                if (r < 0)
+                        return r;
+
+                if (null_or_empty(&st)) {
+                        u->load_state = UNIT_MASKED;
+                        u->fragment_mtime = 0;
+                } else {
+                        u->load_state = UNIT_LOADED;
+                        u->fragment_mtime = timespec_load(&st.st_mtim);
+
+                        /* Now, parse the file contents */
+                        r = config_parse(u->id, fragment, f,
+                                         UNIT_VTABLE(u)->sections,
+                                         config_item_perf_lookup, load_fragment_gperf_lookup,
+                                         CONFIG_PARSE_ALLOW_INCLUDE, u);
+                        if (r == -ENOEXEC)
+                                log_unit_notice_errno(u, r, "Unit configuration has fatal error, unit will not be started.");
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        /* We do the merge dance here because for some unit types, the unit might have aliases which are not
+         * declared in the file system. In particular, this is true (and frequent) for device and swap units.
+         */
+        Unit *merged;
+        const char *id = u->id;
+        _cleanup_free_ char *free_id = NULL;
+
+        if (fragment) {
+                id = basename(fragment);
+                if (unit_name_is_valid(id, UNIT_NAME_TEMPLATE)) {
+                        assert(u->instance); /* If we're not trying to use a template for non-instanced unit,
+                                              * this must be set. */
+
+                        r = unit_name_replace_instance(id, u->instance, &free_id);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to build id (%s + %s): %m", id, u->instance);
+                        id = free_id;
+                }
+        }
+
+        merged = u;
+        r = merge_by_names(&merged, names, id);
         if (r < 0)
                 return r;
 
-        /* Try to find an alias we can load this with */
-        if (u->load_state == UNIT_STUB) {
-                SET_FOREACH(t, u->names, i) {
-
-                        if (t == u->id)
-                                continue;
-
-                        r = load_from_path(u, t);
-                        if (r < 0)
-                                return r;
-
-                        if (u->load_state != UNIT_STUB)
-                                break;
-                }
-        }
-
-        /* And now, try looking for it under the suggested (originally linked) path */
-        if (u->load_state == UNIT_STUB && u->fragment_path) {
-
-                r = load_from_path(u, u->fragment_path);
-                if (r < 0)
-                        return r;
-
-                if (u->load_state == UNIT_STUB)
-                        /* Hmm, this didn't work? Then let's get rid
-                         * of the fragment path stored for us, so that
-                         * we don't point to an invalid location. */
-                        u->fragment_path = mfree(u->fragment_path);
-        }
-
-        /* Look for a template */
-        if (u->load_state == UNIT_STUB && u->instance) {
-                _cleanup_free_ char *k = NULL;
-
-                r = unit_name_template(u->id, &k);
-                if (r < 0)
-                        return r;
-
-                r = load_from_path(u, k);
-                if (r < 0) {
-                        if (r == -ENOEXEC)
-                                log_unit_notice(u, "Unit configuration has fatal error, unit will not be started.");
-                        return r;
-                }
-
-                if (u->load_state == UNIT_STUB) {
-                        SET_FOREACH(t, u->names, i) {
-                                _cleanup_free_ char *z = NULL;
-
-                                if (t == u->id)
-                                        continue;
-
-                                r = unit_name_template(t, &z);
-                                if (r < 0)
-                                        return r;
-
-                                r = load_from_path(u, z);
-                                if (r < 0)
-                                        return r;
-
-                                if (u->load_state != UNIT_STUB)
-                                        break;
-                        }
-                }
-        }
+        if (merged != u)
+                u->load_state = UNIT_MERGED;
 
         return 0;
 }
@@ -4919,4 +4824,152 @@ void unit_dump_config_items(FILE *f) {
                 fprintf(f, "%s=%s\n", lvalue, rvalue);
                 prev = i;
         }
+}
+
+int config_parse_cpu_affinity2(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CPUSet *affinity = data;
+
+        assert(affinity);
+
+        (void) parse_cpu_set_extend(rvalue, affinity, true, unit, filename, line, lvalue);
+
+        return 0;
+}
+
+int config_parse_show_status(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int k;
+        ShowStatus *b = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        k = parse_show_status(rvalue, b);
+        if (k < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse show status setting, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_output_restricted(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecOutput t, *eo = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        t = exec_output_from_string(rvalue);
+        if (t < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse output type, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Standard output types socket, fd:, file:, append: are not supported as defaults, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *eo = t;
+        return 0;
+}
+
+int config_parse_crash_chvt(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_crash_chvt(rvalue, data);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CrashChangeVT= setting, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_timeout_abort(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t *timeout_usec = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(timeout_usec);
+
+        rvalue += strspn(rvalue, WHITESPACE);
+        if (isempty(rvalue)) {
+                *timeout_usec = false;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, timeout_usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse DefaultTimeoutAbortSec= setting, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *timeout_usec = true;
+        return 0;
 }

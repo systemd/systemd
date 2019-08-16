@@ -56,6 +56,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>resumeflags=</varname></term>
+
+        <listitem><para>Takes the resume device mount options to
+        use. Defaults <varname>rootflags=</varname> if not specified.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>noresume</varname></term>
 
         <listitem><para>Do not try to resume from hibernation. If this parameter is

@@ -1517,12 +1517,7 @@ static int subvol_snapshot_children(
                         if (ioctl(old_fd, BTRFS_IOC_INO_LOOKUP, &ino_args) < 0)
                                 return -errno;
 
-                        /* The kernel returns an empty name if the
-                         * subvolume is in the top-level directory,
-                         * and otherwise appends a slash, so that we
-                         * can just concatenate easily here, without
-                         * adding a slash. */
-                        c = strappend(ino_args.name, p);
+                        c = path_join(ino_args.name, p);
                         if (!c)
                                 return -ENOMEM;
 
@@ -1530,7 +1525,7 @@ static int subvol_snapshot_children(
                         if (old_child_fd < 0)
                                 return -errno;
 
-                        np = strjoin(subvolume, "/", ino_args.name);
+                        np = path_join(subvolume, ino_args.name);
                         if (!np)
                                 return -ENOMEM;
 
@@ -1629,7 +1624,7 @@ int btrfs_subvol_snapshot_fd_full(
                 } else if (r < 0)
                         return r;
 
-                r = copy_directory_fd_full(old_fd, new_path, COPY_MERGE|COPY_REFLINK|COPY_SAME_MOUNT, progress_path, progress_bytes, userdata);
+                r = copy_directory_fd_full(old_fd, new_path, COPY_MERGE|COPY_REFLINK|COPY_SAME_MOUNT|(FLAGS_SET(flags, BTRFS_SNAPSHOT_SIGINT) ? COPY_SIGINT : 0), progress_path, progress_bytes, userdata);
                 if (r < 0)
                         goto fallback_fail;
 

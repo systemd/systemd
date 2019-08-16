@@ -72,7 +72,7 @@ bool env_value_is_valid(const char *e) {
          * either. Discounting the shortest possible variable name of
          * length 1, the equal sign and trailing NUL this hence leaves
          * ARG_MAX-3 as longest possible variable value. */
-        if (strlen(e) > (size_t) sysconf(_SC_ARG_MAX) - 3)
+        if (strlen(e) > sc_arg_max() - 3)
                 return false;
 
         return true;
@@ -95,7 +95,7 @@ bool env_assignment_is_valid(const char *e) {
          * be > ARG_MAX, hence the individual variable assignments
          * cannot be either, but let's leave room for one trailing NUL
          * byte. */
-        if (strlen(e) > (size_t) sysconf(_SC_ARG_MAX) - 1)
+        if (strlen(e) > sc_arg_max() - 1)
                 return false;
 
         return true;
@@ -567,7 +567,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
                                 t = strv_env_get_n(env, word+2, e-word-2, flags);
 
-                                k = strappend(r, t);
+                                k = strjoin(r, t);
                                 if (!k)
                                         return NULL;
 
@@ -623,7 +623,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 else if (!t && state == DEFAULT_VALUE)
                                         t = v = replace_env_n(test_value, e-test_value, env, flags);
 
-                                k = strappend(r, t);
+                                k = strjoin(r, t);
                                 if (!k)
                                         return NULL;
 
@@ -642,7 +642,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
                                 t = strv_env_get_n(env, word+1, e-word-1, flags);
 
-                                k = strappend(r, t);
+                                k = strjoin(r, t);
                                 if (!k)
                                         return NULL;
 
@@ -661,7 +661,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                 assert(flags & REPLACE_ENV_ALLOW_BRACELESS);
 
                 t = strv_env_get_n(env, word+1, e-word-1, flags);
-                return strappend(r, t);
+                return strjoin(r, t);
         } else
                 return strnappend(r, word, e-word);
 }
@@ -688,7 +688,7 @@ char **replace_env_argv(char **argv, char **env) {
                         if (e) {
                                 int r;
 
-                                r = strv_split_extract(&m, e, WHITESPACE, EXTRACT_RELAX|EXTRACT_QUOTES);
+                                r = strv_split_extract(&m, e, WHITESPACE, EXTRACT_RELAX|EXTRACT_UNQUOTE);
                                 if (r < 0) {
                                         ret[k] = NULL;
                                         strv_free(ret);

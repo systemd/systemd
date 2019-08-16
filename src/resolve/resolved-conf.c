@@ -119,7 +119,7 @@ int manager_parse_search_domains_and_warn(Manager *m, const char *string) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&string, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&string, &word, NULL, EXTRACT_UNQUOTE);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -308,7 +308,7 @@ int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line
                 int r;
 
                 r = extract_first_word(&rvalue, &word, NULL,
-                                       EXTRACT_QUOTES|EXTRACT_CUNESCAPE|EXTRACT_CUNESCAPE_RELAX);
+                                       EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE|EXTRACT_CUNESCAPE_RELAX);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -394,7 +394,7 @@ int manager_parse_config_file(Manager *m) {
 
 #if ! ENABLE_DNS_OVER_TLS
         if (m->dns_over_tls_mode != DNS_OVER_TLS_NO) {
-                log_warning("DNS-over-TLS option cannot be set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
+                log_warning("DNS-over-TLS option cannot be enabled or set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
                 m->dns_over_tls_mode = DNS_OVER_TLS_NO;
         }
 #endif

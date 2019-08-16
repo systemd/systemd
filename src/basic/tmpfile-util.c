@@ -58,12 +58,10 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
 
 /* This is much like mkostemp() but is subject to umask(). */
 int mkostemp_safe(char *pattern) {
-        _cleanup_umask_ mode_t u = 0;
+        _unused_ _cleanup_umask_ mode_t u = umask(0077);
         int fd;
 
         assert(pattern);
-
-        u = umask(077);
 
         fd = mkostemp(pattern, O_CLOEXEC);
         if (fd < 0)
@@ -322,7 +320,7 @@ int mkdtemp_malloc(const char *template, char **ret) {
                 if (r < 0)
                         return r;
 
-                p = strjoin(tmp, "/XXXXXX");
+                p = path_join(tmp, "XXXXXX");
         }
         if (!p)
                 return -ENOMEM;

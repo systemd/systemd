@@ -18,13 +18,14 @@ udevadm_sources = files('''
 systemd_udevd_sources = files('udevd.c')
 
 libudev_core_sources = '''
-        udev.h
         udev-ctrl.c
         udev-ctrl.h
         udev-event.c
+        udev-event.h
         udev-node.c
         udev-node.h
         udev-rules.c
+        udev-rules.h
         udev-watch.c
         udev-watch.h
         udev-builtin.c
@@ -39,8 +40,6 @@ libudev_core_sources = '''
         udev-builtin-usb_id.c
         net/link-config.c
         net/link-config.h
-        net/ethtool-util.c
-        net/ethtool-util.h
         net/naming-scheme.c
         net/naming-scheme.h
 '''.split()
@@ -117,7 +116,6 @@ libudev_basic = static_library(
 
 libudev_static = static_library(
         'udev_static',
-        'udev.h',
         include_directories : includes,
         link_with : udev_link_with,
         link_whole : libudev_basic)

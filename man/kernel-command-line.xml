@@ -59,6 +59,7 @@
         <term><varname>systemd.confirm_spawn</varname></term>
         <term><varname>systemd.service_watchdogs</varname></term>
         <term><varname>systemd.show_status</varname></term>
+        <term><varname>systemd.status_unit_format=</varname></term>
         <term><varname>systemd.log_target=</varname></term>
         <term><varname>systemd.log_level=</varname></term>
         <term><varname>systemd.log_location=</varname></term>
@@ -402,10 +403,11 @@
 
       <varlistentry>
         <term><varname>resume=</varname></term>
+        <term><varname>resumeflags=</varname></term>
 
         <listitem>
           <para>Enables resume from hibernation using the specified
-          device. All
+          device and mount options. All
           <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-like
           paths are supported. For details, see
           <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>

@@ -51,6 +51,7 @@ static void link_config_free(link_config *link) {
         strv_free(link->match_driver);
         strv_free(link->match_type);
         strv_free(link->match_name);
+        strv_free(link->match_property);
         condition_free_list(link->conditions);
 
         free(link->description);
@@ -161,7 +162,7 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
 
         if (set_isempty(link->match_mac) && strv_isempty(link->match_path) &&
             strv_isempty(link->match_driver) && strv_isempty(link->match_type) &&
-            strv_isempty(link->match_name) && !link->conditions)
+            strv_isempty(link->match_name) && strv_isempty(link->match_property) && !link->conditions)
                 log_warning("%s: No valid settings found in the [Match] section. "
                             "The file will match all interfaces. "
                             "If that is intended, please add OriginalName=* in the [Match] section.",
@@ -240,42 +241,29 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         assert(ret);
 
         LIST_FOREACH(links, link, ctx->links) {
-                const char *address = NULL, *id_path = NULL, *id_net_driver = NULL, *devtype = NULL, *sysname = NULL;
-
-                (void) sd_device_get_sysattr_value(device, "address", &address);
-                (void) sd_device_get_property_value(device, "ID_PATH", &id_path);
-                (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &id_net_driver);
-                (void) sd_device_get_devtype(device, &devtype);
-                (void) sd_device_get_sysname(device, &sysname);
-
                 if (net_match_config(link->match_mac, link->match_path, link->match_driver,
-                                     link->match_type, link->match_name,
-                                     address ? ether_aton(address) : NULL,
-                                     id_path,
-                                     id_net_driver,
-                                     devtype,
-                                     sysname)) {
-                        if (link->match_name) {
+                                     link->match_type, link->match_name, link->match_property,
+                                     device, NULL, NULL)) {
+                        if (link->match_name && !strv_contains(link->match_name, "*")) {
                                 unsigned name_assign_type = NET_NAME_UNKNOWN;
 
                                 (void) link_unsigned_attribute(device, "name_assign_type", &name_assign_type);
 
                                 if (name_assign_type == NET_NAME_ENUM) {
-                                        log_warning("Config file %s applies to device based on potentially unpredictable interface name '%s'",
-                                                    link->filename, sysname);
+                                        log_device_warning(device, "Config file %s applies to device based on potentially unpredictable interface name",
+                                                           link->filename);
                                         *ret = link;
 
                                         return 0;
                                 } else if (name_assign_type == NET_NAME_RENAMED) {
-                                        log_warning("Config file %s matches device based on renamed interface name '%s', ignoring",
-                                                    link->filename, sysname);
+                                        log_device_warning(device, "Config file %s matches device based on renamed interface name, ignoring",
+                                                           link->filename);
 
                                         continue;
                                 }
                         }
 
-                        log_debug("Config file %s applies to device %s",
-                                  link->filename, sysname);
+                        log_device_debug(device, "Config file %s is applied", link->filename);
 
                         *ret = link;
                         return 0;
@@ -318,10 +306,13 @@ static int get_mac(sd_device *device, MACAddressPolicy policy, struct ether_addr
         } else {
                 uint64_t result;
 
-                r = net_get_unique_predictable_data(device, &result);
+                r = net_get_unique_predictable_data(device,
+                                                    naming_scheme_has(NAMING_STABLE_VIRTUAL_MACS),
+                                                    &result);
                 if (r < 0)
                         return log_device_warning_errno(device, r, "Could not generate persistent MAC: %m");
 
+                log_device_debug(device, "Using generated persistent MAC address");
                 assert_cc(ETH_ALEN <= sizeof(result));
                 memcpy(mac->ether_addr_octet, &result, ETH_ALEN);
         }
@@ -351,7 +342,9 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (r < 0)
                 return r;
 
-        r = ethtool_set_glinksettings(&ctx->ethtool_fd, old_name, config);
+        r = ethtool_set_glinksettings(&ctx->ethtool_fd, old_name,
+                                      config->autonegotiation, config->advertise,
+                                      config->speed, config->duplex, config->port);
         if (r < 0) {
 
                 if (config->port != _NET_DEV_PORT_INVALID)
@@ -391,7 +384,6 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         r = sd_device_get_ifindex(device, &ifindex);
         if (r < 0)
                 return log_device_warning_errno(device, r, "Could not find ifindex: %m");
-
 
         (void) link_unsigned_attribute(device, "name_assign_type", &name_type);
 

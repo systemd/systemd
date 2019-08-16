@@ -65,12 +65,6 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 r = add_symlink("rc-local.service", "multi-user.target");
         }
 
-        if (check_executable(RC_LOCAL_SCRIPT_PATH_STOP) >= 0) {
-                log_debug("Automatically adding halt-local.service.");
-
-                k = add_symlink("halt-local.service", "final.target");
-        }
-
         return r < 0 ? r : k;
 }
 

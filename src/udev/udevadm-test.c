@@ -20,7 +20,7 @@
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
-#include "udev.h"
+#include "udev-event.h"
 #include "udevadm.h"
 
 static const char *arg_action = "add";
@@ -33,7 +33,7 @@ static int help(void) {
                "Test an event run.\n\n"
                "  -h --help                            Show this help\n"
                "  -V --version                         Show package version\n"
-               "  -a --action=ACTION                   Set action string\n"
+               "  -a --action=ACTION|help              Set action string\n"
                "  -N --resolve-names=early|late|never  When to resolve names\n"
                , program_invocation_short_name);
 
@@ -55,6 +55,11 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
                 case 'a': {
                         DeviceAction a;
+
+                        if (streq(optarg, "help")) {
+                                dump_device_action_table();
+                                return 0;
+                        }
 
                         a = device_action_from_string(optarg);
                         if (a < 0)

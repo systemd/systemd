@@ -9,6 +9,8 @@
 #include "condition.h"
 #include "cpu-set-util.h"
 #include "escape.h"
+#include "exec-util.h"
+#include "exit-status.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
@@ -244,19 +246,21 @@ static int bus_append_parse_size(sd_bus_message *m, const char *field, const cha
 }
 
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
-        bool ignore_failure = false, explicit_path = false, done = false;
-        _cleanup_strv_free_ char **l = NULL;
-        _cleanup_free_ char *path = NULL;
+        bool explicit_path = false, done = false;
+        _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
+        _cleanup_free_ char *path = NULL, *upgraded_name = NULL;
+        ExecCommandFlags flags = 0;
+        bool is_ex_prop = endswith(field, "Ex");
         int r;
 
         do {
                 switch (*eq) {
 
                 case '-':
-                        if (ignore_failure)
+                        if (FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE))
                                 done = true;
                         else {
-                                ignore_failure = true;
+                                flags |= EXEC_COMMAND_IGNORE_FAILURE;
                                 eq++;
                         }
                         break;
@@ -270,11 +274,36 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                         }
                         break;
 
+                case ':':
+                        if (FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND))
+                                done = true;
+                        else {
+                                flags |= EXEC_COMMAND_NO_ENV_EXPAND;
+                                eq++;
+                        }
+                        break;
+
                 case '+':
+                        if (flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC))
+                                done = true;
+                        else {
+                                flags |= EXEC_COMMAND_FULLY_PRIVILEGED;
+                                eq++;
+                        }
+                        break;
+
                 case '!':
-                        /* The bus API doesn't support +, ! and !! currently, unfortunately. :-( */
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Sorry, but +, ! and !! are currently not supported for transient services.");
+                        if (flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_AMBIENT_MAGIC))
+                                done = true;
+                        else if (FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)) {
+                                flags &= ~EXEC_COMMAND_NO_SETUID;
+                                flags |= EXEC_COMMAND_AMBIENT_MAGIC;
+                                eq++;
+                        } else {
+                                flags |= EXEC_COMMAND_NO_SETUID;
+                                eq++;
+                        }
+                        break;
 
                 default:
                         done = true;
@@ -282,13 +311,27 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                 }
         } while (!done);
 
+        if (!is_ex_prop && (flags & (EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC))) {
+                /* Upgrade the ExecXYZ= property to ExecXYZEx= for convenience */
+                is_ex_prop = true;
+                upgraded_name = strjoin(field, "Ex");
+                if (!upgraded_name)
+                        return log_oom();
+        }
+
+        if (is_ex_prop) {
+                r = exec_command_flags_to_strv(flags, &ex_opts);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert ExecCommandFlags to strv: %m");
+        }
+
         if (explicit_path) {
-                r = extract_first_word(&eq, &path, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
+                r = extract_first_word(&eq, &path, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse path: %m");
         }
 
-        r = strv_split_extract(&l, eq, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
+        r = strv_split_extract(&l, eq, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse command line: %m");
 
@@ -296,21 +339,21 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, upgraded_name ?: field);
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_open_container(m, 'v', "a(sasb)");
+        r = sd_bus_message_open_container(m, 'v', is_ex_prop ? "a(sasas)" : "a(sasb)");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_open_container(m, 'a', "(sasb)");
+        r = sd_bus_message_open_container(m, 'a', is_ex_prop ? "(sasas)" : "(sasb)");
         if (r < 0)
                 return bus_log_create_error(r);
 
         if (!strv_isempty(l)) {
 
-                r = sd_bus_message_open_container(m, 'r', "sasb");
+                r = sd_bus_message_open_container(m, 'r', is_ex_prop ? "sasas" : "sasb");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -322,7 +365,7 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "b", ignore_failure);
+                r = is_ex_prop ? sd_bus_message_append_strv(m, ex_opts) : sd_bus_message_append(m, "b", FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -398,13 +441,13 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
         if (streq(field, "DisableControllers"))
 
-                return bus_append_strv(m, "DisableControllers", eq, EXTRACT_QUOTES);
+                return bus_append_strv(m, "DisableControllers", eq, EXTRACT_UNQUOTE);
 
         if (streq(field, "Delegate")) {
 
                 r = parse_boolean(eq);
                 if (r < 0)
-                        return bus_append_strv(m, "DelegateControllers", eq, EXTRACT_QUOTES);
+                        return bus_append_strv(m, "DelegateControllers", eq, EXTRACT_UNQUOTE);
 
                 r = sd_bus_message_append(m, "(sv)", "Delegate", "b", r);
                 if (r < 0)
@@ -413,7 +456,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
-        if (STR_IN_SET(field, "MemoryMin", "DefaultMemoryLow", "MemoryLow", "MemoryHigh", "MemoryMax", "MemorySwapMax", "MemoryLimit", "TasksMax")) {
+        if (STR_IN_SET(field, "MemoryMin", "DefaultMemoryLow", "DefaultMemoryMin", "MemoryLow", "MemoryHigh", "MemoryMax", "MemorySwapMax", "MemoryLimit", "TasksMax")) {
 
                 if (isempty(eq) || streq(eq, "infinity")) {
                         r = sd_bus_message_append(m, "(sv)", field, "t", CGROUP_LIMIT_MAX);
@@ -716,6 +759,18 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
+        if (STR_IN_SET(field, "IPIngressFilterPath", "IPEgressFilterPath")) {
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", field, "as", 0);
+                else
+                        r = sd_bus_message_append(m, "(sv)", field, "as", 1, eq);
+
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
         return 0;
 }
 
@@ -765,7 +820,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                        "RuntimeDirectory", "StateDirectory", "CacheDirectory", "LogsDirectory", "ConfigurationDirectory",
                        "SupplementaryGroups", "SystemCallArchitectures"))
 
-                return bus_append_strv(m, field, eq, EXTRACT_QUOTES);
+                return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
 
         if (STR_IN_SET(field, "SyslogLevel", "LogLevelMax"))
 
@@ -827,7 +882,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
         if (STR_IN_SET(field, "Environment", "UnsetEnvironment", "PassEnvironment"))
 
-                return bus_append_strv(m, field, eq, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
+                return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
 
         if (streq(field, "EnvironmentFile")) {
 
@@ -992,13 +1047,47 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         }
 
         if (streq(field, "CPUAffinity")) {
-                _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
+                _cleanup_(cpu_set_reset) CPUSet cpuset = {};
+                _cleanup_free_ uint8_t *array = NULL;
+                size_t allocated;
 
                 r = parse_cpu_set(eq, &cpuset);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
 
-                return bus_append_byte_array(m, field, cpuset, CPU_ALLOC_SIZE(r));
+                r = cpu_set_to_dbus(&cpuset, &array, &allocated);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to serialize CPUAffinity: %m");
+
+                return bus_append_byte_array(m, field, array, allocated);
+        }
+
+        if (streq(field, "NUMAPolicy")) {
+                r = mpol_from_string(eq);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
+
+                r = sd_bus_message_append(m, "(sv)", field, "i", (int32_t) r);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
+        if (streq(field, "NUMAMask")) {
+                _cleanup_(cpu_set_reset) CPUSet nodes = {};
+                _cleanup_free_ uint8_t *array = NULL;
+                size_t allocated;
+
+                r = parse_cpu_set(eq, &nodes);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
+
+                r = cpu_set_to_dbus(&nodes, &array, &allocated);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to serialize NUMAMask: %m");
+
+                return bus_append_byte_array(m, field, array, allocated);
         }
 
         if (STR_IN_SET(field, "RestrictAddressFamilies", "SystemCallFilter")) {
@@ -1037,7 +1126,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 for (;;) {
                         _cleanup_free_ char *word = NULL;
 
-                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                         if (r == 0)
                                 break;
                         if (r == -ENOMEM)
@@ -1124,7 +1213,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         bool ignore_enoent = false;
                         uint64_t flags = MS_REC;
 
-                        r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                        r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse argument: %m");
                         if (r == 0)
@@ -1137,7 +1226,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         }
 
                         if (p && p[-1] == ':') {
-                                r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                                r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse argument: %m");
                                 if (r == 0)
@@ -1150,7 +1239,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                 if (p && p[-1] == ':') {
                                         _cleanup_free_ char *options = NULL;
 
-                                        r = extract_first_word(&p, &options, NULL, EXTRACT_QUOTES);
+                                        r = extract_first_word(&p, &options, NULL, EXTRACT_UNQUOTE);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to parse argument: %m");
 
@@ -1209,7 +1298,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         _cleanup_free_ char *word = NULL, *path = NULL;
                         const char *w;
 
-                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse argument: %m");
                         if (r == 0)
@@ -1344,21 +1433,20 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                 return bus_append_safe_atou(m, field, eq);
 
         if (STR_IN_SET(field,
-                       "ExecStartPre", "ExecStart", "ExecStartPost",
+                       "ExecCondition", "ExecStartPre", "ExecStart", "ExecStartPost",
+                       "ExecStartPreEx", "ExecStartEx", "ExecStartPostEx",
                        "ExecReload", "ExecStop", "ExecStopPost"))
-
                 return bus_append_exec_command(m, field, eq);
 
         if (STR_IN_SET(field, "RestartPreventExitStatus", "RestartForceExitStatus", "SuccessExitStatus")) {
                 _cleanup_free_ int *status = NULL, *signal = NULL;
-                size_t sz_status = 0, sz_signal = 0;
+                size_t n_status = 0, n_signal = 0;
                 const char *p;
 
                 for (p = eq;;) {
                         _cleanup_free_ char *word = NULL;
-                        int val;
 
-                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                         if (r == 0)
                                 break;
                         if (r == -ENOMEM)
@@ -1366,24 +1454,30 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                         if (r < 0)
                                 return log_error_errno(r, "Invalid syntax in %s: %s", field, eq);
 
-                        r = safe_atoi(word, &val);
-                        if (r < 0) {
-                                val = signal_from_string(word);
-                                if (val < 0)
-                                        return log_error_errno(r, "Invalid status or signal %s in %s: %m", word, field);
+                        /* We need to call exit_status_from_string() first, because we want
+                         * to parse numbers as exit statuses, not signals. */
 
-                                signal = reallocarray(signal, sz_signal + 1, sizeof(int));
-                                if (!signal)
-                                        return log_oom();
+                        r = exit_status_from_string(word);
+                        if (r >= 0) {
+                                assert(r >= 0 && r < 256);
 
-                                signal[sz_signal++] = val;
-                        } else {
-                                status = reallocarray(status, sz_status + 1, sizeof(int));
+                                status = reallocarray(status, n_status + 1, sizeof(int));
                                 if (!status)
                                         return log_oom();
 
-                                status[sz_status++] = val;
-                        }
+                                status[n_status++] = r;
+
+                        } else if ((r = signal_from_string(word)) >= 0) {
+                                signal = reallocarray(signal, n_signal + 1, sizeof(int));
+                                if (!signal)
+                                        return log_oom();
+
+                                signal[n_signal++] = r;
+
+                        } else
+                                /* original r from exit_status_to_string() */
+                                return log_error_errno(r, "Invalid status or signal %s in %s: %m",
+                                                       word, field);
                 }
 
                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
@@ -1402,11 +1496,11 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append_array(m, 'i', status, sz_status);
+                r = sd_bus_message_append_array(m, 'i', status, n_status * sizeof(int));
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append_array(m, 'i', signal, sz_signal);
+                r = sd_bus_message_append_array(m, 'i', signal, n_signal * sizeof(int));
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1478,7 +1572,7 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
 
         if (streq(field, "Symlinks"))
 
-                return bus_append_strv(m, field, eq, EXTRACT_QUOTES);
+                return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
 
         if (streq(field, "SocketProtocol"))
 
@@ -1596,7 +1690,7 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
         if (unit_dependency_from_string(field) >= 0 ||
             STR_IN_SET(field, "Documentation", "RequiresMountsFor"))
 
-                return bus_append_strv(m, field, eq, EXTRACT_QUOTES);
+                return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
 
         t = condition_type_from_string(field);
         if (t >= 0)

@@ -39,6 +39,9 @@ acpi:ARMH*:
 acpi:ARML*:
  ID_VENDOR_FROM_DATABASE=ARM Ltd.
 
+acpi:ASEM*:
+ ID_VENDOR_FROM_DATABASE=ASEM S.p.A.
+
 acpi:ASUS*:
  ID_VENDOR_FROM_DATABASE=ASUS
 
@@ -95,6 +98,9 @@ acpi:FRSC*:
 
 acpi:FTSC*:
  ID_VENDOR_FROM_DATABASE=FocalTech Systems Co., Ltd.
+
+acpi:FUJI*:
+ ID_VENDOR_FROM_DATABASE=Fujitsu Limited
 
 acpi:GHSW*:
  ID_VENDOR_FROM_DATABASE=Green Hills Software
@@ -1608,6 +1614,9 @@ acpi:CRS*:
 acpi:CRV*:
  ID_VENDOR_FROM_DATABASE=Cerevo Inc.
 
+acpi:CRW*:
+ ID_VENDOR_FROM_DATABASE=Cammegh Limited
+
 acpi:CRX*:
  ID_VENDOR_FROM_DATABASE=Cyrix Corporation
 
@@ -1940,6 +1949,9 @@ acpi:DLK*:
 
 acpi:DLL*:
  ID_VENDOR_FROM_DATABASE=Dell Inc
+
+acpi:DLO*:
+ ID_VENDOR_FROM_DATABASE=Shenzhen Dlodlo Technologies Co., Ltd.
 
 acpi:DLT*:
  ID_VENDOR_FROM_DATABASE=Digitelec Informatique Park Cadera
@@ -7235,6 +7247,9 @@ acpi:VLC*:
 
 acpi:VLK*:
  ID_VENDOR_FROM_DATABASE=Vislink International Ltd
+
+acpi:VLM*:
+ ID_VENDOR_FROM_DATABASE=LENOVO BEIJING CO. LTD.
 
 acpi:VLT*:
  ID_VENDOR_FROM_DATABASE=VideoLan Technologies

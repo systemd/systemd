@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <linux/if_ether.h>
 #include <linux/if_macsec.h>
 #include <linux/genetlink.h>
@@ -718,7 +718,7 @@ int config_parse_macsec_key(
 
         _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
         _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
-        _cleanup_free_ void *p;
+        _cleanup_(erase_and_freep) void *p = NULL;
         MACsec *s = userdata;
         SecurityAssociation *dest;
         size_t l;
@@ -743,18 +743,17 @@ int config_parse_macsec_key(
 
         r = unhexmem_full(rvalue, strlen(rvalue), true, &p, &l);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse key. Ignoring assignment: %m");
-                return 0;
-        }
-        if (l != 16) {
-                /* See DEFAULT_SAK_LEN in drivers/net/macsec.c */
-                explicit_bzero_safe(p, l);
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Invalid key length (%zu). Ignoring assignment", l);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse key. Ignoring assignment: %m");
                 return 0;
         }
 
+        if (l != 16) {
+                /* See DEFAULT_SAK_LEN in drivers/net/macsec.c */
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid key length (%zu). Ignoring assignment", l);
+                return 0;
+        }
+
+        explicit_bzero_safe(dest->key, dest->key_len);
         free_and_replace(dest->key, p);
         dest->key_len = l;
 
@@ -852,15 +851,13 @@ int config_parse_macsec_key_id(
 
         r = unhexmem(rvalue, strlen(rvalue), &p, &l);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse key id. Ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse KeyId \"%s\": %m", rvalue);
                 return 0;
         }
-        if (l > MACSEC_KEYID_LEN) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "The size of key id is too large (%zu), maximum of %zu permitted. "
-                           "Ignoring assignment: %s", l, (size_t) MACSEC_KEYID_LEN, rvalue);
-                return 0;
-        }
+        if (l > MACSEC_KEYID_LEN)
+                return log_syntax(unit, LOG_ERR, filename, line, 0,
+                                  "Specified KeyId is larger then the allowed maximum (%zu > %u), ignoring: %s",
+                                  l, MACSEC_KEYID_LEN, rvalue);
 
         dest = a ? a->sa.key_id : b->sa.key_id;
         memcpy_safe(dest, p, l);
@@ -974,7 +971,7 @@ int config_parse_macsec_use_for_encoding(
 }
 
 static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
-        _cleanup_free_ uint8_t *key = NULL;
+        _cleanup_(erase_and_freep) uint8_t *key = NULL;
         size_t key_len;
         int r;
 
@@ -989,12 +986,10 @@ static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
                 return log_netdev_error_errno(netdev, r,
                                               "Failed to read key from '%s', ignoring: %m",
                                               sa->key_file);
-        if (key_len != 16) {
-                explicit_bzero_safe(key, key_len);
+
+        if (key_len != 16)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "Invalid key length (%zu bytes), ignoring: %m",
-                                              key_len);
-        }
+                                              "Invalid key length (%zu bytes), ignoring: %m", key_len);
 
         explicit_bzero_safe(sa->key, sa->key_len);
         free_and_replace(sa->key, key);
@@ -1246,4 +1241,5 @@ const NetDevVTable macsec_vtable = {
         .done = macsec_done,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_macsec_verify,
+        .generate_mac = true,
 };

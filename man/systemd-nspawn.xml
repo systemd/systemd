@@ -1,8 +1,8 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
-<!ENTITY fedora_latest_version "28">
-<!ENTITY fedora_cloud_release "1.1">
+<!ENTITY fedora_latest_version "30">
+<!ENTITY fedora_cloud_release "1.2">
 ]>
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
@@ -368,12 +368,16 @@
         <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         details.</para>
 
-        <para>Note that setting this option to <option>yes</option> or <option>state</option> will only work correctly
-        with operating systems in the container that can boot up with only <filename>/usr</filename> mounted, and are
-        able to automatically populate <filename>/var</filename>, and also <filename>/etc</filename> in case of
-        <literal>--volatile=yes</literal>. The <option>overlay</option> option does not require any particular
-        preparations in the OS, but do note that <literal>overlayfs</literal> behaviour differs from regular file
-        systems in a number of ways, and hence compatibility is limited.</para></listitem>
+        <para>Note that setting this option to <option>yes</option> or <option>state</option> will only work
+        correctly with operating systems in the container that can boot up with only
+        <filename>/usr/</filename> mounted, and are able to automatically populate <filename>/var/</filename>
+        (and <filename>/etc/</filename> in case of <literal>--volatile=yes</literal>). Specifically, this
+        means that operating systems that follow the historic split of <filename>/bin/</filename> and
+        <filename>/lib/</filename> (and related directories) from <filename>/usr/</filename> (i.e. where the
+        former are not symlinks into the latter) are not supported by <literal>--volatile=yes</literal> as
+        container payload. The <option>overlay</option> option does not require any particular preparations
+        in the OS, but do note that <literal>overlayfs</literal> behaviour differs from regular file systems
+        in a number of ways, and hence compatibility is limited.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1343,7 +1347,7 @@
 
       <programlisting># machinectl pull-raw --verify=no \
       https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz
-# systemd-nspawn -M Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw</programlisting>
+# systemd-nspawn -M Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64</programlisting>
 
       <para>This downloads an image using
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -1390,7 +1394,7 @@
       <title>Boot a minimal
       <ulink url="https://www.archlinux.org">Arch Linux</ulink> distribution in a container</title>
 
-      <programlisting># pacstrap -c -d ~/arch-tree/ base
+      <programlisting># pacstrap -c ~/arch-tree/ base
 # systemd-nspawn -bD ~/arch-tree/</programlisting>
 
       <para>This installs a minimal Arch Linux distribution into the

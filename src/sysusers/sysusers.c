@@ -361,7 +361,7 @@ static int rename_and_apply_smack(const char *temp_path, const char *dest_path) 
 }
 
 static const char* default_shell(uid_t uid) {
-        return uid == 0 ? "/bin/sh" : "/sbin/nologin";
+        return uid == 0 ? "/bin/sh" : NOLOGIN;
 }
 
 static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char **tmpfile_path) {
@@ -428,7 +428,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                         .pw_passwd = (char*) "x",
 
                         /* We default to the root directory as home */
-                        .pw_dir = i->home ? i->home : (char*) "/",
+                        .pw_dir = i->home ?: (char*) "/",
 
                         /* Initialize the shell to nologin, with one exception:
                          * for root we patch in something special */
@@ -522,13 +522,13 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         ORDERED_HASHMAP_FOREACH(i, todo_uids, iterator) {
                 struct spwd n = {
                         .sp_namp = i->name,
-                        .sp_pwdp = (char*) "!!",
+                        .sp_pwdp = (char*) "!!", /* lock this password, and make it invalid */
                         .sp_lstchg = lstchg,
                         .sp_min = -1,
                         .sp_max = -1,
                         .sp_warn = -1,
                         .sp_inact = -1,
-                        .sp_expire = -1,
+                        .sp_expire = i->uid == 0 ? -1 : 1, /* lock account as a whole, unless this is root */
                         .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
                 };
 
@@ -1358,8 +1358,6 @@ static bool item_equal(Item *a, Item *b) {
         return true;
 }
 
-DEFINE_PRIVATE_HASH_OPS_FULL(members_hash_ops, char, string_hash_func, string_compare_func, free, char*, strv_free);
-
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         static const Specifier specifier_table[] = {
@@ -1390,7 +1388,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         /* Parse columns */
         p = buffer;
-        r = extract_many_words(&p, NULL, EXTRACT_QUOTES,
+        r = extract_many_words(&p, NULL, EXTRACT_UNQUOTE,
                                &action, &name, &id, &description, &home, &shell, NULL);
         if (r < 0)
                 return log_error_errno(r, "[%s:%u] Syntax error.", fname, line);
@@ -1511,8 +1509,6 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return 0;
 
         case ADD_MEMBER: {
-                char **l;
-
                 /* Try to extend an existing member or group item */
                 if (!name)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1535,38 +1531,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                                fname, line, action[0],
                                                description ? "GECOS" : home ? "home directory" : "login shell");
 
-                r = ordered_hashmap_ensure_allocated(&members, &members_hash_ops);
+                r = string_strv_ordered_hashmap_put(&members, resolved_id, resolved_name);
                 if (r < 0)
-                        return log_oom();
-
-                l = ordered_hashmap_get(members, resolved_id);
-                if (l) {
-                        /* A list for this group name already exists, let's append to it */
-                        r = strv_push(&l, resolved_name);
-                        if (r < 0)
-                                return log_oom();
-
-                        resolved_name = NULL;
-
-                        assert_se(ordered_hashmap_update(members, resolved_id, l) >= 0);
-                } else {
-                        /* No list for this group name exists yet, create one */
-
-                        l = new0(char *, 2);
-                        if (!l)
-                                return -ENOMEM;
-
-                        l[0] = resolved_name;
-                        l[1] = NULL;
-
-                        r = ordered_hashmap_put(members, resolved_id, l);
-                        if (r < 0) {
-                                free(l);
-                                return log_oom();
-                        }
-
-                        resolved_id = resolved_name = NULL;
-                }
+                        return log_error_errno(r, "Failed to store mapping for %s: %m", resolved_id);
 
                 return 0;
         }

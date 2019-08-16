@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "extract-word.h"
+#include "hashmap.h"
 #include "macro.h"
 #include "string-util.h"
 
@@ -188,3 +189,7 @@ int fputstrv(FILE *f, char **l, const char *separator, bool *space);
                 (b) = NULL;                     \
                 0;                              \
         })
+
+extern const struct hash_ops string_strv_hash_ops;
+int string_strv_hashmap_put(Hashmap **h, const char *key, const char *value);
+int string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value);

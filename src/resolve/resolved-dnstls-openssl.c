@@ -20,12 +20,12 @@ static int dnstls_flush_write_buffer(DnsStream *stream) {
         assert(stream);
         assert(stream->encrypted);
 
-        if (stream->dnstls_data.write_buffer->length > 0) {
+        if (stream->dnstls_data.buffer_offset < stream->dnstls_data.write_buffer->length) {
                 assert(stream->dnstls_data.write_buffer->data);
 
                 struct iovec iov[1];
-                iov[0] = IOVEC_MAKE(stream->dnstls_data.write_buffer->data,
-                                    stream->dnstls_data.write_buffer->length);
+                iov[0] = IOVEC_MAKE(stream->dnstls_data.write_buffer->data + stream->dnstls_data.buffer_offset,
+                                    stream->dnstls_data.write_buffer->length - stream->dnstls_data.buffer_offset);
                 ss = dns_stream_writev(stream, iov, 1, DNS_STREAM_WRITE_TLS_DATA);
                 if (ss < 0) {
                         if (ss == -EAGAIN)
@@ -33,12 +33,14 @@ static int dnstls_flush_write_buffer(DnsStream *stream) {
 
                         return ss;
                 } else {
-                        stream->dnstls_data.write_buffer->length -= ss;
-                        stream->dnstls_data.write_buffer->data += ss;
+                        stream->dnstls_data.buffer_offset += ss;
 
-                        if (stream->dnstls_data.write_buffer->length > 0) {
+                        if (stream->dnstls_data.buffer_offset < stream->dnstls_data.write_buffer->length) {
                                 stream->dnstls_events |= EPOLLOUT;
                                 return -EAGAIN;
+                        } else {
+                                BIO_reset(SSL_get_wbio(stream->dnstls_data.ssl));
+                                stream->dnstls_data.buffer_offset = 0;
                         }
                 }
         }
@@ -52,6 +54,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         int error, r;
 
         assert(stream);
+        assert(stream->manager);
         assert(server);
 
         rb = BIO_new_socket(stream->fd, 0);
@@ -63,14 +66,26 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
                 return -ENOMEM;
 
         BIO_get_mem_ptr(wb, &stream->dnstls_data.write_buffer);
+        stream->dnstls_data.buffer_offset = 0;
 
-        s = SSL_new(server->dnstls_data.ctx);
+        s = SSL_new(stream->manager->dnstls_data.ctx);
         if (!s)
                 return -ENOMEM;
 
         SSL_set_connect_state(s);
         SSL_set_session(s, server->dnstls_data.session);
         SSL_set_bio(s, TAKE_PTR(rb), TAKE_PTR(wb));
+
+        if (server->manager->dns_over_tls_mode == DNS_OVER_TLS_YES) {
+                X509_VERIFY_PARAM *v;
+                const unsigned char *ip;
+
+                SSL_set_verify(s, SSL_VERIFY_PEER, NULL);
+                v = SSL_get0_param(s);
+                ip = server->family == AF_INET ? (const unsigned char*) &server->address.in.s_addr : server->address.in6.s6_addr;
+                if (!X509_VERIFY_PARAM_set1_ip(v, ip, FAMILY_ADDRESS_SIZE(server->family)))
+                        return -ECONNREFUSED;
+        }
 
         ERR_clear_error();
         stream->dnstls_data.handshake = SSL_do_handshake(s);
@@ -86,12 +101,13 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         }
 
         stream->encrypted = true;
+        stream->dnstls_data.ssl = TAKE_PTR(s);
 
         r = dnstls_flush_write_buffer(stream);
-        if (r < 0 && r != -EAGAIN)
+        if (r < 0 && r != -EAGAIN) {
+                SSL_free(TAKE_PTR(stream->dnstls_data.ssl));
                 return r;
-
-        stream->dnstls_data.ssl = TAKE_PTR(s);
+        }
 
         return 0;
 }
@@ -332,22 +348,36 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
         return ss;
 }
 
-void dnstls_server_init(DnsServer *server) {
-        assert(server);
-
-        server->dnstls_data.ctx = SSL_CTX_new(TLS_client_method());
-        if (server->dnstls_data.ctx) {
-                SSL_CTX_set_min_proto_version(server->dnstls_data.ctx, TLS1_2_VERSION);
-                SSL_CTX_set_options(server->dnstls_data.ctx, SSL_OP_NO_COMPRESSION);
-        }
-}
-
 void dnstls_server_free(DnsServer *server) {
         assert(server);
 
-        if (server->dnstls_data.ctx)
-                SSL_CTX_free(server->dnstls_data.ctx);
-
         if (server->dnstls_data.session)
                 SSL_SESSION_free(server->dnstls_data.session);
+}
+
+int dnstls_manager_init(Manager *manager) {
+        int r;
+        assert(manager);
+
+        ERR_load_crypto_strings();
+        SSL_load_error_strings();
+        manager->dnstls_data.ctx = SSL_CTX_new(TLS_client_method());
+
+        if (!manager->dnstls_data.ctx)
+                return -ENOMEM;
+
+        SSL_CTX_set_min_proto_version(manager->dnstls_data.ctx, TLS1_2_VERSION);
+        SSL_CTX_set_options(manager->dnstls_data.ctx, SSL_OP_NO_COMPRESSION);
+        r = SSL_CTX_set_default_verify_paths(manager->dnstls_data.ctx);
+        if (r < 0)
+                log_warning("Failed to load system trust store: %s", ERR_error_string(ERR_get_error(), NULL));
+
+        return 0;
+}
+
+void dnstls_manager_free(Manager *manager) {
+        assert(manager);
+
+        if (manager->dnstls_data.ctx)
+                SSL_CTX_free(manager->dnstls_data.ctx);
 }

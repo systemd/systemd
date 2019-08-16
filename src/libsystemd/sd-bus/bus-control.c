@@ -803,9 +803,12 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
 
 int bus_add_match_internal(
                 sd_bus *bus,
-                const char *match) {
+                const char *match,
+                uint64_t *ret_counter) {
 
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *e;
+        int r;
 
         assert(bus);
 
@@ -814,16 +817,24 @@ int bus_add_match_internal(
 
         e = append_eavesdrop(bus, match);
 
-        return sd_bus_call_method(
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
                         "AddMatch",
                         NULL,
-                        NULL,
+                        &reply,
                         "s",
                         e);
+        if (r < 0)
+                return r;
+
+        /* If the caller asked for it, return the read counter of the reply */
+        if (ret_counter)
+                *ret_counter = reply->read_counter;
+
+        return r;
 }
 
 int bus_add_match_internal_async(

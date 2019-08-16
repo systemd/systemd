@@ -227,6 +227,7 @@ All cgroup/resource control settings are available for transient units
 ✓ CPUQuota=
 ✓ CPUQuotaPeriodSec=
 ✓ MemoryAccounting=
+✓ DefaultMemoryMin=
 ✓ MemoryMin=
 ✓ DefaultMemoryLow=
 ✓ MemoryLow=
@@ -278,6 +279,7 @@ Most service unit settings are available for transient units.
 
 ```
 ✓ PIDFile=
+✓ ExecCondition=
 ✓ ExecStartPre=
 ✓ ExecStart=
 ✓ ExecStartPost=

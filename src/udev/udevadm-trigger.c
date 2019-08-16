@@ -25,7 +25,7 @@ static bool arg_dry_run = false;
 
 static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_set) {
         sd_device *d;
-        int r;
+        int r, ret = 0;
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
                 _cleanup_free_ char *filename = NULL;
@@ -45,7 +45,10 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_se
 
                 r = write_string_file(filename, action, WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to write '%s' to '%s', ignoring: %m", action, filename);
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_ERR, r,
+                                       "Failed to write '%s' to '%s': %m", action, filename);
+                        if (ret == 0 && r != -ENOENT)
+                                ret = r;
                         continue;
                 }
 
@@ -56,7 +59,7 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_se
                 }
         }
 
-        return 0;
+        return ret;
 }
 
 static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *userdata) {
@@ -112,7 +115,7 @@ static int help(void) {
                "  -t --type=                        Type of events to trigger\n"
                "          devices                     sysfs devices (default)\n"
                "          subsystems                  sysfs subsystems and drivers\n"
-               "  -c --action=ACTION                Event action value, default is \"change\"\n"
+               "  -c --action=ACTION|help           Event action value, default is \"change\"\n"
                "  -s --subsystem-match=SUBSYSTEM    Trigger devices from a matching subsystem\n"
                "  -S --subsystem-nomatch=SUBSYSTEM  Exclude devices from a matching subsystem\n"
                "  -a --attr-match=FILE[=VALUE]      Trigger devices with a matching attribute\n"
@@ -202,6 +205,10 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type --type=%s", optarg);
                         break;
                 case 'c':
+                        if (streq(optarg, "help")) {
+                                dump_device_action_table();
+                                return 0;
+                        }
                         if (device_action_from_string(optarg) < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown action '%s'", optarg);
 
@@ -299,12 +306,6 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 default:
                         assert_not_reached("Unknown option");
                 }
-        }
-
-        if (!arg_dry_run || ping) {
-                r = must_be_root();
-                if (r < 0)
-                        return r;
         }
 
         if (ping) {

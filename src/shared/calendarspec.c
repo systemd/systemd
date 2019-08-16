@@ -862,7 +862,6 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         int r;
 
         assert(p);
-        assert(spec);
 
         c = new(CalendarSpec, 1);
         if (!c)
@@ -1076,7 +1075,8 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         if (!calendar_spec_valid(c))
                 return -EINVAL;
 
-        *spec = TAKE_PTR(c);
+        if (spec)
+                *spec = TAKE_PTR(c);
         return 0;
 }
 

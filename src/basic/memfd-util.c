@@ -41,7 +41,7 @@ int memfd_new(const char *name) {
                         if (!e)
                                 return -ENOMEM;
 
-                        g = strappend("sd-", e);
+                        g = strjoin("sd-", e);
                         if (!g)
                                 return -ENOMEM;
 

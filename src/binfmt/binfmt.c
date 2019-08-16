@@ -44,7 +44,7 @@ static int delete_rule(const char *rule) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Rule file name '%s' is not valid, refusing.", x + 1);
 
-        fn = strappend("/proc/sys/fs/binfmt_misc/", x+1);
+        fn = path_join("/proc/sys/fs/binfmt_misc", x+1);
         if (!fn)
                 return log_oom();
 
@@ -213,7 +213,7 @@ static int run(int argc, char *argv[]) {
                 }
 
                 /* Flush out all rules */
-                write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
+                (void) write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
 
                 STRV_FOREACH(f, files) {
                         k = apply_file(*f, true);

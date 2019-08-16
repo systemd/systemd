@@ -7,7 +7,10 @@ efi_headers = files('''
         graphics.h
         linux.h
         measure.h
+        missing_efi.h
         pe.h
+        random-seed.h
+        sha256.h
         shim.h
         splash.h
         util.h
@@ -24,8 +27,10 @@ common_sources = '''
 systemd_boot_sources = '''
         boot.c
         console.c
-        shim.c
         crc32.c
+        random-seed.c
+        sha256.c
+        shim.c
 '''.split()
 
 stub_sources = '''

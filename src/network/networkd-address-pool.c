@@ -106,7 +106,7 @@ static bool address_pool_prefix_is_taken(
         }
 
         /* And don't clash with configured but un-assigned addresses either */
-        LIST_FOREACH(networks, n, p->manager->networks) {
+        ORDERED_HASHMAP_FOREACH(n, p->manager->networks, i) {
                 Address *a;
 
                 LIST_FOREACH(addresses, a, n->static_addresses) {

@@ -199,6 +199,9 @@ void cgroup_context_done(CGroupContext *c) {
 
         c->ip_address_allow = ip_address_access_free_all(c->ip_address_allow);
         c->ip_address_deny = ip_address_access_free_all(c->ip_address_deny);
+
+        c->ip_filters_ingress = strv_free(c->ip_filters_ingress);
+        c->ip_filters_egress = strv_free(c->ip_filters_egress);
 }
 
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
@@ -210,6 +213,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         CGroupBlockIODeviceWeight *w;
         CGroupDeviceAllow *a;
         IPAddressAccessItem *iaai;
+        char **path;
         char u[FORMAT_TIMESPAN_MAX];
         char v[FORMAT_TIMESPAN_MAX];
 
@@ -275,7 +279,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->memory_limit,
                 prefix, c->tasks_max,
                 prefix, cgroup_device_policy_to_string(c->device_policy),
-                prefix, strnull(disable_controllers_str),
+                prefix, strempty(disable_controllers_str),
                 prefix, yes_no(c->delegate));
 
         if (c->delegate) {
@@ -360,6 +364,12 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 (void) in_addr_to_string(iaai->family, &iaai->address, &k);
                 fprintf(f, "%sIPAddressDeny=%s/%u\n", prefix, strnull(k), iaai->prefixlen);
         }
+
+        STRV_FOREACH(path, c->ip_filters_ingress)
+                fprintf(f, "%sIPIngressFilterPath=%s\n", prefix, *path);
+
+        STRV_FOREACH(path, c->ip_filters_egress)
+                fprintf(f, "%sIPEgressFilterPath=%s\n", prefix, *path);
 }
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
@@ -945,6 +955,7 @@ static void cgroup_apply_firewall(Unit *u) {
         if (bpf_firewall_compile(u) < 0)
                 return;
 
+        (void) bpf_firewall_load_custom(u);
         (void) bpf_firewall_install(u);
 }
 
@@ -1353,7 +1364,9 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
 
         if (c->ip_accounting ||
             c->ip_address_allow ||
-            c->ip_address_deny)
+            c->ip_address_deny ||
+            c->ip_filters_ingress ||
+            c->ip_filters_egress)
                 return true;
 
         /* If any parent slice has an IP access list defined, it applies too */
@@ -1377,6 +1390,8 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
         assert(u);
 
         c = unit_get_cgroup_context(u);
+
+        assert(c);
 
         /* Figure out which controllers we need, based on the cgroup context object */
 
@@ -1540,6 +1555,10 @@ CGroupMask unit_get_target_mask(Unit *u) {
          * hierarchy that shall be enabled for it. */
 
         mask = unit_get_own_mask(u) | unit_get_members_mask(u) | unit_get_siblings_mask(u);
+
+        if (mask & CGROUP_MASK_BPF_FIREWALL & ~u->manager->cgroup_supported)
+                emit_bpf_firewall_warning(u);
+
         mask &= u->manager->cgroup_supported;
         mask &= ~unit_get_ancestor_disable_mask(u);
 
@@ -1611,11 +1630,7 @@ char *unit_default_cgroup_path(const Unit *u) {
         if (!escaped)
                 return NULL;
 
-        if (slice)
-                return strjoin(u->manager->cgroup_root, "/", slice, "/",
-                               escaped);
-        else
-                return strjoin(u->manager->cgroup_root, "/", escaped);
+        return path_join(empty_to_root(u->manager->cgroup_root), slice, escaped);
 }
 
 int unit_set_cgroup_path(Unit *u, const char *path) {
@@ -1917,6 +1932,12 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         if (set_isempty(pids))
                 return 0;
 
+        /* Load any custom firewall BPF programs here once to test if they are existing and actually loadable.
+         * Fail here early since later errors in the call chain unit_realize_cgroup to cgroup_context_apply are ignored. */
+        r = bpf_firewall_load_custom(u);
+        if (r < 0)
+                return r;
+
         r = unit_realize_cgroup(u);
         if (r < 0)
                 return r;
@@ -1924,7 +1945,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         if (isempty(suffix_path))
                 p = u->cgroup_path;
         else
-                p = strjoina(u->cgroup_path, "/", suffix_path);
+                p = prefix_roota(u->cgroup_path, suffix_path);
 
         delegated_mask = unit_get_delegate_mask(u);
 
@@ -2378,10 +2399,13 @@ void unit_prune_cgroup(Unit *u) {
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 
         r = cg_trim_everywhere(u->manager->cgroup_supported, u->cgroup_path, !is_root_slice);
-        if (r < 0) {
-                log_unit_debug_errno(u, r, "Failed to destroy cgroup %s, ignoring: %m", u->cgroup_path);
-                return;
-        }
+        if (r < 0)
+                /* One reason we could have failed here is, that the cgroup still contains a process.
+                 * However, if the cgroup becomes removable at a later time, it might be removed when
+                 * the containing slice is stopped. So even if we failed now, this unit shouldn't assume
+                 * that the cgroup is still realized the next time it is started. Do not return early
+                 * on error, continue cleanup. */
+                log_unit_full(u, r == -EBUSY ? LOG_DEBUG : LOG_WARNING, r, "Failed to destroy cgroup %s, ignoring: %m", u->cgroup_path);
 
         if (is_root_slice)
                 return;
@@ -2466,7 +2490,7 @@ static int unit_watch_pids_in_path(Unit *u, const char *path) {
                 while ((r = cg_read_subgroup(d, &fn)) > 0) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = strjoin(path, "/", fn);
+                        p = path_join(empty_to_root(path), fn);
                         free(fn);
 
                         if (!p)
@@ -2607,7 +2631,7 @@ void unit_add_to_cgroup_empty_queue(Unit *u) {
                 log_debug_errno(r, "Failed to enable cgroup empty event source: %m");
 }
 
-static int unit_check_oom(Unit *u) {
+int unit_check_oom(Unit *u) {
         _cleanup_free_ char *oom_kill = NULL;
         bool increased;
         uint64_t c;
@@ -3484,6 +3508,45 @@ void manager_invalidate_startup_units(Manager *m) {
 
         SET_FOREACH(u, m->startup_units, i)
                 unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_BLKIO);
+}
+
+static int unit_get_nice(Unit *u) {
+        ExecContext *ec;
+
+        ec = unit_get_exec_context(u);
+        return ec ? ec->nice : 0;
+}
+
+static uint64_t unit_get_cpu_weight(Unit *u) {
+        ManagerState state = manager_state(u->manager);
+        CGroupContext *cc;
+
+        cc = unit_get_cgroup_context(u);
+        return cc ? cgroup_context_cpu_weight(cc, state) : CGROUP_WEIGHT_DEFAULT;
+}
+
+int compare_job_priority(const void *a, const void *b) {
+        const Job *x = a, *y = b;
+        int nice_x, nice_y;
+        uint64_t weight_x, weight_y;
+        int ret;
+
+        if ((ret = CMP(x->unit->type, y->unit->type)) != 0)
+                return -ret;
+
+        weight_x = unit_get_cpu_weight(x->unit);
+        weight_y = unit_get_cpu_weight(y->unit);
+
+        if ((ret = CMP(weight_x, weight_y)) != 0)
+                return -ret;
+
+        nice_x = unit_get_nice(x->unit);
+        nice_y = unit_get_nice(y->unit);
+
+        if ((ret = CMP(nice_x, nice_y)) != 0)
+                return ret;
+
+        return strcmp(x->unit->id, y->unit->id);
 }
 
 static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] = {

@@ -157,7 +157,7 @@ static int get_file_options(const char *vendor, const char *model,
         int retval = 0;
 
         f = fopen(config_file, "re");
-        if (f == NULL) {
+        if (!f) {
                 if (errno == ENOENT)
                         return 1;
                 else {
@@ -181,7 +181,7 @@ static int get_file_options(const char *vendor, const char *model,
                 vendor_in = model_in = options_in = NULL;
 
                 buf = fgets(buffer, MAX_BUFFER_LEN, f);
-                if (buf == NULL)
+                if (!buf)
                         break;
                 lineno++;
                 if (buf[strlen(buffer) - 1] != '\n') {
@@ -239,7 +239,7 @@ static int get_file_options(const char *vendor, const char *model,
                         break;
                 }
                 if (vendor == NULL) {
-                        if (vendor_in == NULL)
+                        if (!vendor_in)
                                 break;
                 } else if (vendor_in &&
                            startswith(vendor, vendor_in) &&
@@ -346,18 +346,18 @@ static int set_options(int argc, char **argv,
                                 default_page_code = PAGE_83;
                         else if (streq(optarg, "pre-spc3-83"))
                                 default_page_code = PAGE_83_PRE_SPC3;
-                        else {
-                                log_error("Unknown page code '%s'", optarg);
-                                return -1;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown page code '%s'",
+                                                       optarg);
                         break;
 
                 case 's':
                         sg_version = atoi(optarg);
-                        if (sg_version < 3 || sg_version > 4) {
-                                log_error("Unknown SG version '%s'", optarg);
-                                return -1;
-                        }
+                        if (sg_version < 3 || sg_version > 4)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown SG version '%s'",
+                                                       optarg);
                         break;
 
                 case 'u':

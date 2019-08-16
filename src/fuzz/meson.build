@@ -51,6 +51,10 @@ fuzzers += [
          [libshared],
          []],
 
+        [['src/fuzz/fuzz-varlink.c'],
+         [libshared],
+         []],
+
         [['src/fuzz/fuzz-unit-file.c'],
          [libcore,
           libshared],
@@ -128,12 +132,12 @@ fuzzers += [
         [['src/fuzz/fuzz-nspawn-settings.c'],
          [libshared,
           libnspawn_core],
-         []],
+         [libseccomp]],
 
         [['src/fuzz/fuzz-nspawn-oci.c'],
          [libshared,
           libnspawn_core],
-         []],
+         [libseccomp]],
 
         [['src/fuzz/fuzz-calendarspec.c'],
          [libshared],

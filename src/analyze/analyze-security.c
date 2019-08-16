@@ -45,6 +45,9 @@ struct security_info {
         bool ip_address_allow_localhost;
         bool ip_address_allow_other;
 
+        bool ip_filters_custom_ingress;
+        bool ip_filters_custom_egress;
+
         char *keyring_mode;
         bool lock_personality;
         bool memory_deny_write_execute;
@@ -590,14 +593,17 @@ static int assess_ip_address_allow(
         assert(ret_badness);
         assert(ret_description);
 
-        if (!info->ip_address_deny_all) {
+        if (info->ip_filters_custom_ingress || info->ip_filters_custom_egress) {
+                d = strdup("Service defines custom ingress/egress IP filters with BPF programs");
+                b = 0;
+        } else if (!info->ip_address_deny_all) {
                 d = strdup("Service does not define an IP address whitelist");
                 b = 10;
         } else if (info->ip_address_allow_other) {
                 d = strdup("Service defines IP address whitelist with non-localhost entries");
                 b = 5;
         } else if (info->ip_address_allow_localhost) {
-                d = strdup("Service defines IP address whitelits with only localhost entries");
+                d = strdup("Service defines IP address whitelist with only localhost entries");
                 b = 2;
         } else {
                 d = strdup("Service blocks all IP address ranges");
@@ -1496,37 +1502,19 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         if (color)
                                 (void) table_set_color(details_table, cell, color);
 
-                        r = table_add_cell(details_table, &cell, TABLE_STRING, a->id);
+                        r = table_add_many(details_table,
+                                           TABLE_STRING, a->id, TABLE_SET_URL, a->url,
+                                           TABLE_STRING, description,
+                                           TABLE_UINT64, a->weight, TABLE_SET_ALIGN_PERCENT, 100,
+                                           TABLE_UINT64, badness, TABLE_SET_ALIGN_PERCENT, 100,
+                                           TABLE_UINT64, a->range, TABLE_SET_ALIGN_PERCENT, 100,
+                                           TABLE_EMPTY, TABLE_SET_ALIGN_PERCENT, 100);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        if (a->url)
-                                (void) table_set_url(details_table, cell, a->url);
-
-                        r = table_add_cell(details_table, NULL, TABLE_STRING, description);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-
-                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &a->weight);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        (void) table_set_align_percent(details_table, cell, 100);
-
-                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &badness);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        (void) table_set_align_percent(details_table, cell, 100);
-
-                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &a->range);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        (void) table_set_align_percent(details_table, cell, 100);
-
-                        r = table_add_cell(details_table, &cell, TABLE_EMPTY, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        (void) table_set_align_percent(details_table, cell, 100);
+                                return log_error_errno(r, "Failed to add cells to table: %m");
                 }
         }
+
+        assert(weight_sum > 0);
 
         if (details_table) {
                 size_t row;
@@ -1559,7 +1547,6 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         return log_error_errno(r, "Failed to output table: %m");
         }
 
-        assert(weight_sum > 0);
         exposure = DIV_ROUND_UP(badness_sum * 100U, weight_sum);
 
         for (i = 0; i < ELEMENTSOF(badness_table); i++)
@@ -1824,6 +1811,33 @@ static int property_read_ip_address_allow(
         return sd_bus_message_exit_container(m);
 }
 
+static int property_read_ip_filters(
+                sd_bus *bus,
+                const char *member,
+                sd_bus_message *m,
+                sd_bus_error *error,
+                void *userdata) {
+
+        struct security_info *info = userdata;
+        _cleanup_(strv_freep) char **l = NULL;
+        int r;
+
+        assert(bus);
+        assert(member);
+        assert(m);
+
+        r = sd_bus_message_read_strv(m, &l);
+        if (r < 0)
+                return r;
+
+        if (streq(member, "IPIngressFilterPath"))
+                info->ip_filters_custom_ingress = !strv_isempty(l);
+        else if (streq(member, "IPEgressFilterPath"))
+                info->ip_filters_custom_ingress = !strv_isempty(l);
+
+        return 0;
+}
+
 static int property_read_device_allow(
                 sd_bus *bus,
                 const char *member,
@@ -1873,6 +1887,8 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
                 { "FragmentPath",            "s",       NULL,                                    offsetof(struct security_info, fragment_path)             },
                 { "IPAddressAllow",          "a(iayu)", property_read_ip_address_allow,          0                                                         },
                 { "IPAddressDeny",           "a(iayu)", property_read_ip_address_allow,          0                                                         },
+                { "IPIngressFilterPath",     "as",      property_read_ip_filters,                0                                                         },
+                { "IPEgressFilterPath",      "as",      property_read_ip_filters,                0                                                         },
                 { "Id",                      "s",       NULL,                                    offsetof(struct security_info, id)                        },
                 { "KeyringMode",             "s",       NULL,                                    offsetof(struct security_info, keyring_mode)              },
                 { "LoadState",               "s",       NULL,                                    offsetof(struct security_info, load_state)                },

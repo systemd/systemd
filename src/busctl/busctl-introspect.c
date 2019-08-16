@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "busctl-introspect.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "util.h"
 #include "xml.h"
@@ -250,10 +251,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         node_path = TAKE_PTR(name);
                                 else {
 
-                                        if (endswith(prefix, "/"))
-                                                node_path = strappend(prefix, name);
-                                        else
-                                                node_path = strjoin(prefix, "/", name);
+                                        node_path = path_join(prefix, name);
                                         if (!node_path)
                                                 return log_oom();
                                 }

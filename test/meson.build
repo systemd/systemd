@@ -2,6 +2,7 @@
 
 test_data_files = '''
         a.service
+        a-conj.service
         b.service
         basic.target
         c.service
@@ -26,6 +27,7 @@ test_data_files = '''
         hello-after-sleep.target
         hello.service
         hwdb/10-bad.hwdb
+        i.service
         journal-data/journal-1.txt
         journal-data/journal-2.txt
         nomem.slice
@@ -54,6 +56,8 @@ test_data_files = '''
         test-execute/exec-capabilityboundingset-merge.service
         test-execute/exec-capabilityboundingset-reset.service
         test-execute/exec-capabilityboundingset-simple.service
+        test-execute/exec-condition-failed.service
+        test-execute/exec-condition-skip.service
         test-execute/exec-cpuaffinity1.service
         test-execute/exec-cpuaffinity2.service
         test-execute/exec-cpuaffinity3.service

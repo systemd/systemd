@@ -2,12 +2,12 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/if_tun.h>
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <linux/if_tun.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -33,9 +33,6 @@ static int netdev_fill_tuntap_message(NetDev *netdev, struct ifreq *ifr) {
 
         if (!t->packet_info)
                 ifr->ifr_flags |= IFF_NO_PI;
-
-        if (t->one_queue)
-                ifr->ifr_flags |= IFF_ONE_QUEUE;
 
         if (t->multi_queue)
                 ifr->ifr_flags |= IFF_MULTI_QUEUE;
@@ -134,10 +131,16 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
         assert(netdev);
 
         if (netdev->mtu != 0)
-                log_netdev_warning(netdev, "MTU configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
+                log_netdev_warning(netdev,
+                                   "MTUBytes= configured for %s device in %s will be ignored.\n"
+                                   "Please set it in the corresponding .network file.",
+                                   netdev_kind_to_string(netdev->kind), filename);
 
         if (netdev->mac)
-                log_netdev_warning(netdev, "MAC configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
+                log_netdev_warning(netdev,
+                                   "MACAddress= configured for %s device in %s will be ignored.\n"
+                                   "Please set it in the corresponding .network file.",
+                                   netdev_kind_to_string(netdev->kind), filename);
 
         return 0;
 }

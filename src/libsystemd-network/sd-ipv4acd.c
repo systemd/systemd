@@ -5,6 +5,7 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <netinet/if_ether.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -72,7 +73,7 @@ struct sd_ipv4acd {
         void* userdata;
 };
 
-#define log_ipv4acd_errno(acd, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "IPV4ACD: " fmt, ##__VA_ARGS__)
+#define log_ipv4acd_errno(acd, error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "IPV4ACD: " fmt, ##__VA_ARGS__)
 #define log_ipv4acd(acd, fmt, ...) log_ipv4acd_errno(acd, 0, fmt, ##__VA_ARGS__)
 
 static void ipv4acd_set_state(sd_ipv4acd *acd, IPv4ACDState st, bool reset_counter) {

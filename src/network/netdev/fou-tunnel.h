@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <netinet/in.h>
 #include <linux/fou.h>
 
 #include "in-addr-util.h"
@@ -20,8 +21,14 @@ typedef struct FouTunnel {
         uint8_t fou_protocol;
 
         uint16_t port;
+        uint16_t peer_port;
+
+        int local_family;
+        int peer_family;
 
         FooOverUDPEncapType fou_encap_type;
+        union in_addr_union local;
+        union in_addr_union peer;
 } FouTunnel;
 
 DEFINE_NETDEV_CAST(FOU, FouTunnel);
@@ -32,3 +39,4 @@ FooOverUDPEncapType fou_encap_type_from_string(const char *d) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_fou_encap_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_protocol);
+CONFIG_PARSER_PROTOTYPE(config_parse_fou_tunnel_address);

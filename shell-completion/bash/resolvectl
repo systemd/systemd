@@ -53,7 +53,7 @@ _resolvectl() {
         [FAMILY]='tcp udp sctp'
         [RESOLVE]='yes no resolve'
         [DNSSEC]='yes no allow-downgrade'
-        [DNSOVERTLS]='no opportunistic'
+        [DNSOVERTLS]='yes no opportunistic'
     )
     local interfaces=$( __get_interfaces )
 

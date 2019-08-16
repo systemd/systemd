@@ -383,18 +383,17 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ON_CALENDAR: {
                         _cleanup_(calendar_spec_freep) CalendarSpec *cs = NULL;
 
-                        /* Let's make sure the given calendar event is not in the past */
                         r = calendar_spec_from_string(optarg, &cs);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse calendar event specification: %m");
 
+                        /* Let's make sure the given calendar event is not in the past */
                         r = calendar_spec_next_usec(cs, now(CLOCK_REALTIME), NULL);
                         if (r == -ENOENT)
-                                /* The calendar event is in the past - let's warn about this, but install it
-                                 * anyway as it is. The service manager will trigger the service right-away
-                                 * then, but everything is discoverable as usual. Moreover, the server side
-                                 * might have a different clock or timezone than we do, hence it should
-                                 * decide when or whether to run something. */
+                                /* The calendar event is in the past — let's warn about this, but install it
+                                 * anyway as is. The service manager will trigger the service right away.
+                                 * Moreover, the server side might have a different clock or timezone than we
+                                 * do, hence it should decide when or whether to run something. */
                                 log_warning("Specified calendar expression is in the past, proceeding anyway.");
                         else if (r < 0)
                                 return log_error_errno(r, "Failed to calculate next time calendar expression elapses: %m");
@@ -1267,8 +1266,8 @@ static int start_transient_service(
                         else if (c.exit_code > 0)
                                 log_info("Main processes terminated with: code=%s/status=%s", sigchld_code_to_string(c.exit_code), signal_to_string(c.exit_status));
 
-                        if (c.inactive_enter_usec > 0 && c.inactive_enter_usec != USEC_INFINITY &&
-                            c.inactive_exit_usec > 0 && c.inactive_exit_usec != USEC_INFINITY &&
+                        if (timestamp_is_set(c.inactive_enter_usec) &&
+                            timestamp_is_set(c.inactive_exit_usec) &&
                             c.inactive_enter_usec > c.inactive_exit_usec) {
                                 char ts[FORMAT_TIMESPAN_MAX];
                                 log_info("Service runtime: %s", format_timespan(ts, sizeof(ts), c.inactive_enter_usec - c.inactive_exit_usec, USEC_PER_MSEC));
@@ -1653,6 +1652,7 @@ static int run(int argc, char* argv[]) {
         _cleanup_free_ char *description = NULL;
         int r, retval = EXIT_SUCCESS;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

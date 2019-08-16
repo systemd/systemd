@@ -55,9 +55,9 @@
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration
     files. The common configuration items are configured
-    in the generic [Unit] and [Install] sections. The
+    in the generic <literal>[Unit]</literal> and <literal>[Install]</literal> sections. The
     slice specific configuration options are configured in
-    the [Slice] section. Currently, only generic resource control settings
+    the <literal>[Slice]</literal> section. Currently, only generic resource control settings
     as described in
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry> are allowed.
     </para>

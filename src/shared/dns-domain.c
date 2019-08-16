@@ -37,7 +37,7 @@ int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags f
         d = dest;
 
         for (;;) {
-                if (*n == 0 || *n == '.') {
+                if (IN_SET(*n, 0, '.')) {
                         if (FLAGS_SET(flags, DNS_LABEL_LDH) && last_char == '-')
                                 /* Trailing dash */
                                 return -EINVAL;

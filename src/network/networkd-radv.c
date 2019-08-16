@@ -6,6 +6,7 @@
 #include <netinet/icmp6.h>
 #include <arpa/inet.h>
 
+#include "dns-domain.h"
 #include "networkd-address.h"
 #include "networkd-manager.h"
 #include "networkd-radv.h"
@@ -14,80 +15,6 @@
 #include "string-util.h"
 #include "string-table.h"
 #include "strv.h"
-
-static const char * const radv_prefix_delegation_table[_RADV_PREFIX_DELEGATION_MAX] = {
-        [RADV_PREFIX_DELEGATION_NONE] = "no",
-        [RADV_PREFIX_DELEGATION_STATIC] = "static",
-        [RADV_PREFIX_DELEGATION_DHCP6] = "dhcpv6",
-        [RADV_PREFIX_DELEGATION_BOTH] = "yes",
-};
-
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(
-                radv_prefix_delegation,
-                RADVPrefixDelegation,
-                RADV_PREFIX_DELEGATION_BOTH);
-
-int config_parse_router_prefix_delegation(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        RADVPrefixDelegation d;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        d = radv_prefix_delegation_from_string(rvalue);
-        if (d < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Invalid router prefix delegation '%s', ignoring assignment.", rvalue);
-                return 0;
-        }
-
-        network->router_prefix_delegation = d;
-
-        return 0;
-}
-
-int config_parse_router_preference(const char *unit,
-                                   const char *filename,
-                                   unsigned line,
-                                   const char *section,
-                                   unsigned section_line,
-                                   const char *lvalue,
-                                   int ltype,
-                                   const char *rvalue,
-                                   void *data,
-                                   void *userdata) {
-        Network *network = userdata;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (streq(rvalue, "high"))
-                network->router_preference = SD_NDISC_PREFERENCE_HIGH;
-        else if (STR_IN_SET(rvalue, "medium", "normal", "default"))
-                network->router_preference = SD_NDISC_PREFERENCE_MEDIUM;
-        else if (streq(rvalue, "low"))
-                network->router_preference = SD_NDISC_PREFERENCE_LOW;
-        else
-                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Router preference '%s' is invalid, ignoring assignment: %m", rvalue);
-
-        return 0;
-}
 
 void prefix_free(Prefix *prefix) {
         if (!prefix)
@@ -356,7 +283,7 @@ static int radv_set_dns(Link *link, Link *uplink) {
         if (link->network->router_dns) {
                 dns = newdup(struct in6_addr, link->network->router_dns,
                              link->network->n_router_dns);
-                if (dns == NULL)
+                if (!dns)
                         return -ENOMEM;
 
                 n_dns = link->network->n_router_dns;
@@ -372,7 +299,7 @@ static int radv_set_dns(Link *link, Link *uplink) {
                 goto set_dns;
 
         if (uplink) {
-                if (uplink->network == NULL) {
+                if (!uplink->network) {
                         log_link_debug(uplink, "Cannot fetch DNS servers as uplink interface is not managed by us");
                         return 0;
                 }
@@ -411,7 +338,7 @@ static int radv_set_domains(Link *link, Link *uplink) {
                 goto set_domains;
 
         if (uplink) {
-                if (uplink->network == NULL) {
+                if (!uplink->network) {
                         log_link_debug(uplink, "Cannot fetch DNS search domains as uplink interface is not managed by us");
                         return 0;
                 }
@@ -514,4 +441,186 @@ int radv_configure(Link *link) {
         }
 
         return radv_emit_dns(link);
+}
+
+int config_parse_radv_dns(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *n = data;
+        const char *p = rvalue;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+                union in_addr_union a;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to extract word, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                if (in_addr_from_string(AF_INET6, w, &a) >= 0) {
+                        struct in6_addr *m;
+
+                        m = reallocarray(n->router_dns, n->n_router_dns + 1, sizeof(struct in6_addr));
+                        if (!m)
+                                return log_oom();
+
+                        m[n->n_router_dns++] = a.in6;
+                        n->router_dns = m;
+
+                } else
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Failed to parse DNS server address, ignoring: %s", w);
+        }
+
+        return 0;
+}
+
+int config_parse_radv_search_domains(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *n = data;
+        const char *p = rvalue;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL, *idna = NULL;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to extract word, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                r = dns_name_apply_idna(w, &idna);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to apply IDNA to domain name '%s', ignoring: %m", w);
+                        continue;
+                } else if (r == 0)
+                        /* transfer ownership to simplify subsequent operations */
+                        idna = TAKE_PTR(w);
+
+                r = ordered_set_ensure_allocated(&n->router_search_domains, &string_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = ordered_set_consume(n->router_search_domains, TAKE_PTR(idna));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static const char * const radv_prefix_delegation_table[_RADV_PREFIX_DELEGATION_MAX] = {
+        [RADV_PREFIX_DELEGATION_NONE] = "no",
+        [RADV_PREFIX_DELEGATION_STATIC] = "static",
+        [RADV_PREFIX_DELEGATION_DHCP6] = "dhcpv6",
+        [RADV_PREFIX_DELEGATION_BOTH] = "yes",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(
+                radv_prefix_delegation,
+                RADVPrefixDelegation,
+                RADV_PREFIX_DELEGATION_BOTH);
+
+int config_parse_router_prefix_delegation(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        RADVPrefixDelegation d;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        d = radv_prefix_delegation_from_string(rvalue);
+        if (d < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Invalid router prefix delegation '%s', ignoring assignment.", rvalue);
+                return 0;
+        }
+
+        network->router_prefix_delegation = d;
+
+        return 0;
+}
+
+int config_parse_router_preference(const char *unit,
+                                   const char *filename,
+                                   unsigned line,
+                                   const char *section,
+                                   unsigned section_line,
+                                   const char *lvalue,
+                                   int ltype,
+                                   const char *rvalue,
+                                   void *data,
+                                   void *userdata) {
+        Network *network = userdata;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "high"))
+                network->router_preference = SD_NDISC_PREFERENCE_HIGH;
+        else if (STR_IN_SET(rvalue, "medium", "normal", "default"))
+                network->router_preference = SD_NDISC_PREFERENCE_MEDIUM;
+        else if (streq(rvalue, "low"))
+                network->router_preference = SD_NDISC_PREFERENCE_LOW;
+        else
+                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Router preference '%s' is invalid, ignoring assignment: %m", rvalue);
+
+        return 0;
 }

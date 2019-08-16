@@ -62,7 +62,7 @@
         </thead>
         <tbody>
           <row>
-            <entry valign="top" morerows="11">VM</entry>
+            <entry valign="top" morerows="12">VM</entry>
             <entry><varname>qemu</varname></entry>
             <entry>QEMU software virtualization, without KVM</entry>
           </row>
@@ -128,7 +128,7 @@
           </row>
 
           <row>
-            <entry valign="top" morerows="6">Container</entry>
+            <entry valign="top" morerows="7">Container</entry>
             <entry><varname>openvz</varname></entry>
             <entry>OpenVZ/Virtuozzo</entry>
           </row>
@@ -151,6 +151,11 @@
           <row>
             <entry><varname>docker</varname></entry>
             <entry>Docker container manager</entry>
+          </row>
+
+          <row>
+            <entry><varname>podman</varname></entry>
+            <entry><ulink url="https://podman.io">Podman</ulink> container manager</entry>
           </row>
 
           <row>

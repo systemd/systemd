@@ -1,0 +1,15 @@
+[Match]
+Name=dummy98
+
+[Link]
+RequiredForOnline=routable
+
+[Network]
+DNS=10.10.10.10 10.10.10.11
+NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org
+Domains=hogehoge ~foofoo
+LLMNR=no
+MulticastDNS=yes
+DNSSEC=no
+Address=192.168.10.10/24
+Address=192.168.12.12/24

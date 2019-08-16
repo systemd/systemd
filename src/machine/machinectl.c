@@ -255,7 +255,7 @@ static int show_table(Table *table, const char *word) {
         assert(table);
         assert(word);
 
-        if (table_get_rows(table) > 1) {
+        if (table_get_rows(table) > 1 || OUTPUT_MODE_IS_JSON(arg_output)) {
                 r = table_set_sort(table, (size_t) 0, (size_t) -1);
                 if (r < 0)
                         return log_error_errno(r, "Failed to sort table: %m");
@@ -606,9 +606,9 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 fputs("\t   Iface:", stdout);
 
                 for (c = 0; c < i->n_netif; c++) {
-                        char name[IF_NAMESIZE+1] = "";
+                        char name[IF_NAMESIZE+1];
 
-                        if (if_indextoname(i->netif[c], name)) {
+                        if (format_ifname(i->netif[c], name)) {
                                 fputc(' ', stdout);
                                 fputs(name, stdout);
 
@@ -3100,6 +3100,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

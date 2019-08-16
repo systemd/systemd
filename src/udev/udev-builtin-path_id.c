@@ -675,7 +675,7 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
         return 0;
 }
 
-const struct udev_builtin udev_builtin_path_id = {
+const UdevBuiltin udev_builtin_path_id = {
         .name = "path_id",
         .cmd = builtin_path_id,
         .help = "Compose persistent device path",

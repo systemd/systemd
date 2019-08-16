@@ -463,7 +463,7 @@ static int add_mount(
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate unit name: %m");
 
-                fclose(f);
+                f = safe_fclose(f);
 
                 r = generator_open_unit_file(dest, "/etc/fstab", automount_name, &f);
                 if (r < 0)

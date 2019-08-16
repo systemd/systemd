@@ -8,8 +8,11 @@
 #include <gnutls/gnutls.h>
 #include <stdbool.h>
 
-struct DnsTlsServerData {
+struct DnsTlsManagerData {
         gnutls_certificate_credentials_t cert_cred;
+};
+
+struct DnsTlsServerData {
         gnutls_datum_t session_data;
 };
 

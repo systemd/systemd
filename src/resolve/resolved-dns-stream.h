@@ -16,10 +16,8 @@ typedef enum DnsStreamType {
 
 #include "resolved-dns-packet.h"
 #include "resolved-dns-transaction.h"
-#include "resolved-manager.h"
-#if ENABLE_DNS_OVER_TLS
 #include "resolved-dnstls.h"
-#endif
+#include "resolved-manager.h"
 
 #define DNS_STREAM_WRITE_TLS_DATA 1
 

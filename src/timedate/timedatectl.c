@@ -700,6 +700,107 @@ static int show_timesync(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static int parse_ifindex_bus(sd_bus *bus, const char *str, int *ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int32_t i;
+        int r;
+
+        assert(bus);
+        assert(str);
+        assert(ret);
+
+        r = parse_ifindex(str, ret);
+        if (r >= 0)
+                return 0;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "GetLinkByName",
+                        &error,
+                        &reply,
+                        "s", str);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get ifindex of interfaces %s: %s", str, bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "io", &i, NULL);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        *ret = i;
+        return 0;
+}
+
+static int verb_ntp_servers(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+        sd_bus *bus = userdata;
+        int ifindex, r;
+
+        assert(bus);
+
+        r = parse_ifindex_bus(bus, argv[1], &ifindex);
+        if (r < 0)
+                return r;
+
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &req,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "SetLinkNTP");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(req, "i", ifindex);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(req, argv + 2);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, req, 0, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set NTP servers: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int verb_revert(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        int ifindex, r;
+
+        assert(bus);
+
+        r = parse_ifindex_bus(bus, argv[1], &ifindex);
+        if (r < 0)
+                return r;
+
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "RevertLinkNTP",
+                        &error,
+                        NULL,
+                        "i", ifindex);
+        if (r < 0)
+                return log_error_errno(r, "Failed to revert interface configuration: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -854,6 +955,8 @@ static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
                 { "set-ntp",         2,        2,        0,            set_ntp              },
                 { "timesync-status", VERB_ANY, 1,        0,            show_timesync_status },
                 { "show-timesync",   VERB_ANY, 1,        0,            show_timesync        },
+                { "ntp-servers",     3,        VERB_ANY, 0,            verb_ntp_servers     },
+                { "revert",          2,        2,        0,            verb_revert          },
                 { "help",            VERB_ANY, VERB_ANY, 0,            verb_help            }, /* Not documented, but supported since it is created. */
                 {}
         };
@@ -866,6 +969,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

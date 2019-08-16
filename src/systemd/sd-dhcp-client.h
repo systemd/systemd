@@ -38,6 +38,7 @@ enum {
         SD_DHCP_CLIENT_EVENT_IP_CHANGE          = 2,
         SD_DHCP_CLIENT_EVENT_EXPIRED            = 3,
         SD_DHCP_CLIENT_EVENT_RENEW              = 4,
+        SD_DHCP_CLIENT_EVENT_SELECTING          = 5,
 };
 
 enum {
@@ -98,7 +99,7 @@ enum {
 
 typedef struct sd_dhcp_client sd_dhcp_client;
 
-typedef void (*sd_dhcp_client_callback_t)(sd_dhcp_client *client, int event, void *userdata);
+typedef int (*sd_dhcp_client_callback_t)(sd_dhcp_client *client, int event, void *userdata);
 int sd_dhcp_client_set_callback(
                 sd_dhcp_client *client,
                 sd_dhcp_client_callback_t cb,
@@ -154,6 +155,9 @@ int sd_dhcp_client_get_client_id(
 int sd_dhcp_client_set_mtu(
                 sd_dhcp_client *client,
                 uint32_t mtu);
+int sd_dhcp_client_set_max_attempts(
+                sd_dhcp_client *client,
+                uint64_t attempt);
 int sd_dhcp_client_set_client_port(
                 sd_dhcp_client *client,
                 uint16_t port);
@@ -172,6 +176,7 @@ int sd_dhcp_client_get_lease(
 
 int sd_dhcp_client_stop(sd_dhcp_client *client);
 int sd_dhcp_client_start(sd_dhcp_client *client);
+int sd_dhcp_client_send_release(sd_dhcp_client *client);
 
 sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client);
 sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client);

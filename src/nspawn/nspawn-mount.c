@@ -97,7 +97,7 @@ static char *resolve_source_path(const char *dest, const char *source) {
                 return NULL;
 
         if (source[0] == '+')
-                return prefix_root(dest, source + 1);
+                return path_join(dest, source + 1);
 
         return strdup(source);
 }
@@ -145,7 +145,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
                                         return log_error_errno(errno, "Failed to acquire temporary directory: %m");
                                 }
 
-                                m->source = strjoin(m->rm_rf_tmpdir, "/src");
+                                m->source = path_join(m->rm_rf_tmpdir, "src");
                                 if (!m->source)
                                         return log_oom();
 
@@ -433,11 +433,11 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         FOREACH_STRING(x, "block", "bus", "class", "dev", "devices", "kernel") {
                 _cleanup_free_ char *from = NULL, *to = NULL;
 
-                from = prefix_root(full, x);
+                from = path_join(full, x);
                 if (!from)
                         return log_oom();
 
-                to = prefix_root(top, x);
+                to = path_join(top, x);
                 if (!to)
                         return log_oom();
 
@@ -681,13 +681,54 @@ int mount_all(const char *dest,
         return 0;
 }
 
+static int parse_mount_bind_options(const char *options, unsigned long *mount_flags, char **mount_opts) {
+        const char *p = options;
+        unsigned long flags = *mount_flags;
+        char *opts = NULL;
+        int r;
+
+        assert(options);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, ",", 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract mount option: %m");
+                if (r == 0)
+                        break;
+
+                if (streq(word, "rbind"))
+                        flags |= MS_REC;
+                else if (streq(word, "norbind"))
+                        flags &= ~MS_REC;
+                else {
+                        log_error("Invalid bind mount option: %s", word);
+                        return -EINVAL;
+                }
+        }
+
+        *mount_flags = flags;
+        /* in the future mount_opts will hold string options for mount(2) */
+        *mount_opts = opts;
+
+        return 0;
+}
+
 static int mount_bind(const char *dest, CustomMount *m) {
-        _cleanup_free_ char *where = NULL;
+        _cleanup_free_ char *mount_opts = NULL, *where = NULL;
+        unsigned long mount_flags = MS_BIND | MS_REC;
         struct stat source_st, dest_st;
         int r;
 
         assert(dest);
         assert(m);
+
+        if (m->options) {
+                r = parse_mount_bind_options(m->options, &mount_flags, &mount_opts);
+                if (r < 0)
+                        return r;
+        }
 
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
@@ -727,7 +768,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
                         return log_error_errno(r, "Failed to create mount point %s: %m", where);
         }
 
-        r = mount_verbose(LOG_ERR, m->source, where, NULL, MS_BIND | MS_REC, m->options);
+        r = mount_verbose(LOG_ERR, m->source, where, NULL, mount_flags, mount_opts);
         if (r < 0)
                 return r;
 
@@ -966,14 +1007,33 @@ static int setup_volatile_yes(
 
         bool tmpfs_mounted = false, bind_mounted = false;
         char template[] = "/tmp/nspawn-volatile-XXXXXX";
-        _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ char *buf = NULL, *bindir = NULL;
         const char *f, *t, *options;
+        struct stat st;
         int r;
 
         assert(directory);
 
-        /* --volatile=yes means we mount a tmpfs to the root dir, and the original /usr to use inside it, and that
-           read-only. */
+        /* --volatile=yes means we mount a tmpfs to the root dir, and the original /usr to use inside it, and
+         * that read-only. Before we start setting this up let's validate if the image has the /usr merge
+         * implemented, and let's output a friendly log message if it hasn't. */
+
+        bindir = path_join(directory, "/bin");
+        if (!bindir)
+                return log_oom();
+        if (lstat(bindir, &st) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to stat /bin directory below image: %m");
+
+                /* ENOENT is fine, just means the image is probably just a naked /usr and we can create the
+                 * rest. */
+        } else if (S_ISDIR(st.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
+                                       "Sorry, --volatile=yes mode is not supported with OS images that have not merged /bin/, /sbin/, /lib/, /lib64/ into /usr/. "
+                                       "Please work with your distribution and help them adopt the merged /usr scheme.");
+        else if (!S_ISLNK(st.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Error starting image: if --volatile=yes is used /bin must be a symlink (for merged /usr support) or non-existent (in which case a symlink is created automatically).");
 
         if (!mkdtemp(template))
                 return log_error_errno(errno, "Failed to create temporary directory: %m");
@@ -1190,7 +1250,9 @@ int setup_pivot_root(const char *directory, const char *pivot_root_new, const ch
          * Requires all file systems at directory and below to be mounted
          * MS_PRIVATE or MS_SLAVE so they can be moved.
          */
-        directory_pivot_root_new = prefix_root(directory, pivot_root_new);
+        directory_pivot_root_new = path_join(directory, pivot_root_new);
+        if (!directory_pivot_root_new)
+                return log_oom();
 
         /* Remount directory_pivot_root_new to make it movable. */
         r = mount_verbose(LOG_ERR, directory_pivot_root_new, directory_pivot_root_new, NULL, MS_BIND, NULL);
@@ -1204,7 +1266,11 @@ int setup_pivot_root(const char *directory, const char *pivot_root_new, const ch
                 }
 
                 remove_pivot_tmp = true;
-                pivot_tmp_pivot_root_old = prefix_root(pivot_tmp, pivot_root_old);
+                pivot_tmp_pivot_root_old = path_join(pivot_tmp, pivot_root_old);
+                if (!pivot_tmp_pivot_root_old) {
+                        r = log_oom();
+                        goto done;
+                }
 
                 r = mount_verbose(LOG_ERR, directory_pivot_root_new, pivot_tmp, NULL, MS_MOVE, NULL);
                 if (r < 0)

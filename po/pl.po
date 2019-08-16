@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2019-03-26 15:29+0000\n"
-"PO-Revision-Date: 2019-03-26 17:28+0100\n"
+"POT-Creation-Date: 2019-07-29 15:34+0000\n"
+"PO-Revision-Date: 2019-07-30 20:24+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -601,6 +601,98 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby zarządzać lokalnymi obrazami maszyn "
 "wirtualnych i kontenerów."
 
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr "Ustawienie serwerów NTP"
+
+#: src/network/org.freedesktop.network1.policy:23
+msgid "Authentication is required to set NTP servers."
+msgstr "Wymagane jest uwierzytelnienie, aby ustawić serwery NTP."
+
+#: src/network/org.freedesktop.network1.policy:33
+msgid "Set DNS servers"
+msgstr "Ustawienie serwerów DNS"
+
+#: src/network/org.freedesktop.network1.policy:34
+msgid "Authentication is required to set DNS servers."
+msgstr "Wymagane jest uwierzytelnienie, aby ustawić serwery DNS."
+
+#: src/network/org.freedesktop.network1.policy:44
+msgid "Set domains"
+msgstr "Ustawienie domen"
+
+#: src/network/org.freedesktop.network1.policy:45
+msgid "Authentication is required to set domains."
+msgstr "Wymagane jest uwierzytelnienie, aby ustawić domeny."
+
+#: src/network/org.freedesktop.network1.policy:55
+msgid "Set default route"
+msgstr "Ustawienie domyślnej trasy"
+
+#: src/network/org.freedesktop.network1.policy:56
+msgid "Authentication is required to set default route."
+msgstr "Wymagane jest uwierzytelnienie, aby ustawić domyślną trasę."
+
+#: src/network/org.freedesktop.network1.policy:66
+msgid "Enable/disable LLMNR"
+msgstr "Włączenie/wyłączenie LLMNR"
+
+#: src/network/org.freedesktop.network1.policy:67
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć LLMNR."
+
+#: src/network/org.freedesktop.network1.policy:77
+msgid "Enable/disable multicast DNS"
+msgstr "Włączenie/wyłączenie multikastowego DNS"
+
+#: src/network/org.freedesktop.network1.policy:78
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć multikastowe DNS."
+
+#: src/network/org.freedesktop.network1.policy:88
+msgid "Enable/disable DNS over TLS"
+msgstr "Włączenie/wyłączenie DNS przez TLS"
+
+#: src/network/org.freedesktop.network1.policy:89
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć DNS przez TLS."
+
+#: src/network/org.freedesktop.network1.policy:99
+msgid "Enable/disable DNSSEC"
+msgstr "Włączenie/wyłączenie DNSSEC"
+
+#: src/network/org.freedesktop.network1.policy:100
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć DNSSEC."
+
+#: src/network/org.freedesktop.network1.policy:110
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr "Ustawienie negatywnych kotwic zaufania DNSSEC"
+
+#: src/network/org.freedesktop.network1.policy:111
+msgid "Authentication is required to set DNSSEC Negative Trust Anchros."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby ustawić negatywne kotwice zaufania "
+"DNSSEC."
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr "Przywrócenie ustawień NTP"
+
+#: src/network/org.freedesktop.network1.policy:122
+msgid "Authentication is required to revert NTP settings."
+msgstr "Wymagane jest uwierzytelnienie, aby przywrócić ustawienia NTP."
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr "Przywrócenie ustawień DNS"
+
+#: src/network/org.freedesktop.network1.policy:133
+msgid "Authentication is required to revert DNS settings."
+msgstr "Wymagane jest uwierzytelnienie, aby przywrócić ustawienia DNS."
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "Badanie obrazu przenośnej usługi"
@@ -687,25 +779,25 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
 "czasu przez sieć."
 
-#: src/core/dbus-unit.c:325
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:326
+#: src/core/dbus-unit.c:355
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby zatrzymać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:327
+#: src/core/dbus-unit.c:356
 msgid "Authentication is required to reload '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie wczytać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:328 src/core/dbus-unit.c:329
+#: src/core/dbus-unit.c:357 src/core/dbus-unit.c:358
 msgid "Authentication is required to restart '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:434
+#: src/core/dbus-unit.c:530
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -713,16 +805,24 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby wysłać sygnał uniksowy do procesów "
 "jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:465
+#: src/core/dbus-unit.c:561
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby przywrócić stan „failed” (niepowodzenia) "
 "jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:498
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić właściwości jednostki „$(unit)”."
+
+#: src/core/dbus-unit.c:703
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby usunąć pliki i katalogi powiązane "
+"z jednostką „$(unit)”."
 
 #~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 #~ msgstr ""

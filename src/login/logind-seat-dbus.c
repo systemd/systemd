@@ -7,7 +7,10 @@
 #include "bus-common-errors.h"
 #include "bus-label.h"
 #include "bus-util.h"
+#include "logind-dbus.h"
+#include "logind-seat-dbus.h"
 #include "logind-seat.h"
+#include "logind-session-dbus.h"
 #include "logind.h"
 #include "missing_capability.h"
 #include "strv.h"
@@ -255,7 +258,10 @@ const sd_bus_vtable seat_vtable[] = {
 };
 
 int seat_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+        _cleanup_free_ char *e = NULL;
+        sd_bus_message *message;
         Manager *m = userdata;
+        const char *p;
         Seat *seat;
         int r;
 
@@ -265,32 +271,25 @@ int seat_object_find(sd_bus *bus, const char *path, const char *interface, void 
         assert(found);
         assert(m);
 
-        if (streq(path, "/org/freedesktop/login1/seat/self")) {
-                sd_bus_message *message;
+        p = startswith(path, "/org/freedesktop/login1/seat/");
+        if (!p)
+                return 0;
 
-                message = sd_bus_get_current_message(bus);
-                if (!message)
-                        return 0;
+        e = bus_label_unescape(p);
+        if (!e)
+                return -ENOMEM;
 
-                r = manager_get_seat_from_creds(m, message, NULL, error, &seat);
-                if (r < 0)
-                        return r;
-        } else {
-                _cleanup_free_ char *e = NULL;
-                const char *p;
+        message = sd_bus_get_current_message(bus);
+        if (!message)
+                return 0;
 
-                p = startswith(path, "/org/freedesktop/login1/seat/");
-                if (!p)
-                        return 0;
-
-                e = bus_label_unescape(p);
-                if (!e)
-                        return -ENOMEM;
-
-                seat = hashmap_get(m->seats, e);
-                if (!seat)
-                        return 0;
+        r = manager_get_seat_from_creds(m, message, e, error, &seat);
+        if (r == -ENXIO) {
+                sd_bus_error_free(error);
+                return 0;
         }
+        if (r < 0)
+                return r;
 
         *found = seat;
         return 1;
@@ -305,7 +304,7 @@ char *seat_bus_path(Seat *s) {
         if (!t)
                 return NULL;
 
-        return strappend("/org/freedesktop/login1/seat/", t);
+        return strjoin("/org/freedesktop/login1/seat/", t);
 }
 
 int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
@@ -335,25 +334,47 @@ int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
         message = sd_bus_get_current_message(bus);
         if (message) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                const char *name;
-                Session *session;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_AUGMENT, &creds);
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
                 if (r >= 0) {
+                        bool may_auto = false;
+                        const char *name;
+
                         r = sd_bus_creds_get_session(creds, &name);
                         if (r >= 0) {
+                                Session *session;
+
                                 session = hashmap_get(m->sessions, name);
                                 if (session && session->seat) {
                                         r = strv_extend(&l, "/org/freedesktop/login1/seat/self");
                                         if (r < 0)
                                                 return r;
+
+                                        may_auto = true;
                                 }
+                        }
+
+                        if (!may_auto) {
+                                uid_t uid;
+
+                                r = sd_bus_creds_get_owner_uid(creds, &uid);
+                                if (r >= 0) {
+                                        User *user;
+
+                                        user = hashmap_get(m->users, UID_TO_PTR(uid));
+                                        may_auto = user && user->display && user->display->seat;
+                                }
+                        }
+
+                        if (may_auto) {
+                                r = strv_extend(&l, "/org/freedesktop/login1/seat/auto");
+                                if (r < 0)
+                                        return r;
                         }
                 }
         }
 
         *nodes = TAKE_PTR(l);
-
         return 1;
 }
 

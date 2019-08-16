@@ -220,8 +220,7 @@ static struct rlimit *arg_rlimit[_RLIMIT_MAX] = {};
 static bool arg_no_new_privileges = false;
 static int arg_oom_score_adjust = 0;
 static bool arg_oom_score_adjust_set = false;
-static cpu_set_t *arg_cpuset = NULL;
-static unsigned arg_cpuset_ncpus = 0;
+static CPUSet arg_cpu_set = {};
 static ResolvConfMode arg_resolv_conf = RESOLV_CONF_AUTO;
 static TimezoneMode arg_timezone = TIMEZONE_AUTO;
 static unsigned arg_console_width = (unsigned) -1, arg_console_height = (unsigned) -1;
@@ -259,7 +258,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_syscall_blacklist, strv_freep);
 #if HAVE_SECCOMP
 STATIC_DESTRUCTOR_REGISTER(arg_seccomp, seccomp_releasep);
 #endif
-STATIC_DESTRUCTOR_REGISTER(arg_cpuset, CPU_FREEp);
+STATIC_DESTRUCTOR_REGISTER(arg_cpu_set, cpu_set_reset);
 STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 
 static int help(void) {
@@ -726,7 +725,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_NETWORK_ZONE: {
                         char *j;
 
-                        j = strappend("vz-", optarg);
+                        j = strjoin("vz-", optarg);
                         if (!j)
                                 return log_oom();
 
@@ -1283,7 +1282,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_RLIMIT: {
                         const char *eq;
-                        char *name;
+                        _cleanup_free_ char *name = NULL;
                         int rl;
 
                         if (streq(optarg, "help")) {
@@ -1329,17 +1328,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CPU_AFFINITY: {
-                        _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
+                        CPUSet cpuset;
 
                         r = parse_cpu_set(optarg, &cpuset);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse CPU affinity mask: %s", optarg);
+                                return log_error_errno(r, "Failed to parse CPU affinity mask %s: %m", optarg);
 
-                        if (arg_cpuset)
-                                CPU_FREE(arg_cpuset);
-
-                        arg_cpuset = TAKE_PTR(cpuset);
-                        arg_cpuset_ncpus = r;
+                        cpu_set_reset(&arg_cpu_set);
+                        arg_cpu_set = cpuset;
                         arg_settings_mask |= SETTING_CPU_AFFINITY;
                         break;
                 }
@@ -1899,11 +1895,11 @@ static int copy_devnodes(const char *dest) {
                 _cleanup_free_ char *from = NULL, *to = NULL;
                 struct stat st;
 
-                from = strappend("/dev/", d);
+                from = path_join("/dev/", d);
                 if (!from)
                         return log_oom();
 
-                to = prefix_root(dest, from);
+                to = path_join(dest, from);
                 if (!to)
                         return log_oom();
 
@@ -1938,7 +1934,7 @@ static int copy_devnodes(const char *dest) {
                         if (r < 0)
                                 return log_error_errno(r, "chown() of device node %s failed: %m", to);
 
-                        dn = strjoin("/dev/", S_ISCHR(st.st_mode) ? "char" : "block");
+                        dn = path_join("/dev", S_ISCHR(st.st_mode) ? "char" : "block");
                         if (!dn)
                                 return log_oom();
 
@@ -1949,11 +1945,11 @@ static int copy_devnodes(const char *dest) {
                         if (asprintf(&sl, "%s/%u:%u", dn, major(st.st_rdev), minor(st.st_rdev)) < 0)
                                 return log_oom();
 
-                        prefixed = prefix_root(dest, sl);
+                        prefixed = path_join(dest, sl);
                         if (!prefixed)
                                 return log_oom();
 
-                        t = strjoin("../", d);
+                        t = path_join("..", d);
                         if (!t)
                                 return log_oom();
 
@@ -1976,7 +1972,7 @@ static int make_extra_nodes(const char *dest) {
                 _cleanup_free_ char *path = NULL;
                 DeviceNode *n = arg_extra_nodes + i;
 
-                path = prefix_root(dest, n->path);
+                path = path_join(dest, n->path);
                 if (!path)
                         return log_oom();
 
@@ -2041,32 +2037,41 @@ static int setup_pts(const char *dest) {
         return 0;
 }
 
-static int setup_dev_console(const char *dest, const char *console) {
-        _cleanup_umask_ mode_t u;
-        const char *to;
+static int setup_stdio_as_dev_console(void) {
+        int terminal;
         int r;
 
-        assert(dest);
+        terminal = open_terminal("/dev/console", O_RDWR);
+        if (terminal < 0)
+                return log_error_errno(terminal, "Failed to open console: %m");
 
-        u = umask(0000);
-
-        if (!console)
-                return 0;
-
-        r = chmod_and_chown(console, 0600, arg_uid_shift, arg_uid_shift);
+        /* Make sure we can continue logging to the original stderr, even if
+         * stderr points elsewhere now */
+        r = log_dup_console();
         if (r < 0)
-                return log_error_errno(r, "Failed to correct access mode for TTY: %m");
+                return log_error_errno(r, "Failed to duplicate stderr: %m");
 
-        /* We need to bind mount the right tty to /dev/console since
-         * ptys can only exist on pts file systems. To have something
-         * to bind mount things on we create a empty regular file. */
-
-        to = prefix_roota(dest, "/dev/console");
-        r = touch(to);
+        /* invalidates 'terminal' on success and failure */
+        r = rearrange_stdio(terminal, terminal, terminal);
         if (r < 0)
-                return log_error_errno(r, "touch() for /dev/console failed: %m");
+                return log_error_errno(r, "Failed to move console to stdin/stdout/stderr: %m");
 
-        return mount_verbose(LOG_ERR, console, to, NULL, MS_BIND, NULL);
+        return 0;
+}
+
+static int setup_dev_console(const char *console) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        /* Create /dev/console symlink */
+        r = path_make_relative("/dev", console, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create relative path: %m");
+
+        if (symlink(p, "/dev/console") < 0)
+                return log_error_errno(errno, "Failed to create /dev/console symlink: %m");
+
+        return 0;
 }
 
 static int setup_keyring(void) {
@@ -2312,7 +2317,11 @@ static int drop_capabilities(uid_t uid) {
 
                 if (q.ambient == (uint64_t) -1 && ambient_capabilities_supported())
                         q.ambient = 0;
-        } else
+
+                if (capability_quintet_mangle(&q))
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Cannot set capabilities that are not in the current bounding set.");
+
+        } else {
                 q = (CapabilityQuintet) {
                         .bounding = arg_caps_retain,
                         .effective = uid == 0 ? arg_caps_retain : 0,
@@ -2320,6 +2329,13 @@ static int drop_capabilities(uid_t uid) {
                         .permitted = uid == 0 ? arg_caps_retain : 0,
                         .ambient = ambient_capabilities_supported() ? 0 : (uint64_t) -1,
                 };
+
+                /* If we're not using OCI, proceed with mangled capabilities (so we don't error out)
+                 * in order to maintain the same behavior as systemd < 242. */
+                if (capability_quintet_mangle(&q))
+                        log_warning("Some capabilities will not be set because they are not in the current bounding set.");
+
+        }
 
         return capability_quintet_enforce(&q);
 }
@@ -2580,7 +2596,7 @@ static int determine_names(void) {
                  * search for a machine, but instead create a new one
                  * in /var/lib/machine. */
 
-                arg_directory = strjoin("/var/lib/machines/", arg_machine);
+                arg_directory = path_join("/var/lib/machines", arg_machine);
                 if (!arg_directory)
                         return log_oom();
         }
@@ -2779,6 +2795,7 @@ static int inner_child(
                 bool secondary,
                 int kmsg_socket,
                 int rtnl_socket,
+                int master_pty_socket,
                 FDSet *fds) {
 
         _cleanup_free_ char *home = NULL;
@@ -2912,6 +2929,29 @@ static int inner_child(
                 rtnl_socket = safe_close(rtnl_socket);
         }
 
+        if (arg_console_mode != CONSOLE_PIPE) {
+                _cleanup_close_ int master = -1;
+                _cleanup_free_ char *console = NULL;
+
+                /* Allocate a pty and make it available as /dev/console. */
+                master = openpt_allocate(O_RDWR|O_NONBLOCK, &console);
+                if (master < 0)
+                        return log_error_errno(master, "Failed to allocate a pty: %m");
+
+                r = setup_dev_console(console);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to setup /dev/console: %m");
+
+                r = send_one_fd(master_pty_socket, master, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to send master fd: %m");
+                master_pty_socket = safe_close(master_pty_socket);
+
+                r = setup_stdio_as_dev_console();
+                if (r < 0)
+                        return r;
+        }
+
         r = patch_sysctl();
         if (r < 0)
                 return r;
@@ -2922,8 +2962,8 @@ static int inner_child(
                         return log_error_errno(r, "Failed to adjust OOM score: %m");
         }
 
-        if (arg_cpuset)
-                if (sched_setaffinity(0, CPU_ALLOC_SIZE(arg_cpuset_ncpus), arg_cpuset) < 0)
+        if (arg_cpu_set.set)
+                if (sched_setaffinity(0, arg_cpu_set.allocated, arg_cpu_set.set) < 0)
                         return log_error_errno(errno, "Failed to set CPU affinity: %m");
 
         (void) setup_hostname();
@@ -3133,7 +3173,6 @@ static int setup_sd_notify_child(void) {
 static int outer_child(
                 Barrier *barrier,
                 const char *directory,
-                const char *console,
                 DissectedImage *dissected_image,
                 bool secondary,
                 int pid_socket,
@@ -3142,6 +3181,7 @@ static int outer_child(
                 int kmsg_socket,
                 int rtnl_socket,
                 int uid_shift_socket,
+                int master_pty_socket,
                 int unified_cgroup_hierarchy_socket,
                 FDSet *fds,
                 int netns_fd) {
@@ -3161,31 +3201,13 @@ static int outer_child(
         assert(pid_socket >= 0);
         assert(uuid_socket >= 0);
         assert(notify_socket >= 0);
+        assert(master_pty_socket >= 0);
         assert(kmsg_socket >= 0);
 
         log_debug("Outer child is initializing.");
 
         if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0)
                 return log_error_errno(errno, "PR_SET_PDEATHSIG failed: %m");
-
-        if (arg_console_mode != CONSOLE_PIPE) {
-                int terminal;
-
-                assert(console);
-
-                terminal = open_terminal(console, O_RDWR);
-                if (terminal < 0)
-                        return log_error_errno(terminal, "Failed to open console: %m");
-
-                /* Make sure we can continue logging to the original stderr, even if stderr points elsewhere now */
-                r = log_dup_console();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to duplicate stderr: %m");
-
-                r = rearrange_stdio(terminal, terminal, terminal); /* invalidates 'terminal' on success and failure */
-                if (r < 0)
-                        return log_error_errno(r, "Failed to move console to stdin/stdout/stderr: %m");
-        }
 
         r = reset_audit_loginuid();
         if (r < 0)
@@ -3242,8 +3264,24 @@ static int outer_child(
                          "Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
         }
 
-        if (!dissected_image) {
-                /* Turn directory into bind mount */
+        if (path_equal(directory, "/")) {
+                /* If the directory we shall boot is the host, let's operate on a bind mount at a different
+                 * place, so that we can make changes to its mount structure (for example, to implement
+                 * --volatile=) without this interfering with our ability to access files such as
+                 * /etc/localtime to copy into the container. Note that we use a fixed place for this
+                 * (instead of a temporary directory, since we are living in our own mount namspace here
+                 * already, and thus don't need to be afraid of colliding with anyone else's mounts).*/
+                (void) mkdir_p("/run/systemd/nspawn-root", 0755);
+
+                r = mount_verbose(LOG_ERR, "/", "/run/systemd/nspawn-root", NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
+                        return r;
+
+                directory = "/run/systemd/nspawn-root";
+
+        } else if (!dissected_image) {
+                /* Turn directory into bind mount (we need that so that we can move the bind mount to root
+                 * later on). */
                 r = mount_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
                 if (r < 0)
                         return r;
@@ -3341,10 +3379,6 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = setup_dev_console(directory, console);
-        if (r < 0)
-                return r;
-
         r = setup_keyring();
         if (r < 0)
                 return r;
@@ -3419,7 +3453,7 @@ static int outer_child(
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
 
-                r = inner_child(barrier, directory, secondary, kmsg_socket, rtnl_socket, fds);
+                r = inner_child(barrier, directory, secondary, kmsg_socket, rtnl_socket, master_pty_socket, fds);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -3442,11 +3476,12 @@ static int outer_child(
 
         l = send_one_fd(notify_socket, fd, 0);
         if (l < 0)
-                return log_error_errno(errno, "Failed to send notify fd: %m");
+                return log_error_errno(l, "Failed to send notify fd: %m");
 
         pid_socket = safe_close(pid_socket);
         uuid_socket = safe_close(uuid_socket);
         notify_socket = safe_close(notify_socket);
+        master_pty_socket = safe_close(master_pty_socket);
         kmsg_socket = safe_close(kmsg_socket);
         rtnl_socket = safe_close(rtnl_socket);
         netns_fd = safe_close(netns_fd);
@@ -3869,15 +3904,14 @@ static int merge_settings(Settings *settings, const char *path) {
         }
 
         if ((arg_settings_mask & SETTING_CPU_AFFINITY) == 0 &&
-            settings->cpuset) {
+            settings->cpu_set.set) {
 
                 if (!arg_settings_trusted)
                         log_warning("Ignoring CPUAffinity= setting, file '%s' is not trusted.", path);
                 else {
-                        if (arg_cpuset)
-                                CPU_FREE(arg_cpuset);
-                        arg_cpuset = TAKE_PTR(settings->cpuset);
-                        arg_cpuset_ncpus = settings->cpuset_ncpus;
+                        cpu_set_reset(&arg_cpu_set);
+                        arg_cpu_set = settings->cpu_set;
+                        settings->cpu_set = (CPUSet) {};
                 }
         }
 
@@ -3973,7 +4007,7 @@ static int load_settings(void) {
         FOREACH_STRING(i, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
                 _cleanup_free_ char *j = NULL;
 
-                j = strjoin(i, "/", fn);
+                j = path_join(i, fn);
                 if (!j)
                         return log_oom();
 
@@ -4000,7 +4034,7 @@ static int load_settings(void) {
                         p = file_in_same_dir(arg_image, fn);
                         if (!p)
                                 return log_oom();
-                } else if (arg_directory) {
+                } else if (arg_directory && !path_equal(arg_directory, "/")) {
                         p = file_in_same_dir(arg_directory, fn);
                         if (!p)
                                 return log_oom();
@@ -4047,14 +4081,13 @@ static int load_oci_bundle(void) {
         return merge_settings(settings, arg_oci_bundle);
 }
 
-static int run_container(int master,
-               const char* console,
+static int run_container(
                DissectedImage *dissected_image,
                bool secondary,
                FDSet *fds,
                char veth_name[IFNAMSIZ], bool *veth_created,
                union in_addr_union *exposed,
-               pid_t *pid, int *ret) {
+               int *master, pid_t *pid, int *ret) {
 
         static const struct sigaction sa = {
                 .sa_handler = nop_signal_handler,
@@ -4070,9 +4103,10 @@ static int run_container(int master,
                 uuid_socket_pair[2] = { -1, -1 },
                 notify_socket_pair[2] = { -1, -1 },
                 uid_shift_socket_pair[2] = { -1, -1 },
+                master_pty_socket_pair[2] = { -1, -1 },
                 unified_cgroup_hierarchy_socket_pair[2] = { -1, -1};
 
-        _cleanup_close_ int notify_socket= -1;
+        _cleanup_close_ int notify_socket = -1;
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -4120,6 +4154,9 @@ static int run_container(int master,
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, notify_socket_pair) < 0)
                 return log_error_errno(errno, "Failed to create notify socket pair: %m");
 
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, master_pty_socket_pair) < 0)
+                return log_error_errno(errno, "Failed to create console socket pair: %m");
+
         if (arg_userns_mode != USER_NAMESPACE_NO)
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uid_shift_socket_pair) < 0)
                         return log_error_errno(errno, "Failed to create uid shift socket pair: %m");
@@ -4163,13 +4200,12 @@ static int run_container(int master,
                 /* The outer child only has a file system namespace. */
                 barrier_set_role(&barrier, BARRIER_CHILD);
 
-                master = safe_close(master);
-
                 kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
                 rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
                 pid_socket_pair[0] = safe_close(pid_socket_pair[0]);
                 uuid_socket_pair[0] = safe_close(uuid_socket_pair[0]);
                 notify_socket_pair[0] = safe_close(notify_socket_pair[0]);
+                master_pty_socket_pair[0] = safe_close(master_pty_socket_pair[0]);
                 uid_shift_socket_pair[0] = safe_close(uid_shift_socket_pair[0]);
                 unified_cgroup_hierarchy_socket_pair[0] = safe_close(unified_cgroup_hierarchy_socket_pair[0]);
 
@@ -4178,7 +4214,6 @@ static int run_container(int master,
 
                 r = outer_child(&barrier,
                                 arg_directory,
-                                console,
                                 dissected_image,
                                 secondary,
                                 pid_socket_pair[1],
@@ -4187,6 +4222,7 @@ static int run_container(int master,
                                 kmsg_socket_pair[1],
                                 rtnl_socket_pair[1],
                                 uid_shift_socket_pair[1],
+                                master_pty_socket_pair[1],
                                 unified_cgroup_hierarchy_socket_pair[1],
                                 fds,
                                 netns_fd);
@@ -4205,6 +4241,7 @@ static int run_container(int master,
         pid_socket_pair[1] = safe_close(pid_socket_pair[1]);
         uuid_socket_pair[1] = safe_close(uuid_socket_pair[1]);
         notify_socket_pair[1] = safe_close(notify_socket_pair[1]);
+        master_pty_socket_pair[1] = safe_close(master_pty_socket_pair[1]);
         uid_shift_socket_pair[1] = safe_close(uid_shift_socket_pair[1]);
         unified_cgroup_hierarchy_socket_pair[1] = safe_close(unified_cgroup_hierarchy_socket_pair[1]);
 
@@ -4479,17 +4516,40 @@ static int run_container(int master,
 
         rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
 
-        if (IN_SET(arg_console_mode, CONSOLE_INTERACTIVE, CONSOLE_READ_ONLY)) {
-                assert(master >= 0);
+        if (arg_console_mode != CONSOLE_PIPE) {
+                _cleanup_close_ int fd = -1;
+                PTYForwardFlags flags = 0;
 
-                r = pty_forward_new(event, master,
-                                    PTY_FORWARD_IGNORE_VHANGUP | (arg_console_mode == CONSOLE_READ_ONLY ? PTY_FORWARD_READ_ONLY : 0),
-                                    &forward);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create PTY forwarder: %m");
+                /* Retrieve the master pty allocated by inner child */
+                fd = receive_one_fd(master_pty_socket_pair[0], 0);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to receive master pty from the inner child: %m");
 
-                if (arg_console_width != (unsigned) -1 || arg_console_height != (unsigned) -1)
-                        (void) pty_forward_set_width_height(forward, arg_console_width, arg_console_height);
+                switch (arg_console_mode) {
+
+                case CONSOLE_READ_ONLY:
+                        flags |= PTY_FORWARD_READ_ONLY;
+
+                        _fallthrough_;
+
+                case CONSOLE_INTERACTIVE:
+                        flags |= PTY_FORWARD_IGNORE_VHANGUP;
+
+                        r = pty_forward_new(event, fd, flags, &forward);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create PTY forwarder: %m");
+
+                        if (arg_console_width != (unsigned) -1 || arg_console_height != (unsigned) -1)
+                                (void) pty_forward_set_width_height(forward,
+                                                                    arg_console_width,
+                                                                    arg_console_height);
+                        break;
+
+                default:
+                        assert(arg_console_mode == CONSOLE_PASSIVE);
+                }
+
+                *master = TAKE_FD(fd);
         }
 
         r = sd_event_loop(event);
@@ -4619,20 +4679,19 @@ static int initialize_rlimits(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_free_ char *console = NULL;
+        bool secondary = false, remove_directory = false, remove_image = false,
+                veth_created = false, remove_tmprootdir = false;
         _cleanup_close_ int master = -1;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, n_fd_passed, ret = EXIT_SUCCESS;
         char veth_name[IFNAMSIZ] = "";
-        bool secondary = false, remove_directory = false, remove_image = false;
-        pid_t pid = 0;
         union in_addr_union exposed = {};
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
-        bool veth_created = false, remove_tmprootdir = false;
         char tmprootdir[] = "/tmp/nspawn-root-XXXXXX";
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        pid_t pid = 0;
 
         log_parse_environment();
         log_open();
@@ -4697,8 +4756,12 @@ static int run(int argc, char *argv[]) {
         if (arg_directory) {
                 assert(!arg_image);
 
-                if (path_equal(arg_directory, "/") && !arg_ephemeral) {
-                        log_error("Spawning container on root directory is not supported. Consider using --ephemeral.");
+                /* Safety precaution: let's not allow running images from the live host OS image, as long as
+                 * /var from the host will propagate into container dynamically (because bad things happen if
+                 * two systems write to the same /var). Let's allow it for the special cases where /var is
+                 * either copied (i.e. --ephemeral) or replaced (i.e. --volatile=yes|state). */
+                if (path_equal(arg_directory, "/") && !(arg_ephemeral || IN_SET(arg_volatile_mode, VOLATILE_YES, VOLATILE_STATE))) {
+                        log_error("Spawning container on root directory is not supported. Consider using --ephemeral, --volatile=yes or --volatile=state.");
                         r = -EINVAL;
                         goto finish;
                 }
@@ -4710,12 +4773,9 @@ static int run(int argc, char *argv[]) {
                         if (r < 0)
                                 goto finish;
 
-                        /* If the specified path is a mount point we
-                         * generate the new snapshot immediately
-                         * inside it under a random name. However if
-                         * the specified is not a mount point we
-                         * create the new snapshot in the parent
-                         * directory, just next to it. */
+                        /* If the specified path is a mount point we generate the new snapshot immediately
+                         * inside it under a random name. However if the specified is not a mount point we
+                         * create the new snapshot in the parent directory, just next to it. */
                         r = path_is_mount_point(arg_directory, NULL, 0);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to determine whether directory %s is mount point: %m", arg_directory);
@@ -4730,27 +4790,35 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = image_path_lock(np, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
+                        /* We take an exclusive lock on this image, since it's our private, ephemeral copy
+                         * only owned by us and noone else. */
+                        r = image_path_lock(np, LOCK_EX|LOCK_NB, &tree_global_lock, &tree_local_lock);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to lock %s: %m", np);
                                 goto finish;
                         }
 
-                        r = btrfs_subvol_snapshot(arg_directory, np,
-                                                  (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
-                                                  BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                                  BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                                  BTRFS_SNAPSHOT_RECURSIVE |
-                                                  BTRFS_SNAPSHOT_QUOTA);
+                        {
+                                BLOCK_SIGNALS(SIGINT);
+                                r = btrfs_subvol_snapshot(arg_directory, np,
+                                                          (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                                          BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                                          BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                                          BTRFS_SNAPSHOT_RECURSIVE |
+                                                          BTRFS_SNAPSHOT_QUOTA |
+                                                          BTRFS_SNAPSHOT_SIGINT);
+                        }
+                        if (r == -EINTR) {
+                                log_error_errno(r, "Interrupted while copying file system tree to %s, removed again.", np);
+                                goto finish;
+                        }
                         if (r < 0) {
                                 log_error_errno(r, "Failed to create snapshot %s from %s: %m", np, arg_directory);
                                 goto finish;
                         }
 
                         free_and_replace(arg_directory, np);
-
                         remove_directory = true;
-
                 } else {
                         r = chase_symlinks_and_update(&arg_directory, arg_template ? CHASE_NONEXISTENT : 0);
                         if (r < 0)
@@ -4771,17 +4839,24 @@ static int run(int argc, char *argv[]) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = btrfs_subvol_snapshot(arg_template, arg_directory,
-                                                          (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
-                                                          BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                                          BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                                          BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
-                                                          BTRFS_SNAPSHOT_RECURSIVE |
-                                                          BTRFS_SNAPSHOT_QUOTA);
+                                {
+                                        BLOCK_SIGNALS(SIGINT);
+                                        r = btrfs_subvol_snapshot(arg_template, arg_directory,
+                                                                  (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                                                  BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                                                  BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                                                  BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
+                                                                  BTRFS_SNAPSHOT_RECURSIVE |
+                                                                  BTRFS_SNAPSHOT_QUOTA |
+                                                                  BTRFS_SNAPSHOT_SIGINT);
+                                }
                                 if (r == -EEXIST)
                                         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
                                                  "Directory %s already exists, not populating from template %s.", arg_directory, arg_template);
-                                else if (r < 0) {
+                                else if (r == -EINTR) {
+                                        log_error_errno(r, "Interrupted while copying file system tree to %s, removed again.", arg_directory);
+                                        goto finish;
+                                } else if (r < 0) {
                                         log_error_errno(r, "Couldn't create snapshot %s from %s: %m", arg_directory, arg_template);
                                         goto finish;
                                 } else
@@ -4837,20 +4912,27 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = image_path_lock(np, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
+                        /* Always take an exclusive lock on our own ephemeral copy. */
+                        r = image_path_lock(np, LOCK_EX|LOCK_NB, &tree_global_lock, &tree_local_lock);
                         if (r < 0) {
                                 r = log_error_errno(r, "Failed to create image lock: %m");
                                 goto finish;
                         }
 
-                        r = copy_file(arg_image, np, O_EXCL, arg_read_only ? 0400 : 0600, FS_NOCOW_FL, FS_NOCOW_FL, COPY_REFLINK|COPY_CRTIME);
+                        {
+                                BLOCK_SIGNALS(SIGINT);
+                                r = copy_file(arg_image, np, O_EXCL, arg_read_only ? 0400 : 0600, FS_NOCOW_FL, FS_NOCOW_FL, COPY_REFLINK|COPY_CRTIME|COPY_SIGINT);
+                        }
+                        if (r == -EINTR) {
+                                log_error_errno(r, "Interrupted while copying image file to %s, removed again.", np);
+                                goto finish;
+                        }
                         if (r < 0) {
                                 r = log_error_errno(r, "Failed to copy image file: %m");
                                 goto finish;
                         }
 
                         free_and_replace(arg_image, np);
-
                         remove_image = true;
                 } else {
                         r = image_path_lock(arg_image, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
@@ -4934,31 +5016,6 @@ static int run(int argc, char *argv[]) {
         if (arg_console_mode == CONSOLE_PIPE) /* if we pass STDERR on to the container, don't add our own logs into it too */
                 arg_quiet = true;
 
-        if (arg_console_mode != CONSOLE_PIPE) {
-                master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
-                if (master < 0) {
-                        r = log_error_errno(errno, "Failed to acquire pseudo tty: %m");
-                        goto finish;
-                }
-
-                r = ptsname_malloc(master, &console);
-                if (r < 0) {
-                        r = log_error_errno(r, "Failed to determine tty name: %m");
-                        goto finish;
-                }
-
-                if (arg_selinux_apifs_context) {
-                        r = mac_selinux_apply(console, arg_selinux_apifs_context);
-                        if (r < 0)
-                                goto finish;
-                }
-
-                if (unlockpt(master) < 0) {
-                        r = log_error_errno(errno, "Failed to unlock tty: %m");
-                        goto finish;
-                }
-        }
-
         if (!arg_quiet)
                 log_info("Spawning container %s on %s.\nPress ^] three times within 1s to kill container.",
                          arg_machine, arg_image ?: arg_directory);
@@ -4971,13 +5028,11 @@ static int run(int argc, char *argv[]) {
         }
 
         for (;;) {
-                r = run_container(master,
-                                  console,
-                                  dissected_image,
+                r = run_container(dissected_image,
                                   secondary,
                                   fds,
                                   veth_name, &veth_created,
-                                  &exposed,
+                                  &exposed, &master,
                                   &pid, &ret);
                 if (r <= 0)
                         break;

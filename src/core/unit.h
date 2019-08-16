@@ -8,9 +8,9 @@
 #include "bpf-program.h"
 #include "condition.h"
 #include "emergency-action.h"
-#include "install.h"
 #include "list.h"
-#include "unit-name.h"
+#include "set.h"
+#include "unit-file.h"
 #include "cgroup.h"
 
 typedef struct UnitRef UnitRef;
@@ -146,6 +146,7 @@ typedef struct Unit {
 
         /* The slot used for watching NameOwnerChanged signals */
         sd_bus_slot *match_bus_slot;
+        sd_bus_slot *get_name_owner_slot;
 
         /* References to this unit from clients */
         sd_bus_track *bus_track;
@@ -281,6 +282,10 @@ typedef struct Unit {
 
         BPFProgram *ip_bpf_ingress, *ip_bpf_ingress_installed;
         BPFProgram *ip_bpf_egress, *ip_bpf_egress_installed;
+        Set *ip_bpf_custom_ingress;
+        Set *ip_bpf_custom_ingress_installed;
+        Set *ip_bpf_custom_egress;
+        Set *ip_bpf_custom_egress_installed;
 
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
@@ -470,6 +475,12 @@ typedef struct UnitVTable {
 
         int (*kill)(Unit *u, KillWho w, int signo, sd_bus_error *error);
 
+        /* Clear out the various runtime/state/cache/logs/configuration data */
+        int (*clean)(Unit *u, ExecCleanMask m);
+
+        /* Return which kind of data can be cleaned */
+        int (*can_clean)(Unit *u, ExecCleanMask *ret);
+
         bool (*can_reload)(Unit *u);
 
         /* Write all data that cannot be restored from other sources
@@ -518,7 +529,7 @@ typedef struct UnitVTable {
         void (*notify_message)(Unit *u, const struct ucred *ucred, char **tags, FDSet *fds);
 
         /* Called whenever a name this Unit registered for comes or goes away. */
-        void (*bus_name_owner_change)(Unit *u, const char *name, const char *old_owner, const char *new_owner);
+        void (*bus_name_owner_change)(Unit *u, const char *old_owner, const char *new_owner);
 
         /* Called for each property that is being set */
         int (*bus_set_property)(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
@@ -666,6 +677,7 @@ int unit_set_slice(Unit *u, Unit *slice);
 int unit_set_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
+const char *unit_status_string(Unit *u) _pure_;
 
 bool unit_has_name(const Unit *u, const char *name);
 
@@ -690,6 +702,7 @@ int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t cont
 typedef enum UnitNotifyFlags {
         UNIT_NOTIFY_RELOAD_FAILURE    = 1 << 0,
         UNIT_NOTIFY_WILL_AUTO_RESTART = 1 << 1,
+        UNIT_NOTIFY_SKIP_CONDITION    = 1 << 2,
 } UnitNotifyFlags;
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags);
@@ -787,10 +800,6 @@ bool unit_is_unneeded(Unit *u);
 pid_t unit_control_pid(Unit *u);
 pid_t unit_main_pid(Unit *u);
 
-static inline bool unit_supported(Unit *u) {
-        return unit_type_supported(u->type);
-}
-
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_noncanonical(Unit *u, const char* where);
 
@@ -831,6 +840,9 @@ const char *unit_label_path(Unit *u);
 
 int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 
+/* unit_log_skip is for cases like ExecCondition= where a unit is considered "done"
+ * after some execution, rather than succeeded or failed. */
+void unit_log_skip(Unit *u, const char *result);
 void unit_log_success(Unit *u);
 void unit_log_failure(Unit *u, const char *result);
 static inline void unit_log_result(Unit *u, bool success, const char *result) {
@@ -848,13 +860,16 @@ int unit_failure_action_exit_status(Unit *u);
 
 int unit_test_trigger_loaded(Unit *u);
 
+int unit_clean(Unit *u, ExecCleanMask mask);
+int unit_can_clean(Unit *u, ExecCleanMask *ret_mask);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full(unit, level, error, ...)                          \
         ({                                                              \
                 const Unit *_u = (unit);                                \
-                _u ? log_object_internal(level, error, __FILE__, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
-                        log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+                _u ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
+                        log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
 #define log_unit_debug(unit, ...)   log_unit_full(unit, LOG_DEBUG, 0, ##__VA_ARGS__)

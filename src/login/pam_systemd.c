@@ -21,6 +21,7 @@
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -251,7 +252,7 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
         if (streq(limit, "infinity")) {
                 r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", (uint64_t)-1);
                 if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror(-r));
+                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
                         return r;
                 }
         } else {
@@ -259,7 +260,7 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
                 if (r >= 0) {
                         r = sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", (uint32_t) (((uint64_t) r * UINT32_MAX) / 1000U));
                         if (r < 0) {
-                                pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror(-r));
+                                pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
                                 return r;
                         }
                 } else {
@@ -267,11 +268,11 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
                         if (r >= 0) {
                                 r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", val);
                                 if (r < 0) {
-                                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror(-r));
+                                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
                                         return r;
                                 }
                         } else
-                                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.limit: %s, ignoring.", limit);
+                                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.memory_max: %s, ignoring.", limit);
                 }
         }
 
@@ -290,11 +291,11 @@ static int append_session_tasks_max(pam_handle_t *handle, sd_bus_message *m, con
         if (r >= 0) {
                 r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", val);
                 if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror(-r));
+                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
                         return r;
                 }
         } else
-                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.limit: %s, ignoring.", limit);
+                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.tasks_max: %s, ignoring.", limit);
 
         return 0;
 }
@@ -310,7 +311,7 @@ static int append_session_cg_weight(pam_handle_t *handle, sd_bus_message *m, con
         if (r >= 0) {
                 r = sd_bus_message_append(m, "(sv)", field, "t", val);
                 if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror(-r));
+                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
                         return r;
                 }
         } else if (streq(field, "CPUWeight"))
@@ -375,7 +376,7 @@ static bool validate_runtime_directory(pam_handle_t *handle, const char *path, u
          * up properly for us. */
 
         if (lstat(path, &st) < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to stat() runtime directory '%s': %s", path, strerror(errno));
+                pam_syslog(handle, LOG_ERR, "Failed to stat() runtime directory '%s': %s", path, strerror_safe(errno));
                 goto fail;
         }
 
@@ -549,7 +550,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         r = sd_bus_open_system(&bus);
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror(-r));
+                pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror_safe(r));
                 return PAM_SESSION_ERR;
         }
 
@@ -574,7 +575,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         "org.freedesktop.login1.Manager",
                         "CreateSession");
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to create CreateSession method call: %s", strerror(-r));
+                pam_syslog(handle, LOG_ERR, "Failed to create CreateSession method call: %s", strerror_safe(r));
                 return PAM_SESSION_ERR;
         }
 
@@ -593,13 +594,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         remote_user,
                         remote_host);
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror(-r));
+                pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
                 return PAM_SESSION_ERR;
         }
 
         r = sd_bus_message_open_container(m, 'a', "(sv)");
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to open message container: %s", strerror(-r));
+                pam_syslog(handle, LOG_ERR, "Failed to open message container: %s", strerror_safe(r));
                 return PAM_SYSTEM_ERR;
         }
 
@@ -621,7 +622,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         r = sd_bus_message_close_container(m);
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to close message container: %s", strerror(-r));
+                pam_syslog(handle, LOG_ERR, "Failed to close message container: %s", strerror_safe(r));
                 return PAM_SYSTEM_ERR;
         }
 
@@ -648,7 +649,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                 &vtnr,
                                 &existing);
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to parse message: %s", strerror(-r));
+                pam_syslog(handle, LOG_ERR, "Failed to parse message: %s", strerror_safe(r));
                 return PAM_SESSION_ERR;
         }
 
@@ -759,7 +760,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
                 r = sd_bus_open_system(&bus);
                 if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror(-r));
+                        pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror_safe(r));
                         return PAM_SESSION_ERR;
                 }
 

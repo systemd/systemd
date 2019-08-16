@@ -1,0 +1,89 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="pstore.conf" conditional="ENABLE_PSTORE"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>pstore.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>pstore.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>pstore.conf</refname>
+    <refname>pstore.conf.d</refname>
+    <refpurpose>PStore configuration file</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para>
+    <filename>/etc/systemd/pstore.conf</filename>
+    <filename>/etc/systemd/pstore.conf.d/*</filename>
+    </para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>This file configures the behavior of
+    <citerefentry><refentrytitle>systemd-pstore</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    a tool for archiving the contents of the persistent storage filesystem,
+    <ulink url="https://www.kernel.org/doc/Documentation/ABI/testing/pstore">pstore</ulink>.
+    </para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>All options are configured in the
+    <literal>[PStore]</literal> section:</para>
+
+    <variablelist class='config-directives'>
+
+      <varlistentry>
+        <term><varname>Storage=</varname></term>
+
+        <listitem><para>Controls where to archive (i.e. copy) files from the pstore filesystem. One of <literal>none</literal>,
+        <literal>external</literal>, and <literal>journal</literal>. When
+        <literal>none</literal>, the tool exits without processing files in the pstore filesystem.
+        When <literal>external</literal> (the default), files are archived into <filename>/var/lib/systemd/pstore/</filename>,
+        and logged into the journal.
+        When <literal>journal</literal>, pstore file contents are logged only in the journal.</para>
+        </listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Unlink=</varname></term>
+
+        <listitem><para>Controls whether or not files are removed from pstore after processing.
+        Takes a boolean value. When true, a pstore file is removed from the pstore once it has been
+        archived (either to disk or into the journal). When false, processing of pstore files occurs
+        normally, but the files remain in the pstore.
+        The default is true in order to maintain the pstore in a nearly empty state, so that the pstore
+        has storage available for the next kernel error event.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The defaults for all values are listed as comments in the
+    template <filename>/etc/systemd/pstore.conf</filename> file that
+    is installed by default.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>

@@ -213,113 +213,65 @@ int readlink_and_make_absolute(const char *p, char **r) {
 }
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
-        char fd_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -1;
-        bool st_valid = false;
-        struct stat st;
-        int r;
 
         assert(path);
-
-        /* Under the assumption that we are running privileged we first change the access mode and only then
-         * hand out ownership to avoid a window where access is too open. */
 
         fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW); /* Let's acquire an O_PATH fd, as precaution to change
                                                        * mode/owner on the same file */
         if (fd < 0)
                 return -errno;
 
-        xsprintf(fd_path, "/proc/self/fd/%i", fd);
-
-        if (mode != MODE_INVALID) {
-                if ((mode & S_IFMT) != 0) {
-
-                        if (stat(fd_path, &st) < 0)
-                                return -errno;
-
-                        if ((mode & S_IFMT) != (st.st_mode & S_IFMT))
-                                return -EINVAL;
-
-                        st_valid = true;
-                }
-
-                if (chmod(fd_path, mode & 07777) < 0) {
-                        r = -errno;
-
-                        if (!st_valid && stat(fd_path, &st) < 0)
-                                return -errno;
-
-                        if ((mode & 07777) != (st.st_mode & 07777))
-                                return r;
-
-                        st_valid = true;
-                }
-        }
-
-        if (uid != UID_INVALID || gid != GID_INVALID) {
-                if (chown(fd_path, uid, gid) < 0) {
-                        r = -errno;
-
-                        if (!st_valid && stat(fd_path, &st) < 0)
-                                return -errno;
-
-                        if (uid != UID_INVALID && st.st_uid != uid)
-                                return r;
-                        if (gid != GID_INVALID && st.st_gid != gid)
-                                return r;
-                }
-        }
-
-        return 0;
+        return fchmod_and_chown(fd, mode, uid, gid);
 }
 
 int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
-        bool st_valid = false;
+        bool do_chown, do_chmod;
         struct stat st;
-        int r;
 
-        /* Under the assumption that we are running privileged we first change the access mode and only then hand out
-         * ownership to avoid a window where access is too open. */
+        /* Change ownership and access mode of the specified fd. Tries to do so safely, ensuring that at no
+         * point in time the access mode is above the old access mode under the old ownership or the new
+         * access mode under the new ownership. Note: this call tries hard to leave the access mode
+         * unaffected if the uid/gid is changed, i.e. it undoes implicit suid/sgid dropping the kernel does
+         * on chown().
+         *
+         * This call is happy with O_PATH fds. */
 
-        if (mode != MODE_INVALID) {
-                if ((mode & S_IFMT) != 0) {
+        if (fstat(fd, &st) < 0)
+                return -errno;
 
-                        if (fstat(fd, &st) < 0)
+        do_chown =
+                (uid != UID_INVALID && st.st_uid != uid) ||
+                (gid != GID_INVALID && st.st_gid != gid);
+
+        do_chmod =
+                !S_ISLNK(st.st_mode) && /* chmod is not defined on symlinks */
+                ((mode != MODE_INVALID && ((st.st_mode ^ mode) & 07777) != 0) ||
+                 do_chown); /* If we change ownership, make sure we reset the mode afterwards, since chown()
+                             * modifies the access mode too */
+
+        if (mode == MODE_INVALID)
+                mode = st.st_mode; /* If we only shall do a chown(), save original mode, since chown() might break it. */
+        else if ((mode & S_IFMT) != 0 && ((mode ^ st.st_mode) & S_IFMT) != 0)
+                return -EINVAL; /* insist on the right file type if it was specified */
+
+        if (do_chown && do_chmod) {
+                mode_t minimal = st.st_mode & mode; /* the subset of the old and the new mask */
+
+                if (((minimal ^ st.st_mode) & 07777) != 0)
+                        if (fchmod_opath(fd, minimal & 07777) < 0)
                                 return -errno;
-
-                        if ((mode & S_IFMT) != (st.st_mode & S_IFMT))
-                                return -EINVAL;
-
-                        st_valid = true;
-                }
-
-                if (fchmod(fd, mode & 07777) < 0) {
-                        r = -errno;
-
-                        if (!st_valid && fstat(fd, &st) < 0)
-                                return -errno;
-
-                        if ((mode & 07777) != (st.st_mode & 07777))
-                                return r;
-
-                        st_valid = true;
-                }
         }
 
-        if (uid != UID_INVALID || gid != GID_INVALID)
-                if (fchown(fd, uid, gid) < 0) {
-                        r = -errno;
+        if (do_chown)
+                if (fchownat(fd, "", uid, gid, AT_EMPTY_PATH) < 0)
+                        return -errno;
 
-                        if (!st_valid && fstat(fd, &st) < 0)
-                                return -errno;
+        if (do_chmod)
+                if (fchmod_opath(fd, mode & 07777) < 0)
+                        return -errno;
 
-                        if (uid != UID_INVALID && st.st_uid != uid)
-                                return r;
-                        if (gid != GID_INVALID && st.st_gid != gid)
-                                return r;
-                }
-
-        return 0;
+        return do_chown || do_chmod;
 }
 
 int fchmod_umask(int fd, mode_t m) {
@@ -404,13 +356,7 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
          * something fchown(), fchmod(), futimensat() don't allow. */
         xsprintf(fdpath, "/proc/self/fd/%i", fd);
 
-        if (mode != MODE_INVALID)
-                if (chmod(fdpath, mode) < 0)
-                        ret = -errno;
-
-        if (uid_is_valid(uid) || gid_is_valid(gid))
-                if (chown(fdpath, uid, gid) < 0 && ret >= 0)
-                        ret = -errno;
+        ret = fchmod_and_chown(fd, mode, uid, gid);
 
         if (stamp != USEC_INFINITY) {
                 struct timespec ts[2];
@@ -786,7 +732,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * process. On each iteration, we move one component from "todo" to "done", processing it's special meaning
          * each time. The "todo" path always starts with at least one slash, the "done" path always ends in no
          * slash. We always keep an O_PATH fd to the component we are currently processing, thus keeping lookup races
-         * at a minimum.
+         * to a minimum.
          *
          * Suggested usage: whenever you want to canonicalize a path, use this function. Pass the absolute path you got
          * as-is: fully qualified and relative to your host's root. Optionally, specify the root parameter to tell this
@@ -796,9 +742,9 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * There are three ways to invoke this function:
          *
          * 1. Without CHASE_STEP or CHASE_OPEN: in this case the path is resolved and the normalized path is returned
-         *    in `ret`. The return value is < 0 on error. If CHASE_NONEXISTENT is also set 0 is returned if the file
-         *    doesn't exist, > 0 otherwise. If CHASE_NONEXISTENT is not set >= 0 is returned if the destination was
-         *    found, -ENOENT if it doesn't.
+         *    in `ret`. The return value is < 0 on error. If CHASE_NONEXISTENT is also set, 0 is returned if the file
+         *    doesn't exist, > 0 otherwise. If CHASE_NONEXISTENT is not set, >= 0 is returned if the destination was
+         *    found, -ENOENT if it wasn't.
          *
          * 2. With CHASE_OPEN: in this case the destination is opened after chasing it as O_PATH and this file
          *    descriptor is returned as return value. This is useful to open files relative to some root
@@ -814,13 +760,13 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          *
          * 4. With CHASE_SAFE: in this case the path must not contain unsafe transitions, i.e. transitions from
          *    unprivileged to privileged files or directories. In such cases the return value is -ENOLINK. If
-         *    CHASE_WARN is also set a warning describing the unsafe transition is emitted.
+         *    CHASE_WARN is also set, a warning describing the unsafe transition is emitted.
          *
-         * 5. With CHASE_NO_AUTOFS: in this case if an autofs mount point is encountered, the path normalization is
-         *    aborted and -EREMOTE is returned. If CHASE_WARN is also set a warning showing the path of the mount point
-         *    is emitted.
+         * 5. With CHASE_NO_AUTOFS: in this case if an autofs mount point is encountered, path normalization
+         *    is aborted and -EREMOTE is returned. If CHASE_WARN is also set, a warning showing the path of
+         *    the mount point is emitted.
          *
-         * */
+         */
 
         /* A root directory of "/" or "" is identical to none */
         if (empty_or_root(original_root))
@@ -1034,9 +980,9 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                                 /* Prefix what's left to do with what we just read, and start the loop again, but
                                  * remain in the current directory. */
-                                joined = strjoin(destination, todo);
+                                joined = path_join(destination, todo);
                         } else
-                                joined = strjoin("/", destination, todo);
+                                joined = path_join("/", destination, todo);
                         if (!joined)
                                 return -ENOMEM;
 
@@ -1350,6 +1296,17 @@ int fsync_directory_of_file(int fd) {
                 return -errno;
 
         return 0;
+}
+
+int fsync_full(int fd) {
+        int r, q;
+
+        /* Sync both the file and the directory */
+
+        r = fsync(fd) < 0 ? -errno : 0;
+        q = fsync_directory_of_file(fd);
+
+        return r < 0 ? r : q;
 }
 
 int fsync_path_at(int at_fd, const char *path) {

@@ -206,10 +206,6 @@ char *strnappend(const char *s, const char *suffix, size_t b) {
         return r;
 }
 
-char *strappend(const char *s, const char *suffix) {
-        return strnappend(s, suffix, strlen_ptr(suffix));
-}
-
 char *strjoin_real(const char *x, ...) {
         va_list ap;
         size_t l;
@@ -729,9 +725,16 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
         return ret;
 }
 
-static void advance_offsets(ssize_t diff, size_t offsets[static 2], size_t shift[static 2], size_t size) {
+static void advance_offsets(
+                ssize_t diff,
+                size_t offsets[2], /* note: we can't use [static 2] here, since this may be NULL */
+                size_t shift[static 2],
+                size_t size) {
+
         if (!offsets)
                 return;
+
+        assert(shift);
 
         if ((size_t) diff < offsets[0])
                 shift[0] += size;
@@ -848,8 +851,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
         fclose(f);
 
-        free(*ibuf);
-        *ibuf = obuf;
+        free_and_replace(*ibuf, obuf);
 
         if (_isz)
                 *_isz = osz;
@@ -859,7 +861,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 highlight[1] += shift[1];
         }
 
-        return obuf;
+        return *ibuf;
 }
 
 char *strextend_with_separator(char **x, const char *separator, ...) {
@@ -1030,20 +1032,6 @@ int free_and_strndup(char **p, const char *s, size_t l) {
 
         free_and_replace(*p, t);
         return 1;
-}
-
-char* string_erase(char *x) {
-        if (!x)
-                return NULL;
-
-        /* A delicious drop of snake-oil! To be called on memory where
-         * we stored passphrases or so, after we used them. */
-        explicit_bzero_safe(x, strlen(x));
-        return x;
-}
-
-char *string_free_erase(char *s) {
-        return mfree(string_erase(s));
 }
 
 bool string_is_safe(const char *p) {

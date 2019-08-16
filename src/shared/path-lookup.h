@@ -5,7 +5,7 @@
 
 typedef struct LookupPaths LookupPaths;
 
-#include "install.h"
+#include "unit-file.h"
 #include "macro.h"
 
 typedef enum LookupPathsFlags {

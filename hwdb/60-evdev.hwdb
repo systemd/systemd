@@ -130,6 +130,13 @@ evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBookPro14,3:*
 # ASUS
 #########################################
 
+# Asus N53SV
+evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnASUSTeKComputerInc.:pnN53SV*
+ EVDEV_ABS_00=0:1152:14
+ EVDEV_ABS_01=0:576:10
+ EVDEV_ABS_35=0:1152:14
+ EVDEV_ABS_36=0:576:10
+
 # Asus F3Sg
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnASUSTeKComputerInc.:pnF3Sg:*
  EVDEV_ABS_00=0:6143:136
@@ -311,11 +318,11 @@ evdev:name:SynPS/2 Synaptics TouchPad*:dmi:*svnHewlett-Packard:pnHPPaviliondm4*
  EVDEV_ABS_36=1269:4618:61
 
 # HP Pavilion g6
-evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnHewlett-Packard:pnHPPaviliong6*
- EVDEV_ABS_00=1284:5696:88
- EVDEV_ABS_01=1287:4838:39
- EVDEV_ABS_35=1284:5696:88
- EVDEV_ABS_36=1287:4838:39
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:bvnHewlett-Packard:*svnHewlett-Packard:pnHPPaviliong6*
+ EVDEV_ABS_00=1255:5728:50
+ EVDEV_ABS_01=1215:4761:71
+ EVDEV_ABS_35=1255:5728:50
+ EVDEV_ABS_36=1215:4761:71
 
 # HP Pavilion dv7
 evdev:name:SynPS/2 Synaptics TouchPad*:dmi:*svnHewlett-Packard:pnHPPaviliondv7*
@@ -337,6 +344,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnHP:pnHPSpectreNotebook*
  EVDEV_ABS_01=1083:4808:65
  EVDEV_ABS_35=1205:5691:47
  EVDEV_ABS_36=1083:4808:65
+
+# HP Envy x360
+evdev:name:SynPS/2 Synaptics TouchPad:*svnHP:pnHPENVYx360Convertible15m-cn0xxx*
+ EVDEV_ABS_00=1302:5640:36
+ EVDEV_ABS_01=1119:4741:61
+ EVDEV_ABS_35=1302:5640:36
+ EVDEV_ABS_36=1119:4741:61
 
 #########################################
 # Lenovo

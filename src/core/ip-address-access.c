@@ -134,21 +134,6 @@ int config_parse_ip_address_access(
 
         *list = ip_address_access_reduce(*list);
 
-        if (*list) {
-                r = bpf_firewall_supported();
-                if (r < 0)
-                        return r;
-                if (r == BPF_FIREWALL_UNSUPPORTED) {
-                        static bool warned = false;
-
-                        log_full(warned ? LOG_DEBUG : LOG_WARNING,
-                                 "File %s:%u configures an IP firewall (%s=%s), but the local system does not support BPF/cgroup based firewalling.\n"
-                                 "Proceeding WITHOUT firewalling in effect! (This warning is only shown for the first loaded unit using IP firewalling.)", filename, line, lvalue, rvalue);
-
-                        warned = true;
-                }
-        }
-
         return 0;
 }
 
@@ -202,4 +187,22 @@ IPAddressAccessItem* ip_address_access_reduce(IPAddressAccessItem *first) {
         }
 
         return first;
+}
+
+bool ip_address_access_item_is_any(IPAddressAccessItem *first) {
+        /* Check for exactly two entries */
+        if (!first || !first->items_next || first->items_next->items_next)
+                return false;
+
+        /* Check both entries cover the full range */
+        if (first->prefixlen != 0 || first->items_next->prefixlen != 0)
+                return false;
+
+        /* Check that one of them is the IPv4 and the other IPv6 */
+        if (!((first->family == AF_INET && first->items_next->family == AF_INET6) ||
+                                (first->family == AF_INET6 && first->items_next->family == AF_INET)))
+                return false;
+
+        /* No need to check the actual addresses, they don't matter if the prefix is zero */
+        return true;
 }

@@ -22,6 +22,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "netdev/wireguard.h"
 #include "netdev/fou-tunnel.h"
 #include "netdev/l2tp-tunnel.h"
+#include "netdev/xfrm.h"
 #include "vlan-util.h"
 %}
 struct ConfigPerfItem;
@@ -54,6 +55,8 @@ MACVLAN.Mode,                             config_parse_macvlan_mode,            
 MACVTAP.Mode,                             config_parse_macvlan_mode,                 0,                             offsetof(MacVlan, mode)
 IPVLAN.Mode,                              config_parse_ipvlan_mode,                  0,                             offsetof(IPVlan, mode)
 IPVLAN.Flags,                             config_parse_ipvlan_flags,                 0,                             offsetof(IPVlan, flags)
+IPVTAP.Mode,                              config_parse_ipvlan_mode,                  0,                             offsetof(IPVlan, mode)
+IPVTAP.Flags,                             config_parse_ipvlan_flags,                 0,                             offsetof(IPVlan, flags)
 Tunnel.Local,                             config_parse_tunnel_address,               0,                             offsetof(Tunnel, local)
 Tunnel.Remote,                            config_parse_tunnel_address,               0,                             offsetof(Tunnel, remote)
 Tunnel.TOS,                               config_parse_unsigned,                     0,                             offsetof(Tunnel, tos)
@@ -67,6 +70,7 @@ Tunnel.IPv6FlowLabel,                     config_parse_ipv6_flowlabel,          
 Tunnel.CopyDSCP,                          config_parse_bool,                         0,                             offsetof(Tunnel, copy_dscp)
 Tunnel.EncapsulationLimit,                config_parse_encap_limit,                  0,                             offsetof(Tunnel, encap_limit)
 Tunnel.Independent,                       config_parse_bool,                         0,                             offsetof(Tunnel, independent)
+Tunnel.AssignToLoopback,                  config_parse_bool,                         0,                             offsetof(Tunnel, assign_to_loopback)
 Tunnel.AllowLocalRemote,                  config_parse_tristate,                     0,                             offsetof(Tunnel, allow_localremote)
 Tunnel.FooOverUDP,                        config_parse_bool,                         0,                             offsetof(Tunnel, fou_tunnel)
 Tunnel.FOUDestinationPort,                config_parse_ip_port,                      0,                             offsetof(Tunnel, fou_destination_port)
@@ -79,6 +83,9 @@ Tunnel.ISATAP,                            config_parse_tristate,                
 FooOverUDP.Protocol,                      config_parse_ip_protocol,                  0,                             offsetof(FouTunnel, fou_protocol)
 FooOverUDP.Encapsulation,                 config_parse_fou_encap_type,               0,                             offsetof(FouTunnel, fou_encap_type)
 FooOverUDP.Port,                          config_parse_ip_port,                      0,                             offsetof(FouTunnel, port)
+FooOverUDP.PeerPort,                      config_parse_ip_port,                      0,                             offsetof(FouTunnel, peer_port)
+FooOverUDP.Local,                         config_parse_fou_tunnel_address,           0,                             offsetof(FouTunnel, local)
+FooOverUDP.Peer,                          config_parse_fou_tunnel_address,           0,                             offsetof(FouTunnel, peer)
 L2TP.TunnelId,                            config_parse_l2tp_tunnel_id,               0,                             offsetof(L2tpTunnel, tunnel_id)
 L2TP.PeerTunnelId,                        config_parse_l2tp_tunnel_id,               0,                             offsetof(L2tpTunnel, peer_tunnel_id)
 L2TP.UDPSourcePort,                       config_parse_ip_port,                      0,                             offsetof(L2tpTunnel, l2tp_udp_sport)
@@ -96,12 +103,13 @@ L2TPSession.Name,                         config_parse_l2tp_session_name,       
 Peer.Name,                                config_parse_ifname,                       0,                             offsetof(Veth, ifname_peer)
 Peer.MACAddress,                          config_parse_hwaddr,                       0,                             offsetof(Veth, mac_peer)
 VXCAN.Peer,                               config_parse_ifname,                       0,                             offsetof(VxCan, ifname_peer)
-VXLAN.Id,                                 config_parse_uint64,                       0,                             offsetof(VxLan, id)
-VXLAN.Group,                              config_parse_vxlan_address,                0,                             offsetof(VxLan, remote)
+VXLAN.VNI,                                config_parse_uint32,                       0,                             offsetof(VxLan, vni)
+VXLAN.Id,                                 config_parse_uint32,                       0,                             offsetof(VxLan, vni) /* deprecated */
+VXLAN.Group,                              config_parse_vxlan_address,                0,                             offsetof(VxLan, group)
 VXLAN.Local,                              config_parse_vxlan_address,                0,                             offsetof(VxLan, local)
 VXLAN.Remote,                             config_parse_vxlan_address,                0,                             offsetof(VxLan, remote)
 VXLAN.TOS,                                config_parse_unsigned,                     0,                             offsetof(VxLan, tos)
-VXLAN.TTL,                                config_parse_unsigned,                     0,                             offsetof(VxLan, ttl)
+VXLAN.TTL,                                config_parse_vxlan_ttl,                    0,                             offsetof(VxLan, ttl)
 VXLAN.MacLearning,                        config_parse_bool,                         0,                             offsetof(VxLan, learning)
 VXLAN.ARPProxy,                           config_parse_bool,                         0,                             offsetof(VxLan, arp_proxy)
 VXLAN.ReduceARPProxy,                     config_parse_bool,                         0,                             offsetof(VxLan, arp_proxy)
@@ -118,20 +126,23 @@ VXLAN.RemoteChecksumTx,                   config_parse_bool,                    
 VXLAN.RemoteChecksumRx,                   config_parse_bool,                         0,                             offsetof(VxLan, remote_csum_rx)
 VXLAN.FDBAgeingSec,                       config_parse_sec,                          0,                             offsetof(VxLan, fdb_ageing)
 VXLAN.GroupPolicyExtension,               config_parse_bool,                         0,                             offsetof(VxLan, group_policy)
+VXLAN.GenericProtocolExtension,           config_parse_bool,                         0,                             offsetof(VxLan, generic_protocol_extension)
 VXLAN.MaximumFDBEntries,                  config_parse_unsigned,                     0,                             offsetof(VxLan, max_fdb)
 VXLAN.PortRange,                          config_parse_port_range,                   0,                             0
 VXLAN.DestinationPort,                    config_parse_ip_port,                      0,                             offsetof(VxLan, dest_port)
 VXLAN.FlowLabel,                          config_parse_flow_label,                   0,                             0
+VXLAN.IPDoNotFragment,                    config_parse_df,                           0,                             offsetof(VxLan, df)
 GENEVE.Id,                                config_parse_geneve_vni,                   0,                             offsetof(Geneve, id)
 GENEVE.Remote,                            config_parse_geneve_address,               0,                             offsetof(Geneve, remote)
 GENEVE.TOS,                               config_parse_uint8,                        0,                             offsetof(Geneve, tos)
-GENEVE.TTL,                               config_parse_uint8,                        0,                             offsetof(Geneve, ttl)
+GENEVE.TTL,                               config_parse_geneve_ttl,                   0,                             offsetof(Geneve, ttl)
 GENEVE.UDPChecksum,                       config_parse_bool,                         0,                             offsetof(Geneve, udpcsum)
 GENEVE.UDP6ZeroCheckSumRx,                config_parse_bool,                         0,                             offsetof(Geneve, udp6zerocsumrx)
 GENEVE.UDP6ZeroChecksumRx,                config_parse_bool,                         0,                             offsetof(Geneve, udp6zerocsumrx)
 GENEVE.UDP6ZeroCheckSumTx,                config_parse_bool,                         0,                             offsetof(Geneve, udp6zerocsumtx)
 GENEVE.UDP6ZeroChecksumTx,                config_parse_bool,                         0,                             offsetof(Geneve, udp6zerocsumtx)
 GENEVE.DestinationPort,                   config_parse_ip_port,                      0,                             offsetof(Geneve, dest_port)
+GENEVE.IPDoNotFragment,                   config_parse_geneve_df,                    0,                             offsetof(Geneve, geneve_df)
 GENEVE.FlowLabel,                         config_parse_geneve_flow_label,            0,                             0
 MACsec.Port,                              config_parse_macsec_port,                  0,                             0
 MACsec.Encrypt,                           config_parse_tristate,                     0,                             offsetof(MACsec, encrypt)
@@ -150,12 +161,13 @@ MACsecReceiveAssociation.KeyId,           config_parse_macsec_key_id,           
 MACsecReceiveAssociation.Key,             config_parse_macsec_key,                   0,                             0
 MACsecReceiveAssociation.KeyFile,         config_parse_macsec_key_file,              0,                             0
 MACsecReceiveAssociation.Activate,        config_parse_macsec_sa_activate,           0,                             0
-Tun.OneQueue,                             config_parse_bool,                         0,                             offsetof(TunTap, one_queue)
+Tun.OneQueue,                             config_parse_warn_compat,                  DISABLED_LEGACY,               0
 Tun.MultiQueue,                           config_parse_bool,                         0,                             offsetof(TunTap, multi_queue)
 Tun.PacketInfo,                           config_parse_bool,                         0,                             offsetof(TunTap, packet_info)
+Tun.VNetHeader,                           config_parse_bool,                         0,                             offsetof(TunTap, vnet_hdr)
 Tun.User,                                 config_parse_string,                       0,                             offsetof(TunTap, user_name)
 Tun.Group,                                config_parse_string,                       0,                             offsetof(TunTap, group_name)
-Tap.OneQueue,                             config_parse_bool,                         0,                             offsetof(TunTap, one_queue)
+Tap.OneQueue,                             config_parse_warn_compat,                  DISABLED_LEGACY,               0
 Tap.MultiQueue,                           config_parse_bool,                         0,                             offsetof(TunTap, multi_queue)
 Tap.PacketInfo,                           config_parse_bool,                         0,                             offsetof(TunTap, packet_info)
 Tap.VNetHeader,                           config_parse_bool,                         0,                             offsetof(TunTap, vnet_hdr)
@@ -195,9 +207,11 @@ Bridge.MulticastQuerier,                  config_parse_tristate,                
 Bridge.MulticastSnooping,                 config_parse_tristate,                     0,                             offsetof(Bridge, mcast_snooping)
 Bridge.VLANFiltering,                     config_parse_tristate,                     0,                             offsetof(Bridge, vlan_filtering)
 Bridge.STP,                               config_parse_tristate,                     0,                             offsetof(Bridge, stp)
+Bridge.MulticastIGMPVersion,              config_parse_uint8,                        0,                             offsetof(Bridge, igmp_version)
 VRF.TableId,                              config_parse_uint32,                       0,                             offsetof(Vrf, table) /* deprecated */
 VRF.Table,                                config_parse_uint32,                       0,                             offsetof(Vrf, table)
-WireGuard.FwMark,                         config_parse_unsigned,                     0,                             offsetof(Wireguard, fwmark)
+WireGuard.FirewallMark,                   config_parse_unsigned,                     0,                             offsetof(Wireguard, fwmark)
+WireGuard.FwMark,                         config_parse_unsigned,                     0,                             offsetof(Wireguard, fwmark) /* deprecated */
 WireGuard.ListenPort,                     config_parse_wireguard_listen_port,        0,                             offsetof(Wireguard, port)
 WireGuard.PrivateKey,                     config_parse_wireguard_private_key,        0,                             0
 WireGuard.PrivateKeyFile,                 config_parse_wireguard_private_key_file,   0,                             0
@@ -207,3 +221,5 @@ WireGuardPeer.PublicKey,                  config_parse_wireguard_public_key,    
 WireGuardPeer.PresharedKey,               config_parse_wireguard_preshared_key,      0,                             0
 WireGuardPeer.PresharedKeyFile,           config_parse_wireguard_preshared_key_file, 0,                             0
 WireGuardPeer.PersistentKeepalive,        config_parse_wireguard_keepalive,          0,                             0
+Xfrm.InterfaceId,                         config_parse_uint32,                       0,                             offsetof(Xfrm, if_id)
+Xfrm.Independent,                         config_parse_bool,                         0,                             offsetof(Xfrm, independent)

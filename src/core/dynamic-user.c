@@ -20,6 +20,7 @@
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "user-util.h"
 
 /* Takes a value generated randomly or by hashing and turns it into a UID in the right range */
@@ -494,7 +495,7 @@ static int dynamic_user_realize(
                 errno = 0;
                 p = getpwuid(num);
                 if (!p)
-                        return errno > 0 ? -errno : -ESRCH;
+                        return errno_or_else(ESRCH);
 
                 gid = p->pw_gid;
         }

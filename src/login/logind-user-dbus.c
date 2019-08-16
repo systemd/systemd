@@ -6,6 +6,9 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "format-util.h"
+#include "logind-dbus.h"
+#include "logind-session-dbus.h"
+#include "logind-user-dbus.h"
 #include "logind-user.h"
 #include "logind.h"
 #include "missing_capability.h"
@@ -245,6 +248,10 @@ int user_object_find(sd_bus *bus, const char *path, const char *interface, void 
                         return 0;
 
                 r = manager_get_user_from_creds(m, message, UID_INVALID, error, &user);
+                if (r == -ENXIO) {
+                        sd_bus_error_free(error);
+                        return 0;
+                }
                 if (r < 0)
                         return r;
         } else {
@@ -305,10 +312,11 @@ int user_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
         message = sd_bus_get_current_message(bus);
         if (message) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                uid_t uid;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
                 if (r >= 0) {
+                        uid_t uid;
+
                         r = sd_bus_creds_get_owner_uid(creds, &uid);
                         if (r >= 0) {
                                 user = hashmap_get(m->users, UID_TO_PTR(uid));

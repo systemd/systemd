@@ -2,6 +2,8 @@
 
 #include <endian.h>
 #include <inttypes.h>
+#include <net/if.h>
+#include <net/if_arp.h>
 #include <string.h>
 
 #include "alloc-util.h"
@@ -9,6 +11,7 @@
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "missing_network.h"
+#include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
@@ -37,6 +40,21 @@ static const struct ether_addr lldp_multicast_addr[_LLDP_EMIT_MAX] = {
         [LLDP_EMIT_NON_TPMR_BRIDGE] = {{ 0x01, 0x80, 0xc2, 0x00, 0x00, 0x03 }},
         [LLDP_EMIT_CUSTOMER_BRIDGE] = {{ 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 }},
 };
+
+bool link_lldp_emit_enabled(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (link->iftype != ARPHRD_ETHER)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        return link->network->lldp_emit != LLDP_EMIT_NO;
+}
 
 static int lldp_write_tlv_header(uint8_t **p, uint8_t id, size_t sz) {
         assert(p);

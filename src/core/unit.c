@@ -12,6 +12,7 @@
 
 #include "all-units.h"
 #include "alloc-util.h"
+#include "bpf-firewall.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
@@ -27,6 +28,7 @@
 #include "fs-util.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "install.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -54,6 +56,16 @@
 #include "unit.h"
 #include "user-util.h"
 #include "virt.h"
+
+/* Thresholds for logging at INFO level about resource consumption */
+#define MENTIONWORTHY_CPU_NSEC (1 * NSEC_PER_SEC)
+#define MENTIONWORTHY_IO_BYTES (1024 * 1024ULL)
+#define MENTIONWORTHY_IP_BYTES (0ULL)
+
+/* Thresholds for logging at INFO level about resource consumption */
+#define NOTICEWORTHY_CPU_NSEC (10*60 * NSEC_PER_SEC) /* 10 minutes */
+#define NOTICEWORTHY_IO_BYTES (10 * 1024 * 1024ULL)  /* 10 MB */
+#define NOTICEWORTHY_IP_BYTES (128 * 1024 * 1024ULL) /* 128 MB */
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -682,6 +694,11 @@ void unit_free(Unit *u) {
         bpf_program_unref(u->ip_bpf_egress);
         bpf_program_unref(u->ip_bpf_egress_installed);
 
+        set_free(u->ip_bpf_custom_ingress);
+        set_free(u->ip_bpf_custom_egress);
+        set_free(u->ip_bpf_custom_ingress_installed);
+        set_free(u->ip_bpf_custom_egress_installed);
+
         bpf_program_unref(u->bpf_device_control_installed);
 
         condition_free_list(u->conditions);
@@ -942,6 +959,9 @@ int unit_merge_by_name(Unit *u, const char *name) {
         Unit *other;
         int r;
 
+        /* Either add name to u, or if a unit with name already exists, merge it with u.
+         * If name is a template, do the same for name@instance, where instance is u's instance. */
+
         assert(u);
         assert(name);
 
@@ -1005,7 +1025,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 STRV_FOREACH(dp, c->directories[dt].paths) {
                         _cleanup_free_ char *p;
 
-                        p = strjoin(u->manager->prefix[dt], "/", *dp);
+                        p = path_join(u->manager->prefix[dt], *dp);
                         if (!p)
                                 return -ENOMEM;
 
@@ -1061,6 +1081,15 @@ const char *unit_description(Unit *u) {
         return strna(u->id);
 }
 
+const char *unit_status_string(Unit *u) {
+        assert(u);
+
+        if (u->manager->status_unit_format == STATUS_UNIT_FORMAT_NAME && u->id)
+                return u->id;
+
+        return unit_description(u);
+}
+
 static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependencyMask mask, bool *space) {
         const struct {
                 UnitDependencyMask mask;
@@ -1108,13 +1137,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         UnitDependency d;
         Iterator i;
         const char *prefix2;
-        char
-                timestamp0[FORMAT_TIMESTAMP_MAX],
-                timestamp1[FORMAT_TIMESTAMP_MAX],
-                timestamp2[FORMAT_TIMESTAMP_MAX],
-                timestamp3[FORMAT_TIMESTAMP_MAX],
-                timestamp4[FORMAT_TIMESTAMP_MAX],
-                timespan[FORMAT_TIMESPAN_MAX];
+        char timestamp[5][FORMAT_TIMESTAMP_MAX], timespan[FORMAT_TIMESPAN_MAX];
         Unit *following;
         _cleanup_set_free_ Set *following_set = NULL;
         const char *n;
@@ -1128,7 +1151,14 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         prefix2 = strjoina(prefix, "\t");
 
         fprintf(f,
-                "%s-> Unit %s:\n"
+                "%s-> Unit %s:\n",
+                prefix, u->id);
+
+        SET_FOREACH(t, u->names, i)
+                if (!streq(t, u->id))
+                        fprintf(f, "%s\tAlias: %s\n", prefix, t);
+
+        fprintf(f,
                 "%s\tDescription: %s\n"
                 "%s\tInstance: %s\n"
                 "%s\tUnit Load State: %s\n"
@@ -1146,16 +1176,15 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tSlice: %s\n"
                 "%s\tCGroup: %s\n"
                 "%s\tCGroup realized: %s\n",
-                prefix, u->id,
                 prefix, unit_description(u),
                 prefix, strna(u->instance),
                 prefix, unit_load_state_to_string(u->load_state),
                 prefix, unit_active_state_to_string(unit_active_state(u)),
-                prefix, strna(format_timestamp(timestamp0, sizeof(timestamp0), u->state_change_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->inactive_exit_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->active_enter_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->active_exit_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->inactive_enter_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp[0], sizeof(timestamp[0]), u->state_change_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp[1], sizeof(timestamp[1]), u->inactive_exit_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp[2], sizeof(timestamp[2]), u->active_enter_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp[3], sizeof(timestamp[3]), u->active_exit_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp[4], sizeof(timestamp[4]), u->inactive_enter_timestamp.realtime)),
                 prefix, yes_no(unit_may_gc(u)),
                 prefix, yes_no(unit_need_daemon_reload(u)),
                 prefix, yes_no(u->transient),
@@ -1197,9 +1226,6 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 (void) cg_mask_to_string(m, &s);
                 fprintf(f, "%s\tCGroup delegate mask: %s\n", prefix, strnull(s));
         }
-
-        SET_FOREACH(t, u->names, i)
-                fprintf(f, "%s\tName: %s\n", prefix, t);
 
         if (!sd_id128_is_null(u->invocation_id))
                 fprintf(f, "%s\tInvocation ID: " SD_ID128_FORMAT_STR "\n",
@@ -1254,14 +1280,14 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%s\tCondition Timestamp: %s\n"
                         "%s\tCondition Result: %s\n",
-                        prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->condition_timestamp.realtime)),
+                        prefix, strna(format_timestamp(timestamp[0], sizeof(timestamp[0]), u->condition_timestamp.realtime)),
                         prefix, yes_no(u->condition_result));
 
         if (dual_timestamp_is_set(&u->assert_timestamp))
                 fprintf(f,
                         "%s\tAssert Timestamp: %s\n"
                         "%s\tAssert Result: %s\n",
-                        prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->assert_timestamp.realtime)),
+                        prefix, strna(format_timestamp(timestamp[0], sizeof(timestamp[0]), u->assert_timestamp.realtime)),
                         prefix, yes_no(u->assert_result));
 
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
@@ -1320,7 +1346,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         "%s\tMerged into: %s\n",
                         prefix, u->merged_into->id);
         else if (u->load_state == UNIT_ERROR)
-                fprintf(f, "%s\tLoad Error Code: %s\n", prefix, strerror(-u->load_error));
+                fprintf(f, "%s\tLoad Error Code: %s\n", prefix, strerror_safe(u->load_error));
 
         for (n = sd_bus_track_first(u->bus_track); n; n = sd_bus_track_next(u->bus_track))
                 fprintf(f, "%s\tBus Ref: %s\n", prefix, n);
@@ -1638,7 +1664,7 @@ static bool unit_test_assert(Unit *u) {
 void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) {
         const char *d;
 
-        d = unit_description(u);
+        d = unit_status_string(u);
         if (log_get_show_color())
                 d = strjoina(ANSI_HIGHLIGHT, d, ANSI_NORMAL);
 
@@ -1735,6 +1761,8 @@ int unit_start(Unit *u) {
         state = unit_active_state(u);
         if (UNIT_IS_ACTIVE_OR_RELOADING(state))
                 return -EALREADY;
+        if (state == UNIT_MAINTENANCE)
+                return -EAGAIN;
 
         /* Units that aren't loaded cannot be started */
         if (u->load_state != UNIT_LOADED)
@@ -1777,7 +1805,7 @@ int unit_start(Unit *u) {
          * condition checks, so that we rather return condition check errors (which are usually not
          * considered a true failure) than "not supported" errors (which are considered a failure).
          */
-        if (!unit_supported(u))
+        if (!unit_type_supported(u->type))
                 return -EOPNOTSUPP;
 
         /* Let's make sure that the deps really are in order before we start this. Normally the job engine
@@ -1812,7 +1840,7 @@ bool unit_can_start(Unit *u) {
         if (u->load_state != UNIT_LOADED)
                 return false;
 
-        if (!unit_supported(u))
+        if (!unit_type_supported(u->type))
                 return false;
 
         /* Scope units may be started only once */
@@ -1861,7 +1889,7 @@ int unit_stop(Unit *u) {
 bool unit_can_stop(Unit *u) {
         assert(u);
 
-        if (!unit_supported(u))
+        if (!unit_type_supported(u->type))
                 return false;
 
         if (u->perpetual)
@@ -2123,10 +2151,19 @@ void unit_trigger_notify(Unit *u) {
                         UNIT_VTABLE(other)->trigger_notify(other, u);
 }
 
+static int raise_level(int log_level, bool condition_info, bool condition_notice) {
+        if (condition_notice && log_level > LOG_NOTICE)
+                return LOG_NOTICE;
+        if (condition_info && log_level > LOG_INFO)
+                return LOG_INFO;
+        return log_level;
+}
+
 static int unit_log_resources(Unit *u) {
         struct iovec iovec[1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + _CGROUP_IO_ACCOUNTING_METRIC_MAX + 4];
         bool any_traffic = false, have_ip_accounting = false, any_io = false, have_io_accounting = false;
         _cleanup_free_ char *igress = NULL, *egress = NULL, *rr = NULL, *wr = NULL;
+        int log_level = LOG_DEBUG; /* May be raised if resources consumed over a treshold */
         size_t n_message_parts = 0, n_iovec = 0;
         char* message_parts[1 + 2 + 2 + 1], *t;
         nsec_t nsec = NSEC_INFINITY;
@@ -2172,6 +2209,10 @@ static int unit_log_resources(Unit *u) {
                 }
 
                 message_parts[n_message_parts++] = t;
+
+                log_level = raise_level(log_level,
+                                        nsec > NOTICEWORTHY_CPU_NSEC,
+                                        nsec > MENTIONWORTHY_CPU_NSEC);
         }
 
         for (CGroupIOAccountingMetric k = 0; k < _CGROUP_IO_ACCOUNTING_METRIC_MAX; k++) {
@@ -2212,6 +2253,11 @@ static int unit_log_resources(Unit *u) {
                                 goto finish;
                         }
                 }
+
+                if (IN_SET(k, CGROUP_IO_READ_BYTES, CGROUP_IO_WRITE_BYTES))
+                        log_level = raise_level(log_level,
+                                                value > MENTIONWORTHY_IO_BYTES,
+                                                value > NOTICEWORTHY_IO_BYTES);
         }
 
         if (have_io_accounting) {
@@ -2272,6 +2318,11 @@ static int unit_log_resources(Unit *u) {
                                 goto finish;
                         }
                 }
+
+                if (IN_SET(m, CGROUP_IP_INGRESS_BYTES, CGROUP_IP_EGRESS_BYTES))
+                        log_level = raise_level(log_level,
+                                                value > MENTIONWORTHY_IP_BYTES,
+                                                value > NOTICEWORTHY_IP_BYTES);
         }
 
         if (have_ip_accounting) {
@@ -2328,7 +2379,7 @@ static int unit_log_resources(Unit *u) {
         t = strjoina(u->manager->invocation_log_field, u->invocation_id_string);
         iovec[n_iovec + 3] = IOVEC_MAKE_STRING(t);
 
-        log_struct_iovec(LOG_INFO, iovec, n_iovec + 4);
+        log_struct_iovec(log_level, iovec, n_iovec + 4);
         r = 0;
 
 finish:
@@ -2390,6 +2441,7 @@ static void unit_emit_audit_stop(Unit *u, UnitActiveState state) {
 
 static bool unit_process_job(Job *j, UnitActiveState ns, UnitNotifyFlags flags) {
         bool unexpected = false;
+        JobResult result;
 
         assert(j);
 
@@ -2412,8 +2464,16 @@ static bool unit_process_job(Job *j, UnitActiveState ns, UnitNotifyFlags flags) 
                 else if (j->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
                         unexpected = true;
 
-                        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true, false);
+                        if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+                                if (ns == UNIT_FAILED)
+                                        result = JOB_FAILED;
+                                else if (FLAGS_SET(flags, UNIT_NOTIFY_SKIP_CONDITION))
+                                        result = JOB_SKIPPED;
+                                else
+                                        result = JOB_DONE;
+
+                                job_finish_and_invalidate(j, result, true, false);
+                        }
                 }
 
                 break;
@@ -3182,7 +3242,46 @@ static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd
         new_owner = empty_to_null(new_owner);
 
         if (UNIT_VTABLE(u)->bus_name_owner_change)
-                UNIT_VTABLE(u)->bus_name_owner_change(u, name, old_owner, new_owner);
+                UNIT_VTABLE(u)->bus_name_owner_change(u, old_owner, new_owner);
+
+        return 0;
+}
+
+static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        const sd_bus_error *e;
+        const char *new_owner;
+        Unit *u = userdata;
+        int r;
+
+        assert(message);
+        assert(u);
+
+        u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
+
+        if (sd_bus_error_is_set(error)) {
+                log_error("Failed to get name owner from bus: %s", error->message);
+                return 0;
+        }
+
+        e = sd_bus_message_get_error(message);
+        if (sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.NameHasNoOwner"))
+                return 0;
+
+        if (e) {
+                log_error("Unexpected error response from GetNameOwner: %s", e->message);
+                return 0;
+        }
+
+        r = sd_bus_message_read(message, "s", &new_owner);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return 0;
+        }
+
+        new_owner = empty_to_null(new_owner);
+
+        if (UNIT_VTABLE(u)->bus_name_owner_change)
+                UNIT_VTABLE(u)->bus_name_owner_change(u, NULL, new_owner);
 
         return 0;
 }
@@ -3204,7 +3303,19 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
                          "member='NameOwnerChanged',"
                          "arg0='", name, "'");
 
-        return sd_bus_add_match_async(bus, &u->match_bus_slot, match, signal_name_owner_changed, NULL, u);
+        int r = sd_bus_add_match_async(bus, &u->match_bus_slot, match, signal_name_owner_changed, NULL, u);
+        if (r < 0)
+                return r;
+
+        return sd_bus_call_method_async(bus,
+                                        &u->get_name_owner_slot,
+                                        "org.freedesktop.DBus",
+                                        "/org/freedesktop/DBus",
+                                        "org.freedesktop.DBus",
+                                        "GetNameOwner",
+                                        get_name_owner_handler,
+                                        u,
+                                        "s", name);
 }
 
 int unit_watch_bus_name(Unit *u, const char *name) {
@@ -3239,6 +3350,7 @@ void unit_unwatch_bus_name(Unit *u, const char *name) {
 
         (void) hashmap_remove_value(u->manager->watch_bus, name, u);
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
+        u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
 }
 
 bool unit_can_serialize(Unit *u) {
@@ -4520,7 +4632,7 @@ int unit_make_transient(Unit *u) {
 
         (void) mkdir_p_label(u->manager->lookup_paths.transient, 0755);
 
-        path = strjoin(u->manager->lookup_paths.transient, "/", u->id);
+        path = path_join(u->manager->lookup_paths.transient, u->id);
         if (!path)
                 return -ENOMEM;
 
@@ -5500,6 +5612,12 @@ int unit_prepare_exec(Unit *u) {
 
         assert(u);
 
+        /* Load any custom firewall BPF programs here once to test if they are existing and actually loadable.
+         * Fail here early since later errors in the call chain unit_realize_cgroup to cgroup_context_apply are ignored. */
+        r = bpf_firewall_load_custom(u);
+        if (r < 0)
+                return r;
+
         /* Prepares everything so that we can fork of a process for this unit */
 
         (void) unit_realize_cgroup(u);
@@ -5638,6 +5756,18 @@ void unit_log_failure(Unit *u, const char *result) {
                    "UNIT_RESULT=%s", result);
 }
 
+void unit_log_skip(Unit *u, const char *result) {
+        assert(u);
+        assert(result);
+
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_MESSAGE_UNIT_SKIPPED_STR,
+                   LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
+                   LOG_UNIT_MESSAGE(u, "Skipped due to '%s'.", result),
+                   "UNIT_RESULT=%s", result);
+}
+
 void unit_log_process_exit(
                 Unit *u,
                 int level,
@@ -5722,11 +5852,60 @@ int unit_test_trigger_loaded(Unit *u) {
 
         trigger = UNIT_TRIGGER(u);
         if (!trigger)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT), "Refusing to start, unit to trigger not loaded.");
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT),
+                                            "Refusing to start, no unit to trigger.");
         if (trigger->load_state != UNIT_LOADED)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT), "Refusing to start, unit %s to trigger not loaded.", u->id);
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT),
+                                            "Refusing to start, unit %s to trigger not loaded.", trigger->id);
 
         return 0;
+}
+
+int unit_clean(Unit *u, ExecCleanMask mask) {
+        UnitActiveState state;
+
+        assert(u);
+
+        /* Special return values:
+         *
+         *   -EOPNOTSUPP → cleaning not supported for this unit type
+         *   -EUNATCH    → cleaning not defined for this resource type
+         *   -EBUSY      → unit currently can't be cleaned since it's running or not properly loaded, or has
+         *                 a job queued or similar
+         */
+
+        if (!UNIT_VTABLE(u)->clean)
+                return -EOPNOTSUPP;
+
+        if (mask == 0)
+                return -EUNATCH;
+
+        if (u->load_state != UNIT_LOADED)
+                return -EBUSY;
+
+        if (u->job)
+                return -EBUSY;
+
+        state = unit_active_state(u);
+        if (!IN_SET(state, UNIT_INACTIVE))
+                return -EBUSY;
+
+        return UNIT_VTABLE(u)->clean(u, mask);
+}
+
+int unit_can_clean(Unit *u, ExecCleanMask *ret) {
+        assert(u);
+
+        if (!UNIT_VTABLE(u)->clean ||
+            u->load_state != UNIT_LOADED) {
+                *ret = 0;
+                return 0;
+        }
+
+        /* When the clean() method is set, can_clean() really should be set too */
+        assert(UNIT_VTABLE(u)->can_clean);
+
+        return UNIT_VTABLE(u)->can_clean(u, ret);
 }
 
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {

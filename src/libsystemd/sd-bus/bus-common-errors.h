@@ -27,6 +27,8 @@
 #define BUS_ERROR_NO_SUCH_DYNAMIC_USER "org.freedesktop.systemd1.NoSuchDynamicUser"
 #define BUS_ERROR_NOT_REFERENCED "org.freedesktop.systemd1.NotReferenced"
 #define BUS_ERROR_DISK_FULL "org.freedesktop.systemd1.DiskFull"
+#define BUS_ERROR_NOTHING_TO_CLEAN "org.freedesktop.systemd1.NothingToClean"
+#define BUS_ERROR_UNIT_BUSY "org.freedesktop.systemd1.UnitBusy"
 
 #define BUS_ERROR_NO_SUCH_MACHINE "org.freedesktop.machine1.NoSuchMachine"
 #define BUS_ERROR_NO_SUCH_IMAGE "org.freedesktop.machine1.NoSuchImage"
@@ -51,6 +53,7 @@
 #define BUS_ERROR_OPERATION_IN_PROGRESS "org.freedesktop.login1.OperationInProgress"
 #define BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED "org.freedesktop.login1.SleepVerbNotSupported"
 #define BUS_ERROR_SESSION_BUSY "org.freedesktop.login1.SessionBusy"
+#define BUS_ERROR_NOT_YOUR_DEVICE "org.freedesktop.login1.NotYourDevice"
 
 #define BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED "org.freedesktop.timedate1.AutomaticTimeSyncEnabled"
 #define BUS_ERROR_NO_NTP_SUPPORT "org.freedesktop.timedate1.NoNTPSupport"
@@ -77,5 +80,7 @@
 #define BUS_ERROR_TRANSFER_IN_PROGRESS "org.freedesktop.import1.TransferInProgress"
 
 #define BUS_ERROR_NO_PRODUCT_UUID "org.freedesktop.hostname1.NoProductUUID"
+
+#define BUS_ERROR_SPEED_METER_INACTIVE "org.freedesktop.network1.SpeedMeterInactive"
 
 BUS_ERROR_MAP_ELF_USE(bus_common_errors);

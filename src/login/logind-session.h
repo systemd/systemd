@@ -7,6 +7,7 @@ typedef enum KillWho KillWho;
 #include "list.h"
 #include "login-util.h"
 #include "logind-user.h"
+#include "string-util.h"
 
 typedef enum SessionState {
         SESSION_OPENING,  /* Session scope is being created */
@@ -145,18 +146,6 @@ int session_kill(Session *s, KillWho who, int signo);
 
 SessionState session_get_state(Session *u);
 
-extern const sd_bus_vtable session_vtable[];
-int session_node_enumerator(sd_bus *bus, const char *path,void *userdata, char ***nodes, sd_bus_error *error);
-int session_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
-char *session_bus_path(Session *s);
-
-int session_send_signal(Session *s, bool new_session);
-int session_send_changed(Session *s, const char *properties, ...) _sentinel_;
-int session_send_lock(Session *s, bool lock);
-int session_send_lock_all(Manager *m, bool lock);
-
-int session_send_create_reply(Session *s, sd_bus_error *error);
-
 const char* session_state_to_string(SessionState t) _const_;
 SessionState session_state_from_string(const char *s) _pure_;
 
@@ -179,7 +168,10 @@ bool session_is_controller(Session *s, const char *sender);
 int session_set_controller(Session *s, const char *sender, bool force, bool prepare);
 void session_drop_controller(Session *s);
 
-int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error);
+static inline bool SESSION_IS_SELF(const char *name) {
+        return isempty(name) || streq(name, "self");
+}
+
+static inline bool SESSION_IS_AUTO(const char *name) {
+        return streq_ptr(name, "auto");
+}

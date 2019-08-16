@@ -64,8 +64,31 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
         if (!q)
                 return NULL;
 
+        if (size > 0) {
+                size_t bn;
+
+                /* Adjust for the 64 byte minimum */
+                newalloc = a / size;
+
+                bn = malloc_usable_size(q) / size;
+                if (bn > newalloc) {
+                        void *qq;
+
+                        /* The actual size allocated is larger than what we asked for. Let's call realloc() again to
+                         * take possession of the extra space. This should be cheap, since libc doesn't have to move
+                         * the memory for this. */
+
+                        qq = realloc(q, bn * size);
+                        if (_likely_(qq)) {
+                                *p = qq;
+                                *allocated = bn;
+                                return qq;
+                        }
+                }
+        }
+
         *p = q;
-        *allocated = _unlikely_(size == 0) ? newalloc : malloc_usable_size(q) / size;
+        *allocated = newalloc;
         return q;
 }
 

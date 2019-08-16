@@ -217,8 +217,14 @@ systemd itself:
 
 systemd-remount-fs:
 
-* `$SYSTEMD_REMOUNT_ROOT_RW=1` — if set and and no entry for the root directory
+* `$SYSTEMD_REMOUNT_ROOT_RW=1` — if set and no entry for the root directory
   exists in /etc/fstab (this file always takes precedence), then the root
   directory is remounted writable. This is primarily used by
   systemd-gpt-auto-generator to ensure the root partition is mounted writable
   in accordance to the GPT partition flags.
+
+systemd-firstboot and localectl:
+
+* `SYSTEMD_LIST_NON_UTF8_LOCALES=1` – if set non-UTF-8 locales are listed among
+  the installed ones. By default non-UTF-8 locales are suppressed from the
+  selection, since we are living in the 21st century.

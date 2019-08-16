@@ -15,7 +15,7 @@ char *unit_dbus_path_from_name(const char *name) {
         if (!e)
                 return NULL;
 
-        return strappend("/org/freedesktop/systemd1/unit/", e);
+        return strjoin("/org/freedesktop/systemd1/unit/", e);
 }
 
 int unit_name_from_dbus_path(const char *path, char **name) {
@@ -102,7 +102,8 @@ static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_INACTIVE] = "inactive",
         [UNIT_FAILED] = "failed",
         [UNIT_ACTIVATING] = "activating",
-        [UNIT_DEACTIVATING] = "deactivating"
+        [UNIT_DEACTIVATING] = "deactivating",
+        [UNIT_MAINTENANCE] = "maintenance",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);
@@ -162,6 +163,7 @@ DEFINE_STRING_TABLE_LOOKUP(scope_state, ScopeState);
 
 static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = "dead",
+        [SERVICE_CONDITION] = "condition",
         [SERVICE_START_PRE] = "start-pre",
         [SERVICE_START] = "start",
         [SERVICE_START_POST] = "start-post",
@@ -177,6 +179,7 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_FINAL_SIGKILL] = "final-sigkill",
         [SERVICE_FAILED] = "failed",
         [SERVICE_AUTO_RESTART] = "auto-restart",
+        [SERVICE_CLEANING] = "cleaning",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);

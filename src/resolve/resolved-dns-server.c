@@ -82,10 +82,6 @@ int dns_server_new(
 
         s->linked = true;
 
-#if ENABLE_DNS_OVER_TLS
-        dnstls_server_init(s);
-#endif
-
         /* A new DNS server that isn't fallback is added and the one
          * we used so far was a fallback one? Then let's try to pick
          * the new one */
@@ -423,7 +419,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         log_debug("Reached maximum number of failed TCP connection attempts, trying UDP again...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
                 } else if (s->n_failed_tls > 0 &&
-                           DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level)) {
+                           DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) && dns_server_get_dns_over_tls_mode(s) != DNS_OVER_TLS_YES) {
 
                         /* We tried to connect using DNS-over-TLS, and it didn't work. Downgrade to plaintext UDP
                          * if we don't require DNS-over-TLS */
@@ -741,19 +737,6 @@ void manager_next_dns_server(Manager *m) {
                 manager_set_dns_server(m, m->fallback_dns_servers);
         else
                 manager_set_dns_server(m, m->dns_servers);
-}
-
-bool dns_server_address_valid(int family, const union in_addr_union *sa) {
-
-        /* Refuses the 0 IP addresses as well as 127.0.0.53 (which is our own DNS stub) */
-
-        if (in_addr_is_null(family, sa))
-                return false;
-
-        if (family == AF_INET && sa->in.s_addr == htobe32(INADDR_DNS_STUB))
-                return false;
-
-        return true;
 }
 
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s) {

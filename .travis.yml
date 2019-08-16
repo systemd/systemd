@@ -11,6 +11,15 @@ env:
         - REPO_ROOT="$TRAVIS_BUILD_DIR"
 
 stages:
+    - name: Build & test
+      if: type != cron
+
+    - name: Fuzzit-Fuzzing
+      if: type = cron
+
+    - name: Fuzzit-Sanity
+      if: type != cron
+
     # Run Coverity periodically instead of for each commit/PR
     - name: Coverity
       if: type = cron
@@ -91,12 +100,21 @@ jobs:
           after_script:
               - $CI_MANAGERS/debian.sh CLEANUP
 
-        - name: Ubuntu Xenial
+        - stage: Fuzzit-Sanity
+          name:  Continuous Fuzzing Sanity via Fuzzit (sanity)
           language: bash
           script:
-              - set -e
-              - sudo $CI_MANAGERS/xenial.sh
-              - set +e
+            - set -e
+            - $CI_MANAGERS/fuzzit.sh sanity
+            - set +e
+
+        - stage: Fuzzit-Fuzzing
+          name: Continuous Fuzzing Sanity via Fuzzit (fuzzing daily)
+          language: bash
+          script:
+            - set -e
+            - $CI_MANAGERS/fuzzit.sh fuzzing
+            - set +e
 
         - stage: Coverity
           language: bash
@@ -130,8 +148,7 @@ jobs:
           script:
               - set -e
               # Preconfigure with meson to prevent Coverity from capturing meson metadata
-              # Set compiler flag to prevent emit failure
-              - $DOCKER_EXEC sh -c "CFLAGS='-D_Float128=long\ double -D_Float64=double -D_Float64x=long\ double -D_Float32=float -D_Float32x=double' meson cov-build -Dman=false"
+              - $DOCKER_EXEC meson cov-build -Dman=false
               # Run Coverity
               - $DOCKER_EXEC tools/coverity.sh build
               - $DOCKER_EXEC tools/coverity.sh upload

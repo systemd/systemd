@@ -200,38 +200,33 @@ int ask_char(char *ret, const char *replies, const char *fmt, ...) {
 }
 
 int ask_string(char **ret, const char *text, ...) {
+        _cleanup_free_ char *line = NULL;
+        va_list ap;
         int r;
 
         assert(ret);
         assert(text);
 
-        for (;;) {
-                _cleanup_free_ char *line = NULL;
-                va_list ap;
+        if (colors_enabled())
+                fputs(ANSI_HIGHLIGHT, stdout);
 
-                if (colors_enabled())
-                        fputs(ANSI_HIGHLIGHT, stdout);
+        va_start(ap, text);
+        vprintf(text, ap);
+        va_end(ap);
 
-                va_start(ap, text);
-                vprintf(text, ap);
-                va_end(ap);
+        if (colors_enabled())
+                fputs(ANSI_NORMAL, stdout);
 
-                if (colors_enabled())
-                        fputs(ANSI_NORMAL, stdout);
+        fflush(stdout);
 
-                fflush(stdout);
+        r = read_line(stdin, LONG_LINE_MAX, &line);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EIO;
 
-                r = read_line(stdin, LONG_LINE_MAX, &line);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -EIO;
-
-                if (!isempty(line)) {
-                        *ret = TAKE_PTR(line);
-                        return 0;
-                }
-        }
+        *ret = TAKE_PTR(line);
+        return 0;
 }
 
 int reset_terminal_fd(int fd, bool switch_to_text) {
@@ -526,71 +521,57 @@ int terminal_vhangup(const char *name) {
 }
 
 int vt_disallocate(const char *name) {
-        _cleanup_close_ int fd = -1;
-        const char *e, *n;
-        unsigned u;
+        const char *e;
         int r;
 
         /* Deallocate the VT if possible. If not possible
          * (i.e. because it is the active one), at least clear it
-         * entirely (including the scrollback buffer) */
+         * entirely (including the scrollback buffer). */
 
         e = path_startswith(name, "/dev/");
         if (!e)
                 return -EINVAL;
 
-        if (!tty_is_vc(name)) {
-                /* So this is not a VT. I guess we cannot deallocate
-                 * it then. But let's at least clear the screen */
+        if (tty_is_vc(name)) {
+                _cleanup_close_ int fd = -1;
+                unsigned u;
+                const char *n;
 
-                fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                n = startswith(e, "tty");
+                if (!n)
+                        return -EINVAL;
+
+                r = safe_atou(n, &u);
+                if (r < 0)
+                        return r;
+
+                if (u <= 0)
+                        return -EINVAL;
+
+                /* Try to deallocate */
+                fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0)
                         return fd;
 
-                loop_write(fd,
-                           "\033[r"    /* clear scrolling region */
-                           "\033[H"    /* move home */
-                           "\033[2J",  /* clear screen */
-                           10, false);
-                return 0;
+                r = ioctl(fd, VT_DISALLOCATE, u);
+                if (r >= 0)
+                        return 0;
+                if (errno != EBUSY)
+                        return -errno;
         }
 
-        n = startswith(e, "tty");
-        if (!n)
-                return -EINVAL;
+        /* So this is not a VT (in which case we cannot deallocate it),
+         * or we failed to deallocate. Let's at least clear the screen. */
 
-        r = safe_atou(n, &u);
-        if (r < 0)
-                return r;
+        _cleanup_close_ int fd2 = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd2 < 0)
+                return fd2;
 
-        if (u <= 0)
-                return -EINVAL;
-
-        /* Try to deallocate */
-        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
-        if (fd < 0)
-                return fd;
-
-        r = ioctl(fd, VT_DISALLOCATE, u);
-        fd = safe_close(fd);
-
-        if (r >= 0)
-                return 0;
-
-        if (errno != EBUSY)
-                return -errno;
-
-        /* Couldn't deallocate, so let's clear it fully with
-         * scrollback */
-        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
-                return fd;
-
-        loop_write(fd,
-                   "\033[r"   /* clear scrolling region */
-                   "\033[H"   /* move home */
-                   "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
-                   10, false);
+        (void) loop_write(fd2,
+                          "\033[r"   /* clear scrolling region */
+                          "\033[H"   /* move home */
+                          "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
+                          10, false);
         return 0;
 }
 
@@ -720,8 +701,7 @@ int get_kernel_consoles(char ***ret) {
 
         p = line;
         for (;;) {
-                _cleanup_free_ char *tty = NULL;
-                char *path;
+                _cleanup_free_ char *tty = NULL, *path = NULL;
 
                 r = extract_first_word(&p, &tty, NULL, 0);
                 if (r < 0)
@@ -736,17 +716,16 @@ int get_kernel_consoles(char ***ret) {
                                 return r;
                 }
 
-                path = strappend("/dev/", tty);
+                path = path_join("/dev", tty);
                 if (!path)
                         return -ENOMEM;
 
                 if (access(path, F_OK) < 0) {
                         log_debug_errno(errno, "Console device %s is not accessible, skipping: %m", path);
-                        free(path);
                         continue;
                 }
 
-                r = strv_consume(&l, path);
+                r = strv_consume(&l, TAKE_PTR(path));
                 if (r < 0)
                         return r;
         }
@@ -1049,7 +1028,34 @@ int ptsname_malloc(int fd, char **ret) {
         }
 }
 
-int ptsname_namespace(int pty, char **ret) {
+int openpt_allocate(int flags, char **ret_slave) {
+        _cleanup_close_ int fd = -1;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        fd = posix_openpt(flags|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        if (ret_slave) {
+                r = ptsname_malloc(fd, &p);
+                if (r < 0)
+                        return r;
+
+                if (!path_startswith(p, "/dev/pts/"))
+                        return -EINVAL;
+        }
+
+        if (unlockpt(fd) < 0)
+                return -errno;
+
+        if (ret_slave)
+                *ret_slave = TAKE_PTR(p);
+
+        return TAKE_FD(fd);
+}
+
+static int ptsname_namespace(int pty, char **ret) {
         int no = -1, r;
 
         /* Like ptsname(), but doesn't assume that the path is
@@ -1068,8 +1074,8 @@ int ptsname_namespace(int pty, char **ret) {
         return 0;
 }
 
-int openpt_in_namespace(pid_t pid, int flags) {
-        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
+int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1, fd = -1;
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         pid_t child;
         int r;
@@ -1088,18 +1094,13 @@ int openpt_in_namespace(pid_t pid, int flags) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                int master;
-
                 pair[0] = safe_close(pair[0]);
 
-                master = posix_openpt(flags|O_NOCTTY|O_CLOEXEC);
-                if (master < 0)
+                fd = openpt_allocate(flags, NULL);
+                if (fd < 0)
                         _exit(EXIT_FAILURE);
 
-                if (unlockpt(master) < 0)
-                        _exit(EXIT_FAILURE);
-
-                if (send_one_fd(pair[1], master, 0) < 0)
+                if (send_one_fd(pair[1], fd, 0) < 0)
                         _exit(EXIT_FAILURE);
 
                 _exit(EXIT_SUCCESS);
@@ -1113,7 +1114,17 @@ int openpt_in_namespace(pid_t pid, int flags) {
         if (r != EXIT_SUCCESS)
                 return -EIO;
 
-        return receive_one_fd(pair[0], 0);
+        fd = receive_one_fd(pair[0], 0);
+        if (fd < 0)
+                return fd;
+
+        if (ret_slave) {
+                r = ptsname_namespace(fd, ret_slave);
+                if (r < 0)
+                        return r;
+        }
+
+        return TAKE_FD(fd);
 }
 
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
@@ -1267,8 +1278,7 @@ int vt_restore(int fd) {
         };
         int r, q = 0;
 
-        r = ioctl(fd, KDSETMODE, KD_TEXT);
-        if (r < 0)
+        if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
                 q = log_debug_errno(errno, "Failed to set VT in text mode, ignoring: %m");
 
         r = vt_reset_keyboard(fd);
@@ -1278,18 +1288,17 @@ int vt_restore(int fd) {
                         q = r;
         }
 
-        r = ioctl(fd, VT_SETMODE, &mode);
-        if (r < 0) {
+        if (ioctl(fd, VT_SETMODE, &mode) < 0) {
                 log_debug_errno(errno, "Failed to set VT_AUTO mode, ignoring: %m");
                 if (q >= 0)
                         q = -errno;
         }
 
-        r = fchown(fd, 0, (gid_t) -1);
+        r = fchmod_and_chown(fd, TTY_MODE, 0, (gid_t) -1);
         if (r < 0) {
-                log_debug_errno(errno, "Failed to chown VT, ignoring: %m");
+                log_debug_errno(r, "Failed to chmod()/chown() VT, ignoring: %m");
                 if (q >= 0)
-                        q = -errno;
+                        q = r;
         }
 
         return q;
@@ -1309,4 +1318,42 @@ int vt_release(int fd, bool restore) {
                 return vt_restore(fd);
 
         return 0;
+}
+
+void get_log_colors(int priority, const char **on, const char **off, const char **highlight) {
+        /* Note that this will initialize output variables only when there's something to output.
+         * The caller must pre-initalize to "" or NULL as appropriate. */
+
+        if (priority <= LOG_ERR) {
+                if (on)
+                        *on = ANSI_HIGHLIGHT_RED;
+                if (off)
+                        *off = ANSI_NORMAL;
+                if (highlight)
+                        *highlight = ANSI_HIGHLIGHT;
+
+        } else if (priority <= LOG_WARNING) {
+                if (on)
+                        *on = ANSI_HIGHLIGHT_YELLOW;
+                if (off)
+                        *off = ANSI_NORMAL;
+                if (highlight)
+                        *highlight = ANSI_HIGHLIGHT;
+
+        } else if (priority <= LOG_NOTICE) {
+                if (on)
+                        *on = ANSI_HIGHLIGHT;
+                if (off)
+                        *off = ANSI_NORMAL;
+                if (highlight)
+                        *highlight = ANSI_HIGHLIGHT_RED;
+
+        } else if (priority >= LOG_DEBUG) {
+                if (on)
+                        *on = ANSI_GREY;
+                if (off)
+                        *off = ANSI_NORMAL;
+                if (highlight)
+                        *highlight = ANSI_HIGHLIGHT_RED;
+        }
 }

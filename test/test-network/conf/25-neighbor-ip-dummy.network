@@ -1,0 +1,7 @@
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Tunnel=gretun97
+Tunnel=ip6gretun97

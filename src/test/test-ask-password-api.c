@@ -20,4 +20,5 @@ int main(int argc, char **argv) {
         log_parse_environment();
 
         ask_password();
+        return EXIT_SUCCESS;
 }

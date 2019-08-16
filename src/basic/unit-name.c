@@ -140,12 +140,10 @@ int unit_name_to_prefix(const char *n, char **ret) {
         return 0;
 }
 
-int unit_name_to_instance(const char *n, char **instance) {
+int unit_name_to_instance(const char *n, char **ret) {
         const char *p, *d;
-        char *i;
 
         assert(n);
-        assert(instance);
 
         if (!unit_name_is_valid(n, UNIT_NAME_ANY))
                 return -EINVAL;
@@ -153,8 +151,9 @@ int unit_name_to_instance(const char *n, char **instance) {
         /* Everything past the first @ and before the last . is the instance */
         p = strchr(n, '@');
         if (!p) {
-                *instance = NULL;
-                return 0;
+                if (ret)
+                        *ret = NULL;
+                return UNIT_NAME_PLAIN;
         }
 
         p++;
@@ -163,12 +162,14 @@ int unit_name_to_instance(const char *n, char **instance) {
         if (!d)
                 return -EINVAL;
 
-        i = strndup(p, d-p);
-        if (!i)
-                return -ENOMEM;
+        if (ret) {
+                char *i = strndup(p, d-p);
+                if (!i)
+                        return -ENOMEM;
 
-        *instance = i;
-        return 1;
+                *ret = i;
+        }
+        return d > p ? UNIT_NAME_INSTANCE : UNIT_NAME_TEMPLATE;
 }
 
 int unit_name_to_prefix_and_instance(const char *n, char **ret) {
@@ -402,7 +403,7 @@ int unit_name_path_escape(const char *f, char **ret) {
 }
 
 int unit_name_path_unescape(const char *f, char **ret) {
-        char *s;
+        _cleanup_free_ char *s = NULL;
         int r;
 
         assert(f);
@@ -415,34 +416,27 @@ int unit_name_path_unescape(const char *f, char **ret) {
                 if (!s)
                         return -ENOMEM;
         } else {
-                char *w;
+                _cleanup_free_ char *w = NULL;
 
                 r = unit_name_unescape(f, &w);
                 if (r < 0)
                         return r;
 
                 /* Don't accept trailing or leading slashes */
-                if (startswith(w, "/") || endswith(w, "/")) {
-                        free(w);
+                if (startswith(w, "/") || endswith(w, "/"))
                         return -EINVAL;
-                }
 
                 /* Prefix a slash again */
-                s = strappend("/", w);
-                free(w);
+                s = strjoin("/", w);
                 if (!s)
                         return -ENOMEM;
 
-                if (!path_is_normalized(s)) {
-                        free(s);
+                if (!path_is_normalized(s))
                         return -EINVAL;
-                }
         }
 
         if (ret)
-                *ret = s;
-        else
-                free(s);
+                *ret = TAKE_PTR(s);
 
         return 0;
 }
@@ -519,7 +513,7 @@ int unit_name_from_path(const char *path, const char *suffix, char **ret) {
         if (r < 0)
                 return r;
 
-        s = strappend(p, suffix);
+        s = strjoin(p, suffix);
         if (!s)
                 return -ENOMEM;
 
@@ -719,7 +713,7 @@ int slice_build_subslice(const char *slice, const char *name, char **ret) {
                 return -EINVAL;
 
         if (streq(slice, SPECIAL_ROOT_SLICE))
-                subslice = strappend(name, ".slice");
+                subslice = strjoin(name, ".slice");
         else {
                 char *e;
 

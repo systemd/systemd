@@ -173,6 +173,10 @@ tomorrow Pacific/Auckland → Thu 2012-11-23 19:00:00
     <programlisting>2 months 5 days ago</programlisting>
 
     <para>Note that a relative timestamp is also accepted where a timestamp is expected (see above).</para>
+
+    <para>Use the <command>timestamp</command> command of
+    <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
+    validate and normalize timestamps for testing purposes.</para>
   </refsect1>
 
   <refsect1>

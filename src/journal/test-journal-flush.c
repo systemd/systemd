@@ -10,6 +10,7 @@
 #include "journal-file.h"
 #include "journal-internal.h"
 #include "macro.h"
+#include "path-util.h"
 #include "string-util.h"
 
 int main(int argc, char *argv[]) {
@@ -23,7 +24,7 @@ int main(int argc, char *argv[]) {
         assert_se(mkdtemp(dn));
         (void) chattr_path(dn, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 
-        fn = strappend(dn, "/test.journal");
+        fn = path_join(dn, "test.journal");
 
         r = journal_file_open(-1, fn, O_CREAT|O_RDWR, 0644, false, 0, false, NULL, NULL, NULL, NULL, &new_journal);
         assert_se(r >= 0);

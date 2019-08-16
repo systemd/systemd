@@ -193,8 +193,11 @@
       <varlistentry>
         <term><varname>DNSOverTLS=</varname></term>
         <listitem>
-        <para>Takes false or
-        <literal>opportunistic</literal>. When set to <literal>opportunistic</literal>
+        <para>Takes a boolean argument or <literal>opportunistic</literal>.
+        If true all connections to the server will be encrypted. Note that
+        this mode requires a DNS server that supports DNS-over-TLS and has
+        a valid certificate for it's IP. If the DNS server does not support
+        DNS-over-TLS all DNS requests will fail. When set to <literal>opportunistic</literal>
         DNS request are attempted to send encrypted with DNS-over-TLS.
         If the DNS server does not support TLS, DNS-over-TLS is disabled.
         Note that this mode makes DNS-over-TLS vulnerable to "downgrade"
@@ -224,10 +227,11 @@
 
       <varlistentry>
         <term><varname>Cache=</varname></term>
-        <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default), resolving a domain name
+        <listitem><para>Takes a boolean or <literal>no-negative</literal> as argument. If <literal>yes</literal> (the default), resolving a domain name
         which already got queried earlier will return the previous result as long as it is still valid, and thus does
         not result in a new network request. Be aware that turning off caching comes at a performance penalty, which
         is particularly high when DNSSEC is used.</para>
+        If <literal>no-negative</literal>, only positive answers are cached.
 
         <para>Note that caching is turned off implicitly if the configured DNS server is on a host-local IP address
         (such as 127.0.0.1 or ::1), in order to avoid duplicate local caching.</para></listitem>

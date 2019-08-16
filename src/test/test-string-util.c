@@ -9,29 +9,6 @@
 #include "utf8.h"
 #include "util.h"
 
-static void test_string_erase(void) {
-        char *x;
-
-        x = strdupa("");
-        assert_se(streq(string_erase(x), ""));
-
-        x = strdupa("1");
-        assert_se(streq(string_erase(x), ""));
-
-        x = strdupa("123456789");
-        assert_se(streq(string_erase(x), ""));
-
-        assert_se(x[1] == '\0');
-        assert_se(x[2] == '\0');
-        assert_se(x[3] == '\0');
-        assert_se(x[4] == '\0');
-        assert_se(x[5] == '\0');
-        assert_se(x[6] == '\0');
-        assert_se(x[7] == '\0');
-        assert_se(x[8] == '\0');
-        assert_se(x[9] == '\0');
-}
-
 static void test_free_and_strndup_one(char **t, const char *src, size_t l, const char *expected, bool change) {
         int r;
 
@@ -273,22 +250,6 @@ static void test_strrep(void) {
         assert_se(streq(zero, ""));
 }
 
-static void test_strappend(void) {
-        _cleanup_free_ char *t1, *t2, *t3, *t4;
-
-        t1 = strappend(NULL, NULL);
-        assert_se(streq(t1, ""));
-
-        t2 = strappend(NULL, "suf");
-        assert_se(streq(t2, "suf"));
-
-        t3 = strappend("pre", NULL);
-        assert_se(streq(t3, "pre"));
-
-        t4 = strappend("pre", "suf");
-        assert_se(streq(t4, "presuf"));
-}
-
 static void test_string_has_cc(void) {
         assert_se(string_has_cc("abc\1", NULL));
         assert_se(string_has_cc("abc\x7f", NULL));
@@ -380,7 +341,7 @@ static void check(const char *test, char** expected, bool trailing) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&test, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&test, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0) {
                         assert_se(!trailing);
                         break;
@@ -582,7 +543,6 @@ static void test_memory_startswith_no_case(void) {
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
-        test_string_erase();
         test_free_and_strndup();
         test_ascii_strcasecmp_n();
         test_ascii_strcasecmp_nn();
@@ -592,7 +552,6 @@ int main(int argc, char *argv[]) {
         test_strextend();
         test_strextend_with_separator();
         test_strrep();
-        test_strappend();
         test_string_has_cc();
         test_ascii_strlower();
         test_strshorten();

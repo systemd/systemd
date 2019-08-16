@@ -76,7 +76,7 @@ typedef struct {
 
 #if ENABLE_DEBUG_HASHMAP
 # define HASHMAP_DEBUG_PARAMS , const char *func, const char *file, int line
-# define HASHMAP_DEBUG_SRC_ARGS   , __func__, __FILE__, __LINE__
+# define HASHMAP_DEBUG_SRC_ARGS   , __func__, PROJECT_FILE, __LINE__
 # define HASHMAP_DEBUG_PASS_ARGS   , func, file, line
 #else
 # define HASHMAP_DEBUG_PARAMS
@@ -146,6 +146,8 @@ int hashmap_put(Hashmap *h, const void *key, void *value);
 static inline int ordered_hashmap_put(OrderedHashmap *h, const void *key, void *value) {
         return hashmap_put(PLAIN_HASHMAP(h), key, value);
 }
+
+int hashmap_put_strdup(Hashmap **h, const char *k, const char *v);
 
 int hashmap_update(Hashmap *h, const void *key, void *value);
 static inline int ordered_hashmap_update(OrderedHashmap *h, const void *key, void *value) {

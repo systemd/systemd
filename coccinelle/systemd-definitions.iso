@@ -1,0 +1,20 @@
+/* Statement isomorphisms - replace explicit checks against NULL with a
+ * shorter variant, which relies on C's downgrade-to-bool feature.
+ * The expression metavariables should be declared as pointers, however,
+ * that doesn't work well with complex expressions like:
+ * if (UNIT(p)->default_dependencies != NULL)
+ */
+
+Statement
+@@
+expression X;
+statement S;
+@@
+if (X == NULL) S => if (!X) S
+
+Statement
+@@
+expression X;
+statement S;
+@@
+if (X != NULL) S => if (X) S

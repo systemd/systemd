@@ -31,13 +31,13 @@ _bootctl() {
     local i verb comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
-        [STANDALONE]='-h --help --no-variables -p --print-path --version --no-pager'
-        [ARG]='--path'
+        [STANDALONE]='-h --help --no-variables -p --print-esp-path -x --print-boot-path --version --no-pager'
+        [ARG]='--esp-path --boot-path'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
-            --path)
+            --esp-path|--boot-path)
                 if [[ -z $cur ]]; then
                     comps=$(compgen -A directory -- "/" )
                 else

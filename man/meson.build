@@ -204,3 +204,15 @@ if git.found()
                            'mv t @0@/rules/meson.build'.format(meson.current_source_dir())],
                 depend_files : custom_entities_ent)
 endif
+
+############################################################
+
+configure_file(
+        input : 'man.in',
+        output : 'man',
+        configuration : substs)
+
+configure_file(
+        input : 'html.in',
+        output : 'html',
+        configuration : substs)

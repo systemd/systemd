@@ -95,7 +95,7 @@ static bool is_mounted(const char *device) {
                 return false;
 
         fp = fopen("/proc/self/mountinfo", "re");
-        if (fp == NULL)
+        if (!fp)
                 return false;
         while (fscanf(fp, "%*s %*s %i:%i %*[^\n]", &maj, &min) == 2) {
                 if (makedev(maj, min) == statbuf.st_rdev) {
@@ -108,11 +108,10 @@ static bool is_mounted(const char *device) {
 }
 
 static void info_scsi_cmd_err(const char *cmd, int err) {
-        if (err == -1) {
+        if (err == -1)
                 log_debug("%s failed", cmd);
-                return;
-        }
-        log_debug("%s failed with SK=%Xh/ASC=%02Xh/ACQ=%02Xh", cmd, SK(err), ASC(err), ASCQ(err));
+        else
+                log_debug("%s failed with SK=%Xh/ASC=%02Xh/ACQ=%02Xh", cmd, SK(err), ASC(err), ASCQ(err));
 }
 
 struct scsi_cmd {
@@ -149,9 +148,9 @@ static int scsi_cmd_run(struct scsi_cmd *cmd, int fd, unsigned char *buf, size_t
                 cmd->sg_io.dxferp = buf;
                 cmd->sg_io.dxfer_len = bufsize;
                 cmd->sg_io.dxfer_direction = SG_DXFER_FROM_DEV;
-        } else {
+        } else
                 cmd->sg_io.dxfer_direction = SG_DXFER_NONE;
-        }
+
         if (ioctl(fd, SG_IO, &cmd->sg_io))
                 return -1;
 
@@ -191,7 +190,7 @@ static int media_eject(int fd) {
         scsi_cmd_set(&sc, 4, 0x02);
         scsi_cmd_set(&sc, 5, 0);
         err = scsi_cmd_run(&sc, fd, NULL, 0);
-        if ((err != 0)) {
+        if (err != 0) {
                 info_scsi_cmd_err("START_STOP_UNIT", err);
                 return -1;
         }
@@ -202,10 +201,8 @@ static int cd_capability_compat(int fd) {
         int capability;
 
         capability = ioctl(fd, CDROM_GET_CAPABILITY, NULL);
-        if (capability < 0) {
-                log_debug("CDROM_GET_CAPABILITY failed");
-                return -1;
-        }
+        if (capability < 0)
+                return log_debug_errno(errno, "CDROM_GET_CAPABILITY failed");
 
         if (capability & CDC_CD_R)
                 cd_cd_r = 1;
@@ -225,10 +222,9 @@ static int cd_capability_compat(int fd) {
 }
 
 static int cd_media_compat(int fd) {
-        if (ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK) {
-                log_debug("CDROM_DRIVE_STATUS != CDS_DISC_OK");
-                return -1;
-        }
+        if (ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK)
+                return log_debug_errno(errno, "CDROM_DRIVE_STATUS != CDS_DISC_OK");
+
         cd_media = 1;
         return 0;
 }
@@ -243,15 +239,13 @@ static int cd_inquiry(int fd) {
         scsi_cmd_set(&sc, 4, 36);
         scsi_cmd_set(&sc, 5, 0);
         err = scsi_cmd_run(&sc, fd, inq, 36);
-        if ((err != 0)) {
+        if (err != 0) {
                 info_scsi_cmd_err("INQUIRY", err);
                 return -1;
         }
 
-        if ((inq[0] & 0x1F) != 5) {
-                log_debug("not an MMC unit");
-                return -1;
-        }
+        if ((inq[0] & 0x1F) != 5)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "not an MMC unit");
 
         log_debug("INQUIRY: [%.8s][%.16s][%.4s]", inq + 8, inq + 16, inq + 32);
         return 0;
@@ -465,7 +459,7 @@ static int cd_profiles_old_mmc(int fd) {
         scsi_cmd_set(&sc, 8, sizeof(header));
         scsi_cmd_set(&sc, 9, 0);
         err = scsi_cmd_run(&sc, fd, header, sizeof(header));
-        if ((err != 0)) {
+        if (err != 0) {
                 info_scsi_cmd_err("READ DISC INFORMATION", err);
                 if (cd_media == 1) {
                         log_debug("no current profile, but disc is present; assuming CD-ROM");
@@ -473,10 +467,9 @@ static int cd_profiles_old_mmc(int fd) {
                         cd_media_track_count = 1;
                         cd_media_track_count_data = 1;
                         return 0;
-                } else {
-                        log_debug("no current profile, assuming no media");
-                        return -1;
-                }
+                } else
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                               "no current profile, assuming no media");
         };
 
         cd_media = 1;
@@ -512,7 +505,7 @@ static int cd_profiles(int fd) {
         scsi_cmd_set(&sc, 8, 8);
         scsi_cmd_set(&sc, 9, 0);
         err = scsi_cmd_run(&sc, fd, features, 8);
-        if ((err != 0)) {
+        if (err != 0) {
                 info_scsi_cmd_err("GET CONFIGURATION", err);
                 /* handle pre-MMC2 drives which do not support GET CONFIGURATION */
                 if (SK(err) == 0x5 && IN_SET(ASC(err), 0x20, 0x24)) {
@@ -528,9 +521,8 @@ static int cd_profiles(int fd) {
                 log_debug("current profile 0x%02x", cur_profile);
                 feature_profile_media(cur_profile);
                 ret = 0; /* we have media */
-        } else {
+        } else
                 log_debug("no current profile, assuming no media");
-        }
 
         len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
         log_debug("GET CONFIGURATION: size of features buffer 0x%04x", len);
@@ -548,7 +540,7 @@ static int cd_profiles(int fd) {
         scsi_cmd_set(&sc, 8, len & 0xff);
         scsi_cmd_set(&sc, 9, 0);
         err = scsi_cmd_run(&sc, fd, features, len);
-        if ((err != 0)) {
+        if (err != 0) {
                 info_scsi_cmd_err("GET CONFIGURATION", err);
                 return -1;
         }
@@ -598,7 +590,7 @@ static int cd_media_info(int fd) {
         scsi_cmd_set(&sc, 8, sizeof(header) & 0xff);
         scsi_cmd_set(&sc, 9, 0);
         err = scsi_cmd_run(&sc, fd, header, sizeof(header));
-        if ((err != 0)) {
+        if (err != 0) {
                 info_scsi_cmd_err("READ DISC INFORMATION", err);
                 return -1;
         };
@@ -637,7 +629,7 @@ static int cd_media_info(int fd) {
                         scsi_cmd_set(&sc, 9, sizeof(dvdstruct));
                         scsi_cmd_set(&sc, 11, 0);
                         err = scsi_cmd_run(&sc, fd, dvdstruct, sizeof(dvdstruct));
-                        if ((err != 0)) {
+                        if (err != 0) {
                                 info_scsi_cmd_err("READ DVD STRUCTURE", err);
                                 return -1;
                         }
@@ -653,16 +645,15 @@ static int cd_media_info(int fd) {
                         scsi_cmd_set(&sc, 8, sizeof(format));
                         scsi_cmd_set(&sc, 9, 0);
                         err = scsi_cmd_run(&sc, fd, format, sizeof(format));
-                        if ((err != 0)) {
+                        if (err != 0) {
                                 info_scsi_cmd_err("READ DVD FORMAT CAPACITIES", err);
                                 return -1;
                         }
 
                         len = format[3];
-                        if (len & 7 || len < 16) {
-                                log_debug("invalid format capacities length");
-                                return -1;
-                        }
+                        if (len & 7 || len < 16)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "invalid format capacities length");
 
                         switch(format[8] & 3) {
                             case 1:
@@ -680,8 +671,8 @@ static int cd_media_info(int fd) {
 
                             case 3:
                                 cd_media = 0; //return no media
-                                log_debug("format capacities returned no media");
-                                return -1;
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                                       "format capacities returned no media");
                         }
                 }
 
@@ -695,7 +686,7 @@ static int cd_media_info(int fd) {
                 scsi_cmd_set(&sc, 8, 32);
                 scsi_cmd_set(&sc, 9, 0);
                 err = scsi_cmd_run(&sc, fd, buffer, sizeof(buffer));
-                if ((err != 0)) {
+                if (err != 0) {
                         cd_media = 0;
                         info_scsi_cmd_err("READ FIRST 32 BLOCKS", err);
                         return -1;
@@ -748,7 +739,7 @@ static int cd_media_toc(int fd) {
         scsi_cmd_set(&sc, 8, sizeof(header) & 0xff);
         scsi_cmd_set(&sc, 9, 0);
         err = scsi_cmd_run(&sc, fd, header, sizeof(header));
-        if ((err != 0)) {
+        if (err != 0) {
                 info_scsi_cmd_err("READ TOC", err);
                 return -1;
         }
@@ -773,7 +764,7 @@ static int cd_media_toc(int fd) {
         scsi_cmd_set(&sc, 8, len & 0xff);
         scsi_cmd_set(&sc, 9, 0);
         err = scsi_cmd_run(&sc, fd, toc, len);
-        if ((err != 0)) {
+        if (err != 0) {
                 info_scsi_cmd_err("READ TOC (tracks)", err);
                 return -1;
         }
@@ -803,7 +794,7 @@ static int cd_media_toc(int fd) {
         scsi_cmd_set(&sc, 8, sizeof(header));
         scsi_cmd_set(&sc, 9, 0);
         err = scsi_cmd_run(&sc, fd, header, sizeof(header));
-        if ((err != 0)) {
+        if (err != 0) {
                 info_scsi_cmd_err("READ TOC (multi session)", err);
                 return -1;
         }
@@ -1026,7 +1017,7 @@ work:
         if (cd_media_hddvd_rw)
                 printf("ID_CDROM_MEDIA_HDDVD_RW=1\n");
 
-        if (cd_media_state != NULL)
+        if (cd_media_state)
                 printf("ID_CDROM_MEDIA_STATE=%s\n", cd_media_state);
         if (cd_media_session_next > 0)
                 printf("ID_CDROM_MEDIA_SESSION_NEXT=%u\n", cd_media_session_next);

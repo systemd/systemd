@@ -17,13 +17,13 @@
 #include "chattr-util.h"
 #include "compress.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "lookup3.h"
 #include "memory-util.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "set.h"
@@ -40,29 +40,31 @@
 #define MIN_COMPRESS_THRESHOLD (8ULL)
 
 /* This is the minimum journal file size */
-#define JOURNAL_FILE_SIZE_MIN (512ULL*1024ULL)                 /* 512 KiB */
+#define JOURNAL_FILE_SIZE_MIN (512 * 1024ULL)             /* 512 KiB */
 
 /* These are the lower and upper bounds if we deduce the max_use value
  * from the file system size */
-#define DEFAULT_MAX_USE_LOWER (1ULL*1024ULL*1024ULL)           /* 1 MiB */
-#define DEFAULT_MAX_USE_UPPER (4ULL*1024ULL*1024ULL*1024ULL)   /* 4 GiB */
+#define MAX_USE_LOWER (1 * 1024 * 1024ULL)                /* 1 MiB */
+#define MAX_USE_UPPER (4 * 1024 * 1024 * 1024ULL)         /* 4 GiB */
 
-/* This is the default minimal use limit, how much we'll use even if keep_free suggests otherwise. */
-#define DEFAULT_MIN_USE (1ULL*1024ULL*1024ULL)                 /* 1 MiB */
+/* Those are the lower and upper bounds for the minimal use limit,
+ * i.e. how much we'll use even if keep_free suggests otherwise. */
+#define MIN_USE_LOW (1 * 1024 * 1024ULL)                  /* 1 MiB */
+#define MIN_USE_HIGH (16 * 1024 * 1024ULL)                /* 16 MiB */
 
 /* This is the upper bound if we deduce max_size from max_use */
-#define DEFAULT_MAX_SIZE_UPPER (128ULL*1024ULL*1024ULL)        /* 128 MiB */
+#define MAX_SIZE_UPPER (128 * 1024 * 1024ULL)             /* 128 MiB */
 
 /* This is the upper bound if we deduce the keep_free value from the
  * file system size */
-#define DEFAULT_KEEP_FREE_UPPER (4ULL*1024ULL*1024ULL*1024ULL) /* 4 GiB */
+#define KEEP_FREE_UPPER (4 * 1024 * 1024 * 1024ULL)       /* 4 GiB */
 
 /* This is the keep_free value when we can't determine the system
  * size */
-#define DEFAULT_KEEP_FREE (1024ULL*1024ULL)                    /* 1 MB */
+#define DEFAULT_KEEP_FREE (1024 * 1024ULL)                /* 1 MB */
 
 /* This is the default maximum number of journal files to keep around. */
-#define DEFAULT_N_MAX_FILES (100)
+#define DEFAULT_N_MAX_FILES 100
 
 /* n_data was the first entry we added after the initial file format design */
 #define HEADER_SIZE_MIN ALIGN64(offsetof(Header, n_data))
@@ -71,7 +73,7 @@
 #define CHAIN_CACHE_MAX 20
 
 /* How much to increase the journal file size at once each time we allocate something new. */
-#define FILE_SIZE_INCREASE (8ULL*1024ULL*1024ULL)              /* 8MB */
+#define FILE_SIZE_INCREASE (8 * 1024 * 1024ULL)          /* 8MB */
 
 /* Reread fstat() of the file for detecting deletions at least this often */
 #define LAST_STAT_REFRESH_USEC (5*USEC_PER_SEC)
@@ -340,7 +342,8 @@ bool journal_file_is_offlining(JournalFile *f) {
 }
 
 JournalFile* journal_file_close(JournalFile *f) {
-        assert(f);
+        if (!f)
+                return NULL;
 
 #if HAVE_GCRYPT
         /* Write the final tag */
@@ -357,8 +360,7 @@ JournalFile* journal_file_close(JournalFile *f) {
                 if (sd_event_source_get_enabled(f->post_change_timer, NULL) > 0)
                         journal_file_post_change(f);
 
-                (void) sd_event_source_set_enabled(f->post_change_timer, SD_EVENT_OFF);
-                sd_event_source_unref(f->post_change_timer);
+                sd_event_source_disable_unref(f->post_change_timer);
         }
 
         journal_file_set_offline(f, true);
@@ -3185,7 +3187,6 @@ int journal_file_open(
         JournalFile *f;
         void *h;
         int r;
-        char bytes[FORMAT_BYTES_MAX];
 
         assert(ret);
         assert(fd >= 0 || fname);
@@ -3221,9 +3222,23 @@ int journal_file_open(
 #endif
         };
 
-        log_debug("Journal effective settings seal=%s compress=%s compress_threshold_bytes=%s",
-                  yes_no(f->seal), yes_no(JOURNAL_FILE_COMPRESS(f)),
-                  format_bytes(bytes, sizeof(bytes), f->compress_threshold_bytes));
+        if (DEBUG_LOGGING) {
+                static int last_seal = -1, last_compress = -1;
+                static uint64_t last_bytes = UINT64_MAX;
+                char bytes[FORMAT_BYTES_MAX];
+
+                if (last_seal != f->seal ||
+                    last_compress != JOURNAL_FILE_COMPRESS(f) ||
+                    last_bytes != f->compress_threshold_bytes) {
+
+                        log_debug("Journal effective settings seal=%s compress=%s compress_threshold_bytes=%s",
+                                  yes_no(f->seal), yes_no(JOURNAL_FILE_COMPRESS(f)),
+                                  format_bytes(bytes, sizeof bytes, f->compress_threshold_bytes));
+                        last_seal = f->seal;
+                        last_compress = JOURNAL_FILE_COMPRESS(f);
+                        last_bytes = f->compress_threshold_bytes;
+                }
+        }
 
         if (mmap_cache)
                 f->mmap = mmap_cache_ref(mmap_cache);
@@ -3324,6 +3339,13 @@ int journal_file_open(
         }
 
         r = mmap_cache_get(f->mmap, f->cache_fd, f->prot, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h, NULL);
+        if (r == -EINVAL) {
+                /* Some file systems (jffs2 or p9fs) don't support mmap() properly (or only read-only
+                 * mmap()), and return EINVAL in that case. Let's propagate that as a more recognizable error
+                 * code. */
+                r = -EAFNOSUPPORT;
+                goto fail;
+        }
         if (r < 0)
                 goto fail;
 
@@ -3702,30 +3724,23 @@ void journal_reset_metrics(JournalMetrics *m) {
 void journal_default_metrics(JournalMetrics *m, int fd) {
         char a[FORMAT_BYTES_MAX], b[FORMAT_BYTES_MAX], c[FORMAT_BYTES_MAX], d[FORMAT_BYTES_MAX], e[FORMAT_BYTES_MAX];
         struct statvfs ss;
-        uint64_t fs_size;
+        uint64_t fs_size = 0;
 
         assert(m);
         assert(fd >= 0);
 
         if (fstatvfs(fd, &ss) >= 0)
                 fs_size = ss.f_frsize * ss.f_blocks;
-        else {
+        else
                 log_debug_errno(errno, "Failed to determine disk size: %m");
-                fs_size = 0;
-        }
 
         if (m->max_use == (uint64_t) -1) {
 
-                if (fs_size > 0) {
-                        m->max_use = PAGE_ALIGN(fs_size / 10); /* 10% of file system size */
-
-                        if (m->max_use > DEFAULT_MAX_USE_UPPER)
-                                m->max_use = DEFAULT_MAX_USE_UPPER;
-
-                        if (m->max_use < DEFAULT_MAX_USE_LOWER)
-                                m->max_use = DEFAULT_MAX_USE_LOWER;
-                } else
-                        m->max_use = DEFAULT_MAX_USE_LOWER;
+                if (fs_size > 0)
+                        m->max_use = CLAMP(PAGE_ALIGN(fs_size / 10), /* 10% of file system size */
+                                           MAX_USE_LOWER, MAX_USE_UPPER);
+                else
+                        m->max_use = MAX_USE_LOWER;
         } else {
                 m->max_use = PAGE_ALIGN(m->max_use);
 
@@ -3733,18 +3748,21 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
                         m->max_use = JOURNAL_FILE_SIZE_MIN*2;
         }
 
-        if (m->min_use == (uint64_t) -1)
-                m->min_use = DEFAULT_MIN_USE;
+        if (m->min_use == (uint64_t) -1) {
+                if (fs_size > 0)
+                        m->min_use = CLAMP(PAGE_ALIGN(fs_size / 50), /* 2% of file system size */
+                                           MIN_USE_LOW, MIN_USE_HIGH);
+                else
+                        m->min_use = MIN_USE_LOW;
+        }
 
         if (m->min_use > m->max_use)
                 m->min_use = m->max_use;
 
-        if (m->max_size == (uint64_t) -1) {
-                m->max_size = PAGE_ALIGN(m->max_use / 8); /* 8 chunks */
-
-                if (m->max_size > DEFAULT_MAX_SIZE_UPPER)
-                        m->max_size = DEFAULT_MAX_SIZE_UPPER;
-        } else
+        if (m->max_size == (uint64_t) -1)
+                m->max_size = MIN(PAGE_ALIGN(m->max_use / 8), /* 8 chunks */
+                                  MAX_SIZE_UPPER);
+        else
                 m->max_size = PAGE_ALIGN(m->max_size);
 
         if (m->max_size != 0) {
@@ -3757,25 +3775,16 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
 
         if (m->min_size == (uint64_t) -1)
                 m->min_size = JOURNAL_FILE_SIZE_MIN;
-        else {
-                m->min_size = PAGE_ALIGN(m->min_size);
-
-                if (m->min_size < JOURNAL_FILE_SIZE_MIN)
-                        m->min_size = JOURNAL_FILE_SIZE_MIN;
-
-                if (m->max_size != 0 && m->min_size > m->max_size)
-                        m->max_size = m->min_size;
-        }
+        else
+                m->min_size = CLAMP(PAGE_ALIGN(m->min_size),
+                                    JOURNAL_FILE_SIZE_MIN,
+                                    m->max_size ?: UINT64_MAX);
 
         if (m->keep_free == (uint64_t) -1) {
-
-                if (fs_size > 0) {
-                        m->keep_free = PAGE_ALIGN(fs_size * 3 / 20); /* 15% of file system size */
-
-                        if (m->keep_free > DEFAULT_KEEP_FREE_UPPER)
-                                m->keep_free = DEFAULT_KEEP_FREE_UPPER;
-
-                } else
+                if (fs_size > 0)
+                        m->keep_free = MIN(PAGE_ALIGN(fs_size / 20), /* 5% of file system size */
+                                           KEEP_FREE_UPPER);
+                else
                         m->keep_free = DEFAULT_KEEP_FREE;
         }
 

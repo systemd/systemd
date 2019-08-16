@@ -305,9 +305,7 @@ static int retrieve(const void *data,
         if (!v)
                 return log_oom();
 
-        free(*var);
-        *var = v;
-
+        free_and_replace(*var, v);
         return 1;
 }
 
@@ -740,9 +738,22 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
 
         /* Look for a coredump on disk first. */
         r = sd_journal_get_data(j, "COREDUMP_FILENAME", (const void**) &data, &len);
-        if (r == 0)
-                retrieve(data, len, "COREDUMP_FILENAME", &filename);
-        else {
+        if (r == 0) {
+                r = retrieve(data, len, "COREDUMP_FILENAME", &filename);
+                if (r < 0)
+                        return r;
+                assert(r > 0);
+
+                if (access(filename, R_OK) < 0)
+                        return log_error_errno(errno, "File \"%s\" is not readable: %m", filename);
+
+                if (path && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
+                        *path = TAKE_PTR(filename);
+
+                        return 0;
+                }
+
+        } else {
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to retrieve COREDUMP_FILENAME field: %m");
                 /* Check that we can have a COREDUMP field. We still haven't set a high
@@ -756,17 +767,6 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
         }
 
-        if (filename) {
-                if (access(filename, R_OK) < 0)
-                        return log_error_errno(errno, "File \"%s\" is not readable: %m", filename);
-
-                if (path && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
-                        *path = TAKE_PTR(filename);
-
-                        return 0;
-                }
-        }
-
         if (path) {
                 const char *vt;
 
@@ -776,7 +776,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire temporary directory path: %m");
 
-                temp = strjoin(vt, "/coredump-XXXXXX");
+                temp = path_join(vt, "coredump-XXXXXX");
                 if (!temp)
                         return log_oom();
 
@@ -904,7 +904,7 @@ static int dump_core(int argc, char **argv, void *userdata) {
 
 static int run_debug(int argc, char **argv, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ char *exe = NULL, *path = NULL;
+        _cleanup_free_ char *exe = NULL, *path = NULL, *debugger = NULL;
         bool unlink_path = false;
         const char *data, *fork_name;
         size_t len;
@@ -920,6 +920,10 @@ static int run_debug(int argc, char **argv, void *userdata) {
                 else
                         arg_debugger = "gdb";
         }
+
+        debugger = strdup(arg_debugger);
+        if (!debugger)
+                return -ENOMEM;
 
         if (arg_field) {
                 log_error("Option --field/-F only makes sense with list");
@@ -966,19 +970,19 @@ static int run_debug(int argc, char **argv, void *userdata) {
         /* Don't interfere with gdb and its handling of SIGINT. */
         (void) ignore_signals(SIGINT, -1);
 
-        fork_name = strjoina("(", arg_debugger, ")");
+        fork_name = strjoina("(", debugger, ")");
 
         r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 goto finish;
         if (r == 0) {
-                execlp(arg_debugger, arg_debugger, exe, "-c", path, NULL);
+                execlp(debugger, debugger, exe, "-c", path, NULL);
                 log_open();
-                log_error_errno(errno, "Failed to invoke %s: %m", arg_debugger);
+                log_error_errno(errno, "Failed to invoke %s: %m", debugger);
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate_and_check(arg_debugger, pid, WAIT_LOG_ABNORMAL);
+        r = wait_for_terminate_and_check(debugger, pid, WAIT_LOG_ABNORMAL);
 
 finish:
         (void) default_signals(SIGINT, -1);
@@ -1069,6 +1073,7 @@ static int run(int argc, char *argv[]) {
         int r, units_active;
 
         setlocale(LC_ALL, "");
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

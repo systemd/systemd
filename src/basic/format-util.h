@@ -2,6 +2,8 @@
 #pragma once
 
 #include <inttypes.h>
+#include <net/if.h>
+#include <stdbool.h>
 
 #if SIZEOF_PID_T == 4
 #  define PID_PRI PRIi32
@@ -65,3 +67,17 @@
 #else
 #  error Unknown ino_t size
 #endif
+
+char *format_ifname(int ifindex, char buf[static IF_NAMESIZE + 1]);
+
+typedef enum {
+        FORMAT_BYTES_USE_IEC     = 1 << 0,
+        FORMAT_BYTES_BELOW_POINT = 1 << 1,
+        FORMAT_BYTES_TRAILING_B  = 1 << 2,
+} FormatBytesFlag;
+
+#define FORMAT_BYTES_MAX 8
+char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag);
+static inline char *format_bytes(char *buf, size_t l, uint64_t t) {
+        return format_bytes_full(buf, l, t, FORMAT_BYTES_USE_IEC | FORMAT_BYTES_BELOW_POINT | FORMAT_BYTES_TRAILING_B);
+}

@@ -241,10 +241,10 @@ int json_dispatch_unsigned(const char *name, JsonVariant *variant, JsonDispatchF
 int json_dispatch_uint32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_int32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 
-assert_cc(sizeof(uintmax_t) == sizeof(uint64_t))
+assert_cc(sizeof(uintmax_t) == sizeof(uint64_t));
 #define json_dispatch_uint64 json_dispatch_unsigned
 
-assert_cc(sizeof(intmax_t) == sizeof(int64_t))
+assert_cc(sizeof(intmax_t) == sizeof(int64_t));
 #define json_dispatch_int64 json_dispatch_integer
 
 static inline int json_dispatch_level(JsonDispatchFlags flags) {
@@ -271,7 +271,7 @@ int json_log_internal(JsonVariant *variant, int level, int error, const char *fi
         ({                                                              \
                 int _level = json_dispatch_level(flags), _e = (error);  \
                 (log_get_max_level() >= LOG_PRI(_level))                \
-                        ? json_log_internal(variant, _level, _e, __FILE__, __LINE__, __func__, __VA_ARGS__) \
+                        ? json_log_internal(variant, _level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
         })
 

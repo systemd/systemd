@@ -45,32 +45,42 @@
       <varlistentry>
         <term><option>--esp-path=</option></term>
         <listitem><para>Path to the EFI System Partition (ESP). If not specified, <filename>/efi/</filename>,
-        <filename>/boot/</filename>, and <filename>/boot/efi</filename> are checked in turn.  It is recommended to mount
-        the ESP to <filename>/efi/</filename>, if possible.</para></listitem>
+        <filename>/boot/</filename>, and <filename>/boot/efi/</filename> are checked in turn.  It is
+        recommended to mount the ESP to <filename>/efi/</filename>, if possible.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--boot-path=</option></term>
         <listitem><para>Path to the Extended Boot Loader partition, as defined in the <ulink
         url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>. If not
-        specified, <filename>/boot/</filename> are checked.  It is recommended to mount the Extended Boot
+        specified, <filename>/boot/</filename> is checked.  It is recommended to mount the Extended Boot
         Loader partition to <filename>/boot/</filename>, if possible.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-p</option></term>
         <term><option>--print-esp-path</option></term>
-        <listitem><para>This option modifies the behaviour of <command>status</command>.  Prints only the
-        path to the EFI System Partition (ESP) to standard output and exits.</para></listitem>
+        <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
+        to the EFI System Partition (ESP) to standard output and exits.</para></listitem>
       </varlistentry>
 
       <varlistentry>
+        <term><option>-x</option></term>
         <term><option>--print-boot-path</option></term>
-        <listitem><para>This option modifies the behaviour of <command>status</command>.  Prints only the
-        path to the Extended Boot Loader partition if it exists, and the path to the ESP otherwise to
-        standard output and exit. This command is useful to determine where to place boot loader entries, as
-        they are preferably placed in the Extended Boot Loader partition if it exists and in the ESP
-        otherwise.</para></listitem>
+        <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
+        to the Extended Boot Loader partition if it exists, and the path to the ESP otherwise to standard
+        output and exit. This command is useful to determine where to place boot loader entries, as they are
+        preferably placed in the Extended Boot Loader partition if it exists and in the ESP otherwise.</para>
+
+        <para>Boot Loader Specification Type #1 entries should generally be placed in the directory
+        <literal>$(bootctl -x)/loader/entries/</literal>. Existence of that directory may also be used as
+        indication that boot loader entry support is available on the system. Similarly, Boot Loader
+        Specification Type #2 entries should be placed in the directory <literal>$(bootctl
+        -x)/EFI/Linux/</literal>.</para>
+
+        <para>Note that this option (similar to the <option>--print-booth-path</option> option mentioned
+        above), is available independently from the boot loader used, i.e. also without
+        <command>systemd-boot</command> being installed.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -124,6 +134,31 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>random-seed</option></term>
+
+        <listitem><para>Generates a random seed and stores it in the EFI System Partition, for use by the
+        <command>systemd-boot</command> boot loader. Also, generates a random 'system token' and stores it
+        persistently as an EFI variable, if one has not been set before. If the boot loader finds the random
+        seed in the ESP and the system token in the EFI variable it will derive a random seed to pass to the
+        OS and a new seed to store in the ESP from the combination of both. The random seed passed to the OS
+        is credited to the kernel's entropy pool by the system manager during early boot, and permits
+        userspace to boot up with an entropy pool fully initialized very early on. Also see
+        <citerefentry><refentrytitle>systemd-boot-system-token.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <para>See <ulink url="https://systemd.io/RANDOM_SEEDS">Random Seeds</ulink> for further
+        information.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>is-installed</option></term>
+
+        <listitem><para>Checks whether <command>systemd-boot</command> is installed in the ESP. Note that a
+        single ESP might host multiple boot loaders; this hence checks whether
+        <command>systemd-boot</command> is one (of possibly many) installed boot loaders — and neither
+        whether it is the default nor whether it is registered in any EFI variables.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>list</option></term>
 
         <listitem><para>Shows all available boot loader entries implementing the <ulink
@@ -164,7 +199,8 @@
     <para>
       <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>,
-      <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>
+      <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>,
+      <citerefentry><refentrytitle>systemd-boot-system-token.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>

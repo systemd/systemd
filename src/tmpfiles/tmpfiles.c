@@ -461,38 +461,6 @@ static bool unix_socket_alive(const char *fn) {
         return !!set_get(unix_sockets, (char*) fn);
 }
 
-static int dir_is_mount_point(DIR *d, const char *subdir) {
-
-        int mount_id_parent, mount_id;
-        int r_p, r;
-
-        r_p = name_to_handle_at_loop(dirfd(d), ".", NULL, &mount_id_parent, 0);
-        if (r_p < 0)
-                r_p = -errno;
-
-        r = name_to_handle_at_loop(dirfd(d), subdir, NULL, &mount_id, 0);
-        if (r < 0)
-                r = -errno;
-
-        /* got no handle; make no assumptions, return error */
-        if (r_p < 0 && r < 0)
-                return r_p;
-
-        /* got both handles; if they differ, it is a mount point */
-        if (r_p >= 0 && r >= 0)
-                return mount_id_parent != mount_id;
-
-        /* got only one handle; assume different mount points if one
-         * of both queries was not supported by the filesystem */
-        if (IN_SET(r_p, -ENOSYS, -EOPNOTSUPP) || IN_SET(r, -ENOSYS, -EOPNOTSUPP))
-                return true;
-
-        /* return error */
-        if (r_p < 0)
-                return r_p;
-        return r;
-}
-
 static DIR* xopendirat_nomod(int dirfd, const char *path) {
         DIR *dir;
 
@@ -557,13 +525,19 @@ static int dir_cleanup(
                 /* Try to detect bind mounts of the same filesystem instance; they
                  * do not differ in device major/minors. This type of query is not
                  * supported on all kernels or filesystem types though. */
-                if (S_ISDIR(s.st_mode) && dir_is_mount_point(d, dent->d_name) > 0) {
-                        log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.",
-                                  p, dent->d_name);
-                        continue;
+                if (S_ISDIR(s.st_mode)) {
+                        int q;
+
+                        q = fd_is_mount_point(dirfd(d), dent->d_name, 0);
+                        if (q < 0)
+                                log_debug_errno(q, "Failed to determine whether \"%s/%s\" is a mount point, ignoring: %m", p, dent->d_name);
+                        else if (q > 0) {
+                                log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.", p, dent->d_name);
+                                continue;
+                        }
                 }
 
-                sub_path = strjoin(p, "/", dent->d_name);
+                sub_path = path_join(p, dent->d_name);
                 if (!sub_path) {
                         r = log_oom();
                         goto finish;
@@ -656,14 +630,16 @@ static int dir_cleanup(
                                 continue;
                         }
 
-                        if (mountpoint && S_ISREG(s.st_mode))
-                                if (s.st_uid == 0 && STR_IN_SET(dent->d_name,
-                                                                ".journal",
-                                                                "aquota.user",
-                                                                "aquota.group")) {
-                                        log_debug("Skipping \"%s\".", sub_path);
-                                        continue;
-                                }
+                        if (mountpoint &&
+                            S_ISREG(s.st_mode) &&
+                            s.st_uid == 0 &&
+                            STR_IN_SET(dent->d_name,
+                                       ".journal",
+                                       "aquota.user",
+                                       "aquota.group")) {
+                                log_debug("Skipping \"%s\".", sub_path);
+                                continue;
+                        }
 
                         /* Ignore sockets that are listed in /proc/net/unix */
                         if (S_ISSOCK(s.st_mode) && unix_socket_alive(sub_path)) {
@@ -776,8 +752,24 @@ static bool hardlink_vulnerable(const struct stat *st) {
         return !S_ISDIR(st->st_mode) && st->st_nlink > 1 && dangerous_hardlinks();
 }
 
+static mode_t process_mask_perms(mode_t mode, mode_t current) {
+
+        if ((current & 0111) == 0)
+                mode &= ~0111;
+        if ((current & 0222) == 0)
+                mode &= ~0222;
+        if ((current & 0444) == 0)
+                mode &= ~0444;
+        if (!S_ISDIR(current))
+                mode &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
+
+        return mode;
+}
+
 static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st) {
         struct stat stbuf;
+        mode_t new_mode;
+        bool do_chown;
 
         assert(i);
         assert(fd);
@@ -797,35 +789,39 @@ static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st
                                        "Refusing to set permissions on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.",
                                        path);
 
-        if (i->mode_set) {
+        /* Do we need a chown()? */
+        do_chown =
+                (i->uid_set && i->uid != st->st_uid) ||
+                (i->gid_set && i->gid != st->st_gid);
+
+        /* Calculate the mode to apply */
+        new_mode = i->mode_set ? (i->mask_perms ?
+                                  process_mask_perms(i->mode, st->st_mode) :
+                                  i->mode) :
+                                 (st->st_mode & 07777);
+
+        if (i->mode_set && do_chown) {
+                /* Before we issue the chmod() let's reduce the access mode to the common bits of the old and
+                 * the new mode. That way there's no time window where the file exists under the old owner
+                 * with more than the old access modes — and not under the new owner with more than the new
+                 * access modes either. */
+
                 if (S_ISLNK(st->st_mode))
-                        log_debug("Skipping mode fix for symlink %s.", path);
+                        log_debug("Skipping temporary mode fix for symlink %s.", path);
                 else {
-                        mode_t m = i->mode;
+                        mode_t m = new_mode & st->st_mode; /* Mask new mode by old mode */
 
-                        if (i->mask_perms) {
-                                if (!(st->st_mode & 0111))
-                                        m &= ~0111;
-                                if (!(st->st_mode & 0222))
-                                        m &= ~0222;
-                                if (!(st->st_mode & 0444))
-                                        m &= ~0444;
-                                if (!S_ISDIR(st->st_mode))
-                                        m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
-                        }
-
-                        if (m == (st->st_mode & 07777))
-                                log_debug("\"%s\" has correct mode %o already.", path, st->st_mode);
+                        if (((m ^ st->st_mode) & 07777) == 0)
+                                log_debug("\"%s\" matches temporary mode %o already.", path, m);
                         else {
-                                log_debug("Changing \"%s\" to mode %o.", path, m);
+                                log_debug("Temporarily changing \"%s\" to mode %o.", path, m);
                                 if (fchmod_opath(fd, m) < 0)
                                         return log_error_errno(errno, "fchmod() of %s failed: %m", path);
                         }
                 }
         }
 
-        if ((i->uid_set && i->uid != st->st_uid) ||
-            (i->gid_set && i->gid != st->st_gid)) {
+        if (do_chown) {
                 log_debug("Changing \"%s\" to owner "UID_FMT":"GID_FMT,
                           path,
                           i->uid_set ? i->uid : UID_INVALID,
@@ -837,6 +833,24 @@ static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st
                              i->gid_set ? i->gid : GID_INVALID,
                              AT_EMPTY_PATH) < 0)
                         return log_error_errno(errno, "fchownat() of %s failed: %m", path);
+        }
+
+        /* Now, apply the final mode. We do this in two cases: when the user set a mode explicitly, or after a
+         * chown(), since chown()'s mangle the access mode in regards to sgid/suid in some conditions. */
+        if (i->mode_set || do_chown) {
+                if (S_ISLNK(st->st_mode))
+                        log_debug("Skipping mode fix for symlink %s.", path);
+                else {
+                       /* Check if the chmod() is unnecessary. Note that if we did a chown() before we always
+                        * chmod() here again, since it might have mangled the bits. */
+                        if (!do_chown && ((new_mode ^ st->st_mode) & 07777) == 0)
+                                log_debug("\"%s\" matches mode %o already.", path, new_mode);
+                        else {
+                                log_debug("Changing \"%s\" to mode %o.", path, new_mode);
+                                if (fchmod_opath(fd, new_mode) < 0)
+                                        return log_error_errno(errno, "fchmod() of %s failed: %m", path);
+                        }
+                }
         }
 
 shortcut:
@@ -909,7 +923,7 @@ static int parse_xattrs_from_arg(Item *i) {
         for (;;) {
                 _cleanup_free_ char *name = NULL, *value = NULL, *xattr = NULL;
 
-                r = extract_first_word(&p, &xattr, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
+                r = extract_first_word(&p, &xattr, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse extended attribute '%s', ignoring: %m", p);
                 if (r <= 0)
@@ -2397,7 +2411,7 @@ static int specifier_expansion_from_arg(Item *i) {
 
         assert(i);
 
-        if (i->argument == NULL)
+        if (!i->argument)
                 return 0;
 
         switch (i->type) {
@@ -2457,15 +2471,14 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
         if (isempty(k)) /* Don't complain about other paths than /var/run, and not about /var/run itself either. */
                 return 0;
 
-        n = strjoin("/run/", k);
+        n = path_join("/run", k);
         if (!n)
                 return log_oom();
 
         /* Also log about this briefly. We do so at LOG_NOTICE level, as we fixed up the situation automatically, hence
          * there's no immediate need for action by the user. However, in the interest of making things less confusing
          * to the user, let's still inform the user that these snippets should really be updated. */
-
-        log_notice("[%s:%u] Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.", fname, line, *path, n);
+        log_syntax(NULL, LOG_NOTICE, fname, line, 0, "Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.", *path, n);
 
         free_and_replace(*path, n);
 
@@ -2488,7 +2501,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         r = extract_many_words(
                         &buffer,
                         NULL,
-                        EXTRACT_QUOTES,
+                        EXTRACT_UNQUOTE,
                         &action,
                         &path,
                         &mode,
@@ -2584,7 +2597,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
 
         case CREATE_SYMLINK:
                 if (!i.argument) {
-                        i.argument = strappend("/usr/share/factory/", i.path);
+                        i.argument = path_join("/usr/share/factory", i.path);
                         if (!i.argument)
                                 return log_oom();
                 }
@@ -2600,13 +2613,22 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
 
         case COPY_FILES:
                 if (!i.argument) {
-                        i.argument = strappend("/usr/share/factory/", i.path);
+                        i.argument = path_join(arg_root, "/usr/share/factory", i.path);
                         if (!i.argument)
                                 return log_oom();
+
                 } else if (!path_is_absolute(i.argument)) {
                         *invalid_config = true;
                         log_error("[%s:%u] Source path is not absolute.", fname, line);
                         return -EBADMSG;
+
+                } else if (arg_root) {
+                        char *p;
+
+                        p = path_join(arg_root, i.argument);
+                        if (!p)
+                                return log_oom();
+                        free_and_replace(i.argument, p);
                 }
 
                 path_simplify(i.argument, false);
@@ -2697,10 +2719,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         if (arg_root) {
                 char *p;
 
-                p = prefix_root(arg_root, i.path);
+                p = path_join(arg_root, i.path);
                 if (!p)
                         return log_oom();
-
                 free_and_replace(i.path, p);
         }
 

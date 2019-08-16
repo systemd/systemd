@@ -24,6 +24,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_MACVLAN,
         NETDEV_KIND_MACVTAP,
         NETDEV_KIND_IPVLAN,
+        NETDEV_KIND_IPVTAP,
         NETDEV_KIND_VXLAN,
         NETDEV_KIND_IPIP,
         NETDEV_KIND_GRE,
@@ -48,6 +49,8 @@ typedef enum NetDevKind {
         NETDEV_KIND_ERSPAN,
         NETDEV_KIND_L2TP,
         NETDEV_KIND_MACSEC,
+        NETDEV_KIND_NLMON,
+        NETDEV_KIND_XFRM,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_TUNNEL, /* Used by config_parse_stacked_netdev() */
         _NETDEV_KIND_INVALID = -1
@@ -130,6 +133,9 @@ typedef struct NetDevVTable {
 
         /* verify that compulsory configuration options were specified */
         int (*config_verify)(NetDev *netdev, const char *filename);
+
+        /* Generate MAC address or not When MACAddress= is not specified. */
+        bool generate_mac;
 } NetDevVTable;
 
 extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
@@ -176,7 +182,6 @@ static inline NetDevCreateType netdev_get_create_type(NetDev *netdev) {
         return NETDEV_VTABLE(netdev)->create_type;
 }
 
-
 CONFIG_PARSER_PROTOTYPE(config_parse_netdev_kind);
 
 /* gperf */
@@ -187,8 +192,8 @@ const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, GPERF_
 #define log_netdev_full(netdev, level, error, ...)                      \
         ({                                                              \
                 const NetDev *_n = (netdev);                            \
-                _n ? log_object_internal(level, error, __FILE__, __LINE__, __func__, "INTERFACE=", _n->ifname, NULL, NULL, ##__VA_ARGS__) : \
-                        log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+                _n ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, "INTERFACE=", _n->ifname, NULL, NULL, ##__VA_ARGS__) : \
+                        log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
 #define log_netdev_debug(netdev, ...)       log_netdev_full(netdev, LOG_DEBUG, 0, ##__VA_ARGS__)

@@ -86,6 +86,18 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">exit-status</arg>
+      <arg choice="opt" rep="repeat"><replaceable>STATUS</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">condition</arg>
+      <arg choice="plain"><replaceable>CONDITION</replaceable>…</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">syscall-filter</arg>
       <arg choice="opt"><replaceable>SET</replaceable>…</arg>
     </cmdsynopsis>
@@ -93,7 +105,13 @@
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">calendar</arg>
-      <arg choice="plain" rep="repeat"><replaceable>SPECS</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>SPEC</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">timestamp</arg>
+      <arg choice="plain" rep="repeat"><replaceable>TIMESTAMP</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
@@ -166,7 +184,13 @@ multi-user.target reached after 47.820s in userspace
       initialization of one service might be slow simply because it waits for the initialization of another
       service to complete.  Also note: <command>systemd-analyze blame</command> doesn't display results for
       services with <varname>Type=simple</varname>, because systemd considers such services to be started
-      immediately, hence no measurement of the initialization delays can be done.</para>
+      immediately, hence no measurement of the initialization delays can be done. Also note that this command
+      only shows the time units took for starting up, it does not show how long unit jobs spent in the
+      execution queue. In particular it shows the time units spent in <literal>activating</literal> state,
+      which is not defined for units such as device units that transition directly from
+      <literal>inactive</literal> to <literal>active</literal>. This command hence gives an impression of the
+      performance of program code, but cannot accurately reflect latency introduced by waiting for
+      hardware and similar events.</para>
 
       <example>
         <title><command>Show which units took the most time during boot</command></title>
@@ -190,7 +214,12 @@ multi-user.target reached after 47.820s in userspace
       <replaceable>UNIT</replaceable>s or for the default target otherwise). The time after the unit is
       active or started is printed after the "@" character. The time the unit takes to start is printed after
       the "+" character. Note that the output might be misleading as the initialization of services might
-      depend on socket activation and because of the parallel execution of units.</para>
+      depend on socket activation and because of the parallel execution of units. Also, similar to the
+      <command>blame</command> command, this only takes into account the time units spent in
+      <literal>activating</literal> state, and hence does not cover units that never went through an
+      <literal>activating</literal> state (such as device units that transition directly from
+      <literal>inactive</literal> to <literal>active</literal>). Moreover it does not show information on
+      jobs (and in particular not jobs that timed out).</para>
 
       <example>
         <title><command>systemd-analyze time</command></title>
@@ -343,6 +372,57 @@ $ eog targets.svg</programlisting>
     </refsect2>
 
     <refsect2>
+      <title><command>systemd-analyze exit-status <optional><replaceable>STATUS</replaceable>...</optional></command></title>
+
+      <para>This command prints a list of exit statuses along with their "class", i.e. the source of the
+      definition (one of <literal>glibc</literal>, <literal>systemd</literal>, <literal>LSB</literal>, or
+      <literal>BSD</literal>), see the Process Exit Codes section in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      If no additional arguments are specified, all known statuses are are shown. Otherwise, only the
+      definitions for the specified codes are shown.</para>
+
+      <example>
+        <title><command>Show some example exit status names</command></title>
+
+        <programlisting>$ systemd-analyze exit-status 0 1 {63..65}
+NAME    STATUS CLASS
+SUCCESS 0      glibc
+FAILURE 1      glibc
+-       63     -
+USAGE   64     BSD
+DATAERR 65     BSD
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze condition <replaceable>CONDITION</replaceable>...</command></title>
+
+      <para>This command will evaluate <varname noindex='true'>Condition*=...</varname> and
+      <varname noindex='true'>Assert*=...</varname> assignments, and print their values, and
+      the resulting value of the combined condition set. See
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for a list of available conditions and asserts.</para>
+
+      <example>
+        <title>Evaluate conditions that check kernel versions</title>
+
+        <programlisting>$ systemd-analyze condition 'ConditionKernelVersion = ! &lt;4.0' \
+        'ConditionKernelVersion = &gt;=5.1' \
+        'ConditionACPower=|false' \
+        'ConditionArchitecture=|!arm' \
+        'AssertPathExists=/etc/os-release'
+test.service: AssertPathExists=/etc/os-release succeeded.
+Asserts succeeded.
+test.service: ConditionArchitecture=|!arm succeeded.
+test.service: ConditionACPower=|false failed.
+test.service: ConditionKernelVersion=&gt;=5.1 succeeded.
+test.service: ConditionKernelVersion=!&lt;4.0 succeeded.
+Conditions succeeded.</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
       <title><command>systemd-analyze syscall-filter <optional><replaceable>SET</replaceable>...</optional></command></title>
 
       <para>This command will list system calls contained in the specified system call set
@@ -360,7 +440,8 @@ $ eog targets.svg</programlisting>
       <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>. By
       default, only the next time the calendar expression will elapse is shown; use
       <option>--iterations=</option> to show the specified number of next times the expression
-      elapses.</para>
+      elapses. Each time the expression elapses forms a timestamp, see the <command>timestamp</command>
+      verb below.</para>
 
       <example>
         <title>Show leap days in the near future</title>
@@ -383,12 +464,46 @@ Normalized form: *-02-29 00:00:00
     </refsect2>
 
     <refsect2>
+      <title><command>systemd-analyze timestamp <replaceable>TIMESTAMP</replaceable>...</command></title>
+
+      <para>This command parses a timestamp (i.e. a single point in time) and outputs the normalized form and
+      the difference between this timestamp and now. The timestamp should adhere to the syntax documented in
+      <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      section "PARSING TIMESTAMPS".</para>
+
+      <example>
+        <title>Show parsing of timestamps</title>
+
+        <programlisting>$ systemd-analyze timestamp yesterday now tomorrow
+  Original form: yesterday
+Normalized form: Mon 2019-05-20 00:00:00 CEST
+       (in UTC): Sun 2019-05-19 22:00:00 UTC
+   UNIX seconds: @15583032000
+       From now: 1 day 9h ago
+
+  Original form: now
+Normalized form: Tue 2019-05-21 09:48:39 CEST
+       (in UTC): Tue 2019-05-21 07:48:39 UTC
+   UNIX seconds: @1558424919.659757
+       From now: 43us ago
+
+  Original form: tomorrow
+Normalized form: Wed 2019-05-22 00:00:00 CEST
+       (in UTC): Tue 2019-05-21 22:00:00 UTC
+   UNIX seconds: @15584760000
+       From now: 14h left
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
       <title><command>systemd-analyze timespan <replaceable>EXPRESSION</replaceable>...</command></title>
 
-      <para>This command parses a time span and outputs the normalized form and the equivalent value in
-      microseconds. The time span should adhere to the same syntax documented in
-      <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-      Values without associated magnitudes are parsed as seconds.</para>
+      <para>This command parses a time span (i.e. a difference between two timestamps) and outputs the
+      normalized form and the equivalent value in microseconds. The time span should adhere to the syntax
+      documented in
+      <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      section "PARSING TIME SPANS". Values without units are parsed as seconds.</para>
 
       <example>
         <title>Show parsing of timespans</title>

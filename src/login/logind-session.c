@@ -22,7 +22,11 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "io-util.h"
+#include "logind-dbus.h"
+#include "logind-seat-dbus.h"
+#include "logind-session-dbus.h"
 #include "logind-session.h"
+#include "logind-user-dbus.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -63,7 +67,7 @@ int session_new(Session **ret, Manager *m, const char *id) {
                 .tty_validity = _TTY_VALIDITY_INVALID,
         };
 
-        s->state_file = strappend("/run/systemd/sessions/", id);
+        s->state_file = path_join("/run/systemd/sessions", id);
         if (!s->state_file)
                 return -ENOMEM;
 
@@ -91,8 +95,6 @@ Session* session_free(Session *s) {
                 LIST_REMOVE(gc_queue, s->manager->session_gc_queue, s);
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-
-        session_remove_fifo(s);
 
         session_drop_controller(s);
 
@@ -141,7 +143,13 @@ Session* session_free(Session *s) {
 
         hashmap_remove(s->manager->sessions, s->id);
 
+        sd_event_source_unref(s->fifo_event_source);
+        safe_close(s->fifo_fd);
+
+        /* Note that we remove neither the state file nor the fifo path here, since we want both to survive
+         * daemon restarts */
         free(s->state_file);
+        free(s->fifo_path);
 
         return mfree(s);
 }
@@ -895,7 +903,7 @@ static int get_tty_atime(const char *tty, usec_t *atime) {
         assert(atime);
 
         if (!path_is_absolute(tty)) {
-                p = strappend("/dev/", tty);
+                p = path_join("/dev", tty);
                 if (!p)
                         return -ENOMEM;
 
@@ -1177,7 +1185,7 @@ static int session_open_vt(Session *s) {
 
 int session_prepare_vt(Session *s) {
         int vt, r;
-        struct vt_mode mode = { 0 };
+        struct vt_mode mode = {};
 
         if (s->vtnr < 1)
                 return 0;

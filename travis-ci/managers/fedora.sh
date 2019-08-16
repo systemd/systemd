@@ -15,7 +15,15 @@ CONT_NAME="${CONT_NAME:-fedora-$FEDORA_RELEASE-$RANDOM}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(dnf-plugins-core python2 iputils hostname libasan python3-pyparsing python3-evdev libubsan clang llvm)
+ADDITIONAL_DEPS=(dnf-plugins-core
+                 python2 iputils
+                 hostname libasan
+                 python3-pyparsing
+                 python3-evdev
+                 libubsan
+                 clang
+                 llvm
+                 perl)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"
@@ -50,10 +58,9 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC meson --werror -Dtests=unsafe -Dslow-tests=true build
             $DOCKER_EXEC ninja -v -C build
             $DOCKER_EXEC ninja -C build test
-            $DOCKER_EXEC tools/check-directives.sh
             ;;
         RUN_CLANG)
-            docker exec -e CC=clang -e CXX=clang++ -it $CONT_NAME meson --werror -Dtests=unsafe -Dslow-tests=true build
+            docker exec -e CC=clang -e CXX=clang++ -it $CONT_NAME meson --werror -Dtests=unsafe -Dslow-tests=true -Dman=true build
             $DOCKER_EXEC ninja -v -C build
             $DOCKER_EXEC ninja -C build test
             ;;

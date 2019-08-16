@@ -279,7 +279,8 @@ static int json_variant_new(JsonVariant **ret, JsonVariantType type, size_t spac
 
         assert_return(ret, -EINVAL);
 
-        v = malloc0(offsetof(JsonVariant, value) + space);
+        v = malloc0(MAX(sizeof(JsonVariant),
+                        offsetof(JsonVariant, value) + space));
         if (!v)
                 return -ENOMEM;
 
@@ -1555,6 +1556,9 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
         size_t sz = 0;
         int r;
 
+        /* Returns the length of the generated string (without the terminating NUL),
+         * or negative on error. */
+
         assert_return(v, -EINVAL);
         assert_return(ret, -EINVAL);
 
@@ -1567,6 +1571,9 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
 
                 json_variant_dump(v, flags, f, NULL);
 
+                /* Add terminating 0, so that the output buffer is a valid string. */
+                fputc('\0', f);
+
                 r = fflush_and_check(f);
         }
         if (r < 0)
@@ -1574,8 +1581,8 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
 
         assert(s);
         *ret = TAKE_PTR(s);
-
-        return (int) sz;
+        assert(sz > 0);
+        return (int) sz - 1;
 }
 
 void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const char *prefix) {
@@ -1658,7 +1665,8 @@ static int json_variant_copy(JsonVariant **nv, JsonVariant *v) {
         default:
                 /* Everything else copy by reference */
 
-                c = malloc0(offsetof(JsonVariant, reference) + sizeof(JsonVariant*));
+                c = malloc0(MAX(sizeof(JsonVariant),
+                                offsetof(JsonVariant, reference) + sizeof(JsonVariant*)));
                 if (!c)
                         return -ENOMEM;
 
@@ -1671,7 +1679,8 @@ static int json_variant_copy(JsonVariant **nv, JsonVariant *v) {
                 return 0;
         }
 
-        c = malloc0(offsetof(JsonVariant, value) + k);
+        c = malloc0(MAX(sizeof(JsonVariant),
+                        offsetof(JsonVariant, value) + k));
         if (!c)
                 return -ENOMEM;
 
@@ -2296,9 +2305,9 @@ static int json_parse_internal(
                 column = &column_buffer;
 
         for (;;) {
+                _cleanup_(json_variant_unrefp) JsonVariant *add = NULL;
                 _cleanup_free_ char *string = NULL;
                 unsigned line_token, column_token;
-                JsonVariant *add = NULL;
                 JsonStack *current;
                 JsonValue value;
                 int token;
@@ -2591,7 +2600,7 @@ static int json_parse_internal(
                                 goto finish;
                         }
 
-                        current->elements[current->n_elements++] = add;
+                        current->elements[current->n_elements++] = TAKE_PTR(add);
                 }
         }
 
@@ -3401,7 +3410,7 @@ int json_dispatch_string(const char *name, JsonVariant *variant, JsonDispatchFla
 int json_dispatch_strv(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         _cleanup_strv_free_ char **l = NULL;
         char ***s = userdata;
-        size_t i;
+        JsonVariant *e;
         int r;
 
         assert(variant);
@@ -3415,11 +3424,7 @@ int json_dispatch_strv(const char *name, JsonVariant *variant, JsonDispatchFlags
         if (!json_variant_is_array(variant))
                 return json_log(variant, SYNTHETIC_ERRNO(EINVAL), flags, "JSON field '%s' is not an array.", strna(name));
 
-        for (i = 0; i < json_variant_elements(variant); i++) {
-                JsonVariant *e;
-
-                assert_se(e = json_variant_by_index(variant, i));
-
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
                 if (!json_variant_is_string(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a string.");
 

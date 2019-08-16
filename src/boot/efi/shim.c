@@ -14,9 +14,6 @@
 #include "util.h"
 #include "shim.h"
 
-/* well known shim lock guid */
-#define SHIM_LOCK_GUID
-
 struct ShimLock {
         EFI_STATUS __attribute__((sysv_abi)) (*shim_verify) (VOID *buffer, UINT32 size);
 

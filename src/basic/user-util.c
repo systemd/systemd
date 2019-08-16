@@ -15,6 +15,7 @@
 #include <utmp.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -22,6 +23,7 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -146,7 +148,7 @@ static int synthesize_user_creds(
                         *home = FLAGS_SET(flags, USER_CREDS_CLEAN) ? NULL : "/";
 
                 if (shell)
-                        *shell = FLAGS_SET(flags, USER_CREDS_CLEAN) ? NULL : "/sbin/nologin";
+                        *shell = FLAGS_SET(flags, USER_CREDS_CLEAN) ? NULL : NOLOGIN;
 
                 return 0;
         }
@@ -212,7 +214,7 @@ int get_user_creds(
                 p = getpwnam(*username);
         }
         if (!p) {
-                r = errno > 0 ? -errno : -ESRCH;
+                r = errno_or_else(ESRCH);
 
                 /* If the user requested that we only synthesize as fallback, do so now */
                 if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS)) {
@@ -306,7 +308,7 @@ int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags) {
         }
 
         if (!g)
-                return errno > 0 ? -errno : -ESRCH;
+                return errno_or_else(ESRCH);
 
         if (gid) {
                 if (!gid_is_valid(g->gr_gid))
@@ -491,7 +493,7 @@ int get_home_dir(char **_h) {
         errno = 0;
         p = getpwuid(u);
         if (!p)
-                return errno > 0 ? -errno : -ESRCH;
+                return errno_or_else(ESRCH);
 
         if (!path_is_valid(p->pw_dir) ||
             !path_is_absolute(p->pw_dir))
@@ -536,7 +538,7 @@ int get_shell(char **_s) {
         }
         if (synthesize_nobody() &&
             u == UID_NOBODY) {
-                s = strdup("/sbin/nologin");
+                s = strdup(NOLOGIN);
                 if (!s)
                         return -ENOMEM;
 
@@ -548,7 +550,7 @@ int get_shell(char **_s) {
         errno = 0;
         p = getpwuid(u);
         if (!p)
-                return errno > 0 ? -errno : -ESRCH;
+                return errno_or_else(ESRCH);
 
         if (!path_is_valid(p->pw_shell) ||
             !path_is_absolute(p->pw_shell))
@@ -769,7 +771,7 @@ int putpwent_sane(const struct passwd *pw, FILE *stream) {
 
         errno = 0;
         if (putpwent(pw, stream) != 0)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         return 0;
 }
@@ -780,7 +782,7 @@ int putspent_sane(const struct spwd *sp, FILE *stream) {
 
         errno = 0;
         if (putspent(sp, stream) != 0)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         return 0;
 }
@@ -791,7 +793,7 @@ int putgrent_sane(const struct group *gr, FILE *stream) {
 
         errno = 0;
         if (putgrent(gr, stream) != 0)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         return 0;
 }
@@ -803,7 +805,7 @@ int putsgent_sane(const struct sgrp *sg, FILE *stream) {
 
         errno = 0;
         if (putsgent(sg, stream) != 0)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         return 0;
 }
@@ -818,7 +820,7 @@ int fgetpwent_sane(FILE *stream, struct passwd **pw) {
         errno = 0;
         p = fgetpwent(stream);
         if (!p && errno != ENOENT)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         *pw = p;
         return !!p;
@@ -833,7 +835,7 @@ int fgetspent_sane(FILE *stream, struct spwd **sp) {
         errno = 0;
         s = fgetspent(stream);
         if (!s && errno != ENOENT)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         *sp = s;
         return !!s;
@@ -848,7 +850,7 @@ int fgetgrent_sane(FILE *stream, struct group **gr) {
         errno = 0;
         g = fgetgrent(stream);
         if (!g && errno != ENOENT)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         *gr = g;
         return !!g;
@@ -864,9 +866,46 @@ int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
         errno = 0;
         s = fgetsgent(stream);
         if (!s && errno != ENOENT)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         *sg = s;
         return !!s;
 }
 #endif
+
+int make_salt(char **ret) {
+        static const char table[] =
+                "abcdefghijklmnopqrstuvwxyz"
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                "0123456789"
+                "./";
+
+        uint8_t raw[16];
+        char *salt, *j;
+        size_t i;
+        int r;
+
+        /* This is a bit like crypt_gensalt_ra(), but doesn't require libcrypt, and doesn't do anything but
+         * SHA512, i.e. is legacy-free and minimizes our deps. */
+
+        assert_cc(sizeof(table) == 64U + 1U);
+
+        /* Insist on the best randomness by setting RANDOM_BLOCK, this is about keeping passwords secret after all. */
+        r = genuine_random_bytes(raw, sizeof(raw), RANDOM_BLOCK);
+        if (r < 0)
+                return r;
+
+        salt = new(char, 3+sizeof(raw)+1+1);
+        if (!salt)
+                return -ENOMEM;
+
+        /* We only bother with SHA512 hashed passwords, the rest is legacy, and we don't do legacy. */
+        j = stpcpy(salt, "$6$");
+        for (i = 0; i < sizeof(raw); i++)
+                j[i] = table[raw[i] & 63];
+        j[i++] = '$';
+        j[i] = 0;
+
+        *ret = salt;
+        return 0;
+}

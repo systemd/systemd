@@ -75,3 +75,4 @@ static inline int device_read_db(sd_device *device) {
 
 DeviceAction device_action_from_string(const char *s) _pure_;
 const char *device_action_to_string(DeviceAction a) _const_;
+void dump_device_action_table(void);

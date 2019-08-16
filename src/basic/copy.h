@@ -15,6 +15,7 @@ typedef enum CopyFlags {
         COPY_SAME_MOUNT  = 1 << 3, /* Don't descend recursively into other file systems, across mount point boundaries */
         COPY_MERGE_EMPTY = 1 << 4, /* Merge an existing, empty directory with our new tree to copy */
         COPY_CRTIME      = 1 << 5, /* Generate a user.crtime_usec xattr off the source crtime if there is one, on copying */
+        COPY_SIGINT      = 1 << 6, /* Check for SIGINT regularly and return EINTR if seen (caller needs to block SIGINT) */
 } CopyFlags;
 
 typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, void *userdata);

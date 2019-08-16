@@ -651,6 +651,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "fork\0"
                 "getrusage\0"
                 "kill\0"
+                "pidfd_send_signal\0"
                 "prctl\0"
                 "rt_sigqueueinfo\0"
                 "rt_tgsigqueueinfo\0"
@@ -1520,6 +1521,7 @@ int seccomp_memory_deny_write_execute(void) {
                 switch (arch) {
 
                 case SCMP_ARCH_X86:
+                case SCMP_ARCH_S390:
                         filter_syscall = SCMP_SYS(mmap2);
                         block_syscall = SCMP_SYS(mmap);
                         shmat_syscall = SCMP_SYS(shmat);
@@ -1544,13 +1546,14 @@ int seccomp_memory_deny_write_execute(void) {
                 case SCMP_ARCH_X86_64:
                 case SCMP_ARCH_X32:
                 case SCMP_ARCH_AARCH64:
-                        filter_syscall = SCMP_SYS(mmap); /* amd64, x32, and arm64 have only mmap */
+                case SCMP_ARCH_S390X:
+                        filter_syscall = SCMP_SYS(mmap); /* amd64, x32, s390x, and arm64 have only mmap */
                         shmat_syscall = SCMP_SYS(shmat);
                         break;
 
                 /* Please add more definitions here, if you port systemd to other architectures! */
 
-#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__)
+#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__) && !defined(__s390__) && !defined(__s390x__)
 #warning "Consider adding the right mmap() syscall definitions here!"
 #endif
                 }
@@ -1963,4 +1966,19 @@ int seccomp_restrict_suid_sgid(void) {
         }
 
         return 0;
+}
+
+uint32_t scmp_act_kill_process(void) {
+
+        /* Returns SCMP_ACT_KILL_PROCESS if it's supported, and SCMP_ACT_KILL_THREAD otherwise. We never
+         * actually want to use SCMP_ACT_KILL_THREAD as its semantics are nuts (killing arbitrary threads of
+         * a program is just a bad idea), but on old kernels/old libseccomp it is all we have, and at least
+         * for single-threaded apps does the right thing. */
+
+#ifdef SCMP_ACT_KILL_PROCESS
+        if (seccomp_api_get() >= 3)
+                return SCMP_ACT_KILL_PROCESS;
+#endif
+
+        return SCMP_ACT_KILL; /* same as SCMP_ACT_KILL_THREAD */
 }

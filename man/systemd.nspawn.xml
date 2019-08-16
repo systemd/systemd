@@ -119,8 +119,8 @@
         specified parameters using <varname>Parameters=</varname> are passed as additional arguments to the
         <filename>init</filename> process. This setting corresponds to the <option>--boot</option> switch on the
         <command>systemd-nspawn</command> command line. This option may not be combined with
-        <varname>ProcessTwo=yes</varname>. This option is the default if the
-        <filename>systemd-nspawn@.service</filename> template unit file is used.</para></listitem>
+        <varname>ProcessTwo=yes</varname>. This option is specified by default in the
+        <filename>systemd-nspawn@.service</filename> template unit.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -145,13 +145,15 @@
       <varlistentry>
         <term><varname>Parameters=</varname></term>
 
-        <listitem><para>Takes a space-separated list of
-        arguments. This is either a command line, beginning with the
-        binary name to execute, or – if <varname>Boot=</varname> is
-        enabled – the list of arguments to pass to the init
-        process. This setting corresponds to the command line
-        parameters passed on the <command>systemd-nspawn</command>
-        command line.</para></listitem>
+        <listitem><para>Takes a whitespace-separated list of arguments. Single (<literal>'</literal>) and
+        double (<literal>"</literal>) quotes may be used around arguments with whitespace. This is either a
+        command line, beginning with the binary name to execute, or – if <varname>Boot=</varname> is enabled
+        – the list of arguments to pass to the init process. This setting corresponds to the command line
+        parameters passed on the <command>systemd-nspawn</command> command line.</para>
+
+        <para>Note: <option>Boot=no</option>, <option>Parameters=a b "c c"</option> is the same as
+        <command>systemd-nspawn a b "c c"</command>, and <option>Boot=yes</option>, <option>Parameters=b 'c c'</option>
+        is the same as <command>systemd-nspawn --boot b 'c c'</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

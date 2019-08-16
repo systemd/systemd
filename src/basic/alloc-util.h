@@ -58,7 +58,7 @@ static inline void *mfree(void *memory) {
         })
 
 void* memdup(const void *p, size_t l) _alloc_(2);
-void* memdup_suffix0(const void *p, size_t l) _alloc_(2);
+void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, since we return a buffer one byte larger than the specified size */
 
 #define memdupa(p, l)                           \
         ({                                      \
@@ -112,7 +112,9 @@ _alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t size, si
         return memdup(p, size * need);
 }
 
-_alloc_(2, 3) static inline void *memdup_suffix0_multiply(const void *p, size_t size, size_t need) {
+/* Note that we can't decorate this function with _alloc_() since the returned memory area is one byte larger
+ * than the product of its parameters. */
+static inline void *memdup_suffix0_multiply(const void *p, size_t size, size_t need) {
         if (size_multiply_overflow(size, need))
                 return NULL;
 

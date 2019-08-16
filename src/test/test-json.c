@@ -89,6 +89,7 @@ static void test_variant(const char *data, Test test) {
         r = json_variant_format(v, 0, &s);
         assert_se(r >= 0);
         assert_se(s);
+        assert_se((size_t) r == strlen(s));
 
         log_info("formatted normally: %s\n", s);
 
@@ -105,6 +106,7 @@ static void test_variant(const char *data, Test test) {
         r = json_variant_format(v, JSON_FORMAT_PRETTY, &s);
         assert_se(r >= 0);
         assert_se(s);
+        assert_se((size_t) r == strlen(s));
 
         log_info("formatted prettily:\n%s", s);
 
@@ -120,12 +122,14 @@ static void test_variant(const char *data, Test test) {
         r = json_variant_format(v, JSON_FORMAT_COLOR, &s);
         assert_se(r >= 0);
         assert_se(s);
+        assert_se((size_t) r == strlen(s));
         printf("Normal with color: %s\n", s);
 
         s = mfree(s);
         r = json_variant_format(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, &s);
         assert_se(r >= 0);
         assert_se(s);
+        assert_se((size_t) r == strlen(s));
         printf("Pretty with color:\n%s\n", s);
 
         if (test)

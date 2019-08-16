@@ -303,8 +303,11 @@ static int bus_socket_set_transient_property(
         if (streq(name, "SocketProtocol"))
                 return bus_set_transient_socket_protocol(u, name, &s->socket_protocol, message, flags, error);
 
-        if ((ci = socket_exec_command_from_string(name)) >= 0)
-                return bus_set_transient_exec_command(u, name, &s->exec_command[ci], message, flags, error);
+        ci = socket_exec_command_from_string(name);
+        if (ci >= 0)
+                return bus_set_transient_exec_command(u, name,
+                                                      &s->exec_command[ci],
+                                                      message, flags, error);
 
         if (streq(name, "Symlinks")) {
                 _cleanup_strv_free_ char **l = NULL;

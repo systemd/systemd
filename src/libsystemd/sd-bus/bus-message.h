@@ -128,6 +128,8 @@ struct sd_bus_message {
 
         size_t header_offsets[_BUS_MESSAGE_HEADER_MAX];
         unsigned n_header_offsets;
+
+        uint64_t read_counter;
 };
 
 static inline bool BUS_MESSAGE_NEED_BSWAP(sd_bus_message *m) {

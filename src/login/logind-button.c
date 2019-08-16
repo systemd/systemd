@@ -224,19 +224,18 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
-static int button_suitable(Button *b) {
+static int button_suitable(int fd) {
         unsigned long types[CONST_MAX(EV_KEY, EV_SW)/ULONG_BITS+1];
 
-        assert(b);
-        assert(b->fd);
+        assert(fd >= 0);
 
-        if (ioctl(b->fd, EVIOCGBIT(EV_SYN, sizeof(types)), types) < 0)
+        if (ioctl(fd, EVIOCGBIT(EV_SYN, sizeof types), types) < 0)
                 return -errno;
 
         if (bitset_get(types, EV_KEY)) {
                 unsigned long keys[CONST_MAX4(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND)/ULONG_BITS+1];
 
-                if (ioctl(b->fd, EVIOCGBIT(EV_KEY, sizeof(keys)), keys) < 0)
+                if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys) < 0)
                         return -errno;
 
                 if (bitset_get(keys, KEY_POWER) ||
@@ -249,7 +248,7 @@ static int button_suitable(Button *b) {
         if (bitset_get(types, EV_SW)) {
                 unsigned long switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1];
 
-                if (ioctl(b->fd, EVIOCGBIT(EV_SW, sizeof(switches)), switches) < 0)
+                if (ioctl(fd, EVIOCGBIT(EV_SW, sizeof switches), switches) < 0)
                         return -errno;
 
                 if (bitset_get(switches, SW_LID) ||
@@ -260,15 +259,15 @@ static int button_suitable(Button *b) {
         return false;
 }
 
-static int button_set_mask(Button *b) {
+static int button_set_mask(const char *name, int fd) {
         unsigned long
                 types[CONST_MAX(EV_KEY, EV_SW)/ULONG_BITS+1] = {},
                 keys[CONST_MAX4(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND)/ULONG_BITS+1] = {},
                 switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1] = {};
         struct input_mask mask;
 
-        assert(b);
-        assert(b->fd >= 0);
+        assert(name);
+        assert(fd >= 0);
 
         bitset_put(types, EV_KEY);
         bitset_put(types, EV_SW);
@@ -279,10 +278,10 @@ static int button_set_mask(Button *b) {
                 .codes_ptr = PTR_TO_UINT64(types),
         };
 
-        if (ioctl(b->fd, EVIOCSMASK, &mask) < 0)
+        if (ioctl(fd, EVIOCSMASK, &mask) < 0)
                 /* Log only at debug level if the kernel doesn't do EVIOCSMASK yet */
                 return log_full_errno(IN_SET(errno, ENOTTY, EOPNOTSUPP, EINVAL) ? LOG_DEBUG : LOG_WARNING,
-                                      errno, "Failed to set EV_SYN event mask on /dev/input/%s: %m", b->name);
+                                      errno, "Failed to set EV_SYN event mask on /dev/input/%s: %m", name);
 
         bitset_put(keys, KEY_POWER);
         bitset_put(keys, KEY_POWER2);
@@ -295,8 +294,8 @@ static int button_set_mask(Button *b) {
                 .codes_ptr = PTR_TO_UINT64(keys),
         };
 
-        if (ioctl(b->fd, EVIOCSMASK, &mask) < 0)
-                return log_warning_errno(errno, "Failed to set EV_KEY event mask on /dev/input/%s: %m", b->name);
+        if (ioctl(fd, EVIOCSMASK, &mask) < 0)
+                return log_warning_errno(errno, "Failed to set EV_KEY event mask on /dev/input/%s: %m", name);
 
         bitset_put(switches, SW_LID);
         bitset_put(switches, SW_DOCK);
@@ -307,14 +306,16 @@ static int button_set_mask(Button *b) {
                 .codes_ptr = PTR_TO_UINT64(switches),
         };
 
-        if (ioctl(b->fd, EVIOCSMASK, &mask) < 0)
-                return log_warning_errno(errno, "Failed to set EV_SW event mask on /dev/input/%s: %m", b->name);
+        if (ioctl(fd, EVIOCSMASK, &mask) < 0)
+                return log_warning_errno(errno, "Failed to set EV_SW event mask on /dev/input/%s: %m", name);
 
         return 0;
 }
 
 int button_open(Button *b) {
-        char *p, name[256];
+        _cleanup_close_ int fd = -1;
+        const char *p;
+        char name[256];
         int r;
 
         assert(b);
@@ -323,38 +324,30 @@ int button_open(Button *b) {
 
         p = strjoina("/dev/input/", b->name);
 
-        b->fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-        if (b->fd < 0)
+        fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        if (fd < 0)
                 return log_warning_errno(errno, "Failed to open %s: %m", p);
 
-        r = button_suitable(b);
+        r = button_suitable(fd);
         if (r < 0)
-                return log_warning_errno(r, "Failed to determine whether input device is relevant to us: %m");
+                return log_warning_errno(r, "Failed to determine whether input device %s is relevant to us: %m", p);
         if (r == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                       "Device %s does not expose keys or switches relevant to us, ignoring.",
-                                       p);
+                                       "Device %s does not expose keys or switches relevant to us, ignoring.", p);
 
-        if (ioctl(b->fd, EVIOCGNAME(sizeof(name)), name) < 0) {
-                r = log_error_errno(errno, "Failed to get input name: %m");
-                goto fail;
-        }
+        if (ioctl(fd, EVIOCGNAME(sizeof name), name) < 0)
+                return log_error_errno(errno, "Failed to get input name for %s: %m", p);
 
-        (void) button_set_mask(b);
+        (void) button_set_mask(b->name, fd);
 
-        r = sd_event_add_io(b->manager->event, &b->io_event_source, b->fd, EPOLLIN, button_dispatch, b);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add button event: %m");
-                goto fail;
-        }
+        b->io_event_source = sd_event_source_unref(b->io_event_source);
+        r = sd_event_add_io(b->manager->event, &b->io_event_source, fd, EPOLLIN, button_dispatch, b);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add button event for %s: %m", p);
 
-        log_info("Watching system buttons on /dev/input/%s (%s)", b->name, name);
-
+        b->fd = TAKE_FD(fd);
+        log_info("Watching system buttons on %s (%s)", p, name);
         return 0;
-
-fail:
-        b->fd = safe_close(b->fd);
-        return r;
 }
 
 int button_check_switches(Button *b) {

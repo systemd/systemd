@@ -8,6 +8,7 @@
 #include "escape.h"
 #include "log.h"
 #include "path-lookup.h"
+#include "strv.h"
 
 static int environment_dirs(char ***ret) {
         _cleanup_strv_free_ char **dirs = NULL;

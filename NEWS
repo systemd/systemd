@@ -2,24 +2,459 @@ systemd System and Service Manager
 
 CHANGES WITH 243 in spe:
 
-        * The "kernel.pid_max" sysctl is now bumped to 4194304 by default,
-          i.e. the full 22bit range the kernel allows, up from the old 16bit
-          range. This should improve security and robustness a bit, as PID
-          collisions are made less likely (though certainly still
-          possible). There are rumours this might create compatibility
+        * This release enables unprivileged programs (i.e. requiring neither
+          setuid nor file capabilities) to send ICMP Echo (i.e. ping) requests
+          by turning on the "net.ipv4.ping_group_range" sysctl of the Linux
+          kernel for the whole UNIX group range, i.e. all processes. This
+          change should be reasonably safe, as the kernel support for it was
+          specifically implemented to allow safe access to ICMP Echo for
+          processes lacking any privileges. If this is not desirable, it can be
+          disabled again by setting the parameter to "1 0".
+
+        * Previously, filters defined with SystemCallFilter= would have the
+          effect that any calling of an offending system call would terminate
+          the calling thread. This behaviour never made much sense, since
+          killing individual threads of unsuspecting processes is likely to
+          create more problems than it solves. With this release the default
+          action changed from killing the thread to killing the whole
+          process. For this to work correctly both a kernel version (>= 4.14)
+          and a libseccomp version (>= 2.4.0) supporting this new seccomp
+          action is required. If an older kernel or libseccomp is used the old
+          behaviour continues to be used. This change does not affect any
+          services that have no system call filters defined, or that use
+          SystemCallErrorNumber= (and thus see EPERM or another error instead
+          of being killed when calling an offending system call). Note that
+          systemd documentation always claimed that the whole process is
+          killed. With this change behaviour is thus adjusted to match the
+          documentation.
+
+        * On 64 bit systems, the "kernel.pid_max" sysctl is now bumped to
+          4194304 by default, i.e. the full 22bit range the kernel allows, up
+          from the old 16bit range. This should improve security and
+          robustness, as PID collisions are made less likely (though certainly
+          still possible). There are rumours this might create compatibility
           problems, though at this moment no practical ones are known to
           us. Downstream distributions are hence advised to undo this change in
           their builds if they are concerned about maximum compatibility, but
           for everybody else we recommend leaving the value bumped. Besides
           improving security and robustness this should also simplify things as
           the maximum number of allowed concurrent tasks was previously bounded
-          by both "kernel.pid_max" and "kernel.threads-max" and now only a
-          single knob is left ("kernel.threads-max"). There have been concerns
-          that usability is affected by this change because larger PID numbers
-          are harder to type, but we believe the change from 5 digit PIDs to 7
-          digit PIDs is not too hampering for usability.
+          by both "kernel.pid_max" and "kernel.threads-max" and now effectively
+          only a single knob is left ("kernel.threads-max"). There have been
+          concerns that usability is affected by this change because larger PID
+          numbers are harder to type, but we believe the change from 5 digits
+          to 7 digits doesn't hamper usability.
 
-          …
+        * MemoryLow= and MemoryMin= gained hierarchy-aware counterparts,
+          DefaultMemoryLow= and DefaultMemoryMin=, which can be used to
+          hierarchically set default memory protection values for a particular
+          subtree of the unit hierarchy.
+
+        * Memory protection directives can now take a value of zero, allowing
+          explicit opting out of a default value propagated by an ancestor.
+
+        * systemd now defaults to the "unified" cgroup hierarchy setup during
+          build-time, i.e. -Ddefault-hierarchy=unified is now the build-time
+          default. Previously, -Ddefault-hierarchy=hybrid was the default. This
+          change reflects the fact that cgroupsv2 support has matured
+          substantially in both systemd and in the kernel, and is clearly the
+          way forward. Downstream production distributions might want to
+          continue to use -Ddefault-hierarchy=hybrid (or even =legacy) for
+          their builds as unfortunately the popular container managers have not
+          caught up with the kernel API changes.
+
+        * Man pages are not built by default anymore (html pages were already
+          disabled by default), to make development builds quicker. When
+          building systemd for a full installation with documentation, meson
+          should be called with -Dman=true and/or -Dhtml=true as appropriate.
+          The default was changed based on the assumption that quick one-off or
+          repeated development builds are much more common than full optimized
+          builds for installation, and people need to pass various other
+          options to when doing "proper" builds anyway, so the gain from making
+          development builds quicker is bigger than the one time disruption for
+          packagers.
+
+          Two scripts are created in the *build* directory to generate and
+          preview man and html pages on demand, e.g.:
+
+          build/man/man systemctl
+          build/man/html systemd.index
+
+        * libidn2 is used by default if both libidn2 and libidn are installed.
+          Please use -Dlibidn=true if libidn is preferred.
+
+        * The D-Bus "wire format" of the CPUAffinity= attribute is changed on
+          big-endian machines. Before, bytes were written and read in native
+          machine order as exposed by the native libc __cpu_mask interface.
+          Now, little-endian order is always used (CPUs 0–7 are described by
+          bits 0–7 in byte 0, CPUs 8–15 are described by byte 1, and so on).
+          This change fixes D-Bus calls that cross endianness boundary.
+
+          The presentation format used for CPUAffinity= by "systemctl show" and
+          "systemd-analyze dump" is changed to present CPU indices instead of
+          the raw __cpu_mask bitmask. For example, CPUAffinity=0-1 would be
+          shown as CPUAffinity=03000000000000000000000000000… (on
+          little-endian) or CPUAffinity=00000000000000300000000000000… (on
+          64-bit big-endian), and is now shown as CPUAffinity=0-1, matching the
+          input format. The maximum integer that will be printed in the new
+          format is 8191 (four digits), while the old format always used a very
+          long number (with the length varying by architecture), so they can be
+          unambiguously distinguished.
+
+        * /usr/sbin/halt.local is no longer supported. Implementation in
+          distributions was inconsistent and it seems this functionality was
+          very rarely used.
+
+          To replace this functionality, users should:
+          - either define a new unit and make it a dependency of final.target
+            (systemctl add-wants final.target my-halt-local.service)
+          - or move the shutdown script to /usr/lib/systemd/system-shutdown/
+            and ensure that it accepts "halt", "poweroff", "reboot", and
+            "kexec" as an argument, see the description in systemd-shutdown(8).
+
+        * When a [Match] section in .link or .network file is empty (contains
+          no match patterns), a warning will be emitted. Please add any "match
+          all" pattern instead, e.g. OriginalName=* or Name=* in case all
+          interfaces should really be matched.
+
+        * A new setting NUMAPolicy= may be used to set process memory
+          allocation policy. This setting can be specified in
+          /etc/systemd/system.conf and hence will set the default policy for
+          PID1. The default policy can be overridden on a per-service
+          basis. The related setting NUMAMask= is used to specify NUMA node
+          mask that should be associated with the selected policy.
+
+        * PID 1 will now listen to Out-Of-Memory (OOM) events the kernel
+          generates when processes it manages are reaching their memory limits,
+          and will place their units in a special state, and optionally kill or
+          stop the whole unit.
+
+        * The service manager will now expose bus properties for the IO
+          resources used by units. This information is also shown in "systemctl
+          status" now (for services that have IOAccounting=yes set). Moreover,
+          the IO accounting data is included in the resource log message
+          generated whenever a unit stops.
+
+        * Units may now configure an explicit time-out to wait for when killed
+          with SIGABRT, for example when a service watchdog is hit. Previously,
+          the regular TimeoutStopSec= time-out was applied in this case too —
+          now a separate time-out may be set using TimeoutAbortSec=.
+
+        * Services may now send a special WATCHDOG=trigger message with
+          sd_notify() to trigger an immediate "watchdog missed" event, and thus
+          trigger service termination. This is useful both for testing watchdog
+          handling, but also for defining error paths in services, that shall
+          be handled the same way as watchdog events.
+
+        * There are two new per-unit settings IPIngressFilterPath= and
+          IPEgressFilterPath= which allow configuration of a BPF program
+          (usually by specifying a path to a program uploaded to /sys/fs/bpf/)
+          to apply to the IP packet ingress/egress path of all processes of a
+          unit. This is useful to allow running systemd services with BPF
+          programs set up externally.
+
+        * systemctl gained a new "clean" verb for removing the state, cache,
+          runtime or logs directories of a service while it is terminated. The
+          new verb may also be used to remove the state maintained on disk for
+          timer units that have Persistent= configured.
+
+        * During the last phase of shutdown systemd will now automatically
+          increase the log level configured in the "kernel.printk" sysctl so
+          that any relevant loggable events happening during late shutdown are
+          made visible. Previously, loggable events happening so late during
+          shutdown were generally lost if the "kernel.printk" sysctl was set to
+          high thresholds, as regular logging daemons are terminated at that
+          time and thus nothing is written to disk.
+
+        * If processes terminated during the last phase of shutdown do not exit
+          quickly systemd will now show their names after a short time, to make
+          debugging easier. After a longer time-out they are forcibly killed,
+          as before.
+
+        * journalctl (and the other tools that display logs) will now highlight
+          warnings in yellow (previously, both LOG_NOTICE and LOG_WARNING where
+          shown in bright bold, now only LOG_NOTICE is). Moreover, audit logs
+          are now shown in blue color, to separate them visually from regular
+          logs. References to configuration files are now turned into clickable
+          links on terminals that support that.
+
+        * systemd-journald will now stop logging to /var/log/journal during
+          shutdown when /var/ is on a separate mount, so that it can be
+          unmounted safely during shutdown.
+
+        * systemd-resolved gained support for a new 'strict' DNS-over-TLS mode.
+
+        * systemd-resolved "Cache=" configuration option in resolved.conf has
+          been extended to also accept the 'no-negative' value. Previously,
+          only a boolean option was allowed (yes/no), having yes as the
+          default. If this option is set to 'no-negative', negative answers are
+          not cached while the old cache heuristics are used positive answers.
+          The default remains unchanged.
+
+        * The predictable naming scheme for network devices now supports
+          generating predictable names for "netdevsim" devices.
+
+          Moreover, the "en" prefix was dropped from the ID_NET_NAME_ONBOARD
+          udev property.
+
+          Those two changes form a new net.naming-policy-scheme= entry.
+          Distributions which want to preserve naming stability may want to set
+          the -Ddefault-net-naming-scheme= configuration option.
+
+        * systemd-networkd now supports MACsec, nlmon, IPVTAP and Xfrm
+          interfaces natively.
+
+        * systemd-networkd's bridge FDB support now allows configuration of a
+          destination address for each entry (Destination=), as well as the
+          VXLAN VNI (VNI=), as well as an option to declare what an entry is
+          associated with (AssociatedWith=).
+
+        * systemd-networkd's DHCPv4 support now understands a new MaxAttempts=
+          option for configuring the maximum number of DHCP lease requests.  It
+          also learnt a new BlackList= option for blacklisting DHCP servers (a
+          similar setting has also been added to the IPv6 RA client), as well
+          as a SendRelease= option for configuring whether to send a DHCP
+          RELEASE message when terminating.
+
+        * systemd-networkd's DHCPv4 and DHCPv6 stacks can now be configured
+          separately in the [DHCPv4] and [DHCPv6] sections.
+
+        * systemd-networkd's DHCP support will now optionally create an
+          implicit host route to the DNS server specified in the DHCP lease, in
+          addition to the routes listed explicitly in the lease. This should
+          ensure that in multi-homed systems DNS traffic leaves the systems on
+          the interface that acquired the DNS server information even if other
+          routes such as default routes exist. This behaviour may be turned on
+          with the new RoutesToDNS= option.
+
+        * systemd-networkd's VXLAN support gained a new option
+          GenericProtocolExtension= for enabling VXLAN Generic Protocol
+          Extension support, as well as IPDoNotFragment= for setting the IP
+          "Don't fragment" bit on outgoing packets. A similar option has been
+          added to the GENEVE support.
+
+        * In systemd-networkd's [Route] section you may now configure
+          FastOpenNoCookie= for configuring per-route TCP fast-open support, as
+          well as TTLPropagate= for configuring Label Switched Path (LSP) TTL
+          propagation. The Type= setting now supports local, broadcast,
+          anycast, multicast, any, xresolve routes, too.
+
+        * systemd-networkd's [Network] section learnt a new option
+          DefaultRouteOnDevice= for automatically configuring a default route
+          onto the network device.
+
+        * systemd-networkd's bridging support gained two new options ProxyARP=
+          and ProxyARPWifi= for configuring proxy ARP behaviour as well as
+          MulticastRouter= for configuring multicast routing behaviour. A new
+          option MulticastIGMPVersion= may be used to change bridge's multicast
+          Internet Group Management Protocol (IGMP) version.
+
+        * systemd-networkd's FooOverUDP support gained the ability to configure
+          local and peer IP addresses via Local= and Peer=. A new option
+          PeerPort= may be used to configure the peer's IP port.
+
+        * systemd-networkd's TUN support gained a new setting VnetHeader= for
+          tweaking Generic Segment Offload support.
+
+        * networkctl gained a new "delete" command for removing virtual network
+          devices, as well as a new "--stats" switch for showing device
+          statistics.
+
+        * networkd.conf gained a new setting SpeedMeter= and
+          SpeedMeterIntervalSec=, to measure bitrate of network interfaces. The
+          measured speed may be shown by 'networkctl status'.
+
+        * "networkctl status" now displays MTU and queue lengths, and more
+          detailed information about VXLAN and bridge devices.
+
+        * systemd-networkd's .network and .link files gained a new Property=
+          setting in the [Match] section, to match against devices with
+          specific udev properties.
+
+        * systemd-networkd's tunnel support gained a new option
+          AssignToLoopback= for selecting whether to use the loopback device
+          "lo" as underlying device.
+
+        * systemd-networkd's MACAddress= setting in the [Neighbor] section has
+          been renamed to LinkLayerAddress=, and it now allows configuration of
+          IP addresses, too.
+
+        * A new tool systemd-network-generator has been added that may generate
+          .network, .netdev and .link files from IP configuration specified on
+          the kernel command line in the format used by Dracut.
+
+        * The CriticalConnection= setting in .network files is now deprecated,
+          and replaced by a new KeepConfiguration= setting which allows more
+          detailed configuration of the IP configuration to keep in place.
+
+        * systemd-analyze gained a few new verbs:
+
+          - "systemd-analyze timestamp" parses and converts timestamps. This is
+            similar to the existing "systemd-analyze calendar" command which
+            does the same for recurring calendar events.
+
+          - "systemd-analyze timespan" parses and converts timespans (i.e.
+            durations as opposed to points in time).
+
+          - "systemd-analyze condition" will parse and test ConditionXYZ=
+            expressions.
+
+          - "systemd-analyze exit-status" will parse and convert exit status
+            codes to their names and back.
+
+          - "systemd-analyze unit-files" will print a list of all unit
+            file paths and unit aliases.
+
+        * SuccessExitStatus=, RestartPreventExitStatus=, and
+          RestartForceExitStatus= now accept exit status names (e.g. "DATAERR"
+          is equivalent to "65"). Those exit status name mappings may be
+          displayed with the sytemd-analyze exit-status verb describe above.
+
+        * systemd-logind now exposes a per-session SetBrightness() bus call,
+          which may be used to securely change the brightness of a kernel
+          brightness device, if it belongs to the session's seat. By using this
+          call unprivileged clients can make changes to "backlight" and "leds"
+          devices securely with strict requirements on session membership.
+          Desktop environments may use this to generically make brightness
+          changes to such devices without shipping private SUID binaries or
+          udev rules for that purpose.
+
+        * "udevadm info" gained a --wait-for-initialization switch to wait for
+          a device to be initialized.
+
+        * systemd-hibernate-resume-generator will now look for resumeflags= on
+          the kernel command line, which is similar to rootflags= and may be
+          used to configure device timeout for the hibernation device.
+
+        * sd-event learnt a new API call sd_event_source_disable_unref() for
+          disabling and unref'ing an event source in a single function. A
+          related call sd_event_source_disable_unrefp() has been added for use
+          with gcc's cleanup extension.
+
+        * The sd-id128.h public API gained a new definition
+          SD_ID128_UUID_FORMAT_STR for formatting a 128bit ID in UUID format
+          with printf().
+
+        * "busctl introspect" gained a new switch --xml-interface for dumping
+          XML introspection data unmodified.
+
+        * PID 1 may now show the unit name instead of the unit description
+          string in its status output during boot. This may be configured in
+          the StatusUnitFormat= setting in /etc/systemd/system.conf or the
+          kernel command line option systemd.status_unit_format=.
+
+        * PID 1 now understands a new option KExecWatchdogSec= in
+          /etc/systemd/system.conf to set a watchdog timeout for kexec reboots.
+          Previously watchdog functionality was only available for regular
+          reboots. The new setting defaults to off, because we don't know in
+          the general case if the watchdog will be reset after kexec (some
+          drivers do reset it, but not all), and the new userspace might not be
+          configured to handle the watchdog.
+
+          Moreover, the old ShutdownWatchdogSec= setting has been renamed to
+          RebootWatchdogSec= to more clearly communicate what it is about. The
+          old name is still accepted for compatibility.
+
+        * The systemd.debug_shell kernel command line option now optionally
+          takes a tty name to spawn the debug shell on, which allows a
+          different tty to be selected than the built-in default.
+
+        * Service units gained a new ExecCondition= setting which will run
+          before ExecStartPre= and either continue execution of the unit (for
+          clean exit codes), stop execution without marking the unit failed
+          (for exit codes 1 through 254), or stop execution and fail the unit
+          (for exit code 255 or abnormal termination).
+
+        * A new service systemd-pstore.service has been added that pulls data
+          from /sys/fs/pstore/ and saves it to /var/lib/pstore for later
+          review.
+
+        * timedatectl gained new verbs for configuring per-interface NTP
+          service configuration for systemd-timesyncd.
+
+        * "localectl list-locales" won't list non-UTF-8 locales anymore. It's
+          2019. (You can set non-UTF-8 locales though, if you know their name.)
+
+        * If variable assignments in sysctl.d/ files are prefixed with "-" any
+          failures to apply them are now ignored.
+
+        * systemd-random-seed.service now optionally credits entropy when
+          applying the seed to the system. Set $SYSTEMD_RANDOM_SEED_CREDIT to
+          true for the service to enable this behaviour, but please consult the
+          documentation first, since this comes with a couple of caveats.
+
+        * systemd-random-seed.service is now a synchronization point for full
+          initialization of the kernel's entropy pool. Services that require
+          /dev/urandom to be correctly initialized should be ordered after this
+          service.
+
+        * The systemd-boot boot loader has been updated to optionally maintain
+          a random seed file in the EFI System Partition (ESP). During the boot
+          phase, this random seed is read and updated with a new seed
+          cryptographically derived from it. Another derived seed is passed to
+          the OS. The latter seed is then credited to the kernel's entropy pool
+          very early during userspace initialization (from PID 1). This allows
+          systems to boot up with a fully initialized kernel entropy pool from
+          earliest boot on, and thus entirely removes all entropy pool
+          initialization delays from systems using systemd-boot. Special care
+          is taken to ensure different seeds are derived on system images
+          replicated to multiple systems. "bootctl status" will show whether
+          a seed was received from the boot loader.
+
+        * bootctl gained two new verbs:
+
+          - "bootctl random-seed" will generate the file in ESP and an EFI
+            variable to allow a random seed to be passed to the OS as described
+            above.
+
+          - "bootctl is-installed" checks whether systemd-boot is currently
+            installed.
+
+        * bootctl will warn if it detects that boot entries are misconfigured
+          (for example if the kernel image was removed without purging the
+          bootloader entry).
+
+        * A new document has been added describing systemd's use and support
+          for the kernel's entropy pool subsystem:
+
+          https://systemd.io/RANDOM_SEEDS
+
+        * When the system is hibernated the swap device to write the
+          hibernation image to is now automatically picked from all available
+          swap devices, preferring the swap device with the highest configured
+          priority over all others, and picking the device with the most free
+          space if there are multiple devices with the highest priority.
+
+        * /etc/crypttab support has learnt a new keyfile-timeout= per-device
+          option that permits selecting the timout how long to wait for a
+          device with an encryption key before asking for the password.
+
+        Contributions from: Aaron Barany, Adrian Bunk, Alan Jenkins, Andrej
+        Valek, Anita Zhang, Arian van Putten, Balint Reczey, Bastien Nocera,
+        Ben Boeckel, Benjamin Robin, camoz, Chen Qi, Chris Chiu, Chris Down,
+        Christian Kellner, Clinton Roy, Connor Reeder, Daniele Medri, Dan
+        Streetman, Dave Reisner, Dave Ross, David Art, David Tardon, Debarshi
+        Ray, Dominick Grift, Donald Buczek, Douglas Christman, Eric DeVolder,
+        Evgeny Vereshchagin, Feldwor, Felix Riemann, Florian Dollinger, Franck
+        Bui, Frantisek Sumsal, Franz Pletz, Hans de Goede, Iago López Galeiras,
+        Insun Pyo, Ivan Shapovalov, Iwan Timmer, Jack, Jakob Unterwurzacher,
+        Jan Klötzke, Jan Pokorný, Jan Synacek, Jeka Pats, Jérémy Rosen, Jiri
+        Pirko, Joe Lin, Joerg Behrmann, Joe Richey, Jóhann B. Guðmundsson,
+        Johannes Schmitz, Jonathan Rouleau, Jorge Niedbalski, Kai Lüke, Karel
+        Zak, Kashyap Chamarthy, Krayushkin Konstantin, Lennart Poettering,
+        Lubomir Rintel, Luca Boccassi, Luís Ferreira, Marc-André Lureau, Markus
+        Felten, Martin Pitt, Michael Biebl, Michael Olbrich, Michael Prokop,
+        Michael Stapelberg, Michael Zhivich, Michal Koutný, Michal Sekletar,
+        Mike Gilbert, Milan Broz, mpe85, Network Silence, Oliver Harley,
+        pan93412, Paul Menzel, pEJipE, Peter A. Bigot, Philip Withnall, Piotr
+        Drąg, Rafael Fontenelle, Roberto Santalla, root, RussianNeuroMancer,
+        Sebastian Jennen, shinygold, Shreyas Behera, Simon Schricker, Susant
+        Sahani, Thadeu Lima de Souza Cascardo, Theo Ouzhinski, Thiebaud
+        Weksteen, Thomas Haller, Thomas Weißschuh, Tomas Mraz, Topi Miettinen,
+        ven, Wieland Hoffmann, Xi Ruoyao, Yuri Chornoivan, Yu Watanabe, Zach
+        Smith, Zbigniew Jędrzejewski-Szmek, Zhang Xianwei
+
+        – Somewhere, SOME-TI-ME
 
 CHANGES WITH 242:
 
@@ -38,6 +473,18 @@ CHANGES WITH 242:
           clarify what policy is followed and which attributes are used.
           `SYSTEMD_LOG_LEVEL=debug udevadm test-builtin net_setup_link /sys/class/net/<name>`
           may be used to view this.
+
+          Hint: if a bridge interface is created without any slaves, and gains
+          a slave later, then now the bridge does not inherit slave's MAC.
+          To inherit slave's MAC, for example, create the following file:
+          ```
+          # /etc/systemd/network/98-bridge-inherit-mac.link
+          [Match]
+          Type=bridge
+
+          [Link]
+          MACAddressPolicy=none
+          ```
 
         * The .device units generated by systemd-fstab-generator and other
           generators do not automatically pull in the corresponding .mount unit
@@ -835,7 +1282,7 @@ CHANGES WITH 240:
           up a private /dev/ file system containing devices nodes — but when
           these are opened they don't work.
 
-          At this point is is recommended that container managers utilizing
+          At this point it is recommended that container managers utilizing
           user namespaces that intend to run systemd in the payload explicitly
           block mknod() with seccomp or similar, so that the graceful fallback
           logic works again.

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <linux/veth.h>
-#include <net/if.h>
 #include <sys/file.h>
 
 #include "sd-device.h"
@@ -14,6 +13,7 @@
 #include "missing_network.h"
 #include "netlink-util.h"
 #include "nspawn-network.h"
+#include "parse-util.h"
 #include "siphash24.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -202,9 +202,9 @@ int setup_veth(const char *machine_name,
         if (r < 0)
                 return r;
 
-        i = (int) if_nametoindex(iface_name);
-        if (i <= 0)
-                return log_error_errno(errno, "Failed to resolve interface %s: %m", iface_name);
+        r = parse_ifindex_or_ifname(iface_name, &i);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve interface %s: %m", iface_name);
 
         return i;
 }
@@ -258,9 +258,9 @@ static int join_bridge(sd_netlink *rtnl, const char *veth_name, const char *brid
         assert(veth_name);
         assert(bridge_name);
 
-        bridge_ifi = (int) if_nametoindex(bridge_name);
-        if (bridge_ifi <= 0)
-                return -errno;
+        r = parse_ifindex_or_ifname(bridge_name, &bridge_ifi);
+        if (r < 0)
+                return r;
 
         r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, 0);
         if (r < 0)
@@ -398,9 +398,9 @@ static int parse_interface(const char *name) {
         char ifi_str[2 + DECIMAL_STR_MAX(int)];
         int ifi, r;
 
-        ifi = (int) if_nametoindex(name);
-        if (ifi <= 0)
-                return log_error_errno(errno, "Failed to resolve interface %s: %m", name);
+        r = parse_ifindex_or_ifname(name, &ifi);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve interface %s: %m", name);
 
         sprintf(ifi_str, "n%i", ifi);
         r = sd_device_new_from_device_id(&d, ifi_str);
@@ -489,7 +489,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface index: %m");
 
-                n = strappend("mv-", *i);
+                n = strjoin("mv-", *i);
                 if (!n)
                         return log_oom();
 
@@ -564,7 +564,7 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface index: %m");
 
-                n = strappend("iv-", *i);
+                n = strjoin("iv-", *i);
                 if (!n)
                         return log_oom();
 

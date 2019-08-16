@@ -43,6 +43,7 @@ static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
 
 static int swap_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+static int swap_process_proc_swaps(Manager *m);
 
 static bool SWAP_STATE_WITH_PROCESS(SwapState state) {
         return IN_SET(state,
@@ -1014,6 +1015,10 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         if (pid != s->control_pid)
                 return;
 
+        /* Let's scan /proc/swaps before we process SIGCHLD. For the reasoning see the similar code in
+         * mount.c */
+        (void) swap_process_proc_swaps(u->manager);
+
         s->control_pid = 0;
 
         if (is_clean_exit(code, status, EXIT_CLEAN_COMMAND, NULL))
@@ -1149,13 +1154,11 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
         return 0;
 }
 
-static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+static int swap_process_proc_swaps(Manager *m) {
         Unit *u;
         int r;
 
         assert(m);
-        assert(revents & EPOLLPRI);
 
         r = swap_load_proc_swaps(m, true);
         if (r < 0) {
@@ -1228,6 +1231,15 @@ static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
         }
 
         return 1;
+}
+
+static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        Manager *m = userdata;
+
+        assert(m);
+        assert(revents & EPOLLPRI);
+
+        return swap_process_proc_swaps(m);
 }
 
 static Unit *swap_following(Unit *u) {

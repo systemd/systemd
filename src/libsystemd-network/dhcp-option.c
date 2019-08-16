@@ -27,7 +27,7 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
 
         case SD_DHCP_OPTION_PAD:
         case SD_DHCP_OPTION_END:
-                if (size < *offset + 1)
+                if (*offset + 1 > size)
                         return -ENOBUFS;
 
                 options[*offset] = code;
@@ -35,42 +35,45 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 break;
 
         case SD_DHCP_OPTION_USER_CLASS: {
-                size_t len = 0;
+                size_t total = 0;
                 char **s;
 
-                STRV_FOREACH(s, (char **) optval)
-                        len += strlen(*s) + 1;
-
-                if (size < *offset + len + 2)
-                        return -ENOBUFS;
-
-                options[*offset] = code;
-                options[*offset + 1] =  len;
-                *offset += 2;
-
                 STRV_FOREACH(s, (char **) optval) {
-                        len = strlen(*s);
+                        size_t len = strlen(*s);
 
                         if (len > 255)
                                 return -ENAMETOOLONG;
 
+                        total += 1 + len;
+                }
+
+                if (*offset + 2 + total > size)
+                        return -ENOBUFS;
+
+                options[*offset] = code;
+                options[*offset + 1] =  total;
+                *offset += 2;
+
+                STRV_FOREACH(s, (char **) optval) {
+                        size_t len = strlen(*s);
+
                         options[*offset] = len;
 
-                        memcpy_safe(&options[*offset + 1], *s, len);
-                        *offset += len + 1;
+                        memcpy(&options[*offset + 1], *s, len);
+                        *offset += 1 + len;
                 }
 
                 break;
         }
         default:
-                if (size < *offset + optlen + 2)
+                if (*offset + 2 + optlen > size)
                         return -ENOBUFS;
 
                 options[*offset] = code;
                 options[*offset + 1] = optlen;
 
                 memcpy_safe(&options[*offset + 2], optval, optlen);
-                *offset += optlen + 2;
+                *offset += 2 + optlen;
 
                 break;
         }
@@ -81,22 +84,25 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
 int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
                        uint8_t overload,
                        uint8_t code, size_t optlen, const void *optval) {
-        size_t file_offset = 0, sname_offset =0;
-        bool file, sname;
+        const bool use_file = overload & DHCP_OVERLOAD_FILE;
+        const bool use_sname = overload & DHCP_OVERLOAD_SNAME;
         int r;
 
         assert(message);
         assert(offset);
 
-        file = overload & DHCP_OVERLOAD_FILE;
-        sname = overload & DHCP_OVERLOAD_SNAME;
+        /* If *offset is in range [0, size), we are writing to ->options,
+         * if *offset is in range [size, size + sizeof(message->file)) and use_file, we are writing to ->file,
+         * if *offset is in range [size + use_file*sizeof(message->file), size + use_file*sizeof(message->file) + sizeof(message->sname))
+         * and use_sname, we are writing to ->sname.
+         */
 
         if (*offset < size) {
                 /* still space in the options array */
                 r = option_append(message->options, size, offset, code, optlen, optval);
                 if (r >= 0)
                         return 0;
-                else if (r == -ENOBUFS && (file || sname)) {
+                else if (r == -ENOBUFS && (use_file || use_sname)) {
                         /* did not fit, but we have more buffers to try
                            close the options array and move the offset to its end */
                         r = option_append(message->options, size, offset, SD_DHCP_OPTION_END, 0, NULL);
@@ -108,8 +114,8 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
                         return r;
         }
 
-        if (overload & DHCP_OVERLOAD_FILE) {
-                file_offset = *offset - size;
+        if (use_file) {
+                size_t file_offset = *offset - size;
 
                 if (file_offset < sizeof(message->file)) {
                         /* still space in the 'file' array */
@@ -117,7 +123,7 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
                         if (r >= 0) {
                                 *offset = size + file_offset;
                                 return 0;
-                        } else if (r == -ENOBUFS && sname) {
+                        } else if (r == -ENOBUFS && use_sname) {
                                 /* did not fit, but we have more buffers to try
                                    close the file array and move the offset to its end */
                                 r = option_append(message->options, size, offset, SD_DHCP_OPTION_END, 0, NULL);
@@ -130,19 +136,18 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
                 }
         }
 
-        if (overload & DHCP_OVERLOAD_SNAME) {
-                sname_offset = *offset - size - (file ? sizeof(message->file) : 0);
+        if (use_sname) {
+                size_t sname_offset = *offset - size - use_file*sizeof(message->file);
 
                 if (sname_offset < sizeof(message->sname)) {
                         /* still space in the 'sname' array */
                         r = option_append(message->sname, sizeof(message->sname), &sname_offset, code, optlen, optval);
                         if (r >= 0) {
-                                *offset = size + (file ? sizeof(message->file) : 0) + sname_offset;
+                                *offset = size + use_file*sizeof(message->file) + sname_offset;
                                 return 0;
-                        } else {
+                        } else
                                 /* no space, or other error, give up */
                                 return r;
-                        }
                 }
         }
 
@@ -198,7 +203,7 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
                                 if (memchr(option, 0, len - 1))
                                         return -EINVAL;
 
-                                string = strndup((const char *) option, len);
+                                string = memdup_suffix0((const char *) option, len);
                                 if (!string)
                                         return -ENOMEM;
 

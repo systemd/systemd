@@ -67,13 +67,10 @@ void seat_add_to_gc_queue(Seat *s);
 
 bool seat_name_is_valid(const char *name);
 
-extern const sd_bus_vtable seat_vtable[];
+static inline bool SEAT_IS_SELF(const char *name) {
+        return isempty(name) || streq(name, "self");
+}
 
-int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
-int seat_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
-char *seat_bus_path(Seat *s);
-
-int seat_send_signal(Seat *s, bool new_seat);
-int seat_send_changed(Seat *s, const char *properties, ...) _sentinel_;
-
-int bus_seat_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error);
+static inline bool SEAT_IS_AUTO(const char *name) {
+        return streq_ptr(name, "auto");
+}

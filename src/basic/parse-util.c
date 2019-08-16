@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <linux/oom.h>
 #include <locale.h>
+#include <net/if.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -83,6 +84,9 @@ int parse_mode(const char *s, mode_t *ret) {
 int parse_ifindex(const char *s, int *ret) {
         int ifi, r;
 
+        assert(s);
+        assert(ret);
+
         r = safe_atoi(s, &ifi);
         if (r < 0)
                 return r;
@@ -90,6 +94,24 @@ int parse_ifindex(const char *s, int *ret) {
                 return -EINVAL;
 
         *ret = ifi;
+        return 0;
+}
+
+int parse_ifindex_or_ifname(const char *s, int *ret) {
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        r = parse_ifindex(s, ret);
+        if (r >= 0)
+                return r;
+
+        r = (int) if_nametoindex(s);
+        if (r <= 0)
+                return -errno;
+
+        *ret = r;
         return 0;
 }
 
@@ -338,47 +360,6 @@ int parse_syscall_and_errno(const char *in, char **name, int *error) {
         *name = TAKE_PTR(n);
 
         return 0;
-}
-
-char *format_bytes(char *buf, size_t l, uint64_t t) {
-        unsigned i;
-
-        /* This only does IEC units so far */
-
-        static const struct {
-                const char *suffix;
-                uint64_t factor;
-        } table[] = {
-                { "E", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
-                { "P", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
-                { "T", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
-                { "G", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
-                { "M", UINT64_C(1024)*UINT64_C(1024) },
-                { "K", UINT64_C(1024) },
-        };
-
-        if (t == (uint64_t) -1)
-                return NULL;
-
-        for (i = 0; i < ELEMENTSOF(table); i++) {
-
-                if (t >= table[i].factor) {
-                        snprintf(buf, l,
-                                 "%" PRIu64 ".%" PRIu64 "%s",
-                                 t / table[i].factor,
-                                 ((t*UINT64_C(10)) / table[i].factor) % UINT64_C(10),
-                                 table[i].suffix);
-
-                        goto finish;
-                }
-        }
-
-        snprintf(buf, l, "%" PRIu64 "B", t);
-
-finish:
-        buf[l-1] = 0;
-        return buf;
-
 }
 
 int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {

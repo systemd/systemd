@@ -8,6 +8,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "errno-list.h"
+#include "format-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
@@ -77,7 +78,7 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
                 union in_addr_union u;
                 int r;
                 char family_name[DECIMAL_STR_MAX(int)];
-                char ifname[IF_NAMESIZE];
+                char ifname[IF_NAMESIZE + 1];
 
                 memcpy(&u, it->addr, 16);
                 r = in_addr_to_string(it->family, &u, &a);
@@ -88,7 +89,7 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
                 if (it->scopeid == 0)
                         goto numerical_index;
 
-                if (if_indextoname(it->scopeid, ifname) == NULL) {
+                if (!format_ifname(it->scopeid, ifname)) {
                         log_warning_errno(errno, "if_indextoname(%d) failed: %m", it->scopeid);
                 numerical_index:
                         xsprintf(ifname, "%i", it->scopeid);

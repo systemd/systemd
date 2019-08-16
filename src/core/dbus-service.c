@@ -39,9 +39,9 @@ static int property_get_exit_status_set(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExitStatusSet *status_set = userdata;
+        const ExitStatusSet *status_set = userdata;
+        unsigned n;
         Iterator i;
-        void *id;
         int r;
 
         assert(bus);
@@ -56,13 +56,10 @@ static int property_get_exit_status_set(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(id, status_set->status, i) {
-                int32_t val = PTR_TO_INT(id);
+        BITMAP_FOREACH(n, &status_set->status, i) {
+                assert(n < 256);
 
-                if (val < 0 || val > 255)
-                        continue;
-
-                r = sd_bus_message_append_basic(reply, 'i', &val);
+                r = sd_bus_message_append_basic(reply, 'i', &n);
                 if (r < 0)
                         return r;
         }
@@ -75,15 +72,14 @@ static int property_get_exit_status_set(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(id, status_set->signal, i) {
-                int32_t val = PTR_TO_INT(id);
+        BITMAP_FOREACH(n, &status_set->signal, i) {
                 const char *str;
 
-                str = signal_to_string((int) val);
+                str = signal_to_string(n);
                 if (!str)
                         continue;
 
-                r = sd_bus_message_append_basic(reply, 'i', &val);
+                r = sd_bus_message_append_basic(reply, 'i', &n);
                 if (r < 0)
                         return r;
         }
@@ -105,6 +101,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("TimeoutStartUSec", "t", bus_property_get_usec, offsetof(Service, timeout_start_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Service, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutAbortUSec", "t", property_get_timeout_abort_usec, 0, 0),
+        SD_BUS_PROPERTY("TimeoutCleanUSec", "t", bus_property_get_usec, offsetof(Service, timeout_clean_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeMaxUSec", "t", bus_property_get_usec, offsetof(Service, runtime_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WatchdogUSec", "t", bus_property_get_usec, offsetof(Service, watchdog_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("WatchdogTimestamp", offsetof(Service, watchdog_timestamp), 0),
@@ -124,6 +121,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("StatusErrno", "i", bus_property_get_int, offsetof(Service, status_errno), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Service, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("ReloadResult", "s", property_get_result, offsetof(Service, reload_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("CleanResult", "s", property_get_result, offsetof(Service, clean_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("USBFunctionDescriptors", "s", NULL, offsetof(Service, usb_function_descriptors), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("USBFunctionStrings", "s", NULL, offsetof(Service, usb_function_strings), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -132,9 +130,13 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("OOMPolicy", "s", bus_property_get_oom_policy, offsetof(Service, oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
 
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        BUS_EXEC_COMMAND_LIST_VTABLE("ExecCondition", offsetof(Service, exec_command[SERVICE_EXEC_CONDITION]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPre", offsetof(Service, exec_command[SERVICE_EXEC_START_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_EX_COMMAND_LIST_VTABLE("ExecStartPreEx", offsetof(Service, exec_command[SERVICE_EXEC_START_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStart", offsetof(Service, exec_command[SERVICE_EXEC_START]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_EX_COMMAND_LIST_VTABLE("ExecStartEx", offsetof(Service, exec_command[SERVICE_EXEC_START]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPost", offsetof(Service, exec_command[SERVICE_EXEC_START_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_EX_COMMAND_LIST_VTABLE("ExecStartPostEx", offsetof(Service, exec_command[SERVICE_EXEC_START_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecReload", offsetof(Service, exec_command[SERVICE_EXEC_RELOAD]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStop", offsetof(Service, exec_command[SERVICE_EXEC_STOP]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStopPost", offsetof(Service, exec_command[SERVICE_EXEC_STOP_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
@@ -157,18 +159,18 @@ static int bus_set_transient_exit_status(
                 sd_bus_error *error) {
 
         const int32_t *status, *signal;
-        size_t sz_status, sz_signal, i;
+        size_t n_status, n_signal, i;
         int r;
 
         r = sd_bus_message_enter_container(message, 'r', "aiai");
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read_array(message, 'i', (const void **) &status, &sz_status);
+        r = sd_bus_message_read_array(message, 'i', (const void **) &status, &n_status);
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read_array(message, 'i', (const void **) &signal, &sz_signal);
+        r = sd_bus_message_read_array(message, 'i', (const void **) &signal, &n_signal);
         if (r < 0)
                 return r;
 
@@ -176,25 +178,21 @@ static int bus_set_transient_exit_status(
         if (r < 0)
                 return r;
 
-        sz_status /= sizeof(int32_t);
-        sz_signal /= sizeof(int32_t);
+        n_status /= sizeof(int32_t);
+        n_signal /= sizeof(int32_t);
 
-        if (sz_status == 0 && sz_signal == 0 && !UNIT_WRITE_FLAGS_NOOP(flags)) {
+        if (n_status == 0 && n_signal == 0 && !UNIT_WRITE_FLAGS_NOOP(flags)) {
                 exit_status_set_free(status_set);
                 unit_write_settingf(u, flags, name, "%s=", name);
                 return 1;
         }
 
-        for (i = 0; i < sz_status; i++) {
+        for (i = 0; i < n_status; i++) {
                 if (status[i] < 0 || status[i] > 255)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid status code in %s: %"PRIi32, name, status[i]);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        r = set_ensure_allocated(&status_set->status, NULL);
-                        if (r < 0)
-                                return r;
-
-                        r = set_put(status_set->status, INT_TO_PTR((int) status[i]));
+                        r = bitmap_set(&status_set->status, status[i]);
                         if (r < 0)
                                 return r;
 
@@ -202,7 +200,7 @@ static int bus_set_transient_exit_status(
                 }
         }
 
-        for (i = 0; i < sz_signal; i++) {
+        for (i = 0; i < n_signal; i++) {
                 const char *str;
 
                 str = signal_to_string((int) signal[i]);
@@ -210,11 +208,7 @@ static int bus_set_transient_exit_status(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal in %s: %"PRIi32, name, signal[i]);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        r = set_ensure_allocated(&status_set->signal, NULL);
-                        if (r < 0)
-                                return r;
-
-                        r = set_put(status_set->signal, INT_TO_PTR((int) signal[i]));
+                        r = bitmap_set(&status_set->signal, signal[i]);
                         if (r < 0)
                                 return r;
 
@@ -346,7 +340,7 @@ static int bus_service_set_transient_property(
                         if (e) {
                                 char *z;
 
-                                z = strjoin("/run/", e);
+                                z = path_join("/run", e);
                                 if (!z)
                                         return log_oom();
 
@@ -387,6 +381,7 @@ static int bus_service_set_transient_property(
                 return bus_set_transient_exit_status(u, name, &s->success_status, message, flags, error);
 
         ci = service_exec_command_from_string(name);
+        ci = (ci >= 0) ? ci : service_exec_ex_command_from_string(name);
         if (ci >= 0)
                 return bus_set_transient_exec_command(u, name, &s->exec_command[ci], message, flags, error);
 

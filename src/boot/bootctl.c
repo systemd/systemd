@@ -25,6 +25,8 @@
 #include "copy.h"
 #include "dirent-util.h"
 #include "efivars.h"
+#include "env-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -33,6 +35,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "random-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -100,6 +103,7 @@ static int acquire_xbootldr(bool unprivileged_mode, sd_id128_t *ret_uuid) {
                 log_debug_errno(r, "Didn't find an XBOOTLDR partition, using the ESP as $BOOT.");
                 if (ret_uuid)
                         *ret_uuid = SD_ID128_NULL;
+                arg_xbootldr_path = mfree(arg_xbootldr_path);
                 return 0;
         }
         if (r < 0)
@@ -127,7 +131,7 @@ static int get_file_version(int fd, char **v) {
 
         r = stat_verify_regular(&st);
         if (r < 0)
-                return log_error_errno(errno, "EFI binary is not a regular file: %m");
+                return log_error_errno(r, "EFI binary is not a regular file: %m");
 
         if (st.st_size < 27) {
                 *v = NULL;
@@ -165,13 +169,13 @@ finish:
 static int enumerate_binaries(const char *esp_path, const char *path, const char *prefix) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
+        const char *p;
         int c = 0, r;
-        char *p;
 
         assert(esp_path);
         assert(path);
 
-        p = strjoina(esp_path, "/", path);
+        p = prefix_roota(esp_path, path);
         d = opendir(p);
         if (!d) {
                 if (errno == ENOENT)
@@ -326,7 +330,7 @@ static int boot_entry_file_check(const char *root, const char *p) {
 static void boot_entry_file_list(const char *field, const char *root, const char *p, int *ret_status) {
         int status = boot_entry_file_check(root, p);
 
-        printf("%13s%s", strempty(field), field ? ":" : " ");
+        printf("%13s%s ", strempty(field), field ? ":" : " ");
         if (status < 0) {
                 errno = -status;
                 printf("%s%s%s (%m)\n", ansi_highlight_red(), p, ansi_normal());
@@ -377,13 +381,22 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
                                      *s,
                                      &status);
         if (!strv_isempty(e->options)) {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t = NULL, *t2 = NULL;
+                _cleanup_strv_free_ char **ts = NULL;
 
                 t = strv_join(e->options, " ");
                 if (!t)
                         return log_oom();
 
-                printf("      options: %s\n", t);
+                ts = strv_split_newlines(t);
+                if (!ts)
+                        return log_oom();
+
+                t2 = strv_join(ts, "\n              ");
+                if (!t2)
+                        return log_oom();
+
+                printf("      options: %s\n", t2);
         }
         if (e->device_tree)
                 boot_entry_file_list("devicetree", e->root, e->device_tree, &status);
@@ -570,21 +583,29 @@ static int mkdir_one(const char *prefix, const char *suffix) {
 }
 
 static const char *const esp_subdirs[] = {
+        /* The directories to place in the ESP */
         "EFI",
         "EFI/systemd",
         "EFI/BOOT",
         "loader",
-        /* Note that "/loader/entries" is not listed here, since it should be placed in $BOOT, which might
-         * not necessarily be the ESP */
         NULL
 };
 
-static int create_esp_subdirs(const char *esp_path) {
+static const char *const dollar_boot_subdirs[] = {
+        /* The directories to place in the XBOOTLDR partition or the ESP, depending what exists */
+        "loader",
+        "loader/entries",  /* Type #1 entries */
+        "EFI",
+        "EFI/Linux",       /* Type #2 entries */
+        NULL
+};
+
+static int create_subdirs(const char *root, const char * const *subdirs) {
         const char *const *i;
         int r;
 
-        STRV_FOREACH(i, esp_subdirs) {
-                r = mkdir_one(esp_path, *i);
+        STRV_FOREACH(i, subdirs) {
+                r = mkdir_one(root, *i);
                 if (r < 0)
                         return r;
         }
@@ -593,6 +614,7 @@ static int create_esp_subdirs(const char *esp_path) {
 }
 
 static int copy_one_file(const char *esp_path, const char *name, bool force) {
+        const char *e;
         char *p, *q;
         int r;
 
@@ -600,13 +622,13 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
         q = strjoina(esp_path, "/EFI/systemd/", name);
         r = copy_file_with_version_check(p, q, force);
 
-        if (startswith(name, "systemd-boot")) {
+        e = startswith(name, "systemd-boot");
+        if (e) {
                 int k;
                 char *v;
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
-                v = strjoina(esp_path, "/EFI/BOOT/BOOT",
-                             name + STRLEN("systemd-boot"));
+                v = strjoina(esp_path, "/EFI/BOOT/BOOT", e);
                 ascii_strupper(strrchr(v, '/') + 1);
 
                 k = copy_file_with_version_check(p, v, force);
@@ -640,7 +662,7 @@ static int install_binaries(const char *esp_path, bool force) {
         return r;
 }
 
-static bool same_entry(uint16_t id, const sd_id128_t uuid, const char *path) {
+static bool same_entry(uint16_t id, sd_id128_t uuid, const char *path) {
         _cleanup_free_ char *opath = NULL;
         sd_id128_t ouuid;
         int r;
@@ -754,7 +776,7 @@ static int install_variables(const char *esp_path,
                              uint32_t part, uint64_t pstart, uint64_t psize,
                              sd_id128_t uuid, const char *path,
                              bool first) {
-        char *p;
+        const char *p;
         uint16_t slot;
         int r;
 
@@ -763,7 +785,7 @@ static int install_variables(const char *esp_path,
                 return 0;
         }
 
-        p = strjoina(esp_path, path);
+        p = prefix_roota(esp_path, path);
         if (access(p, F_OK) < 0) {
                 if (errno == ENOENT)
                         return 0;
@@ -792,12 +814,12 @@ static int install_variables(const char *esp_path,
 }
 
 static int remove_boot_efi(const char *esp_path) {
-        char *p;
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
+        const char *p;
         int r, c = 0;
 
-        p = strjoina(esp_path, "/EFI/BOOT");
+        p = prefix_roota(esp_path, "/EFI/BOOT");
         d = opendir(p);
         if (!d) {
                 if (errno == ENOENT)
@@ -838,9 +860,9 @@ static int remove_boot_efi(const char *esp_path) {
 }
 
 static int rmdir_one(const char *prefix, const char *suffix) {
-        char *p;
+        const char *p;
 
-        p = strjoina(prefix, "/", suffix);
+        p = prefix_roota(prefix, suffix);
         if (rmdir(p) < 0) {
                 bool ignore = IN_SET(errno, ENOENT, ENOTEMPTY);
 
@@ -854,26 +876,34 @@ static int rmdir_one(const char *prefix, const char *suffix) {
         return 0;
 }
 
-static int remove_esp_subdirs(const char *esp_path) {
-        size_t i;
-        int r = 0;
+static int remove_subdirs(const char *root, const char *const *subdirs) {
+        int r, q;
 
-        for (i = ELEMENTSOF(esp_subdirs)-1; i > 0; i--) {
-                int q;
+        /* We use recursion here to destroy the directories in reverse order. Which should be safe given how
+         * short the array is. */
 
-                q = rmdir_one(esp_path, esp_subdirs[i-1]);
-                if (q < 0 && r >= 0)
-                        r = q;
-        }
+        if (!subdirs[0]) /* A the end of the list */
+                return 0;
 
-        return r;
+        r = remove_subdirs(root, subdirs + 1);
+        q = rmdir_one(root, subdirs[0]);
+
+        return r < 0 ? r : q;
+}
+
+static int remove_machine_id_directory(const char *root, sd_id128_t machine_id) {
+        char buf[SD_ID128_STRING_MAX];
+
+        assert(root);
+
+        return rmdir_one(root, sd_id128_to_string(machine_id, buf));
 }
 
 static int remove_binaries(const char *esp_path) {
-        char *p;
+        const char *p;
         int r, q;
 
-        p = strjoina(esp_path, "/EFI/systemd");
+        p = prefix_roota(esp_path, "/EFI/systemd");
         r = rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
 
         q = remove_boot_efi(esp_path);
@@ -883,26 +913,22 @@ static int remove_binaries(const char *esp_path) {
         return r;
 }
 
-static int remove_loader_config(const char *esp_path) {
+static int remove_file(const char *root, const char *file) {
         const char *p;
 
-        assert(esp_path);
+        assert(root);
+        assert(file);
 
-        p = strjoina(esp_path, "/loader/loader.conf");
+        p = prefix_roota(root, file);
         if (unlink(p) < 0) {
-                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno, "Failed to unlink file \"%s\": %m", p);
-                if (errno != ENOENT)
-                        return -errno;
-        } else
-                log_info("Removed \"%s\".", p);
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
+                               "Failed to unlink file \"%s\": %m", p);
 
-        return  0;
-}
+                return errno == ENOENT ? 0 : -errno;
+        }
 
-static int remove_entries_directory(const char *dollar_boot_path) {
-        assert(dollar_boot_path);
-
-        return rmdir_one(dollar_boot_path, "/loader/entries");
+        log_info("Removed \"%s\".", p);
+        return 1;
 }
 
 static int remove_variables(sd_id128_t uuid, const char *path, bool in_order) {
@@ -926,6 +952,35 @@ static int remove_variables(sd_id128_t uuid, const char *path, bool in_order) {
         return 0;
 }
 
+static int remove_loader_variables(void) {
+        const char *p;
+        int r = 0;
+
+        /* Remove all persistent loader variables we define */
+
+        FOREACH_STRING(p,
+                       "LoaderConfigTimeout",
+                       "LoaderConfigTimeoutOneShot",
+                       "LoaderEntryDefault",
+                       "LoaderEntryOneShot",
+                       "LoaderSystemToken") {
+
+                int q;
+
+                q = efi_set_variable(EFI_VENDOR_LOADER, p, NULL, 0);
+                if (q == -ENOENT)
+                        continue;
+                if (q < 0) {
+                        log_warning_errno(q, "Failed to remove %s variable: %m", p);
+                        if (r >= 0)
+                                r = q;
+                } else
+                        log_info("Removed EFI variable %s.", p);
+        }
+
+        return r;
+}
+
 static int install_loader_config(const char *esp_path, sd_id128_t machine_id) {
         char machine_string[SD_ID128_STRING_MAX];
         _cleanup_(unlink_and_freep) char *t = NULL;
@@ -933,7 +988,7 @@ static int install_loader_config(const char *esp_path, sd_id128_t machine_id) {
         const char *p;
         int r, fd;
 
-        p = strjoina(esp_path, "/loader/loader.conf");
+        p = prefix_roota(esp_path, "/loader/loader.conf");
         if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
                 return 0;
 
@@ -965,21 +1020,12 @@ static int install_loader_config(const char *esp_path, sd_id128_t machine_id) {
         return 1;
 }
 
-static int install_entries_directories(const char *dollar_boot_path, sd_id128_t machine_id) {
-        int r;
+static int install_machine_id_directory(const char *root, sd_id128_t machine_id) {
         char buf[SD_ID128_STRING_MAX];
 
-        assert(dollar_boot_path);
+        assert(root);
 
-        /* Both /loader/entries and the entry directories themselves should be located on the same
-         * partition. Also create the parent directory for entry directories, so that kernel-install
-         * knows where to put them. */
-
-        r = mkdir_one(dollar_boot_path, "loader/entries");
-        if (r < 0)
-                return r;
-
-        return mkdir_one(dollar_boot_path, sd_id128_to_string(machine_id, buf));
+        return mkdir_one(root, sd_id128_to_string(machine_id, buf));
 }
 
 static int help(int argc, char *argv[], void *userdata) {
@@ -997,7 +1043,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --esp-path=PATH   Path to the EFI System Partition (ESP)\n"
                "     --boot-path=PATH  Path to the $BOOT partition\n"
                "  -p --print-esp-path  Print path to the EFI System Partition\n"
-               "     --print-boot-path Print path to the $BOOT partition\n"
+               "  -x --print-boot-path Print path to the $BOOT partition\n"
                "     --no-variables    Don't touch EFI variables\n"
                "     --no-pager        Do not pipe output into a pager\n"
                "\nBoot Loader Commands:\n"
@@ -1005,6 +1051,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     install           Install systemd-boot to the ESP and EFI variables\n"
                "     update            Update systemd-boot in the ESP and EFI variables\n"
                "     remove            Remove systemd-boot from the ESP and EFI variables\n"
+               "     random-seed       Initialize random seed in ESP and EFI variables\n"
+               "     is-installed      Test whether systemd-boot is installed in the ESP\n"
                "\nBoot Loader Entries Commands:\n"
                "     list              List boot loader entries\n"
                "     set-default ID    Set default boot loader entry\n"
@@ -1020,7 +1068,6 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_ESP_PATH = 0x100,
                 ARG_BOOT_PATH,
-                ARG_PRINT_BOOT_PATH,
                 ARG_VERSION,
                 ARG_NO_VARIABLES,
                 ARG_NO_PAGER,
@@ -1034,7 +1081,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "boot-path",       required_argument, NULL, ARG_BOOT_PATH       },
                 { "print-esp-path",  no_argument,       NULL, 'p'                 },
                 { "print-path",      no_argument,       NULL, 'p'                 }, /* Compatibility alias */
-                { "print-boot-path", no_argument,       NULL, ARG_PRINT_BOOT_PATH },
+                { "print-boot-path", no_argument,       NULL, 'x'                 },
                 { "no-variables",    no_argument,       NULL, ARG_NO_VARIABLES    },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
                 {}
@@ -1045,7 +1092,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hpx", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -1068,10 +1115,16 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'p':
+                        if (arg_print_dollar_boot_path)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--print-boot-path/-x cannot be combined with --print-esp-path/-p");
                         arg_print_esp_path = true;
                         break;
 
-                case ARG_PRINT_BOOT_PATH:
+                case 'x':
+                        if (arg_print_esp_path)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--print-boot-path/-x cannot be combined with --print-esp-path/-p");
                         arg_print_dollar_boot_path = true;
                         break;
 
@@ -1123,7 +1176,11 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                puts(arg_dollar_boot_path());
+                const char *path = arg_dollar_boot_path();
+                if (!path)
+                        return log_error_errno(SYNTHETIC_ERRNO(EACCES), "Failed to determine XBOOTLDR location: %m");
+
+                puts(path);
         }
 
         if (arg_print_esp_path || arg_print_dollar_boot_path)
@@ -1139,11 +1196,13 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         uint64_t flag;
                         const char *name;
                 } flags[] = {
-                        { EFI_LOADER_FEATURE_BOOT_COUNTING,           "Boot counting"                 },
-                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT,          "Menu timeout control"          },
-                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT, "One-shot menu timeout control" },
-                        { EFI_LOADER_FEATURE_ENTRY_DEFAULT,           "Default entry control"         },
-                        { EFI_LOADER_FEATURE_ENTRY_ONESHOT,           "One-shot entry control"        },
+                        { EFI_LOADER_FEATURE_BOOT_COUNTING,           "Boot counting"                         },
+                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT,          "Menu timeout control"                  },
+                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT, "One-shot menu timeout control"         },
+                        { EFI_LOADER_FEATURE_ENTRY_DEFAULT,           "Default entry control"                 },
+                        { EFI_LOADER_FEATURE_ENTRY_ONESHOT,           "One-shot entry control"                },
+                        { EFI_LOADER_FEATURE_XBOOTLDR,                "Support for XBOOTLDR partition"        },
+                        { EFI_LOADER_FEATURE_RANDOM_SEED,             "Support for passing random seed to OS" },
                 };
 
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
@@ -1195,6 +1254,22 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 else
                         printf("          ESP: n/a\n");
                 printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
+                printf("\n");
+
+                printf("Random Seed:\n");
+                printf(" Passed to OS: %s\n", yes_no(access("/sys/firmware/efi/efivars/LoaderRandomSeed-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f", F_OK) >= 0));
+                printf(" System Token: %s\n", access("/sys/firmware/efi/efivars/LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f", F_OK) >= 0 ? "set" : "not set");
+
+                if (arg_esp_path) {
+                        _cleanup_free_ char *p = NULL;
+
+                        p = path_join(arg_esp_path, "/loader/random-seed");
+                        if (!p)
+                                return log_oom();
+
+                        printf("       Exists: %s\n", yes_no(access(p, F_OK) >= 0));
+                }
+
                 printf("\n");
         } else
                 printf("System:\n    Not booted with EFI\n\n");
@@ -1268,6 +1343,122 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int install_random_seed(const char *esp) {
+        _cleanup_(unlink_and_freep) char *tmp = NULL;
+        _cleanup_free_ void *buffer = NULL;
+        _cleanup_free_ char *path = NULL;
+        _cleanup_close_ int fd = -1;
+        size_t sz, token_size;
+        ssize_t n;
+        int r;
+
+        assert(esp);
+
+        path = path_join(esp, "/loader/random-seed");
+        if (!path)
+                return log_oom();
+
+        sz = random_pool_size();
+
+        buffer = malloc(sz);
+        if (!buffer)
+                return log_oom();
+
+        r = genuine_random_bytes(buffer, sz, RANDOM_BLOCK);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire random seed: %m");
+
+        r = tempfn_random(path, "bootctl", &tmp);
+        if (r < 0)
+                return log_oom();
+
+        fd = open(tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY|O_CLOEXEC, 0600);
+        if (fd < 0) {
+                tmp = mfree(tmp);
+                return log_error_errno(fd, "Failed to open random seed file for writing: %m");
+        }
+
+        n = write(fd, buffer, sz);
+        if (n < 0)
+                return log_error_errno(errno, "Failed to write random seed file: %m");
+        if ((size_t) n != sz)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing random seed file.");
+
+        if (rename(tmp, path) < 0)
+                return log_error_errno(r, "Failed to move random seed file into place: %m");
+
+        tmp = mfree(tmp);
+
+        log_info("Random seed file %s successfully written (%zu bytes).", path, sz);
+
+        if (!arg_touch_variables)
+                return 0;
+
+        if (!is_efi_boot()) {
+                log_notice("Not booted with EFI, skipping EFI variable setup.");
+                return 0;
+        }
+
+        r = getenv_bool("SYSTEMD_WRITE_SYSTEM_TOKEN");
+        if (r < 0) {
+                if (r != -ENXIO)
+                         log_warning_errno(r, "Failed to parse $SYSTEMD_WRITE_SYSTEM_TOKEN, ignoring.");
+
+                if (detect_vm() > 0) {
+                        /* Let's not write a system token if we detect we are running in a VM
+                         * environment. Why? Our default security model for the random seed uses the system
+                         * token as a mechanism to ensure we are not vulnerable to golden master sloppiness
+                         * issues, i.e. that people initialize the random seed file, then copy the image to
+                         * many systems and end up with the same random seed in each that is assumed to be
+                         * valid but in reality is the same for all machines. By storing a system token in
+                         * the EFI variable space we can make sure that even though the random seeds on disk
+                         * are all the same they will be different on each system under the assumption that
+                         * the EFI variable space is maintained separate from the random seed storage. That
+                         * is generally the case on physical systems, as the ESP is stored on persistant
+                         * storage, and the EFI variables in NVRAM. However in virtualized environments this
+                         * is generally not true: the EFI variable set is typically stored along with the
+                         * disk image itself. For example, using the OVMF EFI firmware the EFI variables are
+                         * stored in a file in the ESP itself. */
+
+                        log_notice("Not installing system token, since we are running in a virtualized environment.");
+                        return 0;
+                }
+        } else if (r == 0) {
+                log_notice("Not writing system token, because $SYSTEMD_WRITE_SYSTEM_TOKEN is set to false.");
+                return 0;
+        }
+
+        r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderSystemToken", NULL, NULL, &token_size);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to test system token validity: %m");
+        } else {
+                if (token_size >= sz) {
+                        /* Let's avoid writes if we can, and initialize this only once. */
+                        log_debug("System token already written, not updating.");
+                        return 0;
+                }
+
+                log_debug("Existing system token size (%zu) does not match our expectations (%zu), replacing.", token_size, sz);
+        }
+
+        r = genuine_random_bytes(buffer, sz, RANDOM_BLOCK);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire random seed: %m");
+
+        /* Let's write this variable with an umask in effect, so that unprivileged users can't see the token
+         * and possibly get identification information or too much insight into the kernel's entropy pool
+         * state. */
+        RUN_WITH_UMASK(0077) {
+                r = efi_set_variable(EFI_VENDOR_LOADER, "LoaderSystemToken", buffer, sz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set LoaderSystemToken EFI variable: %m");
+        }
+
+        log_info("Successfully initialized system token in EFI variable with %zu bytes.", sz);
+        return 0;
+}
+
 static int sync_everything(void) {
         int ret = 0, k;
 
@@ -1313,7 +1504,11 @@ static int verb_install(int argc, char *argv[], void *userdata) {
                         /* Don't create any of these directories when we are just updating. When we update
                          * we'll drop-in our files (unless there are newer ones already), but we won't create
                          * the directories for them in the first place. */
-                        r = create_esp_subdirs(arg_esp_path);
+                        r = create_subdirs(arg_esp_path, esp_subdirs);
+                        if (r < 0)
+                                return r;
+
+                        r = create_subdirs(arg_dollar_boot_path(), dollar_boot_subdirs);
                         if (r < 0)
                                 return r;
                 }
@@ -1327,7 +1522,11 @@ static int verb_install(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
 
-                        r = install_entries_directories(arg_dollar_boot_path(), machine_id);
+                        r = install_machine_id_directory(arg_dollar_boot_path(), machine_id);
+                        if (r < 0)
+                                return r;
+
+                        r = install_random_seed(arg_esp_path);
                         if (r < 0)
                                 return r;
                 }
@@ -1345,7 +1544,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_remove(int argc, char *argv[], void *userdata) {
-        sd_id128_t uuid = SD_ID128_NULL;
+        sd_id128_t uuid = SD_ID128_NULL, machine_id;
         int r, q;
 
         r = acquire_esp(false, NULL, NULL, NULL, &uuid);
@@ -1356,29 +1555,95 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get machine id: %m");
+
         r = remove_binaries(arg_esp_path);
 
-        q = remove_loader_config(arg_esp_path);
+        q = remove_file(arg_esp_path, "/loader/loader.conf");
         if (q < 0 && r >= 0)
                 r = q;
 
-        q = remove_entries_directory(arg_dollar_boot_path());
+        q = remove_file(arg_esp_path, "/loader/random-seed");
         if (q < 0 && r >= 0)
                 r = q;
 
-        q = remove_esp_subdirs(arg_esp_path);
+        q = remove_subdirs(arg_esp_path, esp_subdirs);
         if (q < 0 && r >= 0)
                 r = q;
 
-        (void) sync_everything();
+        q = remove_subdirs(arg_esp_path, dollar_boot_subdirs);
+        if (q < 0 && r >= 0)
+                r = q;
 
-        if (arg_touch_variables) {
-                q = remove_variables(uuid, "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi", true);
+        q = remove_machine_id_directory(arg_esp_path, machine_id);
+        if (q < 0 && r >= 0)
+                r = 1;
+
+        if (arg_xbootldr_path) {
+                /* Remove the latter two also in the XBOOTLDR partition if it exists */
+                q = remove_subdirs(arg_xbootldr_path, dollar_boot_subdirs);
+                if (q < 0 && r >= 0)
+                        r = q;
+
+                q = remove_machine_id_directory(arg_xbootldr_path, machine_id);
                 if (q < 0 && r >= 0)
                         r = q;
         }
 
+        (void) sync_everything();
+
+        if (!arg_touch_variables)
+                return r;
+
+        q = remove_variables(uuid, "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi", true);
+        if (q < 0 && r >= 0)
+                r = q;
+
+        q = remove_loader_variables();
+        if (q < 0 && r >= 0)
+                r = q;
+
         return r;
+}
+
+static int verb_is_installed(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        r = acquire_esp(false, NULL, NULL, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        /* Tests whether systemd-boot is installed. It's not obvious what to use as check here: we could
+         * check EFI variables, we could check what binary /EFI/BOOT/BOOT*.EFI points to, or whether the
+         * loader entries directory exists. Here we opted to check whether /EFI/systemd/ is non-empty, which
+         * should be a suitable and very minimal check for a number of reasons:
+         *
+         *  → The check is architecture independent (i.e. we check if any systemd-boot loader is installed, not a
+         *    specific one.)
+         *
+         *  → It doesn't assume we are the only boot loader (i.e doesn't check if we own the main
+         *    /EFI/BOOT/BOOT*.EFI fallback binary.
+         *
+         *  → It specifically checks for systemd-boot, not for other boot loaders (which a check for
+         *    /boot/loader/entries would do). */
+
+        p = path_join(arg_esp_path, "/EFI/systemd/");
+        if (!p)
+                return log_oom();
+
+        r = dir_is_empty(p);
+        if (r > 0 || r == -ENOENT) {
+                puts("no");
+                return EXIT_FAILURE;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to detect whether systemd-boot is installed: %m");
+
+        puts("yes");
+        return EXIT_SUCCESS;
 }
 
 static int verb_set_default(int argc, char *argv[], void *userdata) {
@@ -1429,17 +1694,33 @@ static int verb_set_default(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int bootctl_main(int argc, char *argv[]) {
+static int verb_random_seed(int argc, char *argv[], void *userdata) {
+        int r;
 
+        r = acquire_esp(false, NULL, NULL, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = install_random_seed(arg_esp_path);
+        if (r < 0)
+                return r;
+
+        (void) sync_everything();
+        return 0;
+}
+
+static int bootctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",        VERB_ANY, VERB_ANY, 0,                 help             },
-                { "status",      VERB_ANY, 1,        VERB_DEFAULT,      verb_status      },
-                { "install",     VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install     },
-                { "update",      VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install     },
-                { "remove",      VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_remove      },
-                { "list",        VERB_ANY, 1,        0,                 verb_list        },
-                { "set-default", 2,        2,        VERB_MUST_BE_ROOT, verb_set_default },
-                { "set-oneshot", 2,        2,        VERB_MUST_BE_ROOT, verb_set_default },
+                { "help",         VERB_ANY, VERB_ANY, 0,            help              },
+                { "status",       VERB_ANY, 1,        VERB_DEFAULT, verb_status       },
+                { "install",      VERB_ANY, 1,        0,            verb_install      },
+                { "update",       VERB_ANY, 1,        0,            verb_install      },
+                { "remove",       VERB_ANY, 1,        0,            verb_remove       },
+                { "random-seed",  VERB_ANY, 1,        0,            verb_random_seed  },
+                { "is-installed", VERB_ANY, 1,        0,            verb_is_installed },
+                { "list",         VERB_ANY, 1,        0,            verb_list         },
+                { "set-default",  2,        2,        0,            verb_set_default  },
+                { "set-oneshot",  2,        2,        0,            verb_set_default  },
                 {}
         };
 

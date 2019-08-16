@@ -213,7 +213,7 @@ int import_mangle_os_tree(const char *path) {
                 return 0;
         }
 
-        joined = strjoina(path, "/", child);
+        joined = prefix_roota(path, child);
         r = path_is_os_tree(joined);
         if (r == -ENOTDIR) {
                 log_debug("Directory '%s' does not look like a directory tree, and contains a single regular file only, leaving as it is.", path);

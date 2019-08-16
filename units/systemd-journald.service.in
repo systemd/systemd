@@ -17,6 +17,7 @@ Before=sysinit.target
 
 [Service]
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_SYS_PTRACE CAP_SYSLOG CAP_AUDIT_CONTROL CAP_AUDIT_READ CAP_CHOWN CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SETUID CAP_SETGID CAP_MAC_OVERRIDE
+DeviceAllow=char-* rw
 ExecStart=@rootlibexecdir@/systemd-journald
 FileDescriptorStoreMax=4224
 IPAddressDeny=any

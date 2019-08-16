@@ -14,7 +14,7 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "tests.h"
-#include "udev.h"
+#include "udev-rules.h"
 
 static struct fakefs {
         const char *target;

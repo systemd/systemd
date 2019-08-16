@@ -17,6 +17,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "fstab-util.h"
+#include "libmount-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -713,9 +714,11 @@ static int start_transient_automount(
 }
 
 static int find_mount_points(const char *what, char ***list) {
-        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         _cleanup_strv_free_ char **l = NULL;
         size_t bufsize = 0, n = 0;
+        int r;
 
         assert(what);
         assert(list);
@@ -723,55 +726,42 @@ static int find_mount_points(const char *what, char ***list) {
         /* Returns all mount points obtained from /proc/self/mountinfo in *list,
          * and the number of mount points as return value. */
 
-        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-        if (!proc_self_mountinfo)
-                return log_error_errno(errno, "Can't open /proc/self/mountinfo: %m");
+        r = libmount_parse(NULL, NULL, &table, &iter);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
         for (;;) {
-                _cleanup_free_ char *path = NULL, *where = NULL, *dev = NULL;
-                int r;
+                struct libmnt_fs *fs;
+                const char *source, *target;
 
-                r = fscanf(proc_self_mountinfo,
-                           "%*s "       /* (1) mount id */
-                           "%*s "       /* (2) parent id */
-                           "%*s "       /* (3) major:minor */
-                           "%*s "       /* (4) root */
-                           "%ms "       /* (5) mount point */
-                           "%*s"        /* (6) mount options */
-                           "%*[^-]"     /* (7) optional fields */
-                           "- "         /* (8) separator */
-                           "%*s "       /* (9) file system type */
-                           "%ms"        /* (10) mount source */
-                           "%*s"        /* (11) mount options 2 */
-                           "%*[^\n]",   /* some rubbish at the end */
-                           &path, &dev);
-                if (r != 2) {
-                        if (r == EOF)
-                                break;
-
-                        continue;
-                }
-
-                if (!streq(what, dev))
-                        continue;
-
-                r = cunescape(path, UNESCAPE_RELAX, &where);
+                r = mnt_table_next_fs(table, iter, &fs);
+                if (r == 1)
+                        break;
                 if (r < 0)
+                        return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
+
+                source = mnt_fs_get_source(fs);
+                target = mnt_fs_get_target(fs);
+                if (!source || !target)
+                        continue;
+
+                if (!path_equal(source, what))
                         continue;
 
                 /* one extra slot is needed for the terminating NULL */
-                if (!GREEDY_REALLOC(l, bufsize, n + 2))
+                if (!GREEDY_REALLOC0(l, bufsize, n + 2))
                         return log_oom();
 
-                l[n++] = TAKE_PTR(where);
+                l[n] = strdup(target);
+                if (!l[n])
+                        return log_oom();
+                n++;
         }
 
-        if (!GREEDY_REALLOC(l, bufsize, n + 1))
+        if (!GREEDY_REALLOC0(l, bufsize, n + 1))
                 return log_oom();
 
-        l[n] = NULL;
         *list = TAKE_PTR(l);
-
         return n;
 }
 
@@ -799,7 +789,7 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
                 if (!startswith(de->d_name, "loop"))
                         continue;
 
-                sys = strjoin("/sys/devices/virtual/block/", de->d_name, "/loop/backing_file");
+                sys = path_join("/sys/devices/virtual/block", de->d_name, "loop/backing_file");
                 if (!sys)
                         return -ENOMEM;
 
@@ -812,7 +802,7 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
                 if (files_same(fname, backing_file, 0) <= 0)
                         continue;
 
-                l = strjoin("/dev/", de->d_name);
+                l = path_join("/dev", de->d_name);
                 if (!l)
                         return -ENOMEM;
 
@@ -1135,7 +1125,7 @@ static int acquire_mount_where(sd_device *d) {
                 if (!filename_is_valid(escaped))
                         return 0;
 
-                arg_mount_where = strjoin("/run/media/system/", escaped);
+                arg_mount_where = path_join("/run/media/system", escaped);
         } else
                 arg_mount_where = strdup(v);
 
@@ -1267,7 +1257,7 @@ static int discover_loop_backing_file(void) {
                         return -EINVAL;
                 }
 
-                arg_mount_where = strjoin("/run/media/system/", escaped);
+                arg_mount_where = path_join("/run/media/system", escaped);
                 if (!arg_mount_where)
                         return log_oom();
 
@@ -1525,6 +1515,7 @@ static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 
@@ -1542,7 +1533,8 @@ static int run(int argc, char* argv[]) {
         if (arg_action == ACTION_UMOUNT)
                 return action_umount(bus, argc, argv);
 
-        if (!path_is_normalized(arg_mount_what)) {
+        if ((!arg_mount_type || !fstype_is_network(arg_mount_type))
+            && !path_is_normalized(arg_mount_what)) {
                 log_error("Path contains non-normalized components: %s", arg_mount_what);
                 return -EINVAL;
         }

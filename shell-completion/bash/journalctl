@@ -87,6 +87,16 @@ _journalctl() {
                 ;;
             --unit|-u)
                 comps=$(journalctl -F '_SYSTEMD_UNIT' 2>/dev/null)
+                # Similarly to systemctl, we need to distinguish between
+                # escaped and unescaped names in order to be able to correctly
+                # complete them. In this particular case, if the name we're
+                # trying to complete is unescaped (i.e. foo\x2dbaz), escape
+                # it first, so the compgen below works as expected. For more
+                # information about these shenanigans see the systemctl
+                # completion file
+                if ! [[ $cur =~ '\\' ]]; then
+                    cur="$(printf '%q' $cur)"
+                fi
                 compopt -o filenames
                 ;;
             --user-unit)

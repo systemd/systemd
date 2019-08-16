@@ -121,10 +121,9 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift) {
         (void) rm_rf(fn, REMOVE_ROOT|REMOVE_ONLY_DIRECTORIES);
 
         fn = strjoina(tree, cgroup, "/cgroup.procs");
-        (void) mkdir_parents(fn, 0755);
 
         sprintf(pid_string, PID_FMT, pid);
-        r = write_string_file(fn, pid_string, WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file(fn, pid_string, WRITE_STRING_FILE_DISABLE_BUFFER|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0) {
                 log_error_errno(r, "Failed to move process: %m");
                 goto finish;
@@ -371,7 +370,7 @@ static int mount_legacy_cgns_supported(
                         if (streq(controller, tok))
                                 break;
 
-                        target = prefix_root("/sys/fs/cgroup/", tok);
+                        target = path_join("/sys/fs/cgroup/", tok);
                         if (!target)
                                 return log_oom();
 
@@ -452,7 +451,7 @@ static int mount_legacy_cgns_unsupported(
                 if (!controller)
                         break;
 
-                origin = prefix_root("/sys/fs/cgroup/", controller);
+                origin = path_join("/sys/fs/cgroup/", controller);
                 if (!origin)
                         return log_oom();
 
@@ -469,7 +468,7 @@ static int mount_legacy_cgns_unsupported(
                 else {
                         _cleanup_free_ char *target = NULL;
 
-                        target = prefix_root(dest, origin);
+                        target = path_join(dest, origin);
                         if (!target)
                                 return log_oom();
 

@@ -13,6 +13,7 @@
 #include "hashmap.h"
 #include "ip-address-access.h"
 #include "list.h"
+#include "prioq.h"
 #include "ratelimit.h"
 
 struct libmnt_monitor;
@@ -145,7 +146,7 @@ struct Manager {
         LIST_HEAD(Unit, load_queue); /* this is actually more a stack than a queue, but uh. */
 
         /* Jobs that need to be run */
-        LIST_HEAD(Job, run_queue);   /* more a stack than a queue, too */
+        struct Prioq *run_queue;
 
         /* Units and jobs that have not yet been announced via
          * D-Bus. When something about a job changes it is added here
@@ -221,13 +222,17 @@ struct Manager {
 
         UnitFileScope unit_file_scope;
         LookupPaths lookup_paths;
+        Hashmap *unit_id_map;
+        Hashmap *unit_name_map;
         Set *unit_path_cache;
+        usec_t unit_cache_mtime;
 
         char **transient_environment;  /* The environment, as determined from config files, kernel cmdline and environment generators */
         char **client_environment;     /* Environment variables created by clients through the bus API */
 
         usec_t runtime_watchdog;
-        usec_t shutdown_watchdog;
+        usec_t reboot_watchdog;
+        usec_t kexec_watchdog;
 
         dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
 
@@ -323,6 +328,7 @@ struct Manager {
         uint8_t return_value;
 
         ShowStatus show_status;
+        StatusUnitFormat status_unit_format;
         char *confirm_spawn;
         bool no_console_output;
         bool service_watchdogs;

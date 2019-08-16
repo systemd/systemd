@@ -36,6 +36,37 @@
 <filename>…</filename>
 <filename>/usr/share/user-tmpfiles.d/*.conf</filename>
     </literallayout></para>
+
+    <programlisting>#Type Path                                     Mode User Group Age         Argument
+f     /file/to/create                          mode user group -           content
+F     /file/to/create-or-truncate              mode user group -           content
+w     /file/to/write-to                        -    -    -     -           content
+d     /directory/to/create-and-cleanup         mode user group cleanup-age -
+D     /directory/to/create-and-remove          mode user group cleanup-age -
+e     /directory/to/cleanup                    mode user group cleanup-age -
+v     /subvolume/to/create                     mode user group -           -
+v     /subvolume-or-directory/to/create        mode user group -           -
+Q     /subvolume/to/create                     mode user group -           -
+p     /fifo/to/create                          mode user group -           -
+L     /symlink/to/create                       -    -    -     -           symlink/target/path
+c     /dev/char-device-to-create               mode user group -           -
+b     /dev/block-device-to-create              mode user group -           -
+# p+, L+, c+, b+ create target unconditionally
+C     /target/to/create                        -    -    -     -           /source/to/copy
+x     /path-or-glob/to/ignore                  -    -    -     -           -
+X     /path-or-glob/to/ignore/recursively      -    -    -     -           -
+r     /empty/dir/to/remove                     -    -    -     -           -
+R     /dir/to/remove/recursively               -    -    -     -           -
+z     /path-or-glob/to/adjust/mode             mode user group -           MAC context
+Z     /path-or-glob/to/adjust/mode/recursively mode user group -           MAC context
+t     /path-or-glob/to/set/xattrs              -    -    -     -           xattrs
+T     /path-or-glob/to/set/xattrs/recursively  -    -    -     -           xattrs
+h     /path-or-glob/to/set/attrs               -    -    -     -           file attrs
+H     /path-or-glob/to/set/attrs/recursively   -    -    -     -           file attrs
+a     /path-or-glob/to/set/acls                -    -    -     -           POSIX ACLs
+A     /path-or-glob/to/set/acls/recursively    -    -    -     -           POSIX ACLs
+# a+, A+ append ACLs
+</programlisting>
   </refsynopsisdiv>
 
   <refsect1>
@@ -349,63 +380,64 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
 
         <varlistentry>
           <term><varname>t</varname></term>
-          <listitem><para>Set extended attributes. Lines of this type
-          accept shell-style globs in place of normal path names.
-          This can be useful for setting SMACK labels. Does not follow
-          symlinks.</para></listitem>
+          <listitem><para>Set extended attributes, see <citerefentry
+          project='man-pages'><refentrytitle>attr</refentrytitle>
+          <manvolnum>5</manvolnum></citerefentry> for details. The argument field should take one or more
+          assignment expressions in the form
+          <replaceable>namespace</replaceable>.<replaceable>attribute</replaceable>=<replaceable>value</replaceable>,
+          for examples see below. Lines of this type accept shell-style globs in place of normal path
+          names. This can be useful for setting SMACK labels. Does not follow symlinks.</para>
+
+          <para>Please note that extended attributes settable with this line type are a different concept
+          from the Linux file attributes settable with <varname>h</varname>/<varname>H</varname>, see
+          below.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>T</varname></term>
-          <listitem><para>Recursively set extended attributes. Lines
-          of this type accept shell-style globs in place of normal
-          path names.  This can be useful for setting SMACK
-          labels. Does not follow symlinks.  </para></listitem>
+          <listitem><para>Same as <varname>t</varname>, but operates recursively.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>h</varname></term>
-          <listitem><para>Set file/directory attributes. Lines of this type
-          accept shell-style globs in place of normal path names.</para>
+          <listitem><para>Set Linux file/directory attributes. Lines of this type accept shell-style globs in
+          place of normal path names.</para>
 
-          <para>The format of the argument field is <varname>[+-=][aAcCdDeijPsStTu] </varname>. The prefix
+          <para>The format of the argument field is <varname>[+-=][aAcCdDeijPsStTu]</varname>. The prefix
           <varname>+</varname> (the default one) causes the attribute(s) to be added; <varname>-</varname>
           causes the attribute(s) to be removed; <varname>=</varname> causes the attributes to be set exactly
           as the following letters. The letters <literal>aAcCdDeijPsStTu</literal> select the new attributes
           for the files, see <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle>
           <manvolnum>1</manvolnum></citerefentry> for further information.
           </para>
-          <para>Passing only <varname>=</varname> as argument resets
-          all the file attributes listed above. It has to be pointed
-          out that the <varname>=</varname> prefix limits itself to
-          the attributes corresponding to the letters listed here. All
-          other attributes will be left untouched. Does not follow
-          symlinks.</para>
-          </listitem>
+
+          <para>Passing only <varname>=</varname> as argument resets all the file attributes listed above. It
+          has to be pointed out that the <varname>=</varname> prefix limits itself to the attributes
+          corresponding to the letters listed here. All other attributes will be left untouched. Does not
+          follow symlinks.</para>
+
+          <para>Please note that the Linux file attributes settable with this line type are a different
+          concept from the extended attributes settable with <varname>t</varname>/<varname>T</varname>,
+          see above.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>H</varname></term>
-          <listitem><para>Recursively set file/directory attributes. Lines
-          of this type accept shell-style globs in place of normal
-          path names. Does not follow symlinks.
-          </para></listitem>
+          <listitem><para>Sames as <varname>h</varname>, but operates recursively.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>a</varname></term>
           <term><varname>a+</varname></term>
-          <listitem><para>Set POSIX ACLs (access control lists). If
-          suffixed with <varname>+</varname>, the specified entries will
-          be added to the existing set.
-          <command>systemd-tmpfiles</command> will automatically add
-          the required base entries for user and group based on the
-          access mode of the file, unless base entries already exist
-          or are explicitly specified. The mask will be added if not
-          specified explicitly or already present. Lines of this type
-          accept shell-style globs in place of normal path names. This
-          can be useful for allowing additional access to certain
-          files. Does not follow symlinks.</para></listitem>
+          <listitem><para>Set POSIX ACLs (access control lists), see <citerefentry
+          project='man-pages'><refentrytitle>acl</refentrytitle>
+          <manvolnum>5</manvolnum></citerefentry>. If suffixed with <varname>+</varname>, the specified
+          entries will be added to the existing set. <command>systemd-tmpfiles</command> will automatically
+          add the required base entries for user and group based on the access mode of the file, unless base
+          entries already exist or are explicitly specified. The mask will be added if not specified
+          explicitly or already present. Lines of this type accept shell-style globs in place of normal path
+          names. This can be useful for allowing additional access to certain files. Does not follow
+          symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -495,6 +527,14 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       lines, when omitted or when set to <literal>-</literal>, the file ownership will not be modified. These
       parameters are ignored for <varname>x</varname>, <varname>r</varname>, <varname>R</varname>,
       <varname>L</varname>, <varname>t</varname>, and <varname>a</varname> lines.</para>
+
+      <para>This field should generally only reference system users/groups, i.e. users/groups that are
+      guaranteed to be resolvable during early boot. If this field references users/groups that only become
+      resolveable during later boot (i.e. after NIS, LDAP or a similar networked directory service become
+      available), execution of the operations declared by the line will likely fail. Also see <ulink
+      url="https://systemd.io/UIDS-GIDS.html#notes-on-resolvability-of-user-and-group-names">Notes on
+      Resolvability of User and Group Names</ulink> for more information on requirements on system user/group
+      definitions.</para>
     </refsect2>
 
     <refsect2>

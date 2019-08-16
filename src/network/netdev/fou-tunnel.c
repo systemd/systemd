@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <arpa/inet.h>
+#include <linux/fou.h>
 #include <net/if.h>
+#include <netinet/in.h>
 #include <linux/ip.h>
 
 #include "conf-parser.h"
@@ -46,6 +47,12 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_PORT attribute: %m");
 
+        if (IN_SET(t->peer_family, AF_INET, AF_INET6)) {
+                r = sd_netlink_message_append_u16(m, FOU_ATTR_PEER_PORT, htobe16(t->peer_port));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_PEER_PORT attribute: %m");
+        }
+
         switch (t->fou_encap_type) {
         case NETDEV_FOO_OVER_UDP_ENCAP_DIRECT:
                 encap_type = FOU_ENCAP_DIRECT;
@@ -68,6 +75,26 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
         r = sd_netlink_message_append_u8(m, FOU_ATTR_IPPROTO, t->fou_protocol);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_IPPROTO attribute: %m");
+
+        if (t->local_family == AF_INET) {
+                r = sd_netlink_message_append_in_addr(m, FOU_ATTR_LOCAL_V4, &t->local.in);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_LOCAL_V4 attribute: %m");
+        } else if (t->local_family == AF_INET6) {
+                r = sd_netlink_message_append_in6_addr(m, FOU_ATTR_LOCAL_V6, &t->local.in6);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_LOCAL_V6 attribute: %m");
+        }
+
+        if (t->peer_family == AF_INET) {
+                r = sd_netlink_message_append_in_addr(m, FOU_ATTR_PEER_V4, &t->peer.in);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_PEER_V4 attribute: %m");
+        } else if (t->peer_family == AF_INET6){
+                r = sd_netlink_message_append_in6_addr(m, FOU_ATTR_PEER_V6, &t->peer.in6);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_PEER_V6 attribute: %m");
+        }
 
         *ret = TAKE_PTR(m);
         return 0;
@@ -150,6 +177,41 @@ int config_parse_ip_protocol(
         return 0;
 }
 
+int config_parse_fou_tunnel_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        union in_addr_union *addr = data;
+        FouTunnel *t = userdata;
+        int r, *f;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(lvalue, "Local"))
+                f = &t->local_family;
+        else
+                f = &t->peer_family;
+
+        r = in_addr_from_string_auto(rvalue, f, addr);
+        if (r < 0)
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Foo over UDP tunnel '%s' address is invalid, ignoring assignment: %s",
+                           lvalue, rvalue);
+
+        return 0;
+}
+
 static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
         FouTunnel *t;
 
@@ -177,6 +239,14 @@ static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
                 assert_not_reached("Invalid fou encap type");
         }
 
+        if (t->peer_family == AF_UNSPEC && t->peer_port > 0)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "FooOverUDP peer port is set but peer address not configured in %s. Rejecting configuration.",
+                                              filename);
+        else if (t->peer_family != AF_UNSPEC && t->peer_port == 0)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "FooOverUDP peer port not set but peer address is configured in %s. Rejecting configuration.",
+                                              filename);
         return 0;
 }
 

@@ -20,6 +20,7 @@
 #include "fd-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "udev-util.h"
 #include "udevadm-util.h"
 #include "udevadm.h"
 
@@ -40,6 +41,7 @@ typedef enum QueryType {
 static bool arg_root = false;
 static bool arg_export = false;
 static const char *arg_export_prefix = NULL;
+static usec_t arg_wait_for_initialization_timeout = 0;
 
 static bool skip_attribute(const char *name) {
         static const char* const skip[] = {
@@ -329,6 +331,8 @@ static int help(void) {
                "  -P --export-prefix          Export the key name with a prefix\n"
                "  -e --export-db              Export the content of the udev database\n"
                "  -c --cleanup-db             Clean up the udev database\n"
+               "  -w --wait-for-initialization[=SECONDS]\n"
+               "                              Wait for device to be initialized\n"
                , program_invocation_short_name);
 
         return 0;
@@ -340,25 +344,26 @@ int info_main(int argc, char *argv[], void *userdata) {
         int c, r;
 
         static const struct option options[] = {
-                { "name",              required_argument, NULL, 'n' },
-                { "path",              required_argument, NULL, 'p' },
-                { "query",             required_argument, NULL, 'q' },
-                { "attribute-walk",    no_argument,       NULL, 'a' },
-                { "cleanup-db",        no_argument,       NULL, 'c' },
-                { "export-db",         no_argument,       NULL, 'e' },
-                { "root",              no_argument,       NULL, 'r' },
-                { "device-id-of-file", required_argument, NULL, 'd' },
-                { "export",            no_argument,       NULL, 'x' },
-                { "export-prefix",     required_argument, NULL, 'P' },
-                { "version",           no_argument,       NULL, 'V' },
-                { "help",              no_argument,       NULL, 'h' },
+                { "name",                    required_argument, NULL, 'n' },
+                { "path",                    required_argument, NULL, 'p' },
+                { "query",                   required_argument, NULL, 'q' },
+                { "attribute-walk",          no_argument,       NULL, 'a' },
+                { "cleanup-db",              no_argument,       NULL, 'c' },
+                { "export-db",               no_argument,       NULL, 'e' },
+                { "root",                    no_argument,       NULL, 'r' },
+                { "device-id-of-file",       required_argument, NULL, 'd' },
+                { "export",                  no_argument,       NULL, 'x' },
+                { "export-prefix",           required_argument, NULL, 'P' },
+                { "wait-for-initialization", optional_argument, NULL, 'w' },
+                { "version",                 no_argument,       NULL, 'V' },
+                { "help",                    no_argument,       NULL, 'h' },
                 {}
         };
 
         ActionType action = ACTION_QUERY;
         QueryType query = QUERY_ALL;
 
-        while ((c = getopt_long(argc, argv, "aced:n:p:q:rxP:Vh", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "aced:n:p:q:rxP:w::Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'n':
                 case 'p': {
@@ -414,6 +419,14 @@ int info_main(int argc, char *argv[], void *userdata) {
                         arg_export = true;
                         arg_export_prefix = optarg;
                         break;
+                case 'w':
+                        if (optarg) {
+                                r = parse_sec(optarg, &arg_wait_for_initialization_timeout);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse timeout value: %m");
+                        } else
+                                arg_wait_for_initialization_timeout = USEC_INFINITY;
+                        break;
                 case 'V':
                         return print_version();
                 case 'h':
@@ -452,6 +465,17 @@ int info_main(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys or a unit name: %m", *p);
                 if (r < 0)
                         return log_error_errno(r, "Unknown device \"%s\": %m",  *p);
+
+                if (arg_wait_for_initialization_timeout > 0) {
+                        sd_device *d;
+
+                        r = device_wait_for_initialization(device, NULL, arg_wait_for_initialization_timeout, &d);
+                        if (r < 0)
+                                return r;
+
+                        sd_device_unref(device);
+                        device = d;
+                }
 
                 if (action == ACTION_QUERY)
                         r = query_device(query, device);

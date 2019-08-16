@@ -78,7 +78,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
 
                 errno = 0;
                 if (inet_pton(AF_INET6, n, &a->sockaddr.in6.sin6_addr) <= 0)
-                        return errno > 0 ? -errno : -EINVAL;
+                        return errno_or_else(EINVAL);
 
                 e++;
                 if (*e != ':')
@@ -1389,7 +1389,7 @@ int socket_bind_to_ifname(int fd, const char *ifname) {
 }
 
 int socket_bind_to_ifindex(int fd, int ifindex) {
-        char ifname[IFNAMSIZ] = "";
+        char ifname[IF_NAMESIZE + 1];
 
         assert(fd >= 0);
 
@@ -1407,7 +1407,7 @@ int socket_bind_to_ifindex(int fd, int ifindex) {
                 return -errno;
 
         /* Fall back to SO_BINDTODEVICE on kernels < 5.0 which didn't have SO_BINDTOIFINDEX */
-        if (!if_indextoname(ifindex, ifname))
+        if (!format_ifname(ifindex, ifname))
                 return -errno;
 
         return socket_bind_to_ifname(fd, ifname);

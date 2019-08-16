@@ -59,7 +59,6 @@ static int test_cgroup_mask(void) {
                 m->default_tasks_accounting = false;
         m->default_tasks_max = (uint64_t) -1;
 
-        assert_se(r >= 0);
         assert_se(manager_startup(m, NULL, NULL) >= 0);
 
         /* Load units and verify hierarchy. */

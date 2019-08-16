@@ -31,8 +31,7 @@ static int add_cgroup(Hashmap *cgroups, const char *path, bool is_const, struct 
         assert(cgroups);
         assert(ret);
 
-        if (empty_or_root(path))
-                path = "/";
+        path = empty_to_root(path);
 
         cg = hashmap_get(cgroups, path);
         if (cg) {
@@ -48,8 +47,6 @@ static int add_cgroup(Hashmap *cgroups, const char *path, bool is_const, struct 
                         return -EINVAL;
 
                 pp = strndupa(path, e - path);
-                if (!pp)
-                        return -ENOMEM;
 
                 r = add_cgroup(cgroups, pp, false, &parent);
                 if (r < 0)
@@ -150,8 +147,7 @@ static int dump_processes(
 
         assert(prefix);
 
-        if (empty_or_root(cgroup_path))
-                cgroup_path = "/";
+        cgroup_path = empty_to_root(cgroup_path);
 
         cg = hashmap_get(cgroups, cgroup_path);
         if (!cg)
@@ -241,7 +237,7 @@ static int dump_processes(
 
                         special = special_glyph(more ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE);
 
-                        pp = strappend(prefix, special);
+                        pp = strjoin(prefix, special);
                         if (!pp)
                                 return -ENOMEM;
 
@@ -387,8 +383,11 @@ int unit_show_processes(
                         break;
 
                 r = add_process(cgroups, path, pid, name);
-                if (r < 0)
+                if (r == -ENOMEM)
                         goto finish;
+                if (r < 0)
+                        log_warning_errno(r, "Invalid process description in GetUnitProcesses reply: cgroup=\"%s\" pid="PID_FMT" command=\"%s\", ignoring: %m",
+                                          path, pid, name);
         }
 
         r = sd_bus_message_exit_container(reply);

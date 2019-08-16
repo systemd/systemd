@@ -444,7 +444,7 @@ static int prefix_where_needed(MountEntry *m, size_t n, const char *root_directo
                 if (m[i].has_prefix)
                         continue;
 
-                s = prefix_root(root_directory, mount_entry_path(m+i));
+                s = path_join(root_directory, mount_entry_path(m+i));
                 if (!s)
                         return -ENOMEM;
 
@@ -1187,7 +1187,8 @@ int setup_namespace(
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
                 unsigned long mount_flags,
-                DissectImageFlags dissect_image_flags) {
+                DissectImageFlags dissect_image_flags,
+                char **error_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
@@ -1440,6 +1441,8 @@ int setup_namespace(
                 proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
                 if (!proc_self_mountinfo) {
                         r = log_debug_errno(errno, "Failed to open /proc/self/mountinfo: %m");
+                        if (error_path)
+                                *error_path = strdup("/proc/self/mountinfo");
                         goto finish;
                 }
 
@@ -1453,8 +1456,11 @@ int setup_namespace(
                                         continue;
 
                                 r = follow_symlink(root, m);
-                                if (r < 0)
+                                if (r < 0) {
+                                        if (error_path && mount_entry_path(m))
+                                                *error_path = strdup(mount_entry_path(m));
                                         goto finish;
+                                }
                                 if (r == 0) {
                                         /* We hit a symlinked mount point. The entry got rewritten and might point to a
                                          * very different place now. Let's normalize the changed list, and start from
@@ -1465,8 +1471,11 @@ int setup_namespace(
                                 }
 
                                 r = apply_mount(root, m);
-                                if (r < 0)
+                                if (r < 0) {
+                                        if (error_path && mount_entry_path(m))
+                                                *error_path = strdup(mount_entry_path(m));
                                         goto finish;
+                                }
 
                                 m->applied = true;
                         }
@@ -1490,8 +1499,11 @@ int setup_namespace(
                 /* Second round, flip the ro bits if necessary. */
                 for (m = mounts; m < mounts + n_mounts; ++m) {
                         r = make_read_only(m, blacklist, proc_self_mountinfo);
-                        if (r < 0)
+                        if (r < 0) {
+                                if (error_path && mount_entry_path(m))
+                                        *error_path = strdup(mount_entry_path(m));
                                 goto finish;
+                        }
                 }
         }
 
@@ -1687,7 +1699,7 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
         return 0;
 }
 
-int setup_netns(int netns_storage_socket[static 2]) {
+int setup_netns(const int netns_storage_socket[static 2]) {
         _cleanup_close_ int netns = -1;
         int r, q;
 
@@ -1750,7 +1762,7 @@ fail:
         return r;
 }
 
-int open_netns_path(int netns_storage_socket[static 2], const char *path) {
+int open_netns_path(const int netns_storage_socket[static 2], const char *path) {
         _cleanup_close_ int netns = -1;
         int q, r;
 

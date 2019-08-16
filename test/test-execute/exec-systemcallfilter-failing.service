@@ -4,6 +4,7 @@ Description=Test for SystemCallFilter
 [Service]
 ExecStart=/bin/sh -c 'echo "This should not be seen"'
 Type=oneshot
+LimitCORE=0
 SystemCallFilter=ioperm
 SystemCallFilter=~ioperm
 SystemCallFilter=ioperm

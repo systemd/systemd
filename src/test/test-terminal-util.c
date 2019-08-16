@@ -75,12 +75,45 @@ static void test_getttyname_malloc(void) {
         assert_se(PATH_IN_SET(ttyname, "ptmx", "pts/ptmx"));
 }
 
+static void test_one_color(const char *name, const char *color) {
+        printf("<%s%s%s>\n", color, name, ansi_normal());
+}
+
+static void test_colors(void) {
+        log_info("/* %s */", __func__);
+
+        test_one_color("normal", ansi_normal());
+        test_one_color("highlight", ansi_highlight());
+        test_one_color("red", ansi_red());
+        test_one_color("green", ansi_green());
+        test_one_color("yellow", ansi_yellow());
+        test_one_color("blue", ansi_blue());
+        test_one_color("megenta", ansi_magenta());
+        test_one_color("grey", ansi_grey());
+        test_one_color("highlight-red", ansi_highlight_red());
+        test_one_color("highlight-green", ansi_highlight_green());
+        test_one_color("highlight-yellow", ansi_highlight_yellow());
+        test_one_color("highlight-blue", ansi_highlight_blue());
+        test_one_color("highlight-magenta", ansi_highlight_magenta());
+        test_one_color("highlight-grey", ansi_highlight_grey());
+
+        test_one_color("underline", ansi_underline());
+        test_one_color("highlight-underline", ansi_highlight_underline());
+        test_one_color("highlight-red-underline", ansi_highlight_red_underline());
+        test_one_color("highlight-green-underline", ansi_highlight_green_underline());
+        test_one_color("highlight-yellow-underline", ansi_highlight_yellow_underline());
+        test_one_color("highlight-blue-underline", ansi_highlight_blue_underline());
+        test_one_color("highlight-magenta-underline", ansi_highlight_magenta_underline());
+        test_one_color("highlight-grey-underline", ansi_highlight_grey_underline());
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
         test_default_term_for_tty();
         test_read_one_char();
         test_getttyname_malloc();
+        test_colors();
 
         return 0;
 }

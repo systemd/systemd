@@ -5,6 +5,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "format-util.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-packet.h"
@@ -390,7 +391,7 @@ static int dns_cache_put_positive(
 
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
         DnsCacheItem *existing;
-        char key_str[DNS_RESOURCE_KEY_STRING_MAX], ifname[IF_NAMESIZE];
+        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         int r, k;
 
         assert(c);
@@ -456,6 +457,7 @@ static int dns_cache_put_positive(
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = NULL;
+                char ifname[IF_NAMESIZE + 1];
 
                 (void) in_addr_to_string(i->owner_family, &i->owner_address, &t);
 
@@ -464,7 +466,7 @@ static int dns_cache_put_positive(
                           i->shared_owner ? " shared" : "",
                           dns_resource_key_to_string(i->key, key_str, sizeof key_str),
                           (i->until - timestamp) / USEC_PER_SEC,
-                          i->ifindex == 0 ? "*" : strna(if_indextoname(i->ifindex, ifname)),
+                          i->ifindex == 0 ? "*" : strna(format_ifname(i->ifindex, ifname)),
                           af_to_name_short(i->owner_family),
                           strna(t));
         }
@@ -619,6 +621,7 @@ static bool rr_eligible(DnsResourceRecord *rr) {
 
 int dns_cache_put(
                 DnsCache *c,
+                DnsCacheMode cache_mode,
                 DnsResourceKey *key,
                 int rcode,
                 DnsAnswer *answer,
@@ -724,6 +727,13 @@ int dns_cache_put(
                  * signed */
                 if (authenticated && (flags & DNS_ANSWER_AUTHENTICATED) == 0)
                         return 0;
+        }
+
+        if (cache_mode == DNS_CACHE_MODE_NO_NEGATIVE) {
+                char key_str[DNS_RESOURCE_KEY_STRING_MAX];
+                log_debug("Not caching negative entry for: %s, cache mode set to no-negative",
+                        dns_resource_key_to_string(key, key_str, sizeof key_str));
+                return 0;
         }
 
         r = dns_cache_put_negative(

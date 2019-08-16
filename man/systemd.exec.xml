@@ -226,7 +226,12 @@
         specified user and group must have been created statically in the user database no later than the moment the
         service is started, for example using the
         <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> facility, which
-        is applied at boot or package install time.</para></listitem>
+        is applied at boot or package install time.</para>
+
+        <para>If the <varname>User=</varname> setting is used the supplementary group list is initialized
+        from the specified user's default group list, as defined in the system's user and group
+        database. Additional groups may be configured through the <varname>SupplementaryGroups=</varname>
+        setting (see below).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -254,14 +259,15 @@
         part of a unit for which dynamic users/groups are enabled do not leave files or directories owned by
         these users/groups around, as a different unit might get the same UID/GID assigned later on, and thus
         gain access to these files or directories. If <varname>DynamicUser=</varname> is enabled,
-        <varname>RemoveIPC=</varname>, <varname>PrivateTmp=</varname> are implied. This ensures that the
-        lifetime of IPC objects and temporary files created by the executed processes is bound to the runtime
-        of the service, and hence the lifetime of the dynamic user/group. Since <filename>/tmp</filename> and
-        <filename>/var/tmp</filename> are usually the only world-writable directories on a system this
-        ensures that a unit making use of dynamic user/group allocation cannot leave files around after unit
-        termination. Furthermore <varname>NoNewPrivileges=</varname> and <varname>RestrictSUIDSGID=</varname>
-        are implicitly enabled to ensure that processes invoked cannot take benefit or create SUID/SGID files
-        or directories. Moreover <varname>ProtectSystem=strict</varname> and
+        <varname>RemoveIPC=</varname> and <varname>PrivateTmp=</varname> are implied (and cannot be turned
+        off). This ensures that the lifetime of IPC objects and temporary files created by the executed
+        processes is bound to the runtime of the service, and hence the lifetime of the dynamic
+        user/group. Since <filename>/tmp/</filename> and <filename>/var/tmp/</filename> are usually the only
+        world-writable directories on a system this ensures that a unit making use of dynamic user/group
+        allocation cannot leave files around after unit termination. Furthermore
+        <varname>NoNewPrivileges=</varname> and <varname>RestrictSUIDSGID=</varname> are implicitly enabled
+        (and cannot be disabled), to ensure that processes invoked cannot take benefit or create SUID/SGID
+        files or directories. Moreover <varname>ProtectSystem=strict</varname> and
         <varname>ProtectHome=read-only</varname> are implied, thus prohibiting the service to write to
         arbitrary file system locations. In order to allow the service to write to certain directories, they
         have to be whitelisted using <varname>ReadWritePaths=</varname>, but care must be taken so that
@@ -754,11 +760,33 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Controls the CPU affinity of the executed processes. Takes a list of CPU indices or ranges
         separated by either whitespace or commas. CPU ranges are specified by the lower and upper CPU indices separated
-        by a dash.  This option may be specified more than once, in which case the specified CPU affinity masks are
+        by a dash. This option may be specified more than once, in which case the specified CPU affinity masks are
         merged. If the empty string is assigned, the mask is reset, all assignments prior to this will have no
         effect. See
         <citerefentry><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NUMAPolicy=</varname></term>
+
+        <listitem><para>Controls the NUMA memory policy of the executed processes. Takes a policy type, one of:
+        <option>default</option>, <option>preferred</option>, <option>bind</option>, <option>interleave</option> and
+        <option>local</option>. A list of NUMA nodes that should be associated with the policy must be specified
+        in <varname>NUMAMask=</varname>. For more details on each policy please see,
+        <citerefentry><refentrytitle>set_mempolicy</refentrytitle><manvolnum>2</manvolnum></citerefentry>. For overall
+        overview of NUMA support in Linux see,
+        <citerefentry><refentrytitle>numa</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NUMAMask=</varname></term>
+
+        <listitem><para>Controls the NUMA node list which will be applied alongside with selected NUMA policy.
+        Takes a list of NUMA nodes and has the same syntax as a list of CPUs for <varname>CPUAffinity=</varname>
+        option. Note that the list of NUMA nodes is not required for <option>default</option> and <option>local</option>
+        policies and for <option>preferred</option> policy we expect a single NUMA node.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -948,6 +976,20 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         directory is cleaned up automatically after use. For runtime directories that require more complex or different
         configuration or lifetime guarantees, please consider using
         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>The directories defined by these options are always created under the standard paths used by systemd
+        (<filename>/var</filename>, <filename>/run</filename>, <filename>/etc</filename>, …). If the service needs
+        directories in a different location, a different mechanism has to be used to create them.</para>
+
+        <para><citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> provides
+        functionality that overlaps with these options. Using these options is recommended, because the lifetime of
+        the directories is tied directly to the lifetime of the unit, and it is not necessary to ensure that the
+        <filename>tmpfiles.d</filename> configuration is executed before the unit is started.</para>
+
+        <para>To remove any of the directories created by these settings, use the <command>systemctl clean
+        …</command> command on the relevant units, see
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para>
 
         <para>Example: if a system service unit has the following,
         <programlisting>RuntimeDirectory=foo/bar baz</programlisting>
@@ -1517,24 +1559,29 @@ RestrictNamespaces=~cgroup net</programlisting>
       <varlistentry>
         <term><varname>SystemCallFilter=</varname></term>
 
-        <listitem><para>Takes a space-separated list of system call names. If this setting is used, all system calls
-        executed by the unit processes except for the listed ones will result in immediate process termination with the
-        <constant>SIGSYS</constant> signal (whitelisting). If the first character of the list is <literal>~</literal>,
-        the effect is inverted: only the listed system calls will result in immediate process termination
-        (blacklisting). Blacklisted system calls and system call groups may optionally be suffixed with a colon
-        (<literal>:</literal>) and <literal>errno</literal> error number (between 0 and 4095) or errno name such as
-        <constant>EPERM</constant>, <constant>EACCES</constant> or <constant>EUCLEAN</constant>. This value will be
-        returned when a blacklisted system call is triggered, instead of terminating the processes immediately.  This
-        value takes precedence over the one given in <varname>SystemCallErrorNumber=</varname>.  If running in user
-        mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
-        <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. This feature makes use of
-        the Secure Computing Mode 2 interfaces of the kernel ('seccomp filtering') and is useful for enforcing a
-        minimal sandboxing environment. Note that the <function>execve</function>, <function>exit</function>,
-        <function>exit_group</function>, <function>getrlimit</function>, <function>rt_sigreturn</function>,
-        <function>sigreturn</function> system calls and the system calls for querying time and sleeping are implicitly
-        whitelisted and do not need to be listed explicitly. This option may be specified more than once, in which case
-        the filter masks are merged. If the empty string is assigned, the filter is reset, all prior assignments will
-        have no effect. This does not affect commands prefixed with <literal>+</literal>.</para>
+        <listitem><para>Takes a space-separated list of system call names. If this setting is used, all
+        system calls executed by the unit processes except for the listed ones will result in immediate
+        process termination with the <constant>SIGSYS</constant> signal (whitelisting). (See
+        <varname>SystemCallErrorNumber=</varname> below for changing the default action). If the first
+        character of the list is <literal>~</literal>, the effect is inverted: only the listed system calls
+        will result in immediate process termination (blacklisting). Blacklisted system calls and system call
+        groups may optionally be suffixed with a colon (<literal>:</literal>) and <literal>errno</literal>
+        error number (between 0 and 4095) or errno name such as <constant>EPERM</constant>,
+        <constant>EACCES</constant> or <constant>EUCLEAN</constant> (see <citerefentry
+        project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry> for a
+        full list). This value will be returned when a blacklisted system call is triggered, instead of
+        terminating the processes immediately.  This value takes precedence over the one given in
+        <varname>SystemCallErrorNumber=</varname>, see below.  If running in user mode, or in system mode,
+        but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
+        <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. This feature
+        makes use of the Secure Computing Mode 2 interfaces of the kernel ('seccomp filtering') and is useful
+        for enforcing a minimal sandboxing environment. Note that the <function>execve</function>,
+        <function>exit</function>, <function>exit_group</function>, <function>getrlimit</function>,
+        <function>rt_sigreturn</function>, <function>sigreturn</function> system calls and the system calls
+        for querying time and sleeping are implicitly whitelisted and do not need to be listed
+        explicitly. This option may be specified more than once, in which case the filter masks are
+        merged. If the empty string is assigned, the filter is reset, all prior assignments will have no
+        effect. This does not affect commands prefixed with <literal>+</literal>.</para>
 
         <para>Note that on systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn off
         alternative ABIs for services, so that they cannot be used to circumvent the restrictions of this
@@ -1694,6 +1741,22 @@ RestrictNamespaces=~cgroup net</programlisting>
 SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM</programlisting>
 
+        <para>Note that various kernel system calls are defined redundantly: there are multiple system calls
+        for executing the same operation. For example, the <function>pidfd_send_signal()</function> system
+        call may be used to execute operations similar to what can be done with the older
+        <function>kill()</function> system call, hence blocking the latter without the former only provides
+        weak protection. Since new system calls are added regularly to the kernel as development progresses,
+        keeping system call blacklists comprehensive requires constant work. It is thus recommended to use
+        whitelisting instead, which offers the benefit that new system calls are by default implicitly
+        blocked until the whitelist is updated.</para>
+
+        <para>Also note that a number of system calls are required to be accessible for the dynamic linker to
+        work. The dynamic linker is required for running most regular programs (specifically: all dynamic ELF
+        binaries, which is how most distributions build packaged programs). This means that blocking these
+        system calls (which include <function>open()</function>, <function>openat()</function> or
+        <function>mmap()</function>) will make most programs typically shipped with generic distributions
+        unusable.</para>
+
         <para>It is recommended to combine the file system namespacing related options with
         <varname>SystemCallFilter=~@mount</varname>, in order to prohibit the unit's processes to undo the
         mappings. Specifically these are the options <varname>PrivateTmp=</varname>,
@@ -1706,11 +1769,13 @@ SystemCallErrorNumber=EPERM</programlisting>
       <varlistentry>
         <term><varname>SystemCallErrorNumber=</varname></term>
 
-        <listitem><para>Takes an <literal>errno</literal> error number (between 1 and 4095) or errno name such as
-        <constant>EPERM</constant>, <constant>EACCES</constant> or <constant>EUCLEAN</constant>, to return when the
-        system call filter configured with <varname>SystemCallFilter=</varname> is triggered, instead of terminating
-        the process immediately. When this setting is not used, or when the empty string is assigned, the process will
-        be terminated immediately when the filter is triggered.</para></listitem>
+        <listitem><para>Takes an <literal>errno</literal> error number (between 1 and 4095) or errno name
+        such as <constant>EPERM</constant>, <constant>EACCES</constant> or <constant>EUCLEAN</constant>, to
+        return when the system call filter configured with <varname>SystemCallFilter=</varname> is triggered,
+        instead of terminating the process immediately. See <citerefentry
+        project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry> for a
+        full list of error codes. When this setting is not used, or when the empty string is assigned, the
+        process will be terminated immediately when the filter is triggered.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1935,12 +2000,12 @@ SystemCallErrorNumber=EPERM</programlisting>
       <varlistentry>
         <term><varname>StandardOutput=</varname></term>
 
-        <listitem><para>Controls where file descriptor 1 (STDOUT) of the executed processes is connected to. Takes one
-        of <option>inherit</option>, <option>null</option>, <option>tty</option>, <option>journal</option>,
-        <option>syslog</option>, <option>kmsg</option>, <option>journal+console</option>,
-        <option>syslog+console</option>, <option>kmsg+console</option>,
-        <option>file:<replaceable>path</replaceable></option>, <option>append:<replaceable>path</replaceable></option>,
-        <option>socket</option> or <option>fd:<replaceable>name</replaceable></option>.</para>
+        <listitem><para>Controls where file descriptor 1 (STDOUT) of the executed processes is connected
+        to. Takes one of <option>inherit</option>, <option>null</option>, <option>tty</option>,
+        <option>journal</option>, <option>kmsg</option>, <option>journal+console</option>,
+        <option>kmsg+console</option>, <option>file:<replaceable>path</replaceable></option>,
+        <option>append:<replaceable>path</replaceable></option>, <option>socket</option> or
+        <option>fd:<replaceable>name</replaceable></option>.</para>
 
         <para><option>inherit</option> duplicates the file descriptor of standard input for standard output.</para>
 
@@ -1951,23 +2016,20 @@ SystemCallErrorNumber=EPERM</programlisting>
         see below). If the TTY is used for output only, the executed process will not become the controlling process of
         the terminal, and will not fail or wait for other processes to release the terminal.</para>
 
-        <para><option>journal</option> connects standard output with the journal which is accessible via
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.  Note that
-        everything that is written to syslog or kmsg (see below) is implicitly stored in the journal as well, the
-        specific two options listed below are hence supersets of this one.</para>
-
-        <para><option>syslog</option> connects standard output to the <citerefentry
-        project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> system syslog
-        service, in addition to the journal. Note that the journal daemon is usually configured to forward everything
-        it receives to syslog anyway, in which case this option is no different from <option>journal</option>.</para>
+        <para><option>journal</option> connects standard output with the journal, which is accessible via
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Note
+        that everything that is written to kmsg (see below) is implicitly stored in the journal as well, the
+        specific option listed below is hence a superset of this one. (Also note that any external,
+        additional syslog daemons receive their log data from the journal, too, hence this is the option to
+        use when logging shall be processed with such a daemon.)</para>
 
         <para><option>kmsg</option> connects standard output with the kernel log buffer which is accessible via
         <citerefentry project='man-pages'><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         in addition to the journal. The journal daemon might be configured to send all logs to kmsg anyway, in which
         case this option is no different from <option>journal</option>.</para>
 
-        <para><option>journal+console</option>, <option>syslog+console</option> and <option>kmsg+console</option> work
-        in a similar way as the three options above but copy the output to the system console as well.</para>
+        <para><option>journal+console</option> and <option>kmsg+console</option> work in a similar way as the
+        two options above but copy the output to the system console as well.</para>
 
         <para>The <option>file:<replaceable>path</replaceable></option> option may be used to connect a specific file
         system object to standard output. The semantics are similar to the same option of
@@ -1996,13 +2058,14 @@ SystemCallErrorNumber=EPERM</programlisting>
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
         details about named descriptors and their ordering.</para>
 
-        <para>If the standard output (or error output, see below) of a unit is connected to the journal, syslog or the
-        kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname> on
-        <filename>systemd-journald.socket</filename> (also see the "Implicit Dependencies" section above). Also note
-        that in this case stdout (or stderr, see below) will be an <constant>AF_UNIX</constant> stream socket, and not
-        a pipe or FIFO that can be re-opened. This means when executing shell scripts the construct <command>echo
-        "hello" &gt; /dev/stderr</command> for writing text to stderr will not work. To mitigate this use the construct
-        <command>echo "hello" >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para>
+        <para>If the standard output (or error output, see below) of a unit is connected to the journal or
+        the kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname>
+        on <filename>systemd-journald.socket</filename> (also see the "Implicit Dependencies" section
+        above). Also note that in this case stdout (or stderr, see below) will be an
+        <constant>AF_UNIX</constant> stream socket, and not a pipe or FIFO that can be re-opened. This means
+        when executing shell scripts the construct <command>echo "hello" &gt; /dev/stderr</command> for
+        writing text to stderr will not work. To mitigate this use the construct <command>echo "hello"
+        >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para>
 
         <para>This setting defaults to the value set with <varname>DefaultStandardOutput=</varname> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, which
@@ -2120,12 +2183,12 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
       <varlistentry>
         <term><varname>SyslogIdentifier=</varname></term>
 
-        <listitem><para>Sets the process name ("<command>syslog</command> tag") to prefix log lines sent to the logging
-        system or the kernel log buffer with. If not set, defaults to the process name of the executed process.  This
-        option is only useful when <varname>StandardOutput=</varname> or <varname>StandardError=</varname> are set to
-        <option>journal</option>, <option>syslog</option> or <option>kmsg</option> (or to the same settings in
-        combination with <option>+console</option>) and only applies to log messages written to stdout or
-        stderr.</para></listitem>
+        <listitem><para>Sets the process name ("<command>syslog</command> tag") to prefix log lines sent to
+        the logging system or the kernel log buffer with. If not set, defaults to the process name of the
+        executed process.  This option is only useful when <varname>StandardOutput=</varname> or
+        <varname>StandardError=</varname> are set to <option>journal</option> or <option>kmsg</option> (or to
+        the same settings in combination with <option>+console</option>) and only applies to log messages
+        written to stdout or stderr.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2136,12 +2199,13 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <option>auth</option>, <option>syslog</option>, <option>lpr</option>, <option>news</option>,
         <option>uucp</option>, <option>cron</option>, <option>authpriv</option>, <option>ftp</option>,
         <option>local0</option>, <option>local1</option>, <option>local2</option>, <option>local3</option>,
-        <option>local4</option>, <option>local5</option>, <option>local6</option> or <option>local7</option>. See
-        <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for details. This option is only useful when <varname>StandardOutput=</varname> or
-        <varname>StandardError=</varname> are set to <option>journal</option>, <option>syslog</option> or
-        <option>kmsg</option> (or to the same settings in combination with <option>+console</option>), and only applies
-        to log messages written to stdout or stderr. Defaults to <option>daemon</option>.</para></listitem>
+        <option>local4</option>, <option>local5</option>, <option>local6</option> or
+        <option>local7</option>. See <citerefentry
+        project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        details. This option is only useful when <varname>StandardOutput=</varname> or
+        <varname>StandardError=</varname> are set to <option>journal</option> or <option>kmsg</option> (or to
+        the same settings in combination with <option>+console</option>), and only applies to log messages
+        written to stdout or stderr. Defaults to <option>daemon</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2153,7 +2217,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <option>debug</option>. See <citerefentry
         project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
         details. This option is only useful when <varname>StandardOutput=</varname> or
-        <varname>StandardError=</varname> are set to <option>journal</option>, <option>syslog</option> or
+        <varname>StandardError=</varname> are set to <option>journal</option> or
         <option>kmsg</option> (or to the same settings in combination with <option>+console</option>), and only applies
         to log messages written to stdout or stderr. Note that individual lines output by executed processes may be
         prefixed with a different log level which can be used to override the default log level specified here. The
@@ -2166,12 +2230,13 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <term><varname>SyslogLevelPrefix=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true and <varname>StandardOutput=</varname> or
-        <varname>StandardError=</varname> are set to <option>journal</option>, <option>syslog</option> or
-        <option>kmsg</option> (or to the same settings in combination with <option>+console</option>), log lines
-        written by the executed process that are prefixed with a log level will be processed with this log level set
-        but the prefix removed. If set to false, the interpretation of these prefixes is disabled and the logged lines
-        are passed on as-is. This only applies to log messages written to stdout or stderr. For details about this
-        prefixing see <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        <varname>StandardError=</varname> are set to <option>journal</option> or <option>kmsg</option> (or to
+        the same settings in combination with <option>+console</option>), log lines written by the executed
+        process that are prefixed with a log level will be processed with this log level set but the prefix
+        removed. If set to false, the interpretation of these prefixes is disabled and the logged lines are
+        passed on as-is. This only applies to log messages written to stdout or stderr. For details about
+        this prefixing see
+        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
         Defaults to true.</para></listitem>
       </varlistentry>
 
@@ -2653,8 +2718,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
     </table>
 
     <para>The following service exit codes are defined by the <ulink
-    url="https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB specification
-    </ulink>.
+    url="https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB specification</ulink>.
     </para>
 
     <table>
@@ -2917,6 +2981,12 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
             <entry><constant>EXIT_CONFIGURATION_DIRECTORY</constant></entry>
             <entry>Failed to set up unit's configuration directory. See <varname>ConfigurationDirectory=</varname> above.</entry>
           </row>
+          <row>
+            <entry>242</entry>
+            <entry><constant>EXIT_NUMA_POLICY</constant></entry>
+            <entry>Failed to set up unit's NUMA memory policy. See <varname>NUMAPolicy=</varname> and <varname>NUMAMask=</varname>above.</entry>
+          </row>
+
         </tbody>
       </tgroup>
     </table>

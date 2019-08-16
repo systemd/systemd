@@ -115,6 +115,9 @@
           <row><entry><varname>ipvlan</varname></entry>
           <entry>An ipvlan device is a stacked device which receives packets from its underlying device based on IP address filtering.</entry></row>
 
+          <row><entry><varname>ipvtap</varname></entry>
+          <entry>An ipvtap device is a stacked device which receives packets from its underlying device based on IP address filtering and can be accessed using the tap user space interface.</entry></row>
+
           <row><entry><varname>macvlan</varname></entry>
           <entry>A macvlan device is a stacked device which receives packets from its underlying device based on MAC address filtering.</entry></row>
 
@@ -168,10 +171,16 @@
           <entry>WireGuard Secure Network Tunnel.</entry></row>
 
           <row><entry><varname>netdevsim</varname></entry>
-          <entry> A simulator. This simulated networking device is used for testing various networking APIs and at this time is particularly focused on testing hardware offloading related interfaces.</entry></row>
+          <entry>A simulator. This simulated networking device is used for testing various networking APIs and at this time is particularly focused on testing hardware offloading related interfaces.</entry></row>
+
+          <row><entry><varname>nlmon</varname></entry>
+          <entry>A Netlink monitor device. Use an nlmon device when you want to monitor system Netlink messages.</entry></row>
 
           <row><entry><varname>fou</varname></entry>
           <entry>Foo-over-UDP tunneling.</entry></row>
+
+          <row><entry><varname>xfrm</varname></entry>
+          <entry>A virtual tunnel interface like vti/vti6 but with several advantages.</entry></row>
 
         </tbody>
       </tgroup>
@@ -244,219 +253,226 @@
         </listitem>
       </varlistentry>
     </variablelist>
-
   </refsect1>
 
   <refsect1>
     <title>[NetDev] Section Options</title>
 
-      <para>The <literal>[NetDev]</literal> section accepts the
-      following keys:</para>
+    <para>The <literal>[NetDev]</literal> section accepts the
+    following keys:</para>
 
-      <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>Description=</varname></term>
-          <listitem>
-            <para>A free-form description of the netdev.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Name=</varname></term>
-          <listitem>
-            <para>The interface name used when creating the netdev.
-            This option is compulsory.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Kind=</varname></term>
-          <listitem>
-            <para>The netdev kind. This option is compulsory. See the
-            <literal>Supported netdev kinds</literal> section for the
-            valid keys.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>MTUBytes=</varname></term>
-          <listitem>
-            <para>The maximum transmission unit in bytes to set for the device. The usual suffixes K, M, G,
-            are supported and are understood to the base of 1024. For <literal>tun</literal> or
-            <literal>tap</literal> devices, <varname>MTUBytes=</varname> setting is not currently supported in
-            <literal>[NetDev]</literal> section. Please specify it in <literal>[Link]</literal> section of
-            corresponding
-            <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            files.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>MACAddress=</varname></term>
-          <listitem>
-            <para>The MAC address to use for the device. For <literal>tun</literal> or <literal>tap</literal>
-            devices, setting <varname>MACAddress=</varname> in the <literal>[NetDev]</literal> section is not
-            supported. Please specify it in <literal>[Link]</literal> section of the corresponding
-            <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            file. If this option is not set, <literal>vlan</literal> devices inherit the MAC address of the
-            physical interface. For other kind of netdevs, if this option is not set, then MAC address is
-            generated based on the interface name and the
-            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            </para>
-          </listitem>
-        </varlistentry>
-      </variablelist>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Description=</varname></term>
+        <listitem>
+          <para>A free-form description of the netdev.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Name=</varname></term>
+        <listitem>
+          <para>The interface name used when creating the netdev.
+          This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Kind=</varname></term>
+        <listitem>
+          <para>The netdev kind. This option is compulsory. See the
+          <literal>Supported netdev kinds</literal> section for the
+          valid keys.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MTUBytes=</varname></term>
+        <listitem>
+          <para>The maximum transmission unit in bytes to set for the device. The usual suffixes K, M, G,
+          are supported and are understood to the base of 1024. For <literal>tun</literal> or
+          <literal>tap</literal> devices, <varname>MTUBytes=</varname> setting is not currently supported in
+          <literal>[NetDev]</literal> section. Please specify it in <literal>[Link]</literal> section of
+          corresponding
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          files.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MACAddress=</varname></term>
+        <listitem>
+          <para>The MAC address to use for the device. For <literal>tun</literal> or <literal>tap</literal>
+          devices, setting <varname>MACAddress=</varname> in the <literal>[NetDev]</literal> section is not
+          supported. Please specify it in <literal>[Link]</literal> section of the corresponding
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          file. If this option is not set, <literal>vlan</literal> devices inherit the MAC address of the
+          physical interface. For other kind of netdevs, if this option is not set, then MAC address is
+          generated based on the interface name and the
+          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
-    <refsect1>
+  <refsect1>
     <title>[Bridge] Section Options</title>
 
-      <para>The <literal>[Bridge]</literal> section only applies for
-      netdevs of kind <literal>bridge</literal>, and accepts the
-      following keys:</para>
+    <para>The <literal>[Bridge]</literal> section only applies for
+    netdevs of kind <literal>bridge</literal>, and accepts the
+    following keys:</para>
 
-      <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>HelloTimeSec=</varname></term>
-          <listitem>
-            <para>HelloTimeSec specifies the number of seconds between two hello packets
-            sent out by the root bridge and the designated bridges. Hello packets are
-            used to communicate information about the topology throughout the entire
-            bridged local area network.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>MaxAgeSec=</varname></term>
-          <listitem>
-            <para>MaxAgeSec specifies the number of seconds of maximum message age.
-            If the last seen (received) hello packet is more than this number of
-            seconds old, the bridge in question will start the takeover procedure
-            in attempt to become the Root Bridge itself.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>ForwardDelaySec=</varname></term>
-          <listitem>
-            <para>ForwardDelaySec specifies the number of seconds spent in each
-            of the Listening and Learning states before the Forwarding state is entered.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>AgeingTimeSec=</varname></term>
-          <listitem>
-            <para>This specifies the number of seconds a MAC Address will be kept in
-            the forwarding database after having a packet received from this MAC Address.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Priority=</varname></term>
-          <listitem>
-            <para>The priority of the bridge. An integer between 0 and 65535. A lower value
-            means higher priority. The bridge having the lowest priority will be elected as root bridge.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>GroupForwardMask=</varname></term>
-          <listitem>
-            <para>A 16-bit bitmask represented as an integer which allows forwarding of link
-            local frames with 802.1D reserved addresses (01:80:C2:00:00:0X). A logical AND
-            is performed between the specified bitmask and the exponentiation of 2^X, the
-            lower nibble of the last octet of the MAC address. For example, a value of 8
-            would allow forwarding of frames addressed to 01:80:C2:00:00:03 (802.1X PAE).</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>DefaultPVID=</varname></term>
-          <listitem>
-            <para>This specifies the default port VLAN ID of a newly attached bridge port.
-            Set this to an integer in the range 1–4094 or <literal>none</literal> to disable the PVID.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>MulticastQuerier=</varname></term>
-          <listitem>
-            <para>Takes a boolean. This setting controls the IFLA_BR_MCAST_QUERIER option in the kernel.
-            If enabled, the kernel will send general ICMP queries from a zero source address.
-            This feature should allow faster convergence on startup, but it causes some
-            multicast-aware switches to misbehave and disrupt forwarding of multicast packets.
-            When unset, the kernel's default will be used.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>MulticastSnooping=</varname></term>
-          <listitem>
-            <para>Takes a boolean. This setting controls the IFLA_BR_MCAST_SNOOPING option in the kernel.
-            If enabled, IGMP snooping monitors the Internet Group Management Protocol (IGMP) traffic
-            between hosts and multicast routers. When unset, the kernel's default will be used.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>VLANFiltering=</varname></term>
-          <listitem>
-            <para>Takes a boolean. This setting controls the IFLA_BR_VLAN_FILTERING option in the kernel.
-            If enabled, the bridge will be started in VLAN-filtering mode. When unset, the kernel's default will be used.
-            </para>
-          </listitem>
-        </varlistentry>
-          <varlistentry>
-          <term><varname>STP=</varname></term>
-          <listitem>
-            <para>Takes a boolean. This enables the bridge's Spanning Tree Protocol (STP).
-            When unset, the kernel's default will be used.
-            </para>
-          </listitem>
-        </varlistentry>
-      </variablelist>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>HelloTimeSec=</varname></term>
+        <listitem>
+          <para>HelloTimeSec specifies the number of seconds between two hello packets
+          sent out by the root bridge and the designated bridges. Hello packets are
+          used to communicate information about the topology throughout the entire
+          bridged local area network.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MaxAgeSec=</varname></term>
+        <listitem>
+          <para>MaxAgeSec specifies the number of seconds of maximum message age.
+          If the last seen (received) hello packet is more than this number of
+          seconds old, the bridge in question will start the takeover procedure
+          in attempt to become the Root Bridge itself.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ForwardDelaySec=</varname></term>
+        <listitem>
+          <para>ForwardDelaySec specifies the number of seconds spent in each
+          of the Listening and Learning states before the Forwarding state is entered.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>AgeingTimeSec=</varname></term>
+        <listitem>
+          <para>This specifies the number of seconds a MAC Address will be kept in
+          the forwarding database after having a packet received from this MAC Address.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Priority=</varname></term>
+        <listitem>
+          <para>The priority of the bridge. An integer between 0 and 65535. A lower value
+          means higher priority. The bridge having the lowest priority will be elected as root bridge.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>GroupForwardMask=</varname></term>
+        <listitem>
+          <para>A 16-bit bitmask represented as an integer which allows forwarding of link
+          local frames with 802.1D reserved addresses (01:80:C2:00:00:0X). A logical AND
+          is performed between the specified bitmask and the exponentiation of 2^X, the
+          lower nibble of the last octet of the MAC address. For example, a value of 8
+          would allow forwarding of frames addressed to 01:80:C2:00:00:03 (802.1X PAE).</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>DefaultPVID=</varname></term>
+        <listitem>
+          <para>This specifies the default port VLAN ID of a newly attached bridge port.
+          Set this to an integer in the range 1–4094 or <literal>none</literal> to disable the PVID.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MulticastQuerier=</varname></term>
+        <listitem>
+          <para>Takes a boolean. This setting controls the IFLA_BR_MCAST_QUERIER option in the kernel.
+          If enabled, the kernel will send general ICMP queries from a zero source address.
+          This feature should allow faster convergence on startup, but it causes some
+          multicast-aware switches to misbehave and disrupt forwarding of multicast packets.
+          When unset, the kernel's default will be used.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MulticastSnooping=</varname></term>
+        <listitem>
+          <para>Takes a boolean. This setting controls the IFLA_BR_MCAST_SNOOPING option in the kernel.
+          If enabled, IGMP snooping monitors the Internet Group Management Protocol (IGMP) traffic
+          between hosts and multicast routers. When unset, the kernel's default will be used.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>VLANFiltering=</varname></term>
+        <listitem>
+          <para>Takes a boolean. This setting controls the IFLA_BR_VLAN_FILTERING option in the kernel.
+          If enabled, the bridge will be started in VLAN-filtering mode. When unset, the kernel's default will be used.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>STP=</varname></term>
+        <listitem>
+          <para>Takes a boolean. This enables the bridge's Spanning Tree Protocol (STP).
+          When unset, the kernel's default will be used.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MulticastIGMPVersion=</varname></term>
+        <listitem>
+          <para>Allows to change bridge's multicast Internet Group Management Protocol (IGMP) version.
+          Takes an interger 2 or 3. When unset, the kernel's default will be used.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
     <title>[VLAN] Section Options</title>
 
-      <para>The <literal>[VLAN]</literal> section only applies for
-      netdevs of kind <literal>vlan</literal>, and accepts the
-      following key:</para>
+    <para>The <literal>[VLAN]</literal> section only applies for
+    netdevs of kind <literal>vlan</literal>, and accepts the
+    following key:</para>
 
-      <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>Id=</varname></term>
-          <listitem>
-            <para>The VLAN ID to use. An integer in the range 0–4094.
-            This option is compulsory.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>GVRP=</varname></term>
-          <listitem>
-            <para>Takes a boolean. The Generic VLAN Registration Protocol (GVRP) is a protocol that
-            allows automatic learning of VLANs on a network.
-            When unset, the kernel's default will be used.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>MVRP=</varname></term>
-          <listitem>
-            <para>Takes a boolean. Multiple VLAN Registration Protocol (MVRP) formerly known as GARP VLAN
-            Registration Protocol (GVRP) is a standards-based Layer 2 network protocol,
-            for automatic configuration of VLAN information on switches. It was defined
-            in the 802.1ak amendment to 802.1Q-2005. When unset, the kernel's default will be used.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>LooseBinding=</varname></term>
-          <listitem>
-            <para>Takes a boolean. The VLAN loose binding mode, in which only the operational state is passed
-            from the parent to the associated VLANs, but the VLAN device state is not changed.
-            When unset, the kernel's default will be used.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>ReorderHeader=</varname></term>
-          <listitem>
-            <para>Takes a boolean. The VLAN reorder header is set VLAN interfaces behave like physical interfaces.
-            When unset, the kernel's default will be used.</para>
-          </listitem>
-        </varlistentry>
-      </variablelist>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Id=</varname></term>
+        <listitem>
+          <para>The VLAN ID to use. An integer in the range 0–4094.
+          This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>GVRP=</varname></term>
+        <listitem>
+          <para>Takes a boolean. The Generic VLAN Registration Protocol (GVRP) is a protocol that
+          allows automatic learning of VLANs on a network.
+          When unset, the kernel's default will be used.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MVRP=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Multiple VLAN Registration Protocol (MVRP) formerly known as GARP VLAN
+          Registration Protocol (GVRP) is a standards-based Layer 2 network protocol,
+          for automatic configuration of VLAN information on switches. It was defined
+          in the 802.1ak amendment to 802.1Q-2005. When unset, the kernel's default will be used.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>LooseBinding=</varname></term>
+        <listitem>
+          <para>Takes a boolean. The VLAN loose binding mode, in which only the operational state is passed
+          from the parent to the associated VLANs, but the VLAN device state is not changed.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ReorderHeader=</varname></term>
+        <listitem>
+          <para>Takes a boolean. The VLAN reorder header is set VLAN interfaces behave like physical interfaces.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
@@ -479,17 +495,15 @@
         </listitem>
       </varlistentry>
     </variablelist>
-
   </refsect1>
 
-    <refsect1>
+  <refsect1>
     <title>[MACVTAP] Section Options</title>
 
     <para>The <literal>[MACVTAP]</literal> section applies for
     netdevs of kind <literal>macvtap</literal> and accepts the
     same key as <literal>[MACVLAN]</literal>.</para>
-
-    </refsect1>
+  </refsect1>
 
   <refsect1>
     <title>[IPVLAN] Section Options</title>
@@ -501,35 +515,43 @@
     <variablelist class='network-directives'>
       <varlistentry>
         <term><varname>Mode=</varname></term>
-          <listitem>
-            <para>The IPVLAN mode to use. The supported options are
-            <literal>L2</literal>,<literal>L3</literal> and <literal>L3S</literal>.
-            </para>
-          </listitem>
+        <listitem>
+          <para>The IPVLAN mode to use. The supported options are
+          <literal>L2</literal>,<literal>L3</literal> and <literal>L3S</literal>.
+          </para>
+        </listitem>
       </varlistentry>
-       <varlistentry>
+      <varlistentry>
         <term><varname>Flags=</varname></term>
-          <listitem>
-            <para>The IPVLAN flags to use. The supported options are
-            <literal>bridge</literal>,<literal>private</literal> and <literal>vepa</literal>.
-            </para>
-          </listitem>
+        <listitem>
+          <para>The IPVLAN flags to use. The supported options are
+          <literal>bridge</literal>,<literal>private</literal> and <literal>vepa</literal>.
+          </para>
+        </listitem>
       </varlistentry>
     </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>[IPVTAP] Section Options</title>
+
+    <para>The <literal>[IPVTAP]</literal> section only applies for
+    netdevs of kind <literal>ipvtap</literal> and accepts the
+    same key as <literal>[IPVLAN]</literal>.</para>
   </refsect1>
 
   <refsect1>
     <title>[VXLAN] Section Options</title>
+
     <para>The <literal>[VXLAN]</literal> section only applies for
     netdevs of kind <literal>vxlan</literal>, and accepts the
     following keys:</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
-        <term><varname>Id=</varname></term>
+        <term><varname>VNI=</varname></term>
         <listitem>
-          <para>The VXLAN ID to use.</para>
+          <para>The VXLAN Network Identifier (or VXLAN Segment ID). Takes a number in the range 1-16777215.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -544,7 +566,13 @@
           <para>Configures local IP address.</para>
         </listitem>
       </varlistentry>
-        <varlistentry>
+      <varlistentry>
+        <term><varname>Group=</varname></term>
+        <listitem>
+          <para>Configures VXLAN multicast group IP address. All members of a VXLAN must use the same multicast group address.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>TOS=</varname></term>
         <listitem>
           <para>The Type Of Service byte value for a vxlan interface.</para>
@@ -553,10 +581,10 @@
       <varlistentry>
         <term><varname>TTL=</varname></term>
         <listitem>
-          <para>A fixed Time To Live N on Virtual eXtensible Local
-          Area Network packets. N is a number in the range 1–255. 0
-          is a special value meaning that packets inherit the TTL
-          value.</para>
+          <para>A fixed Time To Live N on Virtual eXtensible Local Area Network packets.
+          Takes <literal>inherit</literal> or a number in the range 0–255. 0 is a special
+          value meaning inherit the inner protocol's TTL value. <literal>inherit</literal>
+          means that it will inherit the outer protocol's TTL value.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -640,26 +668,36 @@
           <para>Takes a boolean. When true, remote receive checksum offload in VXLAN is turned on.</para>
         </listitem>
       </varlistentry>
-    <varlistentry>
-      <term><varname>GroupPolicyExtension=</varname></term>
-      <listitem>
-        <para>Takes a boolean. When true, it enables Group Policy VXLAN extension security label mechanism
-        across network peers based on VXLAN. For details about the Group Policy VXLAN, see the
-        <ulink url="https://tools.ietf.org/html/draft-smith-vxlan-group-policy">
-        VXLAN Group Policy </ulink> document. Defaults to false.</para>
-      </listitem>
-    </varlistentry>
-    <varlistentry>
-      <term><varname>DestinationPort=</varname></term>
-      <listitem>
-        <para>Configures the default destination UDP port on a per-device basis.
-        If destination port is not specified then Linux kernel default will be used.
-        Set destination port 4789 to get the IANA assigned value. If not set or if the
-        destination port is assigned the empty string the default port of 4789 is used.</para>
-      </listitem>
-    </varlistentry>
-    <varlistentry>
-      <term><varname>PortRange=</varname></term>
+      <varlistentry>
+        <term><varname>GroupPolicyExtension=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, it enables Group Policy VXLAN extension security label mechanism
+          across network peers based on VXLAN. For details about the Group Policy VXLAN, see the
+          <ulink url="https://tools.ietf.org/html/draft-smith-vxlan-group-policy">
+          VXLAN Group Policy </ulink> document. Defaults to false.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>GenericProtocolExtension=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, Generic Protocol Extension extends the existing VXLAN protocol
+          to provide protocol typing, OAM, and versioning capabilities. For details about the VXLAN GPE
+          Header, see the <ulink url="https://tools.ietf.org/html/draft-ietf-nvo3-vxlan-gpe-07">
+          Generic Protocol Extension for VXLAN </ulink> document. If destination port is not specified and
+          Generic Protocol Extension is set then default port of 4790 is used. Defaults to false.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>DestinationPort=</varname></term>
+        <listitem>
+          <para>Configures the default destination UDP port on a per-device basis.
+          If destination port is not specified then Linux kernel default will be used.
+          Set destination port 4789 to get the IANA assigned value. If not set or if the
+          destination port is assigned the empty string the default port of 4789 is used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PortRange=</varname></term>
         <listitem>
           <para>Configures VXLAN port range. VXLAN bases source
           UDP port based on flow to help the receiver to be able
@@ -668,18 +706,29 @@
           ports, and allows overriding via configuration.</para>
         </listitem>
       </varlistentry>
-    <varlistentry>
-      <term><varname>FlowLabel=</varname></term>
+      <varlistentry>
+        <term><varname>FlowLabel=</varname></term>
         <listitem>
           <para>Specifies the flow label to use in outgoing packets.
           The valid range is 0-1048575.
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>IPDoNotFragment=</varname></term>
+        <listitem>
+          <para>Allows to set the IPv4 Do not Fragment (DF) bit in outgoing packets, or to inherit its
+          value from the IPv4 inner header. Takes a boolean value, or <literal>inherit</literal>. Set
+          to <literal>inherit</literal> if the encapsulated protocol is IPv6. When unset, the kernel's
+          default will be used.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
+
   <refsect1>
     <title>[GENEVE] Section Options</title>
+
     <para>The <literal>[GENEVE]</literal> section only applies for
     netdevs of kind <literal>geneve</literal>, and accepts the
     following keys:</para>
@@ -688,7 +737,7 @@
       <varlistentry>
         <term><varname>Id=</varname></term>
         <listitem>
-          <para>Specifies the Virtual Network Identifier (VNI) to use. Ranges [0-16777215].</para>
+          <para>Specifies the Virtual Network Identifier (VNI) to use. Ranges [0-16777215]. This field is mandatory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -706,7 +755,9 @@
       <varlistentry>
         <term><varname>TTL=</varname></term>
         <listitem>
-          <para>Specifies the TTL value to use in outgoing packets. Ranges [1-255].</para>
+          <para>Accepts the same key in <literal>[VXLAN]</literal> section except when unset or
+          set to 0, the kernel's default will be used meaning that packets TTL will be set from
+          <filename>/proc/sys/net/ipv4/ip_default_ttl</filename>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -727,23 +778,31 @@
           <para>Takes a boolean. When true, allows incoming UDP packets over IPv6 with zero checksum field.</para>
         </listitem>
       </varlistentry>
-    <varlistentry>
-      <term><varname>DestinationPort=</varname></term>
-      <listitem>
-        <para>Specifies destination port. Defaults to 6081. If not set or assigned the empty string, the default
-        port of 6081 is used.</para>
-      </listitem>
-    </varlistentry>
-    <varlistentry>
-      <term><varname>FlowLabel=</varname></term>
+      <varlistentry>
+        <term><varname>DestinationPort=</varname></term>
+        <listitem>
+          <para>Specifies destination port. Defaults to 6081. If not set or assigned the empty string, the default
+          port of 6081 is used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>FlowLabel=</varname></term>
         <listitem>
           <para>Specifies the flow label to use in outgoing packets.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>IPDoNotFragment=</varname></term>
+        <listitem>
+          <para>Accepts the same key in <literal>[VXLAN]</literal> section.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
+
   <refsect1>
     <title>[L2TP] Section Options</title>
+
     <para>The <literal>[L2TP]</literal> section only applies for
     netdevs of kind <literal>l2tp</literal>, and accepts the
     following keys:</para>
@@ -820,8 +879,10 @@
       </varlistentry>
     </variablelist>
   </refsect1>
+
   <refsect1>
     <title>[L2TPSession] Section Options</title>
+
     <para>The <literal>[L2TPSession]</literal> section only applies for
     netdevs of kind <literal>l2tp</literal>, and accepts the
     following keys:</para>
@@ -854,8 +915,10 @@
       </varlistentry>
     </variablelist>
   </refsect1>
+
   <refsect1>
     <title>[MACsec] Section Options</title>
+
     <para>The <literal>[MACsec]</literal> section only applies for network devices of kind
     <literal>macsec</literal>, and accepts the following keys:</para>
 
@@ -876,6 +939,7 @@
       </varlistentry>
     </variablelist>
   </refsect1>
+
   <refsect1>
     <title>[MACsecReceiveChannel] Section Options</title>
     <para>The <literal>[MACsecReceiveChannel]</literal> section only applies for network devices of
@@ -900,8 +964,10 @@
       </varlistentry>
     </variablelist>
   </refsect1>
+
   <refsect1>
     <title>[MACsecTransmitAssociation] Section Options</title>
+
     <para>The <literal>[MACsecTransmitAssociation]</literal> section only applies for network devices
     of kind <literal>macsec</literal>, and accepts the following keys:</para>
 
@@ -958,8 +1024,10 @@
       </varlistentry>
     </variablelist>
   </refsect1>
+
   <refsect1>
     <title>[MACsecReceiveAssociation] Section Options</title>
+
     <para>The <literal>[MACsecReceiveAssociation]</literal> section only applies for
     network devices of kind <literal>macsec</literal>, and accepts the
     following keys:</para>
@@ -1009,6 +1077,7 @@
       </varlistentry>
     </variablelist>
   </refsect1>
+
   <refsect1>
     <title>[Tunnel] Section Options</title>
 
@@ -1155,6 +1224,13 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>AssignToLoopback=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to <literal>yes</literal>, the loopback interface <literal>lo</literal>
+          is used as the underlying device of the tunnel interface. Defaults to <literal>no</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>AllowLocalRemote=</varname></term>
         <listitem>
           <para>Takes a boolean. When true allows tunnel traffic on <varname>ip6tnl</varname> devices where the remote endpoint is a local host address.
@@ -1254,7 +1330,13 @@
           will arrive with the encapsulation will be removed. Then they will be manually fed back into the network stack, and sent ahead
           for delivery to the real destination. This option is mandatory.</para>
         </listitem>
-        </varlistentry>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PeerPort=</varname></term>
+        <listitem>
+          <para>Specifies the peer port number. Defaults to unset. Note that when peer port is set <literal>Peer=</literal> address is mandotory.</para>
+        </listitem>
+      </varlistentry>
       <varlistentry>
         <term><varname>Protocol=</varname></term>
         <listitem>
@@ -1265,49 +1347,65 @@
           <varname>Encapsulation=GenericUDPEncapsulation</varname>, this must not be specified.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Peer=</varname></term>
+        <listitem>
+          <para>Configures peer IP address. Note that when peer address is set <literal>PeerPort=</literal> is mandotory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Local=</varname></term>
+        <listitem>
+          <para>Configures local IP address.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
+
   <refsect1>
     <title>[Peer] Section Options</title>
 
-      <para>The <literal>[Peer]</literal> section only applies for
-      netdevs of kind <literal>veth</literal> and accepts the
-      following keys:</para>
+    <para>The <literal>[Peer]</literal> section only applies for
+    netdevs of kind <literal>veth</literal> and accepts the
+    following keys:</para>
 
-      <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>Name=</varname></term>
-          <listitem>
-            <para>The interface name used when creating the netdev.
-            This option is compulsory.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>MACAddress=</varname></term>
-          <listitem>
-            <para>The peer MACAddress, if not set, it is generated in
-            the same way as the MAC address of the main
-            interface.</para>
-          </listitem>
-        </varlistentry>
-      </variablelist>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Name=</varname></term>
+        <listitem>
+          <para>The interface name used when creating the netdev.
+          This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MACAddress=</varname></term>
+        <listitem>
+          <para>The peer MACAddress, if not set, it is generated in
+          the same way as the MAC address of the main
+          interface.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
+
   <refsect1>
-  <title>[VXCAN] Section Options</title>
-      <para>The <literal>[VXCAN]</literal> section only applies for
-      netdevs of kind <literal>vxcan</literal> and accepts the
-      following key:</para>
+    <title>[VXCAN] Section Options</title>
 
-      <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>Peer=</varname></term>
-          <listitem>
-            <para>The peer interface name used when creating the netdev.
-            This option is compulsory.</para>
-          </listitem>
-        </varlistentry>
-      </variablelist>
+    <para>The <literal>[VXCAN]</literal> section only applies for
+    netdevs of kind <literal>vxcan</literal> and accepts the
+    following key:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Peer=</varname></term>
+        <listitem>
+          <para>The peer interface name used when creating the netdev.
+          This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
+
   <refsect1>
     <title>[Tun] Section Options</title>
 
@@ -1316,15 +1414,6 @@
     keys:</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>OneQueue=</varname></term>
-        <listitem><para>Takes a boolean. Configures whether
-        all packets are queued at the device (enabled), or a fixed
-        number of packets are queued at the device and the rest at the
-        <literal>qdisc</literal>. Defaults to
-        <literal>no</literal>.</para>
-        </listitem>
-      </varlistentry>
       <varlistentry>
         <term><varname>MultiQueue=</varname></term>
         <listitem><para>Takes a boolean. Configures whether
@@ -1345,7 +1434,7 @@
       <varlistentry>
         <term><varname>VNetHeader=</varname></term>
         <listitem><para>Takes a boolean. Configures
-        IFF_VNET_HDR flag for a tap device. It allows sending
+        IFF_VNET_HDR flag for a tun or tap device. It allows sending
         and receiving larger Generic Segmentation Offload (GSO)
         packets. This may increase throughput significantly.
         Defaults to
@@ -1364,9 +1453,7 @@
         <filename>/dev/net/tun</filename> device.</para>
         </listitem>
       </varlistentry>
-
     </variablelist>
-
   </refsect1>
 
   <refsect1>
@@ -1388,12 +1475,12 @@
         <term><varname>PrivateKey=</varname></term>
         <listitem>
           <para>The Base64 encoded private key for the interface. It can be
-            generated using the <command>wg genkey</command> command
-            (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
-            This option or <varname>PrivateKeyFile=</varname> is mandatory to use WireGuard.
-            Note that because this information is secret, you may want to set
-            the permissions of the .netdev file to be owned by <literal>root:systemd-network</literal>
-            with a <literal>0640</literal> file mode.</para>
+          generated using the <command>wg genkey</command> command
+          (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
+          This option or <varname>PrivateKeyFile=</varname> is mandatory to use WireGuard.
+          Note that because this information is secret, you may want to set
+          the permissions of the .netdev file to be owned by <literal>root:systemd-network</literal>
+          with a <literal>0640</literal> file mode.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1410,15 +1497,15 @@
         <term><varname>ListenPort=</varname></term>
         <listitem>
           <para>Sets UDP port for listening. Takes either value between 1 and 65535
-            or <literal>auto</literal>. If <literal>auto</literal> is specified,
-            the port is automatically generated based on interface name.
-            Defaults to <literal>auto</literal>.</para>
+          or <literal>auto</literal>. If <literal>auto</literal> is specified,
+          the port is automatically generated based on interface name.
+          Defaults to <literal>auto</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>FwMark=</varname></term>
+        <term><varname>FirewallMark=</varname></term>
         <listitem>
-          <para>Sets a firewall mark on outgoing WireGuard packets from this interface.</para>
+          <para>Sets a firewall mark on outgoing WireGuard packets from this interface. Takes a number between 1 and 4294967295.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1435,23 +1522,23 @@
         <term><varname>PublicKey=</varname></term>
         <listitem>
           <para>Sets a Base64 encoded public key calculated by <command>wg pubkey</command>
-            (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
-            from a private key, and usually transmitted out of band to the
-            author of the configuration file. This option is mandatory for this
-            section.</para>
+          (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+          from a private key, and usually transmitted out of band to the
+          author of the configuration file. This option is mandatory for this
+          section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>PresharedKey=</varname></term>
         <listitem>
           <para>Optional preshared key for the interface. It can be generated
-            by the <command>wg genpsk</command> command. This option adds an
-            additional layer of symmetric-key cryptography to be mixed into the
-            already existing public-key cryptography, for post-quantum
-            resistance.
-            Note that because this information is secret, you may want to set
-            the permissions of the .netdev file to be owned by <literal>root:systemd-networkd</literal>
-            with a <literal>0640</literal> file mode.</para>
+          by the <command>wg genpsk</command> command. This option adds an
+          additional layer of symmetric-key cryptography to be mixed into the
+          already existing public-key cryptography, for post-quantum
+          resistance.
+          Note that because this information is secret, you may want to set
+          the permissions of the .netdev file to be owned by <literal>root:systemd-networkd</literal>
+          with a <literal>0640</literal> file mode.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1468,33 +1555,33 @@
         <term><varname>AllowedIPs=</varname></term>
         <listitem>
           <para>Sets a comma-separated list of IP (v4 or v6) addresses with CIDR masks
-            from which this peer is allowed to send incoming traffic and to
-            which outgoing traffic for this peer is directed. The catch-all
-            0.0.0.0/0 may be specified for matching all IPv4 addresses, and
-            ::/0 may be specified for matching all IPv6 addresses. </para>
+          from which this peer is allowed to send incoming traffic and to
+          which outgoing traffic for this peer is directed. The catch-all
+          0.0.0.0/0 may be specified for matching all IPv4 addresses, and
+          ::/0 may be specified for matching all IPv6 addresses. </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Endpoint=</varname></term>
         <listitem>
           <para>Sets an endpoint IP address or hostname, followed by a colon, and then
-            a port number. This endpoint will be updated automatically once to
-            the most recent source IP address and port of correctly
-            authenticated packets from the peer at configuration time.</para>
+          a port number. This endpoint will be updated automatically once to
+          the most recent source IP address and port of correctly
+          authenticated packets from the peer at configuration time.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>PersistentKeepalive=</varname></term>
         <listitem>
           <para>Sets a seconds interval, between 1 and 65535 inclusive, of how often
-            to send an authenticated empty packet to the peer for the purpose
-            of keeping a stateful firewall or NAT mapping valid persistently.
-            For example, if the interface very rarely sends traffic, but it
-            might at anytime receive traffic from a peer, and it is behind NAT,
-            the interface might benefit from having a persistent keepalive
-            interval of 25 seconds. If set to 0 or "off", this option is
-            disabled. By default or when unspecified, this option is off.
-            Most users will not need this.</para>
+          to send an authenticated empty packet to the peer for the purpose
+          of keeping a stateful firewall or NAT mapping valid persistently.
+          For example, if the interface very rarely sends traffic, but it
+          might at anytime receive traffic from a peer, and it is behind NAT,
+          the interface might benefit from having a persistent keepalive
+          interval of 25 seconds. If set to 0 or "off", this option is
+          disabled. By default or when unspecified, this option is off.
+          Most users will not need this.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1720,9 +1807,9 @@
         <term><varname>PacketsPerSlave=</varname></term>
         <listitem>
           <para>Specify the number of packets to transmit through a slave before
-            moving to the next one. When set to 0, then a slave is chosen at
-            random. The valid range is 0–65535. Defaults to 1. This option
-            only has effect when in balance-rr mode.
+          moving to the next one. When set to 0, then a slave is chosen at
+          random. The valid range is 0–65535. Defaults to 1. This option
+          only has effect when in balance-rr mode.
           </para>
         </listitem>
       </varlistentry>
@@ -1731,13 +1818,13 @@
         <term><varname>GratuitousARP=</varname></term>
         <listitem>
           <para>Specify the number of peer notifications (gratuitous ARPs and
-            unsolicited IPv6 Neighbor Advertisements) to be issued after a
-            failover event.  As soon as the link is up on the new slave,
-            a peer notification is sent on the  bonding device and each
-            VLAN sub-device.  This is repeated at each link monitor interval
-            (ARPIntervalSec or MIIMonitorSec, whichever is active) if the number is
-            greater than 1. The valid range is 0–255. The default value is 1.
-            These options affect only the active-backup mode.
+          unsolicited IPv6 Neighbor Advertisements) to be issued after a
+          failover event.  As soon as the link is up on the new slave,
+          a peer notification is sent on the  bonding device and each
+          VLAN sub-device.  This is repeated at each link monitor interval
+          (ARPIntervalSec or MIIMonitorSec, whichever is active) if the number is
+          greater than 1. The valid range is 0–255. The default value is 1.
+          These options affect only the active-backup mode.
           </para>
         </listitem>
       </varlistentry>
@@ -1777,7 +1864,52 @@
     <para>For more detail information see
     <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">
     Linux Ethernet Bonding Driver HOWTO</ulink></para>
+  </refsect1>
 
+  <refsect1>
+    <title>[Xfrm] Section Options</title>
+
+    <para>The <literal>[Xfrm]</literal> section accepts the following
+    keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>InterfaceId=</varname></term>
+        <listitem>
+          <para>Sets the ID/key of the xfrm interface which needs to be associated with a SA/policy.
+          Can be decimal or hexadecimal, valid range is 0-0xffffffff, defaults to 0.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Independent=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to <literal>no</literal>, the xfrm interface should have an
+          underlying device which can be used for hardware offloading. Defaults to <literal>no</literal>.
+          See <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for how to configure the underlying device.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>For more detail information see
+      <ulink url="https://lwn.net/Articles/757391">
+        Virtual xfrm interfaces</ulink></para>
+  </refsect1>
+
+  <refsect1>
+    <title>[VRF] Section Options</title>
+    <para>The <literal>[VRF]</literal> section only applies for
+    netdevs of kind <literal>vrf</literal> and accepts the
+    following key:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Table=</varname></term>
+        <listitem>
+          <para>The numeric routing table identifier. This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
@@ -1964,7 +2096,18 @@ PublicKey=RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=
 AllowedIPs=fd31:bf08:57cb::/48,192.168.26.0/24
 Endpoint=wireguard.example.com:51820</programlisting>
     </example>
+
+    <example>
+      <title>/etc/systemd/network/27-xfrm.netdev</title>
+      <programlisting>[Xfrm]
+Name=xfrm0
+Kind=xfrm
+
+[Xfrm]
+Independent=yes</programlisting>
+    </example>
   </refsect1>
+
   <refsect1>
     <title>See Also</title>
     <para>

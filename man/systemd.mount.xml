@@ -34,9 +34,9 @@
     this unit type. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
-    configuration items are configured in the generic [Unit] and
-    [Install] sections. The mount specific configuration options are
-    configured in the [Mount] section.</para>
+    configuration items are configured in the generic <literal>[Unit]</literal> and
+    <literal>[Install]</literal> sections. The mount specific configuration options are
+    configured in the <literal>[Mount]</literal> section.</para>
 
     <para>Additional options are listed in
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -182,7 +182,7 @@
     mount options are understood by systemd which influence how
     dependencies are created for mount points. systemd will create a
     dependency of type <varname>Wants=</varname> or
-    <option>Requires</option> (see option <option>nofail</option>
+    <option>Requires=</option> (see option <option>nofail</option>
     below), from either <filename>local-fs.target</filename> or
     <filename>remote-fs.target</filename>, depending whether the file
     system is local or remote.</para>

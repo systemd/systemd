@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "install.h"
 #include "io-util.h"
 #include "locale-util.h"
 #include "loop-util.h"
@@ -325,7 +326,7 @@ static int extract_now(
                                 return -ENOMEM;
                         fd = -1;
 
-                        m->source = strjoin(resolved, "/", de->d_name);
+                        m->source = path_join(resolved, de->d_name);
                         if (!m->source)
                                 return -ENOMEM;
 
@@ -653,10 +654,10 @@ static int portable_changes_add_with_prefix(
                 return 0;
 
         if (prefix) {
-                path = strjoina(prefix, "/", path);
+                path = prefix_roota(prefix, path);
 
                 if (source)
-                        source = strjoina(prefix, "/", source);
+                        source = prefix_roota(prefix, source);
         }
 
         return portable_changes_add(changes, n_changes, type, path, source);
@@ -691,7 +692,7 @@ static int install_chroot_dropin(
         assert(m);
         assert(dropin_dir);
 
-        dropin = strjoin(dropin_dir, "/20-portable.conf");
+        dropin = path_join(dropin_dir, "20-portable.conf");
         if (!dropin)
                 return -ENOMEM;
 
@@ -778,7 +779,7 @@ static int install_profile_dropin(
                 return 0;
         }
 
-        dropin = strjoin(dropin_dir, "/10-profile.conf");
+        dropin = path_join(dropin_dir, "10-profile.conf");
         if (!dropin)
                 return -ENOMEM;
 
@@ -847,7 +848,7 @@ static int attach_unit_file(
         } else
                 (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, where, NULL);
 
-        path = strjoina(where, "/", m->name);
+        path = prefix_roota(where, m->name);
         dropin_dir = strjoin(path, ".d");
         if (!dropin_dir)
                 return -ENOMEM;

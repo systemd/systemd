@@ -20,10 +20,11 @@ struct ConfigPerfItem;
 %includes
 %%
 Match.MACAddress,                config_parse_hwaddrs,            0,                             offsetof(link_config, match_mac)
-Match.OriginalName,              config_parse_ifnames,            0,                             offsetof(link_config, match_name)
-Match.Path,                      config_parse_strv,               0,                             offsetof(link_config, match_path)
-Match.Driver,                    config_parse_strv,               0,                             offsetof(link_config, match_driver)
-Match.Type,                      config_parse_strv,               0,                             offsetof(link_config, match_type)
+Match.OriginalName,              config_parse_match_ifnames,      0,                             offsetof(link_config, match_name)
+Match.Path,                      config_parse_match_strv,         0,                             offsetof(link_config, match_path)
+Match.Driver,                    config_parse_match_strv,         0,                             offsetof(link_config, match_driver)
+Match.Type,                      config_parse_match_strv,         0,                             offsetof(link_config, match_type)
+Match.Property,                  config_parse_match_property,     0,                             offsetof(link_config, match_property)
 Match.Host,                      config_parse_net_condition,      CONDITION_HOST,                offsetof(link_config, conditions)
 Match.Virtualization,            config_parse_net_condition,      CONDITION_VIRTUALIZATION,      offsetof(link_config, conditions)
 Match.KernelCommandLine,         config_parse_net_condition,      CONDITION_KERNEL_COMMAND_LINE, offsetof(link_config, conditions)
@@ -47,8 +48,8 @@ Link.TCP6SegmentationOffload,    config_parse_tristate,           0,            
 Link.UDPSegmentationOffload,     config_parse_warn_compat,        DISABLED_LEGACY,               0
 Link.GenericReceiveOffload,      config_parse_tristate,           0,                             offsetof(link_config, features[NET_DEV_FEAT_GRO])
 Link.LargeReceiveOffload,        config_parse_tristate,           0,                             offsetof(link_config, features[NET_DEV_FEAT_LRO])
-Link.RxChannels,                 config_parse_channel,            0,                             0
-Link.TxChannels,                 config_parse_channel,            0,                             0
-Link.OtherChannels,              config_parse_channel,            0,                             0
-Link.CombinedChannels,           config_parse_channel,            0,                             0
-Link.Advertise,                  config_parse_advertise,          0,                             0
+Link.RxChannels,                 config_parse_channel,            0,                             offsetof(link_config, channels)
+Link.TxChannels,                 config_parse_channel,            0,                             offsetof(link_config, channels)
+Link.OtherChannels,              config_parse_channel,            0,                             offsetof(link_config, channels)
+Link.CombinedChannels,           config_parse_channel,            0,                             offsetof(link_config, channels)
+Link.Advertise,                  config_parse_advertise,          0,                             offsetof(link_config, advertise)

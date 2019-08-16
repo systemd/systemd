@@ -19,6 +19,7 @@
 #include "device-nodes.h"
 #include "device-util.h"
 #include "dissect-image.h"
+#include "dm-util.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -59,7 +60,7 @@ int probe_filesystem(const char *node, char **ret_fstype) {
         errno = 0;
         b = blkid_new_probe_from_filename(node);
         if (!b)
-                return -errno ?: -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         blkid_probe_enable_superblocks(b, 1);
         blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
@@ -75,7 +76,7 @@ int probe_filesystem(const char *node, char **ret_fstype) {
                 return -EUCLEAN;
         }
         if (r != 0)
-                return -errno ?: -EIO;
+                return errno_or_else(EIO);
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
 
@@ -181,7 +182,7 @@ static int wait_for_partitions_to_appear(
                         continue;
 
                 if (!FLAGS_SET(flags, DISSECT_IMAGE_NO_UDEV)) {
-                        r = device_wait_for_initialization(q, "block", NULL);
+                        r = device_wait_for_initialization(q, "block", USEC_INFINITY, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -251,7 +252,7 @@ static int loop_wait_for_partitions_to_appear(
         log_debug("Waiting for device (parent + %d partitions) to appear...", num_partitions);
 
         if (!FLAGS_SET(flags, DISSECT_IMAGE_NO_UDEV)) {
-                r = device_wait_for_initialization(d, "block", &device);
+                r = device_wait_for_initialization(d, "block", USEC_INFINITY, &device);
                 if (r < 0)
                         return r;
         } else
@@ -332,7 +333,7 @@ int dissect_image(
         errno = 0;
         r = blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
-                return -errno ?: -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         if ((flags & DISSECT_IMAGE_GPT_ONLY) == 0) {
                 /* Look for file system superblocks, unless we only shall look for GPT partition tables */
@@ -348,7 +349,7 @@ int dissect_image(
         if (IN_SET(r, -2, 1))
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to identify any partition table.");
         if (r != 0)
-                return -errno ?: -EIO;
+                return errno_or_else(EIO);
 
         m = new0(DissectedImage, 1);
         if (!m)
@@ -414,7 +415,7 @@ int dissect_image(
         errno = 0;
         pl = blkid_probe_get_partitions(b);
         if (!pl)
-                return -errno ?: -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         r = loop_wait_for_partitions_to_appear(fd, d, blkid_partlist_numof_partitions(pl), flags, &e);
         if (r < 0)
@@ -994,7 +995,7 @@ static int make_dm_name_and_node(const void *original_node, const char *suffix, 
         if (!filename_is_valid(name))
                 return -EINVAL;
 
-        node = strjoin(crypt_get_dir(), "/", name);
+        node = path_join(crypt_get_dir(), name);
         if (!node)
                 return -ENOMEM;
 
@@ -1225,40 +1226,6 @@ int dissected_image_decrypt_interactively(
         }
 }
 
-#if HAVE_LIBCRYPTSETUP
-static int deferred_remove(DecryptedPartition *p) {
-        struct dm_ioctl dm = {
-                .version = {
-                        DM_VERSION_MAJOR,
-                        DM_VERSION_MINOR,
-                        DM_VERSION_PATCHLEVEL
-                },
-                .data_size = sizeof(dm),
-                .flags = DM_DEFERRED_REMOVE,
-        };
-
-        _cleanup_close_ int fd = -1;
-
-        assert(p);
-
-        /* Unfortunately, libcryptsetup doesn't provide a proper API for this, hence call the ioctl() directly. */
-
-        fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        if (strlen(p->name) > sizeof(dm.name))
-                return -ENAMETOOLONG;
-
-        strncpy(dm.name, p->name, sizeof(dm.name));
-
-        if (ioctl(fd, DM_DEV_REMOVE, &dm))
-                return -errno;
-
-        return 0;
-}
-#endif
-
 int decrypted_image_relinquish(DecryptedImage *d) {
 
 #if HAVE_LIBCRYPTSETUP
@@ -1278,7 +1245,7 @@ int decrypted_image_relinquish(DecryptedImage *d) {
                 if (p->relinquished)
                         continue;
 
-                r = deferred_remove(p);
+                r = dm_deferred_remove(p->name);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to mark %s for auto-removal: %m", p->name);
 

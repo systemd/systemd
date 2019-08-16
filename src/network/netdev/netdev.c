@@ -19,6 +19,7 @@
 #include "netdev/macvlan.h"
 #include "netdev/netdev.h"
 #include "netdev/netdevsim.h"
+#include "netdev/nlmon.h"
 #include "netdev/tunnel.h"
 #include "netdev/tuntap.h"
 #include "netdev/vcan.h"
@@ -28,6 +29,7 @@
 #include "netdev/vxcan.h"
 #include "netdev/vxlan.h"
 #include "netdev/wireguard.h"
+#include "netdev/xfrm.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-link.h"
@@ -45,6 +47,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_MACVLAN] = &macvlan_vtable,
         [NETDEV_KIND_MACVTAP] = &macvtap_vtable,
         [NETDEV_KIND_IPVLAN] = &ipvlan_vtable,
+        [NETDEV_KIND_IPVTAP] = &ipvtap_vtable,
         [NETDEV_KIND_VXLAN] = &vxlan_vtable,
         [NETDEV_KIND_IPIP] = &ipip_vtable,
         [NETDEV_KIND_GRE] = &gre_vtable,
@@ -69,6 +72,8 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_ERSPAN] = &erspan_vtable,
         [NETDEV_KIND_L2TP] = &l2tptnl_vtable,
         [NETDEV_KIND_MACSEC] = &macsec_vtable,
+        [NETDEV_KIND_NLMON] = &nlmon_vtable,
+        [NETDEV_KIND_XFRM] = &xfrm_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -78,6 +83,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_MACVLAN] = "macvlan",
         [NETDEV_KIND_MACVTAP] = "macvtap",
         [NETDEV_KIND_IPVLAN] = "ipvlan",
+        [NETDEV_KIND_IPVTAP] = "ipvtap",
         [NETDEV_KIND_VXLAN] = "vxlan",
         [NETDEV_KIND_IPIP] = "ipip",
         [NETDEV_KIND_GRE] = "gre",
@@ -102,6 +108,8 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_ERSPAN] = "erspan",
         [NETDEV_KIND_L2TP] = "l2tp",
         [NETDEV_KIND_MACSEC] = "macsec",
+        [NETDEV_KIND_NLMON] = "nlmon",
+        [NETDEV_KIND_XFRM] = "xfrm",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -254,7 +262,7 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, link_netlink_message
 
         if (link->flags & IFF_UP && netdev->kind == NETDEV_KIND_BOND) {
                 log_netdev_debug(netdev, "Link '%s' was up when attempting to enslave it. Bringing link down.", link->ifname);
-                r = link_down(link);
+                r = link_down(link, NULL);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not bring link down: %m");
         }
@@ -732,7 +740,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->filename)
                 return log_oom();
 
-        if (!netdev->mac && netdev->kind != NETDEV_KIND_VLAN) {
+        if (!netdev->mac && NETDEV_VTABLE(netdev)->generate_mac) {
                 r = netdev_get_mac(netdev->ifname, &netdev->mac);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r,
@@ -801,6 +809,9 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 break;
         case NETDEV_KIND_ERSPAN:
                 independent = ERSPAN(netdev)->independent;
+                break;
+        case NETDEV_KIND_XFRM:
+                independent = XFRM(netdev)->independent;
                 break;
         default:
                 break;

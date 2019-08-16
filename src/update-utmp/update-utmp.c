@@ -191,6 +191,9 @@ static int on_runlevel(Context *c) {
         if (runlevel < 0)
                 return runlevel;
 
+        if (runlevel == 0)
+                return log_warning("Failed to get new runlevel, utmp update skipped.");
+
         if (previous == runlevel)
                 return 0;
 

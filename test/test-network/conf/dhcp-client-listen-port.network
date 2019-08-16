@@ -2,7 +2,8 @@
 Name=veth99
 
 [Network]
-DHCP=yes
+DHCP=ipv4
+IPv6AcceptRA=no
 
-[DHCP]
+[DHCPv4]
 ListenPort=5555

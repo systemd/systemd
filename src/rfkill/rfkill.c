@@ -109,7 +109,7 @@ static int determine_state_file(
         if (r < 0)
                 return r;
 
-        r = device_wait_for_initialization(d, "rfkill", &device);
+        r = device_wait_for_initialization(d, "rfkill", USEC_INFINITY, &device);
         if (r < 0)
                 return r;
 
@@ -154,7 +154,7 @@ static int load_state(Context *c, const struct rfkill_event *event) {
         if (IN_SET(r, -ENOENT, 0)) {
                 /* No state file or it's truncated? Then save the current state */
 
-                r = write_string_file(state_file, one_zero(event->soft), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+                r = write_string_file(state_file, one_zero(event->soft), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write state file %s: %m", state_file);
 
@@ -246,7 +246,7 @@ static int save_state_cancel(Context *c, const struct rfkill_event *event) {
 static int save_state_write_one(struct write_queue_item *item) {
         int r;
 
-        r = write_string_file(item->file, one_zero(item->state), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = write_string_file(item->file, one_zero(item->state), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to write state file %s: %m", item->file);
 
@@ -279,10 +279,6 @@ static int run(int argc, char *argv[]) {
         log_setup_service();
 
         umask(0022);
-
-        r = mkdir_p("/var/lib/systemd/rfkill", 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create rfkill directory: %m");
 
         n = sd_listen_fds(false);
         if (n < 0)

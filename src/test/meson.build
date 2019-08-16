@@ -137,6 +137,10 @@ tests += [
          [],
          'ENABLE_EFI'],
 
+        [['src/test/test-unit-file.c'],
+         [],
+         []],
+
         [['src/test/test-unit-name.c',
           'src/test/test-helper.c'],
          [libcore,
@@ -148,7 +152,7 @@ tests += [
           libmount,
           libblkid]],
 
-        [['src/test/test-unit-file.c',
+        [['src/test/test-load-fragment.c',
           'src/test/test-helper.c'],
          [libcore,
           libshared],
@@ -216,6 +220,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-format-util.c'],
+         [],
+         []],
+
         [['src/test/test-ratelimit.c'],
          [],
          []],
@@ -269,6 +277,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-umask-util.c'],
+         [],
+         []],
+
         [['src/test/test-proc-cmdline.c'],
          [],
          []],
@@ -294,6 +306,10 @@ tests += [
          []],
 
         [['src/test/test-escape.c'],
+         [],
+         []],
+
+        [['src/test/test-exit-status.c'],
          [],
          []],
 
@@ -591,7 +607,15 @@ tests += [
           libmount,
           libblkid]],
 
+        [['src/test/test-varlink.c'],
+         [],
+         [threads]],
+
         [['src/test/test-cgroup-util.c'],
+         [],
+         []],
+
+        [['src/test/test-env-file.c'],
          [],
          []],
 
@@ -610,6 +634,11 @@ tests += [
         [['src/test/test-path-util.c'],
          [],
          []],
+
+        [['src/test/test-chase-symlinks.c'],
+         [],
+         [],
+         '', 'manual'],
 
         [['src/test/test-path.c',
           'src/test/test-helper.c'],
@@ -736,6 +765,10 @@ tests += [
          []],
 
         [['src/test/test-sd-hwdb.c'],
+         [],
+         []],
+
+        [['src/test/test-local-addresses.c'],
          [],
          []],
 ]
@@ -948,10 +981,6 @@ tests += [
          [],
          []],
 
-        [['src/libsystemd/sd-netlink/test-local-addresses.c'],
-         [],
-         []],
-
         [['src/libsystemd/sd-resolve/test-resolve.c'],
          [],
          [threads],
@@ -983,7 +1012,10 @@ tests += [
 
 ]
 
-if cxx_cmd != ''
+# test-bus-vtable-cc.cc is a symlink and symlinks get lost in containers on FuzzBuzz.
+# The issue has been reported to the developers of FuzzBuzz and hopefully will be fixed soon.
+# In the meantime, let's just skip the symlink there.
+if cxx_cmd != '' and not want_fuzzbuzz
         tests += [
                 [['src/libsystemd/sd-bus/test-bus-vtable-cc.cc'],
                  [],

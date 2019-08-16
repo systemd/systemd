@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "capability-util.h"
+#include "cap-list.h"
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
@@ -90,7 +91,7 @@ int capability_update_inherited_set(cap_t caps, uint64_t set) {
         /* Add capabilities in the set to the inherited caps. Do not apply
          * them yet. */
 
-        for (i = 0; i < cap_last_cap(); i++) {
+        for (i = 0; i <= cap_last_cap(); i++) {
 
                 if (set & (UINT64_C(1) << i)) {
                         cap_value_t v;
@@ -126,7 +127,7 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
                         return -errno;
         }
 
-        for (i = 0; i < cap_last_cap(); i++) {
+        for (i = 0; i <= cap_last_cap(); i++) {
 
                 if (set & (UINT64_C(1) << i)) {
 
@@ -238,23 +239,20 @@ static int drop_from_file(const char *fn, uint64_t keep) {
         if (r < 0)
                 return r;
 
-        assert_cc(sizeof(hi) == sizeof(unsigned));
-        assert_cc(sizeof(lo) == sizeof(unsigned));
-
-        k = sscanf(p, "%u %u", &lo, &hi);
+        k = sscanf(p, "%" PRIu32 " %" PRIu32, &lo, &hi);
         if (k != 2)
                 return -EIO;
 
-        current = (uint64_t) lo | ((uint64_t) hi << 32ULL);
+        current = (uint64_t) lo | ((uint64_t) hi << 32);
         after = current & keep;
 
         if (current == after)
                 return 0;
 
-        lo = (unsigned) (after & 0xFFFFFFFFULL);
-        hi = (unsigned) ((after >> 32ULL) & 0xFFFFFFFFULL);
+        lo = after & UINT32_C(0xFFFFFFFF);
+        hi = (after >> 32) & UINT32_C(0xFFFFFFFF);
 
-        return write_string_filef(fn, WRITE_STRING_FILE_CREATE, "%u %u", lo, hi);
+        return write_string_filef(fn, 0, "%" PRIu32 " %" PRIu32, lo, hi);
 }
 
 int capability_bounding_set_drop_usermode(uint64_t keep) {
@@ -365,6 +363,43 @@ bool ambient_capabilities_supported(void) {
                 !IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS);
 
         return cache;
+}
+
+bool capability_quintet_mangle(CapabilityQuintet *q) {
+        unsigned long i;
+        uint64_t combined, drop = 0;
+        bool ambient_supported;
+
+        assert(q);
+
+        combined = q->effective | q->bounding | q->inheritable | q->permitted;
+
+        ambient_supported = q->ambient != (uint64_t) -1;
+        if (ambient_supported)
+                combined |= q->ambient;
+
+        for (i = 0; i <= cap_last_cap(); i++) {
+                unsigned long bit = UINT64_C(1) << i;
+                if (!FLAGS_SET(combined, bit))
+                        continue;
+
+                if (prctl(PR_CAPBSET_READ, i) > 0)
+                        continue;
+
+                drop |= bit;
+
+                log_debug("Not in the current bounding set: %s", capability_to_name(i));
+        }
+
+        q->effective &= ~drop;
+        q->bounding &= ~drop;
+        q->inheritable &= ~drop;
+        q->permitted &= ~drop;
+
+        if (ambient_supported)
+                q->ambient &= ~drop;
+
+        return drop != 0; /* Let the caller know we changed something */
 }
 
 int capability_quintet_enforce(const CapabilityQuintet *q) {

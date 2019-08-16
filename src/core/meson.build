@@ -66,6 +66,8 @@ libcore_sources = '''
         device.h
         dynamic-user.c
         dynamic-user.h
+        efi-random.c
+        efi-random.h
         emergency-action.c
         emergency-action.h
         execute.c
@@ -178,6 +180,7 @@ systemd_sources = files('main.c')
 
 in_files = [['macros.systemd',   rpmmacrosdir],
             ['system.conf',      pkgsysconfdir],
+            ['user.conf',        pkgsysconfdir],
             ['systemd.pc',       pkgconfigdatadir],
             ['triggers.systemd', '']]
 
@@ -204,19 +207,11 @@ policy = configure_file(
 install_data(policy,
              install_dir : polkitpolicydir)
 
-install_data('user.conf',
-             install_dir : pkgsysconfdir)
-
 meson.add_install_script('sh', '-c', mkdir_p.format(systemshutdowndir))
 meson.add_install_script('sh', '-c', mkdir_p.format(systemsleepdir))
 meson.add_install_script('sh', '-c', mkdir_p.format(systemgeneratordir))
 meson.add_install_script('sh', '-c', mkdir_p.format(usergeneratordir))
 
-meson.add_install_script('sh', '-c',
-                         mkdir_p.format(join_paths(pkgsysconfdir, 'system/multi-user.target.wants')))
-meson.add_install_script('sh', '-c',
-                         mkdir_p.format(join_paths(pkgsysconfdir, 'system/getty.target.wants')))
-meson.add_install_script('sh', '-c',
-                         mkdir_p.format(join_paths(pkgsysconfdir, 'user')))
-meson.add_install_script('sh', '-c',
-                         mkdir_p.format(join_paths(sysconfdir, 'xdg/systemd')))
+meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(pkgsysconfdir, 'system')))
+meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(pkgsysconfdir, 'user')))
+meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(sysconfdir, 'xdg/systemd')))

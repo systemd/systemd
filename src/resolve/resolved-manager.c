@@ -14,6 +14,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "bus-util.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
@@ -580,7 +581,7 @@ int manager_new(Manager **ret) {
                 .mdns_support = RESOLVE_SUPPORT_YES,
                 .dnssec_mode = DEFAULT_DNSSEC_MODE,
                 .dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE,
-                .enable_cache = true,
+                .enable_cache = DNS_CACHE_MODE_YES,
                 .dns_stub_listener_mode = DNS_STUB_LISTENER_YES,
                 .read_resolv_conf = true,
                 .need_builtin_fallbacks = true,
@@ -596,6 +597,12 @@ int manager_new(Manager **ret) {
         r = manager_parse_config_file(m);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse configuration file: %m");
+
+#if ENABLE_DNS_OVER_TLS
+        r = dnstls_manager_init(m);
+        if (r < 0)
+                return r;
+#endif
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -677,6 +684,10 @@ Manager *manager_free(Manager *m) {
         while (m->dns_streams)
                 dns_stream_unref(m->dns_streams);
 
+#if ENABLE_DNS_OVER_TLS
+        dnstls_manager_free(m);
+#endif
+
         hashmap_free(m->links);
         hashmap_free(m->dns_transactions);
 
@@ -689,6 +700,8 @@ Manager *manager_free(Manager *m) {
         manager_llmnr_stop(m);
         manager_mdns_stop(m);
         manager_dns_stub_stop(m);
+
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
 
         sd_bus_flush_close_unref(m->bus);
 
@@ -1490,7 +1503,7 @@ void manager_cleanup_saved_user(Manager *m) {
                 continue;
 
         rm:
-                p = strappend("/run/systemd/resolve/netif/", de->d_name);
+                p = path_join("/run/systemd/resolve/netif", de->d_name);
                 if (!p) {
                         log_oom();
                         return;

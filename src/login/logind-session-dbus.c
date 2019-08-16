@@ -8,13 +8,20 @@
 #include "bus-label.h"
 #include "bus-util.h"
 #include "fd-util.h"
+#include "logind-brightness.h"
+#include "logind-dbus.h"
+#include "logind-seat-dbus.h"
+#include "logind-session-dbus.h"
 #include "logind-session-device.h"
 #include "logind-session.h"
+#include "logind-user-dbus.h"
 #include "logind.h"
 #include "missing_capability.h"
+#include "path-util.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static int property_get_user(
@@ -479,6 +486,57 @@ static int method_pause_device_complete(sd_bus_message *message, void *userdata,
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_set_brightness(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        const char *subsystem, *name, *seat;
+        Session *s = userdata;
+        uint32_t brightness;
+        uid_t uid;
+        int r;
+
+        assert(message);
+        assert(s);
+
+        r = sd_bus_message_read(message, "ssu", &subsystem, &name, &brightness);
+        if (r < 0)
+                return r;
+
+        if (!STR_IN_SET(subsystem, "backlight", "leds"))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Subsystem type %s not supported, must be one of 'backlight' or 'leds'.", subsystem);
+        if (!filename_is_valid(name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Not a valid device name %s, refusing.", name);
+
+        if (!s->seat)
+                return sd_bus_error_setf(error, BUS_ERROR_NOT_YOUR_DEVICE, "Your session has no seat, refusing.");
+        if (s->seat->active != s)
+                return sd_bus_error_setf(error, BUS_ERROR_NOT_YOUR_DEVICE, "Session is not in foreground, refusing.");
+
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_euid(creds, &uid);
+        if (r < 0)
+                return r;
+
+        if (uid != 0 && uid != s->user->uid)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may change brightness.");
+
+        r = sd_device_new_from_subsystem_sysname(&d, subsystem, name);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to open device %s:%s: %m", subsystem, name);
+
+        if (sd_device_get_property_value(d, "ID_SEAT", &seat) >= 0 && !streq_ptr(seat, s->seat->id))
+                return sd_bus_error_setf(error, BUS_ERROR_NOT_YOUR_DEVICE, "Device %s:%s does not belong to your seat %s, refusing.", subsystem, name, s->seat->id);
+
+        r = manager_write_brightness(s->manager, d, brightness, message);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 const sd_bus_vtable session_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -501,7 +559,7 @@ const sd_bus_vtable session_vtable[] = {
         SD_BUS_PROPERTY("Type", "s", property_get_type, offsetof(Session, type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Class", "s", property_get_class, offsetof(Session, class), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Active", "b", property_get_active, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("State", "s", property_get_state, 0, 0),
+        SD_BUS_PROPERTY("State", "s", property_get_state, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -519,6 +577,7 @@ const sd_bus_vtable session_vtable[] = {
         SD_BUS_METHOD("TakeDevice", "uu", "hb", method_take_device, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ReleaseDevice", "uu", NULL, method_release_device, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PauseDeviceComplete", "uu", NULL, method_pause_device_complete, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetBrightness", "ssu", NULL, method_set_brightness, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL("PauseDevice", "uus", 0),
         SD_BUS_SIGNAL("ResumeDevice", "uuh", 0),
@@ -529,8 +588,11 @@ const sd_bus_vtable session_vtable[] = {
 };
 
 int session_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+        _cleanup_free_ char *e = NULL;
+        sd_bus_message *message;
         Manager *m = userdata;
         Session *session;
+        const char *p;
         int r;
 
         assert(bus);
@@ -539,32 +601,25 @@ int session_object_find(sd_bus *bus, const char *path, const char *interface, vo
         assert(found);
         assert(m);
 
-        if (streq(path, "/org/freedesktop/login1/session/self")) {
-                sd_bus_message *message;
+        p = startswith(path, "/org/freedesktop/login1/session/");
+        if (!p)
+                return 0;
 
-                message = sd_bus_get_current_message(bus);
-                if (!message)
-                        return 0;
+        e = bus_label_unescape(p);
+        if (!e)
+                return -ENOMEM;
 
-                r = manager_get_session_from_creds(m, message, NULL, error, &session);
-                if (r < 0)
-                        return r;
-        } else {
-                _cleanup_free_ char *e = NULL;
-                const char *p;
+        message = sd_bus_get_current_message(bus);
+        if (!message)
+                return 0;
 
-                p = startswith(path, "/org/freedesktop/login1/session/");
-                if (!p)
-                        return 0;
-
-                e = bus_label_unescape(p);
-                if (!e)
-                        return -ENOMEM;
-
-                session = hashmap_get(m->sessions, e);
-                if (!session)
-                        return 0;
+        r = manager_get_session_from_creds(m, message, e, error, &session);
+        if (r == -ENXIO) {
+                sd_bus_error_free(error);
+                return 0;
         }
+        if (r < 0)
+                return r;
 
         *found = session;
         return 1;
@@ -579,7 +634,7 @@ char *session_bus_path(Session *s) {
         if (!t)
                 return NULL;
 
-        return strappend("/org/freedesktop/login1/session/", t);
+        return strjoin("/org/freedesktop/login1/session/", t);
 }
 
 int session_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
@@ -609,10 +664,12 @@ int session_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
         message = sd_bus_get_current_message(bus);
         if (message) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                const char *name;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_AUGMENT, &creds);
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
                 if (r >= 0) {
+                        bool may_auto = false;
+                        const char *name;
+
                         r = sd_bus_creds_get_session(creds, &name);
                         if (r >= 0) {
                                 session = hashmap_get(m->sessions, name);
@@ -620,13 +677,32 @@ int session_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
                                         r = strv_extend(&l, "/org/freedesktop/login1/session/self");
                                         if (r < 0)
                                                 return r;
+
+                                        may_auto = true;
                                 }
+                        }
+
+                        if (!may_auto) {
+                                uid_t uid;
+
+                                r = sd_bus_creds_get_owner_uid(creds, &uid);
+                                if (r >= 0) {
+                                        User *user;
+
+                                        user = hashmap_get(m->users, UID_TO_PTR(uid));
+                                        may_auto = user && user->display;
+                                }
+                        }
+
+                        if (may_auto) {
+                                r = strv_extend(&l, "/org/freedesktop/login1/session/auto");
+                                if (r < 0)
+                                        return r;
                         }
                 }
         }
 
         *nodes = TAKE_PTR(l);
-
         return 1;
 }
 
