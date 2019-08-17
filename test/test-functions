@@ -941,6 +941,7 @@ import_testdir() {
 
 import_initdir() {
     initdir=$TESTDIR/root
+    mkdir -p $initdir
     export initdir
 }
 
