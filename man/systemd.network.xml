@@ -57,7 +57,7 @@
     <filename>/run/systemd/network</filename> directories. Drop-in files in
     <filename>/etc</filename> take precedence over those in <filename>/run</filename> which in turn
     take precedence over those in <filename>/usr/lib</filename>. Drop-in files under any of these
-    directories take precedence over the main netdev file wherever located.</para>
+    directories take precedence over the main network file wherever located.</para>
 
     <para>Note that an interface without any static IPv6 addresses configured, and neither DHCPv6
     nor IPv6LL enabled, shall be considered to have no IPv6 support. IPv6 will be automatically
@@ -90,7 +90,7 @@
           <term><varname>MACAddress=</varname></term>
           <listitem>
             <para>A whitespace-separated list of hardware addresses. Use full colon-, hyphen- or dot-delimited hexadecimal. See the example below.
-            This option may appear more than one, in which case the lists are merged. If the empty string is assigned to this option, the list
+            This option may appear more than once, in which case the lists are merged. If the empty string is assigned to this option, the list
             of hardware addresses defined prior to this is reset.</para>
 
             <para>Example:
