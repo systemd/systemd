@@ -33,7 +33,7 @@
     <title>Description</title>
 
     <para><filename>systemd-vconsole-setup</filename> sets up and configures either all virtual consoles, or — if the
-    optional <replaceable>TTY</replaceable> parameter is provided — a specific one. When the system is booting up it's
+    optional <replaceable>TTY</replaceable> parameter is provided — a specific one. When the system is booting up, it's
     called by <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry> during
     VT console subsystem initialization.  Also,
     <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> invokes
