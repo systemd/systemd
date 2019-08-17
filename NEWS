@@ -429,6 +429,9 @@ CHANGES WITH 243 in spe:
           option that permits selecting the timout how long to wait for a
           device with an encryption key before asking for the password.
 
+        * IOWeight= has learnt to properly set the IO weight when using the
+          BFQ scheduler officially found in kernels 5.0+.
+
         Contributions from: Aaron Barany, Adrian Bunk, Alan Jenkins, Andrej
         Valek, Anita Zhang, Arian van Putten, Balint Reczey, Bastien Nocera,
         Ben Boeckel, Benjamin Robin, camoz, Chen Qi, Chris Chiu, Chris Down,

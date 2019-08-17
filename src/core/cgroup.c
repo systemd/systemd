@@ -1063,6 +1063,11 @@ static void cgroup_context_apply(
                 xsprintf(buf, "default %" PRIu64 "\n", weight);
                 (void) set_attribute_and_warn(u, "io", "io.weight", buf);
 
+                /* FIXME: drop this when distro kernels properly support BFQ through "io.weight"
+                 * See also: https://github.com/systemd/systemd/pull/13335 */
+                xsprintf(buf, "%" PRIu64 "\n", weight);
+                (void) set_attribute_and_warn(u, "io", "io.bfq.weight", buf);
+
                 if (has_io) {
                         CGroupIODeviceLatency *latency;
                         CGroupIODeviceLimit *limit;
