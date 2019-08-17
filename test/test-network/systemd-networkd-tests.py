@@ -1412,7 +1412,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '24-keep-configuration-static.network',
         '24-search-domain.network',
         '25-address-link-section.network',
-        '25-address-preferred-lifetime-zero-ipv6.network',
+        '25-address-preferred-lifetime-zero.network',
         '25-address-static.network',
         '25-bind-carrier.network',
         '25-bond-active-backup-slave.netdev',
@@ -1493,16 +1493,19 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet6 fd[0-9a-f:]*1/64 scope global')
 
     def test_address_preferred_lifetime_zero_ipv6(self):
-        copy_unit_to_networkd_unit_path('25-address-preferred-lifetime-zero-ipv6.network', '12-dummy.netdev')
+        copy_unit_to_networkd_unit_path('25-address-preferred-lifetime-zero.network', '12-dummy.netdev')
         start_networkd(5)
 
-        self.check_link_exists('dummy98')
-        self.check_operstate('dummy98', 'routable', setup_state='configuring')
+        self.wait_online(['dummy98:routable'])
 
         output = check_output('ip address show dummy98')
         print(output)
         self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope link deprecated dummy98')
         self.assertRegex(output, 'inet6 2001:db8:0:f101::1/64 scope global')
+
+        output = check_output('ip route show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'default via 20.20.20.1 proto static')
 
     def test_configure_without_carrier(self):
         copy_unit_to_networkd_unit_path('configure-without-carrier.network', '11-dummy.netdev')

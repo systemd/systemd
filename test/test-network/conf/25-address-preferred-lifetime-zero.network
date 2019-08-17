@@ -6,6 +6,9 @@ Name=dummy98
 Address=hogehoge
 Address=foofoo
 
+[Route]
+Gateway=20.20.20.1
+
 [Address]
 Address=10.2.3.4/16
 PreferredLifetime=0
@@ -13,6 +16,9 @@ Scope=link
 
 [Address]
 Address=2001:0db8:0:f101::1/64
+
+[Address]
+Address=20.20.20.100/24
 
 [Address]
 # this section must be ignored
