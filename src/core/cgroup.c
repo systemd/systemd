@@ -984,6 +984,14 @@ static void cgroup_context_apply(
                                 log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                               "Failed to set io.weight: %m");
 
+                        /* FIXME: drop this when distro kernels properly support BFQ through "io.weight"
+                         * See also: https://github.com/systemd/systemd/pull/13335 */
+                        xsprintf(buf, "%" PRIu64 "\n", weight);
+                        r = cg_set_attribute("io", path, "io.bfq.weight", buf);
+                        if (r < 0)
+                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                              "Failed to set io.bfq.weight: %m");
+
                         if (has_io) {
                                 CGroupIODeviceWeight *w;
 
