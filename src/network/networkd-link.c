@@ -211,17 +211,10 @@ static bool link_ipv6_enabled(Link *link) {
         if (!socket_ipv6_is_supported())
                 return false;
 
-        if (link->network->bond)
-                return false;
-
         if (link_sysctl_ipv6_enabled(link) == 0)
                 return false;
 
-        if (link->iftype == ARPHRD_CAN)
-                return false;
-
-        /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
-        return link_ipv6ll_enabled(link) || network_has_static_ipv6_addresses(link->network);
+        return true;
 }
 
 static bool link_radv_enabled(Link *link) {
@@ -327,24 +320,6 @@ static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
                 return _IPV6_PRIVACY_EXTENSIONS_INVALID;
 
         return link->network->ipv6_privacy_extensions;
-}
-
-static int link_enable_ipv6(Link *link) {
-        bool disabled;
-        int r;
-
-        if (link->flags & IFF_LOOPBACK)
-                return 0;
-
-        disabled = !link_ipv6_enabled(link);
-
-        r = sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "disable_ipv6", disabled);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot %s IPv6: %m", enable_disable(!disabled));
-        else
-                log_link_info(link, "IPv6 successfully %sd", enable_disable(!disabled));
-
-        return 0;
 }
 
 static bool link_is_enslaved(Link *link) {
@@ -1280,10 +1255,6 @@ int link_set_mtu(Link *link, uint32_t mtu) {
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        /* If IPv6 not configured (no static IPv6 address and IPv6LL autoconfiguration is disabled)
-         * for this interface, then disable IPv6 else enable it. */
-        (void) link_enable_ipv6(link);
 
         /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes
          * on the interface. Bump up MTU bytes to IPV6_MTU_MIN. */
