@@ -90,10 +90,22 @@ int link_sysctl_ipv6_enabled(Link *link) {
         return link->sysctl_ipv6_enabled;
 }
 
-static bool link_dhcp6_enabled(Link *link) {
+static bool link_ipv6_enabled(Link *link) {
         assert(link);
 
         if (!socket_ipv6_is_supported())
+                return false;
+
+        if (link_sysctl_ipv6_enabled(link) == 0)
+                return false;
+
+        return true;
+}
+
+static bool link_dhcp6_enabled(Link *link) {
+        assert(link);
+
+        if (!link_ipv6_enabled(link))
                 return false;
 
         if (link->flags & IFF_LOOPBACK)
@@ -106,9 +118,6 @@ static bool link_dhcp6_enabled(Link *link) {
                 return false;
 
         if (link->iftype == ARPHRD_CAN)
-                return false;
-
-        if (link_sysctl_ipv6_enabled(link) == 0)
                 return false;
 
         return link->network->dhcp & ADDRESS_FAMILY_IPV6;
@@ -205,18 +214,6 @@ static bool link_ipv6ll_enabled(Link *link) {
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
-static bool link_ipv6_enabled(Link *link) {
-        assert(link);
-
-        if (!socket_ipv6_is_supported())
-                return false;
-
-        if (link_sysctl_ipv6_enabled(link) == 0)
-                return false;
-
-        return true;
-}
-
 static bool link_radv_enabled(Link *link) {
         assert(link);
 
@@ -244,7 +241,7 @@ static bool link_ipv4_forward_enabled(Link *link) {
 static bool link_ipv6_forward_enabled(Link *link) {
         assert(link);
 
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return false;
 
         if (link->flags & IFF_LOOPBACK)
@@ -254,9 +251,6 @@ static bool link_ipv6_forward_enabled(Link *link) {
                 return false;
 
         if (link->network->ip_forward == _ADDRESS_FAMILY_INVALID)
-                return false;
-
-        if (link_sysctl_ipv6_enabled(link) == 0)
                 return false;
 
         return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
@@ -279,15 +273,6 @@ static bool link_proxy_arp_enabled(Link *link) {
 
 static bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
-
-        if (!socket_ipv6_is_supported())
-                return false;
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (!link->network)
-                return false;
 
         if (!link_ipv6ll_enabled(link))
                 return false;
