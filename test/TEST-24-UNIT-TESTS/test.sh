@@ -29,25 +29,25 @@ check_result_nspawn() {
 
 check_result_qemu() {
     local _ret=1
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
-    [[ -e $TESTDIR/root/testok ]] && _ret=0
-    if [[ -s $TESTDIR/root/failed ]]; then
+    mkdir -p $initdir
+    mount ${LOOPDEV}p1 $initdir
+    [[ -e $initdir/testok ]] && _ret=0
+    if [[ -s $initdir/failed ]]; then
         _ret=$(($_ret+1))
         echo "=== Failed test log ==="
-        cat $TESTDIR/root/failed
+        cat $initdir/failed
     else
-        if [[ -s $TESTDIR/root/skipped ]]; then
+        if [[ -s $initdir/skipped ]]; then
             echo "=== Skipped test log =="
-            cat $TESTDIR/root/skipped
+            cat $initdir/skipped
         fi
-        if [[ -s $TESTDIR/root/testok ]]; then
+        if [[ -s $initdir/testok ]]; then
             echo "=== Passed tests ==="
-            cat $TESTDIR/root/testok
+            cat $initdir/testok
         fi
     fi
-    cp -a $TESTDIR/root/var/log/journal $TESTDIR
-    umount $TESTDIR/root
+    cp -a $initdir/var/log/journal $TESTDIR
+    umount $initdir
     [[ -n "$TIMED_OUT" ]] && _ret=$(($_ret+1))
     return $_ret
 }

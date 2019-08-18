@@ -561,8 +561,8 @@ EOF
 
 create_empty_image_rootdir() {
     create_empty_image
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
+    mkdir -p $initdir
+    mount ${LOOPDEV}p1 $initdir
     TEST_SETUP_CLEANUP_ROOTDIR=1
 }
 
@@ -622,13 +622,13 @@ check_result_nspawn() {
 # can be overridden in specific test
 check_result_qemu() {
     local ret=1
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
-    [[ -e $TESTDIR/root/testok ]] && ret=0
-    [[ -f $TESTDIR/root/failed ]] && cp -a $TESTDIR/root/failed $TESTDIR
-    cp -a $TESTDIR/root/var/log/journal $TESTDIR
-    check_asan_reports "$TESTDIR/root" || ret=$(($ret+1))
-    umount $TESTDIR/root
+    mkdir -p $initdir
+    mount ${LOOPDEV}p1 $initdir
+    [[ -e $initdir/testok ]] && ret=0
+    [[ -f $initdir/failed ]] && cp -a $initdir/failed $TESTDIR
+    cp -a $initdir/var/log/journal $TESTDIR
+    check_asan_reports "$initdir" || ret=$(($ret+1))
+    umount $initdir
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
@@ -941,6 +941,7 @@ import_testdir() {
 
 import_initdir() {
     initdir=$TESTDIR/root
+    mkdir -p $initdir
     export initdir
 }
 
@@ -1668,12 +1669,16 @@ setup_suse() {
     inst_simple "/usr/lib/systemd/system/haveged.service"
 }
 
+_umount_dir() {
+    if mountpoint -q $1; then
+        ddebug "umount $1"
+        umount $1
+    fi
+}
+
 _test_setup_cleanup() {
     # only umount if create_empty_image_rootdir() was called to mount it
-    if [[ $TEST_SETUP_CLEANUP_ROOTDIR ]]; then
-        ddebug "umount $TESTDIR/root"
-        umount $TESTDIR/root
-    fi
+    [[ -z $TEST_SETUP_CLEANUP_ROOTDIR ]] || _umount_dir $initdir
 }
 
 # can be overridden in specific test
@@ -1685,10 +1690,7 @@ _test_cleanup() {
     # (post-test) cleanup should always ignore failure and cleanup as much as possible
     (
         set +e
-        if mountpoint $TESTDIR/root; then
-            ddebug "umount $TESTDIR/root"
-            umount $TESTDIR/root
-        fi
+        _umount_dir $initdir
         if [[ $LOOPDEV && -b $LOOPDEV ]]; then
             ddebug "losetup -d $LOOPDEV"
             losetup -d $LOOPDEV

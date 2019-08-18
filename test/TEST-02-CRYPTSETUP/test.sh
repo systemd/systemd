@@ -7,15 +7,15 @@ TEST_NO_NSPAWN=1
 
 check_result_qemu() {
     ret=1
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
-    [[ -e $TESTDIR/root/testok ]] && ret=0
-    [[ -f $TESTDIR/root/failed ]] && cp -a $TESTDIR/root/failed $TESTDIR
+    mkdir -p $initdir
+    mount ${LOOPDEV}p1 $initdir
+    [[ -e $initdir/testok ]] && ret=0
+    [[ -f $initdir/failed ]] && cp -a $initdir/failed $TESTDIR
     cryptsetup luksOpen ${LOOPDEV}p2 varcrypt <$TESTDIR/keyfile
-    mount /dev/mapper/varcrypt $TESTDIR/root/var
-    cp -a $TESTDIR/root/var/log/journal $TESTDIR
-    umount $TESTDIR/root/var
-    umount $TESTDIR/root
+    mount /dev/mapper/varcrypt $initdir/var
+    cp -a $initdir/var/log/journal $TESTDIR
+    umount $initdir/var
+    umount $initdir
     cryptsetup luksClose /dev/mapper/varcrypt
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
@@ -30,8 +30,8 @@ test_setup() {
     cryptsetup -q luksFormat --pbkdf pbkdf2 --pbkdf-force-iterations 1000 ${LOOPDEV}p2 $TESTDIR/keyfile
     cryptsetup luksOpen ${LOOPDEV}p2 varcrypt <$TESTDIR/keyfile
     mkfs.ext4 -L var /dev/mapper/varcrypt
-    mkdir -p $TESTDIR/root/var
-    mount /dev/mapper/varcrypt $TESTDIR/root/var
+    mkdir -p $initdir/var
+    mount /dev/mapper/varcrypt $initdir/var
 
     # Create what will eventually be our root filesystem onto an overlay
     (
@@ -77,8 +77,8 @@ EOF
 }
 
 cleanup_root_var() {
-    ddebug "umount $TESTDIR/root/var"
-    mountpoint $TESTDIR/root/var && umount $TESTDIR/root/var
+    ddebug "umount $initdir/var"
+    mountpoint $initdir/var && umount $initdir/var
     [[ -b /dev/mapper/varcrypt ]] && cryptsetup luksClose /dev/mapper/varcrypt
 }
 
