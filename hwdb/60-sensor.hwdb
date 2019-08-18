@@ -160,6 +160,10 @@ sensor:modalias:acpi:BMA250E*:dmi:bvnINSYDECorp.:bvrG1D_S165*:svnilife:pnS165:*
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnX1D3_C806N:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
+# Chuwi Hi10 (CWI1515)
+sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvrP02A_C106.60E:bd03/18/2016:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnHampoo:rnCherryTrailCR:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0
+
 # Chuwi Hi10 Pro
 sensor:modalias:acpi:BOSC0200*:dmi:*:svn*CHUWIINNOVATIONANDTECHNOLOGY*:pnHi10protablet:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
