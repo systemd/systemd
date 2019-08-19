@@ -50,6 +50,10 @@ static inline void* ordered_set_remove(OrderedSet *s, void *p) {
         return ordered_hashmap_remove((OrderedHashmap*) s, p);
 }
 
+static inline void* ordered_set_first(OrderedSet *s) {
+        return ordered_hashmap_first((OrderedHashmap*) s);
+}
+
 static inline void* ordered_set_steal_first(OrderedSet *s) {
         return ordered_hashmap_steal_first((OrderedHashmap*) s);
 }
