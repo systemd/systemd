@@ -39,6 +39,9 @@ SUBSYSTEM=="cec", GROUP="video"
 SUBSYSTEM=="drm", KERNEL=="renderD*", GROUP="render", MODE="@GROUP_RENDER_MODE@"
 SUBSYSTEM=="kfd", GROUP="render", MODE="@GROUP_RENDER_MODE@"
 
+# When using static_node= with non-default permissions, also update
+# tmpfiles.d/static-nodes-permissions.conf.in to keep permissions synchronized.
+
 SUBSYSTEM=="sound", GROUP="audio", \
   OPTIONS+="static_node=snd/seq", OPTIONS+="static_node=snd/timer"
 
