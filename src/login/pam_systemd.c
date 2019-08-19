@@ -36,6 +36,8 @@
 #include "strv.h"
 #include "terminal-util.h"
 
+#define LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC (2*USEC_PER_MINUTE)
+
 static int parse_argv(
                 pam_handle_t *handle,
                 int argc, const char **argv,
@@ -626,7 +628,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return PAM_SYSTEM_ERR;
         }
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_SESSION_BUSY)) {
                         if (debug)
