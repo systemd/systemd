@@ -1439,7 +1439,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         'routing-policy-rule-dummy98.network',
         'routing-policy-rule-test1.network']
 
-    routing_policy_rule_tables = ['7', '8']
+    routing_policy_rule_tables = ['7', '8', '9']
     routes = [['blackhole', '202.54.1.2'], ['unreachable', '202.54.1.3'], ['prohibit', '202.54.1.4']]
 
     def setUp(self):
@@ -1523,14 +1523,35 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['test1:degraded'])
 
-        output = check_output('ip rule')
+        output = check_output('ip rule list iif test1 priority 111')
         print(output)
-        self.assertRegex(output, '111')
+        self.assertRegex(output, '111:')
         self.assertRegex(output, 'from 192.168.100.18')
         self.assertRegex(output, r'tos (?:0x08|throughput)\s')
         self.assertRegex(output, 'iif test1')
         self.assertRegex(output, 'oif test1')
         self.assertRegex(output, 'lookup 7')
+
+        output = check_output('ip rule list iif test1 priority 101')
+        print(output)
+        self.assertRegex(output, '101:')
+        self.assertRegex(output, 'from all')
+        self.assertRegex(output, 'iif test1')
+        self.assertRegex(output, 'lookup 9')
+
+        output = check_output('ip -6 rule list iif test1 priority 100')
+        print(output)
+        self.assertRegex(output, '100:')
+        self.assertRegex(output, 'from all')
+        self.assertRegex(output, 'iif test1')
+        self.assertRegex(output, 'lookup 8')
+
+        output = check_output('ip -6 rule list iif test1 priority 101')
+        print(output)
+        self.assertRegex(output, '101:')
+        self.assertRegex(output, 'from all')
+        self.assertRegex(output, 'iif test1')
+        self.assertRegex(output, 'lookup 9')
 
     def test_routing_policy_rule_issue_11280(self):
         copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev',

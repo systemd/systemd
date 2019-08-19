@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
 
         test_table_sparse(ipvlan_mode, NETDEV_IPVLAN_MODE);
         test_table_sparse(macvlan_mode, NETDEV_MACVLAN_MODE);
-        test_table_sparse(address_family_boolean, ADDRESS_FAMILY_BOOLEAN);
+        test_table_sparse(address_family, ADDRESS_FAMILY);
 
         return EXIT_SUCCESS;
 }

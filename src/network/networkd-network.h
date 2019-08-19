@@ -77,7 +77,7 @@ struct Network {
         Hashmap *stacked_netdev_names;
 
         /* DHCP Client Support */
-        AddressFamilyBoolean dhcp;
+        AddressFamily dhcp;
         DHCPClientIdentifier dhcp_client_identifier;
         char *dhcp_vendor_class_identifier;
         char **dhcp_user_class;
@@ -123,7 +123,7 @@ struct Network {
         uint32_t dhcp_server_pool_size;
 
         /* IPV4LL Support */
-        AddressFamilyBoolean link_local;
+        AddressFamily link_local;
         bool ipv4ll_route;
 
         bool default_route_on_device;
@@ -171,7 +171,7 @@ struct Network {
         usec_t can_restart_us;
         int can_triple_sampling;
 
-        AddressFamilyBoolean ip_forward;
+        AddressFamily ip_forward;
         bool ip_masquerade;
 
         int ipv6_accept_ra;

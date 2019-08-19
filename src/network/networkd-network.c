@@ -281,7 +281,7 @@ int network_verify(Network *network) {
                         prefix_free(prefix);
 
         LIST_FOREACH_SAFE(rules, rule, rule_next, network->rules)
-                if (section_is_invalid(rule->section))
+                if (routing_policy_rule_section_verify(rule) < 0)
                         routing_policy_rule_free(rule);
 
         return 0;
@@ -395,7 +395,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
 
                 /* If LinkLocalAddressing= is not set, then set to ADDRESS_FAMILY_IPV6 later. */
-                .link_local = _ADDRESS_FAMILY_BOOLEAN_INVALID,
+                .link_local = _ADDRESS_FAMILY_INVALID,
 
                 .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
                 .ipv6_accept_ra = -1,

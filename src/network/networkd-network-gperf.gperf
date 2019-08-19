@@ -59,7 +59,7 @@ Network.Xfrm,                           config_parse_stacked_netdev,            
 Network.VRF,                            config_parse_ifname,                             0,                             offsetof(Network, vrf_name)
 Network.DHCP,                           config_parse_dhcp,                               0,                             offsetof(Network, dhcp)
 Network.DHCPServer,                     config_parse_bool,                               0,                             offsetof(Network, dhcp_server)
-Network.LinkLocalAddressing,            config_parse_link_local_address_family_boolean,  0,                             offsetof(Network, link_local)
+Network.LinkLocalAddressing,            config_parse_link_local_address_family,          0,                             offsetof(Network, link_local)
 Network.IPv4LLRoute,                    config_parse_bool,                               0,                             offsetof(Network, ipv4ll_route)
 Network.DefaultRouteOnDevice,           config_parse_bool,                               0,                             offsetof(Network, default_route_on_device)
 Network.IPv6Token,                      config_parse_ipv6token,                          0,                             offsetof(Network, ipv6_token)
@@ -76,7 +76,7 @@ Network.DNSOverTLS,                     config_parse_dns_over_tls_mode,         
 Network.DNSSEC,                         config_parse_dnssec_mode,                        0,                             offsetof(Network, dnssec_mode)
 Network.DNSSECNegativeTrustAnchors,     config_parse_dnssec_negative_trust_anchors,      0,                             0
 Network.NTP,                            config_parse_ntp,                                0,                             offsetof(Network, ntp)
-Network.IPForward,                      config_parse_address_family_boolean_with_kernel, 0,                             offsetof(Network, ip_forward)
+Network.IPForward,                      config_parse_address_family_with_kernel,         0,                             offsetof(Network, ip_forward)
 Network.IPMasquerade,                   config_parse_bool,                               0,                             offsetof(Network, ip_masquerade)
 Network.IPv6PrivacyExtensions,          config_parse_ipv6_privacy_extensions,            0,                             offsetof(Network, ipv6_privacy_extensions)
 Network.IPv6AcceptRA,                   config_parse_tristate,                           0,                             offsetof(Network, ipv6_accept_ra)
@@ -122,6 +122,7 @@ RoutingPolicyRule.IPProtocol,           config_parse_routing_policy_rule_ip_prot
 RoutingPolicyRule.SourcePort,           config_parse_routing_policy_rule_port_range,     0,                             0
 RoutingPolicyRule.DestinationPort,      config_parse_routing_policy_rule_port_range,     0,                             0
 RoutingPolicyRule.InvertRule,           config_parse_routing_policy_rule_invert,         0,                             0
+RoutingPolicyRule.Family,               config_parse_routing_policy_rule_family,         0,                             0
 Route.Gateway,                          config_parse_gateway,                            0,                             0
 Route.Destination,                      config_parse_destination,                        0,                             0
 Route.Source,                           config_parse_destination,                        0,                             0

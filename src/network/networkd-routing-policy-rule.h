@@ -36,7 +36,8 @@ struct RoutingPolicyRule {
         uint32_t fwmask;
         uint32_t priority;
 
-        int family;
+        AddressFamily address_family; /* Specified by Family= */
+        int family; /* Automatically determined by From= or To= */
         unsigned char to_prefixlen;
         unsigned char from_prefixlen;
 
@@ -56,6 +57,7 @@ int routing_policy_rule_new(RoutingPolicyRule **ret);
 void routing_policy_rule_free(RoutingPolicyRule *rule);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_free);
+int routing_policy_rule_section_verify(RoutingPolicyRule *rule);
 
 int routing_policy_rule_configure(RoutingPolicyRule *address, Link *link, link_netlink_message_handler_t callback);
 int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *link, link_netlink_message_handler_t callback);
@@ -76,3 +78,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_device);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_port_range);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_ip_protocol);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_invert);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_family);

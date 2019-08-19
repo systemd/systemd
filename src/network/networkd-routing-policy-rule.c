@@ -3,6 +3,7 @@
 #include <net/if.h>
 #include <linux/fib_rules.h>
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "fileio.h"
@@ -10,6 +11,7 @@
 #include "networkd-routing-policy-rule.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
+#include "networkd-util.h"
 #include "parse-util.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -23,7 +25,6 @@ int routing_policy_rule_new(RoutingPolicyRule **ret) {
                 return -ENOMEM;
 
         *rule = (RoutingPolicyRule) {
-                .family = AF_INET,
                 .table = RT_TABLE_MAIN,
         };
 
@@ -56,6 +57,44 @@ void routing_policy_rule_free(RoutingPolicyRule *rule) {
         free(rule->iif);
         free(rule->oif);
         free(rule);
+}
+
+static int routing_policy_rule_copy(RoutingPolicyRule *dest, RoutingPolicyRule *src) {
+        _cleanup_free_ char *iif = NULL, *oif = NULL;
+
+        assert(dest);
+        assert(src);
+
+        if (src->iif) {
+                iif = strdup(src->iif);
+                if (!iif)
+                        return -ENOMEM;
+        }
+
+        if (src->oif) {
+                oif = strdup(src->oif);
+                if (!oif)
+                        return -ENOMEM;
+        }
+
+        dest->family = src->family;
+        dest->from = src->from;
+        dest->from_prefixlen = src->from_prefixlen;
+        dest->to = src->to;
+        dest->to_prefixlen = src->to_prefixlen;
+        dest->invert_rule = src->invert_rule;
+        dest->tos = src->tos;
+        dest->fwmark = src->fwmark;
+        dest->fwmask = src->fwmask;
+        dest->priority = src->priority;
+        dest->table = src->table;
+        dest->iif = TAKE_PTR(iif);
+        dest->oif = TAKE_PTR(oif);
+        dest->protocol = src->protocol;
+        dest->sport = src->sport;
+        dest->dport = src->dport;
+
+        return 0;
 }
 
 static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
@@ -221,46 +260,21 @@ int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule) {
 
 static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPolicyRule *in, RoutingPolicyRule **ret) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
-        _cleanup_free_ char *iif = NULL, *oif = NULL;
         int r;
 
         assert(m);
         assert(rules);
         assert(in);
 
-        if (in->iif) {
-                iif = strdup(in->iif);
-                if (!iif)
-                        return -ENOMEM;
-        }
-
-        if (in->oif) {
-                oif = strdup(in->oif);
-                if (!oif)
-                        return -ENOMEM;
-        }
-
         r = routing_policy_rule_new(&rule);
         if (r < 0)
                 return r;
 
         rule->manager = m;
-        rule->family = in->family;
-        rule->from = in->from;
-        rule->from_prefixlen = in->from_prefixlen;
-        rule->to = in->to;
-        rule->to_prefixlen = in->to_prefixlen;
-        rule->invert_rule = in->invert_rule;
-        rule->tos = in->tos;
-        rule->fwmark = in->fwmark;
-        rule->fwmask = in->fwmask;
-        rule->priority = in->priority;
-        rule->table = in->table;
-        rule->iif = TAKE_PTR(iif);
-        rule->oif = TAKE_PTR(oif);
-        rule->protocol = in->protocol;
-        rule->sport = in->sport;
-        rule->dport = in->dport;
+
+        r = routing_policy_rule_copy(rule, in);
+        if (r < 0)
+                return r;
 
         r = set_ensure_allocated(rules, &routing_policy_rule_hash_ops);
         if (r < 0)
@@ -555,6 +569,50 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
         return 1;
 }
 
+int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
+        int r;
+
+        if (section_is_invalid(rule->section))
+                return -EINVAL;
+
+        if ((rule->family == AF_INET && FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6)) ||
+            (rule->family == AF_INET6 && FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4)))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "%s: address family specified by Family= conflicts with the address "
+                                "specified by To= or From=. Ignoring [RoutingPolicyRule] section from line %u.",
+                                rule->section->filename, rule->section->line);
+
+        if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_IPV6)) {
+                _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule6 = NULL;
+
+                assert(rule->family == AF_UNSPEC);
+
+                /* When Family=both, we need to copy the section, AF_INET and AF_INET6. */
+
+                r = routing_policy_rule_new_static(rule->network, NULL, 0, &rule6);
+                if (r < 0)
+                        return r;
+
+                r = routing_policy_rule_copy(rule6, rule);
+                if (r < 0)
+                        return r;
+
+                rule->family = AF_INET;
+                rule6->family = AF_INET6;
+
+                TAKE_PTR(rule6);
+        }
+
+        if (rule->family == AF_UNSPEC) {
+                if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6))
+                        rule->family = AF_INET6;
+                else
+                        rule->family = AF_INET;
+        }
+
+        return 0;
+}
+
 static int parse_fwmark_fwmask(const char *s, uint32_t *fwmark, uint32_t *fwmask) {
         _cleanup_free_ char *f = NULL;
         char *p;
@@ -767,7 +825,10 @@ int config_parse_routing_policy_rule_prefix(
                 prefixlen = &n->from_prefixlen;
         }
 
-        r = in_addr_prefix_from_string_auto(rvalue, &n->family, buffer, prefixlen);
+        if (n->family == AF_UNSPEC)
+                r = in_addr_prefix_from_string_auto(rvalue, &n->family, buffer, prefixlen);
+        else
+                r = in_addr_prefix_from_string(rvalue, n->family, buffer, prefixlen);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "RPDB rule prefix is invalid, ignoring assignment: %s", rvalue);
                 return 0;
@@ -947,6 +1008,46 @@ int config_parse_routing_policy_rule_invert(
         return 0;
 }
 
+int config_parse_routing_policy_rule_family(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        Network *network = userdata;
+        AddressFamily a;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        a = routing_policy_rule_address_family_from_string(rvalue);
+        if (a < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Invalid address family '%s', ignoring.", rvalue);
+                return 0;
+        }
+
+        n->address_family = a;
+        n = NULL;
+
+        return 0;
+}
+
 static int routing_policy_rule_read_full_file(const char *state_file, char **ret) {
         _cleanup_free_ char *s = NULL;
         size_t size;
@@ -977,6 +1078,7 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
         SET_FOREACH(rule, rules, i) {
                 _cleanup_free_ char *from_str = NULL, *to_str = NULL;
                 bool space = false;
+                const char *family_str;
 
                 fputs("RULE=", f);
 
@@ -1001,12 +1103,22 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         space = true;
                 }
 
+                family_str = af_to_name(rule->family);
+                if (family_str)
+                fprintf(f, "%sfamily=%s",
+                        space ? " " : "",
+                        family_str);
+
                 if (rule->tos != 0) {
                         fprintf(f, "%stos=%hhu",
                                 space ? " " : "",
                                 rule->tos);
                         space = true;
                 }
+
+                fprintf(f, "%spriority=%"PRIu32,
+                        space ? " " : "",
+                        rule->priority);
 
                 if (rule->fwmark != 0) {
                         fprintf(f, "%sfwmark=%"PRIu32"/%"PRIu32,
@@ -1123,6 +1235,13 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                         continue;
                                 }
 
+                        } else if (streq(a, "family")) {
+                                r = af_from_name(b);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to parse RPDB rule family, ignoring: %s", b);
+                                        continue;
+                                }
+                                rule->family = r;
                         } else if (streq(a, "tos")) {
                                 r = safe_atou8(b, &rule->tos);
                                 if (r < 0) {
@@ -1133,6 +1252,12 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                 r = safe_atou32(b, &rule->table);
                                 if (r < 0) {
                                         log_error_errno(r, "Failed to parse RPDB rule table, ignoring: %s", b);
+                                        continue;
+                                }
+                        } else if (streq(a, "priority")) {
+                                r = safe_atou32(b, &rule->priority);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to parse RPDB rule priority, ignoring: %s", b);
                                         continue;
                                 }
                         } else if (streq(a, "fwmark")) {

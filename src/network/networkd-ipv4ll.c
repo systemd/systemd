@@ -251,7 +251,7 @@ int config_parse_ipv4ll(
                 void *data,
                 void *userdata) {
 
-        AddressFamilyBoolean *link_local = data;
+        AddressFamily *link_local = data;
         int r;
 
         assert(filename);
@@ -260,7 +260,7 @@ int config_parse_ipv4ll(
         assert(data);
 
         /* Note that this is mostly like
-         * config_parse_address_family_boolean(), except that it
+         * config_parse_address_family(), except that it
          * applies only to IPv4 */
 
         r = parse_boolean(rvalue);
@@ -276,7 +276,7 @@ int config_parse_ipv4ll(
 
         log_syntax(unit, LOG_WARNING, filename, line, 0,
                    "%s=%s is deprecated, please use LinkLocalAddressing=%s instead.",
-                   lvalue, rvalue, address_family_boolean_to_string(*link_local));
+                   lvalue, rvalue, address_family_to_string(*link_local));
 
         return 0;
 }

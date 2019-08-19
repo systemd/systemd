@@ -1139,6 +1139,16 @@
             <para>A boolean. Specifies whether the rule to be inverted. Defaults to false.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>Family=</varname></term>
+          <listitem>
+            <para>Takes a special value <literal>ipv4</literal>, <literal>ipv6</literal>, or
+            <literal>both</literal>. By default, the address family is determined by the address
+            specified in <varname>To=</varname> or <varname>From=</varname>. If neither
+            <varname>To=</varname> nor <varname>From=</varname> are specified, then defaults to
+            <literal>ipv4</literal>.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
