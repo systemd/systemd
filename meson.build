@@ -86,7 +86,7 @@ conf.set10('HAVE_SYSV_COMPAT', sysvinit_path != '' and sysvrcnd_path != '',
 
 conf.set10('BUMP_PROC_SYS_FS_FILE_MAX', get_option('bump-proc-sys-fs-file-max'))
 conf.set10('BUMP_PROC_SYS_FS_NR_OPEN',  get_option('bump-proc-sys-fs-nr-open'))
-conf.set('HIGH_RLIMIT_NOFILE',          512*1024)
+conf.set('HIGH_RLIMIT_NOFILE',          get_option('high-rlimit-nofile'))
 
 # join_paths ignores the preceding arguments if an absolute component is
 # encountered, so this should canonicalize various paths when they are

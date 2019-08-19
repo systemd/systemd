@@ -55,6 +55,11 @@ option('bump-proc-sys-fs-file-max', type : 'boolean',
        description : 'bump /proc/sys/fs/file-max to ULONG_MAX')
 option('bump-proc-sys-fs-nr-open', type : 'boolean',
        description : 'bump /proc/sys/fs/nr_open to INT_MAX')
+
+# Default is 512*1024
+option('high-rlimit-nofile', type : 'integer', value : 524288,
+       description : 'set RLIMIT_NOFILE')
+
 option('valgrind', type : 'boolean', value : false,
        description : 'do extra operations to avoid valgrind warnings')
 option('log-trace', type : 'boolean', value : false,
