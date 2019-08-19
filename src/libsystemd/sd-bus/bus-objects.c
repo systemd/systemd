@@ -353,6 +353,12 @@ static int method_callbacks_run(
         if (require_fallback && !c->parent->is_fallback)
                 return 0;
 
+        if (FLAGS_SET(c->vtable->flags, SD_BUS_VTABLE_SENSITIVE)) {
+                r = sd_bus_message_sensitive(m);
+                if (r < 0)
+                        return r;
+        }
+
         r = check_access(bus, m, c, &error);
         if (r < 0)
                 return bus_maybe_reply_error(m, r, &error);
@@ -577,6 +583,12 @@ static int property_get_set_callbacks_run(
         if (require_fallback && !c->parent->is_fallback)
                 return 0;
 
+        if (FLAGS_SET(c->vtable->flags, SD_BUS_VTABLE_SENSITIVE)) {
+                r = sd_bus_message_sensitive(m);
+                if (r < 0)
+                        return r;
+        }
+
         r = vtable_property_get_userdata(bus, m->path, c, &u, &error);
         if (r <= 0)
                 return bus_maybe_reply_error(m, r, &error);
@@ -590,6 +602,12 @@ static int property_get_set_callbacks_run(
         r = sd_bus_message_new_method_return(m, &reply);
         if (r < 0)
                 return r;
+
+        if (FLAGS_SET(c->vtable->flags, SD_BUS_VTABLE_SENSITIVE)) {
+                r = sd_bus_message_sensitive(reply);
+                if (r < 0)
+                        return r;
+        }
 
         if (is_get) {
                 /* Note that we do not protect against reexecution
@@ -691,6 +709,12 @@ static int vtable_append_one_property(
         assert(path);
         assert(c);
         assert(v);
+
+        if (FLAGS_SET(c->vtable->flags, SD_BUS_VTABLE_SENSITIVE)) {
+                r = sd_bus_message_sensitive(reply);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_bus_message_open_container(reply, 'e', "sv");
         if (r < 0)

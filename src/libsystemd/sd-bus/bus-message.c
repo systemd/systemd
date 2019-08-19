@@ -45,12 +45,24 @@ static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
         assert(m);
         assert(part);
 
-        if (part->memfd >= 0)
+        if (part->memfd >= 0) {
+                /* erase if requested, but ony if the memfd is not sealed yet, i.e. is writable */
+                if (m->sensitive && !m->sealed)
+                        explicit_bzero_safe(part->data, part->size);
+
                 close_and_munmap(part->memfd, part->mmap_begin, part->mapped);
-        else if (part->munmap_this)
+        } else if (part->munmap_this)
+                /* We don't erase sensitive data here, since the data is memory mapped from someone else, and
+                 * we just don't know if it's OK to write to it */
                 munmap(part->mmap_begin, part->mapped);
-        else if (part->free_this)
-                free(part->data);
+        else {
+                /* Erase this if that is requested. Since this is regular memory we know we can write it. */
+                if (m->sensitive)
+                        explicit_bzero_safe(part->data, part->size);
+
+                if (part->free_this)
+                        free(part->data);
+        }
 
         if (part != &m->body)
                 free(part);
@@ -113,10 +125,10 @@ static void message_reset_containers(sd_bus_message *m) {
 static sd_bus_message* message_free(sd_bus_message *m) {
         assert(m);
 
+        message_reset_parts(m);
+
         if (m->free_header)
                 free(m->header);
-
-        message_reset_parts(m);
 
         /* Note that we don't unref m->bus here. That's already done by sd_bus_message_unref() as each user
          * reference to the bus message also is considered a reference to the bus connection itself. */
@@ -726,6 +738,12 @@ static int message_new_reply(
 
         t->dont_send = !!(call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED);
         t->enforced_reply_signature = call->enforced_reply_signature;
+
+        /* let's copy the sensitive flag over. Let's do that as a safety precaution to keep a transaction
+         * wholly sensitive if already the incoming message was sensitive. This is particularly useful when a
+         * vtable record sets the SD_BUS_VTABLE_SENSITIVE flag on a method call, since this means it applies
+         * to both the message call and the reply. */
+        t->sensitive = call->sensitive;
 
         *m = TAKE_PTR(t);
         return 0;
@@ -5917,5 +5935,12 @@ _public_ int sd_bus_message_set_priority(sd_bus_message *m, int64_t priority) {
         assert_return(!m->sealed, -EPERM);
 
         m->priority = priority;
+        return 0;
+}
+
+_public_ int sd_bus_message_sensitive(sd_bus_message *m) {
+        assert_return(m, -EINVAL);
+
+        m->sensitive = true;
         return 0;
 }

@@ -85,6 +85,7 @@ struct sd_bus_message {
         bool free_header:1;
         bool free_fds:1;
         bool poisoned:1;
+        bool sensitive:1;
 
         /* The first and last bytes of the message */
         struct bus_header *header;

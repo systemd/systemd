@@ -43,6 +43,7 @@ enum {
         SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE        = 1ULL << 5,
         SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION  = 1ULL << 6,
         SD_BUS_VTABLE_PROPERTY_EXPLICIT            = 1ULL << 7,
+        SD_BUS_VTABLE_SENSITIVE                    = 1ULL << 8, /* covers both directions: method call + reply */
         _SD_BUS_VTABLE_CAPABILITY_MASK             = 0xFFFFULL << 40
 };
 
