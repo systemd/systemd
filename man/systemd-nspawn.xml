@@ -713,10 +713,10 @@
       <varlistentry>
         <term><option>--private-users-chown</option></term>
 
-        <listitem><para>If specified, all files and directories in the container's directory tree will adjusted so that
-        they are owned to the appropriate UIDs/GIDs selected for the container (see above). This operation is
-        potentially expensive, as it involves descending and iterating through the full directory tree of the
-        container. Besides actual file ownership, file ACLs are adjusted as well.</para>
+        <listitem><para>If specified, all files and directories in the container's directory tree will be
+        adjusted so that they are owned by the appropriate UIDs/GIDs selected for the container (see above).
+        This operation is potentially expensive, as it involves iterating through the full directory tree of
+        the container. Besides actual file ownership, file ACLs are adjusted as well.</para>
 
         <para>This option is implied if <option>--private-users=pick</option> is used. This option has no effect if
         user namespacing is not used.</para></listitem>

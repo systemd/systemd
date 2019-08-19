@@ -213,13 +213,17 @@ void print_separator(void) {
                 fputs("\n\n", stdout);
 }
 
-static int guess_type(const char **name, bool *is_usr, bool *is_collection, const char **extension) {
+static int guess_type(const char **name, char ***prefixes, bool *is_collection, const char **extension) {
         /* Try to figure out if name is like tmpfiles.d/ or systemd/system-presets/,
          * i.e. a collection of directories without a main config file. */
 
         _cleanup_free_ char *n = NULL;
-        bool usr = false, coll = false;
+        bool usr = false, run = false, coll = false;
         const char *ext = ".conf";
+        /* This is static so that the array doesn't get deallocated when we exit the function */
+        static const char* const std_prefixes[] = { CONF_PATHS(""), NULL };
+        static const char* const usr_prefixes[] = { CONF_PATHS_USR(""), NULL };
+        static const char* const run_prefixes[] = { "/run/", NULL };
 
         if (path_equal(*name, "environment.d"))
                 /* Special case: we need to include /etc/environment in the search path, even
@@ -252,6 +256,11 @@ static int guess_type(const char **name, bool *is_usr, bool *is_collection, cons
                 ext = ".list";
         }
 
+        if (path_equal(n, "systemd/relabel-extra.d")) {
+                coll = run = true;
+                ext = ".relabel";
+        }
+
         if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
                 coll = true;
                 ext = ".preset";
@@ -260,7 +269,7 @@ static int guess_type(const char **name, bool *is_usr, bool *is_collection, cons
         if (path_equal(n, "systemd/user-preset"))
                 usr = true;
 
-        *is_usr = usr;
+        *prefixes = (char**) (usr ? usr_prefixes : run ? run_prefixes : std_prefixes);
         *is_collection = coll;
         *extension = ext;
         return 0;
@@ -269,19 +278,19 @@ static int guess_type(const char **name, bool *is_usr, bool *is_collection, cons
 int conf_files_cat(const char *root, const char *name) {
         _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
         _cleanup_free_ char *path = NULL;
-        char **dir;
-        bool is_usr, is_collection;
+        char **prefixes, **prefix;
+        bool is_collection;
         const char *extension;
         char **t;
         int r;
 
-        r = guess_type(&name, &is_usr, &is_collection, &extension);
+        r = guess_type(&name, &prefixes, &is_collection, &extension);
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(dir, is_usr ? CONF_PATHS_USR_STRV("") : CONF_PATHS_STRV("")) {
-                assert(endswith(*dir, "/"));
-                r = strv_extendf(&dirs, "%s%s%s", *dir, name,
+        STRV_FOREACH(prefix, prefixes) {
+                assert(endswith(*prefix, "/"));
+                r = strv_extendf(&dirs, "%s%s%s", *prefix, name,
                                  is_collection ? "" : ".d");
                 if (r < 0)
                         return log_error_errno(r, "Failed to build directory list: %m");
