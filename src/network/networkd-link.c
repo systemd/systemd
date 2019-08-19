@@ -76,9 +76,6 @@ int link_sysctl_ipv6_enabled(Link *link) {
         assert(link);
         assert(link->ifname);
 
-        if (link->sysctl_ipv6_enabled >= 0)
-                return link->sysctl_ipv6_enabled;
-
         const char *ifname = link->ifname; /* work around bogus gcc warning */
         r = sysctl_read_ip_property(AF_INET6, ifname, "disable_ipv6", &value);
         if (r < 0)
