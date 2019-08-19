@@ -760,6 +760,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "msync\0"
                 "sync\0"
                 "sync_file_range\0"
+                "sync_file_range2\0"
                 "syncfs\0"
         },
         [SYSCALL_FILTER_SET_SYSTEM_SERVICE] = {
