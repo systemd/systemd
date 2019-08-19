@@ -261,16 +261,12 @@ int conf_files_list_strv(char ***strv, const char *suffix, const char *root, uns
         return conf_files_list_strv_internal(strv, suffix, root, flags, copy);
 }
 
-int conf_files_list(char ***strv, const char *suffix, const char *root, unsigned flags, const char *dir, ...) {
+int conf_files_list(char ***strv, const char *suffix, const char *root, unsigned flags, const char *dir) {
         _cleanup_strv_free_ char **dirs = NULL;
-        va_list ap;
 
         assert(strv);
 
-        va_start(ap, dir);
-        dirs = strv_new_ap(dir, ap);
-        va_end(ap);
-
+        dirs = strv_new(dir);
         if (!dirs)
                 return -ENOMEM;
 

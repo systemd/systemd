@@ -11,7 +11,7 @@ enum {
         CONF_FILES_FILTER_MASKED = 1 << 4,
 };
 
-int conf_files_list(char ***ret, const char *suffix, const char *root, unsigned flags, const char *dir, ...) _sentinel_;
+int conf_files_list(char ***ret, const char *suffix, const char *root, unsigned flags, const char *dir);
 int conf_files_list_strv(char ***ret, const char *suffix, const char *root, unsigned flags, const char* const* dirs);
 int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, unsigned flags, const char *dirs);
 int conf_files_insert(char ***strv, const char *root, char **dirs, const char *path);
