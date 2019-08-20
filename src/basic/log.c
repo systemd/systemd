@@ -87,11 +87,13 @@ static int log_open_console(void) {
         }
 
         if (console_fd < 3) {
-                console_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
-                if (console_fd < 0)
-                        return console_fd;
+                int fd;
 
-                console_fd = fd_move_above_stdio(console_fd);
+                fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+                if (fd < 0)
+                        return fd;
+
+                console_fd = fd_move_above_stdio(fd);
         }
 
         return 0;
@@ -372,13 +374,11 @@ static int write_to_console(
 
                 if (errno == EIO && getpid_cached() == 1) {
 
-                        /* If somebody tried to kick us from our
-                         * console tty (via vhangup() or suchlike),
-                         * try to reconnect */
+                        /* If somebody tried to kick us from our console tty (via vhangup() or suchlike), try
+                         * to reconnect. */
 
                         log_close_console();
-                        log_open_console();
-
+                        (void) log_open_console();
                         if (console_fd < 0)
                                 return 0;
 
@@ -586,7 +586,7 @@ int log_dispatch_internal(
                 level |= log_facility;
 
         if (open_when_needed)
-                log_open();
+                (void) log_open();
 
         do {
                 char *e;
@@ -629,7 +629,7 @@ int log_dispatch_internal(
                         k = write_to_kmsg(level, error, file, line, func, buffer);
                         if (k < 0) {
                                 log_close_kmsg();
-                                log_open_console();
+                                (void) log_open_console();
                         }
                 }
 
@@ -795,7 +795,7 @@ _noreturn_ void log_assert_failed_realm(
                 const char *file,
                 int line,
                 const char *func) {
-        log_open();
+        (void) log_open();
         log_assert(LOG_REALM_PLUS_LEVEL(realm, LOG_CRIT), text, file, line, func,
                    "Assertion '%s' failed at %s:%u, function %s(). Aborting.");
         abort();
@@ -807,7 +807,7 @@ _noreturn_ void log_assert_failed_unreachable_realm(
                 const char *file,
                 int line,
                 const char *func) {
-        log_open();
+        (void) log_open();
         log_assert(LOG_REALM_PLUS_LEVEL(realm, LOG_CRIT), text, file, line, func,
                    "Code should not be reached '%s' at %s:%u, function %s(). Aborting.");
         abort();
@@ -1356,5 +1356,5 @@ void log_setup_service(void) {
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
-        log_open();
+        (void) log_open();
 }

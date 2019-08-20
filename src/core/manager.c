@@ -4072,9 +4072,10 @@ static bool manager_get_show_status(Manager *m, StatusType type) {
 
 const char *manager_get_confirm_spawn(Manager *m) {
         static int last_errno = 0;
-        const char *vc = m->confirm_spawn;
         struct stat st;
         int r;
+
+        assert(m);
 
         /* Here's the deal: we want to test the validity of the console but don't want
          * PID1 to go through the whole console process which might block. But we also
@@ -4091,25 +4092,26 @@ const char *manager_get_confirm_spawn(Manager *m) {
          * reason the configured console is not ready, we fallback to the default
          * console. */
 
-        if (!vc || path_equal(vc, "/dev/console"))
-                return vc;
+        if (!m->confirm_spawn || path_equal(m->confirm_spawn, "/dev/console"))
+                return m->confirm_spawn;
 
-        r = stat(vc, &st);
-        if (r < 0)
+        if (stat(m->confirm_spawn, &st) < 0) {
+                r = -errno;
                 goto fail;
+        }
 
         if (!S_ISCHR(st.st_mode)) {
-                errno = ENOTTY;
+                r = -ENOTTY;
                 goto fail;
         }
 
         last_errno = 0;
-        return vc;
+        return m->confirm_spawn;
+
 fail:
-        if (last_errno != errno) {
-                last_errno = errno;
-                log_warning_errno(errno, "Failed to open %s: %m, using default console", vc);
-        }
+        if (last_errno != r)
+                last_errno = log_warning_errno(r, "Failed to open %s, using default console: %m", m->confirm_spawn);
+
         return "/dev/console";
 }
 
