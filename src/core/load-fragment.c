@@ -98,14 +98,12 @@ int parse_confirm_spawn(const char *value, char **console) {
         if (r == 0) {
                 *console = NULL;
                 return 0;
-        }
-
-        if (r > 0) /* on with default tty */
+        } else if (r > 0) /* on with default tty */
                 s = strdup("/dev/console");
         else if (is_path(value)) /* on with fully qualified path */
                 s = strdup(value);
         else /* on with only a tty file name, not a fully qualified path */
-                s = strjoin("/dev/", value);
+                s = path_join("/dev/", value);
         if (!s)
                 return -ENOMEM;
 
