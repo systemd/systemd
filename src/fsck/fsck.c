@@ -169,12 +169,12 @@ static int process_progress(int fd) {
         f = fdopen(fd, "r");
         if (!f) {
                 safe_close(fd);
-                return -errno;
+                return log_debug_errno(errno, "Failed to use pipe: %m");
         }
 
         console = fopen("/dev/console", "we");
         if (!console)
-                return -ENOMEM;
+                return log_debug_errno(errno, "Failed to open /dev/console, can't print progress output: %m");
 
         for (;;) {
                 int pass, m;
@@ -189,10 +189,9 @@ static int process_progress(int fd) {
                                 r = log_warning_errno(errno, "Failed to read from progress pipe: %m");
                         else if (feof(f))
                                 r = 0;
-                        else {
-                                log_warning("Failed to parse progress pipe data");
-                                r = -EBADMSG;
-                        }
+                        else
+                                r = log_warning_errno(SYNTHETIC_ERRNO(errno), "Failed to parse progress pipe data");
+
                         break;
                 }
 
