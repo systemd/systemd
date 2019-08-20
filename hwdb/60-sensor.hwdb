@@ -259,6 +259,26 @@ sensor:modalias:acpi:KIOX000A*:dmi:bvnINSYDECorp.:bvrBYT70A.YNCHENG.WIN.007:*:sv
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
+# GPD
+#########################################
+
+# GPD win (version 1, with the X5-Z8750 CPU)
+# Note we match all dmi fields including the BIOS date checking for all known
+# BIOS dates, since the strings are unfortunately very generic.
+# Out of a sample set of 15 similar boards only the GPDwin has board_vendor=AMI
+# and no other devices have both board_name *and* product_name set to
+# "Default string". So combined with the sensor modalias and BIOS date this
+# should be unique enough to identify the GPDwin
+sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd10/25/2016:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:
+sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd11/18/2016:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:
+sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd12/23/2016:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:
+sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd12/26/2016:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:
+sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd02/21/2017:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:
+sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd03/20/2017:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:
+sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/25/2017:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:
+ ACCEL_LOCATION=base
+
+#########################################
 # HP
 #########################################
 
