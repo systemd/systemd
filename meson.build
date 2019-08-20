@@ -1753,10 +1753,6 @@ if conf.get('ENABLE_RESOLVE') == 1
         meson.add_install_script(meson_make_symlink,
                          join_paths(bindir, 'resolvectl'),
                          join_paths(rootsbindir, 'resolvconf'))
-
-        meson.add_install_script(meson_make_symlink,
-                         join_paths(bindir, 'resolvectl'),
-                         join_paths(bindir, 'systemd-resolve'))
 endif
 
 if conf.get('ENABLE_LOGIND') == 1

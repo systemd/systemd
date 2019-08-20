@@ -39,7 +39,6 @@ if bashcompletiondir != 'no'
                  ['networkctl',          'ENABLE_NETWORKD'],
                  ['portablectl',         'ENABLE_PORTABLED'],
                  ['resolvectl',          'ENABLE_RESOLVE'],
-                 ['systemd-resolve',     'ENABLE_RESOLVE'],
                  ['timedatectl',         'ENABLE_TIMEDATED'],
                 ]
 
