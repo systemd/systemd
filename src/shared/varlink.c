@@ -2406,17 +2406,18 @@ int varlink_server_bind_connect(VarlinkServer *s, VarlinkConnect callback) {
 }
 
 unsigned varlink_server_connections_max(VarlinkServer *s) {
-        struct rlimit rl;
+        int dts;
 
         /* If a server is specified, return the setting for that server, otherwise the default value */
         if (s)
                 return s->connections_max;
 
-        assert_se(getrlimit(RLIMIT_NOFILE, &rl) >= 0);
+        dts = getdtablesize();
+        assert_se(dts > 0);
 
         /* Make sure we never use up more than ¾th of RLIMIT_NOFILE for IPC */
-        if (VARLINK_DEFAULT_CONNECTIONS_MAX > rl.rlim_cur / 4 * 3)
-                return rl.rlim_cur / 4 * 3;
+        if (VARLINK_DEFAULT_CONNECTIONS_MAX > (unsigned) dts / 4 * 3)
+                return dts / 4 * 3;
 
         return VARLINK_DEFAULT_CONNECTIONS_MAX;
 }
