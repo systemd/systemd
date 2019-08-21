@@ -253,10 +253,10 @@ static int parse_options(const char *options) {
         }
 
         /* sanity-check options */
-        if (arg_type != NULL && !streq(arg_type, CRYPT_PLAIN)) {
-                if (arg_offset)
+        if (arg_type && !streq(arg_type, CRYPT_PLAIN)) {
+                if (arg_offset != 0)
                       log_warning("offset= ignored with type %s", arg_type);
-                if (arg_skip)
+                if (arg_skip != 0)
                       log_warning("skip= ignored with type %s", arg_type);
         }
 
@@ -462,11 +462,13 @@ static int attach_tcrypt(
         return 0;
 }
 
-static int attach_luks_or_plain(struct crypt_device *cd,
-                                const char *name,
-                                const char *key_file,
-                                char **passwords,
-                                uint32_t flags) {
+static int attach_luks_or_plain(
+                struct crypt_device *cd,
+                const char *name,
+                const char *key_file,
+                char **passwords,
+                uint32_t flags) {
+
         int r = 0;
         bool pass_volume_key = false;
 
@@ -538,6 +540,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to activate with key file '%s': %m", key_file);
+
         } else {
                 char **p;
 
@@ -650,7 +653,7 @@ static int run(int argc, char *argv[]) {
                 }
 
                 /* A delicious drop of snake oil */
-                mlockall(MCL_FUTURE);
+                (void) mlockall(MCL_FUTURE);
 
                 if (arg_header) {
                         log_debug("LUKS header: %s", arg_header);
@@ -723,11 +726,7 @@ static int run(int argc, char *argv[]) {
                         if (streq_ptr(arg_type, CRYPT_TCRYPT))
                                 r = attach_tcrypt(cd, argv[2], key_file, passwords, flags);
                         else
-                                r = attach_luks_or_plain(cd,
-                                                         argv[2],
-                                                         key_file,
-                                                         passwords,
-                                                         flags);
+                                r = attach_luks_or_plain(cd, argv[2], key_file, passwords, flags);
                         if (r >= 0)
                                 break;
                         if (r != -EAGAIN)
