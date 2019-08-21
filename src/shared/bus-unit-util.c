@@ -1434,8 +1434,9 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 
         if (STR_IN_SET(field,
                        "ExecCondition", "ExecStartPre", "ExecStart", "ExecStartPost",
-                       "ExecStartPreEx", "ExecStartEx", "ExecStartPostEx",
-                       "ExecReload", "ExecStop", "ExecStopPost"))
+                       "ExecConditionEx", "ExecStartPreEx", "ExecStartEx", "ExecStartPostEx",
+                       "ExecReload", "ExecStop", "ExecStopPost",
+                       "ExecReloadEx", "ExecStopEx", "ExecStopPostEx"))
                 return bus_append_exec_command(m, field, eq);
 
         if (STR_IN_SET(field, "RestartPreventExitStatus", "RestartForceExitStatus", "SuccessExitStatus")) {
