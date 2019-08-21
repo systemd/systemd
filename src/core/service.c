@@ -3417,14 +3417,11 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 f = SERVICE_SUCCESS;
                 }
 
-                /* When this is a successful exit, let's log about the exit code on DEBUG level. If this is a failure
-                 * and the process exited on its own via exit(), then let's make this a NOTICE, under the assumption
-                 * that the service already logged the reason at a higher log level on its own. (Internally,
-                 * unit_log_process_exit() will possibly bump this to WARNING if the service died due to a signal.) */
                 unit_log_process_exit(
-                                u, f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                                u,
                                 "Main process",
                                 service_exec_command_to_string(SERVICE_EXEC_START),
+                                f == SERVICE_SUCCESS,
                                 code, status);
 
                 if (s->result == SERVICE_SUCCESS)
@@ -3519,9 +3516,10 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 }
 
                 unit_log_process_exit(
-                                u, f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                                u,
                                 "Control process",
                                 service_exec_command_to_string(s->control_command_id),
+                                f == SERVICE_SUCCESS,
                                 code, status);
 
                 if (s->state != SERVICE_RELOAD && s->result == SERVICE_SUCCESS)

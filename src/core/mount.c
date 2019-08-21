@@ -1323,9 +1323,10 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         }
 
         unit_log_process_exit(
-                        u, f == MOUNT_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                        u,
                         "Mount process",
                         mount_exec_command_to_string(m->control_command_id),
+                        f == MOUNT_SUCCESS,
                         code, status);
 
         /* Note that due to the io event priority logic, we can be sure the new mountinfo is loaded
