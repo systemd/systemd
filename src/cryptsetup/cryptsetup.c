@@ -228,7 +228,7 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse %s: %m", option);
 
-        } else if (!streq(option, "none"))
+        } else
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
         return 0;
@@ -635,18 +635,14 @@ static int run(int argc, char *argv[]) {
                 if (argc < 4)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach requires at least two arguments.");
 
-                if (argc >= 5 &&
-                    argv[4][0] &&
-                    !streq(argv[4], "-") &&
-                    !streq(argv[4], "none")) {
-
-                        if (!path_is_absolute(argv[4]))
-                                log_warning("Password file path '%s' is not absolute. Ignoring.", argv[4]);
-                        else
+                if (argc >= 5 && !STR_IN_SET(argv[4], "", "-", "none")) {
+                        if (path_is_absolute(argv[4]))
                                 key_file = argv[4];
+                        else
+                                log_warning("Password file path '%s' is not absolute. Ignoring.", argv[4]);
                 }
 
-                if (argc >= 6 && argv[5][0] && !streq(argv[5], "-")) {
+                if (argc >= 6 && !STR_IN_SET(argv[5], "", "-", "none")) {
                         r = parse_options(argv[5]);
                         if (r < 0)
                                 return r;
