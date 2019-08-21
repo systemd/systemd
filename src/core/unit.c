@@ -4583,6 +4583,15 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
                 return r;
 
         (void) mkdir_p_label(p, 0755);
+
+        /* Make sure the drop-in dir is registered in our path cache. This way we don't need to stupidly
+         * recreate the cache after every drop-in we write. */
+        if (u->manager->unit_path_cache) {
+                r = set_put_strdup(u->manager->unit_path_cache, p);
+                if (r < 0)
+                        return r;
+        }
+
         r = write_string_file_atomic_label(q, wrapped);
         if (r < 0)
                 return r;
