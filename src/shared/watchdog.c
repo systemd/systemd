@@ -82,7 +82,16 @@ static int open_watchdog(void) {
 }
 
 int watchdog_set_device(char *path) {
-        return free_and_strdup(&watchdog_device, path);
+        int r;
+
+        r = free_and_strdup(&watchdog_device, path);
+        if (r < 0)
+                return r;
+
+        if (r > 0) /* watchdog_device changed */
+                watchdog_fd = safe_close(watchdog_fd);
+
+        return r;
 }
 
 int watchdog_set_timeout(usec_t *usec) {
