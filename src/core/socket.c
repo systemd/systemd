@@ -3014,9 +3014,10 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         }
 
         unit_log_process_exit(
-                        u, f == SOCKET_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                        u,
                         "Control process",
                         socket_exec_command_to_string(s->control_command_id),
+                        f == SOCKET_SUCCESS,
                         code, status);
 
         if (s->result == SOCKET_SUCCESS)

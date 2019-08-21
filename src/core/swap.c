@@ -1043,9 +1043,10 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         }
 
         unit_log_process_exit(
-                        u, f == SWAP_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                        u,
                         "Swap process",
                         swap_exec_command_to_string(s->control_command_id),
+                        f == SWAP_SUCCESS,
                         code, status);
 
         switch (s->state) {

@@ -852,7 +852,7 @@ static inline void unit_log_result(Unit *u, bool success, const char *result) {
                 unit_log_failure(u, result);
 }
 
-void unit_log_process_exit(Unit *u, int level, const char *kind, const char *command, int code, int status);
+void unit_log_process_exit(Unit *u, const char *kind, const char *command, bool success, int code, int status);
 
 int unit_exit_status(Unit *u);
 int unit_success_action_exit_status(Unit *u);

@@ -5779,16 +5779,26 @@ void unit_log_skip(Unit *u, const char *result) {
 
 void unit_log_process_exit(
                 Unit *u,
-                int level,
                 const char *kind,
                 const char *command,
+                bool success,
                 int code,
                 int status) {
+
+        int level;
 
         assert(u);
         assert(kind);
 
-        if (code != CLD_EXITED)
+        /* If this is a successful exit, let's log about the exit code on DEBUG level. If this is a failure
+         * and the process exited on its own via exit(), then let's make this a NOTICE, under the assumption
+         * that the service already logged the reason at a higher log level on its own. Otherwise, make it a
+         * WARNING. */
+        if (success)
+                level = LOG_DEBUG;
+        else if (code == CLD_EXITED)
+                level = LOG_NOTICE;
+        else
                 level = LOG_WARNING;
 
         log_struct(level,
