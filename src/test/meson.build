@@ -663,6 +663,10 @@ tests += [
         [['src/test/test-bus-util.c'],
          [],
          []],
+        [['src/test/test-fido-id-desc.c',
+          'src/udev/fido_id/fido_id_desc.c'],
+         [],
+         []],
 ]
 
 ############################################################
