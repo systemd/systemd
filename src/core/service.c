@@ -4329,9 +4329,13 @@ static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] =
 DEFINE_STRING_TABLE_LOOKUP(service_exec_command, ServiceExecCommand);
 
 static const char* const service_exec_ex_command_table[_SERVICE_EXEC_COMMAND_MAX] = {
+        [SERVICE_EXEC_CONDITION] = "ExecConditionEx",
         [SERVICE_EXEC_START_PRE] = "ExecStartPreEx",
         [SERVICE_EXEC_START] = "ExecStartEx",
         [SERVICE_EXEC_START_POST] = "ExecStartPostEx",
+        [SERVICE_EXEC_RELOAD] = "ExecReloadEx",
+        [SERVICE_EXEC_STOP] = "ExecStopEx",
+        [SERVICE_EXEC_STOP_POST] = "ExecStopPostEx",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_exec_ex_command, ServiceExecCommand);

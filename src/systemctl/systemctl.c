@@ -5534,6 +5534,8 @@ static int show_one(
                 { "IPEgressBytes",                  "t",               NULL,           offsetof(UnitStatusInfo, ip_egress_bytes)                   },
                 { "IOReadBytes",                    "t",               NULL,           offsetof(UnitStatusInfo, io_read_bytes)                     },
                 { "IOWriteBytes",                   "t",               NULL,           offsetof(UnitStatusInfo, io_write_bytes)                    },
+                { "ExecCondition",                  "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecConditionEx",                "a(sasasttttuii)", map_exec,       0                                                           },
                 { "ExecStartPre",                   "a(sasbttttuii)",  map_exec,       0                                                           },
                 { "ExecStartPreEx",                 "a(sasasttttuii)", map_exec,       0                                                           },
                 { "ExecStart",                      "a(sasbttttuii)",  map_exec,       0                                                           },
@@ -5541,9 +5543,12 @@ static int show_one(
                 { "ExecStartPost",                  "a(sasbttttuii)",  map_exec,       0                                                           },
                 { "ExecStartPostEx",                "a(sasasttttuii)", map_exec,       0                                                           },
                 { "ExecReload",                     "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecReloadEx",                   "a(sasasttttuii)", map_exec,       0                                                           },
                 { "ExecStopPre",                    "a(sasbttttuii)",  map_exec,       0                                                           },
                 { "ExecStop",                       "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecStopEx",                     "a(sasasttttuii)", map_exec,       0                                                           },
                 { "ExecStopPost",                   "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecStopPostEx",                 "a(sasasttttuii)", map_exec,       0                                                           },
                 {}
         };
 
