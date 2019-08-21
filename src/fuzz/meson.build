@@ -146,4 +146,9 @@ fuzzers += [
         [['src/fuzz/fuzz-time-util.c'],
          [libshared],
          []],
+
+        [['src/fuzz/fuzz-fido-id-desc.c',
+          'src/udev/fido_id/fido_id_desc.c'],
+         [],
+         []]
 ]

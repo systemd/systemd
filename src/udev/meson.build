@@ -165,6 +165,9 @@ libudev_core = static_library(
 
 foreach prog : [['ata_id/ata_id.c'],
                 ['cdrom_id/cdrom_id.c'],
+                ['fido_id/fido_id.c',
+                 'fido_id/fido_id_desc.c',
+                 'fido_id/fido_id_desc.h'],
                 ['scsi_id/scsi_id.c',
                  'scsi_id/scsi_id.h',
                  'scsi_id/scsi_serial.c',
