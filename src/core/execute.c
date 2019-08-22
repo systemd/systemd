@@ -4822,6 +4822,17 @@ int exec_context_get_clean_directories(
                         r = strv_consume(&l, j);
                         if (r < 0)
                                 return r;
+
+                        /* Also remove private directories unconditionally. */
+                        if (t != EXEC_DIRECTORY_CONFIGURATION) {
+                                j = path_join(prefix[t], "private", *i);
+                                if (!j)
+                                        return -ENOMEM;
+
+                                r = strv_consume(&l, j);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
