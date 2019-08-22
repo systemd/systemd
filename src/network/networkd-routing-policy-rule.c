@@ -453,11 +453,6 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        if (rule->family == AF_INET6 && link_sysctl_ipv6_enabled(link) == 0) {
-                log_link_warning(link, "An IPv6 routing policy rule is requested, but IPv6 is disabled by sysctl, ignoring.");
-                return 0;
-        }
-
         r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, rule->family);
         if (r < 0)
                 return log_error_errno(r, "Could not allocate RTM_NEWRULE message: %m");
