@@ -196,7 +196,7 @@ static int timer_add_one_calendar_spec(
 
                 *v = (TimerValue) {
                         .base = base,
-                        .calendar_spec = c,
+                        .calendar_spec = TAKE_PTR(c),
                 };
 
                 LIST_PREPEND(value, t->values, v);
