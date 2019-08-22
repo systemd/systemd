@@ -267,7 +267,12 @@ sensor:modalias:acpi:KIOX000A*:dmi:bvnINSYDECorp.:bvrBYT70A.YNCHENG.WIN.007:*:sv
 # quirk from "can play neverball" to "matches Windows 8 orientation"
 # is then applied below.
 sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*
-  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 0, -1; 0, 1, 0
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 0, -1; 0, 1, 0
+
+# HP laptops which have the lis3lv02d device in the base, tell iio-sensor-proxy
+# about this so that the sensor is not used for display orientation
+sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*pnHPProBook4535s*
+ ACCEL_LOCATION=base
 
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*
@@ -275,7 +280,7 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*
 
 # HP Pavillion X2 10-n000nd
 sensor:modalias:i2c:bmc150_accel:dmi:*:svnHewlett-Packard:pnHPPavilionx2Detachable:*:rn815D:*
-  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
 # I.T.Works
