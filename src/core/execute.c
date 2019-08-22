@@ -2045,6 +2045,19 @@ static int setup_private_users(uid_t uid, gid_t gid) {
         return 0;
 }
 
+static bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType type) {
+        if (!context->dynamic_user)
+                return false;
+
+        if (type == EXEC_DIRECTORY_CONFIGURATION)
+                return false;
+
+        if (type == EXEC_DIRECTORY_RUNTIME && context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO)
+                return false;
+
+        return true;
+}
+
 static int setup_exec_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2091,9 +2104,7 @@ static int setup_exec_directory(
                 if (r < 0)
                         goto fail;
 
-                if (context->dynamic_user &&
-                    (!IN_SET(type, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION) ||
-                     (type == EXEC_DIRECTORY_RUNTIME && context->runtime_directory_preserve_mode != EXEC_PRESERVE_NO))) {
+                if (exec_directory_is_private(context, type)) {
                         _cleanup_free_ char *private_root = NULL;
 
                         /* So, here's one extra complication when dealing with DynamicUser=1 units. In that
@@ -2369,8 +2380,7 @@ static int compile_bind_mounts(
                 if (strv_isempty(context->directories[t].paths))
                         continue;
 
-                if (context->dynamic_user &&
-                    !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION) &&
+                if (exec_directory_is_private(context, t) &&
                     !(context->root_directory || context->root_image)) {
                         char *private_root;
 
@@ -2392,8 +2402,7 @@ static int compile_bind_mounts(
                 STRV_FOREACH(suffix, context->directories[t].paths) {
                         char *s, *d;
 
-                        if (context->dynamic_user &&
-                            !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION))
+                        if (exec_directory_is_private(context, t))
                                 s = path_join(params->prefix[t], "private", *suffix);
                         else
                                 s = path_join(params->prefix[t], *suffix);
@@ -2402,8 +2411,7 @@ static int compile_bind_mounts(
                                 goto finish;
                         }
 
-                        if (context->dynamic_user &&
-                            !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION) &&
+                        if (exec_directory_is_private(context, t) &&
                             (context->root_directory || context->root_image))
                                 /* When RootDirectory= or RootImage= are set, then the symbolic link to the private
                                  * directory is not created on the root directory. So, let's bind-mount the directory
@@ -2854,10 +2862,10 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
                 STRV_FOREACH(i, c->directories[t].paths) {
                         char *e;
 
-                        if (t == EXEC_DIRECTORY_RUNTIME)
-                                e = path_join(p->prefix[t], *i);
-                        else
+                        if (exec_directory_is_private(c, t))
                                 e = path_join(p->prefix[t], "private", *i);
+                        else
+                                e = path_join(p->prefix[t], *i);
                         if (!e)
                                 return -ENOMEM;
 
@@ -4011,7 +4019,10 @@ int exec_context_destroy_runtime_directory(const ExecContext *c, const char *run
         STRV_FOREACH(i, c->directories[EXEC_DIRECTORY_RUNTIME].paths) {
                 _cleanup_free_ char *p;
 
-                p = path_join(runtime_prefix, *i);
+                if (exec_directory_is_private(c, EXEC_DIRECTORY_RUNTIME))
+                        p = path_join(runtime_prefix, "private", *i);
+                else
+                        p = path_join(runtime_prefix, *i);
                 if (!p)
                         return -ENOMEM;
 
