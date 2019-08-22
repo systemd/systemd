@@ -253,6 +253,10 @@ def read_ipv4_sysctl_attr(link, attribute):
     with open(os.path.join(os.path.join(network_sysctl_ipv4_path, link), attribute)) as f:
         return f.readline().strip()
 
+def write_ipv6_sysctl_attr(link, attribute, value):
+    with open(os.path.join(os.path.join(network_sysctl_ipv6_path, link), attribute), mode='w') as f:
+        return f.write(value)
+
 def copy_unit_to_networkd_unit_path(*units):
     print()
     for unit in units:
@@ -1482,6 +1486,28 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -4 address show dev dummy98 label 35')
         self.assertRegex(output, 'inet 172.[0-9]*.0.1/16 brd 172.[0-9]*.255.255 scope global 35')
+
+        output = check_output('ip -6 address show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'inet6 2001:db8:0:f101::15/64 scope global')
+        self.assertRegex(output, 'inet6 2001:db8:0:f101::16/64 scope global')
+        self.assertRegex(output, 'inet6 2001:db8:0:f102::15/64 scope global')
+        self.assertRegex(output, 'inet6 2001:db8:0:f102::16/64 scope global')
+        self.assertRegex(output, 'inet6 2001:db8:0:f103::20 peer 2001:db8:0:f103::10/128 scope global')
+        self.assertRegex(output, 'inet6 fd[0-9a-f:]*1/64 scope global')
+
+        write_ipv6_sysctl_attr('dummy98', 'disable_ipv6', '1')
+        self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'disable_ipv6'), '1')
+        time.sleep(2)
+
+        output = check_output('ip -6 address show dev dummy98')
+        print(output)
+        self.assertNotRegex(output, 'inet6')
+
+        restart_networkd(2)
+        self.wait_online(['dummy98:routable'])
+
+        self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'disable_ipv6'), '0')
 
         output = check_output('ip -6 address show dev dummy98')
         print(output)
