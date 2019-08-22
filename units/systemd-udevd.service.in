@@ -17,6 +17,7 @@ ConditionPathIsReadWrite=/sys
 
 [Service]
 Type=notify
+# Note that udev also adjusts the OOM score internally and will reset the value internally for its workers
 OOMScoreAdjust=-1000
 Sockets=systemd-udevd-control.socket systemd-udevd-kernel.socket
 Restart=always

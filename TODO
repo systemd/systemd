@@ -23,8 +23,6 @@ Features:
   may be used to mark a whole binary as non-coredumpable. Would fix:
   https://bugs.freedesktop.org/show_bug.cgi?id=69447
 
-* adjust OOM score slightly for journald
-
 * beef up hibernation to optionally do swapon/swapoff immediately before/after
   the hibernation
 
