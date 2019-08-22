@@ -2009,11 +2009,21 @@ executable('systemd-system-update-generator',
            install_dir : systemgeneratordir)
 
 if conf.get('HAVE_LIBCRYPTSETUP') == 1
+        systemd_cryptsetup_sources = files('''
+                src/cryptsetup/cryptsetup.c
+                src/cryptsetup/cryptsetup-pkcs11.h
+'''.split())
+
+        if conf.get('HAVE_P11KIT') == 1
+                systemd_cryptsetup_sources += files('src/cryptsetup/cryptsetup-pkcs11.c')
+        endif
+
         executable('systemd-cryptsetup',
-                   'src/cryptsetup/cryptsetup.c',
+                   systemd_cryptsetup_sources,
                    include_directories : includes,
                    link_with : [libshared],
-                   dependencies : [libcryptsetup],
+                   dependencies : [libcryptsetup,
+                                   libp11kit],
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootlibexecdir)
