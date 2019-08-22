@@ -587,6 +587,9 @@ pci:v*d*sv*sd*bc12*
 pci:v*d*sv*sd*bc12sc00*
  ID_PCI_SUBCLASS_FROM_DATABASE=Processing accelerators
 
+pci:v*d*sv*sd*bc12sc01*
+ ID_PCI_SUBCLASS_FROM_DATABASE=AI Inference Accelerator
+
 pci:v*d*sv*sd*bc13*
  ID_PCI_CLASS_FROM_DATABASE=Non-Essential Instrumentation
 

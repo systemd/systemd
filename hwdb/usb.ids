@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2019.05.08
-# Date:    2019-05-08 20:34:05
+# Version: 2019.08.21
+# Date:    2019-08-21 20:34:05
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -7644,6 +7644,10 @@
 	0002  CVA122 Cable Voice Adapter (WDM)
 	0003  CVA124E Cable Voice Adapter (WDM)
 	0004  CVA122E Cable Voice Adapter (WDM)
+	0a00  Integrated Management Controller Hub
+	0a01  Virtual Keyboard/Mouse
+	0a02  Virtual Mass Storage
+	0a03  Virtual Ethernet/RNDIS
 05a7  Bose Corp.
 	4000  Bluetooth Headset
 	4001  Bluetooth Headset in DFU mode
@@ -19196,6 +19200,7 @@
 	0101  RTL8812AU Archer T4U 802.11ac
 	0103  Archer T4UH wireless Realtek 8812AU
 	0105  Archer T1U 802.11a/n/ac Wireless Adapter [MediaTek MT7610U]
+	0106  Archer T9UH v1 [Realtek RTL8814AU]
 	0107  TL-WN821N Version 5 RTL8192EU
 	0108  TL-WN822N Version 4 RTL8192EU
 	0109  TL WN823N RTL8192EU
@@ -19442,6 +19447,8 @@
 	0001  Nitrogen Bootloader
 30a4  Blues Wireless
 	0001  Notecard
+30c2  UNPARALLEL Innovation, Lda
+	1388  SPL Meter
 30ee  Fujitsu Connected Technologies Limited
 	1001  F-01L
 3125  Eagletron
