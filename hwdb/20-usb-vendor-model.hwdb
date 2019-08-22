@@ -22874,6 +22874,18 @@ usb:v05A6p0003*
 usb:v05A6p0004*
  ID_MODEL_FROM_DATABASE=CVA122E Cable Voice Adapter (WDM)
 
+usb:v05A6p0A00*
+ ID_MODEL_FROM_DATABASE=Integrated Management Controller Hub
+
+usb:v05A6p0A01*
+ ID_MODEL_FROM_DATABASE=Virtual Keyboard/Mouse
+
+usb:v05A6p0A02*
+ ID_MODEL_FROM_DATABASE=Virtual Mass Storage
+
+usb:v05A6p0A03*
+ ID_MODEL_FROM_DATABASE=Virtual Ethernet/RNDIS
+
 usb:v05A7*
  ID_VENDOR_FROM_DATABASE=Bose Corp.
 
@@ -57527,6 +57539,9 @@ usb:v2357p0103*
 usb:v2357p0105*
  ID_MODEL_FROM_DATABASE=Archer T1U 802.11a/n/ac Wireless Adapter [MediaTek MT7610U]
 
+usb:v2357p0106*
+ ID_MODEL_FROM_DATABASE=Archer T9UH v1 [Realtek RTL8814AU]
+
 usb:v2357p0107*
  ID_MODEL_FROM_DATABASE=TL-WN821N Version 5 RTL8192EU
 
@@ -58264,6 +58279,12 @@ usb:v30A4*
 
 usb:v30A4p0001*
  ID_MODEL_FROM_DATABASE=Notecard
+
+usb:v30C2*
+ ID_VENDOR_FROM_DATABASE=UNPARALLEL Innovation, Lda
+
+usb:v30C2p1388*
+ ID_MODEL_FROM_DATABASE=SPL Meter
 
 usb:v30EE*
  ID_VENDOR_FROM_DATABASE=Fujitsu Connected Technologies Limited
