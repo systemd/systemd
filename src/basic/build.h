@@ -129,7 +129,7 @@
 #define _PCRE2_FEATURE_ "-PCRE2"
 #endif
 
-#define _CGROUP_HIEARCHY_ "default-hierarchy=" DEFAULT_HIERARCHY_NAME
+#define _CGROUP_HIERARCHY_ "default-hierarchy=" DEFAULT_HIERARCHY_NAME
 
 #define SYSTEMD_FEATURES                                                \
         _PAM_FEATURE_ " "                                               \
@@ -153,4 +153,4 @@
         _IDN2_FEATURE_ " "                                              \
         _IDN_FEATURE_ " "                                               \
         _PCRE2_FEATURE_ " "                                             \
-        _CGROUP_HIEARCHY_
+        _CGROUP_HIERARCHY_

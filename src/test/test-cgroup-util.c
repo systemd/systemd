@@ -341,7 +341,7 @@ static void test_is_wanted_print(bool header) {
         log_info("cmdline: %s", cmdline);
         if (header) {
 
-                log_info(_CGROUP_HIEARCHY_);
+                log_info(_CGROUP_HIERARCHY_);
                 (void) system("findmnt -n /sys/fs/cgroup");
         }
 

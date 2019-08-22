@@ -101,6 +101,7 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",         no_argument,       NULL, 'h'              },
                 { "version",      no_argument,       NULL, ARG_VERSION      },
+                { "pretty",       no_argument,       NULL, 'p'              },
                 { "app-specific", required_argument, NULL, 'a'              },
                 {},
         };
