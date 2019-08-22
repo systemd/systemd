@@ -1721,12 +1721,8 @@ static bool service_will_restart(Unit *u) {
                 return true;
         if (s->state == SERVICE_AUTO_RESTART)
                 return true;
-        if (!UNIT(s)->job)
-                return false;
-        if (UNIT(s)->job->type == JOB_START)
-                return true;
 
-        return false;
+        return unit_will_restart_default(u);
 }
 
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {

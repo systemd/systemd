@@ -752,6 +752,7 @@ const char *unit_slice_name(Unit *u);
 bool unit_stop_pending(Unit *u) _pure_;
 bool unit_inactive_or_pending(Unit *u) _pure_;
 bool unit_active_or_pending(Unit *u);
+bool unit_will_restart_default(Unit *u);
 bool unit_will_restart(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);

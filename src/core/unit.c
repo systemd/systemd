@@ -4069,6 +4069,17 @@ bool unit_active_or_pending(Unit *u) {
         return false;
 }
 
+bool unit_will_restart_default(Unit *u) {
+        assert(u);
+
+        if (!u->job)
+                return false;
+        if (u->job->type == JOB_START)
+                return true;
+
+        return false;
+}
+
 bool unit_will_restart(Unit *u) {
         assert(u);
 

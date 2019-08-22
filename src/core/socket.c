@@ -2035,7 +2035,7 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
 
         s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
 
-        exec_context_destroy_runtime_directory(&s->exec_context, UNIT(s)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+        unit_destroy_runtime_directory(UNIT(s), &s->exec_context);
 
         unit_unref_uid_gid(UNIT(s), true);
 
@@ -3352,6 +3352,8 @@ const UnitVTable socket_vtable = {
 
         .active_state = socket_active_state,
         .sub_state_to_string = socket_sub_state_to_string,
+
+        .will_restart = unit_will_restart_default,
 
         .may_gc = socket_may_gc,
 
