@@ -173,9 +173,7 @@ REQUIREMENTS:
         dependencies:
 
         util-linux >= v2.27.1 required
-        dbus >= 1.4.0 (strictly speaking optional, but recommended)
-                NOTE: If using dbus < 1.9.18, you should override the default
-                policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
+        dbus >= 1.11.0 (strictly speaking optional, but recommended)
         dracut (optional)
         polkit (optional)
 
