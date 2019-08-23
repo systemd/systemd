@@ -69,7 +69,7 @@
     this feature disabled.</para>
 
     <para>The first watchdog notification message is sent immediately
-    when <function>set_event_set_watchdog()</function> is invoked with
+    when <function>sd_event_set_watchdog()</function> is invoked with
     a true <parameter>b</parameter> parameter.</para>
 
     <para>The watchdog logic is designed to allow the service manager
