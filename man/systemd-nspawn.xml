@@ -535,6 +535,15 @@
         before sending its own to systemd. For more details about notifications
         see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--pidfile=</option></term>
+
+        <listitem><para>After starting the container, write the PID of the container's init process
+        (in the outer PID namespace) to the file specified by <option>--pidfile=</option>.
+        This option may point to a special file such as <filename>/dev/fd/3</filename>
+        in order to write the PID to a pipe opened in that file descriptor.</para></listitem>
+      </varlistentry>
     </variablelist>
 
     </refsect2><refsect2>

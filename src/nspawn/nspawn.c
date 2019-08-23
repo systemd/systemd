@@ -228,6 +228,7 @@ static DeviceNode* arg_extra_nodes = NULL;
 static size_t arg_n_extra_nodes = 0;
 static char **arg_sysctl = NULL;
 static ConsoleMode arg_console_mode = _CONSOLE_MODE_INVALID;
+static char *arg_pidfile = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
@@ -260,6 +261,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_seccomp, seccomp_releasep);
 #endif
 STATIC_DESTRUCTOR_REGISTER(arg_cpu_set, cpu_set_reset);
 STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_pidfile, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -299,7 +301,8 @@ static int help(void) {
                "  -E --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
                "  -u --user=USER            Run the command under specified user or UID\n"
                "     --kill-signal=SIGNAL   Select signal to use for shutting down PID 1\n"
-               "     --notify-ready=BOOLEAN Receive notifications from the child init process\n\n"
+               "     --notify-ready=BOOLEAN Receive notifications from the child init process\n"
+               "     --pidfile=PATH         Record PID of init process in container into pidfile\n\n"
                "%3$sSystem Identity:%4$s\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
                "     --hostname=NAME        Override the hostname for the container\n"
@@ -593,6 +596,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PIPE,
                 ARG_OCI_BUNDLE,
                 ARG_NO_PAGER,
+                ARG_PIDFILE,
         };
 
         static const struct option options[] = {
@@ -658,6 +662,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pipe",                   no_argument,       NULL, ARG_PIPE                   },
                 { "oci-bundle",             required_argument, NULL, ARG_OCI_BUNDLE             },
                 { "no-pager",               no_argument,       NULL, ARG_NO_PAGER               },
+                { "pidfile",                required_argument, NULL, ARG_PIDFILE                },
                 {}
         };
 
@@ -1396,6 +1401,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_PIDFILE:
+                        r = parse_path_argument_and_warn(optarg, false, &arg_pidfile);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
@@ -4435,6 +4446,14 @@ static int run_container(
 
         } else if (arg_slice || arg_property)
                 log_notice("Machine and scope registration turned off, --slice= and --property= settings will have no effect.");
+
+        if (arg_pidfile) {
+                _cleanup_fclose_ FILE *f = fopen(arg_pidfile, "w");
+                if (f)
+                        fprintf(f, PID_FMT"\n", *pid);
+                else
+                        log_warning_errno(errno, "Failed to open pidfile %s: %m", arg_pidfile);
+        }
 
         r = create_subcgroup(*pid, arg_keep_unit, arg_unified_cgroup_hierarchy);
         if (r < 0)
