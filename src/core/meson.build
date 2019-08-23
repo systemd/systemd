@@ -197,8 +197,6 @@ endforeach
 
 install_data('org.freedesktop.systemd1.conf',
              install_dir : dbuspolicydir)
-install_data('org.freedesktop.systemd1.service',
-             install_dir : dbussystemservicedir)
 
 policy = configure_file(
         input : 'org.freedesktop.systemd1.policy.in',

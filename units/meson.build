@@ -309,9 +309,6 @@ install_data('user-.slice.d/10-defaults.conf',
 meson.add_install_script(meson_make_symlink,
                          join_paths(pkgsysconfdir, 'user'),
                          join_paths(sysconfdir, 'xdg/systemd/user'))
-meson.add_install_script(meson_make_symlink,
-                         join_paths(dbussystemservicedir, 'org.freedesktop.systemd1.service'),
-                         join_paths(dbussessionservicedir, 'org.freedesktop.systemd1.service'))
 if conf.get('HAVE_SYSV_COMPAT') == 1
         foreach i : [1, 2, 3, 4, 5]
                 meson.add_install_script(
