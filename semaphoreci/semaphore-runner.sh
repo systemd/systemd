@@ -5,7 +5,7 @@ set -eux
 # default to Debian testing
 DISTRO=${DISTRO:-debian}
 RELEASE=${RELEASE:-buster}
-BRANCH=${BRANCH:-experimental}
+BRANCH=${BRANCH:-master}
 ARCH=${ARCH:-amd64}
 CONTAINER=${RELEASE}-${ARCH}
 CACHE_DIR=${SEMAPHORE_CACHE_DIR:=/tmp}
