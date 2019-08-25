@@ -287,6 +287,7 @@ struct ExecContext {
 
         ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
         ExecPreserveMode runtime_directory_preserve_mode;
+        usec_t timeout_clean_usec;
 };
 
 static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {

@@ -108,7 +108,6 @@ static void service_init(Unit *u) {
         s->timeout_abort_set = u->manager->default_timeout_abort_set;
         s->restart_usec = u->manager->default_restart_usec;
         s->runtime_max_usec = USEC_INFINITY;
-        s->timeout_clean_usec = USEC_INFINITY;
         s->type = _SERVICE_TYPE_INVALID;
         s->socket_fd = -1;
         s->stdin_fd = s->stdout_fd = s->stderr_fd = -1;
@@ -794,8 +793,7 @@ static int service_load(Unit *u) {
 
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
         char buf_restart[FORMAT_TIMESPAN_MAX], buf_start[FORMAT_TIMESPAN_MAX], buf_stop[FORMAT_TIMESPAN_MAX],
-                buf_runtime[FORMAT_TIMESPAN_MAX], buf_watchdog[FORMAT_TIMESPAN_MAX], buf_abort[FORMAT_TIMESPAN_MAX],
-                buf_clean[FORMAT_TIMESPAN_MAX];
+                buf_runtime[FORMAT_TIMESPAN_MAX], buf_watchdog[FORMAT_TIMESPAN_MAX], buf_abort[FORMAT_TIMESPAN_MAX];
         ServiceExecCommand c;
         Service *s = SERVICE(u);
         const char *prefix2;
@@ -878,10 +876,8 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, format_timespan(buf_abort, sizeof(buf_abort), s->timeout_abort_usec, USEC_PER_SEC));
 
         fprintf(f,
-                "%sTimeoutCleanSec: %s\n"
                 "%sRuntimeMaxSec: %s\n"
                 "%sWatchdogSec: %s\n",
-                prefix, format_timespan(buf_clean, sizeof(buf_clean), s->timeout_clean_usec, USEC_PER_SEC),
                 prefix, format_timespan(buf_runtime, sizeof(buf_runtime), s->runtime_max_usec, USEC_PER_SEC),
                 prefix, format_timespan(buf_watchdog, sizeof(buf_watchdog), s->watchdog_usec, USEC_PER_SEC));
 
@@ -1167,7 +1163,7 @@ static usec_t service_coldplug_timeout(Service *s) {
                 return usec_add(UNIT(s)->inactive_enter_timestamp.monotonic, s->restart_usec);
 
         case SERVICE_CLEANING:
-                return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->timeout_clean_usec);
+                return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->exec_context.timeout_clean_usec);
 
         default:
                 return USEC_INFINITY;
@@ -4277,7 +4273,7 @@ static int service_clean(Unit *u, ExecCleanMask mask) {
         s->control_command = NULL;
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 
-        r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_clean_usec));
+        r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->exec_context.timeout_clean_usec));
         if (r < 0)
                 goto fail;
 

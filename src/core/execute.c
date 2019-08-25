@@ -3932,6 +3932,7 @@ void exec_context_init(ExecContext *c) {
         c->personality = PERSONALITY_INVALID;
         for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
                 c->directories[i].mode = 0755;
+        c->timeout_clean_usec = USEC_INFINITY;
         c->capability_bounding_set = CAP_ALL;
         assert_cc(NAMESPACE_FLAGS_INITIAL != NAMESPACE_FLAGS_ALL);
         c->restrict_namespaces = NAMESPACE_FLAGS_INITIAL;
@@ -4303,8 +4304,8 @@ static void strv_fprintf(FILE *f, char **l) {
 }
 
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
+        char **e, **d, buf_clean[FORMAT_TIMESPAN_MAX];
         ExecDirectoryType dt;
-        char **e, **d;
         unsigned i;
         int r;
 
@@ -4378,6 +4379,10 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 STRV_FOREACH(d, c->directories[dt].paths)
                         fprintf(f, "%s%s: %s\n", prefix, exec_directory_type_to_string(dt), *d);
         }
+
+        fprintf(f,
+                "%sTimeoutCleanSec: %s\n",
+                prefix, format_timespan(buf_clean, sizeof(buf_clean), c->timeout_clean_usec, USEC_PER_SEC));
 
         if (c->nice_set)
                 fprintf(f,
