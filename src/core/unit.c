@@ -38,6 +38,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "serialize.h"
 #include "set.h"
 #include "signal-util.h"
@@ -5300,6 +5301,39 @@ int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret) {
                 }
         }
 
+        return 0;
+}
+
+int unit_fork_and_watch_rm_rf(Unit *u, char **paths, pid_t *ret_pid) {
+        pid_t pid;
+        int r;
+
+        assert(u);
+        assert(ret_pid);
+
+        r = unit_fork_helper_process(u, "(sd-rmrf)", &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                int ret = EXIT_SUCCESS;
+                char **i;
+
+                STRV_FOREACH(i, paths) {
+                        r = rm_rf(*i, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to remove '%s': %m", *i);
+                                ret = EXIT_FAILURE;
+                        }
+                }
+
+                _exit(ret);
+        }
+
+        r = unit_watch_pid(u, pid, true);
+        if (r < 0)
+                return r;
+
+        *ret_pid = pid;
         return 0;
 }
 
