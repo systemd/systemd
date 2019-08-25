@@ -79,6 +79,7 @@ typedef enum MountState {
         MOUNT_UNMOUNTING_SIGTERM,
         MOUNT_UNMOUNTING_SIGKILL,
         MOUNT_FAILED,
+        MOUNT_CLEANING,
         _MOUNT_STATE_MAX,
         _MOUNT_STATE_INVALID = -1
 } MountState;

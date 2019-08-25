@@ -136,7 +136,8 @@ static const char* const mount_state_table[_MOUNT_STATE_MAX] = {
         [MOUNT_REMOUNTING_SIGKILL] = "remounting-sigkill",
         [MOUNT_UNMOUNTING_SIGTERM] = "unmounting-sigterm",
         [MOUNT_UNMOUNTING_SIGKILL] = "unmounting-sigkill",
-        [MOUNT_FAILED] = "failed"
+        [MOUNT_FAILED] = "failed",
+        [MOUNT_CLEANING] = "cleaning",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mount_state, MountState);

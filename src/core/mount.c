@@ -45,7 +45,8 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_REMOUNTING_SIGKILL] = UNIT_RELOADING,
         [MOUNT_UNMOUNTING_SIGTERM] = UNIT_DEACTIVATING,
         [MOUNT_UNMOUNTING_SIGKILL] = UNIT_DEACTIVATING,
-        [MOUNT_FAILED] = UNIT_FAILED
+        [MOUNT_FAILED] = UNIT_FAILED,
+        [MOUNT_CLEANING] = UNIT_MAINTENANCE,
 };
 
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
@@ -61,7 +62,8 @@ static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
                       MOUNT_REMOUNTING_SIGKILL,
                       MOUNT_UNMOUNTING,
                       MOUNT_UNMOUNTING_SIGTERM,
-                      MOUNT_UNMOUNTING_SIGKILL);
+                      MOUNT_UNMOUNTING_SIGKILL,
+                      MOUNT_CLEANING);
 }
 
 static bool mount_is_network(const MountParameters *p) {
@@ -731,6 +733,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sMount State: %s\n"
                 "%sResult: %s\n"
+                "%sClean Result: %s\n"
                 "%sWhere: %s\n"
                 "%sWhat: %s\n"
                 "%sFile System Type: %s\n"
@@ -745,6 +748,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTimeoutSec: %s\n",
                 prefix, mount_state_to_string(m->state),
                 prefix, mount_result_to_string(m->result),
+                prefix, mount_result_to_string(m->clean_result),
                 prefix, m->where,
                 prefix, p ? strna(p->what) : "n/a",
                 prefix, p ? strna(p->fstype) : "n/a",
@@ -1090,7 +1094,8 @@ static int mount_start(Unit *u) {
         if (IN_SET(m->state,
                    MOUNT_UNMOUNTING,
                    MOUNT_UNMOUNTING_SIGTERM,
-                   MOUNT_UNMOUNTING_SIGKILL))
+                   MOUNT_UNMOUNTING_SIGKILL,
+                   MOUNT_CLEANING))
                 return -EAGAIN;
 
         /* Already on it! */
@@ -1148,6 +1153,11 @@ static int mount_stop(Unit *u) {
         case MOUNT_MOUNTED:
                 mount_enter_unmounting(m);
                 return 1;
+
+        case MOUNT_CLEANING:
+                /* If we are currently cleaning, then abort it, brutally. */
+                mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, MOUNT_SUCCESS);
+                return 0;
 
         default:
                 assert_not_reached("Unexpected state.");
@@ -1382,6 +1392,13 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 mount_enter_dead_or_mounted(m, f);
                 break;
 
+        case MOUNT_CLEANING:
+                if (m->clean_result == MOUNT_SUCCESS)
+                        m->clean_result = f;
+
+                mount_enter_dead(m, MOUNT_SUCCESS);
+                break;
+
         default:
                 assert_not_reached("Uh, control process died at wrong time.");
         }
@@ -1447,6 +1464,15 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
         case MOUNT_UNMOUNTING_SIGKILL:
                 log_unit_warning(UNIT(m), "Mount process still around after SIGKILL. Ignoring.");
                 mount_enter_dead_or_mounted(m, MOUNT_FAILURE_TIMEOUT);
+                break;
+
+        case MOUNT_CLEANING:
+                log_unit_warning(UNIT(m), "Cleaning timed out. killing.");
+
+                if (m->clean_result == MOUNT_SUCCESS)
+                        m->clean_result = MOUNT_FAILURE_TIMEOUT;
+
+                mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, 0);
                 break;
 
         default:
@@ -1923,6 +1949,7 @@ static void mount_reset_failed(Unit *u) {
 
         m->result = MOUNT_SUCCESS;
         m->reload_result = MOUNT_SUCCESS;
+        m->clean_result = MOUNT_SUCCESS;
 }
 
 static int mount_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
@@ -1939,6 +1966,56 @@ static int mount_control_pid(Unit *u) {
         assert(m);
 
         return m->control_pid;
+}
+
+static int mount_clean(Unit *u, ExecCleanMask mask) {
+        _cleanup_strv_free_ char **l = NULL;
+        Mount *m = MOUNT(u);
+        int r;
+
+        assert(m);
+        assert(mask != 0);
+
+        if (m->state != MOUNT_DEAD)
+                return -EBUSY;
+
+        r = exec_context_get_clean_directories(&m->exec_context, u->manager->prefix, mask, &l);
+        if (r < 0)
+                return r;
+
+        if (strv_isempty(l))
+                return -EUNATCH;
+
+        mount_unwatch_control_pid(m);
+        m->clean_result = MOUNT_SUCCESS;
+        m->control_command = NULL;
+        m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
+
+        r = mount_arm_timer(m, usec_add(now(CLOCK_MONOTONIC), m->exec_context.timeout_clean_usec));
+        if (r < 0)
+                goto fail;
+
+        r = unit_fork_and_watch_rm_rf(u, l, &m->control_pid);
+        if (r < 0)
+                goto fail;
+
+        mount_set_state(m, MOUNT_CLEANING);
+
+        return 0;
+
+fail:
+        log_unit_warning_errno(u, r, "Failed to initiate cleaning: %m");
+        m->clean_result = MOUNT_FAILURE_RESOURCES;
+        m->timer_event_source = sd_event_source_unref(m->timer_event_source);
+        return r;
+}
+
+static int mount_can_clean(Unit *u, ExecCleanMask *ret) {
+        Mount *m = MOUNT(u);
+
+        assert(m);
+
+        return exec_context_get_clean_mask(&m->exec_context, ret);
 }
 
 static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
@@ -1989,6 +2066,8 @@ const UnitVTable mount_vtable = {
         .reload = mount_reload,
 
         .kill = mount_kill,
+        .clean = mount_clean,
+        .can_clean = mount_can_clean,
 
         .serialize = mount_serialize,
         .deserialize_item = mount_deserialize_item,
