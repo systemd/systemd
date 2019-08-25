@@ -147,6 +147,7 @@ typedef enum SocketState {
         SOCKET_FINAL_SIGTERM,
         SOCKET_FINAL_SIGKILL,
         SOCKET_FAILED,
+        SOCKET_CLEANING,
         _SOCKET_STATE_MAX,
         _SOCKET_STATE_INVALID = -1
 } SocketState;

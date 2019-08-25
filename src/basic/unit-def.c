@@ -204,7 +204,8 @@ static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_STOP_POST] = "stop-post",
         [SOCKET_FINAL_SIGTERM] = "final-sigterm",
         [SOCKET_FINAL_SIGKILL] = "final-sigkill",
-        [SOCKET_FAILED] = "failed"
+        [SOCKET_FAILED] = "failed",
+        [SOCKET_CLEANING] = "cleaning",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_state, SocketState);
