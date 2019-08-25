@@ -162,6 +162,7 @@ typedef enum SwapState {
         SWAP_DEACTIVATING_SIGTERM,
         SWAP_DEACTIVATING_SIGKILL,
         SWAP_FAILED,
+        SWAP_CLEANING,
         _SWAP_STATE_MAX,
         _SWAP_STATE_INVALID = -1
 } SwapState;

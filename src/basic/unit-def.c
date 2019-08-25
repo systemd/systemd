@@ -219,7 +219,8 @@ static const char* const swap_state_table[_SWAP_STATE_MAX] = {
         [SWAP_DEACTIVATING] = "deactivating",
         [SWAP_DEACTIVATING_SIGTERM] = "deactivating-sigterm",
         [SWAP_DEACTIVATING_SIGKILL] = "deactivating-sigkill",
-        [SWAP_FAILED] = "failed"
+        [SWAP_FAILED] = "failed",
+        [SWAP_CLEANING] = "cleaning",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(swap_state, SwapState);

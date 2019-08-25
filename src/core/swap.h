@@ -57,6 +57,7 @@ struct Swap {
         bool just_activated:1;
 
         SwapResult result;
+        SwapResult clean_result;
 
         usec_t timeout_usec;
 
