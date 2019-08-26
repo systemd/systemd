@@ -46,6 +46,7 @@ manpages = [
  ['nss-systemd', '8', ['libnss_systemd.so.2'], 'ENABLE_NSS_SYSTEMD'],
  ['os-release', '5', [], ''],
  ['pam_systemd', '8', [], 'HAVE_PAM'],
+ ['pam_systemd_home', '8', [], 'HAVE_PAM'],
  ['portablectl', '1', [], 'ENABLE_PORTABLED'],
  ['pstore.conf', '5', ['pstore.conf.d'], 'ENABLE_PSTORE'],
  ['repart.d', '5', [], ''],
