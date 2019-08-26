@@ -485,6 +485,8 @@ static int merge_env_file_push(
 
         free_and_replace(value, expanded_value);
 
+        log_debug("%s:%u: setting %s=%s", filename, line, key, value);
+
         return load_env_file_push(filename, line, key, value, env, n_pushed);
 }
 
