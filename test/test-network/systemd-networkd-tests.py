@@ -1827,52 +1827,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertEqual(read_ipv4_sysctl_attr('dummy98', 'forwarding'),'1')
         self.assertEqual(read_ipv4_sysctl_attr('dummy98', 'proxy_arp'), '1')
 
-    def test_sysctl_disable_ipv6(self):
-        copy_unit_to_networkd_unit_path('25-sysctl-disable-ipv6.network', '12-dummy.netdev')
-
-        print('## Disable ipv6')
-        check_output('sysctl net.ipv6.conf.all.disable_ipv6=1')
-        check_output('sysctl net.ipv6.conf.default.disable_ipv6=1')
-
-        start_networkd()
-        self.wait_online(['dummy98:routable'])
-
-        output = check_output('ip -4 address show dummy98')
-        print(output)
-        self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope global dummy98')
-        output = check_output('ip -6 address show dummy98')
-        print(output)
-        self.assertEqual(output, '')
-        output = check_output('ip -4 route show dev dummy98')
-        print(output)
-        self.assertEqual(output, '10.2.0.0/16 proto kernel scope link src 10.2.3.4')
-        output = check_output('ip -6 route show dev dummy98')
-        print(output)
-        self.assertEqual(output, '')
-
-        check_output('ip link del dummy98')
-
-        print('## Enable ipv6')
-        check_output('sysctl net.ipv6.conf.all.disable_ipv6=0')
-        check_output('sysctl net.ipv6.conf.default.disable_ipv6=0')
-
-        restart_networkd(3)
-        self.wait_online(['dummy98:routable'])
-
-        output = check_output('ip -4 address show dummy98')
-        print(output)
-        self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope global dummy98')
-        output = check_output('ip -6 address show dummy98')
-        print(output)
-        self.assertRegex(output, 'inet6 2607:5300:203:3906::/64 scope global')
-        self.assertRegex(output, 'inet6 .* scope link')
-        output = check_output('ip -4 route show dev dummy98')
-        print(output)
-        self.assertEqual(output, '10.2.0.0/16 proto kernel scope link src 10.2.3.4')
-        output = check_output('ip -6 route show dev dummy98')
-        print(output)
-        self.assertRegex(output, 'default via 2607:5300:203:39ff:ff:ff:ff:ff proto static')
-
     def test_bind_carrier(self):
         copy_unit_to_networkd_unit_path('25-bind-carrier.network', '11-dummy.netdev')
         start_networkd()
