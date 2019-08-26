@@ -6,6 +6,7 @@ set -u
 
 REPO_ROOT=${REPO_ROOT:-$(pwd)}
 
+sudo rm -rf /etc/apt/sources.list.d/pgdg.list
 sudo bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ xenial main restricted universe multiverse' >>/etc/apt/sources.list"
 sudo apt-get update -y
 sudo apt-get build-dep systemd -y
