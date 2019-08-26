@@ -187,10 +187,13 @@ bool link_ipv4ll_enabled(Link *link, AddressFamily mask) {
         return link->network->link_local & mask;
 }
 
-static bool link_ipv6ll_enabled(Link *link) {
+static bool link_ipv6ll_enabled(Link *link, bool check_sysctl) {
         assert(link);
 
         if (!socket_ipv6_is_supported())
+                return false;
+
+        if (check_sysctl && link_sysctl_ipv6_enabled(link) == 0)
                 return false;
 
         if (link->flags & IFF_LOOPBACK)
@@ -208,16 +211,13 @@ static bool link_ipv6ll_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
-        if (link_sysctl_ipv6_enabled(link) == 0)
-                return false;
-
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
 static bool link_radv_enabled(Link *link) {
         assert(link);
 
-        if (!link_ipv6ll_enabled(link))
+        if (!link_ipv6ll_enabled(link, true))
                 return false;
 
         return link->network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE;
@@ -274,7 +274,7 @@ static bool link_proxy_arp_enabled(Link *link) {
 static bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
 
-        if (!link_ipv6ll_enabled(link))
+        if (!link_ipv6ll_enabled(link, true))
                 return false;
 
         /* If unset use system default (enabled if local forwarding is disabled.
@@ -1010,7 +1010,7 @@ void link_check_ready(Link *link) {
                 if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4) && !(link->ipv4ll_address && link->ipv4ll_route))
                         return;
 
-                if (link_ipv6ll_enabled(link) &&
+                if (link_ipv6ll_enabled(link, true) &&
                     in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address))
                         return;
 
@@ -1519,7 +1519,7 @@ static int link_configure_addrgen_mode(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not open AF_INET6 container: %m");
 
-        if (!link_ipv6ll_enabled(link))
+        if (!link_ipv6ll_enabled(link, true))
                 ipv6ll_mode = IN6_ADDR_GEN_MODE_NONE;
         else if (sysctl_read_ip_property(AF_INET6, link->ifname, "stable_secret", NULL) < 0)
                 /* The file may not exist. And event if it exists, when stable_secret is unset,
@@ -2149,6 +2149,39 @@ static int link_enter_join_netdev(Link *link) {
         return 0;
 }
 
+static int link_enable_ipv6(Link *link) {
+        int r;
+
+        assert(link);
+
+        /* This must be called before any call of link_sysctl_ipv6_enabled() */
+        assert(link->sysctl_ipv6_enabled < 0);
+
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (!link->network)
+                return 0; /* unmanaged */
+
+        if (link->network->bond)
+                return 0; /* Bond slave cannot have an address. */
+
+        if (link->iftype == ARPHRD_CAN)
+                return 0;
+
+        /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
+        if (!link_ipv6ll_enabled(link, false) && !network_has_static_ipv6_addresses(link->network))
+                return 0;
+
+        r = sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "disable_ipv6", false);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to enable IPv6: %m");
+
+        link->sysctl_ipv6_enabled = true;
+        log_link_debug(link, "IPv6 successfully enabled");
+        return 0;
+}
+
 static int link_set_ipv4_forward(Link *link) {
         int r;
 
@@ -2509,6 +2542,10 @@ static int link_configure(Link *link) {
                 if (r < 0)
                         return r;
         }
+
+        r = link_enable_ipv6(link);
+        if (r < 0)
+                return r;
 
         r = link_set_proxy_arp(link);
         if (r < 0)
