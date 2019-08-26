@@ -709,6 +709,7 @@ manpages = [
   '8',
   ['systemd-hibernate-resume'],
   'ENABLE_HIBERNATE'],
+ ['systemd-homed.service', '8', ['systemd-homed'], 'ENABLE_HOMED'],
  ['systemd-hostnamed.service', '8', ['systemd-hostnamed'], 'ENABLE_HOSTNAMED'],
  ['systemd-hwdb', '8', [], 'ENABLE_HWDB'],
  ['systemd-id128', '1', [], ''],
