@@ -1629,9 +1629,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         manager_preset_all(m);
 
-        r = lookup_paths_reduce(&m->lookup_paths);
-        if (r < 0)
-                log_warning_errno(r, "Failed to reduce unit file paths, ignoring: %m");
+        lookup_paths_log(&m->lookup_paths);
 
         {
                 /* This block is (optionally) done with the reloading counter bumped */
@@ -3520,9 +3518,7 @@ int manager_reload(Manager *m) {
         (void) manager_run_environment_generators(m);
         (void) manager_run_generators(m);
 
-        r = lookup_paths_reduce(&m->lookup_paths);
-        if (r < 0)
-                log_warning_errno(r, "Failed to reduce unit file paths, ignoring: %m");
+        lookup_paths_log(&m->lookup_paths);
 
         /* We flushed out generated files, for which we don't watch mtime, so we should flush the old map. */
         manager_free_unit_name_maps(m);
