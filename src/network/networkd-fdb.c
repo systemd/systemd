@@ -123,11 +123,6 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         assert(link->manager);
         assert(fdb_entry);
 
-        if (fdb_entry->family == AF_INET6 && link_sysctl_ipv6_enabled(link) == 0) {
-                log_link_warning(link, "An IPv6 fdb entry is requested, but IPv6 is disabled by sysctl, ignoring.");
-                return 0;
-        }
-
         /* create new RTM message */
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH, link->ifindex, PF_BRIDGE);
         if (r < 0)

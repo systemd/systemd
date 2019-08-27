@@ -636,11 +636,6 @@ int route_configure(
         assert(IN_SET(route->family, AF_INET, AF_INET6));
         assert(callback);
 
-        if (route->family == AF_INET6 && link_sysctl_ipv6_enabled(link) == 0) {
-                log_link_warning(link, "An IPv6 route is requested, but IPv6 is disabled by sysctl, ignoring.");
-                return 0;
-        }
-
         if (route_get(link, route->family, &route->dst, route->dst_prefixlen, &route->gw, route->tos, route->priority, route->table, NULL) <= 0 &&
             set_size(link->routes) >= routes_max())
                 return log_link_error_errno(link, SYNTHETIC_ERRNO(E2BIG),
