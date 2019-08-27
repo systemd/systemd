@@ -1705,10 +1705,6 @@ int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *descri
         if (r < 0)
                 return r;
 
-        r = sd_bus_set_trusted(bus, true);
-        if (r < 0)
-                return r;
-
         r = sd_bus_negotiate_creds(bus, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS);
         if (r < 0)
                 return r;
