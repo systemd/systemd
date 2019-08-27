@@ -1354,8 +1354,7 @@ _public_ int sd_bus_open_user_with_description(sd_bus **ret, const char *descrip
         b->bus_client = true;
         b->is_user = true;
 
-        /* We don't do any per-method access control on the user
-         * bus. */
+        /* We don't do any per-method access control on the user bus. */
         b->trusted = true;
         b->is_local = true;
 
