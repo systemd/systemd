@@ -1638,15 +1638,6 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (m->mdns_support != RESOLVE_SUPPORT_YES)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for MulticastDNS is disabled");
 
-        r = bus_verify_polkit_async(message, CAP_SYS_ADMIN,
-                                    "org.freedesktop.resolve1.register-service",
-                                    NULL, false, UID_INVALID,
-                                    &m->polkit_registry, error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Polkit will call us back */
-
         service = new0(DnssdService, 1);
         if (!service)
                 return log_oom();
@@ -1770,6 +1761,15 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", service->name, &path);
         if (r < 0)
                 return r;
+
+        r = bus_verify_polkit_async(message, CAP_SYS_ADMIN,
+                                    "org.freedesktop.resolve1.register-service",
+                                    NULL, false, UID_INVALID,
+                                    &m->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
 
         r = hashmap_ensure_allocated(&m->dnssd_services, &string_hash_ops);
         if (r < 0)
