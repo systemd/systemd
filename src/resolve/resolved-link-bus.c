@@ -544,6 +544,10 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         if (r < 0)
                 return r;
 
+        ns = set_new(&dns_name_hash_ops);
+        if (!ns)
+                return -ENOMEM;
+
         r = sd_bus_message_read_strv(message, &ntas);
         if (r < 0)
                 return r;
@@ -553,14 +557,9 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid negative trust anchor domain: %s", *i);
-        }
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Invalid negative trust anchor domain: %s", *i);
 
-        ns = set_new(&dns_name_hash_ops);
-        if (!ns)
-                return -ENOMEM;
-
-        STRV_FOREACH(i, ntas) {
                 r = set_put_strdup(ns, *i);
                 if (r < 0)
                         return r;
