@@ -220,6 +220,26 @@ int network_verify(Network *network) {
         if (network->link_local < 0)
                 network->link_local = network->bridge ? ADDRESS_FAMILY_NO : ADDRESS_FAMILY_IPV6;
 
+        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
+                if (network->ipv6_accept_ra > 0) {
+                        log_warning("%s: IPv6AcceptRA= is enabled by the .network file but IPv6 link local addressing is disabled. "
+                                    "Disabling IPv6AcceptRA=.", network->filename);
+                        network->ipv6_accept_ra = false;
+                }
+
+                if (FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV6)) {
+                        log_warning("%s: DHCPv6 client is enabled by the .network file but IPv6 link local addressing is disabled. "
+                                    "Disabling DHCPv6 client.", network->filename);
+                        SET_FLAG(network->dhcp, ADDRESS_FAMILY_IPV6, false);
+                }
+
+                if (network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE) {
+                        log_warning("%s: IPv6PrefixDelegation= is enabled but IPv6 link local addressing is disabled. "
+                                    "Disabling IPv6PrefixDelegation=.", network->filename);
+                        network->router_prefix_delegation = RADV_PREFIX_DELEGATION_NONE;
+                }
+        }
+
         if (FLAGS_SET(network->link_local, ADDRESS_FAMILY_FALLBACK_IPV4) &&
             !FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV4)) {
                 log_warning("%s: fallback assignment of IPv4 link local address is enabled but DHCPv4 is disabled. "
