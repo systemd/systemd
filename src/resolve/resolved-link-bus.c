@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <net/if.h>
+#include <netinet/in.h>
+#include <sys/capability.h>
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -11,6 +13,7 @@
 #include "resolved-link-bus.h"
 #include "resolved-resolv-conf.h"
 #include "strv.h"
+#include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET(property_get_dnssec_supported, "b", Link, link_dnssec_supported);
 static BUS_DEFINE_PROPERTY_GET2(property_get_dnssec_mode, "s", Link, link_get_dnssec_mode, dnssec_mode_to_string);
@@ -262,6 +265,15 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.resolve1.set-dns-servers",
+                                    NULL, true, UID_INVALID,
+                                    &l->manager->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
         dns_server_mark_all(l->dns_servers);
 
         for (i = 0; i < n; i++) {
@@ -325,11 +337,20 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Root domain is not suitable as search domain");
         }
 
-        dns_search_domain_mark_all(l->search_domains);
-
         r = sd_bus_message_rewind(message, false);
         if (r < 0)
                 return r;
+
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.resolve1.set-domains",
+                                    NULL, true, UID_INVALID,
+                                    &l->manager->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
+        dns_search_domain_mark_all(l->search_domains);
 
         for (;;) {
                 DnsSearchDomain *d;
@@ -388,6 +409,15 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.resolve1.set-default-route",
+                                    NULL, true, UID_INVALID,
+                                    &l->manager->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
         if (l->default_route != b) {
                 l->default_route = b;
 
@@ -423,6 +453,15 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid LLMNR setting: %s", llmnr);
         }
 
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.resolve1.set-llmnr",
+                                    NULL, true, UID_INVALID,
+                                    &l->manager->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
         l->llmnr_support = mode;
         link_allocate_scopes(l);
         link_add_rrs(l, false);
@@ -456,6 +495,15 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
                 if (mode < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid MulticastDNS setting: %s", mdns);
         }
+
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.resolve1.set-mdns",
+                                    NULL, true, UID_INVALID,
+                                    &l->manager->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
 
         l->mdns_support = mode;
         link_allocate_scopes(l);
@@ -491,6 +539,15 @@ int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNSOverTLS setting: %s", dns_over_tls);
         }
 
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.resolve1.set-dns-over-tls",
+                                    NULL, true, UID_INVALID,
+                                    &l->manager->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
         link_set_dns_over_tls_mode(l, mode);
 
         (void) link_save_user(l);
@@ -522,6 +579,15 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
                 if (mode < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNSSEC setting: %s", dnssec);
         }
+
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.resolve1.set-dnssec",
+                                    NULL, true, UID_INVALID,
+                                    &l->manager->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
 
         link_set_dnssec_mode(l, mode);
 
@@ -565,6 +631,15 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                         return r;
         }
 
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.resolve1.set-dnssec-negative-trust-anchors",
+                                    NULL, true, UID_INVALID,
+                                    &l->manager->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
         set_free_free(l->dnssec_negative_trust_anchors);
         l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
 
@@ -583,6 +658,15 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
         r = verify_unmanaged_link(l, error);
         if (r < 0)
                 return r;
+
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.resolve1.revert",
+                                    NULL, true, UID_INVALID,
+                                    &l->manager->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
 
         link_flush_settings(l);
         link_allocate_scopes(l);
@@ -609,15 +693,15 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", property_get_ntas, 0, 0),
         SD_BUS_PROPERTY("DNSSECSupported", "b", property_get_dnssec_supported, 0, 0),
 
-        SD_BUS_METHOD("SetDNS", "a(iay)", NULL, bus_link_method_set_dns_servers, 0),
-        SD_BUS_METHOD("SetDomains", "a(sb)", NULL, bus_link_method_set_domains, 0),
-        SD_BUS_METHOD("SetDefaultRoute", "b", NULL, bus_link_method_set_default_route, 0),
-        SD_BUS_METHOD("SetLLMNR", "s", NULL, bus_link_method_set_llmnr, 0),
-        SD_BUS_METHOD("SetMulticastDNS", "s", NULL, bus_link_method_set_mdns, 0),
-        SD_BUS_METHOD("SetDNSOverTLS", "s", NULL, bus_link_method_set_dns_over_tls, 0),
-        SD_BUS_METHOD("SetDNSSEC", "s", NULL, bus_link_method_set_dnssec, 0),
-        SD_BUS_METHOD("SetDNSSECNegativeTrustAnchors", "as", NULL, bus_link_method_set_dnssec_negative_trust_anchors, 0),
-        SD_BUS_METHOD("Revert", NULL, NULL, bus_link_method_revert, 0),
+        SD_BUS_METHOD("SetDNS", "a(iay)", NULL, bus_link_method_set_dns_servers, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetDomains", "a(sb)", NULL, bus_link_method_set_domains, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetDefaultRoute", "b", NULL, bus_link_method_set_default_route, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLLMNR", "s", NULL, bus_link_method_set_llmnr, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetMulticastDNS", "s", NULL, bus_link_method_set_mdns, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetDNSOverTLS", "s", NULL, bus_link_method_set_dns_over_tls, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetDNSSEC", "s", NULL, bus_link_method_set_dnssec, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetDNSSECNegativeTrustAnchors", "as", NULL, bus_link_method_set_dnssec_negative_trust_anchors, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Revert", NULL, NULL, bus_link_method_revert, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };
