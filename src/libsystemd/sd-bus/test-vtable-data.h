@@ -42,7 +42,7 @@ static const sd_bus_vtable test_vtable_1[] = {
 
 static const sd_bus_vtable test_vtable_2[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("AlterSomething", "s", "s", handler, 0),
+        SD_BUS_METHOD("AlterSomething", "s", "s", handler, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Exit", "", "", handler, 0),
         SD_BUS_METHOD_WITH_OFFSET("AlterSomething2", "s", "s", handler, 200, 0),
         SD_BUS_METHOD_WITH_OFFSET("Exit2", "", "", handler, 200, 0),
