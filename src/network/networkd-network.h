@@ -269,7 +269,7 @@ int network_get(Manager *manager, sd_device *device, const char *ifname, const s
 int network_apply(Network *network, Link *link);
 void network_apply_anonymize_if_set(Network *network);
 
-bool network_has_static_ipv6_addresses(Network *network);
+bool network_has_static_ipv6_configurations(Network *network);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_stacked_netdev);
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel);

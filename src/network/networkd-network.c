@@ -662,15 +662,35 @@ int network_apply(Network *network, Link *link) {
         return 0;
 }
 
-bool network_has_static_ipv6_addresses(Network *network) {
+bool network_has_static_ipv6_configurations(Network *network) {
         Address *address;
+        Route *route;
+        FdbEntry *fdb;
+        Neighbor *neighbor;
 
         assert(network);
 
-        LIST_FOREACH(addresses, address, network->static_addresses) {
+        LIST_FOREACH(addresses, address, network->static_addresses)
                 if (address->family == AF_INET6)
                         return true;
-        }
+
+        LIST_FOREACH(routes, route, network->static_routes)
+                if (route->family == AF_INET6)
+                        return true;
+
+        LIST_FOREACH(static_fdb_entries, fdb, network->static_fdb_entries)
+                if (fdb->family == AF_INET6)
+                        return true;
+
+        LIST_FOREACH(neighbors, neighbor, network->neighbors)
+                if (neighbor->family == AF_INET6)
+                        return true;
+
+        if (!LIST_IS_EMPTY(network->address_labels))
+                return true;
+
+        if (!LIST_IS_EMPTY(network->static_prefixes))
+                return true;
 
         return false;
 }
