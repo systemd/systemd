@@ -97,7 +97,6 @@ typedef struct Link {
 
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address:1;
-        bool ipv4ll_route:1;
 
         bool neighbors_configured;
 
