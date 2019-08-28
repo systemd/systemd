@@ -2002,7 +2002,7 @@ int config_parse_sec_fix_0(
         return 0;
 }
 
-int config_parse_user_group(
+int config_parse_user_group_compat(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -2035,7 +2035,7 @@ int config_parse_user_group(
                 return -ENOEXEC;
         }
 
-        if (!valid_user_group_name_or_id(k)) {
+        if (!valid_user_group_name_or_id_compat(k)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid user/group name or numeric ID: %s", k);
                 return -ENOEXEC;
         }
@@ -2043,7 +2043,7 @@ int config_parse_user_group(
         return free_and_replace(*user, k);
 }
 
-int config_parse_user_group_strv(
+int config_parse_user_group_strv_compat(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -2089,7 +2089,7 @@ int config_parse_user_group_strv(
                         return -ENOEXEC;
                 }
 
-                if (!valid_user_group_name_or_id(k)) {
+                if (!valid_user_group_name_or_id_compat(k)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid user/group name or numeric ID: %s", k);
                         return -ENOEXEC;
                 }

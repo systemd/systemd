@@ -235,7 +235,7 @@ int bus_property_get_triggered_unit(sd_bus *bus, const char *path, const char *i
 
 int bus_set_transient_mode_t(Unit *u, const char *name, mode_t *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
 int bus_set_transient_unsigned(Unit *u, const char *name, unsigned *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
-int bus_set_transient_user(Unit *u, const char *name, char **p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
+int bus_set_transient_user_compat(Unit *u, const char *name, char **p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
 int bus_set_transient_path(Unit *u, const char *name, char **p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
 int bus_set_transient_string(Unit *u, const char *name, char **p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
 int bus_set_transient_bool(Unit *u, const char *name, bool *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);

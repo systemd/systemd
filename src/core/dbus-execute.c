@@ -1182,10 +1182,10 @@ int bus_exec_context_set_transient_property(
         flags |= UNIT_PRIVATE;
 
         if (streq(name, "User"))
-                return bus_set_transient_user(u, name, &c->user, message, flags, error);
+                return bus_set_transient_user_compat(u, name, &c->user, message, flags, error);
 
         if (streq(name, "Group"))
-                return bus_set_transient_user(u, name, &c->group, message, flags, error);
+                return bus_set_transient_user_compat(u, name, &c->group, message, flags, error);
 
         if (streq(name, "TTYPath"))
                 return bus_set_transient_path(u, name, &c->tty_path, message, flags, error);
@@ -1363,10 +1363,10 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                STRV_FOREACH(p, l) {
-                        if (!isempty(*p) && !valid_user_group_name_or_id(*p))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid supplementary group names");
-                }
+                STRV_FOREACH(p, l)
+                        if (!isempty(*p) && !valid_user_group_name_or_id_compat(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Invalid supplementary group names");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
