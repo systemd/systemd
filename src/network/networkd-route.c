@@ -680,7 +680,7 @@ int route_configure(
                         return log_link_error_errno(link, r, "Could not set route family: %m");
         }
 
-        if (route->dst_prefixlen) {
+        if (route->dst_prefixlen > 0) {
                 r = netlink_message_append_in_addr_union(req, RTA_DST, route->family, &route->dst);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_DST attribute: %m");
@@ -690,7 +690,7 @@ int route_configure(
                         return log_link_error_errno(link, r, "Could not set destination prefix length: %m");
         }
 
-        if (route->src_prefixlen) {
+        if (route->src_prefixlen > 0) {
                 r = netlink_message_append_in_addr_union(req, RTA_SRC, route->family, &route->src);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_SRC attribute: %m");
