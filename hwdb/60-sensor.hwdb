@@ -294,9 +294,12 @@ sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*
 sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*pnHPProBook4535s*
  ACCEL_LOCATION=base
 
+sensor:modalias:platform:lis3lv02d:dmi:*:svnHewlett-Packard:pnHPENVY17NotebookPC:*
+ ACCEL_LOCATION=base
+
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*
-  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 # HP Pavillion X2 10-n000nd
 sensor:modalias:i2c:bmc150_accel:dmi:*:svnHewlett-Packard:pnHPPavilionx2Detachable:*:rn815D:*
