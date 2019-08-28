@@ -601,13 +601,26 @@ bool valid_user_group_name_full(const char *u, bool strict) {
             u[0] != '_')
                 return false;
 
-        for (i = u+1; *i; i++)
-                if (!((*i >= 'a' && *i <= 'z') ||
-                      (*i >= 'A' && *i <= 'Z') ||
-                      (*i >= '0' && *i <= '9') ||
-                      IN_SET(*i, '_', '-') ||
-                      (!strict && *i == '.')))
-                        return false;
+        bool warned = false;
+
+        for (i = u+1; *i; i++) {
+                if (((*i >= 'a' && *i <= 'z') ||
+                     (*i >= 'A' && *i <= 'Z') ||
+                     (*i >= '0' && *i <= '9') ||
+                     IN_SET(*i, '_', '-')))
+                        continue;
+
+                if (*i == '.' && !strict) {
+                        if (!warned) {
+                                log_warning("Bad user or group name \"%s\", accepting for compatibility.", u);
+                                warned = true;
+                        }
+
+                        continue;
+                }
+
+                return false;
+        }
 
         sz = sysconf(_SC_LOGIN_NAME_MAX);
         assert_se(sz > 0);
