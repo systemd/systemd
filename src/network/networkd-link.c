@@ -191,7 +191,13 @@ static bool link_ipv6_enabled(Link *link) {
                 return false;
 
         /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
-        return link_ipv6ll_enabled(link) || network_has_static_ipv6_addresses(link->network);
+        if (link_ipv6ll_enabled(link))
+                return true;
+
+        if (network_has_static_ipv6_configurations(link->network))
+                return true;
+
+        return false;
 }
 
 static bool link_radv_enabled(Link *link) {

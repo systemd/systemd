@@ -220,6 +220,26 @@ int network_verify(Network *network) {
         if (network->link_local < 0)
                 network->link_local = network->bridge ? ADDRESS_FAMILY_NO : ADDRESS_FAMILY_IPV6;
 
+        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
+                if (network->ipv6_accept_ra > 0) {
+                        log_warning("%s: IPv6AcceptRA= is enabled by the .network file but IPv6 link local addressing is disabled. "
+                                    "Disabling IPv6AcceptRA=.", network->filename);
+                        network->ipv6_accept_ra = false;
+                }
+
+                if (FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV6)) {
+                        log_warning("%s: DHCPv6 client is enabled by the .network file but IPv6 link local addressing is disabled. "
+                                    "Disabling DHCPv6 client.", network->filename);
+                        SET_FLAG(network->dhcp, ADDRESS_FAMILY_IPV6, false);
+                }
+
+                if (network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE) {
+                        log_warning("%s: IPv6PrefixDelegation= is enabled but IPv6 link local addressing is disabled. "
+                                    "Disabling IPv6PrefixDelegation=.", network->filename);
+                        network->router_prefix_delegation = RADV_PREFIX_DELEGATION_NONE;
+                }
+        }
+
         if (FLAGS_SET(network->link_local, ADDRESS_FAMILY_FALLBACK_IPV4) &&
             !FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV4)) {
                 log_warning("%s: fallback assignment of IPv4 link local address is enabled but DHCPv4 is disabled. "
@@ -662,15 +682,35 @@ int network_apply(Network *network, Link *link) {
         return 0;
 }
 
-bool network_has_static_ipv6_addresses(Network *network) {
+bool network_has_static_ipv6_configurations(Network *network) {
         Address *address;
+        Route *route;
+        FdbEntry *fdb;
+        Neighbor *neighbor;
 
         assert(network);
 
-        LIST_FOREACH(addresses, address, network->static_addresses) {
+        LIST_FOREACH(addresses, address, network->static_addresses)
                 if (address->family == AF_INET6)
                         return true;
-        }
+
+        LIST_FOREACH(routes, route, network->static_routes)
+                if (route->family == AF_INET6)
+                        return true;
+
+        LIST_FOREACH(static_fdb_entries, fdb, network->static_fdb_entries)
+                if (fdb->family == AF_INET6)
+                        return true;
+
+        LIST_FOREACH(neighbors, neighbor, network->neighbors)
+                if (neighbor->family == AF_INET6)
+                        return true;
+
+        if (!LIST_IS_EMPTY(network->address_labels))
+                return true;
+
+        if (!LIST_IS_EMPTY(network->static_prefixes))
+                return true;
 
         return false;
 }
