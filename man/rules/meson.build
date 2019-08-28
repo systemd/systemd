@@ -821,6 +821,7 @@ manpages = [
   ['systemd-update-utmp', 'systemd-update-utmp-runlevel.service'],
   'ENABLE_UTMP'],
  ['systemd-user-sessions.service', '8', ['systemd-user-sessions'], 'HAVE_PAM'],
+ ['systemd-userdbd.service', '8', ['systemd-userdbd'], 'ENABLE_USERDB'],
  ['systemd-vconsole-setup.service',
   '8',
   ['systemd-vconsole-setup'],
