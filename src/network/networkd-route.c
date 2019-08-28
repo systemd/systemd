@@ -876,10 +876,6 @@ int network_add_default_route_on_device(Network *network) {
         if (r < 0)
                 return r;
 
-        r = in_addr_from_string(AF_INET, "169.254.0.0", &n->dst);
-        if (r < 0)
-                return r;
-
         n->family = AF_INET;
 
         TAKE_PTR(n);
