@@ -4,8 +4,7 @@
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="runlevel"
-    xmlns:xi="http://www.w3.org/2001/XInclude"
-    conditional="ENABLE_UTMP">
+    xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>runlevel</title>
