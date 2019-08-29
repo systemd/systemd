@@ -23,3 +23,4 @@ DHCPServer=yes
 IPMasquerade=yes
 LLDP=yes
 EmitLLDP=customer-bridge
+DefaultRouteOnDevice=no
