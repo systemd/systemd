@@ -366,7 +366,8 @@
           <term><varname>DefaultRouteOnDevice=</varname></term>
           <listitem>
             <para>Takes a boolean. If set to true, sets up the default route bound to the interface.
-            Defaults to false. This is useful when creating routes on point-to-point interfaces.
+            Defaults to false when IPv4 link local addressing is disabled, and true when it is enabled.
+            This is useful when creating routes on point-to-point interfaces.
             This is equivalent to e.g. the following.
             <programlisting>ip route add default dev veth99</programlisting></para>
           </listitem>

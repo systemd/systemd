@@ -436,6 +436,8 @@ int network_load_one(Manager *manager, const char *filename) {
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
 
                 .can_triple_sampling = -1,
+
+                .default_route_on_device = -1,
         };
 
         r = config_parse_many(filename, NETWORK_DIRS, dropin_dirname,

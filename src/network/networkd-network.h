@@ -126,7 +126,7 @@ struct Network {
         AddressFamily link_local;
         bool ipv4ll_route;
 
-        bool default_route_on_device;
+        int default_route_on_device;
 
         /* IPv6 prefix delegation support */
         RADVPrefixDelegation router_prefix_delegation;

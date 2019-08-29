@@ -61,7 +61,7 @@ Network.DHCP,                           config_parse_dhcp,                      
 Network.DHCPServer,                     config_parse_bool,                               0,                             offsetof(Network, dhcp_server)
 Network.LinkLocalAddressing,            config_parse_link_local_address_family,          0,                             offsetof(Network, link_local)
 Network.IPv4LLRoute,                    config_parse_bool,                               0,                             offsetof(Network, ipv4ll_route)
-Network.DefaultRouteOnDevice,           config_parse_bool,                               0,                             offsetof(Network, default_route_on_device)
+Network.DefaultRouteOnDevice,           config_parse_tristate,                           0,                             offsetof(Network, default_route_on_device)
 Network.IPv6Token,                      config_parse_ipv6token,                          0,                             offsetof(Network, ipv6_token)
 Network.LLDP,                           config_parse_lldp_mode,                          0,                             offsetof(Network, lldp_mode)
 Network.EmitLLDP,                       config_parse_lldp_emit,                          0,                             offsetof(Network, lldp_emit)

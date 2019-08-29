@@ -12,7 +12,6 @@
 
 static int ipv4ll_address_lost(Link *link) {
         _cleanup_(address_freep) Address *address = NULL;
-        _cleanup_(route_freep) Route *route = NULL;
         struct in_addr addr;
         int r;
 
@@ -40,17 +39,21 @@ static int ipv4ll_address_lost(Link *link) {
         if (r < 0)
                 return r;
 
-        r = route_new(&route);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate route: %m");
+        if (link->network->default_route_on_device < 0) {
+                _cleanup_(route_freep) Route *route = NULL;
 
-        route->family = AF_INET;
-        route->scope = RT_SCOPE_LINK;
-        route->priority = IPV4LL_ROUTE_METRIC;
+                r = route_new(&route);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not allocate route: %m");
 
-        r = route_remove(route, link, NULL);
-        if (r < 0)
-                return r;
+                route->family = AF_INET;
+                route->scope = RT_SCOPE_LINK;
+                route->priority = IPV4LL_ROUTE_METRIC;
+
+                r = route_remove(route, link, NULL);
+                if (r < 0)
+                        return r;
+        }
 
         link_check_ready(link);
 
@@ -80,6 +83,14 @@ static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
 static int ipv4ll_route_configure(Link *link) {
         _cleanup_(route_freep) Route *route = NULL;
         int r;
+
+        assert(link->network);
+
+        if (link->network->default_route_on_device >= 0) {
+                link->ipv4ll_route = true;
+                link_check_ready(link);
+                return 0;
+        }
 
         r = route_new(&route);
         if (r < 0)

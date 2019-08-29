@@ -868,7 +868,7 @@ int network_add_default_route_on_device(Network *network) {
 
         assert(network);
 
-        if (!network->default_route_on_device)
+        if (network->default_route_on_device <= 0)
                 return 0;
 
         /* DefaultRouteOnDevice= is in [Network] section. */
