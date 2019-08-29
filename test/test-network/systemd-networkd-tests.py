@@ -1427,6 +1427,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-neighbor-ip-dummy.network',
         '25-neighbor-ip.network',
         '25-link-local-addressing-no.network',
+        '25-link-local-addressing-yes-default-route-no.network',
         '25-link-local-addressing-yes.network',
         '25-link-section-unmanaged.network',
         '25-route-ipv6-src.network',
@@ -1777,6 +1778,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet .* scope link')
         self.assertRegex(output, 'inet6 .* scope link')
 
+        output = check_output('ip route show dev test1 proto static')
+        print(output)
+        self.assertEqual(output, 'default scope link metric 2048')
+
         output = check_output('ip address show dev dummy98')
         print(output)
         self.assertNotRegex(output, 'inet6* .* scope link')
@@ -1813,6 +1818,20 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'dummy98'), 'addr_gen_mode')):
             self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'addr_gen_mode'), '1')
+
+    def test_link_local_addressing_without_default_route(self):
+        copy_unit_to_networkd_unit_path('25-link-local-addressing-yes-default-route-no.network', '11-dummy.netdev')
+        start_networkd()
+        self.wait_online(['test1:degraded'])
+
+        output = check_output('ip address show dev test1')
+        print(output)
+        self.assertRegex(output, 'inet .* scope link')
+        self.assertRegex(output, 'inet6 .* scope link')
+
+        output = check_output('ip route show dev test1 proto static')
+        print(output)
+        self.assertEqual(output, '')
 
     def test_sysctl(self):
         copy_unit_to_networkd_unit_path('25-sysctl.network', '12-dummy.netdev')
