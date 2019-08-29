@@ -877,6 +877,9 @@ int network_add_default_route_on_device(Network *network) {
                 return r;
 
         n->family = AF_INET;
+        n->scope = RT_SCOPE_LINK;
+        n->scope_set = true;
+        n->protocol = RTPROT_STATIC;
 
         TAKE_PTR(n);
         return 0;
