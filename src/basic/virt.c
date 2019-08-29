@@ -140,17 +140,18 @@ static int detect_vm_dmi(void) {
                 const char *vendor;
                 int id;
         } dmi_vendor_table[] = {
-                { "KVM",           VIRTUALIZATION_KVM       },
-                { "QEMU",          VIRTUALIZATION_QEMU      },
+                { "KVM",                 VIRTUALIZATION_KVM       },
+                { "QEMU",                VIRTUALIZATION_QEMU      },
                 /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
-                { "VMware",        VIRTUALIZATION_VMWARE    },
-                { "VMW",           VIRTUALIZATION_VMWARE    },
-                { "innotek GmbH",  VIRTUALIZATION_ORACLE    },
-                { "Xen",           VIRTUALIZATION_XEN       },
-                { "Bochs",         VIRTUALIZATION_BOCHS     },
-                { "Parallels",     VIRTUALIZATION_PARALLELS },
+                { "VMware",              VIRTUALIZATION_VMWARE    },
+                { "VMW",                 VIRTUALIZATION_VMWARE    },
+                { "innotek GmbH",        VIRTUALIZATION_ORACLE    },
+                { "Oracle Corporation",  VIRTUALIZATION_ORACLE    },
+                { "Xen",                 VIRTUALIZATION_XEN       },
+                { "Bochs",               VIRTUALIZATION_BOCHS     },
+                { "Parallels",           VIRTUALIZATION_PARALLELS },
                 /* https://wiki.freebsd.org/bhyve */
-                { "BHYVE",         VIRTUALIZATION_BHYVE     },
+                { "BHYVE",               VIRTUALIZATION_BHYVE     },
         };
         unsigned i;
         int r;
