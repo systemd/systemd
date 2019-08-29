@@ -914,6 +914,7 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
+        _cleanup_free_ char *from = NULL, *to = NULL;
         RoutingPolicyRule *rule = NULL;
         const char *iif = NULL, *oif = NULL;
         Manager *m = userdata;
@@ -1094,9 +1095,16 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
 
         (void) routing_policy_rule_get(m, tmp, &rule);
 
+        if (DEBUG_LOGGING) {
+                (void) in_addr_to_string(tmp->family, &tmp->from, &from);
+                (void) in_addr_to_string(tmp->family, &tmp->to, &to);
+        }
+
         switch (type) {
         case RTM_NEWRULE:
                 if (!rule) {
+                        log_debug("Remembering foreign routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
+                                  from, tmp->from_prefixlen, to, tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
                         r = routing_policy_rule_add_foreign(m, tmp, &rule);
                         if (r < 0) {
                                 log_warning_errno(r, "Could not remember foreign rule, ignoring: %m");
@@ -1105,6 +1113,8 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 }
                 break;
         case RTM_DELRULE:
+                log_debug("Forgetting routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
+                          from, tmp->from_prefixlen, to, tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
                 routing_policy_rule_free(rule);
 
                 break;
