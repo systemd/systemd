@@ -23,7 +23,7 @@ For older versions that are still supported by your distribution please use resp
 
 ## Security vulnerability reports
 
-If you discover a security vulnerability, we'd appreciate a non-public disclosure. The issue tracker and mailing list listed above are fully public. If you need to reach systemd developers in a non-public way, report the issue in one of the "big" distributions using systemd: [Fedora](https://bugzilla.redhat.com/enter_bug.cgi?product=Fedora&component=systemd) (be sure to check "Security Sensitive Bug" under "Show Advanced Fields"), [Ubuntu](https://launchpad.net/ubuntu/+source/systemd/+filebug) (be sure to change "This bug contains information that is" from "Public" to "Private Security"), or [Debian](mailto:security@debian.org). Various systemd developers are active distribution maintainers and will propagate the information about the bug to other parties.
+If you discover a security vulnerability, we'd appreciate a non-public disclosure. The issue tracker and mailing list listed above are fully public. If you need to reach systemd developers in a non-public way, report the issue to the [systemd-security@redhat.com](mailto:systemd-security@redhat.com) mailing list. The disclosure will be coordinated with distributions.
 
 ## Posting Pull Requests
 
