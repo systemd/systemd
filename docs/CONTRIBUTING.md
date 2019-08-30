@@ -8,7 +8,7 @@ We welcome contributions from everyone. However, please follow the following gui
 
 ## Filing Issues
 
-* We use GitHub Issues **exclusively** for tracking **bugs** and **feature** **requests** of systemd. If you are looking for help, please contact our [mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel) instead.
+* We use [GitHub Issues](https://github.com/systemd/systemd/issues) **exclusively** for tracking **bugs** and **feature** **requests** of systemd. If you are looking for help, please contact [systemd-devel mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel) instead.
 * We only track bugs in the **two** **most** **recently** **released** **versions** of systemd in the GitHub Issue tracker. If you are using an older version of systemd, please contact your distribution's bug tracker instead.
 * When filing an issue, specify the **systemd** **version** you are experiencing the issue with. Also, indicate which **distribution** you are using.
 * Please include an explanation how to reproduce the issue you are pointing out.
@@ -23,7 +23,7 @@ For older versions that are still supported by your distribution please use resp
 
 ## Security vulnerability reports
 
-If you discover a security vulnerability, we'd appreciate a non-public disclosure. The issue tracker and mailing list listed above are fully public. If you need to reach systemd developers in a non-public way, report the issue in one of the "big" distributions using systemd: [Fedora](https://bugzilla.redhat.com/enter_bug.cgi?product=Fedora&component=systemd) (be sure to check "Security Sensitive Bug" under "Show Advanced Fields"), [Ubuntu](https://launchpad.net/ubuntu/+source/systemd/+filebug) (be sure to change "This bug contains information that is" from "Public" to "Private Security"), or [Debian](mailto:security@debian.org). Various systemd developers are active distribution maintainers and will propagate the information about the bug to other parties.
+See [reporting of security vulnerabilities](SECURITY.md).
 
 ## Posting Pull Requests
 

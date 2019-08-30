@@ -432,6 +432,10 @@ CHANGES WITH 243 in spe:
         * IOWeight= has learnt to properly set the IO weight when using the
           BFQ scheduler officially found in kernels 5.0+.
 
+        * A new mailing list has been created for reporting of security issues:
+          systemd-security@redhat.com. For mode details, see
+          https://systemd.io/CONTRIBUTING#security-vulnerability-reports.
+
         Contributions from: Aaron Barany, Adrian Bunk, Alan Jenkins, Albrecht
         Lohofener, Andrej Valek, Anita Zhang, Arian van Putten, Balint Reczey,
         Bastien Nocera, Ben Boeckel, Benjamin Robin, camoz, Chen Qi, Chris
