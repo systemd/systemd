@@ -1721,12 +1721,8 @@ static bool service_will_restart(Unit *u) {
                 return true;
         if (s->state == SERVICE_AUTO_RESTART)
                 return true;
-        if (!UNIT(s)->job)
-                return false;
-        if (UNIT(s)->job->type == JOB_START)
-                return true;
 
-        return false;
+        return unit_will_restart_default(u);
 }
 
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
@@ -1789,10 +1785,8 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         /* We want fresh tmpdirs in case service is started again immediately */
         s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
 
-        if (s->exec_context.runtime_directory_preserve_mode == EXEC_PRESERVE_NO ||
-            (s->exec_context.runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART && !service_will_restart(UNIT(s))))
-                /* Also, remove the runtime directory */
-                exec_context_destroy_runtime_directory(&s->exec_context, UNIT(s)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+        /* Also, remove the runtime directory */
+        unit_destroy_runtime_directory(UNIT(s), &s->exec_context);
 
         /* Get rid of the IPC bits of the user */
         unit_unref_uid_gid(UNIT(s), true);

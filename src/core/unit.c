@@ -4069,6 +4069,17 @@ bool unit_active_or_pending(Unit *u) {
         return false;
 }
 
+bool unit_will_restart_default(Unit *u) {
+        assert(u);
+
+        if (!u->job)
+                return false;
+        if (u->job->type == JOB_START)
+                return true;
+
+        return false;
+}
+
 bool unit_will_restart(Unit *u) {
         assert(u);
 
@@ -5878,6 +5889,12 @@ int unit_test_trigger_loaded(Unit *u) {
                                             "Refusing to start, unit %s to trigger not loaded.", trigger->id);
 
         return 0;
+}
+
+void unit_destroy_runtime_directory(Unit *u, const ExecContext *context) {
+        if (context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO ||
+            (context->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART && !unit_will_restart(u)))
+                exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 }
 
 int unit_clean(Unit *u, ExecCleanMask mask) {

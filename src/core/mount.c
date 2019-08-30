@@ -826,7 +826,7 @@ static void mount_enter_dead(Mount *m, MountResult f) {
 
         m->exec_runtime = exec_runtime_unref(m->exec_runtime, true);
 
-        exec_context_destroy_runtime_directory(&m->exec_context, UNIT(m)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+        unit_destroy_runtime_directory(UNIT(m), &m->exec_context);
 
         unit_unref_uid_gid(UNIT(m), true);
 
@@ -1995,6 +1995,8 @@ const UnitVTable mount_vtable = {
 
         .active_state = mount_active_state,
         .sub_state_to_string = mount_sub_state_to_string,
+
+        .will_restart = unit_will_restart_default,
 
         .may_gc = mount_may_gc,
 

@@ -752,6 +752,7 @@ const char *unit_slice_name(Unit *u);
 bool unit_stop_pending(Unit *u) _pure_;
 bool unit_inactive_or_pending(Unit *u) _pure_;
 bool unit_active_or_pending(Unit *u);
+bool unit_will_restart_default(Unit *u);
 bool unit_will_restart(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
@@ -860,6 +861,7 @@ int unit_failure_action_exit_status(Unit *u);
 
 int unit_test_trigger_loaded(Unit *u);
 
+void unit_destroy_runtime_directory(Unit *u, const ExecContext *context);
 int unit_clean(Unit *u, ExecCleanMask mask);
 int unit_can_clean(Unit *u, ExecCleanMask *ret_mask);
 

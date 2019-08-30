@@ -683,7 +683,7 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
 
         s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
 
-        exec_context_destroy_runtime_directory(&s->exec_context, UNIT(s)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+        unit_destroy_runtime_directory(UNIT(s), &s->exec_context);
 
         unit_unref_uid_gid(UNIT(s), true);
 
@@ -1528,6 +1528,8 @@ const UnitVTable swap_vtable = {
 
         .active_state = swap_active_state,
         .sub_state_to_string = swap_sub_state_to_string,
+
+        .will_restart = unit_will_restart_default,
 
         .may_gc = swap_may_gc,
 
