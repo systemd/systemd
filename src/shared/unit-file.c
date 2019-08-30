@@ -242,7 +242,7 @@ int unit_file_build_name_map(
                 if (!lookup_paths_mtime_exclude(lp, *dir))
                         mtime = MAX(mtime, timespec_load(&st.st_mtim));
 
-                FOREACH_DIRENT(de, d, log_warning_errno(errno, "Failed to read \"%s\", ignoring: %m", *dir)) {
+                FOREACH_DIRENT_ALL(de, d, log_warning_errno(errno, "Failed to read \"%s\", ignoring: %m", *dir)) {
                         char *filename;
                         _cleanup_free_ char *_filename_free = NULL, *simplified = NULL;
                         const char *suffix, *dst = NULL;
