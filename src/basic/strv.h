@@ -157,6 +157,18 @@ void strv_print(char **l);
                 _found;                                         \
         })
 
+#define ENDSWITH_SET(p, ...)                                    \
+        ({                                                      \
+                const char *_p = (p);                           \
+                char  *_found = NULL, **_i;                     \
+                STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
+                        _found = endswith(_p, *_i);             \
+                        if (_found)                             \
+                                break;                          \
+                }                                               \
+                _found;                                         \
+        })
+
 #define FOREACH_STRING(x, y, ...)                                       \
         for (char **_l = STRV_MAKE(({ x = y; }), ##__VA_ARGS__);        \
              x;                                                         \

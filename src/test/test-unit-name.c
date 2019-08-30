@@ -50,6 +50,9 @@ static void test_unit_name_is_valid(void) {
         assert_se(!unit_name_is_valid("foo@.service", UNIT_NAME_INSTANCE));
         assert_se( unit_name_is_valid("foo@.service", UNIT_NAME_TEMPLATE));
         assert_se( unit_name_is_valid("foo@.service", UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE));
+        assert_se( unit_name_is_valid(".test.service", UNIT_NAME_PLAIN));
+        assert_se( unit_name_is_valid(".test@.service", UNIT_NAME_TEMPLATE));
+        assert_se( unit_name_is_valid("_strange::::.service", UNIT_NAME_ANY));
 
         assert_se(!unit_name_is_valid(".service", UNIT_NAME_ANY));
         assert_se(!unit_name_is_valid("", UNIT_NAME_ANY));

@@ -242,10 +242,19 @@ int unit_file_build_name_map(
                 if (!lookup_paths_mtime_exclude(lp, *dir))
                         mtime = MAX(mtime, timespec_load(&st.st_mtim));
 
-                FOREACH_DIRENT(de, d, log_warning_errno(errno, "Failed to read \"%s\", ignoring: %m", *dir)) {
+                FOREACH_DIRENT_ALL(de, d, log_warning_errno(errno, "Failed to read \"%s\", ignoring: %m", *dir)) {
                         char *filename;
                         _cleanup_free_ char *_filename_free = NULL, *simplified = NULL;
                         const char *suffix, *dst = NULL;
+                        bool valid_unit_name;
+
+                        valid_unit_name = unit_name_is_valid(de->d_name, UNIT_NAME_ANY);
+
+                        /* We only care about valid units and dirs with certain suffixes, let's ignore the
+                         * rest. */
+                        if (!valid_unit_name &&
+                            !ENDSWITH_SET(de->d_name, ".wants", ".requires", ".d"))
+                                continue;
 
                         filename = path_join(*dir, de->d_name);
                         if (!filename)
@@ -260,7 +269,7 @@ int unit_file_build_name_map(
                         } else
                                 _filename_free = filename; /* Make sure we free the filename. */
 
-                        if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
+                        if (!valid_unit_name)
                                 continue;
                         assert_se(suffix = strrchr(de->d_name, '.'));
 
