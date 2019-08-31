@@ -529,7 +529,7 @@ static int dhcp_lease_lost(Link *link) {
         assert(link);
         assert(link->dhcp_lease);
 
-        log_link_warning(link, "DHCP lease lost");
+        log_link_info(link, "DHCP lease lost");
 
         link->dhcp4_configured = false;
 
