@@ -32,7 +32,7 @@ __get_machines() {
 __get_busnames() {
     local mode=$1
     local a b
-    busctl $mode list --no-legend --no-pager 2>/dev/null |
+    COLUMNS=65535 busctl $mode list --no-legend --no-pager 2>/dev/null |
         { while read a b; do echo " $a"; done; };
 }
 
