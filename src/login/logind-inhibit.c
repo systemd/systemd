@@ -72,12 +72,12 @@ Inhibitor* inhibitor_free(Inhibitor *i) {
         sd_event_source_unref(i->event_source);
         safe_close(i->fifo_fd);
 
+        hashmap_remove(i->manager->inhibitors, i->id);
+
         /* Note that we don't remove neither the state file nor the fifo path here, since we want both to
          * survive daemon restarts */
         free(i->state_file);
         free(i->fifo_path);
-
-        hashmap_remove(i->manager->inhibitors, i->id);
 
         return mfree(i);
 }
