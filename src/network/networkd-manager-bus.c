@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <net/if.h>
+#include <netinet/in.h>
 #include <sys/capability.h>
 
 #include "alloc-util.h"
