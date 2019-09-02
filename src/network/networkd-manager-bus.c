@@ -204,6 +204,10 @@ static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_err
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
+        r = netdev_load(manager, true);
+        if (r < 0)
+                return r;
+
         r = network_reload(manager);
         if (r < 0)
                 return r;

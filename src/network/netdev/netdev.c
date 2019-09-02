@@ -757,9 +757,10 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 NetDev *n = hashmap_get(netdev->manager->netdevs, netdev->ifname);
 
                 assert(n);
-                log_netdev_warning_errno(netdev, r,
-                                         "The setting Name=%s in %s conflicts with the one in %s, ignoring",
-                                         netdev->ifname, netdev->filename, n->filename);
+                if (!streq(netdev->filename, n->filename))
+                        log_netdev_warning_errno(netdev, r,
+                                                 "The setting Name=%s in %s conflicts with the one in %s, ignoring",
+                                                 netdev->ifname, netdev->filename, n->filename);
 
                 /* Clear ifname before netdev_free() is called. Otherwise, the NetDev object 'n' is
                  * removed from the hashmap 'manager->netdevs'. */
@@ -828,14 +829,15 @@ int netdev_load_one(Manager *manager, const char *filename) {
         return 0;
 }
 
-int netdev_load(Manager *manager) {
+int netdev_load(Manager *manager, bool reload) {
         _cleanup_strv_free_ char **files = NULL;
         char **f;
         int r;
 
         assert(manager);
 
-        hashmap_clear_with_destructor(manager->netdevs, netdev_unref);
+        if (!reload)
+                hashmap_clear_with_destructor(manager->netdevs, netdev_unref);
 
         r = conf_files_list_strv(&files, ".netdev", NULL, 0, NETWORK_DIRS);
         if (r < 0)
