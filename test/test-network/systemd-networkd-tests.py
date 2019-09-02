@@ -401,6 +401,32 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         remove_unit_from_networkd_path(self.units)
         stop_networkd(show_logs=True)
 
+    def test_reload(self):
+        start_networkd(3)
+
+        copy_unit_to_networkd_unit_path('11-dummy.netdev')
+        check_output(*networkctl_cmd, 'reload', env=env)
+        time.sleep(3)
+        self.check_link_exists('test1')
+        self.check_operstate('test1', 'off', setup_state='unmanaged')
+
+        copy_unit_to_networkd_unit_path('11-dummy.network')
+        check_output(*networkctl_cmd, 'reload', env=env)
+        self.wait_online(['test1:degraded'])
+
+        remove_unit_from_networkd_path(['11-dummy.network'])
+        check_output(*networkctl_cmd, 'reload', env=env)
+        time.sleep(1)
+        self.check_operstate('test1', 'degraded', setup_state='unmanaged')
+
+        remove_unit_from_networkd_path(['11-dummy.netdev'])
+        check_output(*networkctl_cmd, 'reload', env=env)
+        self.check_operstate('test1', 'degraded', setup_state='unmanaged')
+
+        copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network')
+        check_output(*networkctl_cmd, 'reload', env=env)
+        self.check_operstate('test1', 'degraded')
+
     def test_glob(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network')
         start_networkd()
