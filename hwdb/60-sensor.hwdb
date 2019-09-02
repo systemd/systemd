@@ -297,6 +297,9 @@ sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*pnHPProBook4535s*
 sensor:modalias:platform:lis3lv02d:dmi:*:svnHewlett-Packard:pnHPENVY17NotebookPC:*
  ACCEL_LOCATION=base
 
+sensor:modalias:platform:lis3lv02d:dmi:*svnHP:pnHPEliteBook850G3*
+ ACCEL_LOCATION=base
+
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
