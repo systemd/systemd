@@ -357,8 +357,6 @@ if get_option('buildtype') != 'debug'
                 '-ffunction-sections',
                 '-fdata-sections',
         ]
-
-        possible_link_flags += '-Wl,--gc-sections'
 endif
 
 add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
