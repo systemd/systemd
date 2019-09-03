@@ -1681,7 +1681,8 @@ int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *descri
 
         assert(ret);
 
-        /* Match like sd_bus_open_system(), but with the "watch_bind" feature and the Connected() signal turned on. */
+        /* Match like sd_bus_open_system(), but with the "watch_bind" feature and the Connected() signal
+         * turned on. */
 
         r = sd_bus_new(&bus);
         if (r < 0)
@@ -1702,10 +1703,6 @@ int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *descri
                 return r;
 
         r = sd_bus_set_bus_client(bus, true);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_set_trusted(bus, true);
         if (r < 0)
                 return r;
 
@@ -1737,8 +1734,8 @@ int bus_reply_pair_array(sd_bus_message *m, char **l) {
 
         assert(m);
 
-        /* Reply to the specified message with a message containing a dictionary put together from the specified
-         * strv */
+        /* Reply to the specified message with a message containing a dictionary put together from the
+         * specified strv */
 
         r = sd_bus_message_new_method_return(m, &reply);
         if (r < 0)

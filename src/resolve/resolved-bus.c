@@ -1638,15 +1638,6 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (m->mdns_support != RESOLVE_SUPPORT_YES)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for MulticastDNS is disabled");
 
-        r = bus_verify_polkit_async(message, CAP_SYS_ADMIN,
-                                    "org.freedesktop.resolve1.register-service",
-                                    NULL, false, UID_INVALID,
-                                    &m->polkit_registry, error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Polkit will call us back */
-
         service = new0(DnssdService, 1);
         if (!service)
                 return log_oom();
@@ -1771,6 +1762,15 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
+        r = bus_verify_polkit_async(message, CAP_SYS_ADMIN,
+                                    "org.freedesktop.resolve1.register-service",
+                                    NULL, false, UID_INVALID,
+                                    &m->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
         r = hashmap_ensure_allocated(&m->dnssd_services, &string_hash_ops);
         if (r < 0)
                 return r;
@@ -1854,19 +1854,19 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_METHOD("ResolveAddress", "iiayt", "a(is)t", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveRecord", "isqqt", "a(iqqay)t", bus_method_resolve_record, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveService", "isssit", "a(qqqsa(iiay)s)aayssst", bus_method_resolve_service, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ResetStatistics", NULL, NULL, bus_method_reset_statistics, 0),
-        SD_BUS_METHOD("FlushCaches", NULL, NULL, bus_method_flush_caches, 0),
-        SD_BUS_METHOD("ResetServerFeatures", NULL, NULL, bus_method_reset_server_features, 0),
+        SD_BUS_METHOD("ResetStatistics", NULL, NULL, bus_method_reset_statistics, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("FlushCaches", NULL, NULL, bus_method_flush_caches, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResetServerFeatures", NULL, NULL, bus_method_reset_server_features, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetLink", "i", "o", bus_method_get_link, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetLinkDNS", "ia(iay)", NULL, bus_method_set_link_dns_servers, 0),
-        SD_BUS_METHOD("SetLinkDomains", "ia(sb)", NULL, bus_method_set_link_domains, 0),
-        SD_BUS_METHOD("SetLinkDefaultRoute", "ib", NULL, bus_method_set_link_default_route, 0),
-        SD_BUS_METHOD("SetLinkLLMNR", "is", NULL, bus_method_set_link_llmnr, 0),
-        SD_BUS_METHOD("SetLinkMulticastDNS", "is", NULL, bus_method_set_link_mdns, 0),
-        SD_BUS_METHOD("SetLinkDNSOverTLS", "is", NULL, bus_method_set_link_dns_over_tls, 0),
-        SD_BUS_METHOD("SetLinkDNSSEC", "is", NULL, bus_method_set_link_dnssec, 0),
-        SD_BUS_METHOD("SetLinkDNSSECNegativeTrustAnchors", "ias", NULL, bus_method_set_link_dnssec_negative_trust_anchors, 0),
-        SD_BUS_METHOD("RevertLink", "i", NULL, bus_method_revert_link, 0),
+        SD_BUS_METHOD("SetLinkDNS", "ia(iay)", NULL, bus_method_set_link_dns_servers, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkDomains", "ia(sb)", NULL, bus_method_set_link_domains, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkDefaultRoute", "ib", NULL, bus_method_set_link_default_route, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkLLMNR", "is", NULL, bus_method_set_link_llmnr, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkMulticastDNS", "is", NULL, bus_method_set_link_mdns, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkDNSOverTLS", "is", NULL, bus_method_set_link_dns_over_tls, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkDNSSEC", "is", NULL, bus_method_set_link_dnssec, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkDNSSECNegativeTrustAnchors", "ias", NULL, bus_method_set_link_dnssec_negative_trust_anchors, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("RevertLink", "i", NULL, bus_method_revert_link, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_METHOD("RegisterService", "sssqqqaa{say}", "o", bus_method_register_service, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("UnregisterService", "o", NULL, bus_method_unregister_service, SD_BUS_VTABLE_UNPRIVILEGED),
