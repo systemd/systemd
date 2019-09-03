@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 243 in spe:
+CHANGES WITH 243:
 
         * This release enables unprivileged programs (i.e. requiring neither
           setuid nor file capabilities) to send ICMP Echo (i.e. ping) requests
@@ -279,6 +279,16 @@ CHANGES WITH 243 in spe:
           been renamed to LinkLayerAddress=, and it now allows configuration of
           IP addresses, too.
 
+        * systemd-networkd's handling of the kernel's disable_ipv6 sysctl is
+          simplified: systemd-networkd will disable the sysctl (enable IPv6) if
+          IPv6 configuration (static or DHCPv6) was found for a given
+          interface. It will not touch the sysctl otherwise.
+
+        * The order of entries is $PATH used by the user manager instance was
+          changed to put bin/ entries before the corresponding sbin/ entries.
+          It is recommended to not rely on this order, and only ever have one
+          binary with a given name in the system paths under /usr.
+
         * A new tool systemd-network-generator has been added that may generate
           .network, .netdev and .link files from IP configuration specified on
           the kernel command line in the format used by Dracut.
@@ -466,7 +476,7 @@ CHANGES WITH 243 in spe:
         Ruoyao, Yuri Chornoivan, Yu Watanabe, Your Name, Zach Smith, Zbigniew
         Jędrzejewski-Szmek, Zhang Xianwei
 
-        – Somewhere, SOME-TI-ME
+        – Camerino, 2019-09-03
 
 CHANGES WITH 242:
 
