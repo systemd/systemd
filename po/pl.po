@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2019-07-29 15:34+0000\n"
-"PO-Revision-Date: 2019-07-30 20:24+0200\n"
+"POT-Creation-Date: 2019-09-03 15:30+0000\n"
+"PO-Revision-Date: 2019-09-03 19:04+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -610,68 +610,84 @@ msgid "Authentication is required to set NTP servers."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić serwery NTP."
 
 #: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
 msgid "Set DNS servers"
 msgstr "Ustawienie serwerów DNS"
 
 #: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
 msgid "Authentication is required to set DNS servers."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić serwery DNS."
 
 #: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
 msgid "Set domains"
 msgstr "Ustawienie domen"
 
 #: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
 msgid "Authentication is required to set domains."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić domeny."
 
 #: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
 msgid "Set default route"
 msgstr "Ustawienie domyślnej trasy"
 
 #: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
 msgid "Authentication is required to set default route."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić domyślną trasę."
 
 #: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
 msgid "Enable/disable LLMNR"
 msgstr "Włączenie/wyłączenie LLMNR"
 
 #: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
 msgstr "Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć LLMNR."
 
 #: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
 msgid "Enable/disable multicast DNS"
 msgstr "Włączenie/wyłączenie multikastowego DNS"
 
 #: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
 msgid "Authentication is required to enable or disable multicast DNS."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć multikastowe DNS."
 
 #: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
 msgid "Enable/disable DNS over TLS"
 msgstr "Włączenie/wyłączenie DNS przez TLS"
 
 #: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć DNS przez TLS."
 
 #: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
 msgstr "Włączenie/wyłączenie DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
 msgid "Authentication is required to enable or disable DNSSEC."
 msgstr "Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć DNSSEC."
 
 #: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
 msgid "Set DNSSEC Negative Trust Anchors"
 msgstr "Ustawienie negatywnych kotwic zaufania DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchros."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić negatywne kotwice zaufania "
@@ -738,6 +754,15 @@ msgstr "Wyrejestrowanie usługi DNS-SD"
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service"
 msgstr "Wymagane jest uwierzytelnienie, aby wyrejestrować usługę DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "Przywrócenie ustawień rozwiązywania nazw"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to revert name resolution settings."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby przywrócić ustawienia rozwiązywania nazw."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
