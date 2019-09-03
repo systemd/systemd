@@ -16,4 +16,4 @@ title: Steps to a Successful Release
 10. "Draft" a new release on github (https://github.com/systemd/systemd/releases/new), mark "This is a pre-release" if appropriate.
 11. Check that announcement to systemd-devel, with a copy&paste from NEWS, was sent. This should happen automatically.
 12. Update IRC topic (`/msg chanserv TOPIC #systemd Version NNN released`)
-13. [After final release] Also push commits to stable, create an empty -stable branch: `git push systemd-stable origin/master:master origin/master:v${version}-stable`, and change the default branch to latest release (https://github.com/systemd/systemd-stable/settings/branches).
+13. [After final release] Also push commits to stable, create an empty -stable branch: `git push systemd-stable origin/master:master origin/master:refs/heads/${version}-stable`, and change the default branch to latest release (https://github.com/systemd/systemd-stable/settings/branches).
