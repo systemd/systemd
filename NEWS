@@ -441,12 +441,13 @@ CHANGES WITH 243 in spe:
         Bastien Nocera, Ben Boeckel, Benjamin Robin, camoz, Chen Qi, Chris
         Chiu, Chris Down, Christian Kellner, Clinton Roy, Connor Reeder, Daniel
         Black, Daniele Medri, Dan Streetman, Dave Reisner, Dave Ross, David
-        Art, David Tardon, Debarshi Ray, Dominick Grift, Donald Buczek, Douglas
-        Christman, Eric DeVolder, EtherGraf, Evgeny Vereshchagin, Feldwor,
-        Felix Riemann, Florian Dollinger, Francesco Pennica, Franck Bui,
-        Frantisek Sumsal, Franz Pletz, frederik, Hans de Goede, Iago López
-        Galeiras, Insun Pyo, Ivan Shapovalov, Iwan Timmer, Jack, Jakob
-        Unterwurzacher, Jan Klötzke, Jan Pokorný, Jan Synacek, Jeka Pats,
+        Art, David Tardon, Debarshi Ray, Dimitri John Ledkov, Dominick Grift,
+        Donald Buczek, Douglas Christman, Eric DeVolder, EtherGraf, Evgeny
+        Vereshchagin, Feldwor, Felix Riemann, Florian Dollinger, Francesco
+        Pennica, Franck Bui, Frantisek Sumsal, Franz Pletz, frederik, Hans
+        de Goede, Iago López Galeiras, Insun Pyo, Ivan Shapovalov, Iwan Timmer,
+        Jack, Jakob Unterwurzacher, Jan Chren, Jan Klötzke, Jan Losinski, Jan
+        Pokorný, Jan Synacek, Jan-Michael Brummer, Jeka Pats, Jeremy Soller,
         Jérémy Rosen, Jiri Pirko, Joe Lin, Joerg Behrmann, Joe Richey, Jóhann
         B. Guðmundsson, Johannes Christ, Johannes Schmitz, Jonathan Rouleau,
         Jorge Niedbalski, Kai Krakow, Kai Lüke, Karel Zak, Kashyap Chamarthy,
@@ -460,10 +461,10 @@ CHANGES WITH 243 in spe:
         Santalla, Ronan Pigott, root, RussianNeuroMancer, Sebastian Jennen,
         shinygold, Shreyas Behera, Simon Schricker, Susant Sahani, Thadeu Lima
         de Souza Cascardo, Theo Ouzhinski, Thiebaud Weksteen, Thomas Haller,
-        Thomas Weißschuh, Tomas Mraz, Tommi Rantala, Topi Miettinen, ven,
-        Wieland Hoffmann, William A. Kennington III, William Wold, Xi Ruoyao,
-        Yuri Chornoivan, Yu Watanabe, Zach Smith, Zbigniew Jędrzejewski-Szmek,
-        Zhang Xianwei
+        Thomas Weißschuh, Tomas Mraz, Tommi Rantala, Topi Miettinen, VD-Lycos,
+        ven, Wieland Hoffmann, William A. Kennington III, William Wold, Xi
+        Ruoyao, Yuri Chornoivan, Yu Watanabe, Your Name, Zach Smith, Zbigniew
+        Jędrzejewski-Szmek, Zhang Xianwei
 
         – Somewhere, SOME-TI-ME
 
