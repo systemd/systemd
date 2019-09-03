@@ -1751,7 +1751,6 @@ static bool unit_verify_deps(Unit *u) {
 int unit_start(Unit *u) {
         UnitActiveState state;
         Unit *following;
-        int r;
 
         assert(u);
 
@@ -1776,25 +1775,8 @@ int unit_start(Unit *u) {
          * still be useful to speed up activation in case there is some hold-off time, but we don't want to
          * recheck the condition in that case. */
         if (state != UNIT_ACTIVATING &&
-            !unit_test_condition(u)) {
-
-                /* Let's also check the start limit here. Normally, the start limit is only checked by the
-                 * .start() method of the unit type after it did some additional checks verifying everything
-                 * is in order (so that those other checks can propagate errors properly). However, if a
-                 * condition check doesn't hold we don't get that far but we should still ensure we are not
-                 * called in a tight loop without a rate limit check enforced, hence do the check here. Note
-                 * that ECOMM is generally not a reason for a job to fail, unlike most other errors here,
-                 * hence the chance is big that any triggering unit for us will trigger us again. Note this
-                 * condition check is a bit different from the condition check inside the per-unit .start()
-                 * function, as this one will not change the unit's state in any way (and we shouldn't here,
-                 * after all the condition failed). */
-
-                r = unit_test_start_limit(u);
-                if (r < 0)
-                        return r;
-
+            !unit_test_condition(u))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(ECOMM), "Starting requested but condition failed. Not starting unit.");
-        }
 
         /* If the asserts failed, fail the entire job */
         if (state != UNIT_ACTIVATING &&
