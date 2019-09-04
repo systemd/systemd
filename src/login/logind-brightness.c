@@ -213,7 +213,7 @@ int manager_write_brightness(
                 if (r < 0)
                         return log_error_errno(r, "Failed to add message to set: %m");
 
-                /* We overide any previously requested brightness here: we coalesce writes, and the newest
+                /* We override any previously requested brightness here: we coalesce writes, and the newest
                  * requested brightness is the one we'll put into effect. */
                 existing->brightness = brightness;
                 existing->again = true; /* request another iteration of the writer when the current one is
