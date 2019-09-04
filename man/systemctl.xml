@@ -818,7 +818,7 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           <listitem>
             <para>Stop (deactivate) one or more units specified on the command line.</para>
 
-            <para>This command will fail if the unit does exist or if stopping of the unit is prohibited (see
+            <para>This command will fail if the unit does not exist or if stopping of the unit is prohibited (see
             <varname>RefuseManualStop=</varname> in
             <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
             It will <emphasis>not</emphasis> fail if any of the commands configured to stop the unit
