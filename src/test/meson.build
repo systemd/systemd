@@ -324,6 +324,12 @@ tests += [
           libblkid],
          core_includes],
 
+        [['src/test/test-bpf-foreign-programs.c'],
+         [libcore,
+          libshared],
+         [],
+         core_includes],
+
         [['src/test/test-watch-pid.c'],
          [libcore,
           libshared],
