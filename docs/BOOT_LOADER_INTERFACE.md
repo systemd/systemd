@@ -71,7 +71,7 @@ variables. All EFI variables use the vendor UUID
   * `1 << 3` → The boot loader honours `LoaderEntryOneShot` when set.
   * `1 << 4` → The boot loader supports boot counting as described in [Automatic Boot Assessment](https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT).
   * `1 << 5` → The boot loader supports looking for boot menu entries in the Extended Boot Loader Partition.
-  * `1 << 6` → The boot loader spports passing a random seed to the OS.
+  * `1 << 6` → The boot loader supports passing a random seed to the OS.
 
 * The EFI variable `LoaderRandomSeed` contains a binary random seed if set. It
   is set by the boot loader to pass an entropy seed read from the ESP partition
