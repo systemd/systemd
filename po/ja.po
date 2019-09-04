@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-07-28 22:13+0900\n"
+"POT-Creation-Date: 2019-09-04 09:15+0900\n"
 "PO-Revision-Date: 2018-10-27 07:41+0900\n"
 "Last-Translator: Yu Watanabe <watanabe.yu+github@gmail.com>\n"
 "Language-Team: \n"
@@ -558,66 +558,82 @@ msgid "Authentication is required to set NTP servers."
 msgstr "NTPサーバを設定するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
 msgid "Set DNS servers"
 msgstr "DNSサーバの設定"
 
 #: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
 msgid "Authentication is required to set DNS servers."
 msgstr "DNSサーバを設定するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
 msgid "Set domains"
 msgstr "ドメインの設定"
 
 #: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
 msgid "Authentication is required to set domains."
 msgstr "ドメインを設定するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
 msgid "Set default route"
 msgstr "デフォルトルートの設定"
 
 #: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
 msgid "Authentication is required to set default route."
 msgstr "デフォルトルートを設定するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
 msgid "Enable/disable LLMNR"
 msgstr "LLMNRの有効化/無効化"
 
 #: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
 msgstr "LLMNRを有効化もしくは無効化するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
 msgid "Enable/disable multicast DNS"
 msgstr "マルチキャストDNSの有効化/無効化"
 
 #: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
 msgid "Authentication is required to enable or disable multicast DNS."
 msgstr "マルチキャストDNSを有効化もしくは無効化するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
 msgid "Enable/disable DNS over TLS"
 msgstr "DNS over TLSの有効化/無効化"
 
 #: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
 msgstr "DNS over TLSを有効化もしくは無効化するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
 msgstr "DNSSECの有効化/無効化"
 
 #: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
 msgid "Authentication is required to enable or disable DNSSEC."
 msgstr "DNSSECを有効化もしくは無効化するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
 msgid "Set DNSSEC Negative Trust Anchors"
 msgstr "DNSSEC Negative Trust Anchorsの設定"
 
 #: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchros."
 msgstr "DNSSEC Negative Trust Anchrosを設定するには認証が必要です。"
 
@@ -678,6 +694,14 @@ msgstr "DNS-SDサービスへの登録を解除"
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service"
 msgstr "DNS-SDサービスへの登録を解除するには認証が必要です。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "名前解決の設定の破棄"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to revert name resolution settings."
+msgstr "名前解決の設定を破棄するには認証が必要です。"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
