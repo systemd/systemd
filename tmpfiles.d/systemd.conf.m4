@@ -8,7 +8,9 @@
 # See tmpfiles.d(5) for details
 
 d /run/user 0755 root root -
+m4_ifdef(`ENABLE_UTMP',
 F! /run/utmp 0664 root utmp -
+)m4_dnl
 
 d /run/systemd/ask-password 0755 root root -
 d /run/systemd/seats 0755 root root -
