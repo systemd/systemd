@@ -282,22 +282,9 @@ sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/25/201
 # HP
 #########################################
 
-# Laptops using the lis3lv02d device should have a first quirk applied
-# to them in the drivers/platform/x86/hp_accel.c in the kernel. The
-# quirk from "can play neverball" to "matches Windows 8 orientation"
-# is then applied below.
+# Most HP Laptop using the lis3lv02d device have it in the base,
+# mark these sensors as such.
 sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 0, -1; 0, 1, 0
-
-# HP laptops which have the lis3lv02d device in the base, tell iio-sensor-proxy
-# about this so that the sensor is not used for display orientation
-sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*pnHPProBook4535s*
- ACCEL_LOCATION=base
-
-sensor:modalias:platform:lis3lv02d:dmi:*:svnHewlett-Packard:pnHPENVY17NotebookPC:*
- ACCEL_LOCATION=base
-
-sensor:modalias:platform:lis3lv02d:dmi:*svnHP:pnHPEliteBook850G3*
  ACCEL_LOCATION=base
 
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
