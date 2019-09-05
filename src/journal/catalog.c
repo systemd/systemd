@@ -143,7 +143,7 @@ static char *combine_entries(const char *one, const char *two) {
 }
 
 static int finish_item(
-                Hashmap *h,
+                OrderedHashmap *h,
                 sd_id128_t id,
                 const char *language,
                 char *payload, size_t payload_size) {
@@ -165,14 +165,14 @@ static int finish_item(
                 strcpy(i->language, language);
         }
 
-        prev = hashmap_get(h, i);
+        prev = ordered_hashmap_get(h, i);
         if (prev) {
                 /* Already have such an item, combine them */
                 combined = combine_entries(payload, prev);
                 if (!combined)
                         return log_oom();
 
-                if (hashmap_update(h, i, combined) < 0)
+                if (ordered_hashmap_update(h, i, combined) < 0)
                         return log_oom();
                 combined = NULL;
         } else {
@@ -181,7 +181,7 @@ static int finish_item(
                 if (!combined)
                         return log_oom();
 
-                if (hashmap_put(h, i, combined) < 0)
+                if (ordered_hashmap_put(h, i, combined) < 0)
                         return log_oom();
                 i = NULL;
                 combined = NULL;
@@ -247,7 +247,7 @@ static int catalog_entry_lang(
         return 0;
 }
 
-int catalog_import_file(Hashmap *h, const char *path) {
+int catalog_import_file(OrderedHashmap *h, const char *path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *payload = NULL;
         size_t payload_size = 0, payload_allocated = 0;
@@ -446,7 +446,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
         _cleanup_strv_free_ char **files = NULL;
         char **f;
         _cleanup_(strbuf_cleanupp) struct strbuf *sb = NULL;
-        _cleanup_hashmap_free_free_free_ Hashmap *h = NULL;
+        _cleanup_ordered_hashmap_free_free_free_ OrderedHashmap *h = NULL;
         _cleanup_free_ CatalogItem *items = NULL;
         ssize_t offset;
         char *payload;
@@ -456,7 +456,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
         int r;
         int64_t sz;
 
-        h = hashmap_new(&catalog_hash_ops);
+        h = ordered_hashmap_new(&catalog_hash_ops);
         sb = strbuf_new();
         if (!h || !sb)
                 return log_oom();
@@ -472,18 +472,18 @@ int catalog_update(const char* database, const char* root, const char* const* di
                         return log_error_errno(r, "Failed to import file '%s': %m", *f);
         }
 
-        if (hashmap_size(h) <= 0) {
+        if (ordered_hashmap_size(h) <= 0) {
                 log_info("No items in catalog.");
                 return 0;
         } else
-                log_debug("Found %u items in catalog.", hashmap_size(h));
+                log_debug("Found %u items in catalog.", ordered_hashmap_size(h));
 
-        items = new(CatalogItem, hashmap_size(h));
+        items = new(CatalogItem, ordered_hashmap_size(h));
         if (!items)
                 return log_oom();
 
         n = 0;
-        HASHMAP_FOREACH_KEY(payload, i, h, j) {
+        ORDERED_HASHMAP_FOREACH_KEY(payload, i, h, j) {
                 log_debug("Found " SD_ID128_FORMAT_STR ", language %s",
                           SD_ID128_FORMAT_VAL(i->id),
                           isempty(i->language) ? "C" : i->language);
@@ -496,7 +496,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
                 items[n++] = *i;
         }
 
-        assert(n == hashmap_size(h));
+        assert(n == ordered_hashmap_size(h));
         typesafe_qsort(items, n, catalog_compare_func);
 
         strbuf_complete(sb);
