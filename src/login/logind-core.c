@@ -354,28 +354,19 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **ret) {
         s = hashmap_get(m->sessions_by_leader, PID_TO_PTR(pid));
         if (!s) {
                 r = cg_pid_get_unit(pid, &unit);
-                if (r < 0)
-                        goto not_found;
-
-                s = hashmap_get(m->session_units, unit);
-                if (!s)
-                        goto not_found;
+                if (r >= 0)
+                        s = hashmap_get(m->session_units, unit);
         }
 
         if (ret)
                 *ret = s;
 
-        return 1;
-
-not_found:
-        if (ret)
-                *ret = NULL;
-        return 0;
+        return !!s;
 }
 
 int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret) {
         _cleanup_free_ char *unit = NULL;
-        User *u;
+        User *u = NULL;
         int r;
 
         assert(m);
@@ -384,23 +375,13 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret) {
                 return -EINVAL;
 
         r = cg_pid_get_slice(pid, &unit);
-        if (r < 0)
-                goto not_found;
-
-        u = hashmap_get(m->user_units, unit);
-        if (!u)
-                goto not_found;
+        if (r >= 0)
+                u = hashmap_get(m->user_units, unit);
 
         if (ret)
                 *ret = u;
 
-        return 1;
-
-not_found:
-        if (ret)
-                *ret = NULL;
-
-        return 0;
+        return !!u;
 }
 
 int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
