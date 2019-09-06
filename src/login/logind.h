@@ -127,14 +127,14 @@ struct Manager {
 void manager_reset_config(Manager *m);
 int manager_parse_config_file(Manager *m);
 
-int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device);
-int manager_add_button(Manager *m, const char *name, Button **_button);
-int manager_add_seat(Manager *m, const char *id, Seat **_seat);
-int manager_add_session(Manager *m, const char *id, Session **_session);
-int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, const char *home, User **_user);
-int manager_add_user_by_name(Manager *m, const char *name, User **_user);
-int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user);
-int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor);
+int manager_add_device(Manager *m, const char *sysfs, bool master, Device **ret_device);
+int manager_add_button(Manager *m, const char *name, Button **ret_button);
+int manager_add_seat(Manager *m, const char *id, Seat **ret_seat);
+int manager_add_session(Manager *m, const char *id, Session **ret_session);
+int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, const char *home, User **ret_user);
+int manager_add_user_by_name(Manager *m, const char *name, User **ret_user);
+int manager_add_user_by_uid(Manager *m, uid_t uid, User **ret_user);
+int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret_inhibitor);
 
 int manager_process_seat_device(Manager *m, sd_device *d);
 int manager_process_button_device(Manager *m, sd_device *d);

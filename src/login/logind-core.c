@@ -75,7 +75,7 @@ int manager_parse_config_file(Manager *m) {
                                         CONFIG_PARSE_WARN, m);
 }
 
-int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device) {
+int manager_add_device(Manager *m, const char *sysfs, bool master, Device **ret_device) {
         Device *d;
 
         assert(m);
@@ -91,13 +91,13 @@ int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_dev
                         return -ENOMEM;
         }
 
-        if (_device)
-                *_device = d;
+        if (ret_device)
+                *ret_device = d;
 
         return 0;
 }
 
-int manager_add_seat(Manager *m, const char *id, Seat **_seat) {
+int manager_add_seat(Manager *m, const char *id, Seat **ret_seat) {
         Seat *s;
         int r;
 
@@ -111,13 +111,13 @@ int manager_add_seat(Manager *m, const char *id, Seat **_seat) {
                         return r;
         }
 
-        if (_seat)
-                *_seat = s;
+        if (ret_seat)
+                *ret_seat = s;
 
         return 0;
 }
 
-int manager_add_session(Manager *m, const char *id, Session **_session) {
+int manager_add_session(Manager *m, const char *id, Session **ret_session) {
         Session *s;
         int r;
 
@@ -131,8 +131,8 @@ int manager_add_session(Manager *m, const char *id, Session **_session) {
                         return r;
         }
 
-        if (_session)
-                *_session = s;
+        if (ret_session)
+                *ret_session = s;
 
         return 0;
 }
@@ -143,7 +143,7 @@ int manager_add_user(
                 gid_t gid,
                 const char *name,
                 const char *home,
-                User **_user) {
+                User **ret_user) {
 
         User *u;
         int r;
@@ -158,8 +158,8 @@ int manager_add_user(
                         return r;
         }
 
-        if (_user)
-                *_user = u;
+        if (ret_user)
+                *ret_user = u;
 
         return 0;
 }
@@ -167,7 +167,7 @@ int manager_add_user(
 int manager_add_user_by_name(
                 Manager *m,
                 const char *name,
-                User **_user) {
+                User **ret_user) {
 
         const char *home = NULL;
         uid_t uid;
@@ -181,10 +181,10 @@ int manager_add_user_by_name(
         if (r < 0)
                 return r;
 
-        return manager_add_user(m, uid, gid, name, home, _user);
+        return manager_add_user(m, uid, gid, name, home, ret_user);
 }
 
-int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user) {
+int manager_add_user_by_uid(Manager *m, uid_t uid, User **ret_user) {
         struct passwd *p;
 
         assert(m);
@@ -194,7 +194,7 @@ int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user) {
         if (!p)
                 return errno_or_else(ENOENT);
 
-        return manager_add_user(m, uid, p->pw_gid, p->pw_name, p->pw_dir, _user);
+        return manager_add_user(m, uid, p->pw_gid, p->pw_name, p->pw_dir, ret_user);
 }
 
 int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret) {
@@ -217,7 +217,7 @@ int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret) {
         return 0;
 }
 
-int manager_add_button(Manager *m, const char *name, Button **_button) {
+int manager_add_button(Manager *m, const char *name, Button **ret_button) {
         Button *b;
 
         assert(m);
@@ -230,8 +230,8 @@ int manager_add_button(Manager *m, const char *name, Button **_button) {
                         return -ENOMEM;
         }
 
-        if (_button)
-                *_button = b;
+        if (ret_button)
+                *ret_button = b;
 
         return 0;
 }
