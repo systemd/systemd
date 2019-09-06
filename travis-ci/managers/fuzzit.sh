@@ -4,6 +4,10 @@ set -e
 set -x
 set -u
 
+# This should help to protect the systemd organization on Fuzzit from forks
+# that are activated on Travis CI.
+[[ "$TRAVIS_REPO_SLUG" = "systemd/systemd" ]] || exit 0
+
 REPO_ROOT=${REPO_ROOT:-$(pwd)}
 
 sudo bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ xenial main restricted universe multiverse' >>/etc/apt/sources.list"
@@ -32,7 +36,7 @@ fi
 
 # Because we want Fuzzit to run on every pull-request and Travis/Azure doesnt support encrypted keys
 # on pull-request we use a write-only key which is ok for now. maybe there will be a better solution in the future
-FUZZIT_API_KEY=6a8445a23c4a8ef6743ddecf8ab368300976dae9313bbe54f1cbf30801773b2a3095d4c34daab8d308b6f2e8b254c90e
+FUZZIT_API_KEY=af6992074353998676713818cc6435ef4a750439932dab58b51e9354d6742c54d740a3cd9fc1fc001db82f51734a24bc
 FUZZIT_ADDITIONAL_FILES="./out/src/shared/libsystemd-shared-*.so"
 
 # ASan options are borrowed almost verbatim from OSS-Fuzz
