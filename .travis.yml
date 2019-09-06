@@ -17,7 +17,7 @@ stages:
     - name: Fuzzit-Fuzzing
       if: type = cron
 
-    - name: Fuzzit-Sanity
+    - name: Fuzzit-Regression
       if: type != cron
 
     # Run Coverity periodically instead of for each commit/PR
