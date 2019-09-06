@@ -100,16 +100,16 @@ jobs:
           after_script:
               - $CI_MANAGERS/debian.sh CLEANUP
 
-        - stage: Fuzzit-Sanity
-          name:  Continuous Fuzzing Sanity via Fuzzit (sanity)
+        - stage: Fuzzit-Regression
+          name:  Continuous Fuzzing via Fuzzit (regression)
           language: bash
           script:
             - set -e
-            - $CI_MANAGERS/fuzzit.sh sanity
+            - $CI_MANAGERS/fuzzit.sh regression
             - set +e
 
         - stage: Fuzzit-Fuzzing
-          name: Continuous Fuzzing Sanity via Fuzzit (fuzzing daily)
+          name: Continuous Fuzzing via Fuzzit (fuzzing daily)
           language: bash
           script:
             - set -e
