@@ -66,6 +66,7 @@ enum {
         SD_DHCP6_OPTION_IA_PD_PREFIX               = 26,  /* RFC 3633, prefix delegation */
 
         SD_DHCP6_OPTION_SNTP_SERVERS               = 31,  /* RFC 4075, deprecated */
+        SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME   = 32,  /* RFC 8415, sec. 21.23 */
 
         /* option code 35 is unassigned */
 
