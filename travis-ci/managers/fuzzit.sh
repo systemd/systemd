@@ -27,7 +27,7 @@ export PATH="$HOME/.local/bin/:$PATH"
 export SANITIZER="address -fsanitize=alignment,array-bounds,bool,bounds,builtin,enum,float-divide-by-zero,function,integer-divide-by-zero,nonnull-attribute,null,object-size,return,returns-nonnull-attribute,shift,signed-integer-overflow,unreachable,unsigned-integer-overflow,vla-bound,vptr -fno-sanitize-recover=alignment,array-bounds,bool,bounds,builtin,enum,float-divide-by-zero,function,integer-divide-by-zero,nonnull-attribute,null,object-size,return,returns-nonnull-attribute,shift,signed-integer-overflow,unreachable,vla-bound,vptr"
 tools/oss-fuzz.sh
 
-FUZZING_TYPE=${1:-sanity}
+FUZZING_TYPE=${1:-regression}
 if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
     FUZZIT_BRANCH="${TRAVIS_BRANCH}"
 else
@@ -42,16 +42,16 @@ FUZZIT_ADDITIONAL_FILES="./out/src/shared/libsystemd-shared-*.so"
 # ASan options are borrowed almost verbatim from OSS-Fuzz
 ASAN_OPTIONS=redzone=32:print_summary=1:handle_sigill=1:allocator_release_to_os_interval_ms=500:print_suppressions=0:strict_memcmp=1:allow_user_segv_handler=0:allocator_may_return_null=1:use_sigaltstack=1:handle_sigfpe=1:handle_sigbus=1:detect_stack_use_after_return=1:alloc_dealloc_mismatch=0:detect_leaks=1:print_scariness=1:max_uar_stack_size_log=16:handle_abort=1:check_malloc_usable_size=0:quarantine_size_mb=64:detect_odr_violation=0:handle_segv=1:fast_unwind_on_fatal=0
 UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1:silence_unsigned_overflow=1
-FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT} --asan_options ${ASAN_OPTIONS} --ubsan_options ${UBSAN_OPTIONS}"
-wget -O fuzzit https://bin.fuzzit.dev/fuzzit-1.1
+FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT} -e ASAN_OPTIONS=${ASAN_OPTIONS} -e UBSAN_OPTIONS=${UBSAN_OPTIONS}"
+wget -O fuzzit https://github.com/fuzzitdev/fuzzit/releases/latest/download/fuzzit_Linux_x86_64
 chmod +x fuzzit
 
 ./fuzzit auth ${FUZZIT_API_KEY}
 
-find out/ -maxdepth 1 -name 'fuzz-*' -executable -type f -exec basename '{}' \; | xargs --verbose -n1 -I%FUZZER% ./fuzzit c job ${FUZZIT_ARGS} %FUZZER%-asan-ubsan out/%FUZZER% ${FUZZIT_ADDITIONAL_FILES}
+find out/ -maxdepth 1 -name 'fuzz-*' -executable -type f -exec basename '{}' \; | xargs --verbose -n1 -I%FUZZER% ./fuzzit create job ${FUZZIT_ARGS} %FUZZER%-asan-ubsan out/%FUZZER% ${FUZZIT_ADDITIONAL_FILES}
 
 export SANITIZER="memory -fsanitize-memory-track-origins"
 FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT}"
 tools/oss-fuzz.sh
 
-find out/ -maxdepth 1 -name 'fuzz-*' -executable -type f -exec basename '{}' \; | xargs --verbose -n1 -I%FUZZER% ./fuzzit c job ${FUZZIT_ARGS} %FUZZER%-msan out/%FUZZER% ${FUZZIT_ADDITIONAL_FILES}
+find out/ -maxdepth 1 -name 'fuzz-*' -executable -type f -exec basename '{}' \; | xargs --verbose -n1 -I%FUZZER% ./fuzzit create job ${FUZZIT_ARGS} %FUZZER%-msan out/%FUZZER% ${FUZZIT_ADDITIONAL_FILES}
