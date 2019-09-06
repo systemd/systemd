@@ -29,6 +29,9 @@
 
 #define MAX_MAC_ADDR_LEN INFINIBAND_ALEN
 
+#define IRT_DEFAULT 1 * USEC_PER_DAY
+#define IRT_MINIMUM 600 * USEC_PER_SEC
+
 /* what to request from the server, addresses (IA_NA) and/or prefixes (IA_PD) */
 enum {
         DHCP6_REQUEST_IA_NA                     = 1,
@@ -71,6 +74,8 @@ struct sd_dhcp6_client {
         void *userdata;
         struct duid duid;
         size_t duid_len;
+        usec_t information_request_time_usec;
+        usec_t information_refresh_time_usec;
 };
 
 static const uint16_t default_req_opts[] = {
@@ -820,6 +825,7 @@ static int client_parse_message(
         uint32_t lt_t1 = ~0, lt_t2 = ~0;
         bool clientid = false;
         size_t pos = 0;
+        usec_t irt = IRT_DEFAULT;
         int r;
 
         assert(client);
@@ -994,6 +1000,10 @@ static int client_parse_message(
                                 return r;
 
                         break;
+
+                case SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME:
+                        irt = be32toh(*(be32_t *) optval) * USEC_PER_SEC;
+                        break;
                 }
 
                 pos += offsetof(DHCP6Option, data) + optlen;
@@ -1024,6 +1034,8 @@ static int client_parse_message(
                         lease->pd.ia_pd.lifetime_t2 = htobe32(lt_t2);
                 }
         }
+
+        client->information_refresh_time_usec = MAX(irt, IRT_MINIMUM);
 
         return 0;
 }
@@ -1425,8 +1437,15 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
                 client->fd = r;
         }
 
-        if (client->information_request)
+        if (client->information_request) {
+                usec_t t = now(CLOCK_MONOTONIC);
+
+                if (t < usec_add(client->information_request_time_usec, client->information_refresh_time_usec))
+                        return 0;
+
+                client->information_request_time_usec = t;
                 state = DHCP6_STATE_INFORMATION_REQUEST;
+        }
 
         log_dhcp6_client(client, "Started in %s mode",
                          client->information_request? "Information request":
