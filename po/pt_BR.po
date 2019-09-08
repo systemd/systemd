@@ -9,8 +9,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2019-05-04 03:28+0000\n"
-"PO-Revision-Date: 2019-05-04 11:12-0300\n"
+"POT-Creation-Date: 2019-09-08 15:28+0000\n"
+"PO-Revision-Date: 2019-09-08 19:00-0300\n"
 "Last-Translator: Rafael Fontenelle <rafaelff@gnome.org>\n"
 "Language-Team: Brazilian Portuguese <gnome-pt_br-list@gnome.org>\n"
 "Language: pt_BR\n"
@@ -608,6 +608,110 @@ msgstr ""
 "É necessária autenticação para gerenciar máquinas virtuais locais e imagens "
 "contêineres."
 
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr "Definir servidores NTP"
+
+#: src/network/org.freedesktop.network1.policy:23
+msgid "Authentication is required to set NTP servers."
+msgstr "É necessária autenticação para definir os servidores NTP."
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr "Definir servidores DNS"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+msgid "Authentication is required to set DNS servers."
+msgstr "É necessária autenticação para definir os servidores DNS."
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr "Definir domínios"
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+msgid "Authentication is required to set domains."
+msgstr "É necessária autenticação para definir domínios."
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr "Definir rota padrão"
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+msgid "Authentication is required to set default route."
+msgstr "É necessária autenticação para definir a rota padrão."
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr "Habilitar/desabilitar LLMNR"
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "É necessária autenticação para definir habilitar ou desabilitar LLMNR."
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr "Habilitar/desabilitar DNS multicast"
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr "É necessária autenticação para habilitar ou desabilitar DNS multicast."
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr "Habilitar/desabilitar DNS por TLS"
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "É necessária autenticação para habilitar ou desabilitar DNS por TLS."
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr "Habilitar/desabilitar DNSSEC"
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "É necessária autenticação para habilitar ou desabilitar DNSSEC."
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr "Definir DNSSEC Negative Trust Anchors"
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+msgid "Authentication is required to set DNSSEC Negative Trust Anchros."
+msgstr "É necessária autenticação para definir DNSSEC Negative Trust Anchros."
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr "Reverter configurações de NTP"
+
+#: src/network/org.freedesktop.network1.policy:122
+msgid "Authentication is required to revert NTP settings."
+msgstr "É necessária autenticação para reverter as configurações de NTP."
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr "Reverter configurações de DNS"
+
+#: src/network/org.freedesktop.network1.policy:133
+msgid "Authentication is required to revert DNS settings."
+msgstr "É necessária autenticação para reverter as configurações de DNS."
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "Inspecionar uma imagem de serviço portável"
@@ -655,6 +759,16 @@ msgstr "Remover um serviço DNS-SD"
 msgid "Authentication is required to unregister a DNS-SD service"
 msgstr "É necessária autenticação para remover um serviço DNS-SD"
 
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "Reverter configurações de resolução de nome"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to revert name resolution settings."
+msgstr ""
+"É necessária autenticação para reverter as configurações de resolução de "
+"nome."
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Definir horário do sistema"
@@ -695,23 +809,23 @@ msgstr ""
 "É necessária autenticação para controlar se deve ser habilitada, ou não, a "
 "sincronização de horário através de rede."
 
-#: src/core/dbus-unit.c:317
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to start '$(unit)'."
 msgstr "É necessária autenticação para iniciar “$(unit)”."
 
-#: src/core/dbus-unit.c:318
+#: src/core/dbus-unit.c:355
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "É necessária autenticação para parar “$(unit)”."
 
-#: src/core/dbus-unit.c:319
+#: src/core/dbus-unit.c:356
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "É necessária autenticação para recarregar “$(unit)”."
 
-#: src/core/dbus-unit.c:320 src/core/dbus-unit.c:321
+#: src/core/dbus-unit.c:357 src/core/dbus-unit.c:358
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "É necessária autenticação para reiniciar “$(unit)”."
 
-#: src/core/dbus-unit.c:493
+#: src/core/dbus-unit.c:530
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -719,14 +833,22 @@ msgstr ""
 "É necessária autenticação para enviar um sinal UNIX para os processos de "
 "“$(unit)”."
 
-#: src/core/dbus-unit.c:524
+#: src/core/dbus-unit.c:561
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "É necessária autenticação para reiniciar o estado “failed” de “$(unit)”."
 
-#: src/core/dbus-unit.c:557
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "É necessária autenticação para definir propriedades em “$(unit)”."
+
+#: src/core/dbus-unit.c:703
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr ""
+"É necessária autenticação para excluir arquivos e diretórios associados com "
+"“$(unit)”."
 
 #~ msgid "Authentication is required to kill '$(unit)'."
 #~ msgstr "É necessária autenticação para matar “$(unit)”."
