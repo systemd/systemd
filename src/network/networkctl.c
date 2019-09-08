@@ -719,10 +719,8 @@ static int dump_gateways(
                 if (ifindex <= 0) {
                         char name[IF_NAMESIZE+1];
 
-                        if (format_ifname(local[i].ifindex, name))
-                                r = table_add_cell_stringf(table, NULL, "%s on %s", with_description ?: gateway, name);
-                        else
-                                r = table_add_cell_stringf(table, NULL, "%s on %%%i", with_description ?: gateway, local[i].ifindex);
+                        r = table_add_cell_stringf(table, NULL, "%s on %s", with_description ?: gateway,
+                                                   format_ifname_full(local[i].ifindex, name, FORMAT_IFNAME_IFINDEX_WITH_PERCENT));
                 } else
                         r = table_add_cell(table, NULL, TABLE_STRING, with_description ?: gateway);
                 if (r < 0)
@@ -775,10 +773,8 @@ static int dump_addresses(
                 if (ifindex <= 0) {
                         char name[IF_NAMESIZE+1];
 
-                        if (format_ifname(local[i].ifindex, name))
-                                r = table_add_cell_stringf(table, NULL, "%s on %s", pretty, name);
-                        else
-                                r = table_add_cell_stringf(table, NULL, "%s on %%%i", pretty, local[i].ifindex);
+                        r = table_add_cell_stringf(table, NULL, "%s on %s", pretty,
+                                                   format_ifname_full(local[i].ifindex, name, FORMAT_IFNAME_IFINDEX_WITH_PERCENT));
                 } else
                         r = table_add_cell(table, NULL, TABLE_STRING, pretty);
                 if (r < 0)
@@ -1764,10 +1760,8 @@ static int link_delete(int argc, char *argv[], void *userdata) {
                 if (r < 0) {
                         char ifname[IF_NAMESIZE + 1];
 
-                        if (format_ifname(index, ifname))
-                                return log_error_errno(r, "Failed to delete interface %s: %m", ifname);
-                        else
-                                return log_error_errno(r, "Failed to delete interface %d: %m", index);
+                        return log_error_errno(r, "Failed to delete interface %s: %m",
+                                               format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
                 }
         }
 
