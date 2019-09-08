@@ -380,6 +380,7 @@ class Utilities():
 class NetworkctlTests(unittest.TestCase, Utilities):
 
     links = [
+        'dummy98',
         'test1',
         'veth99',
     ]
@@ -388,6 +389,8 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         '11-dummy.netdev',
         '11-dummy-mtu.netdev',
         '11-dummy.network',
+        '12-dummy.netdev',
+        '25-address-static.network',
         '25-veth.netdev',
         'netdev-link-local-addressing-yes.network',
     ]
@@ -400,6 +403,30 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
         stop_networkd(show_logs=True)
+
+    def test_reconfigure(self):
+        copy_unit_to_networkd_unit_path('25-address-static.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('ip -4 address show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98')
+        self.assertRegex(output, 'inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98')
+        self.assertRegex(output, 'inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98')
+
+        check_output('ip address del 10.1.2.3/16 dev dummy98')
+        check_output('ip address del 10.1.2.4/16 dev dummy98')
+        check_output('ip address del 10.2.2.4/16 dev dummy98')
+
+        check_output(*networkctl_cmd, 'reconfigure', 'dummy98', env=env)
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('ip -4 address show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98')
+        self.assertRegex(output, 'inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98')
+        self.assertRegex(output, 'inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98')
 
     def test_reload(self):
         start_networkd(3)
