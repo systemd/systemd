@@ -68,7 +68,15 @@
 #  error Unknown ino_t size
 #endif
 
-char *format_ifname(int ifindex, char buf[static IF_NAMESIZE + 1]);
+typedef enum {
+        FORMAT_IFNAME_IFINDEX              = 1 << 0,
+        FORMAT_IFNAME_IFINDEX_WITH_PERCENT = (1 << 1) | FORMAT_IFNAME_IFINDEX,
+} FormatIfnameFlag;
+
+char *format_ifname_full(int ifindex, char buf[static IF_NAMESIZE + 1], FormatIfnameFlag flag);
+static inline char *format_ifname(int ifindex, char buf[static IF_NAMESIZE + 1]) {
+        return format_ifname_full(ifindex, buf, 0);
+}
 
 typedef enum {
         FORMAT_BYTES_USE_IEC     = 1 << 0,
