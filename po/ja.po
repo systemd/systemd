@@ -700,7 +700,7 @@ msgid "Revert name resolution settings"
 msgstr "名前解決の設定の破棄"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
-msgid "Authentication is required to revert name resolution settings."
+msgid "Authentication is required to reset name resolution settings."
 msgstr "名前解決の設定を破棄するには認証が必要です。"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22

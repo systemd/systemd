@@ -119,7 +119,7 @@
 
         <action id="org.freedesktop.network1.revert-ntp">
                 <description gettext-domain="systemd">Revert NTP settings</description>
-                <message gettext-domain="systemd">Authentication is required to revert NTP settings.</message>
+                <message gettext-domain="systemd">Authentication is required to reset NTP settings.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -130,7 +130,7 @@
 
         <action id="org.freedesktop.network1.revert-dns">
                 <description gettext-domain="systemd">Revert DNS settings</description>
-                <message gettext-domain="systemd">Authentication is required to revert DNS settings.</message>
+                <message gettext-domain="systemd">Authentication is required to reset DNS settings.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
