@@ -499,6 +499,9 @@ static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, 
                         TK_A_OWNER_ID, TK_A_GROUP_ID, TK_A_MODE_ID))
                 SET_FLAG(rule_line->type, LINE_HAS_DEVLINK, true);
 
+        else if (token->type == TK_A_OPTIONS_STATIC_NODE)
+                SET_FLAG(rule_line->type, LINE_HAS_STATIC_NODE, true);
+
         else if (token->type >= _TK_A_MIN ||
                  IN_SET(token->type, TK_M_PROGRAM,
                         TK_M_IMPORT_FILE, TK_M_IMPORT_PROGRAM, TK_M_IMPORT_BUILTIN,
