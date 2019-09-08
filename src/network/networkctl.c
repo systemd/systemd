@@ -1759,7 +1759,8 @@ static int link_delete(int argc, char *argv[], void *userdata) {
         }
 
         SET_FOREACH(p, indexes, j) {
-                r = link_delete_send_message(rtnl, PTR_TO_INT(p));
+                index = PTR_TO_INT(p);
+                r = link_delete_send_message(rtnl, index);
                 if (r < 0) {
                         char ifname[IF_NAMESIZE + 1];
 
