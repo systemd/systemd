@@ -760,7 +760,7 @@ msgid "Revert name resolution settings"
 msgstr "Przywrócenie ustawień rozwiązywania nazw"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
-msgid "Authentication is required to revert name resolution settings."
+msgid "Authentication is required to reset name resolution settings."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby przywrócić ustawienia rozwiązywania nazw."
 
