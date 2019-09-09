@@ -229,6 +229,10 @@ _public_ int sd_network_link_get_timezone(int ifindex, char **ret) {
         return network_link_get_string(ifindex, "TIMEZONE", ret);
 }
 
+_public_ int sd_network_link_get_dhcp4_address(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "DHCP4_ADDRESS", ret);
+}
+
 _public_ int sd_network_link_get_dns(int ifindex, char ***ret) {
         return network_link_get_strv(ifindex, "DNS", ret);
 }

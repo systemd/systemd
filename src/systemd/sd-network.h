@@ -110,6 +110,10 @@ int sd_network_link_get_network_file(int ifindex, char **filename);
  * IP addresses */
 int sd_network_link_get_dns(int ifindex, char ***ret);
 
+/* Get DHCP4 address for a given link. This is string representations of
+ * IPv4 address */
+int sd_network_link_get_dhcp4_address(int ifindex, char **ret);
+
 /* Get NTP entries for a given link. These are domain names or string
  * representations of IP addresses */
 int sd_network_link_get_ntp(int ifindex, char ***ret);
