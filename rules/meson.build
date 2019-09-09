@@ -14,6 +14,7 @@ rules = files('''
         60-persistent-v4l.rules
         60-sensor.rules
         60-serial.rules
+        61-autosuspend-manual.rules
         70-joystick.rules
         70-mouse.rules
         70-touchpad.rules
@@ -44,3 +45,11 @@ foreach file : rules_in
                      install_dir : udevrulesdir)
         all_rules += gen
 endforeach
+
+auto_suspend_rules = custom_target(
+        '60-autosuspend-chromeos.rules',
+        output : '60-autosuspend-chromeos.rules',
+        command : make_autosuspend_rules_py,
+        capture : true,
+        install : true,
+        install_dir: [udevrulesdir])
