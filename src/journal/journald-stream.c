@@ -348,8 +348,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                 return 0;
 
         case STDOUT_STREAM_UNIT_ID:
-                if (s->ucred.uid == 0 &&
-                    unit_name_is_valid(p, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE)) {
+                if (unit_name_is_valid(p, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE)) {
 
                         s->unit_id = strdup(p);
                         if (!s->unit_id)
