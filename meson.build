@@ -1469,6 +1469,9 @@ install_libsystemd_static = static_library(
                         libgcrypt],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
+#Generate autosuspend rules
+make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
+
 ############################################################
 
 # binaries that have --help and are intended for use by humans,
