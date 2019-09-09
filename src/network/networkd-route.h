@@ -49,7 +49,7 @@ struct Route {
         LIST_FIELDS(Route, routes);
 };
 
-extern const struct hash_ops route_full_hash_ops;
+extern const struct hash_ops route_hash_ops;
 
 int route_new(Route **ret);
 void route_free(Route *route);
