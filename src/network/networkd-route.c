@@ -170,6 +170,8 @@ static void route_hash_func(const Route *route, struct siphash *state) {
                 siphash24_compress(&route->protocol, sizeof(route->protocol), state);
                 siphash24_compress(&route->scope, sizeof(route->scope), state);
                 siphash24_compress(&route->type, sizeof(route->type), state);
+                siphash24_compress(&route->initcwnd, sizeof(route->initcwnd), state);
+                siphash24_compress(&route->initrwnd, sizeof(route->initrwnd), state);
 
                 break;
         default:
@@ -217,6 +219,14 @@ static int route_compare_func(const Route *a, const Route *b) {
                         return r;
 
                 r = CMP(a->type, b->type);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->initcwnd, b->initcwnd);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->initrwnd, b->initrwnd);
                 if (r != 0)
                         return r;
 

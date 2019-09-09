@@ -435,6 +435,31 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 return 0;
         }
 
+        r = sd_netlink_message_enter_container(message, RTA_METRICS);
+        if (r < 0 && r != -ENODATA) {
+                log_link_error_errno(link, r, "rtnl: Could not enter RTA_METRICS container: %m");
+                return 0;
+        }
+        if (r >= 0) {
+                r = sd_netlink_message_read_u32(message, RTAX_INITCWND, &tmp->initcwnd);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message with invalid initcwnd, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_u32(message, RTAX_INITRWND, &tmp->initrwnd);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message with invalid initrwnd, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_exit_container(message);
+                if (r < 0) {
+                        log_link_error_errno(link, r, "rtnl: Could not exit from RTA_METRICS container: %m");
+                        return 0;
+                }
+        }
+
         (void) route_get(link, tmp, &route);
 
         if (DEBUG_LOGGING) {
