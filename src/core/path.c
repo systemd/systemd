@@ -480,11 +480,9 @@ static void path_enter_running(Path *p) {
 
         p->inotify_triggered = false;
 
-        r = path_watch(p);
-        if (r < 0)
-                goto fail;
-
         path_set_state(p, PATH_RUNNING);
+        path_unwatch(p);
+
         return;
 
 fail:
