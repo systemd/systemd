@@ -11,6 +11,9 @@ env:
         - REPO_ROOT="$TRAVIS_BUILD_DIR"
 
 stages:
+    - name: Codecov
+      if: type != cron
+
     - name: Build & test
       if: type != cron
 
@@ -96,6 +99,24 @@ jobs:
           script:
               - set -e
               - $CI_MANAGERS/debian.sh RUN_CLANG_ASAN
+              - set +e
+          after_script:
+              - $CI_MANAGERS/debian.sh CLEANUP
+
+        - stage: Codecov
+          language: bash
+          env:
+              - DEBIAN_RELEASE="testing"
+              - CONT_NAME="systemd-debian-$DEBIAN_RELEASE"
+              - DOCKER_EXEC="docker exec -ti $CONT_NAME"
+          before_install:
+              - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+              - docker --version
+          install:
+              - $CI_MANAGERS/debian.sh SETUP
+          script:
+              - set -e
+              - $CI_MANAGERS/debian.sh CODECOV
               - set +e
           after_script:
               - $CI_MANAGERS/debian.sh CLEANUP

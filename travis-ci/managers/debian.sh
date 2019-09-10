@@ -15,10 +15,15 @@ CONT_NAME="${CONT_NAME:-debian-$DEBIAN_RELEASE-$RANDOM}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(python3-libevdev
-                 python3-pyparsing
-                 clang
-                 perl)
+ADDITIONAL_DEPS=(
+    clang
+    curl
+    git
+    lcov
+    perl
+    python3-libevdev
+    python3-pyparsing
+)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"
@@ -66,6 +71,23 @@ for phase in "${PHASES[@]}"; do
                 -e "TRAVIS=$TRAVIS" \
                 -t $CONT_NAME \
                 meson test --timeout-multiplier=3 -C ./build/ --print-errorlogs
+            ;;
+        CODECOV)
+            ENV_VARS=(
+                -e LDFLAGS="-lgcov --coverage"
+            )
+            docker exec "${ENV_VARS[@]}" -it $CONT_NAME meson --werror -Dc_args="-O0 --coverage" -Dtests=unsafe -Dslow-tests=true -Dsplit-usr=true build
+            $DOCKER_EXEC ninja -v -C build
+            docker exec -e "TRAVIS=$TRAVIS" -it $CONT_NAME meson test -C build --print-errorlogs --timeout-multiplier=3
+
+            # This expands to a set of env variables (in -e ENV=xxx format)
+            # so Codecov can correctly detect Travis CI even when running
+            # under docker
+            # See: https://docs.codecov.io/docs/testing-with-docker
+            CODECOV_ENV=$(bash <(curl -s https://codecov.io/env))
+            # Collect results and send them to Codecov
+            # In Travis CI (and other CIs) we don't need to supply an API key
+            docker exec $CODECOV_ENV -it $CONT_NAME bash -c 'bash <(curl -s https://codecov.io/bash) -X coveragepy'
             ;;
         CLEANUP)
             info "Cleanup phase"
