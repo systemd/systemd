@@ -43,10 +43,12 @@ typedef enum {
 } UdevRuleOperatorType;
 
 typedef enum {
-        MATCH_TYPE_EMPTY,     /* empty string */
-        MATCH_TYPE_PLAIN,     /* no special characters */
-        MATCH_TYPE_GLOB,      /* shell globs ?,*,[] */
-        MATCH_TYPE_SUBSYSTEM, /* "subsystem", "bus", or "class" */
+        MATCH_TYPE_EMPTY,            /* empty string */
+        MATCH_TYPE_PLAIN,            /* no special characters */
+        MATCH_TYPE_PLAIN_WITH_EMPTY, /* no special characters with empty string, e.g., "|foo" */
+        MATCH_TYPE_GLOB,             /* shell globs ?,*,[] */
+        MATCH_TYPE_GLOB_WITH_EMPTY,  /* shell globs ?,*,[] with empty string, e.g., "|foo*" */
+        MATCH_TYPE_SUBSYSTEM,        /* "subsystem", "bus", or "class" */
         _MATCH_TYPE_MAX,
         _MATCH_TYPE_INVALID = -1
 } UdevRuleMatchType;
@@ -431,35 +433,30 @@ static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, 
 
                 if (type < TK_M_TEST || type == TK_M_RESULT) {
                         /* Convert value string to nulstr. */
-                        len = strlen(value);
-                        if (len > 1 && (value[len - 1] == '|' || strstr(value, "||"))) {
-                                /* In this case, just replacing '|' -> '\0' does not work... */
-                                _cleanup_free_ char *tmp = NULL;
-                                char *i, *j;
-                                bool v = true;
+                        bool bar = true, empty = false;
+                        char *a, *b;
 
-                                tmp = strdup(value);
-                                if (!tmp)
-                                        return log_oom();
+                        for (a = b = value; *a != '\0'; a++) {
+                                if (*a != '|') {
+                                        *b++ = *a;
+                                        bar = false;
+                                } else {
+                                        if (bar)
+                                                empty = true;
+                                        else
+                                                *b++ = '\0';
+                                        bar = true;
+                                }
+                        }
+                        *b = '\0';
+                        if (bar)
+                                empty = true;
 
-                                for (i = tmp, j = value; *i != '\0'; i++)
-                                        if (*i == '|')
-                                                v = true;
-                                        else {
-                                                if (v) {
-                                                        *j++ = '\0';
-                                                        v = false;
-                                                }
-                                                *j++ = *i;
-                                        }
-                                j[0] = j[1] = '\0';
-                        } else {
-                                /* Simple conversion. */
-                                char *i;
-
-                                for (i = value; *i != '\0'; i++)
-                                        if (*i == '|')
-                                                *i = '\0';
+                        if (empty) {
+                                if (match_type == MATCH_TYPE_GLOB)
+                                        match_type = MATCH_TYPE_GLOB_WITH_EMPTY;
+                                if (match_type == MATCH_TYPE_PLAIN)
+                                        match_type = MATCH_TYPE_PLAIN_WITH_EMPTY;
                         }
                 }
         }
@@ -1328,7 +1325,17 @@ static bool token_match_string(UdevRuleToken *token, const char *str) {
                 match = isempty(str);
                 break;
         case MATCH_TYPE_SUBSYSTEM:
-                value = "subsystem\0class\0bus\0";
+                NULSTR_FOREACH(i, "subsystem\0class\0bus\0")
+                        if (streq(i, str)) {
+                                match = true;
+                                break;
+                        }
+                break;
+        case MATCH_TYPE_PLAIN_WITH_EMPTY:
+                if (isempty(str)) {
+                        match = true;
+                        break;
+                }
                 _fallthrough_;
         case MATCH_TYPE_PLAIN:
                 NULSTR_FOREACH(i, value)
@@ -1337,6 +1344,12 @@ static bool token_match_string(UdevRuleToken *token, const char *str) {
                                 break;
                         }
                 break;
+        case MATCH_TYPE_GLOB_WITH_EMPTY:
+                if (isempty(str)) {
+                        match = true;
+                        break;
+                }
+                _fallthrough_;
         case MATCH_TYPE_GLOB:
                 NULSTR_FOREACH(i, value)
                         if ((fnmatch(i, str, 0) == 0)) {
