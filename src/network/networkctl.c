@@ -678,6 +678,7 @@ static int dump_addresses(
                 int ifindex) {
 
         _cleanup_free_ struct local_address *local = NULL;
+        _cleanup_free_ char *dhcp4_address = NULL;
         int r, n, i;
 
         assert(rtnl);
@@ -686,6 +687,8 @@ static int dump_addresses(
         n = local_addresses(rtnl, ifindex, AF_UNSPEC, &local);
         if (n < 0)
                 return n;
+
+        (void) sd_network_link_get_dhcp4_address(ifindex, &dhcp4_address);
 
         for (i = 0; i < n; i++) {
                 _cleanup_free_ char *pretty = NULL;
@@ -699,6 +702,15 @@ static int dump_addresses(
                 r = in_addr_to_string(local[i].family, &local[i].address, &pretty);
                 if (r < 0)
                         return r;
+
+                if (dhcp4_address && streq(pretty, dhcp4_address)) {
+                        _cleanup_free_ char *p = NULL;
+
+                        p = pretty;
+                        pretty = strjoin(pretty , " (DHCP4)");
+                        if (!pretty)
+                                return log_oom();
+                }
 
                 if (ifindex <= 0) {
                         char name[IF_NAMESIZE+1];
