@@ -2435,8 +2435,7 @@ int cg_mask_supported(CGroupMask *ret) {
                 if (r < 0)
                         return r;
 
-                /* Currently, we support the cpu, memory, io and pids controller in the unified hierarchy, mask
-                 * everything else off. */
+                /* Mask controllers that are not supported in unified hierarchy. */
                 mask &= CGROUP_MASK_V2;
 
         } else {
