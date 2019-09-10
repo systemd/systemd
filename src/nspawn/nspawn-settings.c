@@ -893,3 +893,47 @@ static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AUTO);
+
+int parse_uid_map(const char *s, UidMap *ret_map) {
+        int r;
+        const char *host_or_range, *host, *ns, *range;
+
+        assert(s);
+        assert(ret_map);
+
+        host_or_range = strchr(s, ':');
+        if (host_or_range) {
+                range = strchr(host_or_range + 1, ':');
+                if (range) {
+                        /* ns:host:range */
+                        ns = strndupa(s, host_or_range - s);
+                        if (!ns)
+                                return -ENOMEM;
+
+                        r = parse_uid(ns, &ret_map->ns);
+                        if (r < 0)
+                                return -EINVAL;
+
+                        host = host_or_range + 1;
+                } else { /* host:range */
+                        range = host_or_range;
+                        host = s;
+                }
+
+                host = strndupa(host, range - host);
+                if (!host)
+                        return -ENOMEM;
+
+                range++;
+                r = safe_atou32(range, &ret_map->range);
+                if (r < 0)
+                        return -EINVAL;
+        } else /* host */
+                host = s;
+
+        r = parse_uid(host, &ret_map->host);
+        if (r < 0)
+                return -EINVAL;
+
+        return 0;
+}

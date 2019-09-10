@@ -139,6 +139,12 @@ typedef struct OciHook {
         usec_t timeout;
 } OciHook;
 
+typedef struct UidMap {
+        uid_t ns;
+        uid_t host;
+        uid_t range;
+} UidMap;
+
 typedef struct Settings {
         /* [Run] */
         StartMode start_mode;
@@ -256,3 +262,5 @@ TimezoneMode timezone_mode_from_string(const char *s) _pure_;
 int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try);
 
 void device_node_array_free(DeviceNode *node, size_t n);
+
+int parse_uid_map(const char *s, UidMap *ret_map);

@@ -198,6 +198,8 @@ static char **arg_property = NULL;
 static sd_bus_message *arg_property_message = NULL;
 static UserNamespaceMode arg_userns_mode = USER_NAMESPACE_NO;
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
+static UidMap *arg_uid_map = NULL;
+static size_t arg_n_uid_map = 0;
 static bool arg_userns_chown = false;
 static int arg_kill_signal = 0;
 static CGroupUnified arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_UNKNOWN;
@@ -1103,28 +1105,28 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_uid_shift = UID_INVALID;
                                 arg_uid_range = UINT32_C(0x10000);
                         } else {
-                                _cleanup_free_ char *buffer = NULL;
-                                const char *range, *shift;
+                                UidMap map = { .host = 0, .ns = 0, .range = UINT32_C(0x10000) };
 
-                                /* anything else: User namespacing on, UID range is explicitly configured */
+                                /* anything else: Look for ns[:host][:range], expecting
+                                 * range when only two (out of the three possible
+                                 * values) are given. */
 
-                                range = strchr(optarg, ':');
-                                if (range) {
-                                        buffer = strndup(optarg, range - optarg);
-                                        if (!buffer)
-                                                return log_oom();
-                                        shift = buffer;
-
-                                        range++;
-                                        r = safe_atou32(range, &arg_uid_range);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to parse UID range \"%s\": %m", range);
-                                } else
-                                        shift = optarg;
-
-                                r = parse_uid(shift, &arg_uid_shift);
+                                r = parse_uid_map(optarg, &map);
+                                if (r == -ENOMEM)
+                                        return log_oom();
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse UID \"%s\": %m", optarg);
+                                        return log_error_errno(r, "Failed to parse UID map \"%s\": %m", optarg);
+
+                                if (map.ns == 0) {
+                                        arg_uid_shift = map.host;
+                                        arg_uid_range = map.range;
+                                } else {
+                                        arg_uid_map = reallocarray(arg_uid_map, arg_n_uid_map + 1, sizeof(UidMap));
+                                        if (!arg_uid_map)
+                                                return log_oom();
+                                        arg_uid_map[arg_n_uid_map] = map;
+                                        arg_n_uid_map++;
+                                }
 
                                 arg_userns_mode = USER_NAMESPACE_FIXED;
                         }
@@ -3559,20 +3561,33 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
 }
 
 static int setup_uid_map(pid_t pid) {
-        char uid_map[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(uid_t) + 1], line[DECIMAL_STR_MAX(uid_t)*3+3+1];
+        static const char line_fmt[] = UID_FMT " " UID_FMT " " UID_FMT "\n";
+        char uid_map[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(uid_t) + 1], lines[(DECIMAL_STR_MAX(uid_t)*3+3) * (1 + arg_n_uid_map) + 1];
+        size_t i, offset;
         int r;
 
         assert(pid > 1);
 
         xsprintf(uid_map, "/proc/" PID_FMT "/uid_map", pid);
-        xsprintf(line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0, arg_uid_shift, arg_uid_range);
-        r = write_string_file(uid_map, line, WRITE_STRING_FILE_DISABLE_BUFFER);
+
+        offset = snprintf(lines, ELEMENTSOF(lines), line_fmt, 0, arg_uid_shift, arg_uid_range);
+        if (offset >= ELEMENTSOF(lines))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to prepare UID map");
+
+        for (i = 0; i < arg_n_uid_map; i++) {
+                UidMap *map = &arg_uid_map[i];
+                offset += snprintf(lines + offset, ELEMENTSOF(lines) - offset, line_fmt, map->ns, map->host, map->range);
+                if (offset >= ELEMENTSOF(lines))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to prepare UID map");
+        }
+
+        r = write_string_file(uid_map, lines, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_error_errno(r, "Failed to write UID map: %m");
 
         /* We always assign the same UID and GID ranges */
         xsprintf(uid_map, "/proc/" PID_FMT "/gid_map", pid);
-        r = write_string_file(uid_map, line, WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file(uid_map, lines, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_error_errno(r, "Failed to write GID map: %m");
 
