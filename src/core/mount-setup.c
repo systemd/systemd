@@ -486,6 +486,7 @@ static int relabel_extra(void) {
                         }
 
                         log_debug("Relabelling additional file/directory '%s'.", line);
+                        (void) label_fix(line, 0);
                         (void) nftw(line, nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
                         c++;
                 }
