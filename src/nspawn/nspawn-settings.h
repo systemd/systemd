@@ -162,6 +162,8 @@ typedef struct Settings {
         char *pivot_root_old;
         UserNamespaceMode userns_mode;
         uid_t uid_shift, uid_range;
+        UidMap *uid_map;
+        size_t n_uid_map;
         bool notify_ready;
         char **syscall_whitelist;
         char **syscall_blacklist;

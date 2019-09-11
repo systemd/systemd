@@ -642,35 +642,31 @@ int config_parse_private_users(
                 settings->uid_shift = UID_INVALID;
                 settings->uid_range = UINT32_C(0x10000);
         } else {
-                const char *range, *shift;
-                uid_t sh, rn;
+                UidMap map = { .host = 0, .ns = 0, .range = UINT32_C(0x10000) };
 
                 /* anything else: User namespacing on, UID range is explicitly configured */
 
-                range = strchr(rvalue, ':');
-                if (range) {
-                        shift = strndupa(rvalue, range - rvalue);
-                        range++;
-
-                        r = safe_atou32(range, &rn);
-                        if (r < 0 || rn <= 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r, "UID/GID range invalid, ignoring: %s", range);
-                                return 0;
-                        }
-                } else {
-                        shift = rvalue;
-                        rn = UINT32_C(0x10000);
-                }
-
-                r = parse_uid(shift, &sh);
+                r = parse_uid_map(rvalue, &map);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "UID/GID shift invalid, ignoring: %s", range);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "UID/GID map invalid, ignoring: %s", rvalue);
                         return 0;
                 }
 
+                if (map.ns == 0) {
+                        settings->uid_shift = map.host;
+                        settings->uid_range = map.range;
+                } else {
+                        UidMap *maps;
+                        maps = reallocarray(settings->uid_map, settings->n_uid_map + 1, sizeof(UidMap));
+                        if (!maps)
+                                return log_oom();
+                        settings->uid_map = maps;
+                        settings->uid_map[settings->n_uid_map] = map;
+                        settings->n_uid_map++;
+                }
                 settings->userns_mode = USER_NAMESPACE_FIXED;
-                settings->uid_shift = sh;
-                settings->uid_range = rn;
         }
 
         return 0;

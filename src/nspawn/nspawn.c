@@ -1121,9 +1121,11 @@ static int parse_argv(int argc, char *argv[]) {
                                         arg_uid_shift = map.host;
                                         arg_uid_range = map.range;
                                 } else {
-                                        arg_uid_map = reallocarray(arg_uid_map, arg_n_uid_map + 1, sizeof(UidMap));
-                                        if (!arg_uid_map)
+                                        UidMap *maps;
+                                        maps = reallocarray(arg_uid_map, arg_n_uid_map + 1, sizeof(UidMap));
+                                        if (!maps)
                                                 return log_oom();
+                                        arg_uid_map = maps;
                                         arg_uid_map[arg_n_uid_map] = map;
                                         arg_n_uid_map++;
                                 }
@@ -3859,6 +3861,8 @@ static int merge_settings(Settings *settings, const char *path) {
                         arg_uid_shift = settings->uid_shift;
                         arg_uid_range = settings->uid_range;
                         arg_userns_chown = settings->userns_chown;
+                        free_and_replace(arg_uid_map, settings->uid_map);
+                        arg_n_uid_map = settings->n_uid_map;
                 }
         }
 
