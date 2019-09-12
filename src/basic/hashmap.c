@@ -254,7 +254,7 @@ struct hashmap_type_info {
         unsigned n_direct_buckets;
 };
 
-static const struct hashmap_type_info hashmap_type_info[_HASHMAP_TYPE_MAX] = {
+static _used_ const struct hashmap_type_info hashmap_type_info[_HASHMAP_TYPE_MAX] = {
         [HASHMAP_TYPE_PLAIN] = {
                 .head_size        = sizeof(Hashmap),
                 .entry_size       = sizeof(struct plain_hashmap_entry),
