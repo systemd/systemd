@@ -1183,8 +1183,8 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         if (ERRNO_IS_DISCONNECT(-r)) {
                 usec_t usec;
 
-                /* UDP connection failure get reported via ICMP and then are possible delivered to us on the next
-                 * recvmsg(). Treat this like a lost packet. */
+                /* UDP connection failures get reported via ICMP and then are possibly delivered to us on the
+                 * next recvmsg(). Treat this like a lost packet. */
 
                 log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
                 assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
@@ -1198,6 +1198,9 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 t->answer_errno = -r;
                 return 0;
         }
+        if (r == 0)
+                /* Spurious wakeup without any data */
+                return 0;
 
         r = dns_packet_validate_reply(p);
         if (r < 0) {
