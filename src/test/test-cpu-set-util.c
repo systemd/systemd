@@ -8,8 +8,12 @@
         ASSERT_NULL(c.set);                     \
         ASSERT_EQ(c.allocated, 0u)
 
+#ifdef __GLIBC__
 #define ASSERT_CPUSET_ALLOCATED(c)                                      \
         ASSERT_GE(c.allocated, DIV_ROUND_UP(sizeof(__cpu_mask), 8))
+#else
+#define ASSERT_CPUSET_ALLOCATED(c)
+#endif
 
 #define ASSERT_CPUSET_COUNT(c, n)                                       \
         ASSERT_NOT_NULL(c.set);                                         \
