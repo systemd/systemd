@@ -410,9 +410,8 @@ char* gid_to_name(gid_t gid) {
 }
 
 int in_gid(gid_t gid) {
-        long ngroups_max;
         gid_t *gids;
-        int r, i;
+        int ngroups, r, i;
 
         if (getgid() == gid)
                 return 1;
@@ -423,12 +422,15 @@ int in_gid(gid_t gid) {
         if (!gid_is_valid(gid))
                 return -EINVAL;
 
-        ngroups_max = sysconf(_SC_NGROUPS_MAX);
-        assert(ngroups_max > 0);
+        ngroups = getgroups(0, NULL);
+        if (ngroups < 0)
+                return -errno;
+        if (ngroups == 0)
+                return 0;
 
-        gids = newa(gid_t, ngroups_max);
+        gids = newa(gid_t, ngroups);
 
-        r = getgroups(ngroups_max, gids);
+        r = getgroups(ngroups, gids);
         if (r < 0)
                 return -errno;
 
