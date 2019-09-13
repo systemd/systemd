@@ -79,6 +79,7 @@ typedef enum MountState {
         MOUNT_UNMOUNTING_SIGTERM,
         MOUNT_UNMOUNTING_SIGKILL,
         MOUNT_FAILED,
+        MOUNT_CLEANING,
         _MOUNT_STATE_MAX,
         _MOUNT_STATE_INVALID = -1
 } MountState;
@@ -147,6 +148,7 @@ typedef enum SocketState {
         SOCKET_FINAL_SIGTERM,
         SOCKET_FINAL_SIGKILL,
         SOCKET_FAILED,
+        SOCKET_CLEANING,
         _SOCKET_STATE_MAX,
         _SOCKET_STATE_INVALID = -1
 } SocketState;
@@ -160,6 +162,7 @@ typedef enum SwapState {
         SWAP_DEACTIVATING_SIGTERM,
         SWAP_DEACTIVATING_SIGKILL,
         SWAP_FAILED,
+        SWAP_CLEANING,
         _SWAP_STATE_MAX,
         _SWAP_STATE_INVALID = -1
 } SwapState;

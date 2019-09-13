@@ -30,7 +30,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "rm-rf.h"
 #include "serialize.h"
 #include "service.h"
 #include "signal-util.h"
@@ -4246,7 +4245,6 @@ static int service_exit_status(Unit *u) {
 static int service_clean(Unit *u, ExecCleanMask mask) {
         _cleanup_strv_free_ char **l = NULL;
         Service *s = SERVICE(u);
-        pid_t pid;
         int r;
 
         assert(s);
@@ -4271,36 +4269,16 @@ static int service_clean(Unit *u, ExecCleanMask mask) {
         if (r < 0)
                 goto fail;
 
-        r = unit_fork_helper_process(UNIT(s), "(sd-rmrf)", &pid);
+        r = unit_fork_and_watch_rm_rf(u, l, &s->control_pid);
         if (r < 0)
                 goto fail;
-        if (r == 0) {
-                int ret = EXIT_SUCCESS;
-                char **i;
-
-                STRV_FOREACH(i, l) {
-                        r = rm_rf(*i, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to remove '%s': %m", *i);
-                                ret = EXIT_FAILURE;
-                        }
-                }
-
-                _exit(ret);
-        }
-
-        r = unit_watch_pid(u, pid, true);
-        if (r < 0)
-                goto fail;
-
-        s->control_pid = pid;
 
         service_set_state(s, SERVICE_CLEANING);
 
         return 0;
 
 fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to initiate cleaning: %m");
+        log_unit_warning_errno(u, r, "Failed to initiate cleaning: %m");
         s->clean_result = SERVICE_FAILURE_RESOURCES;
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
         return r;
