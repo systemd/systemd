@@ -163,7 +163,7 @@
     <varname>Wants=</varname>, see below. The preferred way to create symlinks in the
     <filename>.wants/</filename> or <filename>.requires/</filename> directory of a unit file is by embedding
     the dependency in [Install] section of the target unit, and creating the symlink in the file system with
-    the with the <command>enable</command> or <command>preset</command> commands of
+    the <command>enable</command> or <command>preset</command> commands of
     <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
     <para>Along with a unit file <filename>foo.service</filename>, a "drop-in" directory

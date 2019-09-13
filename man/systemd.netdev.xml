@@ -1742,8 +1742,8 @@
       <varlistentry>
         <term><varname>ARPIntervalSec=</varname></term>
         <listitem>
-          <para>Specifies the ARP link monitoring frequency in milliseconds.
-          A value of 0 disables ARP monitoring. The default value is 0.
+          <para>Specifies the ARP link monitoring frequency. A value of 0 disables ARP monitoring. The
+          default value is 0, and the default unit seconds.
           </para>
         </listitem>
       </varlistentry>

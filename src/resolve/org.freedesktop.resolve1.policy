@@ -130,7 +130,7 @@
 
         <action id="org.freedesktop.resolve1.revert">
                 <description gettext-domain="systemd">Revert name resolution settings</description>
-                <message gettext-domain="systemd">Authentication is required to revert name resolution settings.</message>
+                <message gettext-domain="systemd">Authentication is required to reset name resolution settings.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
