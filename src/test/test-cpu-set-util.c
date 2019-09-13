@@ -4,6 +4,10 @@
 #include "cpu-set-util.h"
 #include "tests.h"
 
+#ifndef __GLIBC__
+typedef unsigned long __cpu_mask;
+#endif
+
 TEST(parse_cpu_set) {
         CPUSet c = {};
         _cleanup_free_ char *str = NULL;
