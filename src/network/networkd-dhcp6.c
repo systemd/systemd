@@ -548,8 +548,7 @@ int dhcp6_request_address(Link *link, int ir) {
         r = sd_dhcp6_client_is_running(link->dhcp6_client);
         if (r < 0)
                 return r;
-        else
-                running = r;
+        running = r;
 
         r = sd_dhcp6_client_get_prefix_delegation(link->dhcp6_client, &pd);
         if (r < 0)
