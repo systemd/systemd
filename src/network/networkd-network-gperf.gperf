@@ -223,6 +223,8 @@ IPv6Prefix.OnLink,                      config_parse_prefix_flags,              
 IPv6Prefix.AddressAutoconfiguration,    config_parse_prefix_flags,                       0,                             0
 IPv6Prefix.ValidLifetimeSec,            config_parse_prefix_lifetime,                    0,                             0
 IPv6Prefix.PreferredLifetimeSec,        config_parse_prefix_lifetime,                    0,                             0
+IPv6RoutePrefix.Route,                  config_parse_route_prefix,                       0,                             0
+IPv6RoutePrefix.LifetimeSec,            config_parse_route_prefix_lifetime,              0,                             0
 CAN.BitRate,                            config_parse_si_size,                            0,                             offsetof(Network, can_bitrate)
 CAN.SamplePoint,                        config_parse_permille,                           0,                             offsetof(Network, can_sample_point)
 CAN.RestartSec,                         config_parse_sec,                                0,                             offsetof(Network, can_restart_us)

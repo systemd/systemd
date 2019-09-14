@@ -116,6 +116,7 @@ static sd_radv *radv_free(sd_radv *ra) {
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv, sd_radv, radv_free);
 
 static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_lifetime) {
+        sd_radv_route_prefix *rt;
         sd_radv_prefix *p;
         struct sockaddr_in6 dst_addr = {
                 .sin6_family = AF_INET6,
@@ -136,9 +137,9 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_li
                 .nd_opt_mtu_type = ND_OPT_MTU,
                 .nd_opt_mtu_len = 1,
         };
-        /* Reserve iov space for RA header, linkaddr, MTU, N prefixes, RDNSS
+        /* Reserve iov space for RA header, linkaddr, MTU, N prefixes, N routes, RDNSS
            and DNSSL */
-        struct iovec iov[5 + ra->n_prefixes];
+        struct iovec iov[5 + ra->n_prefixes + ra->n_route_prefixes];
         struct msghdr msg = {
                 .msg_name = &dst_addr,
                 .msg_namelen = sizeof(dst_addr),
@@ -189,6 +190,9 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_li
                 }
                 iov[msg.msg_iovlen++] = IOVEC_MAKE(&p->opt, sizeof(p->opt));
         }
+
+        LIST_FOREACH(prefix, rt, ra->route_prefixes)
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(&rt->opt, sizeof(rt->opt));
 
         if (ra->rdnss)
                 iov[msg.msg_iovlen++] = IOVEC_MAKE(ra->rdnss, ra->rdnss->length * 8);
@@ -606,6 +610,77 @@ _public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
         return cur;
 }
 
+_public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int dynamic) {
+        char time_string_valid[FORMAT_TIMESPAN_MAX];
+        usec_t time_now, valid, valid_until;
+        _cleanup_free_ char *pretty = NULL;
+        sd_radv_route_prefix *cur;
+        int r;
+
+        assert_return(ra, -EINVAL);
+
+        if (!p)
+                return -EINVAL;
+
+        (void) in_addr_to_string(AF_INET6,
+                                 (union in_addr_union*) &p->opt.in6_addr,
+                                 &pretty);
+
+        LIST_FOREACH(prefix, cur, ra->route_prefixes) {
+                _cleanup_free_ char *addr = NULL;
+
+                r = in_addr_prefix_intersect(AF_INET6,
+                                             (union in_addr_union*) &cur->opt.in6_addr,
+                                             cur->opt.prefixlen,
+                                             (union in_addr_union*) &p->opt.in6_addr,
+                                             p->opt.prefixlen);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (dynamic && cur->opt.prefixlen == p->opt.prefixlen)
+                        goto update;
+
+                (void) in_addr_to_string(AF_INET6,
+                                         (union in_addr_union*) &cur->opt.in6_addr,
+                                         &addr);
+                log_radv("IPv6 route prefix %s/%u already configured, ignoring %s/%u",
+                         strempty(addr), cur->opt.prefixlen,
+                         strempty(pretty), p->opt.prefixlen);
+
+                return -EEXIST;
+        }
+
+        p = sd_radv_route_prefix_ref(p);
+
+        LIST_APPEND(prefix, ra->route_prefixes, p);
+        ra->n_route_prefixes++;
+
+        cur = p;
+        if (!dynamic) {
+                log_radv("Added prefix %s/%u", strempty(pretty), p->opt.prefixlen);
+                return 0;
+        }
+
+ update:
+        r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                return r;
+
+        valid = be32toh(p->opt.lifetime) * USEC_PER_SEC;
+        valid_until = usec_add(valid, time_now);
+        if (valid_until == USEC_INFINITY)
+                return -EOVERFLOW;
+
+        log_radv("%s route prefix %s/%u valid %s",
+                 cur? "Updated": "Added",
+                 strempty(pretty), p->opt.prefixlen,
+                 format_timespan(time_string_valid, FORMAT_TIMESPAN_MAX, valid, USEC_PER_SEC));
+
+        return 0;
+}
+
 _public_ int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
                                const struct in6_addr *dns, size_t n_dns) {
         _cleanup_free_ struct sd_radv_opt_dns *opt_rdnss = NULL;
@@ -767,6 +842,57 @@ _public_ int sd_radv_prefix_set_preferred_lifetime(sd_radv_prefix *p,
         assert_return(p, -EINVAL);
 
         p->opt.preferred_lifetime = htobe32(preferred_lifetime);
+
+        return 0;
+}
+
+_public_ int sd_radv_route_prefix_new(sd_radv_route_prefix **ret) {
+        sd_radv_route_prefix *p;
+
+        assert_return(ret, -EINVAL);
+
+        p = new(sd_radv_route_prefix, 1);
+        if (!p)
+                return -ENOMEM;
+
+        *p = (sd_radv_route_prefix) {
+                .n_ref = 1,
+
+                .opt.type = SD_RADV_OPT_ROUTE_INFORMATION,
+                .opt.length = DIV_ROUND_UP(sizeof(p->opt), 8),
+                .opt.prefixlen = 64,
+
+                .opt.lifetime = htobe32(604800),
+        };
+
+        *ret = p;
+        return 0;
+}
+
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv_route_prefix, sd_radv_route_prefix, mfree);
+
+_public_ int sd_radv_prefix_set_route_prefix(sd_radv_route_prefix *p, const struct in6_addr *in6_addr,
+                                             unsigned char prefixlen) {
+        assert_return(p, -EINVAL);
+        assert_return(in6_addr, -EINVAL);
+
+        if (prefixlen > 128)
+                return -EINVAL;
+
+        if (prefixlen > 64)
+                /* unusual but allowed, log it */
+                log_radv("Unusual prefix length %u greater than 64", prefixlen);
+
+        p->opt.in6_addr = *in6_addr;
+        p->opt.prefixlen = prefixlen;
+
+        return 0;
+}
+
+_public_ int sd_radv_route_prefix_set_lifetime(sd_radv_route_prefix *p, uint32_t valid_lifetime) {
+        assert_return(p, -EINVAL);
+
+        p->opt.lifetime = htobe32(valid_lifetime);
 
         return 0;
 }
