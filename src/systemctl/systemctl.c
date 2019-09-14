@@ -749,6 +749,64 @@ static int get_unit_list_recursive(
         return c;
 }
 
+static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***ret) {
+        _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
+        char **name;
+        int r, i;
+
+        assert(bus);
+        assert(ret);
+
+        STRV_FOREACH(name, names) {
+                char *t;
+                UnitNameMangle options = UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN);
+
+                if (suffix)
+                        r = unit_name_mangle_with_suffix(*name, options, suffix, &t);
+                else
+                        r = unit_name_mangle(*name, options, &t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mangle name: %m");
+
+                if (string_is_glob(t))
+                        r = strv_consume(&globs, t);
+                else
+                        r = strv_consume(&mangled, t);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        /* Query the manager only if any of the names are a glob, since
+         * this is fairly expensive */
+        if (!strv_isempty(globs)) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_free_ UnitInfo *unit_infos = NULL;
+                size_t allocated, n;
+
+                r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
+                if (r < 0)
+                        return r;
+
+                n = strv_length(mangled);
+                allocated = n + 1;
+
+                for (i = 0; i < r; i++) {
+                        if (!GREEDY_REALLOC(mangled, allocated, n+2))
+                                return log_oom();
+
+                        mangled[n] = strdup(unit_infos[i].id);
+                        if (!mangled[n])
+                                return log_oom();
+
+                        mangled[++n] = NULL;
+                }
+        }
+
+        *ret = TAKE_PTR(mangled);
+        return 0;
+}
+
+
 static int list_units(int argc, char *argv[], void *userdata) {
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_(message_set_freep) Set *replies = NULL;
@@ -959,6 +1017,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
 static int list_sockets(int argc, char *argv[], void *userdata) {
         _cleanup_(message_set_freep) Set *replies = NULL;
         _cleanup_strv_free_ char **machines = NULL;
+        _cleanup_strv_free_ char **sockets_with_suffix = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_free_ struct socket_info *socket_infos = NULL;
         const UnitInfo *u;
@@ -974,49 +1033,55 @@ static int list_sockets(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        n = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
-        if (n < 0)
-                return n;
+        r = expand_names(bus, strv_skip(argv, 1), ".socket", &sockets_with_suffix);
+        if (r < 0)
+                return r;
 
-        for (u = unit_infos; u < unit_infos + n; u++) {
-                _cleanup_strv_free_ char **listening = NULL, **triggered = NULL;
-                int i, c;
+        if (argc == 1 || sockets_with_suffix) {
+                n = get_unit_list_recursive(bus, sockets_with_suffix, &unit_infos, &replies, &machines);
+                if (n < 0)
+                        return n;
 
-                if (!endswith(u->id, ".socket"))
-                        continue;
+                for (u = unit_infos; u < unit_infos + n; u++) {
+                        _cleanup_strv_free_ char **listening = NULL, **triggered = NULL;
+                        int i, c;
 
-                r = get_triggered_units(bus, u->unit_path, &triggered);
-                if (r < 0)
-                        goto cleanup;
+                        if (!endswith(u->id, ".socket"))
+                                continue;
 
-                c = get_listening(bus, u->unit_path, &listening);
-                if (c < 0) {
-                        r = c;
-                        goto cleanup;
+                        r = get_triggered_units(bus, u->unit_path, &triggered);
+                        if (r < 0)
+                                goto cleanup;
+
+                        c = get_listening(bus, u->unit_path, &listening);
+                        if (c < 0) {
+                                r = c;
+                                goto cleanup;
+                        }
+
+                        if (!GREEDY_REALLOC(socket_infos, size, cs + c)) {
+                                r = log_oom();
+                                goto cleanup;
+                        }
+
+                        for (i = 0; i < c; i++)
+                                socket_infos[cs + i] = (struct socket_info) {
+                                        .machine = u->machine,
+                                        .id = u->id,
+                                        .type = listening[i*2],
+                                        .path = listening[i*2 + 1],
+                                        .triggered = triggered,
+                                        .own_triggered = i==0,
+                                };
+
+                        /* from this point on we will cleanup those socket_infos */
+                        cs += c;
+                        free(listening);
+                        listening = triggered = NULL; /* avoid cleanup */
                 }
 
-                if (!GREEDY_REALLOC(socket_infos, size, cs + c)) {
-                        r = log_oom();
-                        goto cleanup;
-                }
-
-                for (i = 0; i < c; i++)
-                        socket_infos[cs + i] = (struct socket_info) {
-                                .machine = u->machine,
-                                .id = u->id,
-                                .type = listening[i*2],
-                                .path = listening[i*2 + 1],
-                                .triggered = triggered,
-                                .own_triggered = i==0,
-                        };
-
-                /* from this point on we will cleanup those socket_infos */
-                cs += c;
-                free(listening);
-                listening = triggered = NULL; /* avoid cleanup */
+                typesafe_qsort(socket_infos, cs, socket_info_compare);
         }
-
-        typesafe_qsort(socket_infos, cs, socket_info_compare);
 
         output_sockets_list(socket_infos, cs);
 
@@ -1263,6 +1328,7 @@ static usec_t calc_next_elapse(dual_timestamp *nw, dual_timestamp *next) {
 static int list_timers(int argc, char *argv[], void *userdata) {
         _cleanup_(message_set_freep) Set *replies = NULL;
         _cleanup_strv_free_ char **machines = NULL;
+        _cleanup_strv_free_ char **timers_with_suffix = NULL;
         _cleanup_free_ struct timer_info *timer_infos = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         struct timer_info *t;
@@ -1279,47 +1345,53 @@ static int list_timers(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        n = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
-        if (n < 0)
-                return n;
+        r = expand_names(bus, strv_skip(argv, 1), ".timer", &timers_with_suffix);
+        if (r < 0)
+                return r;
 
-        dual_timestamp_get(&nw);
+        if (argc == 1 || timers_with_suffix) {
+                n = get_unit_list_recursive(bus, timers_with_suffix, &unit_infos, &replies, &machines);
+                if (n < 0)
+                        return n;
 
-        for (u = unit_infos; u < unit_infos + n; u++) {
-                _cleanup_strv_free_ char **triggered = NULL;
-                dual_timestamp next = DUAL_TIMESTAMP_NULL;
-                usec_t m, last = 0;
+                dual_timestamp_get(&nw);
 
-                if (!endswith(u->id, ".timer"))
-                        continue;
+                for (u = unit_infos; u < unit_infos + n; u++) {
+                        _cleanup_strv_free_ char **triggered = NULL;
+                        dual_timestamp next = DUAL_TIMESTAMP_NULL;
+                        usec_t m, last = 0;
 
-                r = get_triggered_units(bus, u->unit_path, &triggered);
-                if (r < 0)
-                        goto cleanup;
+                        if (!endswith(u->id, ".timer"))
+                                continue;
 
-                r = get_next_elapse(bus, u->unit_path, &next);
-                if (r < 0)
-                        goto cleanup;
+                        r = get_triggered_units(bus, u->unit_path, &triggered);
+                        if (r < 0)
+                                goto cleanup;
 
-                get_last_trigger(bus, u->unit_path, &last);
+                        r = get_next_elapse(bus, u->unit_path, &next);
+                        if (r < 0)
+                                goto cleanup;
 
-                if (!GREEDY_REALLOC(timer_infos, size, c+1)) {
-                        r = log_oom();
-                        goto cleanup;
+                        get_last_trigger(bus, u->unit_path, &last);
+
+                        if (!GREEDY_REALLOC(timer_infos, size, c+1)) {
+                                r = log_oom();
+                                goto cleanup;
+                        }
+
+                        m = calc_next_elapse(&nw, &next);
+
+                        timer_infos[c++] = (struct timer_info) {
+                                .machine = u->machine,
+                                .id = u->id,
+                                .next_elapse = m,
+                                .last_trigger = last,
+                                .triggered = TAKE_PTR(triggered),
+                        };
                 }
 
-                m = calc_next_elapse(&nw, &next);
-
-                timer_infos[c++] = (struct timer_info) {
-                        .machine = u->machine,
-                        .id = u->id,
-                        .next_elapse = m,
-                        .last_trigger = last,
-                        .triggered = TAKE_PTR(triggered),
-                };
+                typesafe_qsort(timer_infos, c, timer_info_compare);
         }
-
-        typesafe_qsort(timer_infos, c, timer_info_compare);
 
         output_timers_list(timer_infos, c);
 
@@ -2924,63 +2996,6 @@ fail:
                           name);
 
         return r;
-}
-
-static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***ret) {
-        _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
-        char **name;
-        int r, i;
-
-        assert(bus);
-        assert(ret);
-
-        STRV_FOREACH(name, names) {
-                char *t;
-                UnitNameMangle options = UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN);
-
-                if (suffix)
-                        r = unit_name_mangle_with_suffix(*name, options, suffix, &t);
-                else
-                        r = unit_name_mangle(*name, options, &t);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to mangle name: %m");
-
-                if (string_is_glob(t))
-                        r = strv_consume(&globs, t);
-                else
-                        r = strv_consume(&mangled, t);
-                if (r < 0)
-                        return log_oom();
-        }
-
-        /* Query the manager only if any of the names are a glob, since
-         * this is fairly expensive */
-        if (!strv_isempty(globs)) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                _cleanup_free_ UnitInfo *unit_infos = NULL;
-                size_t allocated, n;
-
-                r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
-                if (r < 0)
-                        return r;
-
-                n = strv_length(mangled);
-                allocated = n + 1;
-
-                for (i = 0; i < r; i++) {
-                        if (!GREEDY_REALLOC(mangled, allocated, n+2))
-                                return log_oom();
-
-                        mangled[n] = strdup(unit_infos[i].id);
-                        if (!mangled[n])
-                                return log_oom();
-
-                        mangled[++n] = NULL;
-                }
-        }
-
-        *ret = TAKE_PTR(mangled);
-        return 0;
 }
 
 static const struct {
