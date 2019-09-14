@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2019-09-03 15:30+0000\n"
-"PO-Revision-Date: 2019-09-03 19:04+0200\n"
+"POT-Creation-Date: 2019-09-13 15:30+0000\n"
+"PO-Revision-Date: 2019-09-14 12:44+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -698,7 +698,7 @@ msgid "Revert NTP settings"
 msgstr "Przywrócenie ustawień NTP"
 
 #: src/network/org.freedesktop.network1.policy:122
-msgid "Authentication is required to revert NTP settings."
+msgid "Authentication is required to reset NTP settings."
 msgstr "Wymagane jest uwierzytelnienie, aby przywrócić ustawienia NTP."
 
 #: src/network/org.freedesktop.network1.policy:132
@@ -706,7 +706,7 @@ msgid "Revert DNS settings"
 msgstr "Przywrócenie ustawień DNS"
 
 #: src/network/org.freedesktop.network1.policy:133
-msgid "Authentication is required to revert DNS settings."
+msgid "Authentication is required to reset DNS settings."
 msgstr "Wymagane jest uwierzytelnienie, aby przywrócić ustawienia DNS."
 
 #: src/portable/org.freedesktop.portable1.policy:13
