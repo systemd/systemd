@@ -1435,6 +1435,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-gateway-next-static.network',
         '25-sysctl-disable-ipv6.network',
         '25-sysctl.network',
+        '26-link-local-addressing-ipv6.network',
         'configure-without-carrier.network',
         'routing-policy-rule-dummy98.network',
         'routing-policy-rule-test1.network']
@@ -1813,6 +1814,23 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'dummy98'), 'addr_gen_mode')):
             self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'addr_gen_mode'), '1')
+
+    def test_link_local_addressing_remove_ipv6ll(self):
+        copy_unit_to_networkd_unit_path('26-link-local-addressing-ipv6.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:degraded'])
+
+        output = check_output('ip address show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'inet6 .* scope link')
+
+        copy_unit_to_networkd_unit_path('25-link-local-addressing-no.network')
+        restart_networkd(1)
+        self.wait_online(['dummy98:carrier'])
+
+        output = check_output('ip address show dev dummy98')
+        print(output)
+        self.assertNotRegex(output, 'inet6* .* scope link')
 
     def test_sysctl(self):
         copy_unit_to_networkd_unit_path('25-sysctl.network', '12-dummy.netdev')
