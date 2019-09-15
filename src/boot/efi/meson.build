@@ -113,7 +113,6 @@ if have_gnu_efi
                         '-Wextra',
                         '-std=gnu90',
                         '-nostdinc',
-                        '-ggdb', '-O0',
                         '-fpic',
                         '-fshort-wchar',
                         '-ffreestanding',
@@ -137,6 +136,13 @@ if have_gnu_efi
         endif
         if get_option('werror') == true
                 compile_args += ['-Werror']
+        endif
+        if get_option('buildtype') == 'debug'
+                compile_args += ['-ggdb', '-O0']
+        elif get_option('buildtype') == 'debugoptimized'
+                compile_args += ['-ggdb', '-Og']
+        else
+                compile_args += ['-O2']
         endif
 
         efi_ldflags = ['-T',
