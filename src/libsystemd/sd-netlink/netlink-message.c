@@ -577,7 +577,9 @@ static int netlink_message_read_internal(sd_netlink_message *m, unsigned short t
 
         assert(m->n_containers < RTNL_CONTAINER_DEPTH);
         assert(m->containers[m->n_containers].attributes);
-        assert(type < m->containers[m->n_containers].n_attributes);
+
+        if (type >= m->containers[m->n_containers].n_attributes)
+                return -ENODATA;
 
         attribute = &m->containers[m->n_containers].attributes[type];
 
