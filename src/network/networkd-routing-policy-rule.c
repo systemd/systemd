@@ -453,6 +453,16 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
         assert(link->manager);
         assert(link->manager->rtnl);
 
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *from = NULL, *to = NULL;
+
+                (void) in_addr_to_string(rule->family, &rule->from, &from);
+                (void) in_addr_to_string(rule->family, &rule->to, &to);
+
+                log_debug("Configuring routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
+                          from, rule->from_prefixlen, to, rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
+        }
+
         r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, rule->family);
         if (r < 0)
                 return log_error_errno(r, "Could not allocate RTM_NEWRULE message: %m");

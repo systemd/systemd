@@ -2892,7 +2892,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip route show vrf vrf99')
         print(output)
         self.assertRegex(output, 'default via 192.168.5.1 dev veth99 proto dhcp src 192.168.5.')
-        self.assertRegex(output, 'default dev veth99 proto static scope link')
         self.assertRegex(output, '169.254.0.0/16 dev veth99 proto kernel scope link src 169.254')
         self.assertRegex(output, '192.168.5.0/24 dev veth99 proto kernel scope link src 192.168.5')
         self.assertRegex(output, '192.168.5.0/24 via 192.168.5.5 dev veth99 proto dhcp')
