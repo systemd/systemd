@@ -133,6 +133,7 @@ DEFINE_CONFIG_PARSE_PTR(config_parse_cg_weight, cg_weight_parse, uint64_t, "Inva
 DEFINE_CONFIG_PARSE_PTR(config_parse_cpu_shares, cg_cpu_shares_parse, uint64_t, "Invalid CPU shares");
 DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_flags, mount_propagation_flags_from_string, unsigned long, "Failed to parse mount flag");
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1, "Invalid NUMA policy type");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat, "Failed to parse status unit format");
 
 int config_parse_unit_deps(
                 const char *unit,
