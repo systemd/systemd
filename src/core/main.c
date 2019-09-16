@@ -538,7 +538,6 @@ DEFINE_SETTER(config_parse_level2, log_set_max_level_from_string, "log level");
 DEFINE_SETTER(config_parse_target, log_set_target_from_string, "target");
 DEFINE_SETTER(config_parse_color, log_show_color_from_string, "color" );
 DEFINE_SETTER(config_parse_location, log_show_location_from_string, "location");
-DEFINE_SETTER(config_parse_status_unit_format, status_unit_format_from_string, "value");
 
 static int parse_config_file(void) {
 
