@@ -1,0 +1,6 @@
+[Match]
+Name=veth-peer
+
+[Network]
+DHCP=no
+IPv6AcceptRA=yes

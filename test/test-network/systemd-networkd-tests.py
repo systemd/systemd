@@ -3113,6 +3113,37 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'example.com')
 
+class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
+    links = ['veth99']
+
+    units = [
+        '25-veth.netdev',
+        'ipv6ra-prefix-client.network',
+        'ipv6ra-prefix.network'
+        ]
+
+    def setUp(self):
+        remove_links(self.links)
+        stop_networkd(show_logs=False)
+
+    def tearDown(self):
+        remove_log_file()
+        remove_links(self.links)
+        remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
+
+    def test_ipv6_route_prefix(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6ra-prefix-client.network', 'ipv6ra-prefix.network')
+
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+        start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output('ip', '-6', 'route', 'show', 'dev', 'veth-peer')
+        print(output)
+        self.assertRegex(output, '2001:db8:0:1::/64 proto ra')
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--build-dir', help='Path to build dir', dest='build_dir')
