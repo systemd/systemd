@@ -117,6 +117,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_numa_mask);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_filter_bpf_progs);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity2);
 CONFIG_PARSER_PROTOTYPE(config_parse_show_status);
+CONFIG_PARSER_PROTOTYPE(config_parse_status_unit_format);
 CONFIG_PARSER_PROTOTYPE(config_parse_output_restricted);
 CONFIG_PARSER_PROTOTYPE(config_parse_crash_chvt);
 CONFIG_PARSER_PROTOTYPE(config_parse_timeout_abort);
