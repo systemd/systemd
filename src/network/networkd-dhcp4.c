@@ -198,7 +198,7 @@ static int link_set_dhcp_routes(Link *link) {
         if (n == -ENODATA)
                 log_link_debug_errno(link, n, "DHCP: No routes received from DHCP server: %m");
         else if (n < 0)
-                log_link_debug_errno(link, n, "DHCP error: could not get routes: %m");
+                log_link_debug_errno(link, n, "DHCP: could not get routes: %m");
 
         for (i = 0; i < n; i++) {
                 switch (sd_dhcp_route_get_option(static_routes[i])) {
