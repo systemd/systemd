@@ -395,14 +395,13 @@ int udev_ctrl_wait(struct udev_ctrl *uctrl, usec_t timeout) {
         (void) sd_event_source_set_description(source_io, "udev-ctrl-wait-io");
 
         if (timeout != USEC_INFINITY) {
-                usec_t usec;
-
-                usec = now(clock_boottime_or_monotonic()) + timeout;
-                r = sd_event_add_time(uctrl->event, &source_timeout, clock_boottime_or_monotonic(), usec, 0, NULL, INT_TO_PTR(-ETIMEDOUT));
+                r = sd_event_add_time(uctrl->event, &source_timeout, clock_boottime_or_monotonic(),
+                                      usec_add(now(clock_boottime_or_monotonic()), timeout),
+                                      0, NULL, INT_TO_PTR(-ETIMEDOUT));
                 if (r < 0)
                         return r;
 
-                (void) sd_event_source_set_description(source_timeout, "udev-ctrl-wait-io");
+                (void) sd_event_source_set_description(source_timeout, "udev-ctrl-wait-timeout");
         }
 
         return sd_event_loop(uctrl->event);
