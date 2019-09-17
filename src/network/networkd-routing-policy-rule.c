@@ -180,11 +180,11 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
                         return r;
 
                 r = strcmp_ptr(a->iif, b->iif);
-                if (!r)
+                if (r != 0)
                         return r;
 
                 r = strcmp_ptr(a->oif, b->oif);
-                if (!r)
+                if (r != 0)
                         return r;
 
                 r = CMP(a->protocol, b->protocol);
