@@ -209,18 +209,20 @@ static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) 
         assert(neighbor);
 
         siphash24_compress(&neighbor->family, sizeof(neighbor->family), state);
+        siphash24_compress(&neighbor->lladdr_size, sizeof(neighbor->lladdr_size), state);
 
         switch (neighbor->family) {
         case AF_INET:
         case AF_INET6:
                 /* Equality of neighbors are given by the pair (addr,lladdr) */
                 siphash24_compress(&neighbor->in_addr, FAMILY_ADDRESS_SIZE(neighbor->family), state);
-                siphash24_compress(&neighbor->lladdr, neighbor->lladdr_size, state);
                 break;
         default:
                 /* treat any other address family as AF_UNSPEC */
                 break;
         }
+
+        siphash24_compress(&neighbor->lladdr, neighbor->lladdr_size, state);
 }
 
 static int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {

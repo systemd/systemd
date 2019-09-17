@@ -115,6 +115,20 @@ void address_free(Address *address) {
         free(address);
 }
 
+static uint32_t address_prefix(const Address *a) {
+        assert(a);
+
+        /* make sure we don't try to shift by 32.
+         * See ISO/IEC 9899:TC3 § 6.5.7.3. */
+        if (a->prefixlen == 0)
+                return 0;
+
+        if (a->in_addr_peer.in.s_addr != 0)
+                return be32toh(a->in_addr_peer.in.s_addr) >> (32 - a->prefixlen);
+        else
+                return be32toh(a->in_addr.in.s_addr) >> (32 - a->prefixlen);
+}
+
 static void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
@@ -125,16 +139,8 @@ static void address_hash_func(const Address *a, struct siphash *state) {
                 siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
 
                 /* peer prefix */
-                if (a->prefixlen != 0) {
-                        uint32_t prefix;
-
-                        if (a->in_addr_peer.in.s_addr != 0)
-                                prefix = be32toh(a->in_addr_peer.in.s_addr) >> (32 - a->prefixlen);
-                        else
-                                prefix = be32toh(a->in_addr.in.s_addr) >> (32 - a->prefixlen);
-
-                        siphash24_compress(&prefix, sizeof(prefix), state);
-                }
+                uint32_t prefix = address_prefix(a);
+                siphash24_compress(&prefix, sizeof(prefix), state);
 
                 _fallthrough_;
         case AF_INET6:
@@ -162,26 +168,11 @@ static int address_compare_func(const Address *a1, const Address *a2) {
                 if (r != 0)
                         return r;
 
-                /* compare the peer prefixes */
-                if (a1->prefixlen != 0) {
-                        /* make sure we don't try to shift by 32.
-                         * See ISO/IEC 9899:TC3 § 6.5.7.3. */
-                        uint32_t b1, b2;
-
-                        if (a1->in_addr_peer.in.s_addr != 0)
-                                b1 = be32toh(a1->in_addr_peer.in.s_addr) >> (32 - a1->prefixlen);
-                        else
-                                b1 = be32toh(a1->in_addr.in.s_addr) >> (32 - a1->prefixlen);
-
-                        if (a2->in_addr_peer.in.s_addr != 0)
-                                b2 = be32toh(a2->in_addr_peer.in.s_addr) >> (32 - a1->prefixlen);
-                        else
-                                b2 = be32toh(a2->in_addr.in.s_addr) >> (32 - a1->prefixlen);
-
-                        r = CMP(b1, b2);
-                        if (r != 0)
-                                return r;
-                }
+                uint32_t prefix1 = address_prefix(a1);
+                uint32_t prefix2 = address_prefix(a2);
+                r = CMP(prefix1, prefix2);
+                if (r != 0)
+                        return r;
 
                 _fallthrough_;
         case AF_INET6:

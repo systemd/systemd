@@ -105,7 +105,6 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
         switch (rule->family) {
         case AF_INET:
         case AF_INET6:
-
                 siphash24_compress(&rule->from, FAMILY_ADDRESS_SIZE(rule->family), state);
                 siphash24_compress(&rule->from_prefixlen, sizeof(rule->from_prefixlen), state);
 
@@ -151,7 +150,15 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
                 if (r != 0)
                         return r;
 
+                r = memcmp(&a->from, &b->from, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+
                 r = CMP(a->to_prefixlen, b->to_prefixlen);
+                if (r != 0)
+                        return r;
+
+                r = memcmp(&a->to, &b->to, FAMILY_ADDRESS_SIZE(a->family));
                 if (r != 0)
                         return r;
 
@@ -179,14 +186,6 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
                 if (r != 0)
                         return r;
 
-                r = strcmp_ptr(a->iif, b->iif);
-                if (!r)
-                        return r;
-
-                r = strcmp_ptr(a->oif, b->oif);
-                if (!r)
-                        return r;
-
                 r = CMP(a->protocol, b->protocol);
                 if (r != 0)
                         return r;
@@ -199,12 +198,15 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
                 if (r != 0)
                         return r;
 
-                r = memcmp(&a->from, &b->from, FAMILY_ADDRESS_SIZE(a->family));
+                r = strcmp_ptr(a->iif, b->iif);
                 if (r != 0)
                         return r;
 
-                return memcmp(&a->to, &b->to, FAMILY_ADDRESS_SIZE(a->family));
+                r = strcmp_ptr(a->oif, b->oif);
+                if (r != 0)
+                        return r;
 
+                return 0;
         default:
                 /* treat any other address family as AF_UNSPEC */
                 return 0;
