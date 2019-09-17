@@ -157,11 +157,14 @@ static void route_hash_func(const Route *route, struct siphash *state) {
         switch (route->family) {
         case AF_INET:
         case AF_INET6:
-                siphash24_compress(&route->gw, FAMILY_ADDRESS_SIZE(route->family), state);
-                siphash24_compress(&route->dst, FAMILY_ADDRESS_SIZE(route->family), state);
                 siphash24_compress(&route->dst_prefixlen, sizeof(route->dst_prefixlen), state);
-                siphash24_compress(&route->src, FAMILY_ADDRESS_SIZE(route->family), state);
+                siphash24_compress(&route->dst, FAMILY_ADDRESS_SIZE(route->family), state);
+
                 siphash24_compress(&route->src_prefixlen, sizeof(route->src_prefixlen), state);
+                siphash24_compress(&route->src, FAMILY_ADDRESS_SIZE(route->family), state);
+
+                siphash24_compress(&route->gw, FAMILY_ADDRESS_SIZE(route->family), state);
+
                 siphash24_compress(&route->prefsrc, FAMILY_ADDRESS_SIZE(route->family), state);
 
                 siphash24_compress(&route->tos, sizeof(route->tos), state);
@@ -170,6 +173,7 @@ static void route_hash_func(const Route *route, struct siphash *state) {
                 siphash24_compress(&route->protocol, sizeof(route->protocol), state);
                 siphash24_compress(&route->scope, sizeof(route->scope), state);
                 siphash24_compress(&route->type, sizeof(route->type), state);
+
                 siphash24_compress(&route->initcwnd, sizeof(route->initcwnd), state);
                 siphash24_compress(&route->initrwnd, sizeof(route->initrwnd), state);
 
@@ -194,7 +198,23 @@ static int route_compare_func(const Route *a, const Route *b) {
                 if (r != 0)
                         return r;
 
+                r = memcmp(&a->dst, &b->dst, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+
                 r = CMP(a->src_prefixlen, b->src_prefixlen);
+                if (r != 0)
+                        return r;
+
+                r = memcmp(&a->src, &b->src, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+
+                r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+
+                r = memcmp(&a->prefsrc, &b->prefsrc, FAMILY_ADDRESS_SIZE(a->family));
                 if (r != 0)
                         return r;
 
@@ -230,19 +250,7 @@ static int route_compare_func(const Route *a, const Route *b) {
                 if (r != 0)
                         return r;
 
-                r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
-                if (r != 0)
-                        return r;
-
-                r = memcmp(&a->dst, &b->dst, FAMILY_ADDRESS_SIZE(a->family));
-                if (r != 0)
-                        return r;
-
-                r = memcmp(&a->src, &b->src, FAMILY_ADDRESS_SIZE(a->family));
-                if (r != 0)
-                        return r;
-
-                return memcmp(&a->prefsrc, &b->prefsrc, FAMILY_ADDRESS_SIZE(a->family));
+                return 0;
         default:
                 /* treat any other address family as AF_UNSPEC */
                 return 0;
