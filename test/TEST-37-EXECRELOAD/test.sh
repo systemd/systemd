@@ -1,15 +1,13 @@
 #!/bin/bash
 set -e
-
-TEST_DESCRIPTION="test MUMAPolicy= and NUMAMask= options"
-TEST_NO_NSPAWN=1
-QEMU_OPTIONS="-numa node,nodeid=0"
+TEST_DESCRIPTION="Test ExecReload= (PR #13098)"
 
 . $TEST_BASE_DIR/test-functions
 
 test_setup() {
     create_empty_image_rootdir
 
+    # Create what will eventually be our root filesystem onto an overlay
     (
         LOG_LEVEL=5
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
