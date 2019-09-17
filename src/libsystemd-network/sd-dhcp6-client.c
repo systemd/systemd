@@ -29,8 +29,8 @@
 
 #define MAX_MAC_ADDR_LEN INFINIBAND_ALEN
 
-#define IRT_DEFAULT 1 * USEC_PER_DAY
-#define IRT_MINIMUM 600 * USEC_PER_SEC
+#define IRT_DEFAULT (1 * USEC_PER_DAY)
+#define IRT_MINIMUM (600 * USEC_PER_SEC)
 
 /* what to request from the server, addresses (IA_NA) and/or prefixes (IA_PD) */
 enum {
@@ -1002,6 +1002,9 @@ static int client_parse_message(
                         break;
 
                 case SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME:
+                        if (optlen != 4)
+                                return -EINVAL;
+
                         irt = be32toh(*(be32_t *) optval) * USEC_PER_SEC;
                         break;
                 }
