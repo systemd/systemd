@@ -181,7 +181,7 @@ static int link_set_dhcp_routes(Link *link) {
                  * the addresses now, let's not configure the routes either. */
                 return 0;
 
-        r = set_ensure_allocated(&link->dhcp_routes, &route_full_hash_ops);
+        r = set_ensure_allocated(&link->dhcp_routes, &route_hash_ops);
         if (r < 0)
                 return log_oom();
 

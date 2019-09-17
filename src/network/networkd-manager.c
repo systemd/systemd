@@ -265,15 +265,13 @@ static int manager_connect_udev(Manager *m) {
 }
 
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
+        _cleanup_(route_freep) Route *tmp = NULL;
+        Route *route = NULL;
         Manager *m = userdata;
         Link *link = NULL;
+        uint32_t ifindex;
         uint16_t type;
-        uint32_t ifindex, priority = 0;
-        unsigned char protocol, scope, tos, table, rt_type;
-        int family;
-        unsigned char dst_prefixlen, src_prefixlen;
-        union in_addr_union dst = IN_ADDR_NULL, gw = IN_ADDR_NULL, src = IN_ADDR_NULL, prefsrc = IN_ADDR_NULL;
-        Route *route = NULL;
+        unsigned char table;
         int r;
 
         assert(rtnl);
@@ -318,39 +316,43 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 return 0;
         }
 
-        r = sd_rtnl_message_route_get_family(message, &family);
-        if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
+        r = route_new(&tmp);
+        if (r < 0)
+                return log_oom();
+
+        r = sd_rtnl_message_route_get_family(message, &tmp->family);
+        if (r < 0 || !IN_SET(tmp->family, AF_INET, AF_INET6)) {
                 log_link_warning(link, "rtnl: received route message with invalid family, ignoring");
                 return 0;
         }
 
-        r = sd_rtnl_message_route_get_protocol(message, &protocol);
+        r = sd_rtnl_message_route_get_protocol(message, &tmp->protocol);
         if (r < 0) {
                 log_warning_errno(r, "rtnl: received route message with invalid route protocol: %m");
                 return 0;
         }
 
-        switch (family) {
+        switch (tmp->family) {
         case AF_INET:
-                r = sd_netlink_message_read_in_addr(message, RTA_DST, &dst.in);
+                r = sd_netlink_message_read_in_addr(message, RTA_DST, &tmp->dst.in);
                 if (r < 0 && r != -ENODATA) {
                         log_link_warning_errno(link, r, "rtnl: received route message without valid destination, ignoring: %m");
                         return 0;
                 }
 
-                r = sd_netlink_message_read_in_addr(message, RTA_GATEWAY, &gw.in);
+                r = sd_netlink_message_read_in_addr(message, RTA_GATEWAY, &tmp->gw.in);
                 if (r < 0 && r != -ENODATA) {
                         log_link_warning_errno(link, r, "rtnl: received route message without valid gateway, ignoring: %m");
                         return 0;
                 }
 
-                r = sd_netlink_message_read_in_addr(message, RTA_SRC, &src.in);
+                r = sd_netlink_message_read_in_addr(message, RTA_SRC, &tmp->src.in);
                 if (r < 0 && r != -ENODATA) {
                         log_link_warning_errno(link, r, "rtnl: received route message without valid source, ignoring: %m");
                         return 0;
                 }
 
-                r = sd_netlink_message_read_in_addr(message, RTA_PREFSRC, &prefsrc.in);
+                r = sd_netlink_message_read_in_addr(message, RTA_PREFSRC, &tmp->prefsrc.in);
                 if (r < 0 && r != -ENODATA) {
                         log_link_warning_errno(link, r, "rtnl: received route message without valid preferred source, ignoring: %m");
                         return 0;
@@ -359,25 +361,25 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 break;
 
         case AF_INET6:
-                r = sd_netlink_message_read_in6_addr(message, RTA_DST, &dst.in6);
+                r = sd_netlink_message_read_in6_addr(message, RTA_DST, &tmp->dst.in6);
                 if (r < 0 && r != -ENODATA) {
                         log_link_warning_errno(link, r, "rtnl: received route message without valid destination, ignoring: %m");
                         return 0;
                 }
 
-                r = sd_netlink_message_read_in6_addr(message, RTA_GATEWAY, &gw.in6);
+                r = sd_netlink_message_read_in6_addr(message, RTA_GATEWAY, &tmp->gw.in6);
                 if (r < 0 && r != -ENODATA) {
                         log_link_warning_errno(link, r, "rtnl: received route message without valid gateway, ignoring: %m");
                         return 0;
                 }
 
-                r = sd_netlink_message_read_in6_addr(message, RTA_SRC, &src.in6);
+                r = sd_netlink_message_read_in6_addr(message, RTA_SRC, &tmp->src.in6);
                 if (r < 0 && r != -ENODATA) {
                         log_link_warning_errno(link, r, "rtnl: received route message without valid source, ignoring: %m");
                         return 0;
                 }
 
-                r = sd_netlink_message_read_in6_addr(message, RTA_PREFSRC, &prefsrc.in6);
+                r = sd_netlink_message_read_in6_addr(message, RTA_PREFSRC, &tmp->prefsrc.in6);
                 if (r < 0 && r != -ENODATA) {
                         log_link_warning_errno(link, r, "rtnl: received route message without valid preferred source, ignoring: %m");
                         return 0;
@@ -390,31 +392,31 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 return 0;
         }
 
-        r = sd_rtnl_message_route_get_dst_prefixlen(message, &dst_prefixlen);
+        r = sd_rtnl_message_route_get_dst_prefixlen(message, &tmp->dst_prefixlen);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received route message with invalid destination prefixlen, ignoring: %m");
                 return 0;
         }
 
-        r = sd_rtnl_message_route_get_src_prefixlen(message, &src_prefixlen);
+        r = sd_rtnl_message_route_get_src_prefixlen(message, &tmp->src_prefixlen);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received route message with invalid source prefixlen, ignoring: %m");
                 return 0;
         }
 
-        r = sd_rtnl_message_route_get_scope(message, &scope);
+        r = sd_rtnl_message_route_get_scope(message, &tmp->scope);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received route message with invalid scope, ignoring: %m");
                 return 0;
         }
 
-        r = sd_rtnl_message_route_get_tos(message, &tos);
+        r = sd_rtnl_message_route_get_tos(message, &tmp->tos);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received route message with invalid tos, ignoring: %m");
                 return 0;
         }
 
-        r = sd_rtnl_message_route_get_type(message, &rt_type);
+        r = sd_rtnl_message_route_get_type(message, &tmp->type);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received route message with invalid type, ignoring: %m");
                 return 0;
@@ -425,14 +427,40 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 log_link_warning_errno(link, r, "rtnl: received route message with invalid table, ignoring: %m");
                 return 0;
         }
+        tmp->table = table;
 
-        r = sd_netlink_message_read_u32(message, RTA_PRIORITY, &priority);
+        r = sd_netlink_message_read_u32(message, RTA_PRIORITY, &tmp->priority);
         if (r < 0 && r != -ENODATA) {
                 log_link_warning_errno(link, r, "rtnl: received route message with invalid priority, ignoring: %m");
                 return 0;
         }
 
-        (void) route_get(link, family, &dst, dst_prefixlen, &gw, tos, priority, table, &route);
+        r = sd_netlink_message_enter_container(message, RTA_METRICS);
+        if (r < 0 && r != -ENODATA) {
+                log_link_error_errno(link, r, "rtnl: Could not enter RTA_METRICS container: %m");
+                return 0;
+        }
+        if (r >= 0) {
+                r = sd_netlink_message_read_u32(message, RTAX_INITCWND, &tmp->initcwnd);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message with invalid initcwnd, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_u32(message, RTAX_INITRWND, &tmp->initrwnd);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message with invalid initrwnd, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_exit_container(message);
+                if (r < 0) {
+                        log_link_error_errno(link, r, "rtnl: Could not exit from RTA_METRICS container: %m");
+                        return 0;
+                }
+        }
+
+        (void) route_get(link, tmp, &route);
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *buf_dst = NULL, *buf_dst_prefixlen = NULL,
@@ -440,40 +468,38 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 char buf_scope[ROUTE_SCOPE_STR_MAX], buf_table[ROUTE_TABLE_STR_MAX],
                         buf_protocol[ROUTE_PROTOCOL_STR_MAX];
 
-                if (!in_addr_is_null(family, &dst)) {
-                        (void) in_addr_to_string(family, &dst, &buf_dst);
-                        (void) asprintf(&buf_dst_prefixlen, "/%u", dst_prefixlen);
+                if (!in_addr_is_null(tmp->family, &tmp->dst)) {
+                        (void) in_addr_to_string(tmp->family, &tmp->dst, &buf_dst);
+                        (void) asprintf(&buf_dst_prefixlen, "/%u", tmp->dst_prefixlen);
                 }
-                if (!in_addr_is_null(family, &src))
-                        (void) in_addr_to_string(family, &src, &buf_src);
-                if (!in_addr_is_null(family, &gw))
-                        (void) in_addr_to_string(family, &gw, &buf_gw);
-                if (!in_addr_is_null(family, &prefsrc))
-                        (void) in_addr_to_string(family, &prefsrc, &buf_prefsrc);
+                if (!in_addr_is_null(tmp->family, &tmp->src))
+                        (void) in_addr_to_string(tmp->family, &tmp->src, &buf_src);
+                if (!in_addr_is_null(tmp->family, &tmp->gw))
+                        (void) in_addr_to_string(tmp->family, &tmp->gw, &buf_gw);
+                if (!in_addr_is_null(tmp->family, &tmp->prefsrc))
+                        (void) in_addr_to_string(tmp->family, &tmp->prefsrc, &buf_prefsrc);
 
                 log_link_debug(link,
                                "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
-                               type == RTM_DELROUTE ? "Forgetting" : route ? "Updating remembered" : "Remembering",
+                               type == RTM_DELROUTE ? "Forgetting" : route ? "Received remembered" : "Remembering",
                                strna(buf_dst), strempty(buf_dst_prefixlen),
                                strna(buf_src), strna(buf_gw), strna(buf_prefsrc),
-                               format_route_scope(scope, buf_scope, sizeof buf_scope),
-                               format_route_table(table, buf_table, sizeof buf_table),
-                               format_route_protocol(protocol, buf_protocol, sizeof buf_protocol),
-                               strna(route_type_to_string(rt_type)));
+                               format_route_scope(tmp->scope, buf_scope, sizeof buf_scope),
+                               format_route_table(tmp->table, buf_table, sizeof buf_table),
+                               format_route_protocol(tmp->protocol, buf_protocol, sizeof buf_protocol),
+                               strna(route_type_to_string(tmp->type)));
         }
 
         switch (type) {
         case RTM_NEWROUTE:
                 if (!route) {
                         /* A route appeared that we did not request */
-                        r = route_add_foreign(link, family, &dst, dst_prefixlen, &gw, tos, priority, table, &route);
+                        r = route_add_foreign(link, tmp, &route);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to remember foreign route, ignoring: %m");
                                 return 0;
                         }
                 }
-
-                route_update(route, &src, src_prefixlen, &gw, &prefsrc, scope, protocol, rt_type);
 
                 break;
 

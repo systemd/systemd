@@ -157,68 +157,6 @@ static void route_hash_func(const Route *route, struct siphash *state) {
         switch (route->family) {
         case AF_INET:
         case AF_INET6:
-                /* Equality of routes are given by the 4-touple
-                   (dst_prefix,dst_prefixlen,tos,priority,table) */
-                siphash24_compress(&route->dst, FAMILY_ADDRESS_SIZE(route->family), state);
-                siphash24_compress(&route->dst_prefixlen, sizeof(route->dst_prefixlen), state);
-                siphash24_compress(&route->tos, sizeof(route->tos), state);
-                siphash24_compress(&route->priority, sizeof(route->priority), state);
-                siphash24_compress(&route->table, sizeof(route->table), state);
-
-                break;
-        default:
-                /* treat any other address family as AF_UNSPEC */
-                break;
-        }
-}
-
-static int route_compare_func(const Route *a, const Route *b) {
-        int r;
-
-        r = CMP(a->family, b->family);
-        if (r != 0)
-                return r;
-
-        switch (a->family) {
-        case AF_INET:
-        case AF_INET6:
-                r = CMP(a->dst_prefixlen, b->dst_prefixlen);
-                if (r != 0)
-                        return r;
-
-                r = CMP(a->tos, b->tos);
-                if (r != 0)
-                        return r;
-
-                r = CMP(a->priority, b->priority);
-                if (r != 0)
-                        return r;
-
-                r = CMP(a->table, b->table);
-                if (r != 0)
-                        return r;
-
-                r = memcmp(&a->dst, &b->dst, FAMILY_ADDRESS_SIZE(a->family));
-                if (r != 0)
-                        return r;
-
-                return memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
-        default:
-                /* treat any other address family as AF_UNSPEC */
-                return 0;
-        }
-}
-
-DEFINE_PRIVATE_HASH_OPS(route_hash_ops, Route, route_hash_func, route_compare_func);
-
-static void route_full_hash_func(const Route *route, struct siphash *state) {
-        assert(route);
-
-        siphash24_compress(&route->family, sizeof(route->family), state);
-
-        switch (route->family) {
-        case AF_INET:
-        case AF_INET6:
                 siphash24_compress(&route->gw, FAMILY_ADDRESS_SIZE(route->family), state);
                 siphash24_compress(&route->dst, FAMILY_ADDRESS_SIZE(route->family), state);
                 siphash24_compress(&route->dst_prefixlen, sizeof(route->dst_prefixlen), state);
@@ -232,6 +170,8 @@ static void route_full_hash_func(const Route *route, struct siphash *state) {
                 siphash24_compress(&route->protocol, sizeof(route->protocol), state);
                 siphash24_compress(&route->scope, sizeof(route->scope), state);
                 siphash24_compress(&route->type, sizeof(route->type), state);
+                siphash24_compress(&route->initcwnd, sizeof(route->initcwnd), state);
+                siphash24_compress(&route->initrwnd, sizeof(route->initrwnd), state);
 
                 break;
         default:
@@ -240,7 +180,7 @@ static void route_full_hash_func(const Route *route, struct siphash *state) {
         }
 }
 
-static int route_full_compare_func(const Route *a, const Route *b) {
+static int route_compare_func(const Route *a, const Route *b) {
         int r;
 
         r = CMP(a->family, b->family);
@@ -282,6 +222,14 @@ static int route_full_compare_func(const Route *a, const Route *b) {
                 if (r != 0)
                         return r;
 
+                r = CMP(a->initcwnd, b->initcwnd);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->initrwnd, b->initrwnd);
+                if (r != 0)
+                        return r;
+
                 r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
                 if (r != 0)
                         return r;
@@ -302,10 +250,10 @@ static int route_full_compare_func(const Route *a, const Route *b) {
 }
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-                route_full_hash_ops,
+                route_hash_ops,
                 Route,
-                route_full_hash_func,
-                route_full_compare_func,
+                route_hash_func,
+                route_compare_func,
                 route_free);
 
 bool route_equal(Route *r1, Route *r2) {
@@ -318,39 +266,21 @@ bool route_equal(Route *r1, Route *r2) {
         return route_compare_func(r1, r2) == 0;
 }
 
-int route_get(Link *link,
-              int family,
-              const union in_addr_union *dst,
-              unsigned char dst_prefixlen,
-              const union in_addr_union *gw,
-              unsigned char tos,
-              uint32_t priority,
-              uint32_t table,
-              Route **ret) {
+int route_get(Link *link, Route *in, Route **ret) {
 
-        Route route, *existing;
+        Route *existing;
 
         assert(link);
-        assert(dst);
+        assert(in);
 
-        route = (Route) {
-                .family = family,
-                .dst = *dst,
-                .dst_prefixlen = dst_prefixlen,
-                .gw = gw ? *gw : IN_ADDR_NULL,
-                .tos = tos,
-                .priority = priority,
-                .table = table,
-        };
-
-        existing = set_get(link->routes, &route);
+        existing = set_get(link->routes, in);
         if (existing) {
                 if (ret)
                         *ret = existing;
                 return 1;
         }
 
-        existing = set_get(link->routes_foreign, &route);
+        existing = set_get(link->routes_foreign, in);
         if (existing) {
                 if (ret)
                         *ret = existing;
@@ -360,37 +290,35 @@ int route_get(Link *link,
         return -ENOENT;
 }
 
-static int route_add_internal(
-                Link *link,
-                Set **routes,
-                int family,
-                const union in_addr_union *dst,
-                unsigned char dst_prefixlen,
-                const union in_addr_union *gw,
-                unsigned char tos,
-                uint32_t priority,
-                uint32_t table,
-                Route **ret) {
+static int route_add_internal(Link *link, Set **routes, Route *in, Route **ret) {
 
         _cleanup_(route_freep) Route *route = NULL;
         int r;
 
         assert(link);
         assert(routes);
-        assert(dst);
+        assert(in);
 
         r = route_new(&route);
         if (r < 0)
                 return r;
 
-        route->family = family;
-        route->dst = *dst;
-        route->dst_prefixlen = dst_prefixlen;
-        route->dst = *dst;
-        route->gw = gw ? *gw : IN_ADDR_NULL;
-        route->tos = tos;
-        route->priority = priority;
-        route->table = table;
+        route->family = in->family;
+        route->src = in->src;
+        route->src_prefixlen = in->src_prefixlen;
+        route->dst = in->dst;
+        route->dst_prefixlen = in->dst_prefixlen;
+        route->gw = in->gw;
+        route->prefsrc = in->prefsrc;
+        route->scope = in->scope;
+        route->protocol = in->protocol;
+        route->type = in->type;
+        route->tos = in->tos;
+        route->priority = in->priority;
+        route->table = in->table;
+        route->initcwnd = in->initcwnd;
+        route->initrwnd = in->initrwnd;
+        route->lifetime = in->lifetime;
 
         r = set_ensure_allocated(routes, &route_hash_ops);
         if (r < 0)
@@ -412,37 +340,19 @@ static int route_add_internal(
         return 0;
 }
 
-int route_add_foreign(
-                Link *link,
-                int family,
-                const union in_addr_union *dst,
-                unsigned char dst_prefixlen,
-                const union in_addr_union *gw,
-                unsigned char tos,
-                uint32_t priority,
-                uint32_t table,
-                Route **ret) {
-
-        return route_add_internal(link, &link->routes_foreign, family, dst, dst_prefixlen, gw, tos, priority, table, ret);
+int route_add_foreign(Link *link, Route *in, Route **ret) {
+        return route_add_internal(link, &link->routes_foreign, in, ret);
 }
 
-int route_add(Link *link,
-              int family,
-              const union in_addr_union *dst,
-              unsigned char dst_prefixlen,
-              const union in_addr_union *gw,
-              unsigned char tos,
-              uint32_t priority,
-              uint32_t table,
-              Route **ret) {
+int route_add(Link *link, Route *in, Route **ret) {
 
         Route *route;
         int r;
 
-        r = route_get(link, family, dst, dst_prefixlen, gw, tos, priority, table, &route);
+        r = route_get(link, in, &route);
         if (r == -ENOENT) {
                 /* Route does not exist, create a new one */
-                r = route_add_internal(link, &link->routes, family, dst, dst_prefixlen, gw, tos, priority, table, &route);
+                r = route_add_internal(link, &link->routes, in, &route);
                 if (r < 0)
                         return r;
         } else if (r == 0) {
@@ -466,27 +376,6 @@ int route_add(Link *link,
                 *ret = route;
 
         return 0;
-}
-
-void route_update(Route *route,
-                  const union in_addr_union *src,
-                  unsigned char src_prefixlen,
-                  const union in_addr_union *gw,
-                  const union in_addr_union *prefsrc,
-                  unsigned char scope,
-                  unsigned char protocol,
-                  unsigned char type) {
-
-        assert(route);
-        assert(src || src_prefixlen == 0);
-
-        route->src = src ? *src : IN_ADDR_NULL;
-        route->src_prefixlen = src_prefixlen;
-        route->gw = gw ? *gw : IN_ADDR_NULL;
-        route->prefsrc = prefsrc ? *prefsrc : IN_ADDR_NULL;
-        route->scope = scope;
-        route->protocol = protocol;
-        route->type = type;
 }
 
 static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -626,7 +515,6 @@ int route_configure(
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
-        usec_t lifetime;
         int r;
 
         assert(link);
@@ -636,7 +524,7 @@ int route_configure(
         assert(IN_SET(route->family, AF_INET, AF_INET6));
         assert(callback);
 
-        if (route_get(link, route->family, &route->dst, route->dst_prefixlen, &route->gw, route->tos, route->priority, route->table, NULL) <= 0 &&
+        if (route_get(link, route, NULL) <= 0 &&
             set_size(link->routes) >= routes_max())
                 return log_link_error_errno(link, SYNTHETIC_ERRNO(E2BIG),
                                             "Too many routes are configured, refusing: %m");
@@ -810,15 +698,11 @@ int route_configure(
 
         link_ref(link);
 
-        lifetime = route->lifetime;
-
-        r = route_add(link, route->family, &route->dst, route->dst_prefixlen, &route->gw, route->tos, route->priority, route->table, &route);
+        r = route_add(link, route, &route);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not add route: %m");
 
         /* TODO: drop expiration handling once it can be pushed into the kernel */
-        route->lifetime = lifetime;
-
         if (route->lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
                 r = sd_event_add_time(link->manager->event, &expire, clock_boottime_or_monotonic(),
                                       route->lifetime, 0, route_expire_handler, route);

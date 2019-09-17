@@ -2444,7 +2444,7 @@ static int link_drop_foreign_config(Link *link) {
                         continue;
 
                 if (link_is_static_route_configured(link, route)) {
-                        r = route_add(link, route->family, &route->dst, route->dst_prefixlen, &route->gw, route->tos, route->priority, route->table, NULL);
+                        r = route_add(link, route, NULL);
                         if (r < 0)
                                 return r;
                 } else {
@@ -2906,7 +2906,6 @@ static int link_load(Link *link) {
                             *dhcp4_address = NULL,
                             *ipv4ll_address = NULL;
         union in_addr_union address;
-        union in_addr_union route_dst;
         const char *p;
         int r;
 
@@ -2993,14 +2992,11 @@ network_file_fail:
                 p = routes;
 
                 for (;;) {
-                        Route *route;
-                        _cleanup_free_ char *route_str = NULL;
                         _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
-                        usec_t lifetime;
+                        _cleanup_(route_freep) Route *tmp = NULL;
+                        _cleanup_free_ char *route_str = NULL;
                         char *prefixlen_str;
-                        int family;
-                        unsigned char prefixlen, tos, table;
-                        uint32_t priority;
+                        Route *route;
 
                         r = extract_first_word(&p, &route_str, NULL, 0);
                         if (r < 0) {
@@ -3018,7 +3014,11 @@ network_file_fail:
 
                         *prefixlen_str++ = '\0';
 
-                        r = sscanf(prefixlen_str, "%hhu/%hhu/%"SCNu32"/%hhu/"USEC_FMT, &prefixlen, &tos, &priority, &table, &lifetime);
+                        r = route_new(&tmp);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = sscanf(prefixlen_str, "%hhu/%hhu/%"SCNu32"/%"PRIu32"/"USEC_FMT, &tmp->dst_prefixlen, &tmp->tos, &tmp->priority, &tmp->table, &tmp->lifetime);
                         if (r != 5) {
                                 log_link_debug(link,
                                                "Failed to parse destination prefix length, tos, priority, table or expiration %s",
@@ -3026,24 +3026,23 @@ network_file_fail:
                                 continue;
                         }
 
-                        r = in_addr_from_string_auto(route_str, &family, &route_dst);
+                        r = in_addr_from_string_auto(route_str, &tmp->family, &tmp->dst);
                         if (r < 0) {
                                 log_link_debug_errno(link, r, "Failed to parse route destination %s: %m", route_str);
                                 continue;
                         }
 
-                        r = route_add(link, family, &route_dst, prefixlen, NULL, tos, priority, table, &route);
+                        r = route_add(link, tmp, &route);
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to add route: %m");
 
-                        if (lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
-                                r = sd_event_add_time(link->manager->event, &expire, clock_boottime_or_monotonic(), lifetime,
+                        if (route->lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
+                                r = sd_event_add_time(link->manager->event, &expire, clock_boottime_or_monotonic(), route->lifetime,
                                                       0, route_expire_handler, route);
                                 if (r < 0)
                                         log_link_warning_errno(link, r, "Could not arm route expiration handler: %m");
                         }
 
-                        route->lifetime = lifetime;
                         sd_event_source_unref(route->expire);
                         route->expire = TAKE_PTR(expire);
                 }

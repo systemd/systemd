@@ -49,17 +49,16 @@ struct Route {
         LIST_FIELDS(Route, routes);
 };
 
-extern const struct hash_ops route_full_hash_ops;
+extern const struct hash_ops route_hash_ops;
 
 int route_new(Route **ret);
 void route_free(Route *route);
 int route_configure(Route *route, Link *link, link_netlink_message_handler_t callback);
 int route_remove(Route *route, Link *link, link_netlink_message_handler_t callback);
 
-int route_get(Link *link, int family, const union in_addr_union *dst, unsigned char dst_prefixlen, const union in_addr_union *gw, unsigned char tos, uint32_t priority, uint32_t table, Route **ret);
-int route_add(Link *link, int family, const union in_addr_union *dst, unsigned char dst_prefixlen, const union in_addr_union *gw, unsigned char tos, uint32_t priority, uint32_t table, Route **ret);
-int route_add_foreign(Link *link, int family, const union in_addr_union *dst, unsigned char dst_prefixlen, const union in_addr_union *gw, unsigned char tos, uint32_t priority, uint32_t table, Route **ret);
-void route_update(Route *route, const union in_addr_union *src, unsigned char src_prefixlen, const union in_addr_union *gw, const union in_addr_union *prefsrc, unsigned char scope, unsigned char protocol, unsigned char type);
+int route_get(Link *link, Route *in, Route **ret);
+int route_add(Link *link, Route *in, Route **ret);
+int route_add_foreign(Link *link, Route *in, Route **ret);
 bool route_equal(Route *r1, Route *r2);
 
 int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata);
