@@ -3116,8 +3116,8 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
                 sprintf(ifindex_str, "n%d", link->ifindex);
                 r = sd_device_new_from_device_id(&device, ifindex_str);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not find device: %m");
-                        goto failed;
+                        log_link_warning_errno(link, r, "Could not find device, waiting for device initialization: %m");
+                        return 0;
                 }
 
                 r = sd_device_get_is_initialized(device);
