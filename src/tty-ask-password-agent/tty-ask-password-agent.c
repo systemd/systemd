@@ -318,7 +318,7 @@ static bool wall_tty_match(const char *path, void *userdata) {
         return 0;
 }
 
-static int parse_password(const char *filename) {
+static int process_one_password_file(const char *filename) {
         _cleanup_free_ char *socket_name = NULL, *message = NULL;
         bool accept_cached = false, echo = false;
         uint64_t not_after = 0;
@@ -449,7 +449,7 @@ static int wall_tty_block(void) {
         return fd;
 }
 
-static int show_passwords(void) {
+static int process_password_files(void) {
         _cleanup_closedir_ DIR *d;
         struct dirent *de;
         int r = 0;
@@ -482,7 +482,7 @@ static int show_passwords(void) {
                 if (!p)
                         return log_oom();
 
-                q = parse_password(p);
+                q = process_one_password_file(p);
                 if (q < 0 && r == 0)
                         r = q;
         }
@@ -490,7 +490,7 @@ static int show_passwords(void) {
         return r;
 }
 
-static int watch_passwords(void) {
+static int process_and_watch_password_files(void) {
         enum {
                 FD_INOTIFY,
                 FD_SIGNAL,
@@ -531,9 +531,9 @@ static int watch_passwords(void) {
         pollfd[FD_SIGNAL].events = POLLIN;
 
         for (;;) {
-                r = show_passwords();
+                r = process_password_files();
                 if (r < 0)
-                        log_error_errno(r, "Failed to show password: %m");
+                        log_error_errno(r, "Failed to process password: %m");
 
                 if (poll(pollfd, _FD_MAX, -1) < 0) {
                         if (errno == EINTR)
@@ -857,9 +857,9 @@ static int run(int argc, char *argv[]) {
         }
 
         if (IN_SET(arg_action, ACTION_WATCH, ACTION_WALL))
-                return watch_passwords();
+                return process_and_watch_password_files();
         else
-                return show_passwords();
+                return process_password_files();
 }
 
 DEFINE_MAIN_FUNCTION(run);
