@@ -2393,9 +2393,9 @@ static int link_drop_foreign_config(Link *link) {
                         continue;
 
                 if (link_address_is_dynamic(link, address)) {
-                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+                        if (link->network && FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
                                 continue;
-                } else if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                } else if (link->network && FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
                         continue;
 
                 if (link_is_static_address_configured(link, address)) {
@@ -2435,11 +2435,11 @@ static int link_drop_foreign_config(Link *link) {
                     in_addr_equal(AF_INET6, &route->dst, &(union in_addr_union) { .in6 = {{{ 0xff,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }}} }))
                         continue;
 
-                if (route->protocol == RTPROT_STATIC &&
+                if (route->protocol == RTPROT_STATIC && link->network &&
                     FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
                         continue;
 
-                if (route->protocol == RTPROT_DHCP &&
+                if (route->protocol == RTPROT_DHCP && link->network &&
                     FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
                         continue;
 
@@ -3115,8 +3115,8 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
                 sprintf(ifindex_str, "n%d", link->ifindex);
                 r = sd_device_new_from_device_id(&device, ifindex_str);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not find device: %m");
-                        goto failed;
+                        log_link_warning_errno(link, r, "Could not find device, waiting for device initialization: %m");
+                        return 0;
                 }
 
                 r = sd_device_get_is_initialized(device);
