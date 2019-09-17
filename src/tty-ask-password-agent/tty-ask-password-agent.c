@@ -462,7 +462,7 @@ static int process_password_files(void) {
                 return log_error_errno(errno, "Failed to open /run/systemd/ask-password: %m");
         }
 
-        FOREACH_DIRENT_ALL(de, d, return log_error_errno(errno, "Failed to read directory: %m")) {
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read directory: %m")) {
                 _cleanup_free_ char *p = NULL;
                 int q;
 
@@ -470,9 +470,6 @@ static int process_password_files(void) {
                  * d_type to be reliable */
 
                 if (de->d_type != DT_REG)
-                        continue;
-
-                if (hidden_or_backup_file(de->d_name))
                         continue;
 
                 if (!startswith(de->d_name, "ask."))
