@@ -19,6 +19,7 @@ assert_cc(SD_RADV_DEFAULT_MIN_TIMEOUT_USEC <= SD_RADV_DEFAULT_MAX_TIMEOUT_USEC);
 #define SD_RADV_MIN_DELAY_BETWEEN_RAS           3
 #define SD_RADV_MAX_RA_DELAY_TIME_USEC          (500*USEC_PER_MSEC)
 
+#define SD_RADV_OPT_ROUTE_INFORMATION           24
 #define SD_RADV_OPT_RDNSS                       25
 #define SD_RADV_OPT_DNSSL                       31
 
@@ -58,6 +59,9 @@ struct sd_radv {
         unsigned n_prefixes;
         LIST_HEAD(sd_radv_prefix, prefixes);
 
+        unsigned n_route_prefixes;
+        LIST_HEAD(sd_radv_route_prefix, route_prefixes);
+
         size_t n_rdnss;
         struct sd_radv_opt_dns *rdnss;
         struct sd_radv_opt_dns *dnssl;
@@ -96,6 +100,28 @@ struct sd_radv_prefix {
 
         usec_t valid_until;
         usec_t preferred_until;
+};
+
+#define radv_route_prefix_opt__contents {       \
+        uint8_t type;                           \
+        uint8_t length;                         \
+        uint8_t prefixlen;                      \
+        uint8_t flags_reserved;                 \
+        be32_t  lifetime;                       \
+        struct in6_addr in6_addr;               \
+}
+
+struct radv_route_prefix_opt radv_route_prefix_opt__contents;
+
+struct radv_route_prefix_opt__packed radv_route_prefix_opt__contents _packed_;
+assert_cc(sizeof(struct radv_route_prefix_opt) == sizeof(struct radv_route_prefix_opt__packed));
+
+struct sd_radv_route_prefix {
+        unsigned n_ref;
+
+        struct radv_route_prefix_opt opt;
+
+        LIST_FIELDS(struct sd_radv_route_prefix, prefix);
 };
 
 #define log_radv_full(level, error, fmt, ...) log_internal(level, error, PROJECT_FILE, __LINE__, __func__, "RADV: " fmt, ##__VA_ARGS__)

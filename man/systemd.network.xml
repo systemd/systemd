@@ -1886,7 +1886,7 @@
     </variablelist>
     </refsect1>
 
-      <refsect1>
+    <refsect1>
     <title>[IPv6Prefix] Section Options</title>
     <para>One or more <literal>[IPv6Prefix]</literal> sections contain the IPv6
     prefixes that are announced via Router Advertisements. See
@@ -1926,6 +1926,37 @@
         seconds. <varname>PreferredLifetimeSec=</varname> defaults to 604800
         seconds (one week) and <varname>ValidLifetimeSec=</varname> defaults
         to 2592000 seconds (30 days).</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+    </refsect1>
+
+    <refsect1>
+    <title>[IPv6RoutePrefix] Section Options</title>
+    <para>One or more <literal>[IPv6RoutePrefix]</literal> sections contain the IPv6
+    prefix routes that are announced via Router Advertisements. See
+    <ulink url="https://tools.ietf.org/html/rfc4191">RFC 4191</ulink>
+    for further details.</para>
+
+    <variablelist class='network-directives'>
+
+      <varlistentry>
+        <term><varname>Route=</varname></term>
+
+        <listitem><para>The IPv6 route that is to be distributed to hosts.
+        Similarly to configuring static IPv6 routes, the setting is
+        configured as an IPv6 prefix routes and its prefix route length,
+        separated by a<literal>/</literal> character. Use multiple
+        <literal>[IPv6PrefixRoutes]</literal> sections to configure multiple IPv6
+        prefix routes.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LifetimeSec=</varname></term>
+
+        <listitem><para>Lifetime for the route prefix measured in
+        seconds. <varname>LifetimeSec=</varname> defaults to 604800 seconds (one week).
+        </para></listitem>
       </varlistentry>
 
     </variablelist>

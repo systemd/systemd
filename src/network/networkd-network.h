@@ -221,6 +221,7 @@ struct Network {
         LIST_HEAD(Neighbor, neighbors);
         LIST_HEAD(AddressLabel, address_labels);
         LIST_HEAD(Prefix, static_prefixes);
+        LIST_HEAD(Prefix, static_route_prefixes);
         LIST_HEAD(RoutingPolicyRule, rules);
 
         unsigned n_static_addresses;
@@ -230,6 +231,7 @@ struct Network {
         unsigned n_neighbors;
         unsigned n_address_labels;
         unsigned n_static_prefixes;
+        unsigned n_static_route_prefixes;
         unsigned n_rules;
 
         Hashmap *addresses_by_section;
@@ -238,6 +240,7 @@ struct Network {
         Hashmap *neighbors_by_section;
         Hashmap *address_labels_by_section;
         Hashmap *prefixes_by_section;
+        Hashmap *route_prefixes_by_section;
         Hashmap *rules_by_section;
 
         /* All kinds of DNS configuration */
