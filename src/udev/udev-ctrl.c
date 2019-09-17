@@ -76,6 +76,7 @@ int udev_ctrl_new_from_fd(struct udev_ctrl **ret, int fd) {
         *uctrl = (struct udev_ctrl) {
                 .n_ref = 1,
                 .sock = fd >= 0 ? fd : TAKE_FD(sock),
+                .sock_connect = -1,
                 .bound = fd >= 0,
         };
 
