@@ -277,7 +277,48 @@ static int send_passwords(const char *socket_name, char **passwords) {
         return (int) n;
 }
 
-static int parse_password(const char *filename, char **wall) {
+static bool wall_tty_match(const char *path, void *userdata) {
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
+        struct stat st;
+
+        if (!path_is_absolute(path))
+                path = strjoina("/dev/", path);
+
+        if (lstat(path, &st) < 0) {
+                log_debug_errno(errno, "Failed to stat %s: %m", path);
+                return true;
+        }
+
+        if (!S_ISCHR(st.st_mode)) {
+                log_debug("%s is not a character device.", path);
+                return true;
+        }
+
+        /* We use named pipes to ensure that wall messages suggesting
+         * password entry are not printed over password prompts
+         * already shown. We use the fact here that opening a pipe in
+         * non-blocking mode for write-only will succeed only if
+         * there's some writer behind it. Using pipes has the
+         * advantage that the block will automatically go away if the
+         * process dies. */
+
+        if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(st.st_rdev), minor(st.st_rdev)) < 0) {
+                log_oom();
+                return true;
+        }
+
+        fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0) {
+                log_debug_errno(errno, "Failed to open the wall pipe: %m");
+                return 1;
+        }
+
+        /* What, we managed to open the pipe? Then this tty is filtered. */
+        return 0;
+}
+
+static int parse_password(const char *filename) {
         _cleanup_free_ char *socket_name = NULL, *message = NULL;
         bool accept_cached = false, echo = false;
         uint64_t not_after = 0;
@@ -318,19 +359,16 @@ static int parse_password(const char *filename, char **wall) {
                 printf("'%s' (PID %u)\n", message, pid);
 
         else if (arg_action == ACTION_WALL) {
-                char *_wall;
+                _cleanup_free_ char *wall = NULL;
 
-                if (asprintf(&_wall,
-                             "%s%sPassword entry required for \'%s\' (PID %u).\r\n"
+                if (asprintf(&wall,
+                             "Password entry required for \'%s\' (PID %u).\r\n"
                              "Please enter password with the systemd-tty-ask-password-agent tool.",
-                             strempty(*wall),
-                             *wall ? "\r\n\r\n" : "",
                              message,
                              pid) < 0)
                         return log_oom();
 
-                free(*wall);
-                *wall = _wall;
+                (void) utmp_wall(wall, NULL, NULL, wall_tty_match, NULL);
 
         } else {
                 _cleanup_strv_free_erase_ char **passwords = NULL;
@@ -411,47 +449,6 @@ static int wall_tty_block(void) {
         return fd;
 }
 
-static bool wall_tty_match(const char *path, void *userdata) {
-        _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int fd = -1;
-        struct stat st;
-
-        if (!path_is_absolute(path))
-                path = strjoina("/dev/", path);
-
-        if (lstat(path, &st) < 0) {
-                log_debug_errno(errno, "Failed to stat %s: %m", path);
-                return true;
-        }
-
-        if (!S_ISCHR(st.st_mode)) {
-                log_debug("%s is not a character device.", path);
-                return true;
-        }
-
-        /* We use named pipes to ensure that wall messages suggesting
-         * password entry are not printed over password prompts
-         * already shown. We use the fact here that opening a pipe in
-         * non-blocking mode for write-only will succeed only if
-         * there's some writer behind it. Using pipes has the
-         * advantage that the block will automatically go away if the
-         * process dies. */
-
-        if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(st.st_rdev), minor(st.st_rdev)) < 0) {
-                log_oom();
-                return true;
-        }
-
-        fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (fd < 0) {
-                log_debug_errno(errno, "Failed to open the wall pipe: %m");
-                return 1;
-        }
-
-        /* What, we managed to open the pipe? Then this tty is filtered. */
-        return 0;
-}
-
 static int show_passwords(void) {
         _cleanup_closedir_ DIR *d;
         struct dirent *de;
@@ -466,10 +463,10 @@ static int show_passwords(void) {
         }
 
         FOREACH_DIRENT_ALL(de, d, return log_error_errno(errno, "Failed to read directory: %m")) {
-                _cleanup_free_ char *p = NULL, *wall = NULL;
+                _cleanup_free_ char *p = NULL;
                 int q;
 
-                /* We only support /dev on tmpfs, hence we can rely on
+                /* We only support /run on tmpfs, hence we can rely on
                  * d_type to be reliable */
 
                 if (de->d_type != DT_REG)
@@ -485,12 +482,9 @@ static int show_passwords(void) {
                 if (!p)
                         return log_oom();
 
-                q = parse_password(p, &wall);
+                q = parse_password(p);
                 if (q < 0 && r == 0)
                         r = q;
-
-                if (wall)
-                        (void) utmp_wall(wall, NULL, NULL, wall_tty_match, NULL);
         }
 
         return r;
