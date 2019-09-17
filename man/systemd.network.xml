@@ -1558,9 +1558,16 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>BlackList=</varname></term>
+        <term><varname>BlackList=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected.</para>
+        </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RequestOptions=</varname></term>
           <listitem>
-            <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected.</para>
+            <para>A whitespace-separated list of integers in the range 1–254.</para>
           </listitem>
         </varlistentry>
 

@@ -149,6 +149,7 @@ DHCPv4.UseMTU,                          config_parse_bool,                      
 DHCPv4.UseHostname,                     config_parse_bool,                               0,                             offsetof(Network, dhcp_use_hostname)
 DHCPv4.UseDomains,                      config_parse_dhcp_use_domains,                   0,                             offsetof(Network, dhcp_use_domains)
 DHCPv4.UseRoutes,                       config_parse_bool,                               0,                             offsetof(Network, dhcp_use_routes)
+DHCPv4.RequestOptions,                  config_parse_dhcp_request_options,               0,                             0
 DHCPv4.Anonymize,                       config_parse_bool,                               0,                             offsetof(Network, dhcp_anonymize)
 DHCPv4.SendHostname,                    config_parse_bool,                               0,                             offsetof(Network, dhcp_send_hostname)
 DHCPv4.Hostname,                        config_parse_hostname,                           0,                             offsetof(Network, dhcp_hostname)

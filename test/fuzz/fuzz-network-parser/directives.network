@@ -89,6 +89,7 @@ ListenPort=
 UseTimezone=
 RouteTable=
 BlackList=
+RequestOptions=
 SendRelease=
 MaxAttempts=
 [DHCPv6]

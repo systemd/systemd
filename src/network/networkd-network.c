@@ -541,6 +541,7 @@ static Network *network_free(Network *network) {
         strv_free(network->dhcp_user_class);
         free(network->dhcp_hostname);
         set_free(network->dhcp_black_listed_ip);
+        set_free(network->dhcp_request_options);
         free(network->mac);
 
         strv_free(network->ntp);

@@ -1078,6 +1078,8 @@ int dhcp4_set_client_identifier(Link *link) {
 }
 
 int dhcp4_configure(Link *link) {
+        void *request_options;
+        Iterator i;
         int r;
 
         assert(link);
@@ -1161,6 +1163,19 @@ int dhcp4_configure(Link *link) {
                 r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NEW_TZDB_TIMEZONE);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for timezone: %m");
+        }
+
+        SET_FOREACH(request_options, link->network->dhcp_request_options, i) {
+                uint32_t option = PTR_TO_UINT32(request_options);
+
+                r = sd_dhcp_client_set_request_option(link->dhcp_client, option);
+                if (r == -EEXIST) {
+                        log_link_debug(link, "DHCP4 CLIENT: Failed to set request flag for '%u' already exists, ignoring.", option);
+                        continue;
+                }
+
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for '%u': %m", option);
         }
 
         r = dhcp4_set_hostname(link);
@@ -1352,6 +1367,72 @@ int config_parse_dhcp_user_class(
                         return log_oom();
 
                 w = NULL;
+        }
+
+        return 0;
+}
+
+int config_parse_dhcp_request_options(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                network->dhcp_request_options = set_free(network->dhcp_request_options);
+                return 0;
+        }
+
+        for (p = rvalue;;) {
+                _cleanup_free_ char *n = NULL;
+                uint32_t i;
+
+                r = extract_first_word(&p, &n, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse DHCP request option, ignoring assignment: %s",
+                                   rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = safe_atou32(n, &i);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "DHCP request option is invalid, ignoring assignment: %s", n);
+                        continue;
+                }
+
+                if (i < 1 || i >= 255) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "DHCP request option is invalid, valid range is 1-254, ignoring assignment: %s", n);
+                        continue;
+                }
+
+                r = set_ensure_allocated(&network->dhcp_request_options, NULL);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_put(network->dhcp_request_options, UINT32_TO_PTR(i));
+                if (r < 0)
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to store DHCP request option '%s', ignoring assignment: %m", n);
         }
 
         return 0;
