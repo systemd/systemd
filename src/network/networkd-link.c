@@ -2393,9 +2393,9 @@ static int link_drop_foreign_config(Link *link) {
                         continue;
 
                 if (link_address_is_dynamic(link, address)) {
-                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+                        if (link->network && FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
                                 continue;
-                } else if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                } else if (link->network && FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
                         continue;
 
                 if (link_is_static_address_configured(link, address)) {
@@ -2435,11 +2435,11 @@ static int link_drop_foreign_config(Link *link) {
                     in_addr_equal(AF_INET6, &route->dst, &(union in_addr_union) { .in6 = {{{ 0xff,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }}} }))
                         continue;
 
-                if (route->protocol == RTPROT_STATIC &&
+                if (route->protocol == RTPROT_STATIC && link->network &&
                     FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
                         continue;
 
-                if (route->protocol == RTPROT_DHCP &&
+                if (route->protocol == RTPROT_DHCP && link->network &&
                     FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
                         continue;
 
