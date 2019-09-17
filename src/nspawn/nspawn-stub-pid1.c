@@ -53,6 +53,12 @@ int stub_pid1(sd_id128_t uuid) {
         assert_se(sigfillset(&fullmask) >= 0);
         assert_se(sigprocmask(SIG_BLOCK, &fullmask, &oldmask) >= 0);
 
+        /* Surrender the terminal this stub may control so that child processes can have a controlling terminal
+         * without resorting to setsid hacks. */
+        r = ioctl(STDIN_FILENO, TIOCNOTTY);
+        if (r < 0 && errno != ENOTTY)
+                return log_error_errno(errno, "Failed to surrender controlling terminal: %m");
+
         pid = fork();
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork child pid: %m");
