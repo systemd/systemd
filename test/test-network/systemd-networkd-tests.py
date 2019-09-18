@@ -3154,8 +3154,6 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6ra-prefix-client.network', 'ipv6ra-prefix.network')
 
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
-        start_dnsmasq()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = check_output('ip', '-6', 'route', 'show', 'dev', 'veth-peer')
