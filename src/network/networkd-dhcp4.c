@@ -1157,6 +1157,12 @@ int dhcp4_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for NTP server: %m");
         }
 
+        if (link->network->dhcp_use_sip) {
+                r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_SIP_SERVER);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for SIP server: %m");
+        }
+
         if (link->network->dhcp_use_timezone) {
                 r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NEW_TZDB_TIMEZONE);
                 if (r < 0)

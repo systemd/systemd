@@ -1333,16 +1333,16 @@ static int ordered_set_put_in4_addrv(OrderedSet *s,
 }
 
 static int manager_save(Manager *m) {
-        _cleanup_ordered_set_free_free_ OrderedSet *dns = NULL, *ntp = NULL, *search_domains = NULL, *route_domains = NULL;
-        Link *link;
-        Iterator i;
-        _cleanup_free_ char *temp_path = NULL;
-        _cleanup_strv_free_ char **p = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_ordered_set_free_free_ OrderedSet *dns = NULL, *ntp = NULL, *sip = NULL, *search_domains = NULL, *route_domains = NULL;
+        const char *operstate_str, *carrier_state_str, *address_state_str;
         LinkOperationalState operstate = LINK_OPERSTATE_OFF;
         LinkCarrierState carrier_state = LINK_CARRIER_STATE_OFF;
         LinkAddressState address_state = LINK_ADDRESS_STATE_OFF;
-        const char *operstate_str, *carrier_state_str, *address_state_str;
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_strv_free_ char **p = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        Link *link;
+        Iterator i;
         int r;
 
         assert(m);
@@ -1355,6 +1355,10 @@ static int manager_save(Manager *m) {
 
         ntp = ordered_set_new(&string_hash_ops);
         if (!ntp)
+                return -ENOMEM;
+
+       sip = ordered_set_new(&string_hash_ops);
+       if (!sip)
                 return -ENOMEM;
 
         search_domains = ordered_set_new(&dns_name_hash_ops);
@@ -1426,6 +1430,18 @@ static int manager_save(Manager *m) {
                                 return r;
                 }
 
+                if (link->network->dhcp_use_sip) {
+                        const struct in_addr *addresses;
+
+                        r = sd_dhcp_lease_get_sip(link->dhcp_lease, &addresses);
+                        if (r > 0) {
+                                r = ordered_set_put_in4_addrv(sip, addresses, r, in4_addr_is_non_local);
+                                if (r < 0)
+                                        return r;
+                        } else if (r < 0 && r != -ENODATA)
+                                return r;
+                }
+
                 if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
                         const char *domainname;
                         char **domains = NULL;
@@ -1476,6 +1492,7 @@ static int manager_save(Manager *m) {
 
         ordered_set_print(f, "DNS=", dns);
         ordered_set_print(f, "NTP=", ntp);
+        ordered_set_print(f, "SIP=", sip);
         ordered_set_print(f, "DOMAINS=", search_domains);
         ordered_set_print(f, "ROUTE_DOMAINS=", route_domains);
 

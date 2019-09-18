@@ -65,6 +65,18 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
 
                 break;
         }
+        case SD_DHCP_OPTION_SIP_SERVER:
+                if (*offset + 3 + optlen > size)
+                        return -ENOBUFS;
+
+                options[*offset] = code;
+                options[*offset + 1] = optlen + 1;
+                options[*offset + 2] = 1;
+
+                memcpy_safe(&options[*offset + 3], optval, optlen);
+                *offset += 3 + optlen;
+
+                break;
         default:
                 if (*offset + 2 + optlen > size)
                         return -ENOBUFS;

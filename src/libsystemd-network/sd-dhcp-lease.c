@@ -120,6 +120,17 @@ int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return (int) lease->ntp_size;
 }
 
+int sd_dhcp_lease_get_sip(sd_dhcp_lease *lease, const struct in_addr **addr) {
+        assert_return(lease, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        if (lease->sip_size <= 0)
+                return -ENODATA;
+
+        *addr = lease->sip;
+        return (int) lease->sip_size;
+}
+
 int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname) {
         assert_return(lease, -EINVAL);
         assert_return(domainname, -EINVAL);
@@ -269,6 +280,7 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
         free(lease->domainname);
         free(lease->dns);
         free(lease->ntp);
+        free(lease->sip);
         free(lease->static_route);
         free(lease->client_id);
         free(lease->vendor_specific);
@@ -391,6 +403,36 @@ static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_add
                 n_addresses = len / 4;
 
                 addresses = newdup(struct in_addr, option, n_addresses);
+                if (!addresses)
+                        return -ENOMEM;
+
+                free(*ret);
+                *ret = addresses;
+                *n_ret = n_addresses;
+        }
+
+        return 0;
+}
+
+static int lease_parse_sip_server(const uint8_t *option, size_t len, struct in_addr **ret, size_t *n_ret) {
+        assert(option);
+        assert(ret);
+        assert(n_ret);
+
+        if (len <= 0) {
+                *ret = mfree(*ret);
+                *n_ret = 0;
+        } else {
+                size_t n_addresses;
+                struct in_addr *addresses;
+                int l = len - 1;
+
+                if (l % 4 != 0)
+                        return -EINVAL;
+
+                n_addresses = l / 4;
+
+                addresses = newdup(struct in_addr, option + 1, n_addresses);
                 if (!addresses)
                         return -ENOMEM;
 
@@ -553,6 +595,12 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 r = lease_parse_in_addrs(option, len, &lease->ntp, &lease->ntp_size);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse NTP server, ignoring: %m");
+                break;
+
+        case SD_DHCP_OPTION_SIP_SERVER:
+                r = lease_parse_sip_server(option, len, &lease->sip, &lease->sip_size);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse SIP server, ignoring: %m");
                 break;
 
         case SD_DHCP_OPTION_STATIC_ROUTE:
@@ -893,6 +941,13 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
                 fputc('\n', f);
         }
 
+        r = sd_dhcp_lease_get_sip(lease, &addresses);
+        if (r > 0) {
+                fputs("SIP=", f);
+                serialize_in_addrs(f, addresses, r, false, NULL);
+                fputc('\n', f);
+        }
+
         r = sd_dhcp_lease_get_domainname(lease, &string);
         if (r >= 0)
                 fprintf(f, "DOMAINNAME=%s\n", string);
@@ -983,6 +1038,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 *broadcast = NULL,
                 *dns = NULL,
                 *ntp = NULL,
+                *sip = NULL,
                 *mtu = NULL,
                 *routes = NULL,
                 *domains = NULL,
@@ -1011,6 +1067,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "BROADCAST", &broadcast,
                            "DNS", &dns,
                            "NTP", &ntp,
+                           "SIP", &sip,
                            "MTU", &mtu,
                            "DOMAINNAME", &lease->domainname,
                            "HOSTNAME", &lease->hostname,
@@ -1111,6 +1168,14 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 r = deserialize_in_addrs(&lease->ntp, ntp);
                 if (r < 0)
                         log_debug_errno(r, "Failed to deserialize NTP servers %s, ignoring: %m", ntp);
+                else
+                        lease->ntp_size = r;
+        }
+
+        if (sip) {
+                r = deserialize_in_addrs(&lease->sip, sip);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to deserialize SIP servers %s, ignoring: %m", ntp);
                 else
                         lease->ntp_size = r;
         }

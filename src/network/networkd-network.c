@@ -363,6 +363,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 .dhcp = ADDRESS_FAMILY_NO,
                 .dhcp_critical = -1,
                 .dhcp_use_ntp = true,
+                .dhcp_use_sip = true,
                 .dhcp_use_dns = true,
                 .dhcp_use_hostname = true,
                 .dhcp_use_routes = true,
@@ -386,6 +387,7 @@ int network_load_one(Manager *manager, const char *filename) {
 
                 .dhcp_server_emit_dns = true,
                 .dhcp_server_emit_ntp = true,
+                .dhcp_server_emit_sip = true,
                 .dhcp_server_emit_router = true,
                 .dhcp_server_emit_timezone = true,
 
@@ -545,6 +547,8 @@ static Network *network_free(Network *network) {
 
         strv_free(network->ntp);
         free(network->dns);
+        strv_free(network->sip);
+        free(network->sip);
         ordered_set_free_free(network->search_domains);
         ordered_set_free_free(network->route_domains);
         strv_free(network->bind_carrier);
@@ -607,6 +611,7 @@ static Network *network_free(Network *network) {
         free(network->dhcp_server_timezone);
         free(network->dhcp_server_dns);
         free(network->dhcp_server_ntp);
+        free(network->dhcp_server_sip);
 
         set_free_free(network->dnssec_negative_trust_anchors);
 

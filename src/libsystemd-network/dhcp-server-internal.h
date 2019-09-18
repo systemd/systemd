@@ -45,8 +45,8 @@ struct sd_dhcp_server {
 
         char *timezone;
 
-        struct in_addr *ntp, *dns;
-        unsigned n_ntp, n_dns;
+        struct in_addr *ntp, *dns, *sip;
+        unsigned n_ntp, n_dns, n_sip;
 
         bool emit_router;
 

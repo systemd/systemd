@@ -249,6 +249,10 @@ _public_ int sd_network_link_get_route_domains(int ifindex, char ***ret) {
         return network_link_get_strv(ifindex, "ROUTE_DOMAINS", ret);
 }
 
+_public_ int sd_network_link_get_sip_servers(int ifindex, char ***ret) {
+        return network_link_get_strv(ifindex, "SIP", ret);
+}
+
 _public_ int sd_network_link_get_dns_default_route(int ifindex) {
         char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex) + 1];
         _cleanup_free_ char *s = NULL;
