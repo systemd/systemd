@@ -1005,7 +1005,7 @@ static int client_parse_message(
                         if (optlen != 4)
                                 return -EINVAL;
 
-                        irt = be32toh(*(be32_t *) optval) * USEC_PER_SEC;
+                        irt = unaligned_read_be32((be32_t *) optval) * USEC_PER_SEC;
                         break;
                 }
 
