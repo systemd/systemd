@@ -18,3 +18,6 @@ What=binfmt_misc
 Where=/proc/sys/fs/binfmt_misc
 Type=binfmt_misc
 Options=nosuid,nodev,noexec
+
+[Install]
+WantedBy=sysinit.target
