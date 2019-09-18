@@ -91,6 +91,38 @@ int config_parse_dhcp_use_dns(
         return 0;
 }
 
+int config_parse_dhcp_use_sip(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse UseSIP=%s, ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        network->dhcp_use_sip = r;
+
+        return 0;
+}
+
 int config_parse_dhcp_use_ntp(
                 const char* unit,
                 const char *filename,

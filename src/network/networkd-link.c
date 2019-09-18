@@ -3597,6 +3597,22 @@ int link_save(Link *link) {
                                         space = true;
                 }
 
+                fputc('\n', f);
+
+                fputs("SIP=", f);
+                space = false;
+                fputstrv(f, link->network->sip, NULL, &space);
+
+                if (link->network->dhcp_use_sip &&
+                    link->dhcp_lease) {
+                        const struct in_addr *addresses;
+
+                        r = sd_dhcp_lease_get_sip(link->dhcp_lease, &addresses);
+                        if (r > 0)
+                                if (serialize_in_addrs(f, addresses, r, space, in4_addr_is_non_local) > 0)
+                                        space = true;
+                }
+
                 if (link->network->dhcp6_use_ntp && dhcp6_lease) {
                         struct in6_addr *in6_addrs;
                         char **hosts;

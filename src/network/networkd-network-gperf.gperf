@@ -145,6 +145,7 @@ DHCPv4.ClientIdentifier,                config_parse_dhcp_client_identifier,    
 DHCPv4.UseDNS,                          config_parse_bool,                               0,                             offsetof(Network, dhcp_use_dns)
 DHCPv4.RoutesToDNS,                     config_parse_bool,                               0,                             offsetof(Network, dhcp_routes_to_dns)
 DHCPv4.UseNTP,                          config_parse_bool,                               0,                             offsetof(Network, dhcp_use_ntp)
+DHCPv4.UseSIP,                          config_parse_bool,                               0,                             offsetof(Network, dhcp_use_sip)
 DHCPv4.UseMTU,                          config_parse_bool,                               0,                             offsetof(Network, dhcp_use_mtu)
 DHCPv4.UseHostname,                     config_parse_bool,                               0,                             offsetof(Network, dhcp_use_hostname)
 DHCPv4.UseDomains,                      config_parse_dhcp_use_domains,                   0,                             offsetof(Network, dhcp_use_domains)
@@ -182,6 +183,8 @@ DHCPServer.EmitDNS,                     config_parse_bool,                      
 DHCPServer.DNS,                         config_parse_dhcp_server_dns,                    0,                             0
 DHCPServer.EmitNTP,                     config_parse_bool,                               0,                             offsetof(Network, dhcp_server_emit_ntp)
 DHCPServer.NTP,                         config_parse_dhcp_server_ntp,                    0,                             0
+DHCPServer.EmitSIP,                     config_parse_bool,                               0,                             offsetof(Network, dhcp_server_emit_sip)
+DHCPServer.SIP,                         config_parse_dhcp_server_sip,                    0,                             0
 DHCPServer.EmitRouter,                  config_parse_bool,                               0,                             offsetof(Network, dhcp_server_emit_router)
 DHCPServer.EmitTimezone,                config_parse_bool,                               0,                             offsetof(Network, dhcp_server_emit_timezone)
 DHCPServer.Timezone,                    config_parse_timezone,                           0,                             offsetof(Network, dhcp_server_timezone)

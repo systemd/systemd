@@ -46,8 +46,9 @@ int sd_dhcp_server_stop(sd_dhcp_server *server);
 int sd_dhcp_server_configure_pool(sd_dhcp_server *server, struct in_addr *address, unsigned char prefixlen, uint32_t offset, uint32_t size);
 
 int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *timezone);
-int sd_dhcp_server_set_dns(sd_dhcp_server *server, const struct in_addr ntp[], unsigned n);
-int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr dns[], unsigned n);
+int sd_dhcp_server_set_dns(sd_dhcp_server *server, const struct in_addr dns[], unsigned n);
+int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], unsigned n);
+int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], unsigned n);
 int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled);
 
 int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint32_t t);

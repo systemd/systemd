@@ -93,6 +93,7 @@ struct Network {
         bool dhcp_use_dns;
         bool dhcp_routes_to_dns;
         bool dhcp_use_ntp;
+        bool dhcp_use_sip;
         bool dhcp_use_mtu;
         bool dhcp_use_routes;
         bool dhcp_use_timezone;
@@ -110,12 +111,19 @@ struct Network {
 
         /* DHCP Server Support */
         bool dhcp_server;
+
         bool dhcp_server_emit_dns;
         struct in_addr *dhcp_server_dns;
         unsigned n_dhcp_server_dns;
+
         bool dhcp_server_emit_ntp;
         struct in_addr *dhcp_server_ntp;
         unsigned n_dhcp_server_ntp;
+
+        bool dhcp_server_emit_sip;
+        struct in_addr *dhcp_server_sip;
+        unsigned n_dhcp_server_sip;
+
         bool dhcp_server_emit_router;
         bool dhcp_server_emit_timezone;
         char *dhcp_server_timezone;
@@ -257,6 +265,7 @@ struct Network {
         Set *dnssec_negative_trust_anchors;
 
         char **ntp;
+        char **sip;
         char **bind_carrier;
 };
 

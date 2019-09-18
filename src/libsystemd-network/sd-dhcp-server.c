@@ -139,6 +139,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         free(server->timezone);
         free(server->dns);
         free(server->ntp);
+        free(server->sip);
 
         hashmap_free(server->leases_by_client_id);
 
@@ -494,6 +495,15 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_NTP_SERVER,
                                 sizeof(struct in_addr) * server->n_ntp, server->ntp);
+                if (r < 0)
+                        return r;
+        }
+
+        if (server->n_sip > 0) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_SIP_SERVER,
+                                sizeof(struct in_addr) * server->n_sip, server->sip);
                 if (r < 0)
                         return r;
         }
@@ -1119,6 +1129,32 @@ int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], u
                 free(server->ntp);
                 server->ntp = c;
                 server->n_ntp = n;
+        }
+
+        return 1;
+}
+
+int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], unsigned n) {
+        assert_return(server, -EINVAL);
+        assert_return(sip || n <= 0, -EINVAL);
+
+        if (server->n_sip == n &&
+            memcmp(server->sip, sip, sizeof(struct in_addr) * n) == 0)
+                return 0;
+
+        if (n <= 0) {
+                server->sip = mfree(server->sip);
+                server->n_sip = 0;
+        } else {
+                struct in_addr *c;
+
+                c = newdup(struct in_addr, sip, n);
+                if (!c)
+                        return -ENOMEM;
+
+                free(server->sip);
+                server->sip = c;
+                server->n_sip = n;
         }
 
         return 1;

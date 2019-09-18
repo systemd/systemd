@@ -1349,6 +1349,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>UseSIP=</varname></term>
+          <listitem>
+            <para>When true (the default), the SIP servers received
+            from the DHCP server will be saved at the state files and can be
+            read via <function>sd_network_link_get_sip_servers()</function> function.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>UseMTU=</varname></term>
           <listitem>
             <para>When true, the interface maximum transmission unit
@@ -1770,6 +1778,19 @@
         <listitem><para>Similar to the <varname>EmitDNS=</varname> and
         <varname>DNS=</varname> settings described above, these
         settings configure whether and what NTP server information
+        shall be emitted as part of the DHCP lease. The same syntax,
+        propagation semantics and defaults apply as for
+        <varname>EmitDNS=</varname> and
+        <varname>DNS=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>EmitSIP=</varname></term>
+        <term><varname>SIP=</varname></term>
+
+        <listitem><para>Similar to the <varname>EmitDNS=</varname> and
+        <varname>DNS=</varname> settings described above, these
+        settings configure whether and what SIP server information
         shall be emitted as part of the DHCP lease. The same syntax,
         propagation semantics and defaults apply as for
         <varname>EmitDNS=</varname> and
