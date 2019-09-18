@@ -2435,6 +2435,8 @@ int main(int argc, char *argv[]) {
                                  * available, and it previously wasn't. */
                                 log_open();
 
+                                disable_printk_ratelimit();
+
                                 r = initialize_security(
                                                 &loaded_policy,
                                                 &security_start_timestamp,

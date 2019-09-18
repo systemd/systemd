@@ -72,6 +72,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "sysctl-util.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
@@ -4022,6 +4023,19 @@ static bool manager_journal_is_running(Manager *m) {
                 return false;
 
         return true;
+}
+
+void disable_printk_ratelimit(void) {
+        /* Disable kernel's printk ratelimit.
+         *
+         * Logging to /dev/kmsg is most useful during early boot and shutdown, where normal logging
+         * mechanisms are not available. The semantics of this sysctl are such that any kernel command-line
+         * setting takes precedence. */
+        int r;
+
+        r = sysctl_write("kernel/printk_devkmsg", "on");
+        if (r < 0)
+                log_debug_errno(r, "Failed to set sysctl kernel.printk_devkmsg=on: %m");
 }
 
 void manager_recheck_journal(Manager *m) {
