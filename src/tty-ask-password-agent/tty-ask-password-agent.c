@@ -541,6 +541,9 @@ static int process_and_watch_password_files(bool watch) {
                                  * unlikely to trigger any events. */
                                 timeout = 0;
                         else
+                                /* FIXME: we should do something here since otherwise the service
+                                 * requesting the password won't notice the error and will wait
+                                 * indefinitely. */
                                 log_error_errno(r, "Failed to process password: %m");
                 }
 
