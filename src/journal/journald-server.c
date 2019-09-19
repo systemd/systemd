@@ -1098,7 +1098,7 @@ void server_dispatch_message(
         if (c && c->unit) {
                 (void) determine_space(s, &available, NULL);
 
-                rl = journal_rate_limit_test(s->rate_limit, c->unit, c->log_rate_limit_interval, c->log_rate_limit_burst, priority & LOG_PRIMASK, available);
+                rl = journal_ratelimit_test(s->ratelimit, c->unit, c->log_ratelimit_interval, c->log_ratelimit_burst, priority & LOG_PRIMASK, available);
                 if (rl == 0)
                         return;
 
@@ -2020,8 +2020,8 @@ int server_init(Server *s) {
                 .sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC,
                 .sync_scheduled = false,
 
-                .rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL,
-                .rate_limit_burst = DEFAULT_RATE_LIMIT_BURST,
+                .ratelimit_interval = DEFAULT_RATE_LIMIT_INTERVAL,
+                .ratelimit_burst = DEFAULT_RATE_LIMIT_BURST,
 
                 .forward_to_wall = true,
 
@@ -2048,10 +2048,10 @@ int server_init(Server *s) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
-        if (!!s->rate_limit_interval ^ !!s->rate_limit_burst) {
+        if (!!s->ratelimit_interval ^ !!s->ratelimit_burst) {
                 log_debug("Setting both rate limit interval and burst from "USEC_FMT",%u to 0,0",
-                          s->rate_limit_interval, s->rate_limit_burst);
-                s->rate_limit_interval = s->rate_limit_burst = 0;
+                          s->ratelimit_interval, s->ratelimit_burst);
+                s->ratelimit_interval = s->ratelimit_burst = 0;
         }
 
         (void) mkdir_p("/run/systemd/journal", 0755);
@@ -2180,8 +2180,8 @@ int server_init(Server *s) {
         if (r < 0)
                 return r;
 
-        s->rate_limit = journal_rate_limit_new();
-        if (!s->rate_limit)
+        s->ratelimit = journal_ratelimit_new();
+        if (!s->ratelimit)
                 return -ENOMEM;
 
         r = cg_get_root_path(&s->cgroup_root);
@@ -2261,8 +2261,8 @@ void server_done(Server *s) {
         safe_close(s->hostname_fd);
         safe_close(s->notify_fd);
 
-        if (s->rate_limit)
-                journal_rate_limit_free(s->rate_limit);
+        if (s->ratelimit)
+                journal_ratelimit_free(s->ratelimit);
 
         if (s->kernel_seqnum)
                 munmap(s->kernel_seqnum, sizeof(uint64_t));

@@ -132,8 +132,8 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
         c->timestamp = USEC_INFINITY;
         c->extra_fields_mtime = NSEC_INFINITY;
         c->log_level_max = -1;
-        c->log_rate_limit_interval = s->rate_limit_interval;
-        c->log_rate_limit_burst = s->rate_limit_burst;
+        c->log_ratelimit_interval = s->ratelimit_interval;
+        c->log_ratelimit_burst = s->ratelimit_burst;
 
         r = hashmap_put(s->client_contexts, PID_TO_PTR(pid), c);
         if (r < 0) {
@@ -182,8 +182,8 @@ static void client_context_reset(Server *s, ClientContext *c) {
 
         c->log_level_max = -1;
 
-        c->log_rate_limit_interval = s->rate_limit_interval;
-        c->log_rate_limit_burst = s->rate_limit_burst;
+        c->log_ratelimit_interval = s->ratelimit_interval;
+        c->log_ratelimit_burst = s->ratelimit_burst;
 }
 
 static ClientContext* client_context_free(Server *s, ClientContext *c) {
@@ -459,7 +459,7 @@ static int client_context_read_extra_fields(
         return 0;
 }
 
-static int client_context_read_log_rate_limit_interval(ClientContext *c) {
+static int client_context_read_log_ratelimit_interval(ClientContext *c) {
         _cleanup_free_ char *value = NULL;
         const char *p;
         int r;
@@ -474,10 +474,10 @@ static int client_context_read_log_rate_limit_interval(ClientContext *c) {
         if (r < 0)
                 return r;
 
-        return safe_atou64(value, &c->log_rate_limit_interval);
+        return safe_atou64(value, &c->log_ratelimit_interval);
 }
 
-static int client_context_read_log_rate_limit_burst(ClientContext *c) {
+static int client_context_read_log_ratelimit_burst(ClientContext *c) {
         _cleanup_free_ char *value = NULL;
         const char *p;
         int r;
@@ -492,7 +492,7 @@ static int client_context_read_log_rate_limit_burst(ClientContext *c) {
         if (r < 0)
                 return r;
 
-        return safe_atou(value, &c->log_rate_limit_burst);
+        return safe_atou(value, &c->log_ratelimit_burst);
 }
 
 static void client_context_really_refresh(
@@ -521,8 +521,8 @@ static void client_context_really_refresh(
         (void) client_context_read_invocation_id(s, c);
         (void) client_context_read_log_level_max(s, c);
         (void) client_context_read_extra_fields(s, c);
-        (void) client_context_read_log_rate_limit_interval(c);
-        (void) client_context_read_log_rate_limit_burst(c);
+        (void) client_context_read_log_ratelimit_interval(c);
+        (void) client_context_read_log_ratelimit_burst(c);
 
         c->timestamp = timestamp;
 

@@ -365,8 +365,8 @@ typedef struct Unit {
         bool exported_invocation_id:1;
         bool exported_log_level_max:1;
         bool exported_log_extra_fields:1;
-        bool exported_log_rate_limit_interval:1;
-        bool exported_log_rate_limit_burst:1;
+        bool exported_log_ratelimit_interval:1;
+        bool exported_log_ratelimit_burst:1;
 
         /* Whether we warned about clamping the CPU quota period */
         bool warned_clamping_cpu_quota_period:1;

@@ -60,7 +60,7 @@ struct TarImport {
         pid_t tar_pid;
 
         unsigned last_percent;
-        RateLimit progress_rate_limit;
+        RateLimit progress_ratelimit;
 };
 
 TarImport* tar_import_unref(TarImport *i) {
@@ -119,7 +119,7 @@ int tar_import_new(
                 .userdata = userdata,
                 .last_percent = (unsigned) -1,
                 .image_root = TAKE_PTR(root),
-                .progress_rate_limit = { 100 * USEC_PER_MSEC, 1 },
+                .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
 
         if (event)
@@ -151,7 +151,7 @@ static void tar_import_report_progress(TarImport *i) {
         if (percent == i->last_percent)
                 return;
 
-        if (!ratelimit_below(&i->progress_rate_limit))
+        if (!ratelimit_below(&i->progress_ratelimit))
                 return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
