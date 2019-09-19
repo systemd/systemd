@@ -668,7 +668,7 @@ msgid "Set DNSSEC Negative Trust Anchors"
 msgstr "Встановлення прив'язок від'ємної довіри DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:111
-msgid "Authentication is required to set DNSSEC Negative Trust Anchros."
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
 msgstr ""
 "Потрібна автентифікація, щоб встановити прив'язки від'ємної довіри DNSSEC."
 
