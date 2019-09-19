@@ -634,8 +634,8 @@ msgstr "DNSSEC Negative Trust Anchorsの設定"
 
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
-msgid "Authentication is required to set DNSSEC Negative Trust Anchros."
-msgstr "DNSSEC Negative Trust Anchrosを設定するには認証が必要です。"
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr "DNSSEC Negative Trust Anchorsを設定するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
