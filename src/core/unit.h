@@ -227,7 +227,7 @@ typedef struct Unit {
         int load_error;
 
         /* Put a ratelimit on unit starting */
-        RateLimit start_limit;
+        RateLimit start_ratelimit;
         EmergencyAction start_limit_action;
 
         /* What to do on failure or success */

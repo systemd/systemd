@@ -245,10 +245,10 @@ Unit.JobTimeoutSec,              config_parse_job_timeout_sec,       0,         
 Unit.JobRunningTimeoutSec,       config_parse_job_running_timeout_sec, 0,                           0
 Unit.JobTimeoutAction,           config_parse_emergency_action,      0,                             offsetof(Unit, job_timeout_action)
 Unit.JobTimeoutRebootArgument,   config_parse_unit_string_printf,    0,                             offsetof(Unit, job_timeout_reboot_arg)
-Unit.StartLimitIntervalSec,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
+Unit.StartLimitIntervalSec,      config_parse_sec,                   0,                             offsetof(Unit, start_ratelimit.interval)
 m4_dnl The following is a legacy alias name for compatibility
-Unit.StartLimitInterval,         config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
-Unit.StartLimitBurst,            config_parse_unsigned,              0,                             offsetof(Unit, start_limit.burst)
+Unit.StartLimitInterval,         config_parse_sec,                   0,                             offsetof(Unit, start_ratelimit.interval)
+Unit.StartLimitBurst,            config_parse_unsigned,              0,                             offsetof(Unit, start_ratelimit.burst)
 Unit.StartLimitAction,           config_parse_emergency_action,      0,                             offsetof(Unit, start_limit_action)
 Unit.FailureAction,              config_parse_emergency_action,      0,                             offsetof(Unit, failure_action)
 Unit.SuccessAction,              config_parse_emergency_action,      0,                             offsetof(Unit, success_action)
@@ -320,8 +320,8 @@ Service.TimeoutAbortSec,         config_parse_service_timeout_abort, 0,         
 Service.RuntimeMaxSec,           config_parse_sec,                   0,                             offsetof(Service, runtime_max_usec)
 Service.WatchdogSec,             config_parse_sec,                   0,                             offsetof(Service, watchdog_usec)
 m4_dnl The following five only exist for compatibility, they moved into Unit, see above
-Service.StartLimitInterval,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
-Service.StartLimitBurst,         config_parse_unsigned,              0,                             offsetof(Unit, start_limit.burst)
+Service.StartLimitInterval,      config_parse_sec,                   0,                             offsetof(Unit, start_ratelimit.interval)
+Service.StartLimitBurst,         config_parse_unsigned,              0,                             offsetof(Unit, start_ratelimit.burst)
 Service.StartLimitAction,        config_parse_emergency_action,      0,                             offsetof(Unit, start_limit_action)
 Service.FailureAction,           config_parse_emergency_action,      0,                             offsetof(Unit, failure_action)
 Service.RebootArgument,          config_parse_unit_string_printf,    0,                             offsetof(Unit, reboot_arg)
