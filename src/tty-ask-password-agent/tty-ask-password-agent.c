@@ -490,10 +490,10 @@ static int process_password_files(void) {
         return r;
 }
 
-static int process_and_watch_password_files(void) {
+static int process_and_watch_password_files(bool watch) {
         enum {
-                FD_INOTIFY,
                 FD_SIGNAL,
+                FD_INOTIFY,
                 _FD_MAX
         };
 
@@ -506,26 +506,29 @@ static int process_and_watch_password_files(void) {
 
         (void) mkdir_p_label("/run/systemd/ask-password", 0755);
 
-        notify = inotify_init1(IN_CLOEXEC);
-        if (notify < 0)
-                return log_error_errno(errno, "Failed to allocate directory watch: %m");
-
-        r = inotify_add_watch_and_warn(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO);
-        if (r < 0)
-                return r;
-
         assert_se(sigemptyset(&mask) >= 0);
         assert_se(sigset_add_many(&mask, SIGTERM, -1) >= 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) >= 0);
 
-        signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
-        if (signal_fd < 0)
-                return log_error_errno(errno, "Failed to allocate signal file descriptor: %m");
+        if (watch) {
+                signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
+                if (signal_fd < 0)
+                        return log_error_errno(errno, "Failed to allocate signal file descriptor: %m");
 
-        pollfd[FD_INOTIFY].fd = notify;
-        pollfd[FD_INOTIFY].events = POLLIN;
-        pollfd[FD_SIGNAL].fd = signal_fd;
-        pollfd[FD_SIGNAL].events = POLLIN;
+                pollfd[FD_SIGNAL].fd = signal_fd;
+                pollfd[FD_SIGNAL].events = POLLIN;
+
+                notify = inotify_init1(IN_CLOEXEC);
+                if (notify < 0)
+                        return log_error_errno(errno, "Failed to allocate directory watch: %m");
+
+                r = inotify_add_watch_and_warn(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO);
+                if (r < 0)
+                        return r;
+
+                pollfd[FD_INOTIFY].fd = notify;
+                pollfd[FD_INOTIFY].events = POLLIN;
+        }
 
         for (;;) {
                 int timeout = -1;
@@ -541,7 +544,10 @@ static int process_and_watch_password_files(void) {
                                 log_error_errno(r, "Failed to process password: %m");
                 }
 
-                if (poll(pollfd, _FD_MAX, timeout) < 0) {
+                if (!watch)
+                        break;
+
+                if (poll(pollfd, watch ? _FD_MAX : _FD_MAX-1, timeout) < 0) {
                         if (errno == EINTR)
                                 continue;
 
@@ -862,10 +868,7 @@ static int run(int argc, char *argv[]) {
                 (void) release_terminal();
         }
 
-        if (IN_SET(arg_action, ACTION_WATCH, ACTION_WALL))
-                return process_and_watch_password_files();
-        else
-                return process_password_files();
+        return process_and_watch_password_files(arg_action != ACTION_QUERY);
 }
 
 DEFINE_MAIN_FUNCTION(run);
