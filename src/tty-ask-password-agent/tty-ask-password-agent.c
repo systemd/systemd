@@ -417,6 +417,9 @@ static int process_one_password_file(const char *filename) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to query password: %m");
 
+                if (strv_isempty(passwords))
+                        return -ECANCELED;
+
                 r = send_passwords(socket_name, passwords);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send: %m");
@@ -525,11 +528,20 @@ static int process_and_watch_password_files(void) {
         pollfd[FD_SIGNAL].events = POLLIN;
 
         for (;;) {
-                r = process_password_files();
-                if (r < 0)
-                        log_error_errno(r, "Failed to process password: %m");
+                int timeout = -1;
 
-                if (poll(pollfd, _FD_MAX, -1) < 0) {
+                r = process_password_files();
+                if (r < 0) {
+                        if (r == -ECANCELED)
+                                /* Disable poll() timeout since at least one password has
+                                 * been skipped and therefore one file remains and is
+                                 * unlikely to trigger any events. */
+                                timeout = 0;
+                        else
+                                log_error_errno(r, "Failed to process password: %m");
+                }
+
+                if (poll(pollfd, _FD_MAX, timeout) < 0) {
                         if (errno == EINTR)
                                 continue;
 

@@ -371,6 +371,13 @@ int ask_password_tty(
                 if (n == 0 || c == '\n' || c == 0)
                         break;
 
+                if (c == 4) { /* C-d also known as EOT */
+                        if (ttyfd >= 0)
+                                (void) loop_write(ttyfd, "(skipped)", 9, false);
+
+                        goto skipped;
+                }
+
                 if (c == 21) { /* C-u */
 
                         if (!(flags & ASK_PASSWORD_SILENT))
@@ -467,6 +474,7 @@ int ask_password_tty(
         if (r < 0)
                 goto finish;
 
+skipped:
         if (keyname)
                 (void) add_to_keyring_and_log(keyname, flags, l);
 
