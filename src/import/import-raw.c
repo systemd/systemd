@@ -111,9 +111,8 @@ int raw_import_new(
                 .userdata = userdata,
                 .last_percent = (unsigned) -1,
                 .image_root = TAKE_PTR(root),
+                .progress_rate_limit = { 100 * USEC_PER_MSEC, 1 },
         };
-
-        RATELIMIT_INIT(i->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
 
         if (event)
                 i->event = sd_event_ref(event);

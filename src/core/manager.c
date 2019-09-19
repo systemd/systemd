@@ -815,7 +815,7 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
         }
 
         /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
-        RATELIMIT_INIT(m->ctrl_alt_del_ratelimit, 2 * USEC_PER_SEC, 7);
+        m->ctrl_alt_del_ratelimit = (RateLimit) { .interval = 2 * USEC_PER_SEC, .burst = 7 };
 
         r = manager_default_environment(m);
         if (r < 0)
@@ -2855,9 +2855,8 @@ static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t use
 }
 
 int manager_loop(Manager *m) {
+        RateLimit rl = { .interval = 1*USEC_PER_SEC, .burst = 50000 };
         int r;
-
-        RATELIMIT_DEFINE(rl, 1*USEC_PER_SEC, 50000);
 
         assert(m);
         assert(m->objective == MANAGER_OK); /* Ensure manager_startup() has been called */

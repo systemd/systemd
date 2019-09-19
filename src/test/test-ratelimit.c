@@ -8,7 +8,7 @@
 
 static void test_ratelimit_below(void) {
         int i;
-        RATELIMIT_DEFINE(ratelimit, 1 * USEC_PER_SEC, 10);
+        RateLimit ratelimit = { 1 * USEC_PER_SEC, 10 };
 
         for (i = 0; i < 10; i++)
                 assert_se(ratelimit_below(&ratelimit));
@@ -17,7 +17,7 @@ static void test_ratelimit_below(void) {
         for (i = 0; i < 10; i++)
                 assert_se(ratelimit_below(&ratelimit));
 
-        RATELIMIT_INIT(ratelimit, 0, 10);
+        ratelimit = (RateLimit) { 0, 10 };
         for (i = 0; i < 10000; i++)
                 assert_se(ratelimit_below(&ratelimit));
 }

@@ -99,9 +99,8 @@ int tar_export_new(
                 .userdata = userdata,
                 .quota_referenced = (uint64_t) -1,
                 .last_percent = (unsigned) -1,
+                .progress_rate_limit = { 100 * USEC_PER_MSEC, 1 },
         };
-
-        RATELIMIT_INIT(e->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
 
         if (event)
                 e->event = sd_event_ref(event);

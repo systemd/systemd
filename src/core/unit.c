@@ -123,8 +123,8 @@ Unit *unit_new(Manager *m, size_t size) {
 
         u->last_section_private = -1;
 
-        RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
-        RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
+        u->start_limit = (RateLimit) { m->default_start_limit_interval, m->default_start_limit_burst };
+        u->auto_stop_ratelimit = (RateLimit) { 10 * USEC_PER_SEC, 16 };
 
         for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
                 u->io_accounting_last[i] = UINT64_MAX;
@@ -4000,7 +4000,7 @@ void unit_reset_failed(Unit *u) {
         if (UNIT_VTABLE(u)->reset_failed)
                 UNIT_VTABLE(u)->reset_failed(u);
 
-        RATELIMIT_RESET(u->start_limit);
+        ratelimit_reset(&u->start_limit);
         u->start_limit_hit = false;
 }
 

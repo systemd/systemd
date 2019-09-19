@@ -169,7 +169,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
 
         (void) mkdir_parents_label(temp_path, 0700);
 
-        RATELIMIT_INIT(progress.limit, 200*USEC_PER_MSEC, 1);
+        progress.limit = (RateLimit) { 200*USEC_PER_MSEC, 1 };
 
         /* Hook into SIGINT/SIGTERM, so that we can cancel things then */
         assert(sigaction(SIGINT, &sa, &old_sigint_sa) >= 0);
