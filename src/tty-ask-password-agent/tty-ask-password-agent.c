@@ -515,7 +515,7 @@ static int process_and_watch_password_files(void) {
                 return r;
 
         assert_se(sigemptyset(&mask) >= 0);
-        assert_se(sigset_add_many(&mask, SIGINT, SIGTERM, -1) >= 0);
+        assert_se(sigset_add_many(&mask, SIGTERM, -1) >= 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) >= 0);
 
         signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
