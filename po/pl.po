@@ -688,7 +688,7 @@ msgstr "Ustawienie negatywnych kotwic zaufania DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
-msgid "Authentication is required to set DNSSEC Negative Trust Anchros."
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić negatywne kotwice zaufania "
 "DNSSEC."
