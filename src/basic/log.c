@@ -29,6 +29,7 @@
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "ratelimit.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -459,11 +460,23 @@ static int write_to_kmsg(
                 const char *func,
                 const char *buffer) {
 
+        /* Set a ratelimit on the amount of messages logged to /dev/kmsg. This is mostly supposed to be a
+         * safety catch for the case where start indiscriminately logging in a loop. It will not catch cases
+         * where we log excessively, but not in a tight loop.
+         *
+         * Note that this ratelimit is per-emitter, so we might still overwhelm /dev/kmsg with multiple
+         * loggers.
+         */
+        static thread_local RateLimit ratelimit = { 5 * USEC_PER_SEC, 200 };
+
         char header_priority[2 + DECIMAL_STR_MAX(int) + 1],
              header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
         struct iovec iovec[5] = {};
 
         if (kmsg_fd < 0)
+                return 0;
+
+        if (!ratelimit_below(&ratelimit))
                 return 0;
 
         xsprintf(header_priority, "<%i>", level);
