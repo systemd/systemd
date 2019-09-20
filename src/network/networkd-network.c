@@ -549,7 +549,6 @@ static Network *network_free(Network *network) {
         strv_free(network->ntp);
         free(network->dns);
         strv_free(network->sip);
-        free(network->sip);
         ordered_set_free_free(network->search_domains);
         ordered_set_free_free(network->route_domains);
         strv_free(network->bind_carrier);
