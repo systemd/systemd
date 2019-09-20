@@ -318,6 +318,39 @@ static bool wall_tty_match(const char *path, void *userdata) {
         return 0;
 }
 
+static int agent_ask_password_tty(
+                const char *message,
+                usec_t until,
+                AskPasswordFlags flags,
+                const char *flag_file,
+                char ***ret) {
+
+        int tty_fd = -1;
+        int r;
+
+        if (arg_console) {
+                const char *con = arg_device ?: "/dev/console";
+
+                tty_fd = acquire_terminal(con, ACQUIRE_TERMINAL_WAIT, USEC_INFINITY);
+                if (tty_fd < 0)
+                        return log_error_errno(tty_fd, "Failed to acquire %s: %m", con);
+
+                r = reset_terminal_fd(tty_fd, true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
+
+        }
+
+        r = ask_password_tty(tty_fd, message, NULL, until, flags, flag_file, ret);
+
+        if (arg_console) {
+                tty_fd = safe_close(tty_fd);
+                release_terminal();
+        }
+
+        return 0;
+}
+
 static int process_one_password_file(const char *filename) {
         _cleanup_free_ char *socket_name = NULL, *message = NULL;
         bool accept_cached = false, echo = false;
@@ -355,25 +388,28 @@ static int process_one_password_file(const char *filename) {
         if (pid > 0 && !pid_is_alive(pid))
                 return 0;
 
-        if (arg_action == ACTION_LIST)
+        switch (arg_action) {
+        case ACTION_LIST:
                 printf("'%s' (PID %u)\n", message, pid);
+                return 0;
 
-        else if (arg_action == ACTION_WALL) {
-                _cleanup_free_ char *wall = NULL;
+        case ACTION_WALL: {
+                 _cleanup_free_ char *wall = NULL;
 
-                if (asprintf(&wall,
-                             "Password entry required for \'%s\' (PID %u).\r\n"
-                             "Please enter password with the systemd-tty-ask-password-agent tool.",
-                             message,
-                             pid) < 0)
-                        return log_oom();
+                 if (asprintf(&wall,
+                              "Password entry required for \'%s\' (PID %u).\r\n"
+                              "Please enter password with the systemd-tty-ask-password-agent tool.",
+                              message,
+                              pid) < 0)
+                         return log_oom();
 
-                (void) utmp_wall(wall, NULL, NULL, wall_tty_match, NULL);
-
-        } else {
+                 (void) utmp_wall(wall, NULL, NULL, wall_tty_match, NULL);
+                 return 0;
+        }
+        case ACTION_QUERY:
+        case ACTION_WATCH: {
                 _cleanup_strv_free_erase_ char **passwords = NULL;
-
-                assert(IN_SET(arg_action, ACTION_QUERY, ACTION_WATCH));
+                AskPasswordFlags flags = 0;
 
                 if (access(socket_name, W_OK) < 0) {
                         if (arg_action == ACTION_QUERY)
@@ -382,40 +418,22 @@ static int process_one_password_file(const char *filename) {
                         return 0;
                 }
 
+                SET_FLAG(flags, ASK_PASSWORD_ACCEPT_CACHED, accept_cached);
+                SET_FLAG(flags, ASK_PASSWORD_CONSOLE_COLOR, arg_console);
+                SET_FLAG(flags, ASK_PASSWORD_ECHO, echo);
+
                 if (arg_plymouth)
-                        r = ask_password_plymouth(message, not_after, accept_cached ? ASK_PASSWORD_ACCEPT_CACHED : 0, filename, &passwords);
-                else {
-                        int tty_fd = -1;
+                        r = ask_password_plymouth(message, not_after, flags, filename, &passwords);
+                else
+                        r = agent_ask_password_tty(message, not_after, flags, filename, &passwords);
 
-                        if (arg_console) {
-                                const char *con = arg_device ?: "/dev/console";
+                if (r < 0) {
+                        /* If the query went away, that's OK */
+                        if (IN_SET(r, -ETIME, -ENOENT))
+                                return 0;
 
-                                tty_fd = acquire_terminal(con, ACQUIRE_TERMINAL_WAIT, USEC_INFINITY);
-                                if (tty_fd < 0)
-                                        return log_error_errno(tty_fd, "Failed to acquire %s: %m", con);
-
-                                r = reset_terminal_fd(tty_fd, true);
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
-                        }
-
-                        r = ask_password_tty(tty_fd, message, NULL, not_after,
-                                             (echo ? ASK_PASSWORD_ECHO : 0) |
-                                             (arg_console ? ASK_PASSWORD_CONSOLE_COLOR : 0),
-                                             filename, &passwords);
-
-                        if (arg_console) {
-                                tty_fd = safe_close(tty_fd);
-                                release_terminal();
-                        }
-                }
-
-                /* If the query went away, that's OK */
-                if (IN_SET(r, -ETIME, -ENOENT))
-                        return 0;
-
-                if (r < 0)
                         return log_error_errno(r, "Failed to query password: %m");
+                }
 
                 if (strv_isempty(passwords))
                         return -ECANCELED;
@@ -423,6 +441,8 @@ static int process_one_password_file(const char *filename) {
                 r = send_passwords(socket_name, passwords);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send: %m");
+                break;
+        }
         }
 
         return 0;
