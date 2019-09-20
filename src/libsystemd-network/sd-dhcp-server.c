@@ -127,6 +127,46 @@ int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b) {
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(dhcp_lease_hash_ops, DHCPClientId, client_id_hash_func, client_id_compare_func,
                                               DHCPLease, dhcp_lease_free);
 
+static sd_dhcp_raw_option* raw_option_free(sd_dhcp_raw_option *i) {
+        if (!i)
+                return NULL;
+
+        free(i->data);
+        return mfree(i);
+}
+
+_public_ int sd_dhcp_raw_option_new(uint8_t type, char *data, size_t length, sd_dhcp_raw_option **ret) {
+        sd_dhcp_raw_option *p;
+
+        assert_return(ret, -EINVAL);
+
+        p = new(sd_dhcp_raw_option, 1);
+        if (!p)
+                return -ENOMEM;
+
+        *p = (sd_dhcp_raw_option) {
+                  .n_ref = 1,
+                  .data = memdup(data, length),
+                  .length = length,
+                  .type = type,
+        };
+
+        if (!p->data)
+                return -ENOMEM;
+
+        *ret = p;
+        return 0;
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_raw_option, sd_dhcp_raw_option, raw_option_free);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                dhcp_raw_options_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                sd_dhcp_raw_option,
+                sd_dhcp_raw_option_unref);
+
 static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         assert(server);
 
@@ -142,6 +182,8 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         free(server->sip);
 
         hashmap_free(server->leases_by_client_id);
+
+        ordered_hashmap_free(server->raw_option);
 
         free(server->bound_leases);
         return mfree(server);
@@ -452,8 +494,8 @@ static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req,
 static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
                            be32_t address) {
         _cleanup_free_ DHCPPacket *packet = NULL;
-        size_t offset;
         be32_t lease_time;
+        size_t offset;
         int r;
 
         r = server_message_init(server, &packet, DHCP_ACK, &offset, req);
@@ -513,6 +555,15 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_NEW_TZDB_TIMEZONE,
                                 strlen(server->timezone), server->timezone);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!ordered_hashmap_isempty(server->raw_option)) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_VENDOR_SPECIFIC,
+                                ordered_hashmap_size(server->raw_option), server->raw_option);
                 if (r < 0)
                         return r;
         }
@@ -1167,6 +1218,25 @@ int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled) {
                 return 0;
 
         server->emit_router = enabled;
+
+        return 1;
+}
+
+int sd_dhcp_server_add_raw_option(sd_dhcp_server *server, sd_dhcp_raw_option *v) {
+        int r;
+
+        assert_return(server, -EINVAL);
+        assert_return(v, -EINVAL);
+
+        r = ordered_hashmap_ensure_allocated(&server->raw_option, &dhcp_raw_options_hash_ops);
+        if (r < 0)
+                return -ENOMEM;
+
+        r = ordered_hashmap_put(server->raw_option, v, v);
+        if (r < 0)
+                return r;
+
+        sd_dhcp_raw_option_ref(v);
 
         return 1;
 }

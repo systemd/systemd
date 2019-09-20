@@ -180,7 +180,7 @@ DHCPv6.UseDNS,                          config_parse_bool,                      
 DHCPv6.UseNTP,                          config_parse_bool,                               0,                             offsetof(Network, dhcp6_use_ntp)
 DHCPv6.RapidCommit,                     config_parse_bool,                               0,                             offsetof(Network, rapid_commit)
 DHCPv6.ForceDHCPv6PDOtherInformation,   config_parse_bool,                               0,                             offsetof(Network, dhcp6_force_pd_other_information)
-DHCPv6.PrefixDelegationHint,            config_parse_dhcp6_pd_hint,                    0,                             0
+DHCPv6.PrefixDelegationHint,            config_parse_dhcp6_pd_hint,                      0,                             0
 IPv6AcceptRA.UseAutonomousPrefix,       config_parse_bool,                               0,                             offsetof(Network, ipv6_accept_ra_use_autonomous_prefix)
 IPv6AcceptRA.UseOnLinkPrefix,           config_parse_bool,                               0,                             offsetof(Network, ipv6_accept_ra_use_onlink_prefix)
 IPv6AcceptRA.UseDNS,                    config_parse_bool,                               0,                             offsetof(Network, ipv6_accept_ra_use_dns)
@@ -200,6 +200,7 @@ DHCPServer.EmitTimezone,                config_parse_bool,                      
 DHCPServer.Timezone,                    config_parse_timezone,                           0,                             offsetof(Network, dhcp_server_timezone)
 DHCPServer.PoolOffset,                  config_parse_uint32,                             0,                             offsetof(Network, dhcp_server_pool_offset)
 DHCPServer.PoolSize,                    config_parse_uint32,                             0,                             offsetof(Network, dhcp_server_pool_size)
+DHCPServer.SendRawOption,               config_parse_dhcp_server_raw_option_data,        0,                             0
 Bridge.Cost,                            config_parse_uint32,                             0,                             offsetof(Network, cost)
 Bridge.UseBPDU,                         config_parse_tristate,                           0,                             offsetof(Network, use_bpdu)
 Bridge.HairPin,                         config_parse_tristate,                           0,                             offsetof(Network, hairpin)

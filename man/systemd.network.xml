@@ -1898,6 +1898,19 @@
         <filename>/etc/localtime</filename> symlink.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+          <term><varname>SendRawOption=</varname></term>
+          <listitem>
+            <para>Send a raw option with value via DHCPv4 server. Takes a DHCP option, data type and data
+            (option:type:value). The option ranges [1-254]. The type takes one of <literal>uint8</literal>,
+            <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, or <literal>string</literal>.
+            Special characters in the data string may be escaped using
+            <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
+            escapes</ulink>. This option can be specified multiple times. If an empty string is specified, then all
+            options specified earlier are cleared. Defaults to unset.</para>
+          </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "dhcp-internal.h"
+#include "dhcp-server-internal.h"
 #include "memory-util.h"
 #include "strv.h"
 #include "utf8.h"
@@ -77,6 +78,32 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 *offset += 3 + optlen;
 
                 break;
+        case SD_DHCP_OPTION_VENDOR_SPECIFIC: {
+                OrderedHashmap *s = (OrderedHashmap *) optval;
+                struct sd_dhcp_raw_option *p;
+                size_t l = 0;
+                Iterator i;
+
+                ORDERED_HASHMAP_FOREACH(p, s, i)
+                        l += p->length + 2;
+
+                if (*offset + l + 2 > size)
+                        return -ENOBUFS;
+
+                options[*offset] = code;
+                options[*offset + 1] = l;
+
+                *offset += 2;
+
+                ORDERED_HASHMAP_FOREACH(p, s, i) {
+                        options[*offset] = p->type;
+                        options[*offset + 1] = p->length;
+                        memcpy(&options[*offset + 2], p->data, p->length);
+                        *offset += 2 + p->length;
+                }
+
+                break;
+        }
         default:
                 if (*offset + 2 + optlen > size)
                         return -ENOBUFS;
