@@ -16,6 +16,7 @@
 #include "networkd-brvlan.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp4.h"
+#include "networkd-dhcp-server.h"
 #include "networkd-fdb.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-lldp-rx.h"
@@ -114,6 +115,7 @@ struct Network {
         Set *dhcp_black_listed_ip;
         Set *dhcp_request_options;
         OrderedHashmap *dhcp_send_options;
+        OrderedHashmap *dhcp_server_raw_options;
 
         /* DHCPv6 Client support*/
         bool dhcp6_use_dns;

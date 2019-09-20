@@ -11,6 +11,7 @@
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "networkd-dhcp-server.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -144,14 +145,14 @@ static int network_resolve_stacked_netdevs(Network *network) {
 }
 
 int network_verify(Network *network) {
-        Address *address, *address_next;
-        Route *route, *route_next;
-        FdbEntry *fdb, *fdb_next;
+        RoutingPolicyRule *rule, *rule_next;
         Neighbor *neighbor, *neighbor_next;
         AddressLabel *label, *label_next;
-        Prefix *prefix, *prefix_next;
-        RoutingPolicyRule *rule, *rule_next;
         NextHop *nexthop, *nextnop_next;
+        Address *address, *address_next;
+        Prefix *prefix, *prefix_next;
+        Route *route, *route_next;
+        FdbEntry *fdb, *fdb_next;
 
         assert(network);
         assert(network->filename);
@@ -680,6 +681,7 @@ static Network *network_free(Network *network) {
         set_free_free(network->dnssec_negative_trust_anchors);
 
         ordered_hashmap_free(network->dhcp_send_options);
+        ordered_hashmap_free(network->dhcp_server_raw_options);
 
         return mfree(network);
 }
