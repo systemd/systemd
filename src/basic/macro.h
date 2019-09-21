@@ -307,17 +307,18 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 
 extern void __coverity_panic__(void);
 
-static inline int __coverity_check__(int condition) {
+static inline void __coverity_check__(int condition) {
+        if (!condition)
+                __coverity_panic__();
+}
+
+static inline int __coverity_check_and_return__(int condition) {
         return condition;
 }
 
-#define assert_message_se(expr, message)                                \
-        do {                                                            \
-                if (__coverity_check__(!(expr)))                        \
-                        __coverity_panic__();                           \
-        } while (false)
+#define assert_message_se(expr, message) __coverity_check__(!!(expr))
 
-#define assert_log(expr, message) __coverity_check__(!!(expr))
+#define assert_log(expr, message) __coverity_check_and_return__(!!(expr))
 
 #else  /* ! __COVERITY__ */
 
