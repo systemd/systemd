@@ -703,8 +703,9 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
                 else if (streq(word, "norbind"))
                         flags &= ~MS_REC;
                 else {
-                        log_error("Invalid bind mount option: %s", word);
-                        return -EINVAL;
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Invalid bind mount option: %s",
+                                               word);
                 }
         }
 

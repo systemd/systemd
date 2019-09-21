@@ -1915,10 +1915,8 @@ static int link_append_to_master(Link *link, NetDev *netdev) {
                 return r;
 
         r = set_put(master->slaves, link);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         link_ref(link);
         return 0;

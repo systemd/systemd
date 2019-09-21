@@ -14,7 +14,7 @@ static void test_exit_status_to_string(void) {
                 class = exit_status_class(i);
                 log_info("%d: %s%s%s%s",
                          i, s ?: "-",
-                         class ? " (" : "", class ?: "", class ? ")" : "");
+                         class ? " (" : "", strempty(class), class ? ")" : "");
 
                 if (s)
                         assert_se(exit_status_from_string(s) == i);

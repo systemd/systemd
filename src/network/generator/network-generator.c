@@ -837,9 +837,7 @@ static int parse_cmdline_bridge(Context *context, const char *key, const char *v
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, ",", 0);
-                if (r == 0)
-                        return 0;
-                if (r < 0)
+                if (r <= 0)
                         return r;
 
                 r = network_set_bridge(context, word, name);

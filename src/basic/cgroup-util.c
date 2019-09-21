@@ -345,10 +345,8 @@ int cg_kill(
            a workaround for kernel bug. It was fixed in 5.2-rc5 (c03cd7738a83), backported to 4.19.66
            (4340d175b898) and 4.14.138 (feb6b123b7dd). */
         r = cg_unified_controller(controller);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0) /* doesn't apply to legacy hierarchy */
-                return 0;
 
         return cg_kill_items(controller, path, sig, flags, s, log_kill, userdata, "cgroup.threads");
 }

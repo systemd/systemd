@@ -78,7 +78,7 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
                          * take possession of the extra space. This should be cheap, since libc doesn't have to move
                          * the memory for this. */
 
-                        qq = realloc(q, bn * size);
+                        qq = reallocarray(q, bn, size);
                         if (_likely_(qq)) {
                                 *p = qq;
                                 *allocated = bn;

@@ -85,7 +85,7 @@ static int get_mount_flags(const char *path, unsigned long *flags, struct libmnt
         int r = 0;
 
         fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
-        if (fs == NULL) {
+        if (!fs) {
                 log_warning("Could not find '%s' in mount table", path);
                 goto fallback;
         }
