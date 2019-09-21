@@ -35,7 +35,7 @@
 
     <para><filename>systemd-timesyncd.service</filename> notifies on successful synchronization.
     <filename>systemd-time-wait-sync</filename> also tries to detect when the kernel marks the time as synchronized,
-    but this detection is not reliable and is intended only as a fallback for other servies that can be used to
+    but this detection is not reliable and is intended only as a fallback for other services that can be used to
     synchronize time (e.g., ntpd, chronyd).</para>
 
   </refsect1>
