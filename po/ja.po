@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-09-04 09:15+0900\n"
+"POT-Creation-Date: 2019-09-21 20:13+0900\n"
 "PO-Revision-Date: 2018-10-27 07:41+0900\n"
 "Last-Translator: Yu Watanabe <watanabe.yu+github@gmail.com>\n"
 "Language-Team: \n"
@@ -642,7 +642,7 @@ msgid "Revert NTP settings"
 msgstr "NTPの設定の破棄"
 
 #: src/network/org.freedesktop.network1.policy:122
-msgid "Authentication is required to revert NTP settings."
+msgid "Authentication is required to reset NTP settings."
 msgstr "NTPの設定を破棄するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:132
@@ -650,7 +650,7 @@ msgid "Revert DNS settings"
 msgstr "DNSの設定を破棄"
 
 #: src/network/org.freedesktop.network1.policy:133
-msgid "Authentication is required to revert DNS settings."
+msgid "Authentication is required to reset DNS settings."
 msgstr "DNSの設定を破棄するには認証が必要です。"
 
 #: src/portable/org.freedesktop.portable1.policy:13
