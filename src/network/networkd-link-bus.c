@@ -575,6 +575,35 @@ int bus_link_method_revert_dns(sd_bus_message *message, void *userdata, sd_bus_e
         return sd_bus_reply_method_return(message, NULL);
 }
 
+int bus_link_method_renew(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = userdata;
+        int r;
+
+        assert(l);
+
+        if (!l->network)
+                return sd_bus_error_setf(error, BUS_ERROR_UNMANAGED_INTERFACE,
+                                         "Interface %s is not managed by systemd-networkd",
+                                         l->ifname);
+
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.network1.renew",
+                                    NULL, true, UID_INVALID,
+                                    &l->manager->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
+        if (l->dhcp_client) {
+                r = sd_dhcp_client_send_renew(l->dhcp_client);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -595,6 +624,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_METHOD("SetDNSSECNegativeTrustAnchors", "as", NULL, bus_link_method_set_dnssec_negative_trust_anchors, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RevertNTP", NULL, NULL, bus_link_method_revert_ntp, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RevertDNS", NULL, NULL, bus_link_method_revert_dns, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Renew", NULL, NULL, bus_link_method_renew, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };

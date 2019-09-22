@@ -1699,6 +1699,48 @@ static int link_delete(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+static int link_renew_one(sd_bus *bus, int index, const char *name) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "RenewLink",
+                        &error,
+                        NULL,
+                        "i", index);
+        if (r < 0)
+                return log_error_errno(r, "Failed to renew dynamic configuration of interface %s: %s",
+                                       name, bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int link_renew(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int index, i, k = 0, r;
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
+
+        for (i = 1; i < argc; i++) {
+                r = parse_ifindex_or_ifname(argv[i], &index);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
+
+                r = link_renew_one(bus, index, argv[i]);
+                if (r < 0 && k >= 0)
+                        k = r;
+        }
+
+        return k;
+}
+
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1720,7 +1762,8 @@ static int help(void) {
                "  status [PATTERN...]   Show link status\n"
                "  lldp [PATTERN...]     Show LLDP neighbors\n"
                "  label                 Show current address label entries in the kernel\n"
-               "  delete DEVICES        Delete virtual netdevs\n"
+               "  delete DEVICES..      Delete virtual netdevs\n"
+               "  renew DEVICES..       Renew dynamic configurations\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link
@@ -1796,6 +1839,7 @@ static int networkctl_main(int argc, char *argv[]) {
                 { "lldp",   VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
                 { "label",  VERB_ANY, VERB_ANY, 0,            list_address_labels },
                 { "delete", 2,        VERB_ANY, 0,            link_delete         },
+                { "renew",  2,        VERB_ANY, 0,            link_renew          },
                 {}
         };
 
