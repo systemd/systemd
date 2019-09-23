@@ -53,3 +53,5 @@ Link.TxChannels,                 config_parse_channel,            0,            
 Link.OtherChannels,              config_parse_channel,            0,                             offsetof(link_config, channels)
 Link.CombinedChannels,           config_parse_channel,            0,                             offsetof(link_config, channels)
 Link.Advertise,                  config_parse_advertise,          0,                             offsetof(link_config, advertise)
+Link.RxBufferSize,               config_parse_nic_buffer_size,    0,                             offsetof(link_config, ring)
+Link.TxBufferSize,               config_parse_nic_buffer_size,    0,                             offsetof(link_config, ring)

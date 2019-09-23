@@ -381,6 +381,12 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         log_warning_errno(r, "Could not set channels of %s: %m", old_name);
         }
 
+        if (config->ring.rx_pending_set || config->ring.tx_pending_set) {
+                r = ethtool_set_nic_buffer_size(&ctx->ethtool_fd, old_name, &config->ring);
+                if (r < 0)
+                        log_warning_errno(r, "Could not set ring buffer of %s: %m", old_name);
+        }
+
         r = sd_device_get_ifindex(device, &ifindex);
         if (r < 0)
                 return log_device_warning_errno(device, r, "Could not find ifindex: %m");

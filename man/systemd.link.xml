@@ -624,6 +624,19 @@
           <para>Sets the number of combined set channels (a number between 1 and 4294967295).</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>RxBufferSize=</varname></term>
+        <listitem>
+          <para>Takes a integer. Specifies the NIC receive ring buffer size. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TxBufferSize=</varname></term>
+        <listitem>
+          <para>Takes a integer. Specifies the NIC transmit ring buffer size. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
