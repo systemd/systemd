@@ -499,6 +499,7 @@ bool manager_unit_inactive_or_pending(Manager *m, const char *name);
 
 void manager_check_finished(Manager *m);
 
+void disable_printk_ratelimit(void);
 void manager_recheck_dbus(Manager *m);
 void manager_recheck_journal(Manager *m);
 

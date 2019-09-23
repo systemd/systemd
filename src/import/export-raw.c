@@ -49,7 +49,7 @@ struct RawExport {
         uint64_t written_uncompressed;
 
         unsigned last_percent;
-        RateLimit progress_rate_limit;
+        RateLimit progress_ratelimit;
 
         struct stat st;
 
@@ -96,9 +96,8 @@ int raw_export_new(
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .last_percent = (unsigned) -1,
+                .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
-
-        RATELIMIT_INIT(e->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
 
         if (event)
                 e->event = sd_event_ref(event);
@@ -125,7 +124,7 @@ static void raw_export_report_progress(RawExport *e) {
         if (percent == e->last_percent)
                 return;
 
-        if (!ratelimit_below(&e->progress_rate_limit))
+        if (!ratelimit_below(&e->progress_ratelimit))
                 return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);

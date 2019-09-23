@@ -60,7 +60,7 @@ struct JournalRateLimit {
         uint8_t hash_key[16];
 };
 
-JournalRateLimit *journal_rate_limit_new(void) {
+JournalRateLimit *journal_ratelimit_new(void) {
         JournalRateLimit *r;
 
         r = new0(JournalRateLimit, 1);
@@ -72,7 +72,7 @@ JournalRateLimit *journal_rate_limit_new(void) {
         return r;
 }
 
-static void journal_rate_limit_group_free(JournalRateLimitGroup *g) {
+static void journal_ratelimit_group_free(JournalRateLimitGroup *g) {
         assert(g);
 
         if (g->parent) {
@@ -91,16 +91,16 @@ static void journal_rate_limit_group_free(JournalRateLimitGroup *g) {
         free(g);
 }
 
-void journal_rate_limit_free(JournalRateLimit *r) {
+void journal_ratelimit_free(JournalRateLimit *r) {
         assert(r);
 
         while (r->lru)
-                journal_rate_limit_group_free(r->lru);
+                journal_ratelimit_group_free(r->lru);
 
         free(r);
 }
 
-_pure_ static bool journal_rate_limit_group_expired(JournalRateLimitGroup *g, usec_t ts) {
+_pure_ static bool journal_ratelimit_group_expired(JournalRateLimitGroup *g, usec_t ts) {
         unsigned i;
 
         assert(g);
@@ -112,18 +112,18 @@ _pure_ static bool journal_rate_limit_group_expired(JournalRateLimitGroup *g, us
         return true;
 }
 
-static void journal_rate_limit_vacuum(JournalRateLimit *r, usec_t ts) {
+static void journal_ratelimit_vacuum(JournalRateLimit *r, usec_t ts) {
         assert(r);
 
         /* Makes room for at least one new item, but drop all
          * expored items too. */
 
         while (r->n_groups >= GROUPS_MAX ||
-               (r->lru_tail && journal_rate_limit_group_expired(r->lru_tail, ts)))
-                journal_rate_limit_group_free(r->lru_tail);
+               (r->lru_tail && journal_ratelimit_group_expired(r->lru_tail, ts)))
+                journal_ratelimit_group_free(r->lru_tail);
 }
 
-static JournalRateLimitGroup* journal_rate_limit_group_new(JournalRateLimit *r, const char *id, usec_t interval, usec_t ts) {
+static JournalRateLimitGroup* journal_ratelimit_group_new(JournalRateLimit *r, const char *id, usec_t interval, usec_t ts) {
         JournalRateLimitGroup *g;
 
         assert(r);
@@ -141,7 +141,7 @@ static JournalRateLimitGroup* journal_rate_limit_group_new(JournalRateLimit *r, 
 
         g->interval = interval;
 
-        journal_rate_limit_vacuum(r, ts);
+        journal_ratelimit_vacuum(r, ts);
 
         LIST_PREPEND(bucket, r->buckets[g->hash % BUCKETS_MAX], g);
         LIST_PREPEND(lru, r->lru, g);
@@ -153,7 +153,7 @@ static JournalRateLimitGroup* journal_rate_limit_group_new(JournalRateLimit *r, 
         return g;
 
 fail:
-        journal_rate_limit_group_free(g);
+        journal_ratelimit_group_free(g);
         return NULL;
 }
 
@@ -185,7 +185,7 @@ static unsigned burst_modulate(unsigned burst, uint64_t available) {
         return burst;
 }
 
-int journal_rate_limit_test(JournalRateLimit *r, const char *id, usec_t rl_interval, unsigned rl_burst, int priority, uint64_t available) {
+int journal_ratelimit_test(JournalRateLimit *r, const char *id, usec_t rl_interval, unsigned rl_burst, int priority, uint64_t available) {
         uint64_t h;
         JournalRateLimitGroup *g;
         JournalRateLimitPool *p;
@@ -214,7 +214,7 @@ int journal_rate_limit_test(JournalRateLimit *r, const char *id, usec_t rl_inter
                         break;
 
         if (!g) {
-                g = journal_rate_limit_group_new(r, id, rl_interval, ts);
+                g = journal_ratelimit_group_new(r, id, rl_interval, ts);
                 if (!g)
                         return -ENOMEM;
         } else

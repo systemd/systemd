@@ -70,7 +70,7 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         log_debug("New scope on link %s, protocol %s, family %s", l ? l->ifname : "*", dns_protocol_to_string(protocol), family == AF_UNSPEC ? "*" : af_to_name(family));
 
         /* Enforce ratelimiting for the multicast protocols */
-        RATELIMIT_INIT(s->ratelimit, MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST);
+        s->ratelimit = (RateLimit) { MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST };
 
         *ret = s;
         return 0;

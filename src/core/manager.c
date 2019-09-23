@@ -72,6 +72,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "sysctl-util.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
@@ -815,7 +816,7 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
         }
 
         /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
-        RATELIMIT_INIT(m->ctrl_alt_del_ratelimit, 2 * USEC_PER_SEC, 7);
+        m->ctrl_alt_del_ratelimit = (RateLimit) { .interval = 2 * USEC_PER_SEC, .burst = 7 };
 
         r = manager_default_environment(m);
         if (r < 0)
@@ -2855,9 +2856,8 @@ static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t use
 }
 
 int manager_loop(Manager *m) {
+        RateLimit rl = { .interval = 1*USEC_PER_SEC, .burst = 50000 };
         int r;
-
-        RATELIMIT_DEFINE(rl, 1*USEC_PER_SEC, 50000);
 
         assert(m);
         assert(m->objective == MANAGER_OK); /* Ensure manager_startup() has been called */
@@ -4023,6 +4023,19 @@ static bool manager_journal_is_running(Manager *m) {
                 return false;
 
         return true;
+}
+
+void disable_printk_ratelimit(void) {
+        /* Disable kernel's printk ratelimit.
+         *
+         * Logging to /dev/kmsg is most useful during early boot and shutdown, where normal logging
+         * mechanisms are not available. The semantics of this sysctl are such that any kernel command-line
+         * setting takes precedence. */
+        int r;
+
+        r = sysctl_write("kernel/printk_devkmsg", "on");
+        if (r < 0)
+                log_debug_errno(r, "Failed to set sysctl kernel.printk_devkmsg=on: %m");
 }
 
 void manager_recheck_journal(Manager *m) {

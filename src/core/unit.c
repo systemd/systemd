@@ -123,8 +123,8 @@ Unit *unit_new(Manager *m, size_t size) {
 
         u->last_section_private = -1;
 
-        RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
-        RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
+        u->start_ratelimit = (RateLimit) { m->default_start_limit_interval, m->default_start_limit_burst };
+        u->auto_stop_ratelimit = (RateLimit) { 10 * USEC_PER_SEC, 16 };
 
         for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
                 u->io_accounting_last[i] = UINT64_MAX;
@@ -1679,7 +1679,7 @@ int unit_test_start_limit(Unit *u) {
 
         assert(u);
 
-        if (ratelimit_below(&u->start_limit)) {
+        if (ratelimit_below(&u->start_ratelimit)) {
                 u->start_limit_hit = false;
                 return 0;
         }
@@ -3416,8 +3416,8 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         (void) serialize_bool(f, "exported-invocation-id", u->exported_invocation_id);
         (void) serialize_bool(f, "exported-log-level-max", u->exported_log_level_max);
         (void) serialize_bool(f, "exported-log-extra-fields", u->exported_log_extra_fields);
-        (void) serialize_bool(f, "exported-log-rate-limit-interval", u->exported_log_rate_limit_interval);
-        (void) serialize_bool(f, "exported-log-rate-limit-burst", u->exported_log_rate_limit_burst);
+        (void) serialize_bool(f, "exported-log-rate-limit-interval", u->exported_log_ratelimit_interval);
+        (void) serialize_bool(f, "exported-log-rate-limit-burst", u->exported_log_ratelimit_burst);
 
         (void) serialize_item_format(f, "cpu-usage-base", "%" PRIu64, u->cpu_usage_base);
         if (u->cpu_usage_last != NSEC_INFINITY)
@@ -3636,7 +3636,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 log_unit_debug(u, "Failed to parse exported log rate limit interval %s, ignoring.", v);
                         else
-                                u->exported_log_rate_limit_interval = r;
+                                u->exported_log_ratelimit_interval = r;
 
                         continue;
 
@@ -3646,7 +3646,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 log_unit_debug(u, "Failed to parse exported log rate limit burst %s, ignoring.", v);
                         else
-                                u->exported_log_rate_limit_burst = r;
+                                u->exported_log_ratelimit_burst = r;
 
                         continue;
 
@@ -4000,7 +4000,7 @@ void unit_reset_failed(Unit *u) {
         if (UNIT_VTABLE(u)->reset_failed)
                 UNIT_VTABLE(u)->reset_failed(u);
 
-        RATELIMIT_RESET(u->start_limit);
+        ratelimit_reset(&u->start_ratelimit);
         u->start_limit_hit = false;
 }
 
@@ -5504,7 +5504,7 @@ fail:
         return r;
 }
 
-static int unit_export_log_rate_limit_interval(Unit *u, const ExecContext *c) {
+static int unit_export_log_ratelimit_interval(Unit *u, const ExecContext *c) {
         _cleanup_free_ char *buf = NULL;
         const char *p;
         int r;
@@ -5512,26 +5512,26 @@ static int unit_export_log_rate_limit_interval(Unit *u, const ExecContext *c) {
         assert(u);
         assert(c);
 
-        if (u->exported_log_rate_limit_interval)
+        if (u->exported_log_ratelimit_interval)
                 return 0;
 
-        if (c->log_rate_limit_interval_usec == 0)
+        if (c->log_ratelimit_interval_usec == 0)
                 return 0;
 
         p = strjoina("/run/systemd/units/log-rate-limit-interval:", u->id);
 
-        if (asprintf(&buf, "%" PRIu64, c->log_rate_limit_interval_usec) < 0)
+        if (asprintf(&buf, "%" PRIu64, c->log_ratelimit_interval_usec) < 0)
                 return log_oom();
 
         r = symlink_atomic(buf, p);
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to create log rate limit interval symlink %s: %m", p);
 
-        u->exported_log_rate_limit_interval = true;
+        u->exported_log_ratelimit_interval = true;
         return 0;
 }
 
-static int unit_export_log_rate_limit_burst(Unit *u, const ExecContext *c) {
+static int unit_export_log_ratelimit_burst(Unit *u, const ExecContext *c) {
         _cleanup_free_ char *buf = NULL;
         const char *p;
         int r;
@@ -5539,22 +5539,22 @@ static int unit_export_log_rate_limit_burst(Unit *u, const ExecContext *c) {
         assert(u);
         assert(c);
 
-        if (u->exported_log_rate_limit_burst)
+        if (u->exported_log_ratelimit_burst)
                 return 0;
 
-        if (c->log_rate_limit_burst == 0)
+        if (c->log_ratelimit_burst == 0)
                 return 0;
 
         p = strjoina("/run/systemd/units/log-rate-limit-burst:", u->id);
 
-        if (asprintf(&buf, "%u", c->log_rate_limit_burst) < 0)
+        if (asprintf(&buf, "%u", c->log_ratelimit_burst) < 0)
                 return log_oom();
 
         r = symlink_atomic(buf, p);
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to create log rate limit burst symlink %s: %m", p);
 
-        u->exported_log_rate_limit_burst = true;
+        u->exported_log_ratelimit_burst = true;
         return 0;
 }
 
@@ -5591,8 +5591,8 @@ void unit_export_state_files(Unit *u) {
         if (c) {
                 (void) unit_export_log_level_max(u, c);
                 (void) unit_export_log_extra_fields(u, c);
-                (void) unit_export_log_rate_limit_interval(u, c);
-                (void) unit_export_log_rate_limit_burst(u, c);
+                (void) unit_export_log_ratelimit_interval(u, c);
+                (void) unit_export_log_ratelimit_burst(u, c);
         }
 }
 
@@ -5630,18 +5630,18 @@ void unit_unlink_state_files(Unit *u) {
                 u->exported_log_extra_fields = false;
         }
 
-        if (u->exported_log_rate_limit_interval) {
+        if (u->exported_log_ratelimit_interval) {
                 p = strjoina("/run/systemd/units/log-rate-limit-interval:", u->id);
                 (void) unlink(p);
 
-                u->exported_log_rate_limit_interval = false;
+                u->exported_log_ratelimit_interval = false;
         }
 
-        if (u->exported_log_rate_limit_burst) {
+        if (u->exported_log_ratelimit_burst) {
                 p = strjoina("/run/systemd/units/log-rate-limit-burst:", u->id);
                 (void) unlink(p);
 
-                u->exported_log_rate_limit_burst = false;
+                u->exported_log_ratelimit_burst = false;
         }
 }
 

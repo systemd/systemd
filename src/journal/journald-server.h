@@ -94,10 +94,10 @@ struct Server {
         char *buffer;
         size_t buffer_size;
 
-        JournalRateLimit *rate_limit;
+        JournalRateLimit *ratelimit;
         usec_t sync_interval_usec;
-        usec_t rate_limit_interval;
-        unsigned rate_limit_burst;
+        usec_t ratelimit_interval;
+        unsigned ratelimit_burst;
 
         JournalStorage runtime_storage;
         JournalStorage system_storage;

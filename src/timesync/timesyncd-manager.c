@@ -1094,7 +1094,7 @@ int manager_new(Manager **ret) {
 
         m->server_socket = m->clock_watch_fd = -1;
 
-        RATELIMIT_INIT(m->ratelimit, RATELIMIT_INTERVAL_USEC, RATELIMIT_BURST);
+        m->ratelimit = (RateLimit) { RATELIMIT_INTERVAL_USEC, RATELIMIT_BURST };
 
         r = sd_event_default(&m->event);
         if (r < 0)
