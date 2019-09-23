@@ -1561,7 +1561,8 @@
           <term><varname>SendRelease=</varname></term>
           <listitem>
             <para>When true, the DHCPv4 client sends a DHCP release packet when it stops.
-            Defaults to false.</para>
+            Defaults to false. Note that when <varname>KeepConfiguration=</varname> is set to
+            <literal>no</literal>, DHCPv4 client will not send release packet.</para>
           </listitem>
         </varlistentry>
 
