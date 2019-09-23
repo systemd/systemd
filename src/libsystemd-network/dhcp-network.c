@@ -146,7 +146,7 @@ int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
                                 bcast_addr, &eth_mac, arp_type, dhcp_hlen, port);
 }
 
-int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
+int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int ip_service_type) {
         union sockaddr_union src = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(port),
@@ -159,7 +159,11 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
         if (s < 0)
                 return -errno;
 
-        r = setsockopt_int(s, IPPROTO_IP, IP_TOS, IPTOS_CLASS_CS6);
+        if (ip_service_type >= 0)
+                r = setsockopt_int(s, IPPROTO_IP, IP_TOS, ip_service_type);
+        else
+                r = setsockopt_int(s, IPPROTO_IP, IP_TOS, IPTOS_CLASS_CS6);
+
         if (r < 0)
                 return r;
 

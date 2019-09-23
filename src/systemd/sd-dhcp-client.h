@@ -174,6 +174,9 @@ int sd_dhcp_client_set_user_class(
 int sd_dhcp_client_get_lease(
                 sd_dhcp_client *client,
                 sd_dhcp_lease **ret);
+int sd_dhcp_client_set_service_type(
+                sd_dhcp_client *client,
+                int type);
 
 int sd_dhcp_client_stop(sd_dhcp_client *client);
 int sd_dhcp_client_start(sd_dhcp_client *client);

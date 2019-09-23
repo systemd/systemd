@@ -98,6 +98,7 @@ struct sd_dhcp_client {
         void *userdata;
         sd_dhcp_lease *lease;
         usec_t start_delay;
+        int ip_service_type;
 };
 
 static const uint8_t default_req_opts[] = {
@@ -541,6 +542,14 @@ int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
         return 0;
 }
 
+int sd_dhcp_client_set_service_type(sd_dhcp_client *client, int type) {
+        assert_return(client, -EINVAL);
+
+        client->ip_service_type = type;
+
+        return 0;
+}
+
 static int client_notify(sd_dhcp_client *client, int event) {
         assert(client);
 
@@ -773,7 +782,7 @@ static int dhcp_client_send_raw(
                 size_t len) {
 
         dhcp_packet_append_ip_headers(packet, INADDR_ANY, client->port,
-                                      INADDR_BROADCAST, DHCP_PORT_SERVER, len);
+                                      INADDR_BROADCAST, DHCP_PORT_SERVER, len, client->ip_service_type);
 
         return dhcp_network_send_raw_socket(client->fd, &client->link,
                                             packet, len);
@@ -1661,7 +1670,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                                 goto error;
                         }
 
-                        r = dhcp_network_bind_udp_socket(client->ifindex, client->lease->address, client->port);
+                        r = dhcp_network_bind_udp_socket(client->ifindex, client->lease->address, client->port, client->ip_service_type);
                         if (r < 0) {
                                 log_dhcp_client(client, "could not bind UDP socket");
                                 goto error;
@@ -2013,6 +2022,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .port = DHCP_PORT_CLIENT,
                 .anonymize = !!anonymize,
                 .max_attempts = (uint64_t) -1,
+                .ip_service_type = -1,
         };
         /* NOTE: this could be moved to a function. */
         if (anonymize) {

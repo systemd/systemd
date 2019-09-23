@@ -1213,7 +1213,12 @@ int dhcp4_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set max attempts: %m");
         }
 
-        return dhcp4_set_client_identifier(link);
+        if (link->network->ip_service_type > 0) {
+                r = sd_dhcp_client_set_service_type(link->dhcp_client, link->network->ip_service_type);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set ip service type: %m");
+        }
+       return dhcp4_set_client_identifier(link);
 }
 
 int config_parse_dhcp_max_attempts(

@@ -93,6 +93,7 @@ BlackList=
 RequestOptions=
 SendRelease=
 MaxAttempts=
+IPServiceType=
 [DHCPv6]
 UseNTP=
 UseDNS=
