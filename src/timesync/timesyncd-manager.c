@@ -618,8 +618,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
                 server_address_pretty(m->current_server_address, &pretty);
                 /* "for the first time", as further successful syncs will not be logged. */
-                log_info("Synchronized to time server for the first time %s (%s).", strna(pretty), m->current_server_name->string);
-                sd_notifyf(false, "STATUS=Synchronized to time server for the first time %s (%s).", strna(pretty), m->current_server_name->string);
+                log_info("Initial sync to time server %s (%s).", strna(pretty), m->current_server_name->string);
+                sd_notifyf(false, "STATUS=Initial sync to time server %s (%s).", strna(pretty), m->current_server_name->string);
         }
 
         r = manager_arm_timer(m, m->poll_interval_usec);
