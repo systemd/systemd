@@ -365,6 +365,54 @@ int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
         return 0;
 }
 
+int ethtool_set_nic_buffer_size(int *fd, const char *ifname, netdev_ring_param *ring) {
+        struct ethtool_ringparam ecmd = {
+                .cmd = ETHTOOL_GRINGPARAM
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &ecmd
+        };
+        bool need_update = false;
+        int r;
+
+        if (*fd < 0) {
+                r = ethtool_connect_or_warn(fd, true);
+                if (r < 0)
+                        return r;
+        }
+
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        if (ring->rx_pending_set) {
+                if (ecmd.rx_pending != ring->rx_pending) {
+                        ecmd.rx_pending = ring->rx_pending;
+                        need_update = true;
+                }
+        }
+
+        if (ring->tx_pending_set) {
+                   if (ecmd.tx_pending != ring->rx_pending) {
+                           ecmd.tx_pending = ring->tx_pending;
+                           need_update = true;
+                }
+        }
+
+        if (need_update) {
+                ecmd.cmd = ETHTOOL_SRINGPARAM;
+
+                r = ioctl(*fd, SIOCETHTOOL, &ifr);
+                if (r < 0)
+                        return -errno;
+        }
+
+        return 0;
+}
+
+
 static int get_stringset(int fd, struct ifreq *ifr, int stringset_id, struct ethtool_gstrings **gstrings) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct {
@@ -854,6 +902,48 @@ int config_parse_advertise(const char *unit,
                 }
 
                 advertise[mode / 32] |= 1UL << (mode % 32);
+        }
+
+        return 0;
+}
+
+int config_parse_nic_buffer_size(const char *unit,
+                                 const char *filename,
+                                 unsigned line,
+                                 const char *section,
+                                 unsigned section_line,
+                                 const char *lvalue,
+                                 int ltype,
+                                 const char *rvalue,
+                                 void *data,
+                                 void *userdata) {
+        netdev_ring_param *ring = data;
+        uint32_t k;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = safe_atou32(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse interface buffer value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (k < 1) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid %s value, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (streq(lvalue, "RxBufferSize")) {
+                ring->rx_pending = k;
+                ring->rx_pending_set = true;
+        } else if (streq(lvalue, "TxBufferSize")) {
+                ring->tx_pending = k;
+                ring->tx_pending_set = true;
         }
 
         return 0;

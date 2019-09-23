@@ -58,6 +58,7 @@ struct link_config {
         NetDevPort port;
         int features[_NET_DEV_FEAT_MAX];
         netdev_channels channels;
+        netdev_ring_param ring;
 
         LIST_FIELDS(link_config, links);
 };

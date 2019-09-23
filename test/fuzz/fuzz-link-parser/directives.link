@@ -34,3 +34,5 @@ TxChannels=
 OtherChannels=
 CombinedChannels=
 Advertise=
+RxBufferSize=
+TxBufferSize=
