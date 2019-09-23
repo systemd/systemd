@@ -167,6 +167,7 @@ DHCPv4.IAID,                            config_parse_iaid,                      
 DHCPv4.ListenPort,                      config_parse_uint16,                             0,                             offsetof(Network, dhcp_client_port)
 DHCPv4.SendRelease,                     config_parse_bool,                               0,                             offsetof(Network, dhcp_send_release)
 DHCPv4.BlackList,                       config_parse_dhcp_black_listed_ip_address,       0,                             0
+DHCPv4.IPServiceType,                   config_parse_ip_service_type,                    0,                             offsetof(Network, ip_service_type)
 DHCPv6.UseDNS,                          config_parse_bool,                               0,                             offsetof(Network, dhcp6_use_dns)
 DHCPv6.UseNTP,                          config_parse_bool,                               0,                             offsetof(Network, dhcp6_use_ntp)
 DHCPv6.RapidCommit,                     config_parse_bool,                               0,                             offsetof(Network, rapid_commit)

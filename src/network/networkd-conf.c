@@ -4,6 +4,7 @@
  ***/
 
 #include <ctype.h>
+#include <netinet/ip.h>
 
 #include "conf-parser.h"
 #include "def.h"
@@ -14,6 +15,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-speed-meter.h"
+#include "networkd-dhcp4.h"
 #include "string-table.h"
 
 int manager_parse_config_file(Manager *m) {
@@ -178,5 +180,32 @@ int config_parse_duid_rawdata(
         assert_cc(sizeof(raw_data) == sizeof(ret->raw_data));
         memcpy(ret->raw_data, raw_data, count);
         ret->raw_data_len = count;
+        return 0;
+}
+
+int config_parse_ip_service_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (streq(rvalue, "CS4"))
+                *((int *)data) = IPTOS_CLASS_CS4;
+        else if (streq(rvalue, "CS6"))
+                *((int *)data) = IPTOS_CLASS_CS6;
+        else
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to parse IPServiceType type '%s', ignoring.", rvalue);
+
         return 0;
 }

@@ -104,6 +104,7 @@ struct Network {
         DHCPUseDomains dhcp_use_domains;
         Set *dhcp_black_listed_ip;
         Set *dhcp_request_options;
+        int ip_service_type;
 
         /* DHCPv6 Client support*/
         bool dhcp6_use_dns;

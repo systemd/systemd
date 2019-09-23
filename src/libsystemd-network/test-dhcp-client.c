@@ -269,7 +269,7 @@ int dhcp_network_bind_raw_socket(
         return test_fd[0];
 }
 
-int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
+int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int ip_service_type) {
         int fd;
 
         fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);

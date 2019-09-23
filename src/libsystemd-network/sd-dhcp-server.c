@@ -244,7 +244,7 @@ static int dhcp_server_send_unicast_raw(sd_dhcp_server *server,
 
         dhcp_packet_append_ip_headers(packet, server->address, DHCP_PORT_SERVER,
                                       packet->dhcp.yiaddr,
-                                      DHCP_PORT_CLIENT, len);
+                                      DHCP_PORT_CLIENT, len, -1);
 
         return dhcp_network_send_raw_socket(server->fd_raw, &link, packet, len);
 }
@@ -994,7 +994,7 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         }
         server->fd_raw = r;
 
-        r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER);
+        r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
         if (r < 0) {
                 sd_dhcp_server_stop(server);
                 return r;

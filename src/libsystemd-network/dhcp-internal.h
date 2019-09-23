@@ -19,7 +19,7 @@ int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
                                  uint32_t xid, const uint8_t *mac_addr,
                                  size_t mac_addr_len, uint16_t arp_type,
                                  uint16_t port);
-int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port);
+int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int ip_service_type);
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
                                  const void *packet, size_t len);
 int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port,
@@ -41,7 +41,7 @@ uint16_t dhcp_packet_checksum(uint8_t *buf, size_t len);
 
 void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
                                    uint16_t source, be32_t destination_addr,
-                                   uint16_t destination, uint16_t len);
+                                   uint16_t destination, uint16_t len, int ip_service_type);
 
 int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, uint16_t port);
 
