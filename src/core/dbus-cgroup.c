@@ -71,6 +71,27 @@ static int property_get_delegate_controllers(
         return property_get_cgroup_mask(bus, path, interface, property, reply, &c->delegate_controllers, error);
 }
 
+static int property_get_cpuset(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        CPUSet *cpus = userdata;
+        _cleanup_free_ uint8_t *array = NULL;
+        size_t allocated;
+
+        assert(bus);
+        assert(reply);
+        assert(cpus);
+
+        (void) cpu_set_to_dbus(cpus, &array, &allocated);
+        return sd_bus_message_append_array(reply, 'y', array, allocated);
+}
+
 static int property_get_io_device_weight(
                 sd_bus *bus,
                 const char *path,
@@ -332,6 +353,8 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("StartupCPUShares", "t", NULL, offsetof(CGroupContext, startup_cpu_shares), 0),
         SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_per_sec_usec), 0),
         SD_BUS_PROPERTY("CPUQuotaPeriodUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_period_usec), 0),
+        SD_BUS_PROPERTY("AllowedCPUs", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_cpus), 0),
+        SD_BUS_PROPERTY("AllowedMemoryNodes", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_mems), 0),
         SD_BUS_PROPERTY("IOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, io_accounting), 0),
         SD_BUS_PROPERTY("IOWeight", "t", NULL, offsetof(CGroupContext, io_weight), 0),
         SD_BUS_PROPERTY("StartupIOWeight", "t", NULL, offsetof(CGroupContext, startup_io_weight), 0),
@@ -852,6 +875,42 @@ int bus_cgroup_set_property(
                                                     "CPUQuotaPeriodSec=%s",
                                                     format_timespan(v, sizeof(v), c->cpu_quota_period_usec, 1));
                         }
+                }
+
+                return 1;
+
+        } else if (STR_IN_SET(name, "AllowedCPUs", "AllowedMemoryNodes")) {
+                const void *a;
+                size_t n;
+                _cleanup_(cpu_set_reset) CPUSet new_set = {};
+
+                r = sd_bus_message_read_array(message, 'y', &a, &n);
+                if (r < 0)
+                        return r;
+
+                r = cpu_set_from_dbus(a, n, &new_set);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *setstr = NULL;
+                        _cleanup_free_ char *data = NULL;
+                        CPUSet *set;
+
+                        setstr = cpu_set_to_range_string(&new_set);
+
+                        if (streq(name, "AllowedCPUs"))
+                                set = &c->cpuset_cpus;
+                        else
+                                set = &c->cpuset_mems;
+
+                        if (asprintf(&data, "%s=%s", name, setstr) < 0)
+                                return -ENOMEM;
+
+                        cpu_set_reset(set);
+                        cpu_set_add_all(set, &new_set);
+                        unit_invalidate_cgroup(u, CGROUP_MASK_CPUSET);
+                        unit_write_setting(u, flags, name, data);
                 }
 
                 return 1;
