@@ -1903,11 +1903,13 @@ static int install_error(
 
                 case -ELOOP:
                         r = sd_bus_error_setf(error, BUS_ERROR_UNIT_LINKED,
-                                              "Refusing to operate on linked unit file %s", changes[i].path);
+                                              "Refusing to operate on alias name or linked unit file: %s",
+                                              changes[i].path);
                         goto found;
 
                 case -ENOENT:
-                        r = sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit file %s does not exist.", changes[i].path);
+                        r = sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT,
+                                              "Unit file %s does not exist.", changes[i].path);
                         goto found;
 
                 default:
