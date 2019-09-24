@@ -81,10 +81,11 @@ static void test_mnt_id(void) {
                         continue;
                 }
 
-                log_debug("mnt ids of %s are %i, %i\n", p, mnt_id, mnt_id2);
-
-                if (mnt_id == mnt_id2)
+                if (mnt_id == mnt_id2) {
+                        log_debug("mnt ids of %s is %i\n", p, mnt_id);
                         continue;
+                } else
+                        log_debug("mnt ids of %s are %i, %i\n", p, mnt_id, mnt_id2);
 
                 /* The ids don't match? If so, then there are two mounts on the same path, let's check if
                  * that's really the case */
