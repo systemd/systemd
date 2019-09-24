@@ -44,7 +44,7 @@
 #DefaultRestartSec=100ms
 #DefaultStartLimitIntervalSec=10s
 #DefaultStartLimitBurst=5
-#DefaultEnvironment=
+#DefaultEnvironment="LD_LIBRARY_PATH=@OS_LIBDIR@"
 #DefaultCPUAccounting=no
 #DefaultIOAccounting=no
 #DefaultIPAccounting=no

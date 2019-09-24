@@ -342,3 +342,6 @@ option('fuzzbuzz-engine', type : 'string',
        description : 'the name of the FuzzBuzz fuzzing engine')
 option('fuzzbuzz-engine-dir', type : 'string',
        description : 'the directory where the FuzzBuzz fuzzing engine is')
+
+option('oslibdir', type : 'string', value : '/usr/lib64',
+       description : 'path to default OS lib directory')

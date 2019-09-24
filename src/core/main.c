@@ -2115,7 +2115,8 @@ static void reset_arguments(void) {
         arg_early_core_pattern = NULL;
         arg_watchdog_device = NULL;
 
-        arg_default_environment = strv_free(arg_default_environment);
+        strv_free(arg_default_environment);
+        arg_default_environment = strv_new("LD_LIBRARY_PATH=" OS_LIBDIR);
         rlimit_free_all(arg_default_rlimit);
 
         arg_capability_bounding_set = CAP_ALL;

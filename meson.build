@@ -111,6 +111,8 @@ if rootlibdir == ''
         rootlibdir = join_paths(rootprefixdir, libdir.split('/')[-1])
 endif
 
+oslibdir = get_option('oslibdir')
+
 # Dirs of external packages
 pkgconfigdatadir = get_option('pkgconfigdatadir') == '' ? join_paths(datadir, 'pkgconfig') : get_option('pkgconfigdatadir')
 pkgconfiglibdir = get_option('pkgconfiglibdir') == '' ? join_paths(libdir, 'pkgconfig') : get_option('pkgconfiglibdir')
@@ -245,6 +247,7 @@ conf.set_quoted('DOCUMENT_ROOT',                              join_paths(pkgdata
 conf.set10('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default)
 conf.set_quoted('MEMORY_ACCOUNTING_DEFAULT_YES_NO',           memory_accounting_default ? 'yes' : 'no')
 conf.set('STATUS_UNIT_FORMAT_DEFAULT',                        'STATUS_UNIT_FORMAT_' + status_unit_format_default.to_upper())
+conf.set_quoted('OS_LIBDIR',                                  oslibdir)
 
 substs.set('prefix',                                          prefixdir)
 substs.set('rootprefix',                                      rootprefixdir)
@@ -288,6 +291,7 @@ substs.set('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_
 substs.set('STATUS_UNIT_FORMAT_DEFAULT',                      status_unit_format_default)
 substs.set('HIGH_RLIMIT_NOFILE',                              conf.get('HIGH_RLIMIT_NOFILE'))
 substs.set('BUILD_ROOT',                                      meson.current_build_dir())
+substs.set('OS_LIBDIR',                                       oslibdir)
 
 #####################################################################
 
