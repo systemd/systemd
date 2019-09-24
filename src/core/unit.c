@@ -2788,7 +2788,7 @@ int unit_enqueue_rewatch_pids(Unit *u) {
 
                 r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_IDLE);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to adjust priority of event source for tidying watched PIDs: m");
+                        return log_error_errno(r, "Failed to adjust priority of event source for tidying watched PIDs: %m");
 
                 (void) sd_event_source_set_description(s, "tidy-watch-pids");
 
