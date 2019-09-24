@@ -247,6 +247,7 @@ int unit_file_build_name_map(
                         _cleanup_free_ char *_filename_free = NULL, *simplified = NULL;
                         const char *suffix, *dst = NULL;
                         bool valid_unit_name;
+                        struct stat sb;
 
                         valid_unit_name = unit_name_is_valid(de->d_name, UNIT_NAME_ANY);
 
@@ -279,7 +280,10 @@ int unit_file_build_name_map(
                         if (hashmap_contains(ids, de->d_name))
                                 continue;
 
-                        if (de->d_type == DT_LNK) {
+                        if (de->d_type == DT_LNK ||
+                            (de->d_type == DT_UNKNOWN &&
+                             lstat(filename, &sb) == 0 &&
+                             (sb.st_mode & S_IFMT) == S_IFLNK)) {
                                 /* We don't explicitly check for alias loops here. unit_ids_map_get() which
                                  * limits the number of hops should be used to access the map. */
 
