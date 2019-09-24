@@ -695,7 +695,7 @@
         server, under the same URL as the <filename>.tar</filename> file.
         With <option>--verify=checksum</option>, only the SHA256 checksum
         for the file is verified, based on the <filename>.sha256</filename>
-        suffixed file or the<filename>SHA256SUMS</filename> file.
+        suffixed file or the <filename>SHA256SUMS</filename> file.
         With <option>--verify=signature</option>, the sha checksum file is
         first verified with the inline signature in the
         <filename>.sha256</filename> file or the detached GPG signature file
