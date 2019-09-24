@@ -957,13 +957,13 @@ int udev_event_execute_rules(UdevEvent *event,
                         return r;
         }
 
-        r = udev_rules_apply_to_event(rules, event, timeout_usec, properties_list);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to apply udev rules: %m");
-
         r = rename_netif(event);
         if (r < 0)
                 return r;
+        
+        r = udev_rules_apply_to_event(rules, event, timeout_usec, properties_list);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to apply udev rules: %m");
 
         r = update_devnode(event);
         if (r < 0)
