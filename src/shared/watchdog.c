@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <syslog.h>
 #include <unistd.h>
 #include <linux/watchdog.h>
@@ -11,13 +13,83 @@
 #include "log.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "sd-id128.h"
 #include "watchdog.h"
+
+#define WATCHDOG_MSG_BUF_MAX 128
+
+enum wd_type {
+        WATCHDOG_TYPE_NULL,
+        WATCHDOG_TYPE_DEVICE,
+        WATCHDOG_TYPE_FIFO
+};
+
+static int update_timeout_device(void);
+static int update_timeout_fifo(void);
+static int update_timeout(void);
+static int open_watchdog_device(void);
+static int open_watchdog_fifo(void);
+static int open_watchdog(void);
+static int watchdog_ping_device(void);
+static int watchdog_ping_fifo(void);
+static void watchdog_close_device(bool disarm);
+static void watchdog_close_fifo(bool disarm);
+static int watchdog_set_message(char *buf, size_t bsz, const char *cmd, int val);
 
 static int watchdog_fd = -1;
 static char *watchdog_device = NULL;
+static enum wd_type watchdog_type = WATCHDOG_TYPE_NULL;
 static usec_t watchdog_timeout = USEC_INFINITY;
 
-static int update_timeout(void) {
+static enum wd_type get_watchdog_type(void) {
+        if (watchdog_type != WATCHDOG_TYPE_NULL) {
+                return watchdog_type;
+        } else {
+                struct stat wdf;
+
+                if (lstat(watchdog_device ? watchdog_device: "/dev/watchdog", &wdf) == -1) {
+                        log_warning_errno(errno, "Failed to stat watchdog file: %m");
+                } else {
+                        switch (wdf.st_mode & S_IFMT) {
+                        case S_IFCHR:  return WATCHDOG_TYPE_DEVICE;
+                        case S_IFIFO:  return WATCHDOG_TYPE_FIFO;
+                        default:       return WATCHDOG_TYPE_NULL;
+                        }
+                }
+        }
+
+        return WATCHDOG_TYPE_NULL;
+}
+
+static int watchdog_set_message(char *buf, size_t bsz, const char *cmd, int val) {
+        char mid[SD_ID128_STRING_MAX];
+        char hnm[HOST_NAME_MAX];
+        sd_id128_t sid;
+        int r;
+
+        assert(buf);
+        assert(cmd);
+
+        r = gethostname(hnm, sizeof(hnm));
+        if (r < 0)
+                return log_error_errno(r, "Failed to get host name: %m");
+
+        r = sd_id128_get_machine(&sid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get machine id: %m");
+
+        sd_id128_to_string(sid, mid);
+
+        r = snprintf(buf, bsz, "MACHINE=%s,HOSTNAME=%s,%s=%d;", mid, hnm, cmd, val);
+        if (r < 0 || r > (int)bsz) {
+                log_full(LOG_ERR, "Watchdog message buffer too small");
+                r = -1;
+        }
+
+        return (r >= 0) ? (0) : (-1);
+}
+
+static int update_timeout_device(void) {
         int r;
 
         if (watchdog_fd < 0)
@@ -62,7 +134,32 @@ static int update_timeout(void) {
         return 0;
 }
 
-static int open_watchdog(void) {
+static int update_timeout_fifo(void) {
+        if (watchdog_fd < 0)
+                return 0;
+
+        if (watchdog_timeout == USEC_INFINITY) {
+                return 0;
+        } else {
+                char msg[WATCHDOG_MSG_BUF_MAX];
+                unsigned int sz;
+                int r, sec;
+
+                sec = (int) ((watchdog_timeout + USEC_PER_SEC - 1) / USEC_PER_SEC);
+
+                r = watchdog_set_message(msg, sizeof(msg), "SET_TIMEOUT", sec);
+                if (r < 0)
+                        return r;
+
+                sz = write(watchdog_fd, msg, strlen(msg));
+                if (sz != strlen(msg))
+                        return log_error_errno(r, "Failed to write update timeout: %m");
+        }
+
+        return 0;
+}
+
+static int open_watchdog_device(void) {
         struct watchdog_info ident;
 
         if (watchdog_fd >= 0)
@@ -79,6 +176,146 @@ static int open_watchdog(void) {
                          ident.firmware_version);
 
         return update_timeout();
+}
+
+static int open_watchdog_fifo(void) {
+        if (watchdog_fd >= 0)
+                return 0;
+
+        watchdog_fd = open(watchdog_device ?: "/dev/watchdog",
+                           O_WRONLY|O_CLOEXEC|O_NONBLOCK);
+        if (watchdog_fd < 0)
+                return -errno;
+
+        return update_timeout();
+}
+
+static int watchdog_ping_device(void) {
+        int r;
+
+        if (watchdog_fd < 0) {
+                r = open_watchdog();
+                if (r < 0)
+                        return r;
+        }
+
+        r = ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0);
+        if (r < 0)
+                return log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
+
+        return 0;
+}
+
+static int watchdog_ping_fifo(void) {
+        char msg[WATCHDOG_MSG_BUF_MAX];
+        unsigned int sz;
+        int r;
+
+        if (watchdog_fd < 0) {
+                r = open_watchdog();
+                if (r < 0)
+                        return r;
+        }
+
+        r = watchdog_set_message(msg, sizeof(msg), "KEEPALIVE", 1);
+        if (r < 0)
+                return r;
+
+        sz = write(watchdog_fd, msg, strlen(msg));
+        if (sz != strlen(msg))
+                return log_error_errno(r, "Failed to ping watchdog: %m");
+
+        return 0;
+}
+
+
+static void watchdog_close_device(bool disarm) {
+        int r;
+
+        if (watchdog_fd < 0)
+                return;
+
+        if (disarm) {
+                int flags;
+
+                /* Explicitly disarm it */
+                flags = WDIOS_DISABLECARD;
+                r = ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags);
+                if (r < 0)
+                        log_warning_errno(errno, "Failed to disable hardware watchdog: %m");
+
+                /* To be sure, use magic close logic, too */
+                for (;;) {
+                        static const char v = 'V';
+
+                        if (write(watchdog_fd, &v, 1) > 0)
+                                break;
+
+                        if (errno != EINTR) {
+                                log_error_errno(errno, "Failed to disarm watchdog timer: %m");
+                                break;
+                        }
+                }
+        }
+
+        watchdog_fd = safe_close(watchdog_fd);
+}
+
+static void watchdog_close_fifo(bool disarm) {
+        if (watchdog_fd < 0)
+                return;
+
+        if (disarm) {
+                char msg[WATCHDOG_MSG_BUF_MAX];
+                unsigned int sz;
+                int r;
+
+                r = watchdog_set_message(msg, sizeof(msg), "DISARM", 1);
+
+                if (r < 0) {
+                        log_full(LOG_ERR, "Watchdog message buffer too small");
+                } else {
+                        sz = write(watchdog_fd, msg, strlen(msg));
+                        if (sz != strlen(msg))
+                                log_error_errno(r, "Failed to disarm watchdog timer: %m");
+                }
+        }
+
+        watchdog_fd = safe_close(watchdog_fd);
+}
+
+static int open_watchdog(void) {
+        int r = 0;
+
+        switch(get_watchdog_type()) {
+        case WATCHDOG_TYPE_DEVICE:
+                r = open_watchdog_device();
+                break;
+        case WATCHDOG_TYPE_FIFO:
+                r = open_watchdog_fifo();
+                break;
+        default:
+                break;
+        }
+
+        return r;
+}
+
+static int update_timeout(void) {
+        int r = 0;
+
+        switch(get_watchdog_type()) {
+        case WATCHDOG_TYPE_DEVICE:
+                r = update_timeout_device();
+                break;
+        case WATCHDOG_TYPE_FIFO:
+                r = update_timeout_fifo();
+                break;
+        default:
+                break;
+        }
+
+        return r;
 }
 
 int watchdog_set_device(char *path) {
@@ -115,49 +352,31 @@ int watchdog_set_timeout(usec_t *usec) {
 }
 
 int watchdog_ping(void) {
-        int r;
+        int r = 0;
 
-        if (watchdog_fd < 0) {
-                r = open_watchdog();
-                if (r < 0)
-                        return r;
+        switch(get_watchdog_type()) {
+        case WATCHDOG_TYPE_DEVICE:
+                r = watchdog_ping_device();
+                break;
+        case WATCHDOG_TYPE_FIFO:
+                r = watchdog_ping_fifo();
+                break;
+        default:
+                break;
         }
 
-        r = ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0);
-        if (r < 0)
-                return log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
-
-        return 0;
+        return r;
 }
 
 void watchdog_close(bool disarm) {
-        int r;
-
-        if (watchdog_fd < 0)
-                return;
-
-        if (disarm) {
-                int flags;
-
-                /* Explicitly disarm it */
-                flags = WDIOS_DISABLECARD;
-                r = ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags);
-                if (r < 0)
-                        log_warning_errno(errno, "Failed to disable hardware watchdog: %m");
-
-                /* To be sure, use magic close logic, too */
-                for (;;) {
-                        static const char v = 'V';
-
-                        if (write(watchdog_fd, &v, 1) > 0)
-                                break;
-
-                        if (errno != EINTR) {
-                                log_error_errno(errno, "Failed to disarm watchdog timer: %m");
-                                break;
-                        }
-                }
+        switch(get_watchdog_type()) {
+        case WATCHDOG_TYPE_DEVICE:
+                watchdog_close_device(disarm);
+                break;
+        case WATCHDOG_TYPE_FIFO:
+                watchdog_close_fifo(disarm);
+                break;
+        default:
+                break;
         }
-
-        watchdog_fd = safe_close(watchdog_fd);
 }
