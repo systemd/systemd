@@ -36,6 +36,8 @@ apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
 apt-get install -y eatmydata
 apt-get purge --auto-remove -y unattended-upgrades
+systemctl unmask systemd-networkd
+systemctl enable systemd-networkd
 EOF
     sudo lxc-stop -n $CONTAINER
 }
