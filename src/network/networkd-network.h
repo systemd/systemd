@@ -109,6 +109,8 @@ struct Network {
         /* DHCPv6 Client support*/
         bool dhcp6_use_dns;
         bool dhcp6_use_ntp;
+        uint8_t dhcp6_pd_length;
+        struct in6_addr dhcp6_pd_address;
 
         /* DHCP Server Support */
         bool dhcp_server;

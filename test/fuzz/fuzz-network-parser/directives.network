@@ -99,6 +99,7 @@ UseNTP=
 UseDNS=
 RapidCommit=
 ForceDHCPv6PDOtherInformation=
+PrefixDelegationHint=
 [Route]
 Destination=
 Protocol=

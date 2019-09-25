@@ -168,9 +168,10 @@ int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
         return r;
 }
 
-int dhcp6_option_append_pd(uint8_t *buf, size_t len, const DHCP6IA *pd) {
+int dhcp6_option_append_pd(uint8_t *buf, size_t len, const DHCP6IA *pd, DHCP6Address *hint_pd_prefix) {
         DHCP6Option *option = (DHCP6Option *)buf;
         size_t i = sizeof(*option) + sizeof(pd->ia_pd);
+        DHCP6PDPrefixOption *prefix_opt;
         DHCP6Address *prefix;
 
         assert_return(buf, -EINVAL);
@@ -183,10 +184,7 @@ int dhcp6_option_append_pd(uint8_t *buf, size_t len, const DHCP6IA *pd) {
         option->code = htobe16(SD_DHCP6_OPTION_IA_PD);
 
         memcpy(&option->data, &pd->ia_pd, sizeof(pd->ia_pd));
-
         LIST_FOREACH(addresses, prefix, pd->addresses) {
-                DHCP6PDPrefixOption *prefix_opt;
-
                 if (len < i + sizeof(*prefix_opt))
                         return -ENOBUFS;
 
@@ -194,9 +192,19 @@ int dhcp6_option_append_pd(uint8_t *buf, size_t len, const DHCP6IA *pd) {
                 prefix_opt->option.code = htobe16(SD_DHCP6_OPTION_IA_PD_PREFIX);
                 prefix_opt->option.len = htobe16(sizeof(prefix_opt->iapdprefix));
 
-                memcpy(&prefix_opt->iapdprefix, &prefix->iapdprefix,
-                       sizeof(struct iapdprefix));
+                memcpy(&prefix_opt->iapdprefix, &prefix->iapdprefix, sizeof(struct iapdprefix));
+                i += sizeof(*prefix_opt);
+        }
 
+        if (hint_pd_prefix && hint_pd_prefix->iapdprefix.prefixlen > 0) {
+                if (len < i + sizeof(*prefix_opt))
+                        return -ENOBUFS;
+
+                prefix_opt = (DHCP6PDPrefixOption *)&buf[i];
+                prefix_opt->option.code = htobe16(SD_DHCP6_OPTION_IA_PD_PREFIX);
+                prefix_opt->option.len = htobe16(sizeof(prefix_opt->iapdprefix));
+
+                memcpy(&prefix_opt->iapdprefix, &hint_pd_prefix->iapdprefix, sizeof(struct iapdprefix));
                 i += sizeof(*prefix_opt);
         }
 

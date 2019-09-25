@@ -686,6 +686,12 @@ int dhcp6_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set prefix delegation: %m");
         }
 
+        if (link->network->dhcp6_pd_length > 0) {
+                r = sd_dhcp6_client_set_prefix_delegation_hint(client, link->network->dhcp6_pd_length, &link->network->dhcp6_pd_address);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set prefix hint: %m");
+        }
+
         link->dhcp6_client = TAKE_PTR(client);
 
         return 0;

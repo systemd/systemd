@@ -34,3 +34,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_sip);
 CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
 CONFIG_PARSER_PROTOTYPE(config_parse_section_route_table);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_hint);
