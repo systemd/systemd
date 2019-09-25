@@ -856,8 +856,6 @@ static void link_enter_configured(Link *link) {
         if (link->state != LINK_STATE_CONFIGURING)
                 return;
 
-        log_link_info(link, "Configured");
-
         link_set_state(link, LINK_STATE_CONFIGURED);
 
         (void) link_join_netdevs_after_configured(link);
