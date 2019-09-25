@@ -3,5 +3,3 @@
 
 const char *arphrd_to_name(int id);
 int arphrd_from_name(const char *name);
-
-int arphrd_max(void);
