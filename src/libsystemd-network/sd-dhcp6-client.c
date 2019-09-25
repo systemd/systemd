@@ -46,6 +46,7 @@ struct sd_dhcp6_client {
         sd_event *event;
         int event_priority;
         int ifindex;
+        DHCP6Address hint_pd_prefix;
         struct in6_addr local_address;
         uint8_t mac_addr[MAX_MAC_ADDR_LEN];
         size_t mac_addr_len;
@@ -183,6 +184,22 @@ int sd_dhcp6_client_set_mac(
         memcpy(&client->mac_addr, addr, addr_len);
         client->mac_addr_len = addr_len;
         client->arp_type = arp_type;
+
+        return 0;
+}
+
+int sd_dhcp6_client_set_prefix_delegation_hint(
+                sd_dhcp6_client *client,
+                uint8_t prefixlen,
+                const struct in6_addr *pd_address) {
+
+        assert_return(client, -EINVAL);
+        assert_return(pd_address, -EINVAL);
+
+        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
+
+        client->hint_pd_prefix.iapdprefix.address = *pd_address;
+        client->hint_pd_prefix.iapdprefix.prefixlen = prefixlen;
 
         return 0;
 }
@@ -492,7 +509,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 }
 
                 if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD)) {
-                        r = dhcp6_option_append_pd(opt, optlen, &client->ia_pd);
+                        r = dhcp6_option_append_pd(opt, optlen, &client->ia_pd, &client->hint_pd_prefix);
                         if (r < 0)
                                 return r;
 
@@ -530,7 +547,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 }
 
                 if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD)) {
-                        r = dhcp6_option_append_pd(opt, optlen, &client->lease->pd);
+                        r = dhcp6_option_append_pd(opt, optlen, &client->lease->pd, NULL);
                         if (r < 0)
                                 return r;
 
@@ -556,7 +573,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 }
 
                 if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD)) {
-                        r = dhcp6_option_append_pd(opt, optlen, &client->lease->pd);
+                        r = dhcp6_option_append_pd(opt, optlen, &client->lease->pd, NULL);
                         if (r < 0)
                                 return r;
 
@@ -1537,6 +1554,8 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .request = DHCP6_REQUEST_IA_NA,
                 .fd = -1,
                 .req_opts_len = ELEMENTSOF(default_req_opts),
+                .hint_pd_prefix.iapdprefix.lifetime_preferred = (be32_t) -1,
+                .hint_pd_prefix.iapdprefix.lifetime_valid = (be32_t) -1,
                 .req_opts = TAKE_PTR(req_opts),
         };
 

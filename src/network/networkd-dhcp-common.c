@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include "in-addr-util.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-network.h"
 #include "parse-util.h"
@@ -223,6 +224,41 @@ int config_parse_iaid(const char *unit,
 
         network->iaid = iaid;
         network->iaid_set = true;
+
+        return 0;
+}
+
+int config_parse_dhcp6_pd_hint(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = in_addr_prefix_from_string(rvalue, AF_INET6, (union in_addr_union *) &network->dhcp6_pd_address, &network->dhcp6_pd_length);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse PrefixDelegationHint=%s, ignoring assignment", rvalue);
+                return 0;
+        }
+
+        if (network->dhcp6_pd_length < 1 || network->dhcp6_pd_length > 128) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid prefix length='%d', ignoring assignment", network->dhcp6_pd_length);
+                network->dhcp6_pd_length = 0;
+                return 0;
+        }
 
         return 0;
 }

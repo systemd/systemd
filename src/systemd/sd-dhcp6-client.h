@@ -120,6 +120,10 @@ int sd_dhcp6_client_get_information_request(
 int sd_dhcp6_client_set_request_option(
                 sd_dhcp6_client *client,
                 uint16_t option);
+int sd_dhcp6_client_set_prefix_delegation_hint(
+                sd_dhcp6_client *client,
+                uint8_t prefixlen,
+                const struct in6_addr *pd_address);
 int sd_dhcp6_client_get_prefix_delegation(sd_dhcp6_client *client,
                                           int *delegation);
 int sd_dhcp6_client_set_prefix_delegation(sd_dhcp6_client *client,
