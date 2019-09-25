@@ -22,7 +22,6 @@ int main(int argc, const char *argv[]) {
         }
 
         assert_se(arphrd_to_name(ARPHRD_VOID + 1) == NULL);
-        assert_se(arphrd_to_name(0) == NULL);
         assert_se(arphrd_from_name("huddlduddl") == -EINVAL);
         assert_se(arphrd_from_name("") == -EINVAL);
 
