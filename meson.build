@@ -960,20 +960,14 @@ conf.set10('HAVE_MICROHTTPD', have)
 want_libcryptsetup = get_option('libcryptsetup')
 if want_libcryptsetup != 'false' and not skip_deps
         libcryptsetup = dependency('libcryptsetup',
-                                   version : '>= 1.6.0',
+                                   version : '>= 2.0.1',
                                    required : want_libcryptsetup == 'true')
         have = libcryptsetup.found()
-        have_sector = cc.has_member(
-                    'struct crypt_params_plain',
-                    'sector_size',
-                    prefix : '#include <libcryptsetup.h>')
 else
         have = false
-        have_sector = false
         libcryptsetup = []
 endif
 conf.set10('HAVE_LIBCRYPTSETUP', have)
-conf.set10('HAVE_LIBCRYPTSETUP_SECTOR_SIZE', have_sector)
 
 want_libcurl = get_option('libcurl')
 if want_libcurl != 'false' and not skip_deps

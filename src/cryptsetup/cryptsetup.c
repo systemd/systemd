@@ -35,9 +35,7 @@
 static const char *arg_type = NULL; /* ANY_LUKS, CRYPT_LUKS1, CRYPT_LUKS2, CRYPT_TCRYPT or CRYPT_PLAIN */
 static char *arg_cipher = NULL;
 static unsigned arg_key_size = 0;
-#if HAVE_LIBCRYPTSETUP_SECTOR_SIZE
 static unsigned arg_sector_size = CRYPT_SECTOR_SIZE;
-#endif
 static int arg_key_slot = CRYPT_ANY_SLOT;
 static unsigned arg_keyfile_size = 0;
 static uint64_t arg_keyfile_offset = 0;
@@ -51,9 +49,7 @@ static bool arg_same_cpu_crypt = false;
 static bool arg_submit_from_crypt_cpus = false;
 static bool arg_tcrypt_hidden = false;
 static bool arg_tcrypt_system = false;
-#ifdef CRYPT_TCRYPT_VERA_MODES
 static bool arg_tcrypt_veracrypt = false;
-#endif
 static char **arg_tcrypt_keyfiles = NULL;
 static uint64_t arg_offset = 0;
 static uint64_t arg_skip = 0;
@@ -109,7 +105,6 @@ static int parse_one_option(const char *option) {
 
         } else if ((val = startswith(option, "sector-size="))) {
 
-#if HAVE_LIBCRYPTSETUP_SECTOR_SIZE
                 r = safe_atou(val, &arg_sector_size);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
@@ -125,10 +120,6 @@ static int parse_one_option(const char *option) {
                         log_error("sector-size= is outside of %u and %u, ignoring.", CRYPT_SECTOR_SIZE, CRYPT_MAX_SECTOR_SIZE);
                         return 0;
                 }
-#else
-                log_error("sector-size= is not supported, compiled with old libcryptsetup.");
-                return 0;
-#endif
 
         } else if ((val = startswith(option, "key-slot="))) {
 
@@ -157,21 +148,12 @@ static int parse_one_option(const char *option) {
                 }
 
         } else if ((val = startswith(option, "keyfile-offset="))) {
-                uint64_t off;
 
-                r = safe_atou64(val, &off);
+                r = safe_atou64(val, &arg_keyfile_offset);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
-
-                if ((size_t) off != off) {
-                        /* https://gitlab.com/cryptsetup/cryptsetup/issues/359 */
-                        log_error("keyfile-offset= value would truncated to %zu, ignoring.", (size_t) off);
-                        return 0;
-                }
-
-                arg_keyfile_offset = off;
 
         } else if ((val = startswith(option, "hash="))) {
                 r = free_and_strdup(&arg_hash, val);
@@ -222,13 +204,8 @@ static int parse_one_option(const char *option) {
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_system = true;
         } else if (streq(option, "tcrypt-veracrypt")) {
-#ifdef CRYPT_TCRYPT_VERA_MODES
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_veracrypt = true;
-#else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This version of cryptsetup does not support tcrypt-veracrypt; refusing.");
-#endif
         } else if (STR_IN_SET(option, "plain", "swap", "tmp"))
                 arg_type = CRYPT_PLAIN;
         else if ((val = startswith(option, "timeout="))) {
@@ -453,10 +430,8 @@ static int attach_tcrypt(
         if (arg_tcrypt_system)
                 params.flags |= CRYPT_TCRYPT_SYSTEM_HEADER;
 
-#ifdef CRYPT_TCRYPT_VERA_MODES
         if (arg_tcrypt_veracrypt)
                 params.flags |= CRYPT_TCRYPT_VERA_MODES;
-#endif
 
         if (key_file) {
                 r = read_one_line_file(key_file, &passphrase);
@@ -503,9 +478,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                 struct crypt_params_plain params = {
                         .offset = arg_offset,
                         .skip = arg_skip,
-#if HAVE_LIBCRYPTSETUP_SECTOR_SIZE
                         .sector_size = arg_sector_size,
-#endif
                 };
                 const char *cipher, *cipher_mode;
                 _cleanup_free_ char *truncated_cipher = NULL;
@@ -554,7 +527,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                  crypt_get_device_name(cd));
 
         if (key_file) {
-                r = crypt_activate_by_keyfile_offset(cd, name, arg_key_slot, key_file, arg_keyfile_size, arg_keyfile_offset, flags);
+                r = crypt_activate_by_keyfile_device_offset(cd, name, arg_key_slot, key_file, arg_keyfile_size, arg_keyfile_offset, flags);
                 if (r == -EPERM) {
                         log_error_errno(r, "Failed to activate with key file '%s'. (Key data incorrect?)", key_file);
                         return -EAGAIN; /* Log actual error, but return EAGAIN */
@@ -723,7 +696,7 @@ static int run(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set LUKS data device %s: %m", argv[3]);
                         }
-#ifdef CRYPT_ANY_TOKEN
+
                         /* Tokens are available in LUKS2 only, but it is ok to call (and fail) with LUKS1. */
                         if (!key_file) {
                                 r = crypt_activate_by_token(cd, argv[2], CRYPT_ANY_TOKEN, NULL, flags);
@@ -734,7 +707,6 @@ static int run(int argc, char *argv[]) {
 
                                 log_debug_errno(r, "Token activation unsuccessful for device %s: %m", crypt_get_device_name(cd));
                         }
-#endif
                 }
 
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
