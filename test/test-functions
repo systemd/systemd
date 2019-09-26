@@ -17,6 +17,17 @@ UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
 EFI_MOUNT="$(bootctl -x 2>/dev/null || echo /boot)"
 QEMU_MEM="${QEMU_MEM:-512M}"
 
+# Decide if we can (and want to) run QEMU with KVM acceleration.
+# Check if nested KVM is explicitly enabled (TEST_NESTED_KVM). If not,
+# check if it's not explicitly disabled (TEST_NO_KVM) and we're not already
+# running under KVM. If these conditions are met, enable KVM (and possibly
+# nested KVM), otherwise disable it.
+if [[ -n "$TEST_NESTED_KVM" || ( -z "$TEST_NO_KVM" && $(systemd-detect-virt -v) != kvm ) ]]; then
+    QEMU_KVM=yes
+else
+    QEMU_KVM=no
+fi
+
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     echo "WARNING! Cannot determine rootlibdir from pkg-config, assuming /usr/lib/systemd" >&2
     ROOTLIBDIR=/usr/lib/systemd
@@ -86,9 +97,7 @@ fi
 
 function find_qemu_bin() {
     # SUSE and Red Hat call the binary qemu-kvm. Debian and Gentoo call it kvm.
-    # Either way, only use this version if we aren't running in KVM, because
-    # nested KVM is flaky still.
-    if [[ $(systemd-detect-virt -v) != kvm && -z $TEST_NO_KVM ]] ; then
+    if [[ $QEMU_KVM == "yes" ]]; then
         [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a kvm qemu-kvm 2>/dev/null | grep '^/' -m1)
     fi
 
@@ -220,8 +229,8 @@ $QEMU_OPTIONS \
         QEMU_OPTIONS="$QEMU_OPTIONS -initrd $INITRD"
     fi
 
-    # Let's use KVM if it is available, but let's avoid using nested KVM as that is still flaky
-    if [[ -c /dev/kvm && $(systemd-detect-virt -v) != kvm && -z $TEST_NO_KVM ]] ; then
+    # Let's use KVM if possible
+    if [[ -c /dev/kvm && $QEMU_KVM == "yes" ]]; then
         QEMU_OPTIONS="$QEMU_OPTIONS -machine accel=kvm -enable-kvm -cpu host"
     fi
 
