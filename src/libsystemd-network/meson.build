@@ -3,6 +3,7 @@
 sources = files('''
         sd-dhcp-client.c
         sd-dhcp-server.c
+        dhcp-client-internal.h
         dhcp-network.c
         dhcp-option.c
         dhcp-packet.c

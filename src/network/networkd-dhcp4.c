@@ -5,6 +5,8 @@
 #include <linux/if_arp.h>
 
 #include "alloc-util.h"
+#include "dhcp-client-internal.h"
+#include "hexdecoct.h"
 #include "hostname-util.h"
 #include "parse-util.h"
 #include "network-internal.h"
@@ -1186,6 +1188,7 @@ int dhcp4_set_client_identifier(Link *link) {
 }
 
 int dhcp4_configure(Link *link) {
+        sd_dhcp_option *send_option;
         void *request_options;
         Iterator i;
         int r;
@@ -1290,6 +1293,12 @@ int dhcp4_configure(Link *link) {
 
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for '%u': %m", option);
+        }
+
+        ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_send_options, i) {
+                r = sd_dhcp_client_set_dhcp_option(link->dhcp_client, send_option);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set send option: %m");
         }
 
         r = dhcp4_set_hostname(link);
@@ -1554,6 +1563,90 @@ int config_parse_dhcp_request_options(
                                    "Failed to store DHCP request option '%s', ignoring assignment: %m", n);
         }
 
+        return 0;
+}
+
+int config_parse_dhcp_send_options(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt = NULL, *old = NULL;
+        _cleanup_free_ char *word = NULL;
+        _cleanup_free_ void *q = NULL;
+        Network *network = data;
+        const char *p;
+        uint8_t u;
+        size_t sz;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                network->dhcp_send_options = ordered_hashmap_free(network->dhcp_send_options);
+                return 0;
+        }
+
+        p = rvalue;
+        r = extract_first_word(&p, &word, ":", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Invalid DHCP send option, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        r = safe_atou8(word, &u);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Invalid DHCP send option, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+        if (u < 1 || u >= 255) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Invalid DHCP send option, valid range is 1-254, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        r = unbase64mem(p, (size_t) -1, &q, &sz);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to decode base64 data, ignoring assignment: %s", p);
+                return 0;
+        }
+
+        r = sd_dhcp_option_new(u, q, sz, &opt);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to store DHCP send option '%s', ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        r = ordered_hashmap_ensure_allocated(&network->dhcp_send_options, &dhcp_option_hash_ops);
+        if (r < 0)
+                return log_oom();
+
+        /* Overwrite existing option */
+        old = ordered_hashmap_remove(network->dhcp_send_options, UINT_TO_PTR(u));
+        r = ordered_hashmap_put(network->dhcp_send_options, UINT_TO_PTR(u), opt);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to store DHCP send option '%s'", rvalue);
+                return 0;
+        }
+
+        TAKE_PTR(opt);
         return 0;
 }
 
