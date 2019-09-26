@@ -36,6 +36,7 @@
 #include "dbus.h"
 #include "def.h"
 #include "efi-random.h"
+#include "dt-random.h"
 #include "emergency-action.h"
 #include "env-util.h"
 #include "exit-status.h"
@@ -2517,7 +2518,8 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                /* The efivarfs is now mounted, let's read the random seed off it */
+                /* The sysfs and efivarfs are now mounted, let's try reading random seeds off them */
+                (void) dt_take_random_seed();
                 (void) efi_take_random_seed();
         }
 

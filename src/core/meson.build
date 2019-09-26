@@ -122,6 +122,8 @@ libcore_sources = '''
         timer.h
         transaction.c
         transaction.h
+        dt-random.c
+        dt-random.h
         unit-printf.c
         unit-printf.h
         unit.c
