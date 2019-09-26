@@ -395,7 +395,7 @@ int ethtool_set_nic_buffer_size(int *fd, const char *ifname, netdev_ring_param *
         }
 
         if (ring->tx_pending_set) {
-                   if (ecmd.tx_pending != ring->rx_pending) {
+                   if (ecmd.tx_pending != ring->tx_pending) {
                            ecmd.tx_pending = ring->tx_pending;
                            need_update = true;
                 }
