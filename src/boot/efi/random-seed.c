@@ -220,7 +220,7 @@ static VOID validate_sha256(void) {
                 }
         }
 
-        Print(L"SHA256 validated\n");
+        /* Print(L"SHA256 validated\n"); */
 #endif
 }
 
