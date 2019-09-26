@@ -54,6 +54,11 @@ TEST_NO_KVM=1
     Disable QEMU KVM autodetection (may be necessary when you're trying to run the
     *vanilla* QEMU and have both qemu and qemu-kvm installed)
 
+TEST_NESTED_KVM=1
+    Allow tests to run with nested KVM. By default, the testsuite disables
+    nested KVM if the host machine already runs under KVM. Setting this
+    variable disables such checks
+
 QEMU_MEM=512M
     Configure amount of memory for QEMU VMs (defaults to 512M)
 
