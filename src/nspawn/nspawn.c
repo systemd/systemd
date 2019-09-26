@@ -3565,22 +3565,31 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
 static int setup_uid_map(pid_t pid) {
         static const char line_fmt[] = UID_FMT " " UID_FMT " " UID_FMT "\n";
         char uid_map[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(uid_t) + 1], lines[(DECIMAL_STR_MAX(uid_t)*3+3) * (1 + arg_n_uid_map) + 1];
-        size_t i, offset;
+        size_t i, pos, size = ELEMENTSOF(lines);
         int r;
 
         assert(pid > 1);
 
         xsprintf(uid_map, "/proc/" PID_FMT "/uid_map", pid);
 
-        offset = snprintf(lines, ELEMENTSOF(lines), line_fmt, 0, arg_uid_shift, arg_uid_range);
-        if (offset >= ELEMENTSOF(lines))
+        r = snprintf(lines, size,
+                     line_fmt, 0, arg_uid_shift, arg_uid_range);
+        assert(r >= 0);
+        if ((size_t)r >= size)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to prepare UID map");
+
+        pos = r;
 
         for (i = 0; i < arg_n_uid_map; i++) {
                 UidMap *map = &arg_uid_map[i];
-                offset += snprintf(lines + offset, ELEMENTSOF(lines) - offset, line_fmt, map->ns, map->host, map->range);
-                if (offset >= ELEMENTSOF(lines))
+
+                r = snprintf(lines + pos, size - pos,
+                             line_fmt, map->ns, map->host, map->range);
+                assert(r >= 0);
+                if ((size_t)r >= size - pos)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to prepare UID map");
+
+                pos += r;
         }
 
         r = write_string_file(uid_map, lines, WRITE_STRING_FILE_DISABLE_BUFFER);
