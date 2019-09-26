@@ -279,6 +279,18 @@ else
     # Maks must be ignored
     grep -E "set_mempolicy\((MPOL_LOCAL|0x4 [^,]*), NULL" $straceLog
 
+    echo "Unit file CPUAffinity=NUMA support"
+    writeTestUnitNUMAPolicy "bind" "0"
+    echo "CPUAffinity=numa" >> $testUnitNUMAConf
+    systemctl daemon-reload
+    systemctl start $testUnit
+    systemctlCheckNUMAProperties $testUnit "bind" "0"
+    pid=$(systemctl show --value -p MainPID $testUnit)
+    cpulist=$(cat /sys/devices/system/node/node0/cpulist)
+    affinity_systemd=$(systemctl show --value -p CPUAffinity $testUnit)
+    [ $cpulist = $affinity_systemd ]
+    pid1StopUnit $testUnit
+
     echo "systemd-run NUMAPolicy support"
     runUnit='numa-systemd-run-test.service'
 
@@ -309,6 +321,12 @@ else
     systemd-run -p NUMAPolicy=local -p NUMAMask=0 --unit $runUnit sleep 1000
     systemctlCheckNUMAProperties $runUnit "local" ""
     pid1StopUnit $runUnit
+
+    systemd-run -p NUMAPolicy=local -p NUMAMask=0 -p CPUAffinity=numa --unit $runUnit sleep 1000
+    systemctlCheckNUMAProperties $runUnit "local" ""
+    systemctl cat $runUnit | grep -q 'CPUAffinity=numa'
+    pid1StopUnit $runUnit
+
 fi
 
 # Cleanup

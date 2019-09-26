@@ -1327,6 +1327,7 @@ int config_parse_exec_cpu_affinity(const char *unit,
                                    void *data,
                                    void *userdata) {
 
+        int r;
         ExecContext *c = data;
 
         assert(filename);
@@ -1334,7 +1335,18 @@ int config_parse_exec_cpu_affinity(const char *unit,
         assert(rvalue);
         assert(data);
 
-        return parse_cpu_set_extend(rvalue, &c->cpu_set, true, unit, filename, line, lvalue);
+        if (streq(rvalue, "numa")) {
+                c->derive_cpu_affinity_from_numa_mask = true;
+                cpu_set_reset(&c->cpu_set);
+
+                return 0;
+        }
+
+        r = parse_cpu_set_extend(rvalue, &c->cpu_set, true, unit, filename, line, lvalue);
+        if (r >= 0)
+                c->derive_cpu_affinity_from_numa_mask = false;
+
+        return r;
 }
 
 int config_parse_capability_set(

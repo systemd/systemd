@@ -21,6 +21,7 @@
 #include "missing_fs.h"
 #include "mountpoint-util.h"
 #include "nsflags.h"
+#include "numa-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
@@ -28,6 +29,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "sort-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
@@ -1099,6 +1101,21 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 _cleanup_(cpu_set_reset) CPUSet cpuset = {};
                 _cleanup_free_ uint8_t *array = NULL;
                 size_t allocated;
+                char p[DECIMAL_STR_MAX(unsigned long) + 1] = {};
+
+                if (eq && streq(eq, "numa")) {
+                        long nr_cpus;
+
+                        nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
+                        if (nr_cpus < 0)
+                                return log_error_errno(errno, "Failed to get number of CPUs: %m");
+
+                        assert(nr_cpus > 0);
+
+                        xsprintf(p, "%ld", nr_cpus);
+
+                        eq = p;
+                }
 
                 r = parse_cpu_set(eq, &cpuset);
                 if (r < 0)

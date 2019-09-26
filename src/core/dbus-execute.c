@@ -220,7 +220,19 @@ static int property_get_cpu_affinity(
         assert(reply);
         assert(c);
 
-        (void) cpu_set_to_dbus(&c->cpu_set, &array, &allocated);
+        if (!c->derive_cpu_affinity_from_numa_mask)
+                (void) cpu_set_to_dbus(&c->cpu_set, &array, &allocated);
+        else {
+                int r;
+                _cleanup_(cpu_set_reset) CPUSet s = {};
+
+                r = numa_to_cpu_set(&c->numa_policy, &s);
+                if (r < 0)
+                        return r;
+
+                (void) cpu_set_to_dbus(&s, &array, &allocated);
+        }
+
         return sd_bus_message_append_array(reply, 'y', array, allocated);
 }
 
@@ -1718,20 +1730,31 @@ int bus_exec_context_set_transient_property(
                                 cpu_set_reset(affinity ? &c->cpu_set : &c->numa_policy.nodes);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
-                                _cleanup_free_ char *str = NULL;
+                                long nr_cpus;
 
-                                str = cpu_set_to_string(&set);
-                                if (!str)
-                                        return -ENOMEM;
+                                nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
+                                if (nr_cpus < 0)
+                                        return -errno;
 
-                                /* We forego any optimizations here, and always create the structure using
-                                 * cpu_set_add_all(), because we don't want to care if the existing size we
-                                 * got over dbus is appropriate. */
-                                r = cpu_set_add_all(affinity ? &c->cpu_set : &c->numa_policy.nodes, &set);
-                                if (r < 0)
-                                        return r;
+                                if (affinity && CPU_ISSET_S(nr_cpus, set.allocated, set.set)) {
+                                        c->derive_cpu_affinity_from_numa_mask = true;
+                                        unit_write_settingf(u, flags, name, "%s=%s", name, "numa");
+                                } else {
+                                        _cleanup_free_ char *str = NULL;
 
-                                unit_write_settingf(u, flags, name, "%s=%s", name, str);
+                                        str = cpu_set_to_string(&set);
+                                        if (!str)
+                                                return -ENOMEM;
+
+                                        /* We forego any optimizations here, and always create the structure using
+                                         * cpu_set_add_all(), because we don't want to care if the existing size we
+                                         * got over dbus is appropriate. */
+                                        r = cpu_set_add_all(affinity ? &c->cpu_set : &c->numa_policy.nodes, &set);
+                                        if (r < 0)
+                                                return r;
+
+                                        unit_write_settingf(u, flags, name, "%s=%s", name, str);
+                                }
                         }
                 }
 

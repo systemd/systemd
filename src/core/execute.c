@@ -2958,6 +2958,23 @@ static int exec_parameters_get_cgroup_path(const ExecParameters *params, char **
         return using_subcgroup;
 }
 
+static int exec_context_cpu_affinity_from_numa(const ExecContext *c, CPUSet *ret) {
+        assert(c);
+        assert(ret);
+
+        if (!c->derive_cpu_affinity_from_numa_mask)
+                return 0;
+
+        if (!c->numa_policy.nodes.set) {
+                log_warning("Can't derive CPU affinity mask from NUMA mask because NUMA mask is not set, ignoring");
+                return 0;
+        }
+
+        cpu_set_reset(ret);
+
+        return numa_to_cpu_set(&c->numa_policy, ret);
+}
+
 static int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
@@ -3250,11 +3267,27 @@ static int exec_child(
                 }
         }
 
-        if (context->cpu_set.set)
-                if (sched_setaffinity(0, context->cpu_set.allocated, context->cpu_set.set) < 0) {
-                        *exit_status = EXIT_CPUAFFINITY;
-                        return log_unit_error_errno(unit, errno, "Failed to set up CPU affinity: %m");
-                }
+        if (context->cpu_set.set || context->derive_cpu_affinity_from_numa_mask) {
+                _cleanup_(cpu_set_reset) CPUSet converted_cpu_set = {};
+                const CPUSet *cpu_set = NULL;
+
+                if (context->derive_cpu_affinity_from_numa_mask) {
+                        r = exec_context_cpu_affinity_from_numa(context, &converted_cpu_set);
+                        if (r < 0) {
+                                *exit_status = EXIT_CPUAFFINITY;
+                                return log_unit_error_errno(unit, r, "Failed to derive CPU affinity mask from NUMA mask: %m");
+                        }
+
+                        cpu_set = &converted_cpu_set;
+                } else if (context->cpu_set.set)
+                        cpu_set = &context->cpu_set;
+
+                if (cpu_set)
+                        if (sched_setaffinity(0, cpu_set->allocated, cpu_set->set) < 0) {
+                                *exit_status = EXIT_CPUAFFINITY;
+                                return log_unit_error_errno(unit, errno, "Failed to set up CPU affinity: %m");
+                        }
+        }
 
         if (mpol_is_valid(numa_policy_get_type(&context->numa_policy))) {
                 r = apply_numa_policy(&context->numa_policy);

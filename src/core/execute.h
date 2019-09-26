@@ -21,6 +21,7 @@ typedef struct Manager Manager;
 #include "missing_resource.h"
 #include "namespace.h"
 #include "nsflags.h"
+#include "numa-util.h"
 #include "time-util.h"
 
 #define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
@@ -181,6 +182,7 @@ struct ExecContext {
 
         CPUSet cpu_set;
         NUMAPolicy numa_policy;
+        bool derive_cpu_affinity_from_numa_mask;
 
         ExecInput std_input;
         ExecOutput std_output;
