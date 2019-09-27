@@ -412,15 +412,27 @@ static int custom_mount_check_all(void) {
 }
 
 static int detect_unified_cgroup_hierarchy_from_environment(void) {
-        const char *e;
+        const char *e, *var = "SYSTEMD_NSPAWN_UNIFIED_HIERARCHY";
         int r;
 
         /* Allow the user to control whether the unified hierarchy is used */
-        e = getenv("UNIFIED_CGROUP_HIERARCHY");
-        if (e) {
+
+        e = getenv(var);
+        if (!e) {
+                static bool warned = false;
+
+                var = "UNIFIED_CGROUP_HIERARCHY";
+                e = getenv(var);
+                if (e && !warned) {
+                        log_info("$UNIFIED_CGROUP_HIERARCHY has been renamed to $SYSTEMD_NSPAWN_UNIFIED_HIERARCHY.");
+                        warned = true;
+                }
+        }
+
+        if (!isempty(e)) {
                 r = parse_boolean(e);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse $UNIFIED_CGROUP_HIERARCHY.");
+                        return log_error_errno(r, "Failed to parse $%s: %m", var);
                 if (r > 0)
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
                 else
