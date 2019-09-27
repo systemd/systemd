@@ -433,8 +433,8 @@ static int detect_unified_cgroup_hierarchy_from_environment(void) {
 static int detect_unified_cgroup_hierarchy_from_image(const char *directory) {
         int r;
 
-        /* Let's inherit the mode to use from the host system, but let's take into consideration what systemd in the
-         * image actually supports. */
+        /* Let's inherit the mode to use from the host system, but let's take into consideration what systemd
+         * in the image actually supports. */
         r = cg_all_unified();
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether we are in all unified mode.");
@@ -1439,6 +1439,25 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int verify_arguments(void) {
         int r;
+
+        if (arg_start_mode == START_PID2 && arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
+                /* If we are running the stub init in the container, we don't need to look at what the init
+                 * in the container supports, because we are not using it. Let's immediately pick the right
+                 * setting based on the host system configuration.
+                 *
+                 * We only do this, if the user didn't use an environment variable to override the detection.
+                 */
+
+                r = cg_all_unified();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether we are in all unified mode.");
+                if (r > 0)
+                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
+                else if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0)
+                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_SYSTEMD;
+                else
+                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
+        }
 
         if (arg_userns_mode != USER_NAMESPACE_NO)
                 arg_mount_settings |= MOUNT_USE_USERNS;
