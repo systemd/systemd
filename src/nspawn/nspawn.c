@@ -467,58 +467,66 @@ static int detect_unified_cgroup_hierarchy_from_image(const char *directory) {
         return 0;
 }
 
-static void parse_share_ns_env(const char *name, unsigned long ns_flag) {
+static int parse_share_ns_env(const char *name, unsigned long ns_flag) {
         int r;
 
         r = getenv_bool(name);
         if (r == -ENXIO)
-                return;
+                return 0;
         if (r < 0)
-                log_warning_errno(r, "Failed to parse %s from environment, defaulting to false.", name);
+                return log_error_errno(r, "Failed to parse $%s: %m", name);
 
         arg_clone_ns_flags = (arg_clone_ns_flags & ~ns_flag) | (r > 0 ? 0 : ns_flag);
         arg_settings_mask |= SETTING_CLONE_NS_FLAGS;
+        return 0;
 }
 
-static void parse_mount_settings_env(void) {
+static int parse_mount_settings_env(void) {
         const char *e;
         int r;
 
         r = getenv_bool("SYSTEMD_NSPAWN_TMPFS_TMP");
+        if (r < 0 && r != -ENXIO)
+                return log_error_errno(r, "Failed to parse $SYSTEMD_NSPAWN_TMPFS_TMP: %m");
         if (r >= 0)
                 SET_FLAG(arg_mount_settings, MOUNT_APPLY_TMPFS_TMP, r > 0);
-        else if (r != -ENXIO)
-                log_warning_errno(r, "Failed to parse $SYSTEMD_NSPAWN_TMPFS_TMP, ignoring: %m");
 
         e = getenv("SYSTEMD_NSPAWN_API_VFS_WRITABLE");
-        if (!e)
-                return;
-
-        if (streq(e, "network")) {
+        if (streq_ptr(e, "network"))
                 arg_mount_settings |= MOUNT_APPLY_APIVFS_RO|MOUNT_APPLY_APIVFS_NETNS;
-                return;
+
+        else if (e) {
+                r = parse_boolean(e);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse $SYSTEMD_NSPAWN_API_VFS_WRITABLE: %m");
+
+                SET_FLAG(arg_mount_settings, MOUNT_APPLY_APIVFS_RO, r == 0);
+                SET_FLAG(arg_mount_settings, MOUNT_APPLY_APIVFS_NETNS, false);
         }
 
-        r = parse_boolean(e);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to parse SYSTEMD_NSPAWN_API_VFS_WRITABLE from environment, ignoring.");
-                return;
-        }
-
-        SET_FLAG(arg_mount_settings, MOUNT_APPLY_APIVFS_RO, r == 0);
-        SET_FLAG(arg_mount_settings, MOUNT_APPLY_APIVFS_NETNS, false);
+        return 0;
 }
 
-static void parse_environment(void) {
+static int parse_environment(void) {
         const char *e;
         int r;
 
-        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_IPC", CLONE_NEWIPC);
-        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_PID", CLONE_NEWPID);
-        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_UTS", CLONE_NEWUTS);
-        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_SYSTEM", CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS);
+        r = parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_IPC", CLONE_NEWIPC);
+        if (r < 0)
+                return r;
+        r = parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_PID", CLONE_NEWPID);
+        if (r < 0)
+                return r;
+        r = parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_UTS", CLONE_NEWUTS);
+        if (r < 0)
+                return r;
+        r = parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_SYSTEM", CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS);
+        if (r < 0)
+                return r;
 
-        parse_mount_settings_env();
+        r = parse_mount_settings_env();
+        if (r < 0)
+                return r;
 
         /* SYSTEMD_NSPAWN_USE_CGNS=0 can be used to disable CLONE_NEWCGROUP use,
          * even if it is supported. If not supported, it has no effect. */
@@ -528,7 +536,7 @@ static void parse_environment(void) {
                 r = getenv_bool("SYSTEMD_NSPAWN_USE_CGNS");
                 if (r < 0) {
                         if (r != -ENXIO)
-                                log_warning_errno(r, "Failed to parse $SYSTEMD_NSPAWN_USE_CGNS, ignoring: %m");
+                                return log_error_errno(r, "Failed to parse $SYSTEMD_NSPAWN_USE_CGNS: %m");
 
                         arg_use_cgns = true;
                 } else {
@@ -541,7 +549,7 @@ static void parse_environment(void) {
         if (e)
                 arg_container_service_name = e;
 
-        detect_unified_cgroup_hierarchy_from_environment();
+        return detect_unified_cgroup_hierarchy_from_environment();
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1424,7 +1432,9 @@ static int parse_argv(int argc, char *argv[]) {
         arg_caps_retain = (arg_caps_retain | plus | (arg_private_network ? UINT64_C(1) << CAP_NET_ADMIN : 0)) & ~minus;
 
         /* Make sure to parse environment before we reset the settings mask below */
-        parse_environment();
+        r = parse_environment();
+        if (r < 0)
+                return r;
 
         /* Load all settings from .nspawn files */
         if (mask_no_settings)
@@ -4749,9 +4759,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        r = detect_unified_cgroup_hierarchy_from_environment();
-        if (r < 0)
-                goto finish;
+        /* Reapply environment settings. */
+        (void) detect_unified_cgroup_hierarchy_from_environment();
 
         /* Ignore SIGPIPE here, because we use splice() on the ptyfwd stuff and that will generate SIGPIPE if
          * the result is closed. Note that the container payload child will reset signal mask+handler anyway,
