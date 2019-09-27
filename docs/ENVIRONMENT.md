@@ -70,8 +70,8 @@ systemctl:
 
 systemd-nspawn:
 
-* `$UNIFIED_CGROUP_HIERARCHY=1` — if set, force nspawn into unified cgroup
-  hierarchy mode.
+* `$SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=1` — if set, force nspawn into unified
+  cgroup hierarchy mode.
 
 * `$SYSTEMD_NSPAWN_API_VFS_WRITABLE=1` — if set, make /sys and /proc/sys and
   friends writable in the container. If set to "network", leave only
