@@ -651,7 +651,9 @@ int find_binary(const char *name, char **ret) {
                         return 0;
                 }
 
-                last_error = -errno;
+                /* PATH entries which we don't have access to are ignored, as per tradition. */
+                if (errno != EACCES)
+                        last_error = -errno;
         }
 
         return last_error;
