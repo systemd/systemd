@@ -38,78 +38,47 @@ static char* arg_verb = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_verb, freep);
 
-static int write_hibernate_location_info(void) {
-        _cleanup_free_ char *device = NULL, *type = NULL;
-        _cleanup_free_ struct fiemap *fiemap = NULL;
+static int write_hibernate_location_info(const HibernateLocation *hibernate_location) {
         char offset_str[DECIMAL_STR_MAX(uint64_t)];
-        char device_str[DECIMAL_STR_MAX(uint64_t)];
-        _cleanup_close_ int fd = -1;
-        struct stat stb;
-        uint64_t offset;
         int r;
 
-        r = find_hibernate_location(&device, &type, NULL, NULL);
+        assert(hibernate_location);
+        assert(hibernate_location->swap);
+        assert(hibernate_location->resume);
+
+        r = write_string_file("/sys/power/resume", hibernate_location->resume, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                return log_debug_errno(r, "Unable to find hibernation location: %m");
+                return log_debug_errno(r, "Failed to write partition device to /sys/power/resume for '%s': '%s': %m",
+                                       hibernate_location->swap->device, hibernate_location->resume);
 
-        /* if it's a swap partition, we just write the disk to /sys/power/resume */
-        if (streq(type, "partition")) {
-                r = write_string_file("/sys/power/resume", device, WRITE_STRING_FILE_DISABLE_BUFFER);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to write partition device to /sys/power/resume: %m");
+        log_debug("Wrote resume= value for %s to /sys/power/resume: %s", hibernate_location->swap->device, hibernate_location->resume);
 
+        /* if it's a swap partition, we're done */
+        if (streq(hibernate_location->swap->type, "partition"))
                 return r;
-        }
-        if (!streq(type, "file"))
+
+        if (!streq(hibernate_location->swap->type, "file"))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid hibernate type: %s", type);
+                                       "Invalid hibernate type: %s", hibernate_location->swap->type);
 
         /* Only available in 4.17+ */
-        if (access("/sys/power/resume_offset", W_OK) < 0) {
+        if (hibernate_location->resume_offset > 0 && access("/sys/power/resume_offset", W_OK) < 0) {
                 if (errno == ENOENT) {
-                        log_debug("Kernel too old, can't configure resume offset, ignoring.");
+                        log_debug("Kernel too old, can't configure resume_offset for %s, ignoring: %" PRIu64,
+                                  hibernate_location->swap->device, hibernate_location->resume_offset);
                         return 0;
                 }
 
                 return log_debug_errno(errno, "/sys/power/resume_offset not writeable: %m");
         }
 
-        fd = open(device, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
-        if (fd < 0)
-                return log_debug_errno(errno, "Unable to open '%s': %m", device);
-        r = fstat(fd, &stb);
-        if (r < 0)
-                return log_debug_errno(errno, "Unable to stat %s: %m", device);
-
-        r = btrfs_is_filesystem(fd);
-        if (r < 0)
-                return log_error_errno(r, "Error checking %s for Btrfs filesystem: %m", device);
-
-        if (r)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Unable to calculate swapfile offset when using Btrfs: %s", device);
-
-        r = read_fiemap(fd, &fiemap);
-        if (r < 0)
-                return log_debug_errno(r, "Unable to read extent map for '%s': %m", device);
-        if (fiemap->fm_mapped_extents == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No extents found in '%s'", device);
-
-        offset = fiemap->fm_extents[0].fe_physical / page_size();
-        xsprintf(offset_str, "%" PRIu64, offset);
+        xsprintf(offset_str, "%" PRIu64, hibernate_location->resume_offset);
         r = write_string_file("/sys/power/resume_offset", offset_str, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                return log_debug_errno(r, "Failed to write offset '%s': %m", offset_str);
+                return log_debug_errno(r, "Failed to write swap file offset to /sys/power/resume_offset for '%s': '%s': %m",
+                                       hibernate_location->swap->device, offset_str);
 
-        log_debug("Wrote calculated resume_offset value to /sys/power/resume_offset: %s", offset_str);
-
-        xsprintf(device_str, "%lx", (unsigned long)stb.st_dev);
-        r = write_string_file("/sys/power/resume", device_str, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write device '%s': %m", device_str);
-
-        log_debug("Wrote device id to /sys/power/resume: %s", device_str);
+        log_debug("Wrote resume_offset= value for %s to /sys/power/resume_offset: %s", hibernate_location->swap->device, offset_str);
 
         return 0;
 }
@@ -156,32 +125,6 @@ static int write_state(FILE **f, char **states) {
         return r;
 }
 
-static int configure_hibernation(void) {
-        _cleanup_free_ char *resume = NULL, *resume_offset = NULL;
-        int r;
-
-        /* check for proper hibernation configuration */
-        r = read_one_line_file("/sys/power/resume", &resume);
-        if (r < 0)
-                return log_debug_errno(r, "Error reading from /sys/power/resume: %m");
-
-        r = read_one_line_file("/sys/power/resume_offset", &resume_offset);
-        if (r < 0)
-                return log_debug_errno(r, "Error reading from /sys/power/resume_offset: %m");
-
-        if (!streq(resume_offset, "0") && !streq(resume, "0:0")) {
-                log_debug("Hibernating using device id and offset read from /sys/power/resume: %s and /sys/power/resume_offset: %s", resume, resume_offset);
-                return 0;
-        } else if (!streq(resume, "0:0")) {
-                log_debug("Hibernating using device id read from /sys/power/resume: %s", resume);
-                return 0;
-        } else if (!streq(resume_offset, "0"))
-                log_debug("Found offset in /sys/power/resume_offset: %s; no device id found in /sys/power/resume; ignoring offset", resume_offset);
-
-        /* if hibernation is not properly configured, attempt to calculate and write values */
-        return write_hibernate_location_info();
-}
-
 static int execute(char **modes, char **states) {
         char *arguments[] = {
                 NULL,
@@ -194,8 +137,9 @@ static int execute(char **modes, char **states) {
                 NULL
         };
 
-        int r;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(hibernate_location_freep) HibernateLocation *hibernate_location = NULL;
+        int r;
 
         /* This file is opened first, so that if we hit an error,
          * we can abort before modifying any state. */
@@ -207,9 +151,14 @@ static int execute(char **modes, char **states) {
 
         /* Configure the hibernation mode */
         if (!strv_isempty(modes)) {
-                r = configure_hibernation();
+                r = find_hibernate_location(&hibernate_location);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to prepare for hibernation: %m");
+                        return r;
+                else if (r == 0) {
+                        r = write_hibernate_location_info(hibernate_location);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to prepare for hibernation: %m");
+                }
 
                 r = write_mode(modes);
                 if (r < 0)
