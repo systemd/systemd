@@ -1,0 +1,42 @@
+clc
+clear all
+a=input('enter the matrix');
+if size(a,1)~=size(a,2)
+    error('the matrix dimension should be same');
+end
+m=size(a,1);
+b=a;
+levels=input('enter the number of levels the operation is to be repeated (i.e >=2)');
+for k=2:levels+1
+    b=[b zeros(size(b,1),m)];
+    b=[b;zeros(m,size(b,2))];
+    fprintf('proposed matrix in generation %d\n',(k-2)*3+1)
+    b
+    for i=1:k*m
+        for j=1:k*m
+            if i<=(k-1)*m&&j<=(k-1)*m
+                b(i,j)=b(i,j);
+            elseif i<=(k-1)*m||j<=(k-1)*m
+                if max(i,j)-min(i,j)==m                    
+                    b(i,j)=1;
+                end                
+            else
+            b(i,j)=b(i-m,j-m);
+            end
+        end          
+    end
+    fprintf('matrix after generation %d with edges from generation %d \n',(k-2)*3+2,(k-2)*3+1)
+    b
+    for i=1:k*m
+        for j=1:k*m
+            if i>(k-1)*m||j>(k-1)*m
+                if max(i,j)-min(i,j)==m
+                    b(i,j)=0;
+                end
+            end
+        end
+    end
+    fprintf('matrix after generation %d with removing edge \n',(k-1)*3)
+    b
+end
+
