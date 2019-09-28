@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2019-09-13 15:30+0000\n"
-"PO-Revision-Date: 2019-09-14 12:44+0200\n"
+"POT-Creation-Date: 2019-09-22 15:30+0000\n"
+"PO-Revision-Date: 2019-09-28 15:18+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -708,6 +708,14 @@ msgstr "Przywrócenie ustawień DNS"
 #: src/network/org.freedesktop.network1.policy:133
 msgid "Authentication is required to reset DNS settings."
 msgstr "Wymagane jest uwierzytelnienie, aby przywrócić ustawienia DNS."
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "Renew dynamic addresses"
+msgstr "Odnowienie adresów dynamicznych"
+
+#: src/network/org.freedesktop.network1.policy:144
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "Wymagane jest uwierzytelnienie, aby odnowić adresy dynamiczne."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
