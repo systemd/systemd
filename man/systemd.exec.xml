@@ -2602,7 +2602,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
             <tbody>
               <row>
-                <entry valign="top"><literal>success</literal></entry>
+                <entry morerows="1" valign="top"><literal>success</literal></entry>
+                <entry valign="top"><literal>killed</literal></entry>
+                <entry><literal>HUP</literal>, <literal>INT</literal>, <literal>TERM</literal>, <literal>PIPE</literal></entry>
+              </row>
+              <row>
                 <entry valign="top"><literal>exited</literal></entry>
                 <entry><literal>0</literal></entry>
               </row>
@@ -2654,6 +2658,17 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
                 <entry><literal>exited</literal></entry>
                 <entry><literal>0</literal>, <literal>1</literal>, <literal>2</literal>, <literal
                 >3</literal>, …, <literal>255</literal></entry>
+              </row>
+              <row>
+                <entry valign="top"><literal>exec-condition</literal></entry>
+                <entry><literal>exited</literal></entry>
+                <entry><literal>1</literal>, <literal>2</literal>, <literal>3</literal>, <literal
+                >4</literal>, …, <literal>254</literal></entry>
+              </row>
+              <row>
+                <entry valign="top"><literal>oom-kill</literal></entry>
+                <entry valign="top"><literal>killed</literal></entry>
+                <entry><literal>TERM</literal>, <literal>KILL</literal></entry>
               </row>
               <row>
                 <entry><literal>start-limit-hit</literal></entry>
