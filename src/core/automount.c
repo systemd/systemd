@@ -568,7 +568,7 @@ static void automount_enter_waiting(Automount *a) {
         if (r < 0)
                 goto fail;
 
-        (void) mkdir_p_label(a->where, 0555);
+        (void) mkdir_p_label(a->where, a->directory_mode);
 
         unit_warn_if_dir_nonempty(UNIT(a), a->where);
 
