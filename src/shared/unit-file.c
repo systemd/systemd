@@ -279,6 +279,7 @@ int unit_file_build_name_map(
                         if (hashmap_contains(ids, de->d_name))
                                 continue;
 
+                        dirent_ensure_type(d, de);
                         if (de->d_type == DT_LNK) {
                                 /* We don't explicitly check for alias loops here. unit_ids_map_get() which
                                  * limits the number of hops should be used to access the map. */
