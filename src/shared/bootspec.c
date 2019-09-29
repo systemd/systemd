@@ -475,6 +475,7 @@ static int boot_entries_find_unified(
                 _cleanup_free_ char *j = NULL, *osrelease = NULL, *cmdline = NULL;
                 _cleanup_close_ int fd = -1;
 
+                dirent_ensure_type(d, de);
                 if (!dirent_is_file(de))
                         continue;
 
