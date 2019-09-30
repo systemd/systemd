@@ -665,17 +665,33 @@ int bus_cgroup_set_property(
         if (streq(name, "MemoryAccounting"))
                 return bus_cgroup_set_boolean(u, name, &c->memory_accounting, CGROUP_MASK_MEMORY, message, flags, error);
 
-        if (streq(name, "MemoryMin"))
-                return bus_cgroup_set_memory_protection(u, name, &c->memory_min, message, flags, error);
+        if (streq(name, "MemoryMin")) {
+                r = bus_cgroup_set_memory_protection(u, name, &c->memory_min, message, flags, error);
+                if (r > 0)
+                        c->memory_min_set = true;
+                return r;
+        }
 
-        if (streq(name, "MemoryLow"))
-                return bus_cgroup_set_memory_protection(u, name, &c->memory_low, message, flags, error);
+        if (streq(name, "MemoryLow")) {
+                r = bus_cgroup_set_memory_protection(u, name, &c->memory_low, message, flags, error);
+                if (r > 0)
+                        c->memory_low_set = true;
+                return r;
+        }
 
-        if (streq(name, "DefaultMemoryMin"))
-                return bus_cgroup_set_memory_protection(u, name, &c->default_memory_min, message, flags, error);
+        if (streq(name, "DefaultMemoryMin")) {
+                r = bus_cgroup_set_memory_protection(u, name, &c->default_memory_min, message, flags, error);
+                if (r > 0)
+                        c->default_memory_min_set = true;
+                return r;
+        }
 
-        if (streq(name, "DefaultMemoryLow"))
-                return bus_cgroup_set_memory_protection(u, name, &c->default_memory_low, message, flags, error);
+        if (streq(name, "DefaultMemoryLow")) {
+                r = bus_cgroup_set_memory_protection(u, name, &c->default_memory_low, message, flags, error);
+                if (r > 0)
+                        c->default_memory_low_set = true;
+                return r;
+        }
 
         if (streq(name, "MemoryHigh"))
                 return bus_cgroup_set_memory(u, name, &c->memory_high, message, flags, error);
@@ -689,17 +705,33 @@ int bus_cgroup_set_property(
         if (streq(name, "MemoryLimit"))
                 return bus_cgroup_set_memory(u, name, &c->memory_limit, message, flags, error);
 
-        if (streq(name, "MemoryMinScale"))
-                return bus_cgroup_set_memory_protection_scale(u, name, &c->memory_min, message, flags, error);
+        if (streq(name, "MemoryMinScale")) {
+                r = bus_cgroup_set_memory_protection_scale(u, name, &c->memory_min, message, flags, error);
+                if (r > 0)
+                        c->memory_min_set = true;
+                return r;
+        }
 
-        if (streq(name, "MemoryLowScale"))
-                return bus_cgroup_set_memory_protection_scale(u, name, &c->memory_low, message, flags, error);
+        if (streq(name, "MemoryLowScale")) {
+                r = bus_cgroup_set_memory_protection_scale(u, name, &c->memory_low, message, flags, error);
+                if (r > 0)
+                        c->memory_low_set = true;
+                return r;
+        }
 
-        if (streq(name, "DefaultMemoryMinScale"))
-                return bus_cgroup_set_memory_protection_scale(u, name, &c->default_memory_min, message, flags, error);
+        if (streq(name, "DefaultMemoryMinScale")) {
+                r = bus_cgroup_set_memory_protection_scale(u, name, &c->default_memory_min, message, flags, error);
+                if (r > 0)
+                        c->default_memory_min_set = true;
+                return r;
+        }
 
-        if (streq(name, "DefaultMemoryLowScale"))
-                return bus_cgroup_set_memory_protection_scale(u, name, &c->default_memory_low, message, flags, error);
+        if (streq(name, "DefaultMemoryLowScale")) {
+                r = bus_cgroup_set_memory_protection_scale(u, name, &c->default_memory_low, message, flags, error);
+                if (r > 0)
+                        c->default_memory_low_set = true;
+                return r;
+        }
 
         if (streq(name, "MemoryHighScale"))
                 return bus_cgroup_set_memory_scale(u, name, &c->memory_high, message, flags, error);
