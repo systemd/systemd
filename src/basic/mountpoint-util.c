@@ -298,6 +298,7 @@ bool fstype_is_network(const char *fstype) {
         return STR_IN_SET(fstype,
                           "afs",
                           "cifs",
+                          "smb3",
                           "smbfs",
                           "sshfs",
                           "ncpfs",
