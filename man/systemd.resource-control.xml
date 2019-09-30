@@ -239,7 +239,9 @@
           <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
           parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
           percentage value may be specified, which is taken relative to the installed physical memory on the
-          system. This controls the <literal>memory.min</literal> control group attribute. For details about this
+          system. If assigned the special value <literal>infinity</literal>, all available memory is protected, which may be
+          useful in order to always inherit all of the protection afforded by ancestors.
+          This controls the <literal>memory.min</literal> control group attribute. For details about this
           control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
@@ -263,7 +265,9 @@
           <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
           parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
           percentage value may be specified, which is taken relative to the installed physical memory on the
-          system. This controls the <literal>memory.low</literal> control group attribute. For details about this
+          system. If assigned the special value <literal>infinity</literal>, all available memory is protected, which may be
+          useful in order to always inherit all of the protection afforded by ancestors.
+          This controls the <literal>memory.low</literal> control group attribute. For details about this
           control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
