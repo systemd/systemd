@@ -851,7 +851,7 @@ static bool unit_has_unified_memory_config(Unit *u) {
         c = unit_get_cgroup_context(u);
         assert(c);
 
-        return c->memory_min > 0 || unit_get_ancestor_memory_low(u) > 0 ||
+        return unit_get_ancestor_memory_min(u) > 0 || unit_get_ancestor_memory_low(u) > 0 ||
                c->memory_high != CGROUP_LIMIT_MAX || c->memory_max != CGROUP_LIMIT_MAX ||
                c->memory_swap_max != CGROUP_LIMIT_MAX;
 }
