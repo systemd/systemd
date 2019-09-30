@@ -284,7 +284,7 @@
         <term><varname>MemoryHigh=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
-          <para>Specify the high limit on memory usage of the executed processes in this unit. Memory usage may go
+          <para>Specify the throttling limit on memory usage of the executed processes in this unit. Memory usage may go
           above the limit if unavoidable, but the processes are heavily slowed down and memory is taken away
           aggressively in such cases. This is the main mechanism to control memory usage of a unit.</para>
 
@@ -292,7 +292,7 @@
           parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
           percentage value may be specified, which is taken relative to the installed physical memory on the
           system. If assigned the
-          special value <literal>infinity</literal>, no memory limit is applied. This controls the
+          special value <literal>infinity</literal>, no memory throttling is applied. This controls the
           <literal>memory.high</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
