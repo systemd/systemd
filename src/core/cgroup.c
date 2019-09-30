@@ -354,36 +354,36 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         cpuset_mems = cpu_set_to_range_string(&c->cpuset_mems);
 
         fprintf(f,
-                "%sCPUAccounting=%s\n"
-                "%sIOAccounting=%s\n"
-                "%sBlockIOAccounting=%s\n"
-                "%sMemoryAccounting=%s\n"
-                "%sTasksAccounting=%s\n"
-                "%sIPAccounting=%s\n"
-                "%sCPUWeight=%" PRIu64 "\n"
-                "%sStartupCPUWeight=%" PRIu64 "\n"
-                "%sCPUShares=%" PRIu64 "\n"
-                "%sStartupCPUShares=%" PRIu64 "\n"
-                "%sCPUQuotaPerSecSec=%s\n"
-                "%sCPUQuotaPeriodSec=%s\n"
-                "%sAllowedCPUs=%s\n"
-                "%sAllowedMemoryNodes=%s\n"
-                "%sIOWeight=%" PRIu64 "\n"
-                "%sStartupIOWeight=%" PRIu64 "\n"
-                "%sBlockIOWeight=%" PRIu64 "\n"
-                "%sStartupBlockIOWeight=%" PRIu64 "\n"
-                "%sDefaultMemoryMin=%" PRIu64 "\n"
-                "%sDefaultMemoryLow=%" PRIu64 "\n"
-                "%sMemoryMin=%" PRIu64 "\n"
-                "%sMemoryLow=%" PRIu64 "\n"
-                "%sMemoryHigh=%" PRIu64 "\n"
-                "%sMemoryMax=%" PRIu64 "\n"
-                "%sMemorySwapMax=%" PRIu64 "\n"
-                "%sMemoryLimit=%" PRIu64 "\n"
-                "%sTasksMax=%" PRIu64 "\n"
-                "%sDevicePolicy=%s\n"
-                "%sDisableControllers=%s\n"
-                "%sDelegate=%s\n",
+                "%sCPUAccounting: %s\n"
+                "%sIOAccounting: %s\n"
+                "%sBlockIOAccounting: %s\n"
+                "%sMemoryAccounting: %s\n"
+                "%sTasksAccounting: %s\n"
+                "%sIPAccounting: %s\n"
+                "%sCPUWeight: %" PRIu64 "\n"
+                "%sStartupCPUWeight: %" PRIu64 "\n"
+                "%sCPUShares: %" PRIu64 "\n"
+                "%sStartupCPUShares: %" PRIu64 "\n"
+                "%sCPUQuotaPerSecSec: %s\n"
+                "%sCPUQuotaPeriodSec: %s\n"
+                "%sAllowedCPUs: %s\n"
+                "%sAllowedMemoryNodes: %s\n"
+                "%sIOWeight: %" PRIu64 "\n"
+                "%sStartupIOWeight: %" PRIu64 "\n"
+                "%sBlockIOWeight: %" PRIu64 "\n"
+                "%sStartupBlockIOWeight: %" PRIu64 "\n"
+                "%sDefaultMemoryMin: %" PRIu64 "\n"
+                "%sDefaultMemoryLow: %" PRIu64 "\n"
+                "%sMemoryMin: %" PRIu64 "\n"
+                "%sMemoryLow: %" PRIu64 "\n"
+                "%sMemoryHigh: %" PRIu64 "\n"
+                "%sMemoryMax: %" PRIu64 "\n"
+                "%sMemorySwapMax: %" PRIu64 "\n"
+                "%sMemoryLimit: %" PRIu64 "\n"
+                "%sTasksMax: %" PRIu64 "\n"
+                "%sDevicePolicy: %s\n"
+                "%sDisableControllers: %s\n"
+                "%sDelegate: %s\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->blockio_accounting),
@@ -420,28 +420,28 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
 
                 (void) cg_mask_to_string(c->delegate_controllers, &t);
 
-                fprintf(f, "%sDelegateControllers=%s\n",
+                fprintf(f, "%sDelegateControllers: %s\n",
                         prefix,
                         strempty(t));
         }
 
         LIST_FOREACH(device_allow, a, c->device_allow)
                 fprintf(f,
-                        "%sDeviceAllow=%s %s%s%s\n",
+                        "%sDeviceAllow: %s %s%s%s\n",
                         prefix,
                         a->path,
                         a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
 
         LIST_FOREACH(device_weights, iw, c->io_device_weights)
                 fprintf(f,
-                        "%sIODeviceWeight=%s %" PRIu64 "\n",
+                        "%sIODeviceWeight: %s %" PRIu64 "\n",
                         prefix,
                         iw->path,
                         iw->weight);
 
         LIST_FOREACH(device_latencies, l, c->io_device_latencies)
                 fprintf(f,
-                        "%sIODeviceLatencyTargetSec=%s %s\n",
+                        "%sIODeviceLatencyTargetSec: %s %s\n",
                         prefix,
                         l->path,
                         format_timespan(u, sizeof(u), l->target_usec, 1));
@@ -453,7 +453,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
                         if (il->limits[type] != cgroup_io_limit_defaults[type])
                                 fprintf(f,
-                                        "%s%s=%s %s\n",
+                                        "%s%s: %s %s\n",
                                         prefix,
                                         cgroup_io_limit_type_to_string(type),
                                         il->path,
@@ -462,7 +462,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
 
         LIST_FOREACH(device_weights, w, c->blockio_device_weights)
                 fprintf(f,
-                        "%sBlockIODeviceWeight=%s %" PRIu64,
+                        "%sBlockIODeviceWeight: %s %" PRIu64,
                         prefix,
                         w->path,
                         w->weight);
@@ -472,13 +472,13 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
 
                 if (b->rbps != CGROUP_LIMIT_MAX)
                         fprintf(f,
-                                "%sBlockIOReadBandwidth=%s %s\n",
+                                "%sBlockIOReadBandwidth: %s %s\n",
                                 prefix,
                                 b->path,
                                 format_bytes(buf, sizeof(buf), b->rbps));
                 if (b->wbps != CGROUP_LIMIT_MAX)
                         fprintf(f,
-                                "%sBlockIOWriteBandwidth=%s %s\n",
+                                "%sBlockIOWriteBandwidth: %s %s\n",
                                 prefix,
                                 b->path,
                                 format_bytes(buf, sizeof(buf), b->wbps));
@@ -488,21 +488,21 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 _cleanup_free_ char *k = NULL;
 
                 (void) in_addr_to_string(iaai->family, &iaai->address, &k);
-                fprintf(f, "%sIPAddressAllow=%s/%u\n", prefix, strnull(k), iaai->prefixlen);
+                fprintf(f, "%sIPAddressAllow: %s/%u\n", prefix, strnull(k), iaai->prefixlen);
         }
 
         LIST_FOREACH(items, iaai, c->ip_address_deny) {
                 _cleanup_free_ char *k = NULL;
 
                 (void) in_addr_to_string(iaai->family, &iaai->address, &k);
-                fprintf(f, "%sIPAddressDeny=%s/%u\n", prefix, strnull(k), iaai->prefixlen);
+                fprintf(f, "%sIPAddressDeny: %s/%u\n", prefix, strnull(k), iaai->prefixlen);
         }
 
         STRV_FOREACH(path, c->ip_filters_ingress)
-                fprintf(f, "%sIPIngressFilterPath=%s\n", prefix, *path);
+                fprintf(f, "%sIPIngressFilterPath: %s\n", prefix, *path);
 
         STRV_FOREACH(path, c->ip_filters_egress)
-                fprintf(f, "%sIPEgressFilterPath=%s\n", prefix, *path);
+                fprintf(f, "%sIPEgressFilterPath: %s\n", prefix, *path);
 }
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
