@@ -2245,7 +2245,7 @@ static void service_enter_restart(Service *s) {
 
         assert(s);
 
-        if (UNIT(s)->job && UNIT(s)->job->type == JOB_STOP) {
+        if (unit_has_job_type(UNIT(s), JOB_STOP)) {
                 /* Don't restart things if we are going down anyway */
                 log_unit_info(UNIT(s), "Stop job pending for unit, delaying automatic restart.");
 

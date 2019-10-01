@@ -842,6 +842,10 @@ const char *unit_label_path(Unit *u);
 
 int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 
+static inline bool unit_has_job_type(Unit *u, JobType type) {
+        return u && u->job && u->job->type == type;
+}
+
 /* unit_log_skip is for cases like ExecCondition= where a unit is considered "done"
  * after some execution, rather than succeeded or failed. */
 void unit_log_skip(Unit *u, const char *result);

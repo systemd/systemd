@@ -4022,7 +4022,7 @@ bool unit_stop_pending(Unit *u) {
          * different from unit_inactive_or_pending() which checks both
          * the current state and for a queued job. */
 
-        return u->job && u->job->type == JOB_STOP;
+        return unit_has_job_type(u, JOB_STOP);
 }
 
 bool unit_inactive_or_pending(Unit *u) {
@@ -4057,12 +4057,7 @@ bool unit_active_or_pending(Unit *u) {
 bool unit_will_restart_default(Unit *u) {
         assert(u);
 
-        if (!u->job)
-                return false;
-        if (u->job->type == JOB_START)
-                return true;
-
-        return false;
+        return unit_has_job_type(u, JOB_START);
 }
 
 bool unit_will_restart(Unit *u) {
