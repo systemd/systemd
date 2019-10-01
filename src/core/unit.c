@@ -4686,22 +4686,26 @@ static int log_kill(pid_t pid, int sig, void *userdata) {
         return 1;
 }
 
-static int operation_to_signal(KillContext *c, KillOperation k) {
+static int operation_to_signal(const KillContext *c, KillOperation k, bool *noteworthy) {
         assert(c);
 
         switch (k) {
 
         case KILL_TERMINATE:
         case KILL_TERMINATE_AND_LOG:
+                *noteworthy = false;
                 return c->kill_signal;
 
         case KILL_RESTART:
+                *noteworthy = false;
                 return restart_kill_signal(c);
 
         case KILL_KILL:
+                *noteworthy = true;
                 return c->final_kill_signal;
 
         case KILL_WATCHDOG:
+                *noteworthy = true;
                 return c->watchdog_signal;
 
         default:
@@ -4730,15 +4734,15 @@ int unit_kill_context(
         if (c->kill_mode == KILL_NONE)
                 return 0;
 
-        sig = operation_to_signal(c, k);
+        bool noteworthy;
+        sig = operation_to_signal(c, k, &noteworthy);
+        if (noteworthy)
+                log_func = log_kill;
 
         send_sighup =
                 c->send_sighup &&
                 IN_SET(k, KILL_TERMINATE, KILL_TERMINATE_AND_LOG) &&
                 sig != SIGHUP;
-
-        if (k != KILL_TERMINATE || IN_SET(sig, SIGKILL, SIGABRT))
-                log_func = log_kill;
 
         if (main_pid > 0) {
                 if (log_func)
