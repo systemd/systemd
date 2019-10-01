@@ -1648,7 +1648,7 @@ static void do_reexecute(
 
         if (switch_root_init) {
                 args[0] = switch_root_init;
-                (void) execv(args[0], (char* const*) args);
+                (void) execve(args[0], (char* const*) args, saved_env);
                 log_warning_errno(errno, "Failed to execute configured init, trying fallback: %m");
         }
 
@@ -1665,7 +1665,7 @@ static void do_reexecute(
 
                 args[0] = "/bin/sh";
                 args[1] = NULL;
-                (void) execv(args[0], (char* const*) args);
+                (void) execve(args[0], (char* const*) args, saved_env);
                 log_error_errno(errno, "Failed to execute /bin/sh, giving up: %m");
         } else
                 log_warning_errno(r, "Failed to execute /sbin/init, giving up: %m");
@@ -2393,6 +2393,10 @@ int main(int argc, char *argv[]) {
 
         /* Save the original command line */
         save_argc_argv(argc, argv);
+
+        /* Save the original environment as we might need to restore it if we're requested to
+         * execute another system manager later. */
+        save_env();
 
         /* Make sure that if the user says "syslog" we actually log to the journal. */
         log_set_upgrade_syslog_to_journal(true);
