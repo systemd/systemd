@@ -21,6 +21,7 @@ typedef enum KillMode {
 struct KillContext {
         KillMode kill_mode;
         int kill_signal;
+        int restart_kill_signal;
         int final_kill_signal;
         int watchdog_signal;
         bool send_sigkill;
@@ -47,3 +48,9 @@ KillMode kill_mode_from_string(const char *s) _pure_;
 
 const char *kill_who_to_string(KillWho k) _const_;
 KillWho kill_who_from_string(const char *s) _pure_;
+
+static inline int restart_kill_signal(const KillContext *c) {
+        if (c->restart_kill_signal != 0)
+                return c->restart_kill_signal;
+        return c->kill_signal;
+}

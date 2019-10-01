@@ -1838,13 +1838,17 @@ fail:
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
-static int state_to_kill_operation(ServiceState state) {
+static int state_to_kill_operation(Service *s, ServiceState state) {
         switch (state) {
 
         case SERVICE_STOP_WATCHDOG:
                 return KILL_WATCHDOG;
 
         case SERVICE_STOP_SIGTERM:
+                if (unit_has_job_type(UNIT(s), JOB_RESTART))
+                        return KILL_RESTART;
+                _fallthrough_;
+
         case SERVICE_FINAL_SIGTERM:
                 return KILL_TERMINATE;
 
@@ -1875,7 +1879,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
         r = unit_kill_context(
                         UNIT(s),
                         &s->kill_context,
-                        state_to_kill_operation(state),
+                        state_to_kill_operation(s, state),
                         s->main_pid,
                         s->control_pid,
                         s->main_pid_alien);

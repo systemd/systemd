@@ -4695,6 +4695,9 @@ static int operation_to_signal(KillContext *c, KillOperation k) {
         case KILL_TERMINATE_AND_LOG:
                 return c->kill_signal;
 
+        case KILL_RESTART:
+                return restart_kill_signal(c);
+
         case KILL_KILL:
                 return c->final_kill_signal;
 

@@ -866,6 +866,8 @@ static int state_to_kill_operation(MountState state) {
         switch (state) {
 
         case MOUNT_REMOUNTING_SIGTERM:
+                return KILL_RESTART;
+
         case MOUNT_UNMOUNTING_SIGTERM:
                 return KILL_TERMINATE;
 

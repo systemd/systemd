@@ -712,21 +712,32 @@ static void swap_enter_dead_or_active(Swap *s, SwapResult f) {
                 swap_enter_dead(s, f);
 }
 
+static int state_to_kill_operation(Swap *s, SwapState state) {
+        if (state == SWAP_DEACTIVATING_SIGTERM) {
+                if (unit_has_job_type(UNIT(s), JOB_RESTART))
+                        return KILL_RESTART;
+                else
+                        return KILL_TERMINATE;
+        }
+
+        return KILL_KILL;
+}
+
 static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
         int r;
-        KillOperation kop;
 
         assert(s);
 
         if (s->result == SWAP_SUCCESS)
                 s->result = f;
 
-        if (state == SWAP_DEACTIVATING_SIGTERM)
-                kop = KILL_TERMINATE;
-        else
-                kop = KILL_KILL;
 
-        r = unit_kill_context(UNIT(s), &s->kill_context, kop, -1, s->control_pid, false);
+        r = unit_kill_context(UNIT(s),
+                              &s->kill_context,
+                              state_to_kill_operation(s, state),
+                              -1,
+                              s->control_pid,
+                              false);
         if (r < 0)
                 goto fail;
 

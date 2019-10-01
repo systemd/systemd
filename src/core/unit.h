@@ -18,6 +18,7 @@ typedef struct UnitRef UnitRef;
 typedef enum KillOperation {
         KILL_TERMINATE,
         KILL_TERMINATE_AND_LOG,
+        KILL_RESTART,
         KILL_KILL,
         KILL_WATCHDOG,
         _KILL_OPERATION_MAX,
