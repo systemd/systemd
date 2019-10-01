@@ -42,6 +42,7 @@ SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
+RestartKillSignal=SIGUSR2
 User=systemd-network
 WatchdogSec=3min
 
