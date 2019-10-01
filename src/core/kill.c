@@ -25,7 +25,7 @@ void kill_context_dump(KillContext *c, FILE *f, const char *prefix) {
                 "%sKillSignal: SIG%s\n"
                 "%sFinalKillSignal: SIG%s\n"
                 "%sSendSIGKILL: %s\n"
-                "%sSendSIGHUP:  %s\n",
+                "%sSendSIGHUP: %s\n",
                 prefix, kill_mode_to_string(c->kill_mode),
                 prefix, signal_to_string(c->kill_signal),
                 prefix, signal_to_string(c->final_kill_signal),
@@ -35,20 +35,20 @@ void kill_context_dump(KillContext *c, FILE *f, const char *prefix) {
 
 static const char* const kill_mode_table[_KILL_MODE_MAX] = {
         [KILL_CONTROL_GROUP] = "control-group",
-        [KILL_PROCESS] = "process",
-        [KILL_MIXED] = "mixed",
-        [KILL_NONE] = "none"
+        [KILL_PROCESS]       = "process",
+        [KILL_MIXED]         = "mixed",
+        [KILL_NONE]          = "none",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(kill_mode, KillMode);
 
 static const char* const kill_who_table[_KILL_WHO_MAX] = {
-        [KILL_MAIN] = "main",
-        [KILL_CONTROL] = "control",
-        [KILL_ALL] = "all",
-        [KILL_MAIN_FAIL] = "main-fail",
+        [KILL_MAIN]         = "main",
+        [KILL_CONTROL]      = "control",
+        [KILL_ALL]          = "all",
+        [KILL_MAIN_FAIL]    = "main-fail",
         [KILL_CONTROL_FAIL] = "control-fail",
-        [KILL_ALL_FAIL] = "all-fail"
+        [KILL_ALL_FAIL]     = "all-fail",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(kill_who, KillWho);
