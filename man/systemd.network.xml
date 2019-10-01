@@ -1568,7 +1568,7 @@
           <term><varname>SendRelease=</varname></term>
           <listitem>
             <para>When true, the DHCPv4 client sends a DHCP release packet when it stops.
-            Defaults to false.</para>
+            Defaults to true.</para>
           </listitem>
         </varlistentry>
 

@@ -371,6 +371,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 .dhcp_use_routes = true,
                 /* NOTE: this var might be overwritten by network_apply_anonymize_if_set */
                 .dhcp_send_hostname = true,
+                .dhcp_send_release = true,
                 /* To enable/disable RFC7844 Anonymity Profiles */
                 .dhcp_anonymize = false,
                 .dhcp_route_metric = DHCP_ROUTE_METRIC,
