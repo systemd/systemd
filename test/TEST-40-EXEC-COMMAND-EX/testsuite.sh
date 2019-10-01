@@ -1,4 +1,14 @@
-#!/bin/bash
+#!/bin/bash --debug
+
+err_handler() {
+    echo "-- BASH_COMMAND dump --"
+    for cmd in "${BASH_COMMAND[@]}"; do
+        echo "$cmd"
+    done
+}
+
+trap err_handler ERR EXIT
+
 set -ex
 set -o pipefail
 
