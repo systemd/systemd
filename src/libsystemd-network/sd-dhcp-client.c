@@ -1895,6 +1895,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 int sd_dhcp_client_send_release(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
         assert_return(client->state != DHCP_STATE_STOPPED, -ESTALE);
+        assert_return(client->lease, -EUNATCH);
 
         _cleanup_free_ DHCPPacket *release = NULL;
         size_t optoffset, optlen;

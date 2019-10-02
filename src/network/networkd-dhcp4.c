@@ -864,10 +864,10 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 return 0;
                         }
 
-                        if (link->network->dhcp_send_release)
-                                (void) sd_dhcp_client_send_release(client);
-
                         if (link->dhcp_lease) {
+                                if (link->network->dhcp_send_release)
+                                        (void) sd_dhcp_client_send_release(client);
+
                                 r = dhcp_lease_lost(link);
                                 if (r < 0) {
                                         link_enter_failed(link);
