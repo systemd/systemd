@@ -126,6 +126,7 @@ typedef struct Link {
         sd_ndisc *ndisc;
         Set *ndisc_rdnss;
         Set *ndisc_dnssl;
+        uint8_t ndisc_hash_key[HASH_KEY_SIZE];
 
         sd_radv *radv;
 

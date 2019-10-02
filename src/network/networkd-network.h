@@ -22,6 +22,7 @@
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
+#include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
 #include "networkd-radv.h"
@@ -216,8 +217,8 @@ struct Network {
         uint32_t ipv6_accept_ra_route_table;
         bool ipv6_accept_ra_route_table_set;
         Set *ndisc_black_listed_prefix;
+        OrderedHashmap *ipv6_tokens;
 
-        union in_addr_union ipv6_token;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
 
         struct ether_addr *mac;

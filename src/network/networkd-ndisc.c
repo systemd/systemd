@@ -9,15 +9,83 @@
 #include "sd-ndisc.h"
 
 #include "missing_network.h"
+#include "parse-util.h"
+#include "random-util.h"
 #include "networkd-dhcp6.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-route.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U
 #define NDISC_PREFIX_LFT_MIN 7200U
+
+#define DAD_CONFLICTS_IDGEN_RETRIES_RFC7217 3
+
+/* https://tools.ietf.org/html/rfc5453 */
+/* https://www.iana.org/assignments/ipv6-interface-ids/ipv6-interface-ids.xml */
+
+#define SUBNET_ROUTER_ANYCAST_ADDRESS_RFC4291 ((struct in6_addr) { .s6_addr = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } })
+#define RESERVED_IPV6_INTERFACE_IDENTIFIERS_ADDRESS_RFC4291 ((struct in6_addr) { .s6_addr = { 0x02, 0x00, 0x5E, 0xFF, 0xFE } })
+#define RESERVED_SUBNET_ANYCAST_ADDRESSES_RFC4291 ((struct in6_addr) { .s6_addr = { 0xFD, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF } })
+
+#define NDISC_APP_ID SD_ID128_MAKE(13,ac,81,a7,d5,3f,49,78,92,79,5d,0c,29,3a,bc,7e)
+
+static bool ipv6_interface_identifiers(const struct in6_addr *addr) {
+
+        assert(addr);
+
+        if (!memcmp(addr, &SUBNET_ROUTER_ANYCAST_ADDRESS_RFC4291, 8))
+                return true;
+
+        if (!memcmp(addr, &RESERVED_IPV6_INTERFACE_IDENTIFIERS_ADDRESS_RFC4291, 5))
+                return true;
+
+        if (!memcmp(addr, &RESERVED_SUBNET_ANYCAST_ADDRESSES_RFC4291, 7))
+                return true;
+
+        return false;
+}
+
+static int ipv6_makestableprivate(Link *link, const struct in6_addr *prefix, int prefix_len, uint8_t *dad_counter, struct in6_addr *addr) {
+        sd_id128_t secret_key;
+        struct siphash state;
+        uint64_t rid;
+        size_t len, l;
+        int r;
+
+        if (*dad_counter > DAD_CONFLICTS_IDGEN_RETRIES_RFC7217)
+                return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
+                                       "Too many DAD conflicts.");
+
+        /* According to rfc7217 section 5.1
+           RID = F(Prefix, Net_Iface, Network_ID, DAD_Counter, secret_key)
+        */
+        siphash24_init(&state, link->ndisc_hash_key);
+
+        siphash24_compress(&prefix, prefix_len, &state);
+        siphash24_compress(&link->ifname, strlen(link->ifname), &state);
+        siphash24_compress(&link->mac, sizeof(struct ether_addr), &state);
+        siphash24_compress(dad_counter, sizeof(uint8_t), &state);
+
+        r = sd_id128_get_machine_app_specific(NDISC_APP_ID, &secret_key);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get machine id: %m");
+
+        siphash24_compress(&secret_key, sizeof(secret_key), &state);
+        rid = siphash24_finalize(&state);
+
+        l = (size_t) DIV_ROUND_UP(prefix_len, 8);
+        memcpy(&addr->s6_addr, prefix, l);
+
+        len = sizeof(addr->s6_addr) - l;
+        memcpy((uint8_t *) &addr->s6_addr + 8, &rid, len);
+
+        return 0;
+}
 
 static int ndisc_netlink_route_message_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
@@ -172,12 +240,63 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
+static int ndisc_router_generate_address(Link *link, unsigned prefixlen, uint32_t lifetime_preferred, Address *address) {
+        bool prefix_stable = false;
+        struct in6_addr addr;
+        IPv6Token *j;
+        Iterator i;
+        int r;
+
+        assert(address);
+        assert(link);
+
+        addr = address->in_addr.in6;
+        ORDERED_HASHMAP_FOREACH(j, link->network->ipv6_tokens, i) {
+                if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE
+                    && memcmp(&j->prefix, &addr, FAMILY_ADDRESS_SIZE(address->family)) == 0) {
+                        for (; j->dad_counter < DAD_CONFLICTS_IDGEN_RETRIES_RFC7217; j->dad_counter++) {
+                                r = ipv6_makestableprivate(link, &addr, prefixlen, &j->dad_counter, &address->in_addr.in6);
+                                if (r < 0)
+                                        return r;
+
+                                if (!ipv6_interface_identifiers(&address->in_addr.in6)) {
+                                        prefix_stable = true;
+                                        break;
+                                }
+                        }
+                } else if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_EUI64) {
+                        if (memcmp(&j->prefix, &address->in_addr, FAMILY_ADDRESS_SIZE(address->family)) == 0) {
+                                memcpy(((char *)&address->in_addr.in6) + 8, ((char *)&j->prefix) + 8, 8);
+                                break;
+                        }
+                }
+        }
+        /* eui64 or fallback if prefixstable do not match */
+        if (!prefix_stable) {
+                /* see RFC4291 section 2.5.1 */
+                address->in_addr.in6.s6_addr[8]  = link->mac.ether_addr_octet[0];
+                address->in_addr.in6.s6_addr[8] ^= 1 << 1;
+                address->in_addr.in6.s6_addr[9]  = link->mac.ether_addr_octet[1];
+                address->in_addr.in6.s6_addr[10] = link->mac.ether_addr_octet[2];
+                address->in_addr.in6.s6_addr[11] = 0xff;
+                address->in_addr.in6.s6_addr[12] = 0xfe;
+                address->in_addr.in6.s6_addr[13] = link->mac.ether_addr_octet[3];
+                address->in_addr.in6.s6_addr[14] = link->mac.ether_addr_octet[4];
+                address->in_addr.in6.s6_addr[15] = link->mac.ether_addr_octet[5];
+        }
+
+        address->prefixlen = prefixlen;
+        address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
+        address->cinfo.ifa_prefered = lifetime_preferred;
+
+        return 0;
+}
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
+        uint32_t lifetime_valid, lifetime_preferred, lifetime_remaining;
         _cleanup_(address_freep) Address *address = NULL;
         Address *existing_address;
-        uint32_t lifetime_valid, lifetime_preferred, lifetime_remaining;
-        usec_t time_now;
         unsigned prefixlen;
+        usec_t time_now;
         int r;
 
         assert(link);
@@ -212,23 +331,9 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix address: %m");
 
-        if (in_addr_is_null(AF_INET6, (const union in_addr_union *) &link->network->ipv6_token) == 0)
-                memcpy(((char *)&address->in_addr.in6) + 8, ((char *)&link->network->ipv6_token) + 8, 8);
-        else {
-                /* see RFC4291 section 2.5.1 */
-                address->in_addr.in6.s6_addr[8]  = link->mac.ether_addr_octet[0];
-                address->in_addr.in6.s6_addr[8] ^= 1 << 1;
-                address->in_addr.in6.s6_addr[9]  = link->mac.ether_addr_octet[1];
-                address->in_addr.in6.s6_addr[10] = link->mac.ether_addr_octet[2];
-                address->in_addr.in6.s6_addr[11] = 0xff;
-                address->in_addr.in6.s6_addr[12] = 0xfe;
-                address->in_addr.in6.s6_addr[13] = link->mac.ether_addr_octet[3];
-                address->in_addr.in6.s6_addr[14] = link->mac.ether_addr_octet[4];
-                address->in_addr.in6.s6_addr[15] = link->mac.ether_addr_octet[5];
-        }
-        address->prefixlen = prefixlen;
-        address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
-        address->cinfo.ifa_prefered = lifetime_preferred;
+        r = ndisc_router_generate_address(link, prefixlen, lifetime_preferred, address);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Falied to generate prefix stable address: %m");
 
         /* see RFC4862 section 5.5.3.e */
         r = address_get(link, address->family, &address->in_addr, address->prefixlen, &existing_address);
@@ -698,6 +803,8 @@ int ndisc_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        random_bytes(link->ndisc_hash_key, sizeof(link->ndisc_hash_key));
+
         return 0;
 }
 
@@ -734,6 +841,30 @@ void ndisc_flush(Link *link) {
         link->ndisc_rdnss = set_free_free(link->ndisc_rdnss);
         link->ndisc_dnssl = set_free_free(link->ndisc_dnssl);
 }
+
+int ipv6token_new(IPv6Token **ret) {
+        IPv6Token *p;
+
+        p = new(IPv6Token, 1);
+        if (!p)
+                return -ENOMEM;
+
+        *p = (IPv6Token) {
+                 .address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_NONE,
+        };
+
+        *ret = TAKE_PTR(p);
+
+        return 0;
+}
+
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                ipv6_token_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                IPv6Token,
+                free);
 
 int config_parse_ndisc_black_listed_prefix(
                 const char *unit,
@@ -803,6 +934,99 @@ int config_parse_ndisc_black_listed_prefix(
 
                 TAKE_PTR(a);
         }
+
+        return 0;
+}
+
+int config_parse_address_generation_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ IPv6Token *token = NULL;
+        _cleanup_free_ char *word = NULL;
+        union in_addr_union buffer;
+        Network *network = data;
+        uint8_t prefixlen = 64;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                network->ipv6_tokens = ordered_hashmap_free(network->ipv6_tokens);
+                return 0;
+        }
+
+        p = rvalue;
+        r = extract_first_word(&p, &word, ":", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Invalid IPv6Token= , ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        r = ipv6token_new(&token);
+        if (r < 0)
+                return log_oom();
+
+        if (streq(word, "eui64"))
+                token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_EUI64;
+        else if (streq(word, "prefixstable"))
+                token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE;
+        else {
+                union in_addr_union addr;
+
+                r = in_addr_from_string(AF_INET6, rvalue, &addr);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse IPv6 token, ignoring assignment: %s", rvalue);
+                        return 0;
+                }
+
+                token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_EUI64;
+                p = rvalue;
+       }
+
+        r = in_addr_prefix_from_string(p, AF_INET6, &buffer, &prefixlen);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse IPv6 %s, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (in_addr_is_null(AF_INET6, &buffer)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "IPv6 %s cannot be the ANY address, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        token->prefix = buffer.in6;
+
+        r = ordered_hashmap_ensure_allocated(&network->ipv6_tokens, &ipv6_token_hash_ops);
+        if (r < 0)
+                return log_oom();
+
+        r = ordered_hashmap_put(network->ipv6_tokens, &token->prefix, token);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to store DHCP send option '%s'", rvalue);
+                return 0;
+        }
+
+        TAKE_PTR(token);
 
         return 0;
 }
