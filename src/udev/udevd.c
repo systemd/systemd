@@ -44,6 +44,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "id128-util.h"
 #include "io-util.h"
 #include "libudev-device-internal.h"
 #include "limits-util.h"
@@ -1107,20 +1108,23 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
         return 1;
 }
 
-static int synthesize_change_one(sd_device *dev, const char *syspath) {
+static int synthesize_uevent(sd_device *dev, const char *syspath, const char *trigger) {
         const char *filename;
         int r;
 
         filename = strjoina(syspath, "/uevent");
-        log_device_debug(dev, "device is closed, synthesising 'change' on %s", syspath);
-        r = write_string_file(filename, "change", WRITE_STRING_FILE_DISABLE_BUFFER);
+        log_device_debug(dev, "device is closed, synthesising '%s' on %s", trigger, syspath);
+        r = write_string_file(filename, trigger, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to write 'change' to %s: %m", filename);
+                return log_device_debug_errno(dev, r, "Failed to write '%s' to %s: %m", trigger, filename);
         return 0;
 }
 
 static int synthesize_change(sd_device *dev) {
         const char *subsystem, *sysname, *devname, *syspath, *devtype;
+        sd_id128_t id = SD_ID128_NULL;
+        char synth_uuid_str[SD_ID128_UUID_STRING_MAX];
+        _cleanup_free_ char *trigger = NULL;
         int r;
 
         r = sd_device_get_subsystem(dev, &subsystem);
@@ -1142,6 +1146,15 @@ static int synthesize_change(sd_device *dev) {
         r = sd_device_get_devtype(dev, &devtype);
         if (r < 0)
                 return r;
+
+        r = sd_id128_randomize(&id);
+        if (r < 0)
+                return r;
+
+        trigger = strjoin(device_action_to_string(DEVICE_ACTION_CHANGE), " ",
+                          id128_to_uuid_string(id, synth_uuid_str), " UDEVWATCH=1");
+        if (!trigger)
+                return log_oom();
 
         if (streq_ptr("block", subsystem) &&
             streq_ptr("disk", devtype) &&
@@ -1208,7 +1221,7 @@ static int synthesize_change(sd_device *dev) {
                  * We have partitions but re-reading the partition table did not
                  * work, synthesize "change" for the disk and all partitions.
                  */
-                (void) synthesize_change_one(dev, syspath);
+                (void) synthesize_uevent(dev, syspath, trigger);
 
                 FOREACH_DEVICE(e, d) {
                         const char *t, *n, *s;
@@ -1221,11 +1234,11 @@ static int synthesize_change(sd_device *dev) {
                             sd_device_get_syspath(d, &s) < 0)
                                 continue;
 
-                        (void) synthesize_change_one(dev, s);
+                        (void) synthesize_uevent(dev, s, trigger);
                 }
 
         } else
-                (void) synthesize_change_one(dev, syspath);
+                (void) synthesize_uevent(dev, syspath, trigger);
 
         return 0;
 }

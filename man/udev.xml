@@ -557,7 +557,8 @@
                 <listitem>
                   <para>Watch the device node with inotify; when the node is
                   closed after being opened for writing, a change uevent is
-                  synthesized.</para>
+                  synthesized. The synthesized uevent contains SYNTH_ARG_UDEVWATCH="1"
+                  key-value pair in its environment.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
