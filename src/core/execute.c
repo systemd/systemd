@@ -1621,7 +1621,7 @@ static void do_idle_pipe_dance(int idle_pipe[static 4]) {
                         n = write(idle_pipe[3], "x", 1);
                         if (n > 0)
                                 /* Wait for systemd to react to the signal above. */
-                                fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT2_USEC);
+                                (void) fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT2_USEC);
                 }
 
                 idle_pipe[0] = safe_close(idle_pipe[0]);

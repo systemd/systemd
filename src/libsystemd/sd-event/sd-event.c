@@ -2552,7 +2552,7 @@ static int process_child(sd_event *e) {
                                  * benefit in leaving it queued */
 
                                 assert(s->child.options & (WSTOPPED|WCONTINUED));
-                                waitid(P_PID, s->child.pid, &s->child.siginfo, WNOHANG|(s->child.options & (WSTOPPED|WCONTINUED)));
+                                (void) waitid(P_PID, s->child.pid, &s->child.siginfo, WNOHANG|(s->child.options & (WSTOPPED|WCONTINUED)));
                         }
 
                         r = source_set_pending(s, true);
