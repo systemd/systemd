@@ -2088,7 +2088,7 @@ static void reset_arguments(void) {
         arg_default_blockio_accounting = false;
         arg_default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT;
         arg_default_tasks_accounting = true;
-        arg_default_tasks_max = UINT64_MAX;
+        arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
         arg_machine_id = (sd_id128_t) {};
         arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
 
@@ -2102,8 +2102,6 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
 
         assert(saved_rlimit_nofile);
         assert(saved_rlimit_memlock);
-
-        arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
 
         /* Assign configuration defaults */
         reset_arguments();
