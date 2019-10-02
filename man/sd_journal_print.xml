@@ -70,6 +70,7 @@
     journal. The first argument is a priority value. This is followed by a format string and its parameters, similar to
     <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry> or
     <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Note that currently the resulting message will be trucated to <constant>LINE_MAX - 8</constant>.
     The priority value is one of <constant>LOG_EMERG</constant>, <constant>LOG_ALERT</constant>,
     <constant>LOG_CRIT</constant>, <constant>LOG_ERR</constant>, <constant>LOG_WARNING</constant>,
     <constant>LOG_NOTICE</constant>, <constant>LOG_INFO</constant>, <constant>LOG_DEBUG</constant>, as defined in
