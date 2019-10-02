@@ -192,7 +192,8 @@
       <arg choice="opt"><replaceable>options</replaceable></arg>
       <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
       </title>
-      <para>Request device events from the kernel. Primarily used to replay events at system coldplug time.</para>
+      <para>Request device events from the kernel. All events contain SYNTH_ARG_UDEVTRIGGER="1"
+      key-value pair in their environment. Primarily used to replay events at system coldplug time.</para>
 
       <para>Takes device specifications as positional arguments. See the description of <command>info</command>
       above.</para>
@@ -318,6 +319,16 @@
             then each matching result is ORed, that is, all children of each specified device are triggered.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><option>-u</option></term>
+          <term><option>--synth-uuid=<replaceable>UUID</replaceable></option></term>
+          <listitem>
+            <para>Trigger events with given UUID which then appears as SYNTH_UUID=UUID key-value pair in the
+            event environment. SYNTH_UUID key is primarily used for grouping, identification and matching of
+            triggered events. If this option is not used, then random UUID is automatically generated.</para>
+          </listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><option>-w</option></term>
           <term><option>--settle</option></term>
