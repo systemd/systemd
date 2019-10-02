@@ -167,13 +167,13 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
         </varlistentry>
 
         <varlistentry>
-          <term><varname>w</varname></term>
+          <term><varname>w, w+</varname></term>
           <listitem><para>Write the argument parameter to a file, if
-          the file exists.  Lines of this type accept shell-style
-          globs in place of normal path names. The argument parameter
-          will be written without a trailing newline. C-style
-          backslash escapes are interpreted. Follows
-          symlinks.</para></listitem>
+          the file exists.  If suffixed with +, line will be appended
+          to file. Lines of this type accept shell-style globs in place
+          of normal path names. The argument parameter will be written
+          without a trailing newline. C-style backslash escapes are
+          interpreted. Follows symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>

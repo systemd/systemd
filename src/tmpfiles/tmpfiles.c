@@ -1257,7 +1257,7 @@ static int path_set_attribute(Item *item, const char *path) {
 static int write_one_file(Item *i, const char *path) {
         _cleanup_close_ int fd = -1, dir_fd = -1;
         char *bn;
-        int r;
+        int flags, r;
 
         assert(i);
         assert(path);
@@ -1272,8 +1272,10 @@ static int write_one_file(Item *i, const char *path) {
 
         bn = basename(path);
 
+        flags = O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY;
+
         /* Follows symlinks */
-        fd = openat(dir_fd, bn, O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+        fd = openat(dir_fd, bn, i->force ? flags|O_APPEND : flags, i->mode);
         if (fd < 0) {
                 if (errno == ENOENT) {
                         log_debug_errno(errno, "Not writing missing file \"%s\": %m", path);
@@ -2794,7 +2796,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 size_t n;
 
                 for (n = 0; n < existing->n_items; n++) {
-                        if (!item_compatible(existing->items + n, &i)) {
+                        if (!item_compatible(existing->items + n, &i) && !i.force) {
                                 log_notice("[%s:%u] Duplicate line for path \"%s\", ignoring.",
                                            fname, line, i.path);
                                 return 0;
