@@ -23,7 +23,7 @@
 #      evdev:input:bZZZZvYYYYpXXXXeWWWW-VVVV
 #    This matches on the kernel modalias of the input-device, mainly:
 #    ZZZZ is the bus-id (see /usr/include/linux/input.h BUS_*), YYYY, XXXX and
-#    WWW are the 4-digit hex uppercase vendor, product and version ID and VVVV
+#    WWWW are the 4-digit hex uppercase vendor, product and version ID and VVVV
 #    is an arbitrary length input-modalias describing the device capabilities.
 #    The vendor, product and version ID for a device node "eventX" is listed
 #    in /sys/class/input/eventX/device/id.
