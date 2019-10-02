@@ -575,11 +575,14 @@ bool valid_user_group_name(const char *u) {
         /* Checks if the specified name is a valid user/group name. Also see POSIX IEEE Std 1003.1-2008, 2016 Edition,
          * 3.437. We are a bit stricter here however. Specifically we deviate from POSIX rules:
          *
-         * - We don't allow any dots (this would break chown syntax which permits dots as user/group name separator)
          * - We require that names fit into the appropriate utmp field
          * - We don't allow empty user names
          *
          * Note that other systems are even more restrictive, and don't permit underscores or uppercase characters.
+         *
+         * jsynacek: We now allow dots in user names. The checks are not exhaustive as user names like "..." are allowed
+         * and valid according to POSIX, but can't be created using useradd. However, ".user" can be created. Let's not
+         * complicate the code by adding additional checks for weird corner cases like these,  as they don't really matter here.
          */
 
         if (isempty(u))
@@ -587,14 +590,14 @@ bool valid_user_group_name(const char *u) {
 
         if (!(u[0] >= 'a' && u[0] <= 'z') &&
             !(u[0] >= 'A' && u[0] <= 'Z') &&
-            u[0] != '_')
+            u[0] != '_' && u[0] != '.')
                 return false;
 
         for (i = u+1; *i; i++) {
                 if (!(*i >= 'a' && *i <= 'z') &&
                     !(*i >= 'A' && *i <= 'Z') &&
                     !(*i >= '0' && *i <= '9') &&
-                    !IN_SET(*i, '_', '-'))
+                    !IN_SET(*i, '_', '-', '.'))
                         return false;
         }
 

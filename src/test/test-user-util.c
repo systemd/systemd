@@ -71,8 +71,6 @@ static void test_valid_user_group_name(void) {
         assert_se(!valid_user_group_name("-1"));
         assert_se(!valid_user_group_name("-kkk"));
         assert_se(!valid_user_group_name("rööt"));
-        assert_se(!valid_user_group_name("."));
-        assert_se(!valid_user_group_name("eff.eff"));
         assert_se(!valid_user_group_name("foo\nbar"));
         assert_se(!valid_user_group_name("0123456789012345678901234567890123456789"));
         assert_se(!valid_user_group_name_or_id("aaa:bbb"));
@@ -83,6 +81,8 @@ static void test_valid_user_group_name(void) {
         assert_se(valid_user_group_name("_kkk"));
         assert_se(valid_user_group_name("kkk-"));
         assert_se(valid_user_group_name("kk-k"));
+        assert_se(valid_user_group_name(".moo"));
+        assert_se(valid_user_group_name("eff.eff"));
 
         assert_se(valid_user_group_name("some5"));
         assert_se(!valid_user_group_name("5some"));
@@ -102,8 +102,6 @@ static void test_valid_user_group_name_or_id(void) {
         assert_se(!valid_user_group_name_or_id("-1"));
         assert_se(!valid_user_group_name_or_id("-kkk"));
         assert_se(!valid_user_group_name_or_id("rööt"));
-        assert_se(!valid_user_group_name_or_id("."));
-        assert_se(!valid_user_group_name_or_id("eff.eff"));
         assert_se(!valid_user_group_name_or_id("foo\nbar"));
         assert_se(!valid_user_group_name_or_id("0123456789012345678901234567890123456789"));
         assert_se(!valid_user_group_name_or_id("aaa:bbb"));
@@ -114,6 +112,8 @@ static void test_valid_user_group_name_or_id(void) {
         assert_se(valid_user_group_name_or_id("_kkk"));
         assert_se(valid_user_group_name_or_id("kkk-"));
         assert_se(valid_user_group_name_or_id("kk-k"));
+        assert_se(valid_user_group_name_or_id(".moo"));
+        assert_se(valid_user_group_name_or_id("eff.eff"));
 
         assert_se(valid_user_group_name_or_id("some5"));
         assert_se(!valid_user_group_name_or_id("5some"));
