@@ -215,7 +215,7 @@ static void slice_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sSlice State: %s\n",
                 prefix, slice_state_to_string(t->state));
 
-        cgroup_context_dump(&t->cgroup_context, f, prefix);
+        cgroup_context_dump(UNIT(t), f, prefix);
 }
 
 static int slice_start(Unit *u) {

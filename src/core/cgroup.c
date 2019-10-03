@@ -328,7 +328,38 @@ static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_
         return *ret_kernel_value == *ret_unit_value;
 }
 
-void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
+#define FORMAT_CGROUP_DIFF_MAX 128
+
+static char *format_cgroup_memory_limit_comparison(char *buf, size_t l, Unit *u, const char *property_name) {
+        uint64_t kval, sval;
+        int r;
+
+        assert(u);
+        assert(buf);
+        assert(l > 0);
+
+        r = unit_compare_memory_limit(u, property_name, &sval, &kval);
+
+        /* memory.swap.max is special in that it relies on CONFIG_MEMCG_SWAP (and the default swapaccount=1).
+         * In the absence of reliably being able to detect whether memcg swap support is available or not,
+         * only complain if the error is not ENOENT. */
+        if (r > 0 || IN_SET(r, -ENODATA, -EOWNERDEAD) ||
+            (r == -ENOENT && streq(property_name, "MemorySwapMax"))) {
+                buf[0] = 0;
+                return buf;
+        }
+
+        if (r < 0) {
+                snprintf(buf, l, " (error getting kernel value: %s)", strerror_safe(r));
+                return buf;
+        }
+
+        snprintf(buf, l, " (different value in kernel: %" PRIu64 ")", kval);
+
+        return buf;
+}
+
+void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         _cleanup_free_ char *disable_controllers_str = NULL;
         _cleanup_free_ char *cpuset_cpus = NULL;
         _cleanup_free_ char *cpuset_mems = NULL;
@@ -338,13 +369,23 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         CGroupBlockIODeviceBandwidth *b;
         CGroupBlockIODeviceWeight *w;
         CGroupDeviceAllow *a;
+        CGroupContext *c;
         IPAddressAccessItem *iaai;
         char **path;
-        char u[FORMAT_TIMESPAN_MAX];
+        char q[FORMAT_TIMESPAN_MAX];
         char v[FORMAT_TIMESPAN_MAX];
 
-        assert(c);
+        char cda[FORMAT_CGROUP_DIFF_MAX];
+        char cdb[FORMAT_CGROUP_DIFF_MAX];
+        char cdc[FORMAT_CGROUP_DIFF_MAX];
+        char cdd[FORMAT_CGROUP_DIFF_MAX];
+        char cde[FORMAT_CGROUP_DIFF_MAX];
+
+        assert(u);
         assert(f);
+
+        c = unit_get_cgroup_context(u);
+        assert(c);
 
         prefix = strempty(prefix);
 
@@ -374,11 +415,11 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sStartupBlockIOWeight: %" PRIu64 "\n"
                 "%sDefaultMemoryMin: %" PRIu64 "\n"
                 "%sDefaultMemoryLow: %" PRIu64 "\n"
-                "%sMemoryMin: %" PRIu64 "\n"
-                "%sMemoryLow: %" PRIu64 "\n"
-                "%sMemoryHigh: %" PRIu64 "\n"
-                "%sMemoryMax: %" PRIu64 "\n"
-                "%sMemorySwapMax: %" PRIu64 "\n"
+                "%sMemoryMin: %" PRIu64 "%s\n"
+                "%sMemoryLow: %" PRIu64 "%s\n"
+                "%sMemoryHigh: %" PRIu64 "%s\n"
+                "%sMemoryMax: %" PRIu64 "%s\n"
+                "%sMemorySwapMax: %" PRIu64 "%s\n"
                 "%sMemoryLimit: %" PRIu64 "\n"
                 "%sTasksMax: %" PRIu64 "\n"
                 "%sDevicePolicy: %s\n"
@@ -394,7 +435,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->startup_cpu_weight,
                 prefix, c->cpu_shares,
                 prefix, c->startup_cpu_shares,
-                prefix, format_timespan(u, sizeof(u), c->cpu_quota_per_sec_usec, 1),
+                prefix, format_timespan(q, sizeof(q), c->cpu_quota_per_sec_usec, 1),
                 prefix, format_timespan(v, sizeof(v), c->cpu_quota_period_usec, 1),
                 prefix, cpuset_cpus,
                 prefix, cpuset_mems,
@@ -404,11 +445,11 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->startup_blockio_weight,
                 prefix, c->default_memory_min,
                 prefix, c->default_memory_low,
-                prefix, c->memory_min,
-                prefix, c->memory_low,
-                prefix, c->memory_high,
-                prefix, c->memory_max,
-                prefix, c->memory_swap_max,
+                prefix, c->memory_min, format_cgroup_memory_limit_comparison(cda, sizeof(cda), u, "MemoryMin"),
+                prefix, c->memory_low, format_cgroup_memory_limit_comparison(cdb, sizeof(cdb), u, "MemoryLow"),
+                prefix, c->memory_high, format_cgroup_memory_limit_comparison(cdc, sizeof(cdc), u, "MemoryHigh"),
+                prefix, c->memory_max, format_cgroup_memory_limit_comparison(cdd, sizeof(cdd), u, "MemoryMax"),
+                prefix, c->memory_swap_max, format_cgroup_memory_limit_comparison(cde, sizeof(cde), u, "MemorySwapMax"),
                 prefix, c->memory_limit,
                 prefix, c->tasks_max,
                 prefix, cgroup_device_policy_to_string(c->device_policy),
@@ -444,7 +485,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                         "%sIODeviceLatencyTargetSec: %s %s\n",
                         prefix,
                         l->path,
-                        format_timespan(u, sizeof(u), l->target_usec, 1));
+                        format_timespan(q, sizeof(q), l->target_usec, 1));
 
         LIST_FOREACH(device_limits, il, c->io_device_limits) {
                 char buf[FORMAT_BYTES_MAX];

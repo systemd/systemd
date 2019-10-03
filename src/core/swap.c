@@ -621,7 +621,7 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
 
         exec_context_dump(&s->exec_context, f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
-        cgroup_context_dump(&s->cgroup_context, f, prefix);
+        cgroup_context_dump(UNIT(s), f, prefix);
 }
 
 static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {

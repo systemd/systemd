@@ -905,7 +905,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, s->n_fd_store_max,
                         prefix, s->n_fd_store);
 
-        cgroup_context_dump(&s->cgroup_context, f, prefix);
+        cgroup_context_dump(UNIT(s), f, prefix);
 }
 
 static int service_is_suitable_main_pid(Service *s, pid_t pid, int prio) {
