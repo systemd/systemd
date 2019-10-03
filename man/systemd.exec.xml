@@ -1869,6 +1869,12 @@ SystemCallErrorNumber=EPERM</programlisting>
         variable definitions. The parser strips leading and trailing whitespace from the values of assignments, unless
         you use double quotes (").</para>
 
+        <para><ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C escapes</ulink>
+        are supported, but not
+        <ulink url="https://en.wikipedia.org/wiki/Control_character#In_ASCII">most control characters</ulink>.
+        <literal>\t</literal> and <literal>\n</literal> can be used to insert tabs and newlines within
+        <varname>EnvironmentFile=</varname>.</para>
+
         <para>The argument passed should be an absolute filename or wildcard expression, optionally prefixed with
         <literal>-</literal>, which indicates that if the file does not exist, it will not be read and no error or
         warning message is logged. This option may be specified more than once in which case all specified files are
@@ -1898,6 +1904,12 @@ SystemCallErrorNumber=EPERM</programlisting>
 
         <para>Variables set for invoked processes due to this setting are subject to being overridden by those
         configured with <varname>Environment=</varname> or <varname>EnvironmentFile=</varname>.</para>
+
+        <para><ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C escapes</ulink>
+        are supported, but not
+        <ulink url="https://en.wikipedia.org/wiki/Control_character#In_ASCII">most control characters</ulink>.
+        <literal>\t</literal> and <literal>\n</literal> can be used to insert tabs and newlines within
+        <varname>EnvironmentFile=</varname>.</para>
 
         <para>Example:
         <programlisting>PassEnvironment=VAR1 VAR2 VAR3</programlisting>
