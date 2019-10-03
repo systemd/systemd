@@ -185,6 +185,7 @@ RequiresMountsFor=
 Requisite=
 Restart=
 RestartForceExitStatus=
+RestartKillSignal=
 RestartPreventExitStatus=
 RestartSec=
 ReusePort=

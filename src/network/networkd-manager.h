@@ -29,6 +29,7 @@ struct Manager {
 
         bool enumerating:1;
         bool dirty:1;
+        bool restarting:1;
 
         Set *dirty_links;
 

@@ -477,26 +477,24 @@
 
       <varlistentry>
         <term><varname>ExecStop=</varname></term>
-        <listitem><para>Commands to execute to stop the service
-        started via <varname>ExecStart=</varname>. This argument takes
-        multiple command lines, following the same scheme as described
-        for <varname>ExecStart=</varname> above. Use of this setting
-        is optional. After the commands configured in this option are
-        run, it is implied that the service is stopped, and any processes
-        remaining for it are terminated
-        according to the <varname>KillMode=</varname> setting (see
+        <listitem><para>Commands to execute to stop the service started via
+        <varname>ExecStart=</varname>. This argument takes multiple command lines, following the same scheme
+        as described for <varname>ExecStart=</varname> above. Use of this setting is optional. After the
+        commands configured in this option are run, it is implied that the service is stopped, and any
+        processes remaining for it are terminated according to the <varname>KillMode=</varname> setting (see
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-        If this option is not specified, the process is terminated by
-        sending the signal specified in <varname>KillSignal=</varname>
-        when service stop is requested. Specifier and environment
-        variable substitution is supported (including
+        If this option is not specified, the process is terminated by sending the signal specified in
+        <varname>KillSignal=</varname> or <varname>RestartKillSignal=</varname> when service stop is
+        requested. Specifier and environment variable substitution is supported (including
         <varname>$MAINPID</varname>, see above).</para>
 
-        <para>Note that it is usually not sufficient to specify a command for this setting that only asks the service
-        to terminate (for example, by queuing some form of termination signal for it), but does not wait for it to do
-        so. Since the remaining processes of the services are killed according to <varname>KillMode=</varname> and
-        <varname>KillSignal=</varname> as described above immediately after the command exited, this may not result in
-        a clean stop. The specified command should hence be a synchronous operation, not an asynchronous one.</para>
+        <para>Note that it is usually not sufficient to specify a command for this setting that only asks the
+        service to terminate (for example, by sending some form of termination signal to it), but does not
+        wait for it to do so. Since the remaining processes of the services are killed according to
+        <varname>KillMode=</varname> and <varname>KillSignal=</varname> or
+        <varname>RestartKillSignal=</varname> as described above immediately after the command exited, this
+        may not result in a clean stop. The specified command should hence be a synchronous operation, not an
+        asynchronous one.</para>
 
         <para>Note that the commands specified in <varname>ExecStop=</varname> are only executed when the service
         started successfully first. They are not invoked if the service was never started at all, or in case its

@@ -268,13 +268,11 @@ int network_verify(Network *network) {
                         /* CriticalConnection=yes also preserve foreign static configurations. */
                         network->keep_configuration = KEEP_CONFIGURATION_YES;
                 else
-                        /* For backward compatibility, we do not release DHCP addresses on manager stop. */
-                        network->keep_configuration = KEEP_CONFIGURATION_DHCP_ON_STOP;
+                        network->keep_configuration = KEEP_CONFIGURATION_NO;
         }
 
         if (network->keep_configuration < 0)
-                /* For backward compatibility, we do not release DHCP addresses on manager stop. */
-                network->keep_configuration = KEEP_CONFIGURATION_DHCP_ON_STOP;
+                network->keep_configuration = KEEP_CONFIGURATION_NO;
 
         LIST_FOREACH_SAFE(addresses, address, address_next, network->static_addresses)
                 if (address_section_verify(address) < 0)
@@ -373,6 +371,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 .dhcp_use_routes = true,
                 /* NOTE: this var might be overwritten by network_apply_anonymize_if_set */
                 .dhcp_send_hostname = true,
+                .dhcp_send_release = true,
                 /* To enable/disable RFC7844 Anonymity Profiles */
                 .dhcp_anonymize = false,
                 .dhcp_route_metric = DHCP_ROUTE_METRIC,

@@ -870,41 +870,6 @@ static int client_send_discover(sd_dhcp_client *client) {
         return 0;
 }
 
-static int client_send_release(sd_dhcp_client *client) {
-        _cleanup_free_ DHCPPacket *release = NULL;
-        size_t optoffset, optlen;
-        int r;
-
-        assert(client);
-        assert(!IN_SET(client->state, DHCP_STATE_STOPPED));
-
-        r = client_message_init(client, &release, DHCP_RELEASE,
-                                &optlen, &optoffset);
-        if (r < 0)
-                return r;
-
-        /* Fill up release IP and MAC */
-        release->dhcp.ciaddr = client->lease->address;
-        memcpy(&release->dhcp.chaddr, &client->mac_addr, client->mac_addr_len);
-
-        r = dhcp_option_append(&release->dhcp, optlen, &optoffset, 0,
-                               SD_DHCP_OPTION_END, 0, NULL);
-        if (r < 0)
-                return r;
-
-        r = dhcp_network_send_udp_socket(client->fd,
-                                         client->lease->server_address,
-                                         DHCP_PORT_SERVER,
-                                         &release->dhcp,
-                                         sizeof(DHCPMessage) + optoffset);
-        if (r < 0)
-                return r;
-
-        log_dhcp_client(client, "RELEASE");
-
-        return 0;
-}
-
 static int client_send_request(sd_dhcp_client *client) {
         _cleanup_free_ DHCPPacket *request = NULL;
         size_t optoffset, optlen;
@@ -1929,8 +1894,35 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 
 int sd_dhcp_client_send_release(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
+        assert_return(client->state != DHCP_STATE_STOPPED, -ESTALE);
+        assert_return(client->lease, -EUNATCH);
 
-        client_send_release(client);
+        _cleanup_free_ DHCPPacket *release = NULL;
+        size_t optoffset, optlen;
+        int r;
+
+        r = client_message_init(client, &release, DHCP_RELEASE, &optlen, &optoffset);
+        if (r < 0)
+                return r;
+
+        /* Fill up release IP and MAC */
+        release->dhcp.ciaddr = client->lease->address;
+        memcpy(&release->dhcp.chaddr, &client->mac_addr, client->mac_addr_len);
+
+        r = dhcp_option_append(&release->dhcp, optlen, &optoffset, 0,
+                               SD_DHCP_OPTION_END, 0, NULL);
+        if (r < 0)
+                return r;
+
+        r = dhcp_network_send_udp_socket(client->fd,
+                                         client->lease->server_address,
+                                         DHCP_PORT_SERVER,
+                                         &release->dhcp,
+                                         sizeof(DHCPMessage) + optoffset);
+        if (r < 0)
+                return r;
+
+        log_dhcp_client(client, "RELEASE");
 
         return 0;
 }

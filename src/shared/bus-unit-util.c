@@ -1355,15 +1355,12 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 static int bus_append_kill_property(sd_bus_message *m, const char *field, const char *eq) {
 
         if (streq(field, "KillMode"))
-
                 return bus_append_string(m, field, eq);
 
         if (STR_IN_SET(field, "SendSIGHUP", "SendSIGKILL"))
-
                 return bus_append_parse_boolean(m, field, eq);
 
-        if (STR_IN_SET(field, "KillSignal", "FinalKillSignal", "WatchdogSignal"))
-
+        if (STR_IN_SET(field, "KillSignal", "RestartKillSignal", "FinalKillSignal", "WatchdogSignal"))
                 return bus_append_signal_from_string(m, field, eq);
 
         return 0;

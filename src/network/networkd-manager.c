@@ -30,6 +30,7 @@
 #include "ordered-set.h"
 #include "path-util.h"
 #include "set.h"
+#include "signal-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
 #include "tmpfile-util.h"
@@ -1561,6 +1562,28 @@ static int manager_dirty_handler(sd_event_source *s, void *userdata) {
         return 1;
 }
 
+static int signal_terminate_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Manager *m = userdata;
+
+        assert(m);
+        m->restarting = false;
+
+        log_debug("Terminate operation initiated.");
+
+        return sd_event_exit(sd_event_source_get_event(s), 0);
+}
+
+static int signal_restart_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Manager *m = userdata;
+
+        assert(m);
+        m->restarting = true;
+
+        log_debug("Restart operation initiated.");
+
+        return sd_event_exit(sd_event_source_get_event(s), 0);
+}
+
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -1581,9 +1604,12 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR2, -1) >= 0);
+
         (void) sd_event_set_watchdog(m->event, true);
-        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
-        (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGTERM, signal_terminate_callback, m);
+        (void) sd_event_add_signal(m->event, NULL, SIGINT, signal_terminate_callback, m);
+        (void) sd_event_add_signal(m->event, NULL, SIGUSR2, signal_restart_callback, m);
 
         r = sd_event_add_post(m->event, NULL, manager_dirty_handler, m);
         if (r < 0)

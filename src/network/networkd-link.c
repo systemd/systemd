@@ -770,8 +770,12 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
 
         dhcp4_release_old_lease(link);
 
-        if (link->dhcp_client && (!may_keep_dhcp || !link->network ||
-                                  !FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP))) {
+        bool keep_dhcp = may_keep_dhcp &&
+                         link->network &&
+                         (link->manager->restarting ||
+                          FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
+
+        if (link->dhcp_client && !keep_dhcp) {
                 k = sd_dhcp_client_stop(link->dhcp_client);
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Could not stop DHCPv4 client: %m");

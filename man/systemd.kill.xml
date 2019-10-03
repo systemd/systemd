@@ -85,32 +85,36 @@
         unless it is empty.</para>
 
         <para>Processes will first be terminated via <constant>SIGTERM</constant> (unless the signal to send
-        is changed via <varname>KillSignal=</varname>). Optionally, this is immediately followed by a
-        <constant>SIGHUP</constant> (if enabled with <varname>SendSIGHUP=</varname>). If processes still
-        remain after the main process of a unit has exited or the delay configured via the
-        <varname>TimeoutStopSec=</varname> has passed, the termination request is repeated with the
-        <constant>SIGKILL</constant> signal or the signal specified via <varname>FinalKillSignal=</varname>
-        (unless this is disabled via the <varname>SendSIGKILL=</varname> option). See
-        <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry> for more
-        information.</para>
+        is changed via <varname>KillSignal=</varname> or <varname>RestartKillSignal=</varname>). Optionally,
+        this is immediately followed by a <constant>SIGHUP</constant> (if enabled with
+        <varname>SendSIGHUP=</varname>). If processes still remain after the main process of a unit has
+        exited or the delay configured via the <varname>TimeoutStopSec=</varname> has passed, the termination
+        request is repeated with the <constant>SIGKILL</constant> signal or the signal specified via
+        <varname>FinalKillSignal=</varname> (unless this is disabled via the <varname>SendSIGKILL=</varname>
+        option). See <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        for more information.</para>
 
         <para>Defaults to <option>control-group</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>KillSignal=</varname></term>
-        <listitem><para>Specifies which signal to use when killing a
-        service. This controls the signal that is sent as first step
-        of shutting down a unit (see above), and is usually followed
-        by <constant>SIGKILL</constant> (see above and below). For a
-        list of valid signals, see
+        <listitem><para>Specifies which signal to use when stopping a service. This controls the signal that
+        is sent as first step of shutting down a unit (see above), and is usually followed by
+        <constant>SIGKILL</constant> (see above and below). For a list of valid signals, see
         <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-        Defaults to <constant>SIGTERM</constant>. </para>
+        Defaults to <constant>SIGTERM</constant>.</para>
 
-        <para>Note that, right after sending the signal specified in
-        this setting, systemd will always send
-        <constant>SIGCONT</constant>, to ensure that even suspended
-        tasks can be terminated cleanly.</para>
+        <para>Note that, right after sending the signal specified in this setting, systemd will always send
+        <constant>SIGCONT</constant>, to ensure that even suspended tasks can be terminated cleanly.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RestartKillSignal=</varname></term>
+        <listitem><para>Specifies which signal to use when restarting a service. The same as
+        <varname>KillSignal=</varname> described above, with the exception that this setting is used in a
+        restart job. Not set by default, and the value of <varname>KillSignal=</varname> is used.</para>
         </listitem>
       </varlistentry>
 

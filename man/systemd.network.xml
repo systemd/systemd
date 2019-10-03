@@ -876,8 +876,8 @@
           lease expires. This is contrary to the DHCP specification, but may be the best choice if,
           e.g., the root filesystem relies on this connection. The setting <literal>dhcp</literal>
           implies <literal>dhcp-on-stop</literal>, and <literal>yes</literal> implies
-          <literal>dhcp</literal> and <literal>static</literal>. Defaults to
-          <literal>dhcp-on-stop</literal>.</para>
+          <literal>dhcp</literal> and <literal>static</literal>. Defaults to <literal>no</literal>.
+          </para>
         </listitem>
       </varlistentry>
 
@@ -1568,7 +1568,7 @@
           <term><varname>SendRelease=</varname></term>
           <listitem>
             <para>When true, the DHCPv4 client sends a DHCP release packet when it stops.
-            Defaults to false.</para>
+            Defaults to true.</para>
           </listitem>
         </varlistentry>
 

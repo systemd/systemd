@@ -2077,6 +2077,16 @@ fail:
         socket_enter_signal(s, SOCKET_FINAL_SIGTERM, SOCKET_FAILURE_RESOURCES);
 }
 
+static int state_to_kill_operation(Socket *s, SocketState state) {
+        if (state == SOCKET_STOP_PRE_SIGTERM && unit_has_job_type(UNIT(s), JOB_RESTART))
+                return KILL_RESTART;
+
+        if (state == SOCKET_FINAL_SIGTERM)
+                return KILL_TERMINATE;
+
+        return KILL_KILL;
+}
+
 static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         int r;
 
@@ -2088,8 +2098,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         r = unit_kill_context(
                         UNIT(s),
                         &s->kill_context,
-                        !IN_SET(state, SOCKET_STOP_PRE_SIGTERM, SOCKET_FINAL_SIGTERM) ?
-                        KILL_KILL : KILL_TERMINATE,
+                        state_to_kill_operation(s, state),
                         -1,
                         s->control_pid,
                         false);

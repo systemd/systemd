@@ -106,9 +106,9 @@ int main(int argc, char *argv[]) {
 
         printf("Test11: (Start/stop job ordering, execution cycle)\n");
         assert_se(manager_add_job(m, JOB_START, i, JOB_FAIL, NULL, NULL, &j) == 0);
-        assert_se(a->job && a->job->type == JOB_STOP);
-        assert_se(d->job && d->job->type == JOB_STOP);
-        assert_se(b->job && b->job->type == JOB_START);
+        assert_se(unit_has_job_type(a, JOB_STOP));
+        assert_se(unit_has_job_type(d, JOB_STOP));
+        assert_se(unit_has_job_type(b, JOB_START));
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Load6:\n");
