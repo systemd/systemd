@@ -234,7 +234,7 @@ static void scope_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, scope_state_to_string(s->state),
                 prefix, scope_result_to_string(s->result));
 
-        cgroup_context_dump(&s->cgroup_context, f, prefix);
+        cgroup_context_dump(UNIT(s), f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
 }
 

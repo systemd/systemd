@@ -166,7 +166,7 @@ usec_t cgroup_cpu_adjust_period(usec_t period, usec_t quota, usec_t resolution, 
 
 void cgroup_context_init(CGroupContext *c);
 void cgroup_context_done(CGroupContext *c);
-void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix);
+void cgroup_context_dump(Unit *u, FILE* f, const char *prefix);
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a);
 void cgroup_context_free_io_device_weight(CGroupContext *c, CGroupIODeviceWeight *w);

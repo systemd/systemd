@@ -769,7 +769,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 
         exec_context_dump(&m->exec_context, f, prefix);
         kill_context_dump(&m->kill_context, f, prefix);
-        cgroup_context_dump(&m->cgroup_context, f, prefix);
+        cgroup_context_dump(UNIT(m), f, prefix);
 }
 
 static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
