@@ -1135,6 +1135,12 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMEDIONNB:pnA555*:pvr*
  KEYBOARD_KEY_67=email                                  # envelope button
  KEYBOARD_KEY_69=prog2                                  # link 2 button
 
+# Erazer
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMedion*:pnErazer*:pvr*
+ KEYBOARD_KEY_a0=!mute
+ KEYBOARD_KEY_ae=!volumedown
+ KEYBOARD_KEY_b0=!volumeup
+
 ###########################################################
 # Microsoft
 ###########################################################
