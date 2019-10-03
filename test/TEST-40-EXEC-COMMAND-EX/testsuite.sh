@@ -5,6 +5,8 @@ set -o pipefail
 systemd-analyze log-level debug
 systemd-analyze log-target console
 
+rm -f /test_40_output_ex /test_40_output /test_40_ex_output_ex /test_40_ex_output
+
 declare -A property
 
 property[1_one]=ExecCondition
@@ -19,9 +21,13 @@ property[7_seven]=ExecStopPost
 # does not support the ":" prefix (no-env-expand).
 for c in "${!property[@]}"; do
     systemd-run --unit="$c" -r -p "Type=oneshot" -p "${property[$c]}=:/bin/echo \${$c}" /bin/true
-    systemctl show -p "${property[$c]}" "$c" | grep -F "path=/bin/echo ; argv[]=/bin/echo \${$c} ; ignore_errors=no"
-    systemctl show -p "${property[$c]}Ex" "$c" | grep -F "path=/bin/echo ; argv[]=/bin/echo \${$c} ; flags=no-env-expand"
+    systemctl show -p "${property[$c]}Ex" "$c" >> /test_40_output_ex
+    systemctl show -p "${property[$c]}" "$c" >> /test_40_output
 done
+
+[[ $(grep -c "path=/bin/echo ; argv\[\]=/bin/echo \${[0-9].*} ; flags=no-env-expand" /test_40_output_ex) == "${#property[@]}" ]]
+
+[[ $(grep -c "path=/bin/echo ; argv\[\]=/bin/echo \${[0-9].*} ; ignore_errors=no" /test_40_output) == "${#property[@]}" ]]
 
 declare -A property_ex
 
@@ -35,9 +41,13 @@ property_ex[7_seven_ex]=ExecStopPostEx
 
 for c in "${!property_ex[@]}"; do
     systemd-run --unit="$c" -r -p "Type=oneshot" -p "${property_ex[$c]}=:/bin/echo \${$c}" /bin/true
-    systemctl show -p "${property_ex[$c]%??}" "$c" | grep -F "path=/bin/echo ; argv[]=/bin/echo \${$c} ; ignore_errors=no"
-    systemctl show -p "${property_ex[$c]}" "$c" | grep -F "path=/bin/echo ; argv[]=/bin/echo \${$c} ; flags=no-env-expand"
+    systemctl show -p "${property_ex[$c]}" "$c" >> /test_40_ex_output_ex
+    systemctl show -p "${property_ex[$c]%??}" "$c" >> /test_40_ex_output
 done
+
+[[ $(grep -c "path=/bin/echo ; argv\[\]=/bin/echo \${[0-9].*_ex} ; flags=no-env-expand" /test_40_ex_output_ex) == "${#property_ex[@]}" ]]
+
+[[ $(grep -c "path=/bin/echo ; argv\[\]=/bin/echo \${[0-9].*_ex} ; ignore_errors=no" /test_40_ex_output) == "${#property_ex[@]}" ]]
 
 systemd-analyze log-level info
 
