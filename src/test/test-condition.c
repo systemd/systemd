@@ -14,7 +14,7 @@
 #include "cgroup-util.h"
 #include "condition.h"
 #include "cpu-set-util.h"
-#include "efivars.h"
+#include "efi-loader.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
@@ -124,7 +124,7 @@ static void test_condition_test_control_group_controller(void) {
         _cleanup_free_ char *controller_name = NULL;
         int r;
 
-        r = cg_unified_flush();
+        r = cg_unified();
         if (r < 0) {
                 log_notice_errno(r, "Skipping ConditionControlGroupController tests: %m");
                 return;

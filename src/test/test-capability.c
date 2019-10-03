@@ -15,8 +15,8 @@
 #include "macro.h"
 #include "missing_prctl.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "tests.h"
-#include "util.h"
 
 static uid_t test_uid = -1;
 static gid_t test_gid = -1;

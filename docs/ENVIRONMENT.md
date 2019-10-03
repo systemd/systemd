@@ -36,10 +36,13 @@ All tools:
 * `$SD_EVENT_PROFILE_DELAYS=1` — if set, the sd-event event loop implementation
   will print latency information at runtime.
 
-* `$SYSTEMD_PROC_CMDLINE` — if set, may contain a string that is used as kernel
-  command line instead of the actual one readable from /proc/cmdline. This is
-  useful for debugging, in order to test generators and other code against
-  specific kernel command lines.
+* `$SYSTEMD_PROC_CMDLINE` — if set, the contents are used as the kernel command
+  line instead of the actual one in /proc/cmdline. This is useful for
+  debugging, in order to test generators and other code against specific kernel
+  command lines.
+
+* `$SYSTEMD_EFI_OPTIONS` — if set, used instead of the string in SystemdOptions
+  EFI variable. Analogous to `$SYSTEMD_PROC_CMDLINE`.
 
 * `$SYSTEMD_IN_INITRD` — takes a boolean. If set, overrides initrd detection.
   This is useful for debugging and testing initrd-only programs in the main

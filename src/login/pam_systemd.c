@@ -20,7 +20,7 @@
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-util.h"
-#include "cgroup-util.h"
+#include "cgroup-setup.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"

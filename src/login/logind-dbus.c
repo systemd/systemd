@@ -20,6 +20,7 @@
 #include "device-util.h"
 #include "dirent-util.h"
 #include "efivars.h"
+#include "efi-loader.h"
 #include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"

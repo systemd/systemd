@@ -11,6 +11,7 @@
 #include "bpf-firewall.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
+#include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
 #include "fd-util.h"
@@ -2869,7 +2870,7 @@ int manager_setup_cgroup(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Cannot find cgroup mount point: %m");
 
-        r = cg_unified_flush();
+        r = cg_unified();
         if (r < 0)
                 return log_error_errno(r, "Couldn't determine if we are running in the unified hierarchy: %m");
 

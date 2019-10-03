@@ -134,6 +134,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>is-installed</option></term>
+
+        <listitem><para>Checks whether <command>systemd-boot</command> is installed in the ESP. Note that a
+        single ESP might host multiple boot loaders; this hence checks whether
+        <command>systemd-boot</command> is one (of possibly many) installed boot loaders — and neither
+        whether it is the default nor whether it is registered in any EFI variables.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>random-seed</option></term>
 
         <listitem><para>Generates a random seed and stores it in the EFI System Partition, for use by the
@@ -150,12 +159,13 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>is-installed</option></term>
+        <term><option>system-options</option> <optional><replaceable>VALUE</replaceable></optional></term>
 
-        <listitem><para>Checks whether <command>systemd-boot</command> is installed in the ESP. Note that a
-        single ESP might host multiple boot loaders; this hence checks whether
-        <command>systemd-boot</command> is one (of possibly many) installed boot loaders — and neither
-        whether it is the default nor whether it is registered in any EFI variables.</para></listitem>
+        <listitem><para>When called without the optional argument, prints the current value of the
+        <literal>SystemdOptions</literal> EFI variable. When called with an argument, sets the
+        variable to that value. See
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for the meaning of that variable.</para></listitem>
       </varlistentry>
 
       <varlistentry>

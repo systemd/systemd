@@ -3,7 +3,7 @@
 #include "test-helper.h"
 #include "random-util.h"
 #include "alloc-util.h"
-#include "cgroup-util.h"
+#include "cgroup-setup.h"
 #include "string-util.h"
 
 int enter_cgroup_subroot(void) {

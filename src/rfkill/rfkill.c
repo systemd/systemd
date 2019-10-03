@@ -16,15 +16,15 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
+#include "list.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
-#include "proc-cmdline.h"
+#include "reboot-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "util.h"
-#include "list.h"
 
 /* Note that any write is delayed until exit and the rfkill state will not be
  * stored for rfkill indices that disappear after a change. */

@@ -15,6 +15,7 @@
 #include "device-nodes.h"
 #include "dirent-util.h"
 #include "efivars.h"
+#include "efi-loader.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"

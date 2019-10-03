@@ -9,6 +9,7 @@
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
+#include "unit-file.h"
 #include "util.h"
 
 /*

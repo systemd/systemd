@@ -19,7 +19,7 @@
 #include "alloc-util.h"
 #include "blkid-util.h"
 #include "device-util.h"
-#include "efivars.h"
+#include "efi-loader.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "gpt.h"

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "path-util.h"
 #include "process-util.h"

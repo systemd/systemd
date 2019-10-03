@@ -615,6 +615,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-cgroup-setup.c'],
+         [],
+         []],
+
         [['src/test/test-env-file.c'],
          [],
          []],

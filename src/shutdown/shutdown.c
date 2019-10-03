@@ -17,6 +17,7 @@
 
 #include "alloc-util.h"
 #include "async.h"
+#include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "def.h"
 #include "exec-util.h"

@@ -24,7 +24,7 @@
 #include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
-#include "cgroup.h"
+#include "cgroup-setup.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "env-util.h"
