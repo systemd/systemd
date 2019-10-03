@@ -2578,16 +2578,20 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5')
         self.assertRegex(output, '1492')
 
-        # issue #8726
         print('## ip route show table main dev veth99')
         output = check_output('ip route show table main dev veth99')
         print(output)
-        self.assertNotRegex(output, 'proto dhcp')
+        # See issue #8726
+        main_table_is_empty = output == ''
+        if not main_table_is_empty:
+            self.assertNotRegex(output, 'proto dhcp')
 
         print('## ip route show table 211 dev veth99')
         output = check_output('ip route show table 211 dev veth99')
         print(output)
         self.assertRegex(output, 'default via 192.168.5.1 proto dhcp')
+        if main_table_is_empty:
+            self.assertRegex(output, '192.168.5.0/24 proto dhcp')
         self.assertRegex(output, '192.168.5.0/24 via 192.168.5.5 proto dhcp')
         self.assertRegex(output, '192.168.5.1 proto dhcp scope link')
 
