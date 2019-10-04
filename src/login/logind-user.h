@@ -7,6 +7,7 @@ typedef struct User User;
 
 typedef enum UserSliceParent {
         USER_SLICE_COMMON,
+        USER_SLICE_GID,
         _USER_SLICE_MAX,
         _USER_SLICE_INVALID = -1
 } UserSliceParent;

@@ -37,11 +37,28 @@
 
 static int user_parent_slice(Manager *m, UserRecord *ur, char **ret) {
         char lu[DECIMAL_STR_MAX(uid_t) + 1];
+        char lg[DECIMAL_STR_MAX(gid_t) + 1];
+        _cleanup_free_ char *gid_slice = NULL;
+        int r;
 
         assert(ret);
 
         xsprintf(lu, UID_FMT, ur->uid);
-        return slice_build_subslice(SPECIAL_USER_SLICE, lu, ret);
+        switch(m->user_slice_parent) {
+                case USER_SLICE_COMMON:
+                        return slice_build_subslice(SPECIAL_USER_SLICE, lu, ret);
+
+                case USER_SLICE_GID:
+                        xsprintf(lg, GID_FMT, ur->gid);
+                        r = slice_build_subslice(SPECIAL_GID_SLICE, lg, &gid_slice);
+                        if (r < 0)
+                                return r;
+
+                        return slice_build_subslice(gid_slice, lu, ret);
+
+                default:
+                        assert_not_reached("Unhandled ENUM value");
+        }
 }
 
 int user_new(User **ret,
@@ -358,7 +375,21 @@ static void user_start_service(User *u) {
 
         u->service_job = mfree(u->service_job);
 
-        /* TODO: make sure user service runs in u->slice */
+        /* Pin down the user service unit within service manager to ensure we start the patched unit. */
+        r = manager_ref_unit(u->manager, u->service, &error);
+        if (r < 0) {
+                log_full_errno(LOG_WARNING, r,
+                               "Failed to Ref user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
+                return;
+        }
+
+        r = manager_unit_set_slice(u->manager, u->service, u->slice, &error);
+        if (r < 0) {
+                log_full_errno(LOG_WARNING, r,
+                               "Failed to prepare user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
+                goto cleanup;
+        }
+
         r = manager_start_unit(
                         u->manager,
                         u->service,
@@ -367,6 +398,14 @@ static void user_start_service(User *u) {
         if (r < 0)
                 log_full_errno(sd_bus_error_has_name(&error, BUS_ERROR_UNIT_MASKED) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to start user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
+
+cleanup:
+        sd_bus_error_free(&error);
+        r = manager_unref_unit(u->manager, u->service, &error);
+        if (r < 0) {
+                log_full_errno(LOG_WARNING, r,
+                               "Failed to Unref user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
+        }
 }
 
 static int update_slice_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
@@ -971,7 +1010,9 @@ int config_parse_compat_user_tasks_max(
 
 static const char* const user_slice_parent_table[_USER_SLICE_MAX] = {
         [USER_SLICE_COMMON]  = "common",
+        [USER_SLICE_GID]     = "gid",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(user_slice_parent, UserSliceParent);
+// TODO check and warn when some user slices remain under old slice
 DEFINE_CONFIG_PARSE_ENUM(config_parse_user_slice_parent, user_slice_parent, UserSliceParent, "Failed to parse user slice parent");

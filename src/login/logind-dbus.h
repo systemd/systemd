@@ -29,3 +29,6 @@ int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *err
 int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error);
 int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *error);
 int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *error);
+int manager_ref_unit(Manager *manager, const char *unit, sd_bus_error *error);
+int manager_unref_unit(Manager *manager, const char *unit, sd_bus_error *error);
+int manager_unit_set_slice(Manager *manager, const char *unit, const char *slice, sd_bus_error *error);

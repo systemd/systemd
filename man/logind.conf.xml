@@ -333,9 +333,15 @@
       <varlistentry>
         <term><varname>UserParentSlice=</varname></term>
 
-        <listitem><para>Specifies the policy how per-user slices are nested in the slice hiearachy. Defaults
-            to <literal>common</literal>, i.e. all user slices are put under one common
-            user.slice.</para></listitem>
+        <listitem>
+            <para>Specifies the policy how per-user slices are nested in the slice hiearachy.
+            <literal>gid</literal> means that user slices are put under group-$GID.slice based on the primary
+            group of the user. Defaults to <literal>common</literal>, i.e. all user slices are put under one
+            common user.slice.
+            </para><para>
+            Note that after changing the option, no slice migration happens and it applies to only newly
+            created sessions.
+            </para></listitem>
       </varlistentry>
 
     </variablelist>
