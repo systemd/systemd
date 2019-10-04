@@ -359,15 +359,18 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
-        if (argc > 1)
+        if (argc == 3) {
+                arg_sourcedir = argv[1];
+                arg_archivedir = argv[2];
+        } else if (argc > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes no arguments.");
+                                       "This program takes zero or two arguments.");
 
         /* Ignore all parse errors */
         (void) parse_config();
 
-        log_debug("Selected storage '%s'.", pstore_storage_to_string(arg_storage));
-        log_debug("Selected Unlink '%d'.", arg_unlink);
+        log_debug("Selected storage: %s.", pstore_storage_to_string(arg_storage));
+        log_debug("Selected unlink: %s.", yes_no(arg_unlink));
 
         if (arg_storage == PSTORE_STORAGE_NONE)
                 /* Do nothing, intentionally, leaving pstore untouched */
