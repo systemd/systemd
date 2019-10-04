@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <linux/rtnetlink.h>
+
 #include "sd-netlink.h"
 
 #include "in-addr-util.h"
@@ -17,6 +19,10 @@ static inline bool rtnl_message_type_is_neigh(uint16_t type) {
 
 static inline bool rtnl_message_type_is_route(uint16_t type) {
         return IN_SET(type, RTM_NEWROUTE, RTM_GETROUTE, RTM_DELROUTE);
+}
+
+static inline bool rtnl_message_type_is_nexthop(uint16_t type) {
+        return IN_SET(type, RTM_NEWNEXTHOP, RTM_GETNEXTHOP, RTM_DELNEXTHOP);
 }
 
 static inline bool rtnl_message_type_is_link(uint16_t type) {

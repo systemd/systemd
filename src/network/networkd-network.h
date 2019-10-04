@@ -19,6 +19,7 @@
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-neighbor.h"
+#include "networkd-nexthop.h"
 #include "networkd-radv.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
@@ -228,6 +229,7 @@ struct Network {
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
+        LIST_HEAD(NextHop, static_nexthops);
         LIST_HEAD(FdbEntry, static_fdb_entries);
         LIST_HEAD(IPv6ProxyNDPAddress, ipv6_proxy_ndp_addresses);
         LIST_HEAD(Neighbor, neighbors);
@@ -238,6 +240,7 @@ struct Network {
 
         unsigned n_static_addresses;
         unsigned n_static_routes;
+        unsigned n_static_nexthops;
         unsigned n_static_fdb_entries;
         unsigned n_ipv6_proxy_ndp_addresses;
         unsigned n_neighbors;
@@ -248,6 +251,7 @@ struct Network {
 
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
+        Hashmap *nexthops_by_section;
         Hashmap *fdb_entries_by_section;
         Hashmap *neighbors_by_section;
         Hashmap *address_labels_by_section;

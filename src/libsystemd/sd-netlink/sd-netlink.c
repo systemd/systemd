@@ -896,6 +896,13 @@ int sd_netlink_add_match(
                         if (r < 0)
                                 return r;
                         break;
+                case RTM_NEWNEXTHOP:
+                case RTM_DELNEXTHOP:
+                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_NEXTHOP);
+                        if (r < 0)
+                                return r;
+                break;
+
                 default:
                         return -EOPNOTSUPP;
         }

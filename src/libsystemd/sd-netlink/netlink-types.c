@@ -18,6 +18,7 @@
 #include <linux/if_link.h>
 #include <linux/if_macsec.h>
 #include <linux/if_tunnel.h>
+#include <linux/nexthop.h>
 #include <linux/l2tp.h>
 #include <linux/veth.h>
 #include <linux/wireguard.h>
@@ -716,6 +717,17 @@ static const NLTypeSystem rtnl_routing_policy_rule_type_system = {
         .types = rtnl_routing_policy_rule_types,
 };
 
+static const NLType rtnl_nexthop_types[] = {
+        [NHA_ID]                  = { .type = NETLINK_TYPE_U32 },
+        [NHA_OIF]                 = { .type = NETLINK_TYPE_U32 },
+        [NHA_GATEWAY]             = { .type = NETLINK_TYPE_IN_ADDR },
+};
+
+static const NLTypeSystem rtnl_nexthop_type_system = {
+       .count = ELEMENTSOF(rtnl_nexthop_types),
+       .types = rtnl_nexthop_types,
+};
+
 static const NLType rtnl_types[] = {
         [NLMSG_DONE]       = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = 0 },
         [NLMSG_ERROR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = sizeof(struct nlmsgerr) },
@@ -738,6 +750,9 @@ static const NLType rtnl_types[] = {
         [RTM_NEWRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct rtmsg) },
         [RTM_DELRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct rtmsg) },
         [RTM_GETRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct rtmsg) },
+        [RTM_NEWNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
+        [RTM_DELNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
+        [RTM_GETNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
 };
 
 const NLTypeSystem rtnl_type_system_root = {

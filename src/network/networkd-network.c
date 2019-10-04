@@ -151,6 +151,7 @@ int network_verify(Network *network) {
         AddressLabel *label, *label_next;
         Prefix *prefix, *prefix_next;
         RoutingPolicyRule *rule, *rule_next;
+        NextHop *nexthop, *nextnop_next;
 
         assert(network);
         assert(network->filename);
@@ -281,6 +282,10 @@ int network_verify(Network *network) {
         LIST_FOREACH_SAFE(routes, route, route_next, network->static_routes)
                 if (route_section_verify(route, network) < 0)
                         route_free(route);
+
+        LIST_FOREACH_SAFE(nexthops, nexthop, nextnop_next, network->static_nexthops)
+                if (nexthop_section_verify(nexthop) < 0)
+                        nexthop_free(nexthop);
 
         LIST_FOREACH_SAFE(static_fdb_entries, fdb, fdb_next, network->static_fdb_entries)
                 if (section_is_invalid(fdb->section))
@@ -453,6 +458,7 @@ int network_load_one(Manager *manager, const char *filename) {
                               "IPv6AddressLabel\0"
                               "RoutingPolicyRule\0"
                               "Route\0"
+                              "NextHop\0"
                               "DHCP\0"
                               "DHCPv4\0" /* compat */
                               "DHCPv6\0"
@@ -525,8 +531,9 @@ static Network *network_free(Network *network) {
         FdbEntry *fdb_entry;
         Neighbor *neighbor;
         AddressLabel *label;
-        Prefix *prefix;
         Address *address;
+        NextHop *nexthop;
+        Prefix *prefix;
         Route *route;
 
         if (!network)
@@ -573,6 +580,9 @@ static Network *network_free(Network *network) {
         while ((route = network->static_routes))
                 route_free(route);
 
+        while ((nexthop = network->static_nexthops))
+                nexthop_free(nexthop);
+
         while ((address = network->static_addresses))
                 address_free(address);
 
@@ -596,6 +606,7 @@ static Network *network_free(Network *network) {
 
         hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
+        hashmap_free(network->nexthops_by_section);
         hashmap_free(network->fdb_entries_by_section);
         hashmap_free(network->neighbors_by_section);
         hashmap_free(network->address_labels_by_section);

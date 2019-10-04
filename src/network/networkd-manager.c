@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <linux/if.h>
 #include <linux/fib_rules.h>
+#include <linux/nexthop.h>
 
 #include "sd-daemon.h"
 #include "sd-netlink.h"
@@ -1153,6 +1154,118 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
         return 1;
 }
 
+int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
+        _cleanup_(nexthop_freep) NextHop *tmp = NULL;
+        _cleanup_free_ char *gateway = NULL;
+        NextHop *nexthop = NULL;
+        Manager *m = userdata;
+        Link *link = NULL;
+        uint16_t type;
+        int r;
+
+        assert(rtnl);
+        assert(message);
+        assert(m);
+
+        if (sd_netlink_message_is_error(message)) {
+                r = sd_netlink_message_get_errno(message);
+                if (r < 0)
+                        log_warning_errno(r, "rtnl: failed to receive rule message, ignoring: %m");
+
+                return 0;
+        }
+
+        r = sd_netlink_message_get_type(message, &type);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
+                return 0;
+        } else if (!IN_SET(type, RTM_NEWNEXTHOP, RTM_DELNEXTHOP)) {
+                log_warning("rtnl: received unexpected message type %u when processing nexthop, ignoring.", type);
+                return 0;
+        }
+
+        r = nexthop_new(&tmp);
+        if (r < 0)
+                return log_oom();
+
+        r = sd_rtnl_message_get_family(message, &tmp->family);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get nexthop family, ignoring: %m");
+                return 0;
+        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
+                log_debug("rtnl: received nexthop message with invalid family %d, ignoring.", tmp->family);
+                return 0;
+        }
+
+        switch (tmp->family) {
+        case AF_INET:
+                r = sd_netlink_message_read_in_addr(message, NHA_GATEWAY, &tmp->gw.in);
+                if (r < 0 && r != -ENODATA) {
+                        log_warning_errno(r, "rtnl: could not get NHA_GATEWAY attribute, ignoring: %m");
+                        return 0;
+                }
+                break;
+
+        case AF_INET6:
+                r = sd_netlink_message_read_in6_addr(message, NHA_GATEWAY, &tmp->gw.in6);
+                if (r < 0 && r != -ENODATA) {
+                        log_warning_errno(r, "rtnl: could not get NHA_GATEWAY attribute, ignoring: %m");
+                        return 0;
+                }
+                break;
+
+        default:
+                assert_not_reached("Received rule message with unsupported address family");
+        }
+
+        r = sd_netlink_message_read_u32(message, NHA_ID, &tmp->id);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get NHA_ID attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, NHA_OIF, &tmp->oif);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get NHA_OIF attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = link_get(m, tmp->oif, &link);
+        if (r < 0 || !link) {
+                if (!m->enumerating)
+                        log_warning("rtnl: received nexthop message for link (%d) we do not know about, ignoring", tmp->oif);
+                return 0;
+        }
+
+        (void) nexthop_get(link, tmp, &nexthop);
+
+        if (DEBUG_LOGGING)
+                (void) in_addr_to_string(tmp->family, &tmp->gw, &gateway);
+
+        switch (type) {
+        case RTM_NEWNEXTHOP:
+                if (!nexthop) {
+                        log_debug("Remembering foreign nexthop: %s, oif: %d, id: %d", gateway, tmp->oif, tmp->id);
+                        r = nexthop_add_foreign(link, tmp, &nexthop);
+                        if (r < 0) {
+                                log_warning_errno(r, "Could not remember foreign nexthop, ignoring: %m");
+                                return 0;
+                        }
+                }
+                break;
+        case RTM_DELNEXTHOP:
+                log_debug("Forgetting foreign nexthop: %s, oif: %d, id: %d", gateway, tmp->oif, tmp->id);
+                nexthop_free(nexthop);
+
+                break;
+
+        default:
+                assert_not_reached("Received invalid RTNL message type");
+        }
+
+        return 1;
+}
+
 static int systemd_netlink_fd(void) {
         int n, fd, rtnl_fd = -EINVAL;
 
@@ -1250,6 +1363,14 @@ static int manager_connect_rtnl(Manager *m) {
                 return r;
 
         r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELRULE, &manager_rtnl_process_rule, NULL, m, "network-rtnl_process_rule");
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWNEXTHOP, &manager_rtnl_process_nexthop, NULL, m, "network-rtnl_process_nexthop");
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELNEXTHOP, &manager_rtnl_process_nexthop, NULL, m, "network-rtnl_process_nexthop");
         if (r < 0)
                 return r;
 
@@ -1922,6 +2043,47 @@ int manager_rtnl_enumerate_rules(Manager *m) {
                 m->enumerating = true;
 
                 k = manager_rtnl_process_rule(m->rtnl, rule, m);
+                if (k < 0)
+                        r = k;
+
+                m->enumerating = false;
+        }
+
+        return r;
+}
+
+int manager_rtnl_enumerate_nexthop(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        sd_netlink_message *nexthop;
+        int r;
+
+        assert(m);
+        assert(m->rtnl);
+
+        r = sd_rtnl_message_new_nexthop(m->rtnl, &req, RTM_GETNEXTHOP, 0, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(m->rtnl, req, 0, &reply);
+        if (r < 0) {
+                if (r == -EOPNOTSUPP) {
+                        log_debug("Nexthop are not supported by the kernel. Ignoring.");
+                        return 0;
+                }
+
+                return r;
+        }
+
+        for (nexthop = reply; nexthop; nexthop = sd_netlink_message_next(nexthop)) {
+                int k;
+
+                m->enumerating = true;
+
+                k = manager_rtnl_process_nexthop(m->rtnl, nexthop, m);
                 if (k < 0)
                         r = k;
 
