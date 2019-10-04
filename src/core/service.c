@@ -552,6 +552,11 @@ static int service_verify(Service *s) {
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return 0;
 
+        if (!service_unit_name_is_valid(UNIT(s)->id)) {
+                log_unit_error(UNIT(s), "Service name is invalid or reserved. Refusing.");
+                return -ENOEXEC;
+        }
+
         if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP]
             && UNIT(s)->success_action == EMERGENCY_ACTION_NONE) {
                 /* FailureAction= only makes sense if one of the start or stop commands is specified.

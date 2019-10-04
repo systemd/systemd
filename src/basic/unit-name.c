@@ -665,6 +665,31 @@ good:
         return 0;
 }
 
+bool service_unit_name_is_valid(const char *name) {
+        _cleanup_free_ char *prefix = NULL, *s = NULL;
+        const char *e, *service_name = name;
+
+        if (!unit_name_is_valid(name, UNIT_NAME_ANY))
+                return false;
+
+        e = endswith(name, ".service");
+        if (!e)
+                return false;
+
+        /* If it's a template or instance, get the prefix as a service name. */
+        if (unit_name_is_valid(name, UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE)) {
+                assert_se(unit_name_to_prefix(name, &prefix) == 0);
+                assert_se(s = strjoin(prefix, ".service"));
+                service_name = s;
+        }
+
+        /* Reject reserved service name(s). */
+        if (streq(service_name, SPECIAL_ROOT_SERVICE))
+                return false;
+
+        return true;
+}
+
 int slice_build_parent_slice(const char *slice, char **ret) {
         char *s, *dash;
         int r;
