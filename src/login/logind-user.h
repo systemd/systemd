@@ -4,6 +4,13 @@
 typedef struct User User;
 
 #include "conf-parser.h"
+
+typedef enum UserSliceParent {
+        USER_SLICE_COMMON,
+        _USER_SLICE_MAX,
+        _USER_SLICE_INVALID = -1
+} UserSliceParent;
+
 #include "list.h"
 #include "logind.h"
 #include "user-record.h"
@@ -72,4 +79,8 @@ void user_update_last_session_timer(User *u);
 const char* user_state_to_string(UserState s) _const_;
 UserState user_state_from_string(const char *s) _pure_;
 
+const char* user_slice_parent_to_string(UserSliceParent t) _const_;
+UserSliceParent user_slice_parent_from_string(const char *s) _pure_;
+
 CONFIG_PARSER_PROTOTYPE(config_parse_compat_user_tasks_max);
+CONFIG_PARSER_PROTOTYPE(config_parse_user_slice_parent);

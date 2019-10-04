@@ -330,6 +330,14 @@
         are excluded from the effect of this setting. Defaults to <literal>yes</literal>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>UserParentSlice=</varname></term>
+
+        <listitem><para>Specifies the policy how per-user slices are nested in the slice hiearachy. Defaults
+            to <literal>common</literal>, i.e. all user slices are put under one common
+            user.slice.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

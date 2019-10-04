@@ -2,6 +2,7 @@
 
 #include "logind-action.h"
 #include "logind-session.h"
+#include "logind-user.h"
 #include "test-tables.h"
 
 int main(int argc, char **argv) {
@@ -12,6 +13,7 @@ int main(int argc, char **argv) {
         test_table(session_state, SESSION_STATE);
         test_table(session_type, SESSION_TYPE);
         test_table(user_state, USER_STATE);
+        test_table(user_slice_parent, USER_SLICE);
 
         return EXIT_SUCCESS;
 }

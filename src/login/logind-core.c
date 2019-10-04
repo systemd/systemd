@@ -57,6 +57,7 @@ void manager_reset_config(Manager *m) {
         m->runtime_dir_size = physical_memory_scale(10U, 100U); /* 10% */
         m->sessions_max = 8192;
         m->inhibitors_max = 8192;
+        m->user_slice_parent= USER_SLICE_COMMON;
 
         m->kill_user_processes = KILL_USER_PROCESSES;
 

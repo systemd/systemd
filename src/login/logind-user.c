@@ -968,3 +968,10 @@ int config_parse_compat_user_tasks_max(
                  rvalue);
         return 0;
 }
+
+static const char* const user_slice_parent_table[_USER_SLICE_MAX] = {
+        [USER_SLICE_COMMON]  = "common",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(user_slice_parent, UserSliceParent);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_user_slice_parent, user_slice_parent, UserSliceParent, "Failed to parse user slice parent");
