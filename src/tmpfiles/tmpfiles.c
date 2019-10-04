@@ -135,7 +135,7 @@ typedef struct Item {
 
         bool keep_first_level:1;
 
-        bool force:1;
+        bool append_or_force:1;
 
         bool allow_failure:1;
 
@@ -987,10 +987,10 @@ static int parse_acls_from_arg(Item *item) {
 
         assert(item);
 
-        /* If force (= modify) is set, we will not modify the acl
+        /* If append_or_force (= modify) is set, we will not modify the acl
          * afterwards, so the mask can be added now if necessary. */
 
-        r = parse_acl(item->argument, &item->acl_access, &item->acl_default, !item->force);
+        r = parse_acl(item->argument, &item->acl_access, &item->acl_default, !item->append_or_force);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse ACL \"%s\": %m. Ignoring", item->argument);
 #else
@@ -1075,11 +1075,11 @@ static int fd_set_acls(Item *item, int fd, const char *path, const struct stat *
         xsprintf(procfs_path, "/proc/self/fd/%i", fd);
 
         if (item->acl_access)
-                r = path_set_acl(procfs_path, path, ACL_TYPE_ACCESS, item->acl_access, item->force);
+                r = path_set_acl(procfs_path, path, ACL_TYPE_ACCESS, item->acl_access, item->append_or_force);
 
         /* set only default acls to folders */
         if (r == 0 && item->acl_default && S_ISDIR(st->st_mode))
-                r = path_set_acl(procfs_path, path, ACL_TYPE_DEFAULT, item->acl_default, item->force);
+                r = path_set_acl(procfs_path, path, ACL_TYPE_DEFAULT, item->acl_default, item->append_or_force);
 
         if (r > 0)
                 return -r; /* already warned */
@@ -1696,7 +1696,7 @@ static int create_device(Item *i, mode_t file_type) {
 
                 if ((st.st_mode & S_IFMT) != file_type) {
 
-                        if (i->force) {
+                        if (i->append_or_force) {
 
                                 RUN_WITH_UMASK(0000) {
                                         mac_selinux_create_file_prepare(i->path, file_type);
@@ -1757,7 +1757,7 @@ static int create_fifo(Item *i, const char *path) {
 
                 if (!S_ISFIFO(st.st_mode)) {
 
-                        if (i->force) {
+                        if (i->append_or_force) {
                                 RUN_WITH_UMASK(0000) {
                                         mac_selinux_create_file_prepare(path, S_IFIFO);
                                         r = mkfifoat_atomic(pfd, bn, i->mode);
@@ -2012,7 +2012,7 @@ static int create_item(Item *i) {
                         r = readlink_malloc(i->path, &x);
                         if (r < 0 || !streq(i->argument, x)) {
 
-                                if (i->force) {
+                                if (i->append_or_force) {
                                         mac_selinux_create_file_prepare(i->path, S_IFLNK);
                                         r = symlink_atomic(i->argument, i->path);
                                         mac_selinux_create_file_clear();
@@ -2492,7 +2492,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         ItemArray *existing;
         OrderedHashmap *h;
         int r, pos;
-        bool force = false, boot = false, allow_failure = false;
+        bool append_or_force = false, boot = false, allow_failure = false;
 
         assert(fname);
         assert(line >= 1);
@@ -2535,8 +2535,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         for (pos = 1; action[pos]; pos++) {
                 if (action[pos] == '!' && !boot)
                         boot = true;
-                else if (action[pos] == '+' && !force)
-                        force = true;
+                else if (action[pos] == '+' && !append_or_force)
+                        append_or_force = true;
                 else if (action[pos] == '-' && !allow_failure)
                         allow_failure = true;
                 else {
@@ -2554,7 +2554,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         }
 
         i.type = action[0];
-        i.force = force;
+        i.append_or_force = append_or_force;
         i.allow_failure = allow_failure;
 
         r = specifier_printf(path, specifier_table, NULL, &i.path);
