@@ -1666,6 +1666,43 @@ static int bus_unit_set_live_property(
                 }
 
                 return 1;
+        } else if (streq(name, "Slice")) {
+                Unit *slice;
+                const char *s;
+
+                if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "The slice property is only available for units with control groups.");
+                if (u->type == UNIT_SLICE)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Slice may not be set for slice units.");
+                if (unit_has_name(u, SPECIAL_INIT_SCOPE))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot set slice for init.scope");
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit name '%s'", s);
+
+                /* Note that we do not dispatch the load queue here yet, as we don't want a transient unit to be
+                 * loaded while we are still setting it up. Or in other words, we use manager_load_unit_prepare()
+                 * instead of manager_load_unit() on purpose, here. */
+                r = manager_load_unit_prepare(u->manager, s, NULL, error, &slice);
+                if (r < 0)
+                        return r;
+
+                if (slice->type != UNIT_SLICE)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit name '%s' is not a slice", s);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        r = unit_set_slice(u, slice);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_settingf(u, flags|UNIT_PRIVATE, name, "Slice=%s", s);
+                }
+
+                return 1;
         }
 
         return 0;
@@ -1930,44 +1967,6 @@ static int bus_unit_set_transient_property(
                                 STRV_FOREACH(p, l)
                                         unit_write_settingf(u, flags, name, "%s=%s", name, *p);
                         }
-                }
-
-                return 1;
-
-        } else if (streq(name, "Slice")) {
-                Unit *slice;
-                const char *s;
-
-                if (!UNIT_HAS_CGROUP_CONTEXT(u))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "The slice property is only available for units with control groups.");
-                if (u->type == UNIT_SLICE)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Slice may not be set for slice units.");
-                if (unit_has_name(u, SPECIAL_INIT_SCOPE))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot set slice for init.scope");
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit name '%s'", s);
-
-                /* Note that we do not dispatch the load queue here yet, as we don't want our own transient unit to be
-                 * loaded while we are still setting it up. Or in other words, we use manager_load_unit_prepare()
-                 * instead of manager_load_unit() on purpose, here. */
-                r = manager_load_unit_prepare(u->manager, s, NULL, error, &slice);
-                if (r < 0)
-                        return r;
-
-                if (slice->type != UNIT_SLICE)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit name '%s' is not a slice", s);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        r = unit_set_slice(u, slice);
-                        if (r < 0)
-                                return r;
-
-                        unit_write_settingf(u, flags|UNIT_PRIVATE, name, "Slice=%s", s);
                 }
 
                 return 1;
