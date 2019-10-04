@@ -214,6 +214,8 @@ in_units = [
          'dbus-org.freedesktop.timedate1.service'],
         ['systemd-timesyncd.service',            'ENABLE_TIMESYNCD'],
         ['systemd-time-wait-sync.service',       'ENABLE_TIMESYNCD'],
+        ['systemd-tmpfiles-setup-var-log-journal.service', 'ENABLE_TMPFILES',
+         'sysinit.target.wants/'],
         ['systemd-udevd.service',                '',
          'sysinit.target.wants/'],
         ['systemd-update-done.service',          '',

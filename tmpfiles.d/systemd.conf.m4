@@ -46,26 +46,6 @@ a+ /run/log/journal/%m - - - - d:group:wheel:r-x,group:wheel:r-x
 a+ /run/log/journal/%m/*.journal* - - - - group:wheel:r--
 '')')')m4_dnl
 
-z /var/log/journal 2755 root systemd-journal - -
-z /var/log/journal/%m 2755 root systemd-journal - -
-z /var/log/journal/%m/system.journal 0640 root systemd-journal - -
-m4_ifdef(`HAVE_ACL',`m4_dnl
-m4_ifdef(`ENABLE_ADM_GROUP',`m4_dnl
-m4_ifdef(`ENABLE_WHEEL_GROUP',``
-a+ /var/log/journal    - - - - d:group::r-x,d:group:adm:r-x,d:group:wheel:r-x,group::r-x,group:adm:r-x,group:wheel:r-x
-a+ /var/log/journal/%m - - - - d:group:adm:r-x,d:group:wheel:r-x,group:adm:r-x,group:wheel:r-x
-a+ /var/log/journal/%m/system.journal - - - - group:adm:r--,group:wheel:r--
-'', ``
-a+ /var/log/journal    - - - - d:group::r-x,d:group:adm:r-x,group::r-x,group:adm:r-x
-a+ /var/log/journal/%m - - - - d:group:adm:r-x,group:adm:r-x
-a+ /var/log/journal/%m/system.journal - - - - group:adm:r--
-'')',`m4_dnl
-m4_ifdef(`ENABLE_WHEEL_GROUP',``
-a+ /var/log/journal    - - - - d:group::r-x,d:group:wheel:r-x,group::r-x,group:wheel:r-x
-a+ /var/log/journal/%m - - - - d:group:wheel:r-x,group:wheel:r-x
-a+ /var/log/journal/%m/system.journal - - - - group:wheel:r--
-'')')')m4_dnl
-
 d /var/lib/systemd 0755 root root -
 d /var/lib/systemd/coredump 0755 root root 3d
 
