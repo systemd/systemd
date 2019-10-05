@@ -2108,6 +2108,12 @@ void unit_start_on_failure(Unit *u) {
 
         assert(u);
 
+        if (u->failure_action != EMERGENCY_ACTION_NONE) {
+                log_unit_info(u, "Triggering FailureAction.");
+                const char* reason = strjoina("unit ", u->id, " failed");
+                emergency_action(m, u->failure_action, 0, u->reboot_arg, unit_failure_action_exit_status(u), reason);
+        }
+
         if (hashmap_size(u->dependencies[UNIT_ON_FAILURE]) <= 0)
                 return;
 
