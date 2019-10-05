@@ -188,8 +188,10 @@ PCI_IDS += [
     '8086:591e',
     # proc_thermal
     '8086:1903',
-    # xhci_hcd
+    # SPT PCH xHCI controller
     '8086:9d2f',
+    # CNP PCH xHCI controller
+    '8086:9ded',
     # intel_pmc_core
     '8086:9d21',
     # i801_smbus
