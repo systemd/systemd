@@ -102,8 +102,8 @@ static inline void *set_steal_first(Set *s) {
 /* no set_steal_first_key */
 /* no set_first_key */
 
-static inline void *set_first(Set *s) {
-        return internal_hashmap_first_key_and_value(HASHMAP_BASE(s), false, NULL);
+static inline void *set_first(const Set *s) {
+        return internal_hashmap_first_key_and_value(HASHMAP_BASE((Set *) s), false, NULL);
 }
 
 /* no set_next */
