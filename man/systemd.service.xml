@@ -63,6 +63,19 @@
     <para>The <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     command allows creating <filename>.service</filename> and <filename>.scope</filename> units dynamically
     and transiently from the command line.</para>
+
+    <para>In addition to the various drop-in behaviors described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    services also support a top-level drop-in with <filename>-.service.d/</filename> that allows
+    altering or adding to the settings of all services on the system.
+    The formatting and precedence of applying drop-in configurations follow what is defined in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    However, configurations in <filename>-.service.d/</filename> have the lowest precedence compared to settings
+    in the service specific override directories. For example, for <filename>foo-bar-baz.service</filename>,
+    drop-ins in <filename>foo-bar-baz.service.d/</filename> override the ones in
+    <filename>foo-bar-.service.d/</filename>, which override the ones <filename>foo-.service.d/</filename>,
+    which override the ones in <filename>-.service.d/</filename>.
+    </para>
   </refsect1>
 
   <refsect1>

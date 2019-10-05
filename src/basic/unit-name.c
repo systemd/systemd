@@ -678,8 +678,13 @@ bool service_unit_name_is_valid(const char *name) {
 
         /* If it's a template or instance, get the prefix as a service name. */
         if (unit_name_is_valid(name, UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE)) {
-                assert_se(unit_name_to_prefix(name, &prefix) == 0);
-                assert_se(s = strjoin(prefix, ".service"));
+                if (unit_name_to_prefix(name, &prefix) < 0)
+                        return false;
+
+                s = strjoin(prefix, ".service");
+                if (!s)
+                        return false;
+
                 service_name = s;
         }
 

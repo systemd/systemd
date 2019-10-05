@@ -554,7 +554,7 @@ static int service_verify(Service *s) {
 
         if (!service_unit_name_is_valid(UNIT(s)->id)) {
                 log_unit_error(UNIT(s), "Service name is invalid or reserved. Refusing.");
-                return -ENOEXEC;
+                return -EINVAL;
         }
 
         if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP]
