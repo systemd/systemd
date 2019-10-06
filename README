@@ -30,7 +30,7 @@ LICENSE:
         - except src/basic/siphash24.c which is CC0 Public Domain
         - except src/journal/lookup3.c which is Public Domain
         - except src/udev/* which is (currently still) GPLv2, GPLv2+
-        - except tools/chromeos/* which is BSD-style
+        - except tools/chromiumos/* which is BSD-style
 
 REQUIREMENTS:
         Linux kernel >= 3.13

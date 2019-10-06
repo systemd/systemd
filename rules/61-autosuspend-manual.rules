@@ -1,5 +1,5 @@
 # This udev rule is for any devices that should enter automatic suspend
-# but are not already included in generated rules from ChromeOS via
+# but are not already included in generated rules from Chromium OS via
 # tools/make-autosuspend-rules.py
 #
 

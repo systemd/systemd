@@ -47,8 +47,8 @@ foreach file : rules_in
 endforeach
 
 auto_suspend_rules = custom_target(
-        '60-autosuspend-chromeos.rules',
-        output : '60-autosuspend-chromeos.rules',
+        '60-autosuspend-chromiumos.rules',
+        output : '60-autosuspend-chromiumos.rules',
         command : make_autosuspend_rules_py,
         capture : true,
         install : true,
