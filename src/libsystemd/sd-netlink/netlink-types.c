@@ -18,9 +18,10 @@
 #include <linux/if_link.h>
 #include <linux/if_macsec.h>
 #include <linux/if_tunnel.h>
-#include <linux/nexthop.h>
 #include <linux/l2tp.h>
+#include <linux/nexthop.h>
 #include <linux/nl80211.h>
+#include <linux/pkt_sched.h>
 #include <linux/veth.h>
 #include <linux/wireguard.h>
 
@@ -733,6 +734,18 @@ static const NLTypeSystem rtnl_nexthop_type_system = {
        .types = rtnl_nexthop_types,
 };
 
+static const NLType rtnl_qdisc_types[] = {
+        [TCA_KIND]           = { .type = NETLINK_TYPE_STRING },
+        [TCA_OPTIONS]        = { .size = sizeof(struct tc_netem_qopt) },
+        [TCA_INGRESS_BLOCK]  = { .type = NETLINK_TYPE_U32 },
+        [TCA_EGRESS_BLOCK]   = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem rtnl_qdisc_type_system = {
+        .count = ELEMENTSOF(rtnl_qdisc_types),
+        .types = rtnl_qdisc_types,
+};
+
 static const NLType rtnl_types[] = {
         [NLMSG_DONE]       = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = 0 },
         [NLMSG_ERROR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = sizeof(struct nlmsgerr) },
@@ -758,6 +771,9 @@ static const NLType rtnl_types[] = {
         [RTM_NEWNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
         [RTM_DELNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
         [RTM_GETNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
+        [RTM_NEWQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_qdisc_type_system, .size = sizeof(struct tcmsg) },
+        [RTM_DELQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_qdisc_type_system, .size = sizeof(struct tcmsg) },
+        [RTM_GETQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_qdisc_type_system, .size = sizeof(struct tcmsg) },
 };
 
 const NLTypeSystem rtnl_type_system_root = {

@@ -202,6 +202,10 @@ int sd_rtnl_message_routing_policy_rule_get_rtm_type(const sd_netlink_message *m
 int sd_rtnl_message_routing_policy_rule_set_flags(sd_netlink_message *m, unsigned flags);
 int sd_rtnl_message_routing_policy_rule_get_flags(const sd_netlink_message *m, unsigned *flags);
 
+int sd_rtnl_message_new_qdisc(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int tcm_family, int tcm_ifindex);
+int sd_rtnl_message_set_qdisc_parent(sd_netlink_message *m, uint32_t parent);
+int sd_rtnl_message_set_qdisc_handle(sd_netlink_message *m, uint32_t handle);
+
 /* genl */
 int sd_genl_socket_open(sd_netlink **nl);
 int sd_genl_message_new(sd_netlink *nl, sd_genl_family family, uint8_t cmd, sd_netlink_message **m);

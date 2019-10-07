@@ -105,6 +105,12 @@ sources = files('''
         networkd-util.h
         networkd-wifi.c
         networkd-wifi.h
+        tc/netem.c
+        tc/netem.h
+        tc/qdisc.c
+        tc/qdisc.h
+        tc/tc-util.c
+        tc/tc-util.h
 '''.split())
 
 systemd_networkd_sources = files('networkd.c')

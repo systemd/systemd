@@ -78,6 +78,7 @@ typedef struct Link {
         unsigned nexthop_messages;
         unsigned routing_policy_rule_messages;
         unsigned routing_policy_rule_remove_messages;
+        unsigned qdisc_messages;
         unsigned enslaving;
 
         Set *addresses;

@@ -13,6 +13,8 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "networkd-ndisc.h"
 #include "networkd-network.h"
 #include "vlan-util.h"
+#include "tc/qdisc.h"
+#include "tc/netem.h"
 %}
 struct ConfigPerfItem;
 %null_strings
@@ -241,6 +243,11 @@ CAN.BitRate,                            config_parse_si_size,                   
 CAN.SamplePoint,                        config_parse_permille,                           0,                             offsetof(Network, can_sample_point)
 CAN.RestartSec,                         config_parse_sec,                                0,                             offsetof(Network, can_restart_us)
 CAN.TripleSampling,                     config_parse_tristate,                           0,                             offsetof(Network, can_triple_sampling)
+TrafficControlQueueingDiscipline.Parent,                             config_parse_tc_qdiscs_parent,                     0,                             0
+TrafficControlQueueingDiscipline.NetworkEmulatorDelaySec,            config_parse_tc_network_emulator_delay,            0,                             0
+TrafficControlQueueingDiscipline.NetworkEmulatorDelayJitterSec,      config_parse_tc_network_emulator_delay,            0,                             0
+TrafficControlQueueingDiscipline.NetworkEmulatorLossRate,            config_parse_tc_network_emulator_loss_rate,        0,                             0
+TrafficControlQueueingDiscipline.NetworkEmulatorPacketLimit,         config_parse_tc_network_emulator_packet_limit,     0,                             0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                         config_parse_ipv4ll,                             0,                             offsetof(Network, link_local)
 DHCP.ClientIdentifier,                  config_parse_dhcp_client_identifier,             0,                             offsetof(Network, dhcp_client_identifier)

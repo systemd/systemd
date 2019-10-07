@@ -43,6 +43,7 @@
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "util.h"
+#include "tc/qdisc.h"
 #include "virt.h"
 
 uint32_t link_get_vrf_table(Link *link) {
@@ -2581,6 +2582,8 @@ static int link_drop_config(Link *link) {
 }
 
 static int link_configure(Link *link) {
+        QDiscs *qdisc;
+        Iterator i;
         int r;
 
         assert(link);
@@ -2589,6 +2592,9 @@ static int link_configure(Link *link) {
 
         if (link->iftype == ARPHRD_CAN)
                 return link_configure_can(link);
+
+        ORDERED_HASHMAP_FOREACH(qdisc, link->network->qdiscs_by_section, i)
+                (void) qdisc_configure(link, qdisc);
 
         /* Drop foreign config, but ignore loopback or critical devices.
          * We do not want to remove loopback address or addresses used for root NFS. */

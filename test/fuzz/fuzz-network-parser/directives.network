@@ -262,3 +262,9 @@ DNS=
 [NextHop]
 Id=
 Gateway=
+[TrafficControlQueueingDiscipline]
+Parent=
+NetworkEmulatorDelaySec=
+NetworkEmulatorDelayJitterSec=
+NetworkEmulatorLossRate=
+NetworkEmulatorPacketLimit=
