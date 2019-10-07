@@ -17,6 +17,7 @@ DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
 ADDITIONAL_DEPS=(python3-libevdev
                  python3-pyparsing
+                 libbpf-dev
                  clang
                  perl)
 
