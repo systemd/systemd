@@ -2,6 +2,7 @@
 
 #include <arpa/inet.h>
 #include <assert.h>
+#include <bpf/bpf.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/bpf_insn.h>
@@ -381,7 +382,7 @@ static int bpf_firewall_add_access_items(
                         key_ipv4->prefixlen = a->prefixlen;
                         memcpy(key_ipv4->data, &a->address, sizeof(uint32_t));
 
-                        r = bpf_map_update_element(ipv4_map_fd, key_ipv4, &value);
+                        r = bpf_map_update_elem(ipv4_map_fd, key_ipv4, &value, BPF_ANY);
                         if (r < 0)
                                 return r;
 
@@ -391,7 +392,7 @@ static int bpf_firewall_add_access_items(
                         key_ipv6->prefixlen = a->prefixlen;
                         memcpy(key_ipv6->data, &a->address, 4 * sizeof(uint32_t));
 
-                        r = bpf_map_update_element(ipv6_map_fd, key_ipv6, &value);
+                        r = bpf_map_update_elem(ipv6_map_fd, key_ipv6, &value, BPF_ANY);
                         if (r < 0)
                                 return r;
 
@@ -442,7 +443,7 @@ static int bpf_firewall_prepare_access_maps(
         }
 
         if (n_ipv4 > 0) {
-                ipv4_map_fd = bpf_map_new(
+                ipv4_map_fd = bpf_create_map(
                                 BPF_MAP_TYPE_LPM_TRIE,
                                 offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint32_t),
                                 sizeof(uint64_t),
@@ -453,7 +454,7 @@ static int bpf_firewall_prepare_access_maps(
         }
 
         if (n_ipv6 > 0) {
-                ipv6_map_fd = bpf_map_new(
+                ipv6_map_fd = bpf_create_map(
                                 BPF_MAP_TYPE_LPM_TRIE,
                                 offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint32_t)*4,
                                 sizeof(uint64_t),
@@ -491,7 +492,7 @@ static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, int *fd_i
 
         if (enabled) {
                 if (*fd_ingress < 0) {
-                        r = bpf_map_new(BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
+                        r = bpf_create_map(BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
                         if (r < 0)
                                 return r;
 
@@ -500,7 +501,7 @@ static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, int *fd_i
 
                 if (*fd_egress < 0) {
 
-                        r = bpf_map_new(BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
+                        r = bpf_create_map(BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
                         if (r < 0)
                                 return r;
 
@@ -758,14 +759,14 @@ int bpf_firewall_read_accounting(int map_fd, uint64_t *ret_bytes, uint64_t *ret_
 
         if (ret_packets) {
                 key = MAP_KEY_PACKETS;
-                r = bpf_map_lookup_element(map_fd, &key, &packets);
+                r = bpf_map_lookup_elem(map_fd, &key, &packets);
                 if (r < 0)
                         return r;
         }
 
         if (ret_bytes) {
                 key = MAP_KEY_BYTES;
-                r = bpf_map_lookup_element(map_fd, &key, ret_bytes);
+                r = bpf_map_lookup_elem(map_fd, &key, ret_bytes);
                 if (r < 0)
                         return r;
         }
@@ -784,12 +785,12 @@ int bpf_firewall_reset_accounting(int map_fd) {
                 return -EBADF;
 
         key = MAP_KEY_PACKETS;
-        r = bpf_map_update_element(map_fd, &key, &value);
+        r = bpf_map_update_elem(map_fd, &key, &value, BPF_ANY);
         if (r < 0)
                 return r;
 
         key = MAP_KEY_BYTES;
-        return bpf_map_update_element(map_fd, &key, &value);
+        return bpf_map_update_elem(map_fd, &key, &value, BPF_ANY);
 }
 
 static int bpf_firewall_unsupported_reason = 0;

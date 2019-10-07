@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <bpf/bpf.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -68,7 +69,6 @@ int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *instructi
 }
 
 int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size) {
-        union bpf_attr attr;
 
         assert(p);
 
@@ -77,17 +77,7 @@ int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size) {
                 return 0;
         }
 
-        attr = (union bpf_attr) {
-                .prog_type = p->prog_type,
-                .insns = PTR_TO_UINT64(p->instructions),
-                .insn_cnt = p->n_instructions,
-                .license = PTR_TO_UINT64("GPL"),
-                .log_buf = PTR_TO_UINT64(log_buf),
-                .log_level = !!log_buf,
-                .log_size = log_size,
-        };
-
-        p->kernel_fd = bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
+        p->kernel_fd = bpf_load_program(p->prog_type, p->instructions, p->n_instructions, "GPL", 0, log_buf, log_size);
         if (p->kernel_fd < 0)
                 return -errno;
 
@@ -95,18 +85,12 @@ int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size) {
 }
 
 int bpf_program_load_from_bpf_fs(BPFProgram *p, const char *path) {
-        union bpf_attr attr;
-
         assert(p);
 
         if (p->kernel_fd >= 0) /* don't overwrite an assembled or loaded program */
                 return -EBUSY;
 
-        attr = (union bpf_attr) {
-                .pathname = PTR_TO_UINT64(path),
-        };
-
-        p->kernel_fd = bpf(BPF_OBJ_GET, &attr, sizeof(attr));
+        p->kernel_fd = bpf_obj_get(path);
         if (p->kernel_fd < 0)
                 return -errno;
 
@@ -116,7 +100,6 @@ int bpf_program_load_from_bpf_fs(BPFProgram *p, const char *path) {
 int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_t flags) {
         _cleanup_free_ char *copy = NULL;
         _cleanup_close_ int fd = -1;
-        union bpf_attr attr;
         int r;
 
         assert(p);
@@ -159,14 +142,7 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_
         if (fd < 0)
                 return -errno;
 
-        attr = (union bpf_attr) {
-                .attach_type = type,
-                .target_fd = fd,
-                .attach_bpf_fd = p->kernel_fd,
-                .attach_flags = flags,
-        };
-
-        if (bpf(BPF_PROG_ATTACH, &attr, sizeof(attr)) < 0)
+        if (bpf_prog_attach(p->kernel_fd, fd, type, flags) < 0)
                 return -errno;
 
         free_and_replace(p->attached_path, copy);
@@ -193,64 +169,11 @@ int bpf_program_cgroup_detach(BPFProgram *p) {
                  * implicitly by the removal, hence don't complain */
 
         } else {
-                union bpf_attr attr;
-
-                attr = (union bpf_attr) {
-                        .attach_type = p->attached_type,
-                        .target_fd = fd,
-                        .attach_bpf_fd = p->kernel_fd,
-                };
-
-                if (bpf(BPF_PROG_DETACH, &attr, sizeof(attr)) < 0)
+                if (bpf_prog_detach2(p->kernel_fd, fd, p->attached_type) < 0)
                         return -errno;
         }
 
         p->attached_path = mfree(p->attached_path);
-
-        return 0;
-}
-
-int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size_t max_entries, uint32_t flags) {
-        union bpf_attr attr = {
-                .map_type = type,
-                .key_size = key_size,
-                .value_size = value_size,
-                .max_entries = max_entries,
-                .map_flags = flags,
-        };
-        int fd;
-
-        fd = bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
-        if (fd < 0)
-                return -errno;
-
-        return fd;
-}
-
-int bpf_map_update_element(int fd, const void *key, void *value) {
-
-        union bpf_attr attr = {
-                .map_fd = fd,
-                .key = PTR_TO_UINT64(key),
-                .value = PTR_TO_UINT64(value),
-        };
-
-        if (bpf(BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr)) < 0)
-                return -errno;
-
-        return 0;
-}
-
-int bpf_map_lookup_element(int fd, const void *key, void *value) {
-
-        union bpf_attr attr = {
-                .map_fd = fd,
-                .key = PTR_TO_UINT64(key),
-                .value = PTR_TO_UINT64(value),
-        };
-
-        if (bpf(BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr)) < 0)
-                return -errno;
 
         return 0;
 }

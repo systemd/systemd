@@ -178,6 +178,7 @@ libcore = static_library(
         link_whole : libcore_shared,
         dependencies : [versiondep,
                         threads,
+                        libbpf,
                         librt,
                         libseccomp,
                         libpam,

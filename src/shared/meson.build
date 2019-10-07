@@ -310,6 +310,7 @@ libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
 libshared_deps = [threads,
                   libacl,
                   libblkid,
+                  libbpf,
                   libcap,
                   libcrypt,
                   libcryptsetup,
