@@ -237,6 +237,32 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>CONST{<replaceable>key</replaceable>}</varname></term>
+          <listitem>
+            <para>Match against a system-wide constant. Supported keys are:</para>
+            <variablelist>
+              <varlistentry>
+                <term><literal>arch</literal></term>
+                <listitem>
+                  <para>System's architecture. See <option>ConditionArchitecture=</option> in
+                  <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  for possible values.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>virt</literal></term>
+                <listitem>
+                  <para>System's virtualization environment. See
+                  <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                  for possible values.</para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+            <para>Unknown keys will never match.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>TAG</varname></term>
           <listitem>
             <para>Match against a device tag.</para>
