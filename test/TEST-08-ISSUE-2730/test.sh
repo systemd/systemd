@@ -64,12 +64,7 @@ EOF
     mkdir -p $initdir/etc/systemd/system/local-fs.target.wants
     ln -s /etc/systemd/system/-.mount $initdir/etc/systemd/system/local-fs.target.wants/-.mount
 
-    # mask some services that we do not want to run in these tests
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.service
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
+    mask_supporting_services
 }
 
 do_test "$@"

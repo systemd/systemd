@@ -8,20 +8,13 @@ TEST_NO_QEMU=1
 test_setup() {
     # create the basic filesystem layout
     setup_basic_environment
+    mask_supporting_services
     inst_binary mv
     inst_binary stat
     inst_binary seq
     inst_binary xargs
     inst_binary mkfifo
     inst_binary readlink
-
-    # mask some services that we do not want to run in these tests
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.service
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-machined.service
 
     # setup the testsuite service
     cp testsuite.service $initdir/etc/systemd/system/
