@@ -16,14 +16,7 @@ test_setup() {
         inst_any /usr/share/zoneinfo/Europe/Berlin
 
         setup_basic_environment
-
-        # mask some services that we do not want to run in these tests
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.service
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-machined.service
+        mask_supporting_services
 
         # extend the watchdog
         mkdir -p $initdir/etc/systemd/system/systemd-timedated.service.d
@@ -40,9 +33,6 @@ Description=Testsuite service
 [Service]
 ExecStart=/testsuite.sh
 Type=oneshot
-StandardOutput=tty
-StandardError=tty
-NotifyAccess=all
 EOF
         cp testsuite.sh $initdir/
 

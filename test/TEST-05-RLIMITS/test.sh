@@ -13,14 +13,7 @@ test_setup() {
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
         setup_basic_environment
-
-        # mask some services that we do not want to run in these tests
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.service
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-machined.service
+        mask_supporting_services
 
         cat >$initdir/etc/systemd/system.conf <<EOF
 [Manager]

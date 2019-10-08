@@ -11,17 +11,9 @@ test_setup() {
         LOG_LEVEL=5
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
-        inst_binary cmp
-
         setup_basic_environment
-
-        # mask some services that we do not want to run in these tests
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.service
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
-        ln -fs /dev/null $initdir/etc/systemd/system/systemd-machined.service
+        mask_supporting_services
+        inst_binary cmp
 
         # setup the testsuite service
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
@@ -31,9 +23,6 @@ Description=Testsuite service
 [Service]
 ExecStart=/testsuite.sh
 Type=oneshot
-StandardOutput=tty
-StandardError=tty
-NotifyAccess=all
 EOF
         cp testsuite.sh $initdir/
 
