@@ -1,8 +1,8 @@
 #!/bin/bash
-set -ex
+set -e
 set -o pipefail
 
-if journalctl -b | grep -e '\.device: Changed plugged -> dead'; then
+if journalctl -b -t systemd --grep '\.device: Changed plugged -> dead'; then
     exit 1
 fi
 
