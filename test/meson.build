@@ -26,7 +26,7 @@ test_data_files = '''
         h.service
         hello-after-sleep.target
         hello.service
-        hwdb/10-bad.hwdb
+        hwdb.d/10-bad.hwdb
         i.service
         journal-data/journal-1.txt
         journal-data/journal-2.txt

@@ -1,6 +1,6 @@
 # This file is part of systemd.
 #
-# Data imported from: hwdb/sdio.ids
+# Data imported from: hwdb.d/sdio.ids
 
 sdio:c00v*d*
  ID_SDIO_CLASS_FROM_DATABASE=Non-standard SDIO interface

@@ -275,7 +275,7 @@ def sdio_vendor_model(p):
             add_item(items, (vendor, device), text)
 
     with open('20-sdio-vendor-model.hwdb', 'wt') as out:
-        header(out, 'hwdb/sdio.ids')
+        header(out, 'hwdb.d/sdio.ids')
 
         for key in sorted(items):
             if len(key) == 1:
@@ -296,7 +296,7 @@ def sdio_classes(p):
         add_item(items, klass, text)
 
     with open('20-sdio-classes.hwdb', 'wt') as out:
-        header(out, 'hwdb/sdio.ids')
+        header(out, 'hwdb.d/sdio.ids')
 
         for klass in sorted(items):
             print(f'',
