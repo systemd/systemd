@@ -32,8 +32,6 @@ Description=Testsuite service
 [Service]
 ExecStart=/testsuite.sh
 Type=oneshot
-StandardOutput=tty
-StandardError=tty
 MemoryAccounting=yes
 EOF
         cp testsuite.sh $initdir/

@@ -22,8 +22,6 @@ Description=Testsuite service
 
 [Service]
 Type=oneshot
-StandardOutput=tty
-StandardError=tty
 ExecStart=/bin/sh -e -x -c 'rm -f /tmp/nonexistent; systemctl start test.socket; printf x > test.file; socat -t20 OPEN:test.file UNIX-CONNECT:/run/test.ctl; >/testok'
 EOF
 

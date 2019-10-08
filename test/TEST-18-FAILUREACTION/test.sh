@@ -22,8 +22,6 @@ Description=Testsuite service
 [Service]
 ExecStart=/bin/bash -x /testsuite.sh
 Type=oneshot
-StandardOutput=tty
-StandardError=tty
 EOF
         cp testsuite.sh $initdir/
 

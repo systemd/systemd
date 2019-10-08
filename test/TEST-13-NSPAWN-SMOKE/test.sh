@@ -37,8 +37,6 @@ Description=Testsuite service
 [Service]
 ExecStart=/test-nspawn.sh
 Type=oneshot
-StandardOutput=tty
-StandardError=tty
 EOF
 
         cat >$initdir/test-nspawn.sh <<'EOF'
