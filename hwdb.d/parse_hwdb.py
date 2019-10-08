@@ -224,11 +224,13 @@ def check_properties(groups):
                 check_one_keycode(prop, parsed.VALUE)
 
 def print_summary(fname, groups):
+    n_matches = sum(len(matches) for matches, props in groups)
+    n_props = sum(len(props) for matches, props in groups)
     print('{}: {} match groups, {} matches, {} properties'
-          .format(fname,
-                  len(groups),
-                  sum(len(matches) for matches, props in groups),
-                  sum(len(props) for matches, props in groups)))
+          .format(fname, len(groups), n_matches, n_props))
+
+    if n_matches == 0 or n_props == 0:
+        error('{}: no matches or props'.format(fname))
 
 if __name__ == '__main__':
     args = sys.argv[1:] or glob.glob(os.path.dirname(sys.argv[0]) + '/[67]0-*.hwdb')
