@@ -34,6 +34,7 @@
 #include "memory-util.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "plymouth-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "signal-util.h"
@@ -211,6 +212,186 @@ static int backspace_string(int ttyfd, const char *str) {
         return backspace_chars(ttyfd, m);
 }
 
+int ask_password_plymouth(
+                const char *message,
+                usec_t until,
+                AskPasswordFlags flags,
+                const char *flag_file,
+                char ***ret) {
+
+        static const union sockaddr_union sa = PLYMOUTH_SOCKET;
+        _cleanup_close_ int fd = -1, notify = -1;
+        _cleanup_free_ char *packet = NULL;
+        ssize_t k;
+        int r, n;
+        struct pollfd pollfd[2] = {};
+        char buffer[LINE_MAX];
+        size_t p = 0;
+        enum {
+                POLL_SOCKET,
+                POLL_INOTIFY
+        };
+
+        assert(ret);
+
+        if (flag_file) {
+                notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
+                if (notify < 0)
+                        return -errno;
+
+                r = inotify_add_watch(notify, flag_file, IN_ATTRIB); /* for the link count */
+                if (r < 0)
+                        return -errno;
+        }
+
+        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0)
+                return -errno;
+
+        r = connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+        if (r < 0)
+                return -errno;
+
+        if (flags & ASK_PASSWORD_ACCEPT_CACHED) {
+                packet = strdup("c");
+                n = 1;
+        } else if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0)
+                packet = NULL;
+        if (!packet)
+                return -ENOMEM;
+
+        r = loop_write(fd, packet, n + 1, true);
+        if (r < 0)
+                return r;
+
+        pollfd[POLL_SOCKET].fd = fd;
+        pollfd[POLL_SOCKET].events = POLLIN;
+        pollfd[POLL_INOTIFY].fd = notify;
+        pollfd[POLL_INOTIFY].events = POLLIN;
+
+        for (;;) {
+                int sleep_for = -1, j;
+
+                if (until > 0) {
+                        usec_t y;
+
+                        y = now(CLOCK_MONOTONIC);
+
+                        if (y > until) {
+                                r = -ETIME;
+                                goto finish;
+                        }
+
+                        sleep_for = (int) ((until - y) / USEC_PER_MSEC);
+                }
+
+                if (flag_file && access(flag_file, F_OK) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                j = poll(pollfd, notify >= 0 ? 2 : 1, sleep_for);
+                if (j < 0) {
+                        if (errno == EINTR)
+                                continue;
+
+                        r = -errno;
+                        goto finish;
+                } else if (j == 0) {
+                        r = -ETIME;
+                        goto finish;
+                }
+
+                if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0)
+                        (void) flush_fd(notify);
+
+                if (pollfd[POLL_SOCKET].revents == 0)
+                        continue;
+
+                k = read(fd, buffer + p, sizeof(buffer) - p);
+                if (k < 0) {
+                        if (IN_SET(errno, EINTR, EAGAIN))
+                                continue;
+
+                        r = -errno;
+                        goto finish;
+                } else if (k == 0) {
+                        r = -EIO;
+                        goto finish;
+                }
+
+                p += k;
+
+                if (p < 1)
+                        continue;
+
+                if (buffer[0] == 5) {
+
+                        if (flags & ASK_PASSWORD_ACCEPT_CACHED) {
+                                /* Hmm, first try with cached
+                                 * passwords failed, so let's retry
+                                 * with a normal password request */
+                                packet = mfree(packet);
+
+                                if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                r = loop_write(fd, packet, n+1, true);
+                                if (r < 0)
+                                        goto finish;
+
+                                flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
+                                p = 0;
+                                continue;
+                        }
+
+                        /* No password, because UI not shown */
+                        r = -ENOENT;
+                        goto finish;
+
+                } else if (IN_SET(buffer[0], 2, 9)) {
+                        uint32_t size;
+                        char **l;
+
+                        /* One or more answers */
+                        if (p < 5)
+                                continue;
+
+                        memcpy(&size, buffer+1, sizeof(size));
+                        size = le32toh(size);
+                        if (size + 5 > sizeof(buffer)) {
+                                r = -EIO;
+                                goto finish;
+                        }
+
+                        if (p-5 < size)
+                                continue;
+
+                        l = strv_parse_nulstr(buffer + 5, size);
+                        if (!l) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        *ret = l;
+                        break;
+
+                } else {
+                        /* Unknown packet */
+                        r = -EIO;
+                        goto finish;
+                }
+        }
+
+        r = 0;
+
+finish:
+        explicit_bzero_safe(buffer, sizeof(buffer));
+        return r;
+}
+
 int ask_password_tty(
                 int ttyfd,
                 const char *message,
@@ -371,6 +552,13 @@ int ask_password_tty(
                 if (n == 0 || c == '\n' || c == 0)
                         break;
 
+                if (c == 4) { /* C-d also known as EOT */
+                        if (ttyfd >= 0)
+                                (void) loop_write(ttyfd, "(skipped)", 9, false);
+
+                        goto skipped;
+                }
+
                 if (c == 21) { /* C-u */
 
                         if (!(flags & ASK_PASSWORD_SILENT))
@@ -467,6 +655,7 @@ int ask_password_tty(
         if (r < 0)
                 goto finish;
 
+skipped:
         if (keyname)
                 (void) add_to_keyring_and_log(keyname, flags, l);
 

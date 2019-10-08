@@ -295,10 +295,12 @@ static int manager_check_ask_password(Manager *m) {
                 if (m->ask_password_inotify_fd < 0)
                         return log_error_errno(errno, "Failed to create inotify object: %m");
 
-                if (inotify_add_watch(m->ask_password_inotify_fd, "/run/systemd/ask-password", IN_CREATE|IN_DELETE|IN_MOVE) < 0) {
-                        log_error_errno(errno, "Failed to watch \"/run/systemd/ask-password\": %m");
+                r = inotify_add_watch_and_warn(m->ask_password_inotify_fd,
+                                               "/run/systemd/ask-password",
+                                               IN_CREATE|IN_DELETE|IN_MOVE);
+                if (r < 0) {
                         manager_close_ask_password(m);
-                        return -errno;
+                        return r;
                 }
 
                 r = sd_event_add_io(m->event, &m->ask_password_event_source,

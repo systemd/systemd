@@ -660,6 +660,21 @@ int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
         return r;
 }
 
+int inotify_add_watch_and_warn(int fd, const char *pathname, uint32_t mask) {
+        if (inotify_add_watch(fd, pathname, mask) < 0) {
+                const char *reason;
+
+                if (errno == ENOSPC)
+                        reason = "inotify watch limit reached";
+                else
+                        reason = strerror_safe(errno);
+
+                return log_error_errno(errno, "Failed to add a watch for %s: %s", pathname, reason);
+        }
+
+        return 0;
+}
+
 static bool unsafe_transition(const struct stat *a, const struct stat *b) {
         /* Returns true if the transition from a to b is safe, i.e. that we never transition from unprivileged to
          * privileged files or directories. Why bother? So that unprivileged code can't symlink to privileged files

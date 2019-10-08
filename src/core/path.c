@@ -89,24 +89,29 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                                 break;
                         }
 
-                        r = log_warning_errno(errno, "Failed to add watch on %s: %s", s->path, errno == ENOSPC ? "too many watches" : strerror_safe(r));
-                        if (cut)
-                                *cut = tmp;
-                        goto fail;
-                } else {
-                        exists = true;
-
-                        /* Path exists, we don't need to watch parent too closely. */
-                        if (oldslash) {
-                                char *cut2 = oldslash + (oldslash == s->path);
-                                char tmp2 = *cut2;
-                                *cut2 = '\0';
-
-                                (void) inotify_add_watch(s->inotify_fd, s->path, IN_MOVE_SELF);
-                                /* Error is ignored, the worst can happen is we get spurious events. */
-
-                                *cut2 = tmp2;
+                        /* This second call to inotify_add_watch() should fail like the previous
+                         * one and is done for logging the error in a comprehensive way. */
+                        r = inotify_add_watch_and_warn(s->inotify_fd, s->path, flags);
+                        if (r < 0) {
+                                if (cut)
+                                        *cut = tmp;
+                                goto fail;
                         }
+
+                        /* Hmm, we succeeded in adding the watch this time... let's continue. */
+                }
+                exists = true;
+
+                /* Path exists, we don't need to watch parent too closely. */
+                if (oldslash) {
+                        char *cut2 = oldslash + (oldslash == s->path);
+                        char tmp2 = *cut2;
+                        *cut2 = '\0';
+
+                        (void) inotify_add_watch(s->inotify_fd, s->path, IN_MOVE_SELF);
+                        /* Error is ignored, the worst can happen is we get spurious events. */
+
+                        *cut2 = tmp2;
                 }
 
                 if (cut)

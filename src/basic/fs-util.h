@@ -72,6 +72,7 @@ union inotify_event_buffer {
 };
 
 int inotify_add_watch_fd(int fd, int what, uint32_t mask);
+int inotify_add_watch_and_warn(int fd, const char *pathname, uint32_t mask);
 
 enum {
         CHASE_PREFIX_ROOT = 1 << 0, /* The specified path will be prefixed by the specified root before beginning the iteration */
