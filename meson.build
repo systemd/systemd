@@ -1499,7 +1499,7 @@ subdir('src/boot/efi')
 
 subdir('src/test')
 subdir('src/fuzz')
-subdir('rules')
+subdir('rules.d')
 subdir('test')
 
 ############################################################
