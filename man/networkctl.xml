@@ -42,42 +42,6 @@
   </refsect1>
 
   <refsect1>
-    <title>Options</title>
-
-    <para>The following options are understood:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term>
-          <option>-a</option>
-          <option>--all</option>
-        </term>
-
-        <listitem>
-          <para>Show all links with <command>status</command>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term>
-          <option>-s</option>
-          <option>--stats</option>
-        </term>
-
-        <listitem>
-          <para>Show link statistics with <command>status</command>.</para>
-        </listitem>
-      </varlistentry>
-
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-      <xi:include href="standard-options.xml" xpointer="no-legend" />
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
-
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
     <title>Commands</title>
 
     <para>The following commands are understood:</para>
@@ -296,6 +260,42 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <listitem><para>Renew dynamic configurations e.g. addresses received from DHCP server.
         Takes interface name or index number.</para></listitem>
       </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>
+          <option>-a</option>
+          <option>--all</option>
+        </term>
+
+        <listitem>
+          <para>Show all links with <command>status</command>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <option>-s</option>
+          <option>--stats</option>
+        </term>
+
+        <listitem>
+          <para>Show link statistics with <command>status</command>.</para>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
 
     </variablelist>
   </refsect1>

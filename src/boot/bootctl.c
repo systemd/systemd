@@ -1038,15 +1038,7 @@ static int help(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         printf("%s [COMMAND] [OPTIONS...]\n\n"
-               "Install, update or remove the systemd-boot EFI boot manager.\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Print version\n"
-               "     --esp-path=PATH   Path to the EFI System Partition (ESP)\n"
-               "     --boot-path=PATH  Path to the $BOOT partition\n"
-               "  -p --print-esp-path  Print path to the EFI System Partition\n"
-               "  -x --print-boot-path Print path to the $BOOT partition\n"
-               "     --no-variables    Don't touch EFI variables\n"
-               "     --no-pager        Do not pipe output into a pager\n"
+               "Install, update or remove the systemd-boot EFI boot manager.\n"
                "\nBoot Loader Commands:\n"
                "     status            Show status of installed systemd-boot and EFI variables\n"
                "     install           Install systemd-boot to the ESP and EFI variables\n"
@@ -1059,6 +1051,14 @@ static int help(int argc, char *argv[], void *userdata) {
                "     list              List boot loader entries\n"
                "     set-default ID    Set default boot loader entry\n"
                "     set-oneshot ID    Set default boot loader entry, for next boot only\n"
+               "  -h --help            Show this help\n"
+               "     --version         Print version\n"
+               "     --esp-path=PATH   Path to the EFI System Partition (ESP)\n"
+               "     --boot-path=PATH  Path to the $BOOT partition\n"
+               "  -p --print-esp-path  Print path to the EFI System Partition\n"
+               "  -x --print-boot-path Print path to the $BOOT partition\n"
+               "     --no-variables    Don't touch EFI variables\n"
+               "     --no-pager        Do not pipe output into a pager\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link);

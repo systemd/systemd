@@ -60,38 +60,6 @@
   </refsect1>
 
   <refsect1>
-    <title>Options</title>
-
-    <para>The following options are understood:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem><para>Do not query the user for authentication for
-        privileged operations.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--no-convert</option></term>
-
-        <listitem><para>If <command>set-keymap</command> or
-        <command>set-x11-keymap</command> is invoked and this option
-        is passed, then the keymap will not be converted from the
-        console to X11, or X11 to console,
-        respectively.</para></listitem>
-      </varlistentry>
-
-      <xi:include href="user-system-options.xml" xpointer="host" />
-      <xi:include href="user-system-options.xml" xpointer="machine" />
-
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
     <title>Commands</title>
 
     <para>The following commands are understood:</para>
@@ -176,6 +144,38 @@
       </varlistentry>
     </variablelist>
 
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--no-ask-password</option></term>
+
+        <listitem><para>Do not query the user for authentication for
+        privileged operations.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-convert</option></term>
+
+        <listitem><para>If <command>set-keymap</command> or
+        <command>set-x11-keymap</command> is invoked and this option
+        is passed, then the keymap will not be converted from the
+        console to X11, or X11 to console,
+        respectively.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+    </variablelist>
   </refsect1>
 
   <refsect1>

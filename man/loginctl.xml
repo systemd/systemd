@@ -41,114 +41,6 @@
   </refsect1>
 
   <refsect1>
-    <title>Options</title>
-
-    <para>The following options are understood:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem><para>Do not query the user for authentication for
-        privileged operations.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-p</option></term>
-        <term><option>--property=</option></term>
-
-        <listitem><para>When showing session/user/seat properties,
-        limit display to certain properties as specified as argument.
-        If not specified, all set properties are shown. The argument
-        should be a property name, such as
-        <literal>Sessions</literal>. If specified more than once, all
-        properties with the specified names are
-        shown.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--value</option></term>
-
-        <listitem><para>When showing session/user/seat properties,
-        only print the value, and skip the property name and
-        <literal>=</literal>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-a</option></term>
-        <term><option>--all</option></term>
-
-        <listitem><para>When showing session/user/seat properties,
-        show all properties regardless of whether they are set or
-        not.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-l</option></term>
-        <term><option>--full</option></term>
-
-        <listitem><para>Do not ellipsize process tree entries.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--kill-who=</option></term>
-
-        <listitem><para>When used with
-        <command>kill-session</command>, choose which processes to
-        kill. Must be one of <option>leader</option>, or
-        <option>all</option> to select whether to kill only the leader
-        process of the session or all processes of the session. If
-        omitted, defaults to <option>all</option>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-s</option></term>
-        <term><option>--signal=</option></term>
-
-        <listitem><para>When used with <command>kill-session</command>
-        or <command>kill-user</command>, choose which signal to send
-        to selected processes. Must be one of the well known signal
-        specifiers, such as <constant>SIGTERM</constant>,
-        <constant>SIGINT</constant> or <constant>SIGSTOP</constant>.
-        If omitted, defaults to
-        <constant>SIGTERM</constant>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-n</option></term>
-        <term><option>--lines=</option></term>
-
-        <listitem><para>When used with <command>user-status</command>
-        and <command>session-status</command>, controls the number of
-        journal lines to show, counting from the most recent ones.
-        Takes a positive integer argument. Defaults to 10.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-o</option></term>
-        <term><option>--output=</option></term>
-
-        <listitem><para>When used with <command>user-status</command>
-        and <command>session-status</command>, controls the formatting
-        of the journal entries that are shown. For the available
-        choices, see
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        Defaults to <literal>short</literal>.</para></listitem>
-      </varlistentry>
-
-      <xi:include href="user-system-options.xml" xpointer="host" />
-      <xi:include href="user-system-options.xml" xpointer="machine" />
-
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
-      <xi:include href="standard-options.xml" xpointer="no-legend" />
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
     <title>Commands</title>
 
     <para>The following commands are understood:</para>
@@ -374,6 +266,114 @@
       </varlistentry>
     </variablelist></refsect2>
 
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--no-ask-password</option></term>
+
+        <listitem><para>Do not query the user for authentication for
+        privileged operations.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--property=</option></term>
+
+        <listitem><para>When showing session/user/seat properties,
+        limit display to certain properties as specified as argument.
+        If not specified, all set properties are shown. The argument
+        should be a property name, such as
+        <literal>Sessions</literal>. If specified more than once, all
+        properties with the specified names are
+        shown.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--value</option></term>
+
+        <listitem><para>When showing session/user/seat properties,
+        only print the value, and skip the property name and
+        <literal>=</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-a</option></term>
+        <term><option>--all</option></term>
+
+        <listitem><para>When showing session/user/seat properties,
+        show all properties regardless of whether they are set or
+        not.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-l</option></term>
+        <term><option>--full</option></term>
+
+        <listitem><para>Do not ellipsize process tree entries.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-who=</option></term>
+
+        <listitem><para>When used with
+        <command>kill-session</command>, choose which processes to
+        kill. Must be one of <option>leader</option>, or
+        <option>all</option> to select whether to kill only the leader
+        process of the session or all processes of the session. If
+        omitted, defaults to <option>all</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-s</option></term>
+        <term><option>--signal=</option></term>
+
+        <listitem><para>When used with <command>kill-session</command>
+        or <command>kill-user</command>, choose which signal to send
+        to selected processes. Must be one of the well known signal
+        specifiers, such as <constant>SIGTERM</constant>,
+        <constant>SIGINT</constant> or <constant>SIGSTOP</constant>.
+        If omitted, defaults to
+        <constant>SIGTERM</constant>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--lines=</option></term>
+
+        <listitem><para>When used with <command>user-status</command>
+        and <command>session-status</command>, controls the number of
+        journal lines to show, counting from the most recent ones.
+        Takes a positive integer argument. Defaults to 10.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-o</option></term>
+        <term><option>--output=</option></term>
+
+        <listitem><para>When used with <command>user-status</command>
+        and <command>session-status</command>, controls the formatting
+        of the journal entries that are shown. For the available
+        choices, see
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        Defaults to <literal>short</literal>.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
   </refsect1>
 
   <refsect1>

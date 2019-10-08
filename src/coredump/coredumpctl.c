@@ -147,8 +147,13 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...]\n\n"
-               "List or retrieve coredumps from the journal.\n\n"
-               "Flags:\n"
+               "List or retrieve coredumps from the journal.\n"
+               "\nCommands:\n"
+               "  list [MATCHES...]  List available coredumps (default)\n"
+               "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
+               "  dump [MATCHES...]  Print first matching coredump to stdout\n"
+               "  debug [MATCHES...] Start a debugger for the first matching coredump\n"
+               "\nFlags:\n"
                "  -h --help              Show this help\n"
                "     --version           Print version string\n"
                "     --no-pager          Do not pipe output into a pager\n"
@@ -162,11 +167,6 @@ static int help(void) {
                "  -o --output=FILE       Write output to FILE\n"
                "  -D --directory=DIR     Use journal files from directory\n\n"
                "  -q --quiet             Do not show info messages and privilege warning\n"
-               "Commands:\n"
-               "  list [MATCHES...]  List available coredumps (default)\n"
-               "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
-               "  dump [MATCHES...]  Print first matching coredump to stdout\n"
-               "  debug [MATCHES...] Start a debugger for the first matching coredump\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link
