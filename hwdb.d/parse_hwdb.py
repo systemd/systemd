@@ -85,7 +85,7 @@ def hwdb_grammar():
              (EMPTYLINE ^ stringEnd()).suppress())
     commentgroup = OneOrMore(COMMENTLINE).suppress() - EMPTYLINE.suppress()
 
-    grammar = OneOrMore(group('GROUPS*') ^ commentgroup) + stringEnd()
+    grammar = OneOrMore(Group(group)('GROUPS*') ^ commentgroup) + stringEnd()
 
     return grammar
 
@@ -221,7 +221,8 @@ def check_properties(groups):
             elif parsed.NAME == 'ACCEL_MOUNT_MATRIX':
                 check_one_mount_matrix(prop, parsed.VALUE)
             elif parsed.NAME.startswith('KEYBOARD_KEY_'):
-                check_one_keycode(prop, parsed.VALUE)
+                val = parsed.VALUE if isinstance(parsed.VALUE, str) else parsed.VALUE[0]
+                check_one_keycode(prop, val)
 
 def print_summary(fname, groups):
     n_matches = sum(len(matches) for matches, props in groups)
