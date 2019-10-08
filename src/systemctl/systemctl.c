@@ -7651,8 +7651,8 @@ static int systemctl_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] {COMMAND} ...\n\n"
-               "Query or send control commands to the systemd manager.\n\n"
+        printf("%5$s%1$s [OPTIONS...] {COMMAND} ...\n\n"
+               "Query or send control commands to the systemd manager.%6$s\n\n"
                "%3$sUnit Commands:%4$s\n"
                "  list-units [PATTERN...]             List units currently in memory\n"
                "  list-sockets [PATTERN...]           List socket units currently in memory,\n"
@@ -7802,6 +7802,7 @@ static int systemctl_help(void) {
                , program_invocation_short_name
                , link
                , ansi_underline(), ansi_normal()
+               , ansi_highlight(), ansi_normal()
         );
 
         return 0;

@@ -781,8 +781,8 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Attach or detach portable services from the local system.\n"
+        printf("%s%s [OPTIONS...] {COMMAND} ...\n\n"
+               "Attach or detach portable services from the local system.%s\n"
                "Commands:\n"
                "  list                        List available portable service images\n"
                "  attach NAME|PATH [PREFIX...]\n"
@@ -810,7 +810,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --cat                    When inspecting include unit and os-release file\n"
                "                              contents\n"
                "\nSee the %s for details.\n"
+               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_normal()
                , link
         );
 

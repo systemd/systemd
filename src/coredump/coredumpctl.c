@@ -146,8 +146,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n\n"
-               "List or retrieve coredumps from the journal.\n"
+        printf("%s%s [OPTIONS...]\n\n"
+               "List or retrieve coredumps from the journal.%s\n"
                "\nCommands:\n"
                "  list [MATCHES...]  List available coredumps (default)\n"
                "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
@@ -168,7 +168,9 @@ static int help(void) {
                "  -D --directory=DIR     Use journal files from directory\n\n"
                "  -q --quiet             Do not show info messages and privilege warning\n"
                "\nSee the %s for details.\n"
+               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_normal()
                , link
         );
 

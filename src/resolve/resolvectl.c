@@ -2523,10 +2523,10 @@ static int native_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] {COMMAND} ...\n"
+        printf("%s%s [OPTIONS...] {COMMAND} ...\n"
                "\n"
                "Send control commands to the network name resolution manager, or\n"
-               "resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.\n"
+               "resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.%s\n"
                "\nCommands:\n"
                "  query HOSTNAME|ADDRESS...    Resolve domain names, IPv4 and IPv6 addresses\n"
                "  service [[NAME] TYPE] DOMAIN Resolve service (SRV)\n"
@@ -2563,8 +2563,10 @@ static int native_help(void) {
                "                                                              (default: yes)\n"
                "     --raw[=payload|packet]    Dump the answer as binary data\n"
                "     --legend=BOOL             Print headers and additional info (default: yes)\n"
-               "\nSee the %2$s for details.\n"
+               "\nSee the %s for details.\n"
+               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_normal()
                , link
         );
 

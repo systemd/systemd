@@ -1280,8 +1280,8 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Send control commands to or query the login manager.\n"
+        printf("%s%s [OPTIONS...] {COMMAND} ...\n\n"
+               "Send control commands to or query the login manager.%s\n"
                "\nSession Commands:\n"
                "  list-sessions            List sessions\n"
                "  session-status [ID...]   Show session status\n"
@@ -1329,7 +1329,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "                             json, json-pretty, json-sse, json-seq, cat,\n"
                "                             with-unit)\n"
                "\nSee the %s for details.\n"
+               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_normal()
                , link
         );
 

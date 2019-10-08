@@ -2690,9 +2690,9 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
+        printf("%s%s [OPTIONS...] {COMMAND} ...\n\n"
                "Send control commands to or query the virtual machine and container\n"
-               "registration manager.\n"
+               "registration manager.%s\n"
                "\nMachine Commands:\n"
                "  list                        List running VMs and containers\n"
                "  status NAME...              Show VM/container details\n"
@@ -2762,7 +2762,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              checksum, signature)\n"
                "     --force                  Download image even if already exists\n"
                "\nSee the %s for details.\n"
+               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_normal()
                , link
         );
 

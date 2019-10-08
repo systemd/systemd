@@ -2230,8 +2230,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Introspect the bus.\n\n"
+        printf("%s%s [OPTIONS...] {COMMAND} ...\n\n"
+               "Introspect the bus.%s\n\n"
                "Commands:\n"
                "  list                     List bus names\n"
                "  status [SERVICE]         Show bus service, process or bus owner credentials\n"
@@ -2279,7 +2279,9 @@ static int help(void) {
                "                           system\n"
                "     --destination=SERVICE Destination service of a signal\n"
                "\nSee the %s for details.\n"
+               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_normal()
                , link
         );
 

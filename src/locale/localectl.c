@@ -23,6 +23,7 @@
 #include "set.h"
 #include "spawn-polkit-agent.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "verbs.h"
 #include "virt.h"
 
@@ -384,8 +385,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "Query or change system locale and keyboard settings.\n\n"
+        printf("%s%s [OPTIONS...] COMMAND ...\n\n"
+               "Query or change system locale and keyboard settings.%s\n\n"
                "  -h --help                Show this help\n"
                "     --version             Show package version\n"
                "     --no-pager            Do not pipe output into a pager\n"
@@ -407,7 +408,9 @@ static int help(void) {
                "                           Show known X11 keyboard mapping variants\n"
                "  list-x11-keymap-options  Show known X11 keyboard mapping options\n"
                "\nSee the %s for details.\n"
+               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_normal()
                , link
         );
 

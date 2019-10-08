@@ -809,8 +809,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "Query or change system time and date settings.\n"
+        printf("%s%s [OPTIONS...] COMMAND ...\n\n"
+               "Query or change system time and date settings.%s\n"
                "\nCommands:\n"
                "  status                   Show current time settings\n"
                "  show                     Show properties of systemd-timedated\n"
@@ -836,7 +836,9 @@ static int help(void) {
                "  -a --all                 Show all properties, including empty ones\n"
                "     --value               When showing properties, only print the value\n"
                "\nSee the %s for details.\n"
+               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_normal()
                , link
         );
 
