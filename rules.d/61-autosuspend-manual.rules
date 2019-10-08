@@ -17,4 +17,3 @@ LABEL="autosuspend_manual_enable"
 TEST=="power/control", ATTR{power/control}="auto", GOTO="autosuspend_manual_end"
 
 LABEL="autosuspend_manual_end"
-
