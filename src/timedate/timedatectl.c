@@ -809,21 +809,9 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "Query or change system time and date settings.\n\n"
-               "  -h --help                Show this help message\n"
-               "     --version             Show package version\n"
-               "     --no-pager            Do not pipe output into a pager\n"
-               "     --no-ask-password     Do not prompt for password\n"
-               "  -H --host=[USER@]HOST    Operate on remote host\n"
-               "  -M --machine=CONTAINER   Operate on local container\n"
-               "     --adjust-system-clock Adjust system clock when changing local RTC mode\n"
-               "     --monitor             Monitor status of systemd-timesyncd\n"
-               "  -p --property=NAME       Show only properties by this name\n"
-               "  -a --all                 Show all properties, including empty ones\n"
-               "     --value               When showing properties, only print the value\n"
-               "\n"
-               "Commands:\n"
+        printf("%s%s [OPTIONS...] COMMAND ...\n\n"
+               "Query or change system time and date settings.%s\n"
+               "\nCommands:\n"
                "  status                   Show current time settings\n"
                "  show                     Show properties of systemd-timedated\n"
                "  set-time TIME            Set system time\n"
@@ -835,8 +823,22 @@ static int help(void) {
                "systemd-timesyncd Commands:\n"
                "  timesync-status          Show status of systemd-timesyncd\n"
                "  show-timesync            Show properties of systemd-timesyncd\n"
+               "\nOptions\n"
+               "  -h --help                Show this help message\n"
+               "     --version             Show package version\n"
+               "     --no-pager            Do not pipe output into a pager\n"
+               "     --no-ask-password     Do not prompt for password\n"
+               "  -H --host=[USER@]HOST    Operate on remote host\n"
+               "  -M --machine=CONTAINER   Operate on local container\n"
+               "     --adjust-system-clock Adjust system clock when changing local RTC mode\n"
+               "     --monitor             Monitor status of systemd-timesyncd\n"
+               "  -p --property=NAME       Show only properties by this name\n"
+               "  -a --all                 Show all properties, including empty ones\n"
+               "     --value               When showing properties, only print the value\n"
                "\nSee the %s for details.\n"
+               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_normal()
                , link
         );
 

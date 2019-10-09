@@ -64,76 +64,6 @@
   </refsect1>
 
   <refsect1>
-    <title>Options</title>
-
-    <para>The following options are understood:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><option>-q</option></term>
-        <term><option>--quiet</option></term>
-
-        <listitem><para>Suppresses additional informational output while running.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-p</option> <replaceable>PROFILE</replaceable></term>
-        <term><option>--profile=</option><replaceable>PROFILE</replaceable></term>
-
-        <listitem><para>When attaching an image, select the profile to use. By default the <literal>default</literal>
-        profile is used. For details about profiles, see below.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--copy=</option></term>
-
-        <listitem><para>When attaching an image, select whether to prefer copying or symlinking of files installed into
-        the host system. Takes one of <literal>copy</literal> (to prefer copying of files), <literal>symlink</literal>
-        (to prefer creation of symbolic links) or <literal>auto</literal> for an intermediary mode where security
-        profile drop-ins are symlinked while unit files are copied. Note that this option expresses a preference only,
-        in cases where symbolic links cannot be created — for example when the image operated on is a raw disk image,
-        and hence not directly referentiable from the host file system — copying of files is used
-        unconditionally.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--runtime</option></term>
-
-        <listitem><para>When specified the unit and drop-in files are placed in
-        <filename>/run/systemd/system.attached/</filename> instead of
-        <filename>/etc/systemd/system.attached/</filename>. Images attached with this option set hence remain attached
-        only until the next reboot, while they are normally attached persistently.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--no-reload</option></term>
-
-        <listitem><para>Don't reload the service manager after attaching or detaching a portable service
-        image. Normally the service manager is reloaded to ensure it is aware of added or removed unit
-        files.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--cat</option></term>
-
-        <listitem><para>When inspecting portable service images, show the (unprocessed) contents of the metadata files
-        pulled from the image, instead of brief summaries. Specifically, this will show the
-        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> and unit file
-        contents of the image.</para></listitem>
-      </varlistentry>
-
-      <xi:include href="user-system-options.xml" xpointer="host" />
-      <xi:include href="user-system-options.xml" xpointer="machine" />
-
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
-      <xi:include href="standard-options.xml" xpointer="no-legend" />
-      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
     <title>Commands</title>
 
     <para>The following commands are understood:</para>
@@ -320,6 +250,76 @@
 
     </variablelist>
 
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppresses additional informational output while running.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-p</option> <replaceable>PROFILE</replaceable></term>
+        <term><option>--profile=</option><replaceable>PROFILE</replaceable></term>
+
+        <listitem><para>When attaching an image, select the profile to use. By default the <literal>default</literal>
+        profile is used. For details about profiles, see below.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--copy=</option></term>
+
+        <listitem><para>When attaching an image, select whether to prefer copying or symlinking of files installed into
+        the host system. Takes one of <literal>copy</literal> (to prefer copying of files), <literal>symlink</literal>
+        (to prefer creation of symbolic links) or <literal>auto</literal> for an intermediary mode where security
+        profile drop-ins are symlinked while unit files are copied. Note that this option expresses a preference only,
+        in cases where symbolic links cannot be created — for example when the image operated on is a raw disk image,
+        and hence not directly referentiable from the host file system — copying of files is used
+        unconditionally.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--runtime</option></term>
+
+        <listitem><para>When specified the unit and drop-in files are placed in
+        <filename>/run/systemd/system.attached/</filename> instead of
+        <filename>/etc/systemd/system.attached/</filename>. Images attached with this option set hence remain attached
+        only until the next reboot, while they are normally attached persistently.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-reload</option></term>
+
+        <listitem><para>Don't reload the service manager after attaching or detaching a portable service
+        image. Normally the service manager is reloaded to ensure it is aware of added or removed unit
+        files.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cat</option></term>
+
+        <listitem><para>When inspecting portable service images, show the (unprocessed) contents of the metadata files
+        pulled from the image, instead of brief summaries. Specifically, this will show the
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> and unit file
+        contents of the image.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
   </refsect1>
 
   <refsect1>

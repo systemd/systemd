@@ -48,76 +48,6 @@
   </refsect1>
 
   <refsect1>
-    <title>Options</title>
-
-    <para>The following options are understood:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem><para>Do not query the user for authentication for
-        privileged operations.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--adjust-system-clock</option></term>
-
-        <listitem><para>If <command>set-local-rtc</command> is invoked
-        and this option is passed, the system clock is synchronized
-        from the RTC again, taking the new setting into account.
-        Otherwise, the RTC is synchronized from the system
-        clock.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--monitor</option></term>
-
-        <listitem><para>If <command>timesync-status</command> is invoked and this option is passed, then
-        <command>timedatectl</command> monitors the status of
-        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        and updates the outputs. Use <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> to terminate the
-        monitoring.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-a</option></term>
-        <term><option>--all</option></term>
-
-        <listitem><para>When showing properties of
-        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        show all properties regardless of whether they are set or not.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-p</option></term>
-        <term><option>--property=</option></term>
-
-        <listitem><para>When showing properties of
-        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        limit display to certain properties as specified as argument. If not specified, all set properties are shown.
-        The argument should be a property name, such as <literal>ServerName</literal>. If specified more than once,
-        all properties with the specified names are shown.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--value</option></term>
-
-        <listitem>
-          <para>When printing properties with <command>show-timesync</command>, only print the value, and skip the
-          property name and <literal>=</literal>.</para></listitem>
-      </varlistentry>
-
-      <xi:include href="user-system-options.xml" xpointer="host" />
-      <xi:include href="user-system-options.xml" xpointer="machine" />
-
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
     <title>Commands</title>
 
     <para>The following commands are understood:</para>
@@ -245,6 +175,76 @@
 
     </refsect2>
 
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--no-ask-password</option></term>
+
+        <listitem><para>Do not query the user for authentication for
+        privileged operations.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--adjust-system-clock</option></term>
+
+        <listitem><para>If <command>set-local-rtc</command> is invoked
+        and this option is passed, the system clock is synchronized
+        from the RTC again, taking the new setting into account.
+        Otherwise, the RTC is synchronized from the system
+        clock.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--monitor</option></term>
+
+        <listitem><para>If <command>timesync-status</command> is invoked and this option is passed, then
+        <command>timedatectl</command> monitors the status of
+        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        and updates the outputs. Use <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> to terminate the
+        monitoring.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-a</option></term>
+        <term><option>--all</option></term>
+
+        <listitem><para>When showing properties of
+        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        show all properties regardless of whether they are set or not.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--property=</option></term>
+
+        <listitem><para>When showing properties of
+        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        limit display to certain properties as specified as argument. If not specified, all set properties are shown.
+        The argument should be a property name, such as <literal>ServerName</literal>. If specified more than once,
+        all properties with the specified names are shown.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--value</option></term>
+
+        <listitem>
+          <para>When printing properties with <command>show-timesync</command>, only print the value, and skip the
+          property name and <literal>=</literal>.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+    </variablelist>
   </refsect1>
 
   <refsect1>

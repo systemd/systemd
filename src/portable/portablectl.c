@@ -781,8 +781,20 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Attach or detach portable services from the local system.\n\n"
+        printf("%s%s [OPTIONS...] {COMMAND} ...\n\n"
+               "Attach or detach portable services from the local system.%s\n"
+               "Commands:\n"
+               "  list                        List available portable service images\n"
+               "  attach NAME|PATH [PREFIX...]\n"
+               "                              Attach the specified portable service image\n"
+               "  detach NAME|PATH            Detach the specified portable service image\n"
+               "  inspect NAME|PATH [PREFIX...]\n"
+               "                              Show details of specified portable service image\n"
+               "  is-attached NAME|PATH       Query if portable service image is attached\n"
+               "  read-only NAME|PATH [BOOL]  Mark or unmark portable service image read-only\n"
+               "  remove NAME|PATH...         Remove a portable service image\n"
+               "  set-limit [NAME|PATH]       Set image or pool size limit (disk quota)\n"
+               "\nOptions\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
                "     --no-pager               Do not pipe output into a pager\n"
@@ -796,20 +808,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --runtime                Attach portable service until next reboot only\n"
                "     --no-reload              Don't reload the system and service manager\n"
                "     --cat                    When inspecting include unit and os-release file\n"
-               "                              contents\n\n"
-               "Commands:\n"
-               "  list                        List available portable service images\n"
-               "  attach NAME|PATH [PREFIX...]\n"
-               "                              Attach the specified portable service image\n"
-               "  detach NAME|PATH            Detach the specified portable service image\n"
-               "  inspect NAME|PATH [PREFIX...]\n"
-               "                              Show details of specified portable service image\n"
-               "  is-attached NAME|PATH       Query if portable service image is attached\n"
-               "  read-only NAME|PATH [BOOL]  Mark or unmark portable service image read-only\n"
-               "  remove NAME|PATH...         Remove a portable service image\n"
-               "  set-limit [NAME|PATH]       Set image or pool size limit (disk quota)\n"
+               "                              contents\n"
                "\nSee the %s for details.\n"
+               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_normal()
                , link
         );
 

@@ -40,98 +40,6 @@
   </refsect1>
 
   <refsect1>
-    <title>Options</title>
-
-    <para>The following options are understood:</para>
-
-    <variablelist>
-
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-
-      <varlistentry>
-        <term><option>--no-legend</option></term>
-
-        <listitem><para>Do not print column headers.</para></listitem>
-      </varlistentry>
-
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
-
-      <varlistentry>
-        <term><option>-1</option></term>
-
-        <listitem><para>Show information of a single core dump only, instead of listing
-        all known core dumps.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-S</option></term>
-        <term><option>--since</option></term>
-
-        <listitem><para>Only print entries which are since the specified date.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-U</option></term>
-        <term><option>--until</option></term>
-
-        <listitem><para>Only print entries which are until the specified date.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-r</option></term>
-        <term><option>--reverse</option></term>
-
-        <listitem><para>Reverse output so that the newest entries are displayed first.
-        </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-F</option> <replaceable>FIELD</replaceable></term>
-        <term><option>--field=</option><replaceable>FIELD</replaceable></term>
-
-        <listitem><para>Print all possible data values the specified
-        field takes in matching core dump entries of the
-        journal.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-o</option> <replaceable>FILE</replaceable></term>
-        <term><option>--output=</option><replaceable>FILE</replaceable></term>
-
-        <listitem><para>Write the core to <option>FILE</option>.
-        </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--debugger=</option><replaceable>DEBUGGER</replaceable></term>
-
-        <listitem><para>Use the given debugger for the <command>debug</command>
-        command. If not given and <varname>$SYSTEMD_DEBUGGER</varname> is unset, then
-        <citerefentry><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        will be used. </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-D</option> <replaceable>DIR</replaceable></term>
-        <term><option>--directory=</option><replaceable>DIR</replaceable></term>
-
-        <listitem><para>Use the journal files in the specified <option>DIR</option>.
-        </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-q</option></term>
-        <term><option>--quiet</option></term>
-
-        <listitem><para>Suppresses informational messages about lack
-        of access to journal files and possible in-flight coredumps.
-        </para></listitem>
-      </varlistentry>
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
     <title>Commands</title>
 
     <para>The following commands are understood:</para>
@@ -234,6 +142,98 @@
 
     </variablelist>
 
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+
+      <varlistentry>
+        <term><option>--no-legend</option></term>
+
+        <listitem><para>Do not print column headers.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+
+      <varlistentry>
+        <term><option>-1</option></term>
+
+        <listitem><para>Show information of a single core dump only, instead of listing
+        all known core dumps.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-S</option></term>
+        <term><option>--since</option></term>
+
+        <listitem><para>Only print entries which are since the specified date.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-U</option></term>
+        <term><option>--until</option></term>
+
+        <listitem><para>Only print entries which are until the specified date.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--reverse</option></term>
+
+        <listitem><para>Reverse output so that the newest entries are displayed first.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-F</option> <replaceable>FIELD</replaceable></term>
+        <term><option>--field=</option><replaceable>FIELD</replaceable></term>
+
+        <listitem><para>Print all possible data values the specified
+        field takes in matching core dump entries of the
+        journal.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-o</option> <replaceable>FILE</replaceable></term>
+        <term><option>--output=</option><replaceable>FILE</replaceable></term>
+
+        <listitem><para>Write the core to <option>FILE</option>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--debugger=</option><replaceable>DEBUGGER</replaceable></term>
+
+        <listitem><para>Use the given debugger for the <command>debug</command>
+        command. If not given and <varname>$SYSTEMD_DEBUGGER</varname> is unset, then
+        <citerefentry><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        will be used. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-D</option> <replaceable>DIR</replaceable></term>
+        <term><option>--directory=</option><replaceable>DIR</replaceable></term>
+
+        <listitem><para>Use the journal files in the specified <option>DIR</option>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppresses informational messages about lack
+        of access to journal files and possible in-flight coredumps.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>

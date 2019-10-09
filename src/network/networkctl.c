@@ -1749,23 +1749,26 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n\n"
-               "Query and control the networking subsystem.\n\n"
+        printf("%s%s [OPTIONS...]\n\n"
+               "Query and control the networking subsystem.%s\n"
+               "\nCommands:\n"
+               "  list [PATTERN...]     List links\n"
+               "  status [PATTERN...]   Show link status\n"
+               "  lldp [PATTERN...]     Show LLDP neighbors\n"
+               "  label                 Show current address label entries in the kernel\n"
+               "  delete DEVICES...     Delete virtual netdevs\n"
+               "  renew DEVICES...      Renew dynamic configurations\n"
+               "\nOptions\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --no-pager         Do not pipe output into a pager\n"
                "     --no-legend        Do not show the headers and footers\n"
                "  -a --all              Show status for all links\n"
                "  -s --stats            Show detailed link statics\n"
-               "\nCommands:\n"
-               "  list [PATTERN...]     List links\n"
-               "  status [PATTERN...]   Show link status\n"
-               "  lldp [PATTERN...]     Show LLDP neighbors\n"
-               "  label                 Show current address label entries in the kernel\n"
-               "  delete DEVICES..      Delete virtual netdevs\n"
-               "  renew DEVICES..       Renew dynamic configurations\n"
                "\nSee the %s for details.\n"
+               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_normal()
                , link
         );
 

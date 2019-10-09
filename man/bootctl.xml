@@ -38,63 +38,6 @@
   </refsect1>
 
   <refsect1>
-    <title>Options</title>
-    <para>The following options are understood:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><option>--esp-path=</option></term>
-        <listitem><para>Path to the EFI System Partition (ESP). If not specified, <filename>/efi/</filename>,
-        <filename>/boot/</filename>, and <filename>/boot/efi/</filename> are checked in turn.  It is
-        recommended to mount the ESP to <filename>/efi/</filename>, if possible.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--boot-path=</option></term>
-        <listitem><para>Path to the Extended Boot Loader partition, as defined in the <ulink
-        url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>. If not
-        specified, <filename>/boot/</filename> is checked.  It is recommended to mount the Extended Boot
-        Loader partition to <filename>/boot/</filename>, if possible.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-p</option></term>
-        <term><option>--print-esp-path</option></term>
-        <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
-        to the EFI System Partition (ESP) to standard output and exits.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-x</option></term>
-        <term><option>--print-boot-path</option></term>
-        <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
-        to the Extended Boot Loader partition if it exists, and the path to the ESP otherwise to standard
-        output and exit. This command is useful to determine where to place boot loader entries, as they are
-        preferably placed in the Extended Boot Loader partition if it exists and in the ESP otherwise.</para>
-
-        <para>Boot Loader Specification Type #1 entries should generally be placed in the directory
-        <literal>$(bootctl -x)/loader/entries/</literal>. Existence of that directory may also be used as
-        indication that boot loader entry support is available on the system. Similarly, Boot Loader
-        Specification Type #2 entries should be placed in the directory <literal>$(bootctl
-        -x)/EFI/Linux/</literal>.</para>
-
-        <para>Note that this option (similar to the <option>--print-booth-path</option> option mentioned
-        above), is available independently from the boot loader used, i.e. also without
-        <command>systemd-boot</command> being installed.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--no-variables</option></term>
-        <listitem><para>Do not touch the firmware's boot loader list stored in EFI variables.</para></listitem>
-      </varlistentry>
-
-      <xi:include href="standard-options.xml" xpointer="no-pager"/>
-      <xi:include href="standard-options.xml" xpointer="help"/>
-      <xi:include href="standard-options.xml" xpointer="version"/>
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
     <title>Commands</title>
     <variablelist>
 
@@ -186,6 +129,63 @@
         <option>set-default</option> will set it persistently for all future boots.</para></listitem>
       </varlistentry>
 
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--esp-path=</option></term>
+        <listitem><para>Path to the EFI System Partition (ESP). If not specified, <filename>/efi/</filename>,
+        <filename>/boot/</filename>, and <filename>/boot/efi/</filename> are checked in turn.  It is
+        recommended to mount the ESP to <filename>/efi/</filename>, if possible.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--boot-path=</option></term>
+        <listitem><para>Path to the Extended Boot Loader partition, as defined in the <ulink
+        url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>. If not
+        specified, <filename>/boot/</filename> is checked.  It is recommended to mount the Extended Boot
+        Loader partition to <filename>/boot/</filename>, if possible.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--print-esp-path</option></term>
+        <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
+        to the EFI System Partition (ESP) to standard output and exits.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-x</option></term>
+        <term><option>--print-boot-path</option></term>
+        <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
+        to the Extended Boot Loader partition if it exists, and the path to the ESP otherwise to standard
+        output and exit. This command is useful to determine where to place boot loader entries, as they are
+        preferably placed in the Extended Boot Loader partition if it exists and in the ESP otherwise.</para>
+
+        <para>Boot Loader Specification Type #1 entries should generally be placed in the directory
+        <literal>$(bootctl -x)/loader/entries/</literal>. Existence of that directory may also be used as
+        indication that boot loader entry support is available on the system. Similarly, Boot Loader
+        Specification Type #2 entries should be placed in the directory <literal>$(bootctl
+        -x)/EFI/Linux/</literal>.</para>
+
+        <para>Note that this option (similar to the <option>--print-booth-path</option> option mentioned
+        above), is available independently from the boot loader used, i.e. also without
+        <command>systemd-boot</command> being installed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-variables</option></term>
+        <listitem><para>Do not touch the firmware's boot loader list stored in EFI variables.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager"/>
+      <xi:include href="standard-options.xml" xpointer="help"/>
+      <xi:include href="standard-options.xml" xpointer="version"/>
     </variablelist>
   </refsect1>
 

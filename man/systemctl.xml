@@ -45,653 +45,6 @@
   </refsect1>
 
   <refsect1>
-    <title>Options</title>
-
-    <para>The following options are understood:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><option>-t</option></term>
-        <term><option>--type=</option></term>
-
-        <listitem>
-          <para>The argument should be a comma-separated list of unit
-          types such as <option>service</option> and
-          <option>socket</option>.
-          </para>
-
-          <para>If one of the arguments is a unit type, when listing
-          units, limit display to certain unit types. Otherwise, units
-          of all types will be shown.</para>
-
-          <para>As a special case, if one of the arguments is
-          <option>help</option>, a list of allowed values will be
-          printed and the program will exit.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--state=</option></term>
-
-        <listitem>
-          <para>The argument should be a comma-separated list of unit
-          LOAD, SUB, or ACTIVE states. When listing units, show only
-          those in the specified states. Use <option>--state=failed</option>
-          to show only failed units.</para>
-
-          <para>As a special case, if one of the arguments is
-          <option>help</option>, a list of allowed values will be
-          printed and the program will exit.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-p</option></term>
-        <term><option>--property=</option></term>
-
-        <listitem>
-          <para>When showing unit/job/manager properties with the
-          <command>show</command> command, limit display to properties
-          specified in the argument. The argument should be a
-          comma-separated list of property names, such as
-          <literal>MainPID</literal>. Unless specified, all known
-          properties are shown. If specified more than once, all
-          properties with the specified names are shown. Shell
-          completion is implemented for property names.</para>
-
-          <para>For the manager itself,
-          <command>systemctl show</command> will show all available
-          properties. Those properties are documented in
-          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-          </para>
-
-          <para>Properties for units vary by unit type, so showing any
-          unit (even a non-existent one) is a way to list properties
-          pertaining to this type. Similarly, showing any job will list
-          properties pertaining to all jobs. Properties for units are
-          documented in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-          and the pages for individual unit types
-          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-          <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-          etc.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-a</option></term>
-        <term><option>--all</option></term>
-
-        <listitem>
-          <para>When listing units with <command>list-units</command>, also show inactive units and
-          units which are following other units. When showing unit/job/manager properties, show all
-          properties regardless whether they are set or not.</para>
-
-          <para>To list all units installed in the file system, use the
-          <command>list-unit-files</command> command instead.</para>
-
-          <para>When listing units with <command>list-dependencies</command>, recursively show
-          dependencies of all dependent units (by default only dependencies of target units are
-          shown).</para>
-
-          <para>When used with <command>status</command>, show journal messages in full, even if they include
-          unprintable characters or are very long. By default, fields with unprintable characters are
-          abbreviated as "blob data". (Note that the pager may escape unprintable characters again.)</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-r</option></term>
-        <term><option>--recursive</option></term>
-
-        <listitem>
-          <para>When listing units, also show units of local
-          containers. Units of local containers will be prefixed with
-          the container name, separated by a single colon character
-          (<literal>:</literal>).</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--reverse</option></term>
-
-        <listitem>
-          <para>Show reverse dependencies between units with
-          <command>list-dependencies</command>, i.e. follow
-          dependencies of type <varname>WantedBy=</varname>,
-          <varname>RequiredBy=</varname>,
-          <varname>PartOf=</varname>, <varname>BoundBy=</varname>,
-          instead of <varname>Wants=</varname> and similar.
-          </para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--after</option></term>
-
-        <listitem>
-          <para>With <command>list-dependencies</command>, show the
-          units that are ordered before the specified unit. In other
-          words, recursively list units following the
-          <varname>After=</varname> dependency.</para>
-
-          <para>Note that any <varname>After=</varname> dependency is
-          automatically mirrored to create a
-          <varname>Before=</varname> dependency. Temporal dependencies
-          may be specified explicitly, but are also created implicitly
-          for units which are <varname>WantedBy=</varname> targets
-          (see
-          <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
-          and as a result of other directives (for example
-          <varname>RequiresMountsFor=</varname>). Both explicitly
-          and implicitly introduced dependencies are shown with
-          <command>list-dependencies</command>.</para>
-
-          <para>When passed to the <command>list-jobs</command> command, for each printed job show which other jobs are
-          waiting for it. May be combined with <option>--before</option> to show both the jobs waiting for each job as
-          well as all jobs each job is waiting for.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--before</option></term>
-
-        <listitem>
-          <para>With <command>list-dependencies</command>, show the
-          units that are ordered after the specified unit. In other
-          words, recursively list units following the
-          <varname>Before=</varname> dependency.</para>
-
-          <para>When passed to the <command>list-jobs</command> command, for each printed job show which other jobs it
-          is waiting for. May be combined with <option>--after</option> to show both the jobs waiting for each job as
-          well as all jobs each job is waiting for.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-l</option></term>
-        <term><option>--full</option></term>
-
-        <listitem>
-          <para>Do not ellipsize unit names, process tree entries,
-          journal output, or truncate unit descriptions in the output
-          of <command>status</command>, <command>list-units</command>,
-          <command>list-jobs</command>, and
-          <command>list-timers</command>.</para>
-          <para>Also, show installation targets in the output of
-          <command>is-enabled</command>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--value</option></term>
-
-        <listitem>
-          <para>When printing properties with <command>show</command>,
-          only print the value, and skip the property name and
-          <literal>=</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--show-types</option></term>
-
-        <listitem>
-          <para>When showing sockets, show the type of the socket.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--job-mode=</option></term>
-
-        <listitem>
-        <para>When queuing a new job, this option controls how to deal with
-        already queued jobs. It takes one of <literal>fail</literal>,
-        <literal>replace</literal>,
-        <literal>replace-irreversibly</literal>,
-        <literal>isolate</literal>,
-        <literal>ignore-dependencies</literal>,
-        <literal>ignore-requirements</literal> or
-        <literal>flush</literal>. Defaults to
-        <literal>replace</literal>, except when the
-        <command>isolate</command> command is used which implies the
-        <literal>isolate</literal> job mode.</para>
-
-        <para>If <literal>fail</literal> is specified and a requested
-        operation conflicts with a pending job (more specifically:
-        causes an already pending start job to be reversed into a stop
-        job or vice versa), cause the operation to fail.</para>
-
-        <para>If <literal>replace</literal> (the default) is
-        specified, any conflicting pending job will be replaced, as
-        necessary.</para>
-
-        <para>If <literal>replace-irreversibly</literal> is specified,
-        operate like <literal>replace</literal>, but also mark the new
-        jobs as irreversible. This prevents future conflicting
-        transactions from replacing these jobs (or even being enqueued
-        while the irreversible jobs are still pending). Irreversible
-        jobs can still be cancelled using the <command>cancel</command>
-        command. This job mode should be used on any transaction which
-        pulls in <filename>shutdown.target</filename>.</para>
-
-        <para><literal>isolate</literal> is only valid for start
-        operations and causes all other units to be stopped when the
-        specified unit is started. This mode is always used when the
-        <command>isolate</command> command is used.</para>
-
-        <para><literal>flush</literal> will cause all queued jobs to
-        be canceled when the new job is enqueued.</para>
-
-        <para>If <literal>ignore-dependencies</literal> is specified,
-        then all unit dependencies are ignored for this new job and
-        the operation is executed immediately. If passed, no required
-        units of the unit passed will be pulled in, and no ordering
-        dependencies will be honored. This is mostly a debugging and
-        rescue tool for the administrator and should not be used by
-        applications.</para>
-
-        <para><literal>ignore-requirements</literal> is similar to
-        <literal>ignore-dependencies</literal>, but only causes the
-        requirement dependencies to be ignored, the ordering
-        dependencies will still be honored.</para>
-        </listitem>
-
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-T</option></term>
-        <term><option>--show-transaction</option></term>
-
-        <listitem>
-          <para>When enqueuing a unit job (for example as effect of a <command>systemctl start</command>
-          invocation or similar), show brief information about all jobs enqueued, covering both the requested
-          job and any added because of unit dependencies. Note that the output will only include jobs
-          immediately part of the transaction requested. It is possible that service start-up program code
-          run as effect of the enqueued jobs might request further jobs to be pulled in. This means that
-          completion of the listed jobs might ultimately entail more jobs than the listed ones.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--fail</option></term>
-
-        <listitem>
-          <para>Shorthand for <option>--job-mode=</option>fail.</para>
-          <para>When used with the <command>kill</command> command,
-          if no units were killed, the operation results in an error.
-          </para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-i</option></term>
-        <term><option>--ignore-inhibitors</option></term>
-
-        <listitem>
-          <para>When system shutdown or a sleep state is requested, ignore inhibitor locks. Applications can establish
-          inhibitor locks to avoid that certain important operations (such as CD burning or suchlike) are interrupted
-          by system shutdown or a sleep state. Any user may take these locks and privileged users may override these
-          locks. If any locks are taken, shutdown and sleep state requests will normally fail (unless privileged) and a
-          list of active locks is printed. However, if <option>--ignore-inhibitors</option> is specified, the
-          established locks are ignored and not shown, and the operation attempted anyway, possibly requiring
-          additional privileges.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--dry-run</option></term>
-
-        <listitem>
-          <para>Just print what would be done. Currently supported by verbs
-          <command>halt</command>, <command>poweroff</command>, <command>reboot</command>,
-          <command>kexec</command>, <command>suspend</command>, <command>hibernate</command>,
-          <command>hybrid-sleep</command>, <command>suspend-then-hibernate</command>,
-          <command>default</command>, <command>rescue</command>,
-          <command>emergency</command>, and <command>exit</command>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-q</option></term>
-        <term><option>--quiet</option></term>
-
-        <listitem>
-          <para>Suppress printing of the results of various commands
-          and also the hints about truncated log lines. This does not
-          suppress output of commands for which the printed output is
-          the only result (like <command>show</command>). Errors are
-          always printed.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--no-block</option></term>
-
-        <listitem>
-          <para>Do not synchronously wait for the requested operation
-          to finish. If this is not specified, the job will be
-          verified, enqueued and <command>systemctl</command> will
-          wait until the unit's start-up is completed. By passing this
-          argument, it is only verified and enqueued. This option may not be
-          combined with <option>--wait</option>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--wait</option></term>
-
-        <listitem>
-          <para>Synchronously wait for started units to terminate again.
-          This option may not be combined with <option>--no-block</option>.
-          Note that this will wait forever if any given unit never terminates
-          (by itself or by getting stopped explicitly); particularly services
-          which use <literal>RemainAfterExit=yes</literal>.</para>
-
-          <para>When used with <command>is-system-running</command>, wait
-          until the boot process is completed before returning.</para>
-        </listitem>
-      </varlistentry>
-
-      <xi:include href="user-system-options.xml" xpointer="user" />
-      <xi:include href="user-system-options.xml" xpointer="system" />
-
-      <varlistentry>
-        <term><option>--failed</option></term>
-
-        <listitem>
-          <para>List units in failed state. This is equivalent to
-          <option>--state=failed</option>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--no-wall</option></term>
-
-        <listitem>
-          <para>Do not send wall message before halt, power-off and reboot.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--global</option></term>
-
-        <listitem>
-          <para>When used with <command>enable</command> and
-          <command>disable</command>, operate on the global user
-          configuration directory, thus enabling or disabling a unit
-          file globally for all future logins of all users.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--no-reload</option></term>
-
-        <listitem>
-          <para>When used with <command>enable</command> and
-          <command>disable</command>, do not implicitly reload daemon
-          configuration after executing the changes.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem>
-          <para>When used with <command>start</command> and related
-          commands, disables asking for passwords. Background services
-          may require input of a password or passphrase string, for
-          example to unlock system hard disks or cryptographic
-          certificates. Unless this option is specified and the
-          command is invoked from a terminal,
-          <command>systemctl</command> will query the user on the
-          terminal for the necessary secrets. Use this option to
-          switch this behavior off. In this case, the password must be
-          supplied by some other means (for example graphical password
-          agents) or the service might fail. This also disables
-          querying the user for authentication for privileged
-          operations.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--kill-who=</option></term>
-
-        <listitem>
-          <para>When used with <command>kill</command>, choose which
-          processes to send a signal to. Must be one of
-          <option>main</option>, <option>control</option> or
-          <option>all</option> to select whether to kill only the main
-          process, the control process or all processes of the
-          unit. The main process of the unit is the one that defines
-          the life-time of it. A control process of a unit is one that
-          is invoked by the manager to induce state changes of it. For
-          example, all processes started due to the
-          <varname>ExecStartPre=</varname>,
-          <varname>ExecStop=</varname> or
-          <varname>ExecReload=</varname> settings of service units are
-          control processes. Note that there is only one control
-          process per unit at a time, as only one state change is
-          executed at a time. For services of type
-          <varname>Type=forking</varname>, the initial process started
-          by the manager for <varname>ExecStart=</varname> is a
-          control process, while the process ultimately forked off by
-          that one is then considered the main process of the unit (if
-          it can be determined). This is different for service units
-          of other types, where the process forked off by the manager
-          for <varname>ExecStart=</varname> is always the main process
-          itself. A service unit consists of zero or one main process,
-          zero or one control process plus any number of additional
-          processes. Not all unit types manage processes of these
-          types however. For example, for mount units, control processes
-          are defined (which are the invocations of
-          <filename>&MOUNT_PATH;</filename> and
-          <filename>&UMOUNT_PATH;</filename>), but no main process
-          is defined. If omitted, defaults to
-          <option>all</option>.</para>
-        </listitem>
-
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-s</option></term>
-        <term><option>--signal=</option></term>
-
-        <listitem>
-          <para>When used with <command>kill</command>, choose which
-          signal to send to selected processes. Must be one of the
-          well-known signal specifiers such as <constant>SIGTERM</constant>, <constant>SIGINT</constant> or
-          <constant>SIGSTOP</constant>. If omitted, defaults to
-          <option>SIGTERM</option>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--what=</option></term>
-
-        <listitem>
-          <para>Select what type of per-unit resources to remove when the <command>clean</command> command is
-          invoked, see below. Takes one of <constant>configuration</constant>, <constant>state</constant>,
-          <constant>cache</constant>, <constant>logs</constant>, <constant>runtime</constant> to select the
-          type of resource. This option may be specified more than once, in which case all specified resource
-          types are removed. Also accepts the special value <constant>all</constant> as a shortcut for
-          specifiying all five resource types. If this option is not specified defaults to the combination of
-          <constant>cache</constant> and <constant>runtime</constant>, i.e. the two kinds of resources that
-          are generally considered to be redundant and can be reconstructed on next invocation.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-f</option></term>
-        <term><option>--force</option></term>
-
-        <listitem>
-          <para>When used with <command>enable</command>, overwrite
-          any existing conflicting symlinks.</para>
-
-          <para>When used with <command>edit</command>, create all of the
-          specified units which do not already exist.</para>
-
-          <para>When used with <command>halt</command>, <command>poweroff</command>, <command>reboot</command> or
-          <command>kexec</command>, execute the selected operation without shutting down all units. However, all
-          processes will be killed forcibly and all file systems are unmounted or remounted read-only. This is hence a
-          drastic but relatively safe option to request an immediate reboot. If <option>--force</option> is specified
-          twice for these operations (with the exception of <command>kexec</command>), they will be executed
-          immediately, without terminating any processes or unmounting any file systems. Warning: specifying
-          <option>--force</option> twice with any of these operations might result in data loss. Note that when
-          <option>--force</option> is specified twice the selected operation is executed by
-          <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
-          succeed even when the system manager has crashed.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--message=</option></term>
-
-        <listitem>
-          <para>When used with <command>halt</command>, <command>poweroff</command> or <command>reboot</command>, set a
-          short message explaining the reason for the operation. The message will be logged together with the default
-          shutdown message.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--now</option></term>
-
-        <listitem>
-          <para>When used with <command>enable</command>, the units
-          will also be started. When used with <command>disable</command> or
-          <command>mask</command>, the units will also be stopped. The start
-          or stop operation is only carried out when the respective enable or
-          disable operation has been successful.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--root=</option></term>
-
-        <listitem>
-          <para>When used with
-          <command>enable</command>/<command>disable</command>/<command>is-enabled</command>
-          (and related commands), use the specified root path when looking for unit
-          files. If this option is present, <command>systemctl</command> will operate on
-          the file system directly, instead of communicating with the <command>systemd</command>
-          daemon to carry out changes.</para>
-        </listitem>
-
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--runtime</option></term>
-
-        <listitem>
-          <para>When used with <command>enable</command>,
-          <command>disable</command>, <command>edit</command>,
-          (and related commands), make changes only temporarily, so
-          that they are lost on the next reboot. This will have the
-          effect that changes are not made in subdirectories of
-          <filename>/etc</filename> but in <filename>/run</filename>,
-          with identical immediate effects, however, since the latter
-          is lost on reboot, the changes are lost too.</para>
-
-          <para>Similarly, when used with
-          <command>set-property</command>, make changes only
-          temporarily, so that they are lost on the next
-          reboot.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--preset-mode=</option></term>
-
-        <listitem>
-          <para>Takes one of <literal>full</literal> (the default),
-          <literal>enable-only</literal>,
-          <literal>disable-only</literal>. When used with the
-          <command>preset</command> or <command>preset-all</command>
-          commands, controls whether units shall be disabled and
-          enabled according to the preset rules, or only enabled, or
-          only disabled.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-n</option></term>
-        <term><option>--lines=</option></term>
-
-        <listitem>
-          <para>When used with <command>status</command>, controls the number of journal lines to show, counting from
-          the most recent ones. Takes a positive integer argument, or 0 to disable journal output. Defaults to
-          10.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-o</option></term>
-        <term><option>--output=</option></term>
-
-        <listitem>
-          <para>When used with <command>status</command>, controls the
-          formatting of the journal entries that are shown. For the
-          available choices, see
-          <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-          Defaults to <literal>short</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--firmware-setup</option></term>
-
-        <listitem>
-          <para>When used with the <command>reboot</command> command, indicate to the system's firmware to reboot into
-          the firmware setup interface. Note that this functionality is not available on all systems.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--boot-loader-menu=</option></term>
-
-        <listitem>
-          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to show the
-          boot loader menu on the following boot. Takes a time value as parameter — indicating the menu time-out. Pass
-          zero in order to disable the menu time-out. Note that not all boot loaders support this
-          functionality.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--boot-loader-entry=</option></term>
-
-        <listitem>
-          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to boot into
-          a specific boot loader entry on the following boot. Takes a boot loader entry identifier as argument, or
-          <literal>help</literal> in order to list available entries. Note that not all boot loaders support this
-          functionality.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--plain</option></term>
-
-        <listitem>
-          <para>When used with <command>list-dependencies</command>,
-          <command>list-units</command> or <command>list-machines</command>,
-          the output is printed as a list instead of a tree, and the bullet
-          circles are omitted.</para>
-        </listitem>
-      </varlistentry>
-
-      <xi:include href="user-system-options.xml" xpointer="host" />
-      <xi:include href="user-system-options.xml" xpointer="machine" />
-
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
-      <xi:include href="standard-options.xml" xpointer="no-legend" />
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
     <title>Commands</title>
 
     <para>The following commands are understood:</para>
@@ -2032,6 +1385,653 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </para>
     </refsect2>
 
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-t</option></term>
+        <term><option>--type=</option></term>
+
+        <listitem>
+          <para>The argument should be a comma-separated list of unit
+          types such as <option>service</option> and
+          <option>socket</option>.
+          </para>
+
+          <para>If one of the arguments is a unit type, when listing
+          units, limit display to certain unit types. Otherwise, units
+          of all types will be shown.</para>
+
+          <para>As a special case, if one of the arguments is
+          <option>help</option>, a list of allowed values will be
+          printed and the program will exit.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--state=</option></term>
+
+        <listitem>
+          <para>The argument should be a comma-separated list of unit
+          LOAD, SUB, or ACTIVE states. When listing units, show only
+          those in the specified states. Use <option>--state=failed</option>
+          to show only failed units.</para>
+
+          <para>As a special case, if one of the arguments is
+          <option>help</option>, a list of allowed values will be
+          printed and the program will exit.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--property=</option></term>
+
+        <listitem>
+          <para>When showing unit/job/manager properties with the
+          <command>show</command> command, limit display to properties
+          specified in the argument. The argument should be a
+          comma-separated list of property names, such as
+          <literal>MainPID</literal>. Unless specified, all known
+          properties are shown. If specified more than once, all
+          properties with the specified names are shown. Shell
+          completion is implemented for property names.</para>
+
+          <para>For the manager itself,
+          <command>systemctl show</command> will show all available
+          properties. Those properties are documented in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          </para>
+
+          <para>Properties for units vary by unit type, so showing any
+          unit (even a non-existent one) is a way to list properties
+          pertaining to this type. Similarly, showing any job will list
+          properties pertaining to all jobs. Properties for units are
+          documented in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          and the pages for individual unit types
+          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          etc.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-a</option></term>
+        <term><option>--all</option></term>
+
+        <listitem>
+          <para>When listing units with <command>list-units</command>, also show inactive units and
+          units which are following other units. When showing unit/job/manager properties, show all
+          properties regardless whether they are set or not.</para>
+
+          <para>To list all units installed in the file system, use the
+          <command>list-unit-files</command> command instead.</para>
+
+          <para>When listing units with <command>list-dependencies</command>, recursively show
+          dependencies of all dependent units (by default only dependencies of target units are
+          shown).</para>
+
+          <para>When used with <command>status</command>, show journal messages in full, even if they include
+          unprintable characters or are very long. By default, fields with unprintable characters are
+          abbreviated as "blob data". (Note that the pager may escape unprintable characters again.)</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--recursive</option></term>
+
+        <listitem>
+          <para>When listing units, also show units of local
+          containers. Units of local containers will be prefixed with
+          the container name, separated by a single colon character
+          (<literal>:</literal>).</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--reverse</option></term>
+
+        <listitem>
+          <para>Show reverse dependencies between units with
+          <command>list-dependencies</command>, i.e. follow
+          dependencies of type <varname>WantedBy=</varname>,
+          <varname>RequiredBy=</varname>,
+          <varname>PartOf=</varname>, <varname>BoundBy=</varname>,
+          instead of <varname>Wants=</varname> and similar.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--after</option></term>
+
+        <listitem>
+          <para>With <command>list-dependencies</command>, show the
+          units that are ordered before the specified unit. In other
+          words, recursively list units following the
+          <varname>After=</varname> dependency.</para>
+
+          <para>Note that any <varname>After=</varname> dependency is
+          automatically mirrored to create a
+          <varname>Before=</varname> dependency. Temporal dependencies
+          may be specified explicitly, but are also created implicitly
+          for units which are <varname>WantedBy=</varname> targets
+          (see
+          <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+          and as a result of other directives (for example
+          <varname>RequiresMountsFor=</varname>). Both explicitly
+          and implicitly introduced dependencies are shown with
+          <command>list-dependencies</command>.</para>
+
+          <para>When passed to the <command>list-jobs</command> command, for each printed job show which other jobs are
+          waiting for it. May be combined with <option>--before</option> to show both the jobs waiting for each job as
+          well as all jobs each job is waiting for.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--before</option></term>
+
+        <listitem>
+          <para>With <command>list-dependencies</command>, show the
+          units that are ordered after the specified unit. In other
+          words, recursively list units following the
+          <varname>Before=</varname> dependency.</para>
+
+          <para>When passed to the <command>list-jobs</command> command, for each printed job show which other jobs it
+          is waiting for. May be combined with <option>--after</option> to show both the jobs waiting for each job as
+          well as all jobs each job is waiting for.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-l</option></term>
+        <term><option>--full</option></term>
+
+        <listitem>
+          <para>Do not ellipsize unit names, process tree entries,
+          journal output, or truncate unit descriptions in the output
+          of <command>status</command>, <command>list-units</command>,
+          <command>list-jobs</command>, and
+          <command>list-timers</command>.</para>
+          <para>Also, show installation targets in the output of
+          <command>is-enabled</command>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--value</option></term>
+
+        <listitem>
+          <para>When printing properties with <command>show</command>,
+          only print the value, and skip the property name and
+          <literal>=</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--show-types</option></term>
+
+        <listitem>
+          <para>When showing sockets, show the type of the socket.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--job-mode=</option></term>
+
+        <listitem>
+        <para>When queuing a new job, this option controls how to deal with
+        already queued jobs. It takes one of <literal>fail</literal>,
+        <literal>replace</literal>,
+        <literal>replace-irreversibly</literal>,
+        <literal>isolate</literal>,
+        <literal>ignore-dependencies</literal>,
+        <literal>ignore-requirements</literal> or
+        <literal>flush</literal>. Defaults to
+        <literal>replace</literal>, except when the
+        <command>isolate</command> command is used which implies the
+        <literal>isolate</literal> job mode.</para>
+
+        <para>If <literal>fail</literal> is specified and a requested
+        operation conflicts with a pending job (more specifically:
+        causes an already pending start job to be reversed into a stop
+        job or vice versa), cause the operation to fail.</para>
+
+        <para>If <literal>replace</literal> (the default) is
+        specified, any conflicting pending job will be replaced, as
+        necessary.</para>
+
+        <para>If <literal>replace-irreversibly</literal> is specified,
+        operate like <literal>replace</literal>, but also mark the new
+        jobs as irreversible. This prevents future conflicting
+        transactions from replacing these jobs (or even being enqueued
+        while the irreversible jobs are still pending). Irreversible
+        jobs can still be cancelled using the <command>cancel</command>
+        command. This job mode should be used on any transaction which
+        pulls in <filename>shutdown.target</filename>.</para>
+
+        <para><literal>isolate</literal> is only valid for start
+        operations and causes all other units to be stopped when the
+        specified unit is started. This mode is always used when the
+        <command>isolate</command> command is used.</para>
+
+        <para><literal>flush</literal> will cause all queued jobs to
+        be canceled when the new job is enqueued.</para>
+
+        <para>If <literal>ignore-dependencies</literal> is specified,
+        then all unit dependencies are ignored for this new job and
+        the operation is executed immediately. If passed, no required
+        units of the unit passed will be pulled in, and no ordering
+        dependencies will be honored. This is mostly a debugging and
+        rescue tool for the administrator and should not be used by
+        applications.</para>
+
+        <para><literal>ignore-requirements</literal> is similar to
+        <literal>ignore-dependencies</literal>, but only causes the
+        requirement dependencies to be ignored, the ordering
+        dependencies will still be honored.</para>
+        </listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-T</option></term>
+        <term><option>--show-transaction</option></term>
+
+        <listitem>
+          <para>When enqueuing a unit job (for example as effect of a <command>systemctl start</command>
+          invocation or similar), show brief information about all jobs enqueued, covering both the requested
+          job and any added because of unit dependencies. Note that the output will only include jobs
+          immediately part of the transaction requested. It is possible that service start-up program code
+          run as effect of the enqueued jobs might request further jobs to be pulled in. This means that
+          completion of the listed jobs might ultimately entail more jobs than the listed ones.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fail</option></term>
+
+        <listitem>
+          <para>Shorthand for <option>--job-mode=</option>fail.</para>
+          <para>When used with the <command>kill</command> command,
+          if no units were killed, the operation results in an error.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-i</option></term>
+        <term><option>--ignore-inhibitors</option></term>
+
+        <listitem>
+          <para>When system shutdown or a sleep state is requested, ignore inhibitor locks. Applications can establish
+          inhibitor locks to avoid that certain important operations (such as CD burning or suchlike) are interrupted
+          by system shutdown or a sleep state. Any user may take these locks and privileged users may override these
+          locks. If any locks are taken, shutdown and sleep state requests will normally fail (unless privileged) and a
+          list of active locks is printed. However, if <option>--ignore-inhibitors</option> is specified, the
+          established locks are ignored and not shown, and the operation attempted anyway, possibly requiring
+          additional privileges.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--dry-run</option></term>
+
+        <listitem>
+          <para>Just print what would be done. Currently supported by verbs
+          <command>halt</command>, <command>poweroff</command>, <command>reboot</command>,
+          <command>kexec</command>, <command>suspend</command>, <command>hibernate</command>,
+          <command>hybrid-sleep</command>, <command>suspend-then-hibernate</command>,
+          <command>default</command>, <command>rescue</command>,
+          <command>emergency</command>, and <command>exit</command>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem>
+          <para>Suppress printing of the results of various commands
+          and also the hints about truncated log lines. This does not
+          suppress output of commands for which the printed output is
+          the only result (like <command>show</command>). Errors are
+          always printed.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-block</option></term>
+
+        <listitem>
+          <para>Do not synchronously wait for the requested operation
+          to finish. If this is not specified, the job will be
+          verified, enqueued and <command>systemctl</command> will
+          wait until the unit's start-up is completed. By passing this
+          argument, it is only verified and enqueued. This option may not be
+          combined with <option>--wait</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--wait</option></term>
+
+        <listitem>
+          <para>Synchronously wait for started units to terminate again.
+          This option may not be combined with <option>--no-block</option>.
+          Note that this will wait forever if any given unit never terminates
+          (by itself or by getting stopped explicitly); particularly services
+          which use <literal>RemainAfterExit=yes</literal>.</para>
+
+          <para>When used with <command>is-system-running</command>, wait
+          until the boot process is completed before returning.</para>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="user" />
+      <xi:include href="user-system-options.xml" xpointer="system" />
+
+      <varlistentry>
+        <term><option>--failed</option></term>
+
+        <listitem>
+          <para>List units in failed state. This is equivalent to
+          <option>--state=failed</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-wall</option></term>
+
+        <listitem>
+          <para>Do not send wall message before halt, power-off and reboot.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--global</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command> and
+          <command>disable</command>, operate on the global user
+          configuration directory, thus enabling or disabling a unit
+          file globally for all future logins of all users.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-reload</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command> and
+          <command>disable</command>, do not implicitly reload daemon
+          configuration after executing the changes.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-ask-password</option></term>
+
+        <listitem>
+          <para>When used with <command>start</command> and related
+          commands, disables asking for passwords. Background services
+          may require input of a password or passphrase string, for
+          example to unlock system hard disks or cryptographic
+          certificates. Unless this option is specified and the
+          command is invoked from a terminal,
+          <command>systemctl</command> will query the user on the
+          terminal for the necessary secrets. Use this option to
+          switch this behavior off. In this case, the password must be
+          supplied by some other means (for example graphical password
+          agents) or the service might fail. This also disables
+          querying the user for authentication for privileged
+          operations.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-who=</option></term>
+
+        <listitem>
+          <para>When used with <command>kill</command>, choose which
+          processes to send a signal to. Must be one of
+          <option>main</option>, <option>control</option> or
+          <option>all</option> to select whether to kill only the main
+          process, the control process or all processes of the
+          unit. The main process of the unit is the one that defines
+          the life-time of it. A control process of a unit is one that
+          is invoked by the manager to induce state changes of it. For
+          example, all processes started due to the
+          <varname>ExecStartPre=</varname>,
+          <varname>ExecStop=</varname> or
+          <varname>ExecReload=</varname> settings of service units are
+          control processes. Note that there is only one control
+          process per unit at a time, as only one state change is
+          executed at a time. For services of type
+          <varname>Type=forking</varname>, the initial process started
+          by the manager for <varname>ExecStart=</varname> is a
+          control process, while the process ultimately forked off by
+          that one is then considered the main process of the unit (if
+          it can be determined). This is different for service units
+          of other types, where the process forked off by the manager
+          for <varname>ExecStart=</varname> is always the main process
+          itself. A service unit consists of zero or one main process,
+          zero or one control process plus any number of additional
+          processes. Not all unit types manage processes of these
+          types however. For example, for mount units, control processes
+          are defined (which are the invocations of
+          <filename>&MOUNT_PATH;</filename> and
+          <filename>&UMOUNT_PATH;</filename>), but no main process
+          is defined. If omitted, defaults to
+          <option>all</option>.</para>
+        </listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-s</option></term>
+        <term><option>--signal=</option></term>
+
+        <listitem>
+          <para>When used with <command>kill</command>, choose which
+          signal to send to selected processes. Must be one of the
+          well-known signal specifiers such as <constant>SIGTERM</constant>, <constant>SIGINT</constant> or
+          <constant>SIGSTOP</constant>. If omitted, defaults to
+          <option>SIGTERM</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--what=</option></term>
+
+        <listitem>
+          <para>Select what type of per-unit resources to remove when the <command>clean</command> command is
+          invoked, see below. Takes one of <constant>configuration</constant>, <constant>state</constant>,
+          <constant>cache</constant>, <constant>logs</constant>, <constant>runtime</constant> to select the
+          type of resource. This option may be specified more than once, in which case all specified resource
+          types are removed. Also accepts the special value <constant>all</constant> as a shortcut for
+          specifiying all five resource types. If this option is not specified defaults to the combination of
+          <constant>cache</constant> and <constant>runtime</constant>, i.e. the two kinds of resources that
+          are generally considered to be redundant and can be reconstructed on next invocation.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-f</option></term>
+        <term><option>--force</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command>, overwrite
+          any existing conflicting symlinks.</para>
+
+          <para>When used with <command>edit</command>, create all of the
+          specified units which do not already exist.</para>
+
+          <para>When used with <command>halt</command>, <command>poweroff</command>, <command>reboot</command> or
+          <command>kexec</command>, execute the selected operation without shutting down all units. However, all
+          processes will be killed forcibly and all file systems are unmounted or remounted read-only. This is hence a
+          drastic but relatively safe option to request an immediate reboot. If <option>--force</option> is specified
+          twice for these operations (with the exception of <command>kexec</command>), they will be executed
+          immediately, without terminating any processes or unmounting any file systems. Warning: specifying
+          <option>--force</option> twice with any of these operations might result in data loss. Note that when
+          <option>--force</option> is specified twice the selected operation is executed by
+          <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
+          succeed even when the system manager has crashed.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--message=</option></term>
+
+        <listitem>
+          <para>When used with <command>halt</command>, <command>poweroff</command> or <command>reboot</command>, set a
+          short message explaining the reason for the operation. The message will be logged together with the default
+          shutdown message.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--now</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command>, the units
+          will also be started. When used with <command>disable</command> or
+          <command>mask</command>, the units will also be stopped. The start
+          or stop operation is only carried out when the respective enable or
+          disable operation has been successful.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root=</option></term>
+
+        <listitem>
+          <para>When used with
+          <command>enable</command>/<command>disable</command>/<command>is-enabled</command>
+          (and related commands), use the specified root path when looking for unit
+          files. If this option is present, <command>systemctl</command> will operate on
+          the file system directly, instead of communicating with the <command>systemd</command>
+          daemon to carry out changes.</para>
+        </listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--runtime</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command>,
+          <command>disable</command>, <command>edit</command>,
+          (and related commands), make changes only temporarily, so
+          that they are lost on the next reboot. This will have the
+          effect that changes are not made in subdirectories of
+          <filename>/etc</filename> but in <filename>/run</filename>,
+          with identical immediate effects, however, since the latter
+          is lost on reboot, the changes are lost too.</para>
+
+          <para>Similarly, when used with
+          <command>set-property</command>, make changes only
+          temporarily, so that they are lost on the next
+          reboot.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--preset-mode=</option></term>
+
+        <listitem>
+          <para>Takes one of <literal>full</literal> (the default),
+          <literal>enable-only</literal>,
+          <literal>disable-only</literal>. When used with the
+          <command>preset</command> or <command>preset-all</command>
+          commands, controls whether units shall be disabled and
+          enabled according to the preset rules, or only enabled, or
+          only disabled.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--lines=</option></term>
+
+        <listitem>
+          <para>When used with <command>status</command>, controls the number of journal lines to show, counting from
+          the most recent ones. Takes a positive integer argument, or 0 to disable journal output. Defaults to
+          10.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-o</option></term>
+        <term><option>--output=</option></term>
+
+        <listitem>
+          <para>When used with <command>status</command>, controls the
+          formatting of the journal entries that are shown. For the
+          available choices, see
+          <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+          Defaults to <literal>short</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--firmware-setup</option></term>
+
+        <listitem>
+          <para>When used with the <command>reboot</command> command, indicate to the system's firmware to reboot into
+          the firmware setup interface. Note that this functionality is not available on all systems.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--boot-loader-menu=</option></term>
+
+        <listitem>
+          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to show the
+          boot loader menu on the following boot. Takes a time value as parameter — indicating the menu time-out. Pass
+          zero in order to disable the menu time-out. Note that not all boot loaders support this
+          functionality.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--boot-loader-entry=</option></term>
+
+        <listitem>
+          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to boot into
+          a specific boot loader entry on the following boot. Takes a boot loader entry identifier as argument, or
+          <literal>help</literal> in order to list available entries. Note that not all boot loaders support this
+          functionality.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--plain</option></term>
+
+        <listitem>
+          <para>When used with <command>list-dependencies</command>,
+          <command>list-units</command> or <command>list-machines</command>,
+          the output is printed as a list instead of a tree, and the bullet
+          circles are omitted.</para>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
   </refsect1>
 
   <refsect1>

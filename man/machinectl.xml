@@ -80,220 +80,6 @@
   </refsect1>
 
   <refsect1>
-    <title>Options</title>
-
-    <para>The following options are understood:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><option>-p</option></term>
-        <term><option>--property=</option></term>
-
-        <listitem><para>When showing machine or image properties,
-        limit the output to certain properties as specified by the
-        argument. If not specified, all set properties are shown. The
-        argument should be a property name, such as
-        <literal>Name</literal>. If specified more than once, all
-        properties with the specified names are
-        shown.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-a</option></term>
-        <term><option>--all</option></term>
-
-        <listitem><para>When showing machine or image properties, show
-        all properties regardless of whether they are set or
-        not.</para>
-
-        <para>When listing VM or container images, do not suppress
-        images beginning in a dot character
-        (<literal>.</literal>).</para>
-
-        <para>When cleaning VM or container images, remove all images, not just hidden ones.</para></listitem>
-      </varlistentry>
-
-       <varlistentry>
-        <term><option>--value</option></term>
-
-        <listitem><para>When printing properties with <command>show</command>, only print the value,
-        and skip the property name and <literal>=</literal>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-l</option></term>
-        <term><option>--full</option></term>
-
-        <listitem><para>Do not ellipsize process tree entries.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--kill-who=</option></term>
-
-        <listitem><para>When used with <command>kill</command>, choose
-        which processes to kill. Must be one of
-        <option>leader</option>, or <option>all</option> to select
-        whether to kill only the leader process of the machine or all
-        processes of the machine. If omitted, defaults to
-        <option>all</option>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-s</option></term>
-        <term><option>--signal=</option></term>
-
-        <listitem><para>When used with <command>kill</command>, choose
-        which signal to send to selected processes. Must be one of the
-        well-known signal specifiers, such as
-        <constant>SIGTERM</constant>, <constant>SIGINT</constant> or
-        <constant>SIGSTOP</constant>. If omitted, defaults to
-        <constant>SIGTERM</constant>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-         <term><option>--uid=</option></term>
-
-         <listitem><para>When used with the <command>shell</command> command, chooses the user ID to
-         open the interactive shell session as. If the argument to the <command>shell</command>
-         command also specifies a user name, this option is ignored. If the name is not specified
-         in either way, <literal>root</literal> will be used by default. Note that this switch is
-         not supported for the <command>login</command> command (see below).</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-E <replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
-        <term><option>--setenv=<replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
-
-         <listitem><para>When used with the <command>shell</command> command, sets an environment
-         variable to pass to the executed shell. Takes an environment variable name and value,
-         separated by <literal>=</literal>. This switch may be used multiple times to set multiple
-         environment variables. Note that this switch is not supported for the
-         <command>login</command> command (see below).</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--mkdir</option></term>
-
-        <listitem><para>When used with <command>bind</command>, creates the destination file or directory before
-        applying the bind mount. Note that even though the name of this option suggests that it is suitable only for
-        directories, this option also creates the destination file node to mount over if the object to mount is not
-        a directory, but a regular file, device node, socket or FIFO.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--read-only</option></term>
-
-        <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para>
-
-        <para>When used with <command>clone</command>, <command>import-raw</command> or <command>import-tar</command> a
-        read-only container or VM image is created.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-n</option></term>
-        <term><option>--lines=</option></term>
-
-        <listitem><para>When used with <command>status</command>,
-        controls the number of journal lines to show, counting from
-        the most recent ones. Takes a positive integer argument.
-        Defaults to 10.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-o</option></term>
-        <term><option>--output=</option></term>
-
-        <listitem><para>When used with <command>status</command>,
-        controls the formatting of the journal entries that are shown.
-        For the available choices, see
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        Defaults to <literal>short</literal>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--verify=</option></term>
-
-        <listitem><para>When downloading a container or VM image,
-        specify whether the image shall be verified before it is made
-        available. Takes one of <literal>no</literal>,
-        <literal>checksum</literal> and <literal>signature</literal>.
-        If <literal>no</literal>, no verification is done. If
-        <literal>checksum</literal> is specified, the download is
-        checked for integrity after the transfer is complete, but no
-        signatures are verified. If <literal>signature</literal> is
-        specified, the checksum is verified and the image's signature
-        is checked against a local keyring of trustable vendors. It is
-        strongly recommended to set this option to
-        <literal>signature</literal> if the server and protocol
-        support this. Defaults to
-        <literal>signature</literal>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--force</option></term>
-
-        <listitem><para>When downloading a container or VM image, and
-        a local copy by the specified local machine name already
-        exists, delete it first and replace it by the newly downloaded
-        image.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--format=</option></term>
-
-        <listitem><para>When used with the <option>export-tar</option>
-        or <option>export-raw</option> commands, specifies the
-        compression format to use for the resulting file. Takes one of
-        <literal>uncompressed</literal>, <literal>xz</literal>,
-        <literal>gzip</literal>, <literal>bzip2</literal>. By default,
-        the format is determined automatically from the image file
-        name passed.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--max-addresses=</option></term>
-
-        <listitem><para>When used with the <option>list-machines</option>
-        command, limits the number of ip addresses output for every machine.
-        Defaults to 1. All addresses can be requested with <literal>all</literal>
-        as argument to <option>--max-addresses</option> . If the argument to
-        <option>--max-addresses</option> is less than the actual number
-        of addresses, <literal>...</literal>follows the last address.
-        If multiple addresses are to be written for a given machine, every
-        address except the first one is on a new line and is followed by
-        <literal>,</literal> if another address will be output afterwards. </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-q</option></term>
-        <term><option>--quiet</option></term>
-
-        <listitem><para>Suppresses additional informational output while running.</para></listitem>
-      </varlistentry>
-
-      <xi:include href="user-system-options.xml" xpointer="host" />
-
-      <varlistentry>
-        <term><option>-M</option></term>
-        <term><option>--machine=</option></term>
-
-        <listitem><para>Connect to
-        <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        running in a local container, to perform the specified operation within
-        the container.</para></listitem>
-      </varlistentry>
-
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
-      <xi:include href="standard-options.xml" xpointer="no-legend" />
-      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
     <title>Commands</title>
 
     <para>The following commands are understood:</para>
@@ -847,6 +633,220 @@
 
     </variablelist></refsect2>
 
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--property=</option></term>
+
+        <listitem><para>When showing machine or image properties,
+        limit the output to certain properties as specified by the
+        argument. If not specified, all set properties are shown. The
+        argument should be a property name, such as
+        <literal>Name</literal>. If specified more than once, all
+        properties with the specified names are
+        shown.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-a</option></term>
+        <term><option>--all</option></term>
+
+        <listitem><para>When showing machine or image properties, show
+        all properties regardless of whether they are set or
+        not.</para>
+
+        <para>When listing VM or container images, do not suppress
+        images beginning in a dot character
+        (<literal>.</literal>).</para>
+
+        <para>When cleaning VM or container images, remove all images, not just hidden ones.</para></listitem>
+      </varlistentry>
+
+       <varlistentry>
+        <term><option>--value</option></term>
+
+        <listitem><para>When printing properties with <command>show</command>, only print the value,
+        and skip the property name and <literal>=</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-l</option></term>
+        <term><option>--full</option></term>
+
+        <listitem><para>Do not ellipsize process tree entries.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-who=</option></term>
+
+        <listitem><para>When used with <command>kill</command>, choose
+        which processes to kill. Must be one of
+        <option>leader</option>, or <option>all</option> to select
+        whether to kill only the leader process of the machine or all
+        processes of the machine. If omitted, defaults to
+        <option>all</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-s</option></term>
+        <term><option>--signal=</option></term>
+
+        <listitem><para>When used with <command>kill</command>, choose
+        which signal to send to selected processes. Must be one of the
+        well-known signal specifiers, such as
+        <constant>SIGTERM</constant>, <constant>SIGINT</constant> or
+        <constant>SIGSTOP</constant>. If omitted, defaults to
+        <constant>SIGTERM</constant>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+         <term><option>--uid=</option></term>
+
+         <listitem><para>When used with the <command>shell</command> command, chooses the user ID to
+         open the interactive shell session as. If the argument to the <command>shell</command>
+         command also specifies a user name, this option is ignored. If the name is not specified
+         in either way, <literal>root</literal> will be used by default. Note that this switch is
+         not supported for the <command>login</command> command (see below).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-E <replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
+        <term><option>--setenv=<replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
+
+         <listitem><para>When used with the <command>shell</command> command, sets an environment
+         variable to pass to the executed shell. Takes an environment variable name and value,
+         separated by <literal>=</literal>. This switch may be used multiple times to set multiple
+         environment variables. Note that this switch is not supported for the
+         <command>login</command> command (see below).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mkdir</option></term>
+
+        <listitem><para>When used with <command>bind</command>, creates the destination file or directory before
+        applying the bind mount. Note that even though the name of this option suggests that it is suitable only for
+        directories, this option also creates the destination file node to mount over if the object to mount is not
+        a directory, but a regular file, device node, socket or FIFO.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--read-only</option></term>
+
+        <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para>
+
+        <para>When used with <command>clone</command>, <command>import-raw</command> or <command>import-tar</command> a
+        read-only container or VM image is created.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--lines=</option></term>
+
+        <listitem><para>When used with <command>status</command>,
+        controls the number of journal lines to show, counting from
+        the most recent ones. Takes a positive integer argument.
+        Defaults to 10.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-o</option></term>
+        <term><option>--output=</option></term>
+
+        <listitem><para>When used with <command>status</command>,
+        controls the formatting of the journal entries that are shown.
+        For the available choices, see
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        Defaults to <literal>short</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--verify=</option></term>
+
+        <listitem><para>When downloading a container or VM image,
+        specify whether the image shall be verified before it is made
+        available. Takes one of <literal>no</literal>,
+        <literal>checksum</literal> and <literal>signature</literal>.
+        If <literal>no</literal>, no verification is done. If
+        <literal>checksum</literal> is specified, the download is
+        checked for integrity after the transfer is complete, but no
+        signatures are verified. If <literal>signature</literal> is
+        specified, the checksum is verified and the image's signature
+        is checked against a local keyring of trustable vendors. It is
+        strongly recommended to set this option to
+        <literal>signature</literal> if the server and protocol
+        support this. Defaults to
+        <literal>signature</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>When downloading a container or VM image, and
+        a local copy by the specified local machine name already
+        exists, delete it first and replace it by the newly downloaded
+        image.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--format=</option></term>
+
+        <listitem><para>When used with the <option>export-tar</option>
+        or <option>export-raw</option> commands, specifies the
+        compression format to use for the resulting file. Takes one of
+        <literal>uncompressed</literal>, <literal>xz</literal>,
+        <literal>gzip</literal>, <literal>bzip2</literal>. By default,
+        the format is determined automatically from the image file
+        name passed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--max-addresses=</option></term>
+
+        <listitem><para>When used with the <option>list-machines</option>
+        command, limits the number of ip addresses output for every machine.
+        Defaults to 1. All addresses can be requested with <literal>all</literal>
+        as argument to <option>--max-addresses</option> . If the argument to
+        <option>--max-addresses</option> is less than the actual number
+        of addresses, <literal>...</literal>follows the last address.
+        If multiple addresses are to be written for a given machine, every
+        address except the first one is on a new line and is followed by
+        <literal>,</literal> if another address will be output afterwards. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppresses additional informational output while running.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+
+      <varlistentry>
+        <term><option>-M</option></term>
+        <term><option>--machine=</option></term>
+
+        <listitem><para>Connect to
+        <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        running in a local container, to perform the specified operation within
+        the container.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
   </refsect1>
 
   <refsect1>

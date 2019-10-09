@@ -17,6 +17,7 @@
 #include "main-func.h"
 #include "pretty-print.h"
 #include "spawn-polkit-agent.h"
+#include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"
 
@@ -309,8 +310,16 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "Query or change system hostname.\n\n"
+        printf("%s%s [OPTIONS...] COMMAND ...\n\n"
+               "Query or change system hostname.%s\n"
+               "\nCommands:\n"
+               "  status                 Show current hostname settings\n"
+               "  set-hostname NAME      Set system hostname\n"
+               "  set-icon-name NAME     Set icon name for host\n"
+               "  set-chassis NAME       Set chassis type for host\n"
+               "  set-deployment NAME    Set deployment environment for host\n"
+               "  set-location NAME      Set location for host\n"
+               "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "     --no-ask-password   Do not prompt for password\n"
@@ -318,16 +327,11 @@ static int help(void) {
                "  -M --machine=CONTAINER Operate on local container\n"
                "     --transient         Only set transient hostname\n"
                "     --static            Only set static hostname\n"
-               "     --pretty            Only set pretty hostname\n\n"
-               "Commands:\n"
-               "  status                 Show current hostname settings\n"
-               "  set-hostname NAME      Set system hostname\n"
-               "  set-icon-name NAME     Set icon name for host\n"
-               "  set-chassis NAME       Set chassis type for host\n"
-               "  set-deployment NAME    Set deployment environment for host\n"
-               "  set-location NAME      Set location for host\n"
+               "     --pretty            Only set pretty hostname\n"
                "\nSee the %s for details.\n"
+               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_normal()
                , link
         );
 
