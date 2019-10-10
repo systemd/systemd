@@ -85,7 +85,7 @@ def hwdb_grammar():
              (EMPTYLINE ^ stringEnd()).suppress())
     commentgroup = OneOrMore(COMMENTLINE).suppress() - EMPTYLINE.suppress()
 
-    grammar = OneOrMore(group('GROUPS*') ^ commentgroup) + stringEnd()
+    grammar = OneOrMore(Group(group)('GROUPS*') ^ commentgroup) + stringEnd()
 
     return grammar
 
@@ -221,17 +221,20 @@ def check_properties(groups):
             elif parsed.NAME == 'ACCEL_MOUNT_MATRIX':
                 check_one_mount_matrix(prop, parsed.VALUE)
             elif parsed.NAME.startswith('KEYBOARD_KEY_'):
-                check_one_keycode(prop, parsed.VALUE)
+                val = parsed.VALUE if isinstance(parsed.VALUE, str) else parsed.VALUE[0]
+                check_one_keycode(prop, val)
 
 def print_summary(fname, groups):
+    n_matches = sum(len(matches) for matches, props in groups)
+    n_props = sum(len(props) for matches, props in groups)
     print('{}: {} match groups, {} matches, {} properties'
-          .format(fname,
-                  len(groups),
-                  sum(len(matches) for matches, props in groups),
-                  sum(len(props) for matches, props in groups)))
+          .format(fname, len(groups), n_matches, n_props))
+
+    if n_matches == 0 or n_props == 0:
+        error('{}: no matches or props'.format(fname))
 
 if __name__ == '__main__':
-    args = sys.argv[1:] or glob.glob(os.path.dirname(sys.argv[0]) + '/[67]0-*.hwdb')
+    args = sys.argv[1:] or sorted(glob.glob(os.path.dirname(sys.argv[0]) + '/[67][0-9]-*.hwdb'))
 
     for fname in args:
         groups = parse(fname)
