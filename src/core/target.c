@@ -84,14 +84,11 @@ static int target_load(Unit *u) {
         if (r < 0)
                 return r;
 
-        /* This is a new unit? Then let's add in some extras */
-        if (u->load_state == UNIT_LOADED) {
-                r = target_add_default_dependencies(t);
-                if (r < 0)
-                        return r;
-        }
+        if (u->load_state != UNIT_LOADED)
+                return 0;
 
-        return 0;
+        /* This is a new unit? Then let's add in some extras */
+        return target_add_default_dependencies(t);
 }
 
 static int target_coldplug(Unit *u) {

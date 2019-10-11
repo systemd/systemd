@@ -513,9 +513,7 @@ static int mount_verify(Mount *m) {
         int r;
 
         assert(m);
-
-        if (UNIT(m)->load_state != UNIT_LOADED)
-                return 0;
+        assert(UNIT(m)->load_state == UNIT_LOADED);
 
         if (!m->from_fragment && !m->from_proc_self_mountinfo && !UNIT(m)->perpetual)
                 return -ENOENT;
@@ -606,11 +604,11 @@ static int mount_add_extras(Mount *m) {
         return 0;
 }
 
-static int mount_load_root_mount(Unit *u) {
+static void mount_load_root_mount(Unit *u) {
         assert(u);
 
         if (!unit_has_name(u, SPECIAL_ROOT_MOUNT))
-                return 0;
+                return;
 
         u->perpetual = true;
         u->default_dependencies = false;
@@ -621,37 +619,33 @@ static int mount_load_root_mount(Unit *u) {
 
         if (!u->description)
                 u->description = strdup("Root Mount");
-
-        return 1;
 }
 
 static int mount_load(Unit *u) {
         Mount *m = MOUNT(u);
-        int r, q, w;
+        int r, q = 0;
 
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        r = mount_load_root_mount(u);
+        mount_load_root_mount(u);
 
         bool fragment_optional = m->from_proc_self_mountinfo || u->perpetual;
-        q = unit_load_fragment_and_dropin(u, !fragment_optional);
+        r = unit_load_fragment_and_dropin(u, !fragment_optional);
 
         /* Add in some extras. Note we do this in all cases (even if we failed to load the unit) when announced by the
          * kernel, because we need some things to be set up no matter what when the kernel establishes a mount and thus
          * we need to update the state in our unit to track it. After all, consider that we don't allow changing the
          * 'slice' field for a unit once it is active. */
         if (u->load_state == UNIT_LOADED || m->from_proc_self_mountinfo || u->perpetual)
-                w = mount_add_extras(m);
-        else
-                w = 0;
+                q = mount_add_extras(m);
 
         if (r < 0)
                 return r;
         if (q < 0)
                 return q;
-        if (w < 0)
-                return w;
+        if (u->load_state != UNIT_LOADED)
+                return 0;
 
         return mount_verify(m);
 }

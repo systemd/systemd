@@ -232,8 +232,7 @@ static int swap_verify(Swap *s) {
         _cleanup_free_ char *e = NULL;
         int r;
 
-        if (UNIT(s)->load_state != UNIT_LOADED)
-                return 0;
+        assert(UNIT(s)->load_state == UNIT_LOADED);
 
         r = unit_name_from_path(s->what, ".swap", &e);
         if (r < 0)
@@ -340,7 +339,7 @@ static int swap_add_extras(Swap *s) {
 
 static int swap_load(Unit *u) {
         Swap *s = SWAP(u);
-        int r, q;
+        int r, q = 0;
 
         assert(s);
         assert(u->load_state == UNIT_STUB);
@@ -349,17 +348,17 @@ static int swap_load(Unit *u) {
         bool fragment_optional = s->from_proc_swaps;
         r = unit_load_fragment_and_dropin(u, !fragment_optional);
 
-        /* Add in some extras, and do so either when we successfully loaded something or when /proc/swaps is already
-         * active. */
+        /* Add in some extras, and do so either when we successfully loaded something or when /proc/swaps is
+         * already active. */
         if (u->load_state == UNIT_LOADED || s->from_proc_swaps)
                 q = swap_add_extras(s);
-        else
-                q = 0;
 
         if (r < 0)
                 return r;
         if (q < 0)
                 return q;
+        if (u->load_state != UNIT_LOADED)
+                return 0;
 
         return swap_verify(s);
 }
