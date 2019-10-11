@@ -176,7 +176,8 @@ static int scope_load(Unit *u) {
         r = scope_load_init_scope(u);
         if (r < 0)
                 return r;
-        r = unit_load_fragment_and_dropin_optional(u);
+
+        r = unit_load_fragment_and_dropin(u, false);
         if (r < 0)
                 return r;
 

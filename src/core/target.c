@@ -80,7 +80,7 @@ static int target_load(Unit *u) {
 
         assert(t);
 
-        r = unit_load_fragment_and_dropin(u);
+        r = unit_load_fragment_and_dropin(u, true);
         if (r < 0)
                 return r;
 

@@ -634,10 +634,8 @@ static int mount_load(Unit *u) {
 
         r = mount_load_root_mount(u);
 
-        if (m->from_proc_self_mountinfo || u->perpetual)
-                q = unit_load_fragment_and_dropin_optional(u);
-        else
-                q = unit_load_fragment_and_dropin(u);
+        bool fragment_optional = m->from_proc_self_mountinfo || u->perpetual;
+        q = unit_load_fragment_and_dropin(u, !fragment_optional);
 
         /* Add in some extras. Note we do this in all cases (even if we failed to load the unit) when announced by the
          * kernel, because we need some things to be set up no matter what when the kernel establishes a mount and thus

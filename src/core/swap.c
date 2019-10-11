@@ -346,10 +346,8 @@ static int swap_load(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         /* Load a .swap file */
-        if (SWAP(u)->from_proc_swaps)
-                r = unit_load_fragment_and_dropin_optional(u);
-        else
-                r = unit_load_fragment_and_dropin(u);
+        bool fragment_optional = s->from_proc_swaps;
+        r = unit_load_fragment_and_dropin(u, !fragment_optional);
 
         /* Add in some extras, and do so either when we successfully loaded something or when /proc/swaps is already
          * active. */
