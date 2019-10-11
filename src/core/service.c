@@ -548,9 +548,7 @@ static int service_arm_timer(Service *s, usec_t usec) {
 
 static int service_verify(Service *s) {
         assert(s);
-
-        if (UNIT(s)->load_state != UNIT_LOADED)
-                return 0;
+        assert(UNIT(s)->load_state == UNIT_LOADED);
 
         if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP]
             && UNIT(s)->success_action == EMERGENCY_ACTION_NONE) {
@@ -760,32 +758,17 @@ static int service_load(Unit *u) {
         Service *s = SERVICE(u);
         int r;
 
-        assert(s);
-
-        /* Load a .service file */
-        r = unit_load_fragment(u);
+        r = unit_load_fragment_and_dropin(u, true);
         if (r < 0)
                 return r;
 
-        /* Still nothing found? Then let's give up */
-        if (u->load_state == UNIT_STUB)
-                return -ENOENT;
+        if (u->load_state != UNIT_LOADED)
+                return 0;
 
         /* This is a new unit? Then let's add in some extras */
-        if (u->load_state == UNIT_LOADED) {
-
-                /* We were able to load something, then let's add in
-                 * the dropin directories. */
-                r = unit_load_dropin(u);
-                if (r < 0)
-                        return r;
-
-                /* This is a new unit? Then let's add in some
-                 * extras */
-                r = service_add_extras(s);
-                if (r < 0)
-                        return r;
-        }
+        r = service_add_extras(s);
+        if (r < 0)
+                return r;
 
         return service_verify(s);
 }
