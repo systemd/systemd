@@ -1542,16 +1542,11 @@ int unit_load(Unit *u) {
                 u->fragment_mtime = now(CLOCK_REALTIME);
         }
 
-        if (UNIT_VTABLE(u)->load) {
-                r = UNIT_VTABLE(u)->load(u);
-                if (r < 0)
-                        goto fail;
-        }
-
-        if (u->load_state == UNIT_STUB) {
-                r = -ENOENT;
+        r = UNIT_VTABLE(u)->load(u);
+        if (r < 0)
                 goto fail;
-        }
+
+        assert(u->load_state != UNIT_STUB);
 
         if (u->load_state == UNIT_LOADED) {
                 unit_add_to_target_deps_queue(u);
