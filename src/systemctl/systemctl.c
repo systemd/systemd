@@ -7955,7 +7955,7 @@ static void help_states(void) {
 
 static int help_boot_loader_entry(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char **l = NULL;
+        _cleanup_strv_free_ char **l = NULL;
         sd_bus *bus;
         char **i;
         int r;
