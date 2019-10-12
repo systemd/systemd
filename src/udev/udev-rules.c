@@ -2325,7 +2325,7 @@ static int apply_static_dev_perms(const char *devnode, uid_t uid, gid_t gid, mod
 
 static int udev_rule_line_apply_static_dev_perms(UdevRuleLine *rule_line) {
         UdevRuleToken *token;
-        _cleanup_free_ char **tags = NULL;
+        _cleanup_strv_free_ char **tags = NULL;
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         mode_t mode = MODE_INVALID;
