@@ -73,9 +73,7 @@ static void timer_done(Unit *u) {
 
 static int timer_verify(Timer *t) {
         assert(t);
-
-        if (UNIT(t)->load_state != UNIT_LOADED)
-                return 0;
+        assert(UNIT(t)->load_state == UNIT_LOADED);
 
         if (!t->values && !t->on_clock_change && !t->on_timezone_change) {
                 log_unit_error(UNIT(t), "Timer unit lacks value setting. Refusing.");
@@ -178,24 +176,25 @@ static int timer_load(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        r = unit_load_fragment_and_dropin(u);
+        r = unit_load_fragment_and_dropin(u, true);
         if (r < 0)
                 return r;
 
-        if (u->load_state == UNIT_LOADED) {
+        if (u->load_state != UNIT_LOADED)
+                return 0;
 
-                r = timer_add_trigger_dependencies(t);
-                if (r < 0)
-                        return r;
+        /* This is a new unit? Then let's add in some extras */
+        r = timer_add_trigger_dependencies(t);
+        if (r < 0)
+                return r;
 
-                r = timer_setup_persistent(t);
-                if (r < 0)
-                        return r;
+        r = timer_setup_persistent(t);
+        if (r < 0)
+                return r;
 
-                r = timer_add_default_dependencies(t);
-                if (r < 0)
-                        return r;
-        }
+        r = timer_add_default_dependencies(t);
+        if (r < 0)
+                return r;
 
         return timer_verify(t);
 }

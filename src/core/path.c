@@ -284,9 +284,7 @@ static int path_add_mount_dependencies(Path *p) {
 
 static int path_verify(Path *p) {
         assert(p);
-
-        if (UNIT(p)->load_state != UNIT_LOADED)
-                return 0;
+        assert(UNIT(p)->load_state == UNIT_LOADED);
 
         if (!p->specs) {
                 log_unit_error(UNIT(p), "Path unit lacks path setting. Refusing.");
@@ -333,6 +331,20 @@ static int path_add_trigger_dependencies(Path *p) {
         return unit_add_two_dependencies(UNIT(p), UNIT_BEFORE, UNIT_TRIGGERS, x, true, UNIT_DEPENDENCY_IMPLICIT);
 }
 
+static int path_add_extras(Path *p) {
+        int r;
+
+        r = path_add_trigger_dependencies(p);
+        if (r < 0)
+                return r;
+
+        r = path_add_mount_dependencies(p);
+        if (r < 0)
+                return r;
+
+        return path_add_default_dependencies(p);
+}
+
 static int path_load(Unit *u) {
         Path *p = PATH(u);
         int r;
@@ -340,24 +352,16 @@ static int path_load(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        r = unit_load_fragment_and_dropin(u);
+        r = unit_load_fragment_and_dropin(u, true);
         if (r < 0)
                 return r;
 
-        if (u->load_state == UNIT_LOADED) {
+        if (u->load_state != UNIT_LOADED)
+                return 0;
 
-                r = path_add_trigger_dependencies(p);
-                if (r < 0)
-                        return r;
-
-                r = path_add_mount_dependencies(p);
-                if (r < 0)
-                        return r;
-
-                r = path_add_default_dependencies(p);
-                if (r < 0)
-                        return r;
-        }
+        r = path_add_extras(p);
+        if (r < 0)
+                return r;
 
         return path_verify(p);
 }

@@ -91,9 +91,7 @@ static int slice_verify(Slice *s) {
         int r;
 
         assert(s);
-
-        if (UNIT(s)->load_state != UNIT_LOADED)
-                return 0;
+        assert(UNIT(s)->load_state == UNIT_LOADED);
 
         if (!slice_name_is_valid(UNIT(s)->id)) {
                 log_unit_error(UNIT(s), "Slice name %s is not valid. Refusing.", UNIT(s)->id);
@@ -170,25 +168,25 @@ static int slice_load(Unit *u) {
         if (r < 0)
                 return r;
 
-        r = unit_load_fragment_and_dropin_optional(u);
+        r = unit_load_fragment_and_dropin(u, false);
         if (r < 0)
                 return r;
 
+        if (u->load_state != UNIT_LOADED)
+                return 0;
+
         /* This is a new unit? Then let's add in some extras */
-        if (u->load_state == UNIT_LOADED) {
+        r = unit_patch_contexts(u);
+        if (r < 0)
+                return r;
 
-                r = unit_patch_contexts(u);
-                if (r < 0)
-                        return r;
+        r = slice_add_parent_slice(s);
+        if (r < 0)
+                return r;
 
-                r = slice_add_parent_slice(s);
-                if (r < 0)
-                        return r;
-
-                r = slice_add_default_dependencies(s);
-                if (r < 0)
-                        return r;
-        }
+        r = slice_add_default_dependencies(s);
+        if (r < 0)
+                return r;
 
         return slice_verify(s);
 }

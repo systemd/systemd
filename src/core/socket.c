@@ -433,9 +433,7 @@ static const char *socket_find_symlink_target(Socket *s) {
 
 static int socket_verify(Socket *s) {
         assert(s);
-
-        if (UNIT(s)->load_state != UNIT_LOADED)
-                return 0;
+        assert(UNIT(s)->load_state == UNIT_LOADED);
 
         if (!s->ports) {
                 log_unit_error(UNIT(s), "Unit has no Listen setting (ListenStream=, ListenDatagram=, ListenFIFO=, ...). Refusing.");
@@ -514,16 +512,17 @@ static int socket_load(Unit *u) {
         if (r < 0)
                 return r;
 
-        r = unit_load_fragment_and_dropin(u);
+        r = unit_load_fragment_and_dropin(u, true);
         if (r < 0)
                 return r;
 
-        if (u->load_state == UNIT_LOADED) {
-                /* This is a new unit? Then let's add in some extras */
-                r = socket_add_extras(s);
-                if (r < 0)
-                        return r;
-        }
+        if (u->load_state != UNIT_LOADED)
+                return 0;
+
+        /* This is a new unit? Then let's add in some extras */
+        r = socket_add_extras(s);
+        if (r < 0)
+                return r;
 
         return socket_verify(s);
 }

@@ -125,9 +125,7 @@ static int scope_add_default_dependencies(Scope *s) {
 
 static int scope_verify(Scope *s) {
         assert(s);
-
-        if (UNIT(s)->load_state != UNIT_LOADED)
-                return 0;
+        assert(UNIT(s)->load_state == UNIT_LOADED);
 
         if (set_isempty(UNIT(s)->pids) &&
             !MANAGER_IS_RELOADING(UNIT(s)->manager) &&
@@ -162,6 +160,20 @@ static int scope_load_init_scope(Unit *u) {
         return 1;
 }
 
+static int scope_add_extras(Scope *s) {
+        int r;
+
+        r = unit_patch_contexts(UNIT(s));
+        if (r < 0)
+                return r;
+
+        r = unit_set_default_slice(UNIT(s));
+        if (r < 0)
+                return r;
+
+        return scope_add_default_dependencies(s);
+}
+
 static int scope_load(Unit *u) {
         Scope *s = SCOPE(u);
         int r;
@@ -176,23 +188,17 @@ static int scope_load(Unit *u) {
         r = scope_load_init_scope(u);
         if (r < 0)
                 return r;
-        r = unit_load_fragment_and_dropin_optional(u);
+
+        r = unit_load_fragment_and_dropin(u, false);
         if (r < 0)
                 return r;
 
-        if (u->load_state == UNIT_LOADED) {
-                r = unit_patch_contexts(u);
-                if (r < 0)
-                        return r;
+        if (u->load_state != UNIT_LOADED)
+                return 0;
 
-                r = unit_set_default_slice(u);
-                if (r < 0)
-                        return r;
-
-                r = scope_add_default_dependencies(s);
-                if (r < 0)
-                        return r;
-        }
+        r = scope_add_extras(s);
+        if (r < 0)
+                return r;
 
         return scope_verify(s);
 }

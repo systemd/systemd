@@ -670,8 +670,7 @@ int unit_merge_by_name(Unit *u, const char *other);
 
 Unit *unit_follow_merge(Unit *u) _pure_;
 
-int unit_load_fragment_and_dropin(Unit *u);
-int unit_load_fragment_and_dropin_optional(Unit *u);
+int unit_load_fragment_and_dropin(Unit *u, bool fragment_required);
 int unit_load(Unit *unit);
 
 int unit_set_slice(Unit *u, Unit *slice);

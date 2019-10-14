@@ -970,10 +970,10 @@ static uint64_t cgroup_cpu_weight_to_shares(uint64_t weight) {
                      CGROUP_CPU_SHARES_MIN, CGROUP_CPU_SHARES_MAX);
 }
 
-static void cgroup_apply_unified_cpuset(Unit *u, CPUSet cpus, const char *name) {
+static void cgroup_apply_unified_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
         _cleanup_free_ char *buf = NULL;
 
-        buf = cpu_set_to_range_string(&cpus);
+        buf = cpu_set_to_range_string(cpus);
         if (!buf)
             return;
 
@@ -1221,8 +1221,8 @@ static void cgroup_context_apply(
         }
 
         if ((apply_mask & CGROUP_MASK_CPUSET) && !is_local_root) {
-                cgroup_apply_unified_cpuset(u, c->cpuset_cpus, "cpuset.cpus");
-                cgroup_apply_unified_cpuset(u, c->cpuset_mems, "cpuset.mems");
+                cgroup_apply_unified_cpuset(u, &c->cpuset_cpus, "cpuset.cpus");
+                cgroup_apply_unified_cpuset(u, &c->cpuset_mems, "cpuset.mems");
         }
 
         /* The 'io' controller attributes are not exported on the host's root cgroup (being a pure cgroup v2
