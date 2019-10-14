@@ -1150,6 +1150,29 @@
           </listitem>
         </varlistentry>
       </variablelist>
+    </refsect1>
+
+    <refsect1>
+      <title>[NextHop] Section Options</title>
+      <para>The <literal>[NextHop]</literal> section accepts the
+      following keys. Specify several <literal>[NextHop]</literal>
+      sections to configure several nexthop. Nexthop is used to manipulate entries in the kernel's nexthop
+      tables.</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>Gateway=</varname></term>
+          <listitem>
+            <para>As in the <literal>[Network]</literal> section. This is mandatory.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Id=</varname></term>
+          <listitem>
+            <para>The id of the nexthop (an unsigned integer). If unspecified or '0' then automatically chosen by kernel.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
   </refsect1>
 
   <refsect1>

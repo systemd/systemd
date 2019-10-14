@@ -2,6 +2,7 @@
 
 #include <netinet/in.h>
 #include <linux/if_addrlabel.h>
+#include <linux/nexthop.h>
 #include <stdbool.h>
 #include <unistd.h>
 
@@ -281,6 +282,70 @@ int sd_rtnl_message_new_route(sd_netlink *rtnl, sd_netlink_message **ret,
         rtm->rtm_type = RTN_UNICAST;
         rtm->rtm_table = RT_TABLE_MAIN;
         rtm->rtm_protocol = rtm_protocol;
+
+        return 0;
+}
+
+int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret,
+                                uint16_t nhmsg_type, int nh_family,
+                                unsigned char nh_protocol) {
+        struct nhmsg *nhm;
+        int r;
+
+        assert_return(rtnl_message_type_is_nexthop(nhmsg_type), -EINVAL);
+        assert_return((nhmsg_type == RTM_GETNEXTHOP && nh_family == AF_UNSPEC) ||
+                      IN_SET(nh_family, AF_INET, AF_INET6), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = message_new(rtnl, ret, nhmsg_type);
+        if (r < 0)
+                return r;
+
+        if (nhmsg_type == RTM_NEWNEXTHOP)
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_APPEND;
+
+        nhm = NLMSG_DATA((*ret)->hdr);
+
+        nhm->nh_family = nh_family;
+        nhm->nh_scope = RT_SCOPE_UNIVERSE;
+        nhm->nh_protocol = nh_protocol;
+
+        return 0;
+}
+
+int sd_rtnl_message_nexthop_set_flags(sd_netlink_message *m, uint8_t flags) {
+        struct nhmsg *nhm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_nexthop(m->hdr->nlmsg_type), -EINVAL);
+
+        nhm = NLMSG_DATA(m->hdr);
+        nhm->nh_flags |= flags;
+
+        return 0;
+}
+
+int sd_rtnl_message_nexthop_set_family(sd_netlink_message *m, uint8_t family) {
+        struct nhmsg *nhm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+
+        nhm = NLMSG_DATA(m->hdr);
+        nhm->nh_family = family;
+
+        return 0;
+}
+
+int sd_rtnl_message_nexthop_get_family(sd_netlink_message *m, uint8_t *family) {
+        struct nhmsg *nhm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+
+        nhm = NLMSG_DATA(m->hdr);
+        *family = nhm->nh_family ;
 
         return 0;
 }
@@ -712,6 +777,14 @@ int sd_rtnl_message_get_family(sd_netlink_message *m, int *family) {
                 rtm = NLMSG_DATA(m->hdr);
 
                 *family = rtm->rtm_family;
+
+                return 0;
+        } else if (rtnl_message_type_is_nexthop(m->hdr->nlmsg_type)) {
+                struct nhmsg *nhm;
+
+                nhm = NLMSG_DATA(m->hdr);
+
+                *family = nhm->nh_family;
 
                 return 0;
         }

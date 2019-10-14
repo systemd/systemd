@@ -672,6 +672,9 @@ static Link *link_free(Link *link) {
         link->routes = set_free_with_destructor(link->routes, route_free);
         link->routes_foreign = set_free_with_destructor(link->routes_foreign, route_free);
 
+        link->nexthops = set_free_with_destructor(link->nexthops, nexthop_free);
+        link->nexthops_foreign = set_free_with_destructor(link->nexthops_foreign, nexthop_free);
+
         link->neighbors = set_free_with_destructor(link->neighbors, neighbor_free);
         link->neighbors_foreign = set_free_with_destructor(link->neighbors_foreign, neighbor_free);
 
@@ -903,6 +906,58 @@ static int link_request_set_routing_policy_rule(Link *link) {
         return 0;
 }
 
+static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->nexthop_messages > 0);
+        assert(IN_SET(link->state, LINK_STATE_CONFIGURING,
+                      LINK_STATE_FAILED, LINK_STATE_LINGER));
+
+        link->nexthop_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_link_warning_errno(link, r, "Could not set nexthop: %m");
+                link_enter_failed(link);
+                return 1;
+        }
+
+        if (link->nexthop_messages == 0) {
+                log_link_debug(link, "Nexthop set");
+                link->static_nexthops_configured = true;
+                link_check_ready(link);
+        }
+
+        return 1;
+}
+
+int link_request_set_nexthop(Link *link) {
+        NextHop *nh;
+        int r;
+
+        LIST_FOREACH(nexthops, nh, link->network->static_nexthops) {
+                r = nexthop_configure(nh, link, nexthop_handler);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not set nexthop: %m");
+                if (r > 0)
+                        link->nexthop_messages++;
+        }
+
+        if (link->nexthop_messages == 0) {
+                link->static_nexthops_configured = true;
+                link_check_ready(link);
+        } else {
+                log_link_debug(link, "Setting nexthop");
+                link_set_state(link, LINK_STATE_CONFIGURING);
+        }
+
+        return 1;
+}
+
 static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -948,6 +1003,7 @@ int link_request_set_routes(Link *link) {
         assert(link->state != _LINK_STATE_INVALID);
 
         link->static_routes_configured = false;
+        link->static_routes_ready = false;
 
         if (!link_has_carrier(link) && !link->network->configure_without_carrier)
                 /* During configuring addresses, the link lost its carrier. As networkd is dropping
@@ -1015,6 +1071,17 @@ void link_check_ready(Link *link) {
         }
 
         if (!link->static_routes_configured)
+                return;
+
+        if (!link->static_routes_ready) {
+                link->static_routes_ready = true;
+                r = link_request_set_nexthop(link);
+                if (r < 0)
+                        link_enter_failed(link);
+                return;
+        }
+
+        if (!link->static_nexthops_configured)
                 return;
 
         if (!link->routing_policy_rules_configured)
@@ -1134,6 +1201,8 @@ static int link_request_set_addresses(Link *link) {
         link->addresses_ready = false;
         link->neighbors_configured = false;
         link->static_routes_configured = false;
+        link->static_routes_ready = false;
+        link->static_nexthops_configured = false;
         link->routing_policy_rules_configured = false;
 
         r = link_set_bridge_fdb(link);

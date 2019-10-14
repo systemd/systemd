@@ -69,6 +69,7 @@ typedef struct Link {
         unsigned address_label_messages;
         unsigned neighbor_messages;
         unsigned route_messages;
+        unsigned nexthop_messages;
         unsigned routing_policy_rule_messages;
         unsigned routing_policy_rule_remove_messages;
         unsigned enslaving;
@@ -79,9 +80,8 @@ typedef struct Link {
         Set *neighbors_foreign;
         Set *routes;
         Set *routes_foreign;
-
-        bool addresses_configured;
-        bool addresses_ready;
+        Set *nexthops;
+        Set *nexthops_foreign;
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease, *dhcp_lease_old;
@@ -100,8 +100,12 @@ typedef struct Link {
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address:1;
 
+        bool addresses_configured:1;
+        bool addresses_ready:1;
         bool neighbors_configured:1;
         bool static_routes_configured:1;
+        bool static_routes_ready:1;
+        bool static_nexthops_configured:1;
         bool routing_policy_rules_configured:1;
         bool setting_mtu:1;
 
@@ -198,6 +202,7 @@ uint32_t link_get_vrf_table(Link *link);
 uint32_t link_get_dhcp_route_table(Link *link);
 uint32_t link_get_ipv6_accept_ra_route_table(Link *link);
 int link_request_set_routes(Link *link);
+int link_request_set_nexthop(Link *link);
 
 #define ADDRESS_FMT_VAL(address)                   \
         be32toh((address).s_addr) >> 24,           \

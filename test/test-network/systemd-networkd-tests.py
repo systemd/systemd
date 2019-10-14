@@ -113,6 +113,16 @@ def expectedFailureIfLinkFileFieldIsNotSet():
 
     return f
 
+def expectedFailureIfNexthopIsNotAvailable():
+    def f(func):
+        rc = call('ip nexthop list')
+        if rc == 0:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def setUpModule():
     global running_units
 
@@ -1402,7 +1412,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         'dummy99',
         'gretun97',
         'ip6gretun97',
-        'test1'
+        'test1',
+        'veth99',
     ]
 
     units = [
@@ -1426,6 +1437,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-neighbor-ipv6.network',
         '25-neighbor-ip-dummy.network',
         '25-neighbor-ip.network',
+        '25-nexthop.network',
         '25-link-local-addressing-no.network',
         '25-link-local-addressing-yes.network',
         '25-link-section-unmanaged.network',
@@ -1435,6 +1447,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-gateway-next-static.network',
         '25-sysctl-disable-ipv6.network',
         '25-sysctl.network',
+        '25-veth-peer.network',
+        '25-veth.netdev',
         '26-link-local-addressing-ipv6.network',
         'configure-without-carrier.network',
         'routing-policy-rule-dummy98.network',
@@ -1973,6 +1987,16 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'inet 10.1.2.3/16 scope global dummy98')
         self.assertNotRegex(output, 'inet 10.2.3.4/16 scope global dynamic dummy98')
+
+    @expectedFailureIfNexthopIsNotAvailable()
+    def test_nexthop(self):
+        copy_unit_to_networkd_unit_path('25-nexthop.network', '25-veth.netdev', '25-veth-peer.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output('ip nexthop list dev veth99')
+        print(output)
+        self.assertRegex(output, '192.168.5.1')
 
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
     links = [

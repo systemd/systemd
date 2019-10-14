@@ -255,3 +255,6 @@ MaxLeaseTimeSec=
 DefaultLeaseTimeSec=
 EmitTimezone=
 DNS=
+[NextHop]
+Id=
+Gateway=

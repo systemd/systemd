@@ -83,11 +83,13 @@ int manager_rtnl_enumerate_addresses(Manager *m);
 int manager_rtnl_enumerate_neighbors(Manager *m);
 int manager_rtnl_enumerate_routes(Manager *m);
 int manager_rtnl_enumerate_rules(Manager *m);
+int manager_rtnl_enumerate_nexthop(Manager *m);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, void *userdata);
 int manager_rtnl_process_neighbor(sd_netlink *nl, sd_netlink_message *message, void *userdata);
 int manager_rtnl_process_route(sd_netlink *nl, sd_netlink_message *message, void *userdata);
 int manager_rtnl_process_rule(sd_netlink *nl, sd_netlink_message *message, void *userdata);
+int manager_rtnl_process_nexthop(sd_netlink *nl, sd_netlink_message *message, void *userdata);
 
 void manager_dirty(Manager *m);
 
