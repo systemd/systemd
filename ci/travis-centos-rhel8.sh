@@ -65,10 +65,6 @@ CONFIGURE_OPTS=(
     -Dnetworkd=false
     -Dtimesyncd=false
     -Ddefault-hierarchy=legacy
-    # Custom options
-    -Dslow-tests=true
-    -Dtests=unsafe
-    -Dinstall-tests=true
 )
 
 function info() {
@@ -104,7 +100,7 @@ for phase in "${PHASES[@]}"; do
         RUN)
             info "Run phase"
             # Build systemd
-            docker exec -it -e CFLAGS='-g -O0 -ftrapv' $CONT_NAME meson build "${CONFIGURE_OPTS[@]}"
+            docker exec -it -e CFLAGS='-g -O0 -ftrapv' $CONT_NAME meson build -Dtests=unsafe -Dslow-tests=true "${CONFIGURE_OPTS[@]}"
             $DOCKER_EXEC ninja -v -C build
             # Let's install the new systemd and "reboot" the container to avoid
             # unexpected fails due to incompatibilities with older systemd
@@ -117,7 +113,7 @@ for phase in "${PHASES[@]}"; do
                 ENV_VARS="-e CC=clang -e CXX=clang++"
                 MESON_ARGS="-Db_lundef=false" # See https://github.com/mesonbuild/meson/issues/764
             fi
-            docker exec $ENV_VARS -it $CONT_NAME meson build --werror -Dtests=unsafe -Db_sanitize=address,undefined $MESON_ARGS ${CONFIGURE_OPTS[@]}
+            docker exec $ENV_VARS -it $CONT_NAME meson build --werror -Dtests=unsafe -Db_sanitize=address,undefined $MESON_ARGS "${CONFIGURE_OPTS[@]}"
             docker exec -it $CONT_NAME ninja -v -C build
 
             # Never remove halt_on_error from UBSAN_OPTIONS. See https://github.com/systemd/systemd/commit/2614d83aa06592aedb.
