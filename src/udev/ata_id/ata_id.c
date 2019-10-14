@@ -425,9 +425,10 @@ int main(int argc, char *argv[]) {
                         export = 1;
                         break;
                 case 'h':
-                        printf("Usage: ata_id [--export] [--help] <device>\n"
+                        printf("Usage: %s [--export] [--help] <device>\n"
                                "  -x,--export    print values as environment keys\n"
-                               "  -h,--help      print this help text\n\n");
+                               "  -h,--help      print this help text\n\n",
+                               program_invocation_short_name);
                         return 0;
                 }
         }

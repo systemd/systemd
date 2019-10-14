@@ -849,12 +849,13 @@ int main(int argc, char *argv[]) {
                         log_open();
                         break;
                 case 'h':
-                        printf("Usage: cdrom_id [options] <device>\n"
+                        printf("Usage: %s [options] <device>\n"
                                "  -l,--lock-media    lock the media (to enable eject request events)\n"
                                "  -u,--unlock-media  unlock the media\n"
                                "  -e,--eject-media   eject the media\n"
                                "  -d,--debug         debug to stderr\n"
-                               "  -h,--help          print this help text\n\n");
+                               "  -h,--help          print this help text\n\n",
+                               program_invocation_short_name);
                         goto exit;
                 default:
                         rc = 1;

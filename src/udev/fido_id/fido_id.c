@@ -44,7 +44,7 @@ static int run(int argc, char **argv) {
         log_open();
 
         if (argc > 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Usage: hidraw_id [SYSFS_PATH]");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Usage: %s [SYSFS_PATH]", program_invocation_short_name);
 
         if (argc == 1) {
                 r = device_new_from_strv(&device, environ);
