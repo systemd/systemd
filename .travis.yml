@@ -9,42 +9,40 @@ env:
 
 jobs:
     include:
-        - name: CentOS 7
+        - name: CentOS 8
           language: bash
           env:
-              - CENTOS_RELEASE="centos7"
+              - CENTOS_RELEASE="centos8"
               - CONT_NAME="systemd-centos-$CENTOS_RELEASE"
               - DOCKER_EXEC="docker exec -ti $CONT_NAME"
           before_install:
               - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
               - docker --version
           install:
-              - if [ -f meson.build ]; then RHEL_VERSION=rhel8; else RHEL_VERSION=rhel7; fi
-              - $CI_ROOT/travis-centos-${RHEL_VERSION}.sh SETUP
+              - $CI_ROOT/travis-centos-rhel8.sh SETUP
           script:
               - set -e
               # Build systemd
-              - $CI_ROOT/travis-centos-${RHEL_VERSION}.sh RUN
+              - $CI_ROOT/travis-centos-rhel8.sh RUN
               - set +e
           after_script:
-              - $CI_ROOT/travis-centos-${RHEL_VERSION}.sh CLEANUP
+              - $CI_ROOT/travis-centos-rhel8.sh CLEANUP
 
-        - name: CentOS 7 (ASan+UBSan)
+        - name: CentOS 8 (ASan+UBSan)
           language: bash
           env:
-              - CENTOS_RELEASE="centos7"
+              - CENTOS_RELEASE="centos8"
               - CONT_NAME="systemd-centos-$CENTOS_RELEASE"
               - DOCKER_EXEC="docker exec -ti $CONT_NAME"
           before_install:
               - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
               - docker --version
           install:
-              - if [ -f meson.build ]; then RHEL_VERSION=rhel8; else RHEL_VERSION=rhel7; fi
-              - $CI_ROOT/travis-centos-${RHEL_VERSION}.sh SETUP
+              - $CI_ROOT/travis-centos-rhel8.sh SETUP
           script:
               - set -e
               # Build systemd
-              - $CI_ROOT/travis-centos-${RHEL_VERSION}.sh RUN_ASAN
+              - $CI_ROOT/travis-centos-rhel8.sh RUN_ASAN
               - set +e
           after_script:
-              - $CI_ROOT/travis-centos-${RHEL_VERSION}.sh CLEANUP
+              - $CI_ROOT/travis-centos-rhel8.sh CLEANUP

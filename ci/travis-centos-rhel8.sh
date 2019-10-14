@@ -15,10 +15,7 @@ CONT_NAME="${CONT_NAME:-centos-$CENTOS_RELEASE-$RANDOM}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(systemd-ci-environment libidn2-devel python-lxml python36 ninja-build libasan net-tools strace nc busybox e2fsprogs quota dnsmasq)
-# Repo with additional depencencies to compile newer systemd on CentOS 7
-COPR_REPO="https://copr.fedorainfracloud.org/coprs/mrc0mmand/systemd-centos-ci/repo/epel-7/mrc0mmand-systemd-centos-ci-epel-7.repo"
-COPR_REPO_PATH="/etc/yum.repos.d/${COPR_REPO##*/}"
+ADDITIONAL_DEPS=(libasan libubsan net-tools strace nc e2fsprogs quota dnsmasq)
 # RHEL8 options
 CONFIGURE_OPTS=(
     -Dsysvinit-path=/etc/rc.d/init.d
@@ -95,18 +92,14 @@ for phase in "${PHASES[@]}"; do
                         -dit --net=host centos:$CENTOS_RELEASE /sbin/init
             # Beautiful workaround for Fedora's version of Docker
             sleep 1
-            $DOCKER_EXEC yum makecache
-            $DOCKER_EXEC curl "$COPR_REPO" -o "$COPR_REPO_PATH"
-            $DOCKER_EXEC yum -q -y install epel-release yum-utils
-            $DOCKER_EXEC yum-config-manager -q --enable epel
-            $DOCKER_EXEC yum -y upgrade
-            # Install necessary build/test requirements
-            $DOCKER_EXEC yum -y install "${ADDITIONAL_DEPS[@]}"
-            $DOCKER_EXEC python3.6 -m ensurepip
-            $DOCKER_EXEC python3.6 -m pip install meson
-            # Create necessary symlinks
-            $DOCKER_EXEC ln --force -s /usr/bin/python3.6 /usr/bin/python3
-            $DOCKER_EXEC ln --force -s /usr/bin/ninja-build /usr/bin/ninja
+            $DOCKER_EXEC dnf makecache
+            # Install and enable EPEL
+            $DOCKER_EXEC dnf -q -y install epel-release dnf-utils "${ADDITIONAL_DEPS[@]}"
+            $DOCKER_EXEC dnf config-manager -q --enable epel
+            # Upgrade the container to get the most recent environment
+            $DOCKER_EXEC dnf -y upgrade
+            # Install systemd's build dependencies
+            $DOCKER_EXEC dnf -q -y --enablerepo "PowerTools" builddep systemd
             ;;
         RUN)
             info "Run phase"
@@ -117,16 +110,9 @@ for phase in "${PHASES[@]}"; do
             # unexpected fails due to incompatibilities with older systemd
             $DOCKER_EXEC ninja -C build install
             docker restart $CONT_NAME
-            # "Mask" the udev-test.pl, as it requires newer version of systemd-detect-virt
-            # and it's pointless to run it on a VM in a Docker container...
-            echo -ne "#!/usr/bin/perl\nexit(0);\n" > "test/udev-test.pl"
             $DOCKER_EXEC ninja -C build test
             ;;
         RUN_ASAN|RUN_CLANG_ASAN)
-            # Let's install newer gcc for proper ASan/UBSan support
-            $DOCKER_EXEC yum -y install centos-release-scl
-            $DOCKER_EXEC yum -y install devtoolset-8 devtoolset-8-libasan-devel libasan5 devtoolset-8-libubsan-devel libubsan1
-            $DOCKER_EXEC bash -c "echo 'source scl_source enable devtoolset-8' >> /root/.bashrc"
             # Note to my future frustrated self: docker exec runs the given command
             # as sh -c 'command' - which means both .bash_profile and .bashrc will
             # be ignored. That's because .bash_profile is sourced for LOGIN shells (i.e.
