@@ -459,8 +459,8 @@ int network_load_one(Manager *manager, const char *filename) {
                               "RoutingPolicyRule\0"
                               "Route\0"
                               "NextHop\0"
-                              "DHCP\0"
-                              "DHCPv4\0" /* compat */
+                              "DHCP\0" /* compat */
+                              "DHCPv4\0"
                               "DHCPv6\0"
                               "DHCPServer\0"
                               "IPv6AcceptRA\0"
