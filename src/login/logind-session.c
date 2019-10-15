@@ -1183,7 +1183,7 @@ static int session_open_vt(Session *s) {
         return s->vtfd;
 }
 
-int session_prepare_vt(Session *s) {
+static int session_prepare_vt(Session *s) {
         int vt, r;
         struct vt_mode mode = {};
 
