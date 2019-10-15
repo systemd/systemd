@@ -87,7 +87,7 @@ for phase in "${PHASES[@]}"; do
             CODECOV_ENV=$(bash <(curl -s https://codecov.io/env))
             # Collect results and send them to Codecov
             # In Travis CI (and other CIs) we don't need to supply an API key
-            docker exec $CODECOV_ENV -it $CONT_NAME bash -c 'bash <(curl -s https://codecov.io/bash) -X coveragepy'
+            docker exec $CODECOV_ENV -it $CONT_NAME bash -c 'cd build && bash <(curl -s https://codecov.io/bash | sed "s/-execdir $gcov_exe/-exec $gcov_exe/") -X coveragepy'
             ;;
         CLEANUP)
             info "Cleanup phase"
