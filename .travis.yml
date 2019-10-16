@@ -1,5 +1,5 @@
 sudo: required
-dist: xenial
+dist: bionic
 services:
     - docker
 
@@ -99,6 +99,37 @@ jobs:
               - set +e
           after_script:
               - $CI_MANAGERS/debian.sh CLEANUP
+
+        - name: Ubuntu Bionic (x86_64, ASan + UBSan)
+          language: bash
+          script:
+            - set -e
+            - sudo $CI_MANAGERS/ubuntu.sh bionic
+            - set +e
+
+        - name: Ubuntu Bionic (arm64, ASan + UBSan)
+          arch: arm64
+          language: bash
+          script:
+            - set -e
+            - sudo $CI_MANAGERS/ubuntu.sh bionic
+            - set +e
+
+        - name: Ubuntu Bionic (s390x, ASan + UBSan)
+          arch: s390x
+          language: bash
+          script:
+            - set -e
+            - sudo $CI_MANAGERS/ubuntu.sh bionic
+            - set +e
+
+        - name: Ubuntu Bionic (ppc64le, ASan + UBSan)
+          arch: ppc64le
+          language: bash
+          script:
+            - set -e
+            - sudo $CI_MANAGERS/ubuntu.sh bionic
+            - set +e
 
         - stage: Fuzzit-Regression
           name:  Continuous Fuzzing via Fuzzit (regression)
