@@ -215,7 +215,7 @@ int config_parse_unit_string_printf(
                 void *userdata) {
 
         _cleanup_free_ char *k = NULL;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -244,7 +244,7 @@ int config_parse_unit_strv_printf(
                 void *data,
                 void *userdata) {
 
-        Unit *u = userdata;
+        const Unit *u = userdata;
         _cleanup_free_ char *k = NULL;
         int r;
 
@@ -275,7 +275,7 @@ int config_parse_unit_path_printf(
                 void *userdata) {
 
         _cleanup_free_ char *k = NULL;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         int r;
         bool fatal = ltype;
 
@@ -316,7 +316,7 @@ int config_parse_unit_path_strv_printf(
                 void *userdata) {
 
         char ***x = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         int r;
         const char *p;
 
@@ -606,7 +606,7 @@ int config_parse_exec(
                 void *userdata) {
 
         ExecCommand **e = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         const char *p;
         bool semicolon;
         int r;
@@ -878,7 +878,7 @@ int config_parse_exec_input(
                 void *userdata) {
 
         ExecContext *c = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         const char *n;
         ExecInput ei;
         int r;
@@ -948,7 +948,7 @@ int config_parse_exec_input_text(
 
         _cleanup_free_ char *unescaped = NULL, *resolved = NULL;
         ExecContext *c = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         size_t sz;
         void *p;
         int r;
@@ -1061,7 +1061,7 @@ int config_parse_exec_output(
         _cleanup_free_ char *resolved = NULL;
         const char *n;
         ExecContext *c = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         ExecOutput eo;
         int r;
 
@@ -1405,7 +1405,7 @@ int config_parse_exec_selinux_context(
                 void *userdata) {
 
         ExecContext *c = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         bool ignore;
         char *k;
         int r;
@@ -1454,7 +1454,7 @@ int config_parse_exec_apparmor_profile(
                 void *userdata) {
 
         ExecContext *c = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         bool ignore;
         char *k;
         int r;
@@ -1503,7 +1503,7 @@ int config_parse_exec_smack_process_label(
                 void *userdata) {
 
         ExecContext *c = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         bool ignore;
         char *k;
         int r;
@@ -1553,7 +1553,7 @@ int config_parse_timer(
 
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
         _cleanup_free_ char *k = NULL;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         Timer *t = data;
         usec_t usec = 0;
         TimerValue *v;
@@ -1871,7 +1871,7 @@ int config_parse_bus_name(
                 void *userdata) {
 
         _cleanup_free_ char *k = NULL;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -2017,7 +2017,7 @@ int config_parse_user_group_compat(
 
         _cleanup_free_ char *k = NULL;
         char **user = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -2057,7 +2057,7 @@ int config_parse_user_group_strv_compat(
                 void *userdata) {
 
         char ***users = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         const char *p = rvalue;
         int r;
 
@@ -2118,7 +2118,7 @@ int config_parse_working_directory(
                 void *userdata) {
 
         ExecContext *c = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         bool missing_ok;
         int r;
 
@@ -2178,7 +2178,7 @@ int config_parse_unit_env_file(const char *unit,
                                void *userdata) {
 
         char ***env = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         _cleanup_free_ char *n = NULL;
         int r;
 
@@ -2224,7 +2224,7 @@ int config_parse_environ(
                 void *data,
                 void *userdata) {
 
-        Unit *u = userdata;
+        const Unit *u = userdata;
         char ***env = data;
         const char *p;
         int r;
@@ -2294,7 +2294,7 @@ int config_parse_pass_environ(
         size_t nlen = 0, nbufsize = 0;
         char*** passenv = data;
         const char *p = rvalue;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -2370,7 +2370,7 @@ int config_parse_unset_environ(
         size_t nlen = 0, nbufsize = 0;
         char*** unsetenv = data;
         const char *p = rvalue;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -2443,7 +2443,7 @@ int config_parse_log_extra_fields(
                 void *userdata) {
 
         ExecContext *c = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         const char *p = rvalue;
         int r;
 
@@ -2516,7 +2516,7 @@ int config_parse_unit_condition_path(
         Condition **list = data, *c;
         ConditionType t = ltype;
         bool trigger, negate;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -2572,7 +2572,7 @@ int config_parse_unit_condition_string(
         Condition **list = data, *c;
         ConditionType t = ltype;
         bool trigger, negate;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -2776,7 +2776,7 @@ int config_parse_syscall_filter(
                 void *userdata) {
 
         ExecContext *c = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         bool invert = false;
         const char *p;
         int r;
@@ -3267,7 +3267,7 @@ int config_parse_tasks_max(
                 void *userdata) {
 
         uint64_t *tasks_max = data, v;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         int r;
 
         if (isempty(rvalue)) {
@@ -3890,7 +3890,7 @@ int config_parse_exec_directories(
                 void *userdata) {
 
         char***rt = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         const char *p;
         int r;
 
@@ -4019,7 +4019,7 @@ int config_parse_namespace_path_strv(
                 void *data,
                 void *userdata) {
 
-        Unit *u = userdata;
+        const Unit *u = userdata;
         char*** sv = data;
         const char *p = rvalue;
         int r;
@@ -4096,7 +4096,7 @@ int config_parse_temporary_filesystems(
                 void *data,
                 void *userdata) {
 
-        Unit *u = userdata;
+        const Unit *u = userdata;
         ExecContext *c = data;
         const char *p = rvalue;
         int r;
@@ -4170,7 +4170,7 @@ int config_parse_bind_paths(
                 void *userdata) {
 
         ExecContext *c = data;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         const char *p;
         int r;
 
@@ -4423,7 +4423,7 @@ int config_parse_pid_file(
                 void *userdata) {
 
         _cleanup_free_ char *k = NULL, *n = NULL;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         char **s = data;
         int r;
 
@@ -4545,7 +4545,7 @@ int config_parse_ip_filter_bpf_progs(
                 void *userdata) {
 
         _cleanup_free_ char *resolved = NULL;
-        Unit *u = userdata;
+        const Unit *u = userdata;
         char ***paths = data;
         int r;
 
