@@ -155,14 +155,21 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           <term><command>start <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
-            <para>Start (activate) one or more units specified on the
-            command line.</para>
+            <para>Start (activate) one or more units specified on the command line.</para>
 
-            <para>Note that glob patterns operate on the set of primary names of units currently in memory. Units which
-            are not active and are not in a failed state usually are not in memory, and will not be matched by any
-            pattern. In addition, in case of instantiated units, systemd is often unaware of the instance name until
-            the instance has been started. Therefore, using glob patterns with <command>start</command> has limited
-            usefulness. Also, secondary alias names of units are not considered.</para>
+            <para>Note that unit glob patterns expand to names of units currently in memory. Units which are
+            not active and are not in a failed state usually are not in memory, and will not be matched by
+            any pattern. In addition, in case of instantiated units, systemd is often unaware of the instance
+            name until the instance has been started. Therefore, using glob patterns with
+            <command>start</command> has limited usefulness. Also, secondary alias names of units are not
+            considered.</para>
+
+            <para>Option <option>--all</option> may be used to also operate on inactive units which are
+            referenced by other loaded units. Note that this is not the same as operating on "all" possible
+            units, because as the previous paragraph describes, such a list is ill-defined. Nevertheless,
+            <command>systemctl start --all <replaceable>GLOB</replaceable></command> may be useful if all the
+            units that should match the pattern are pulled in by some target which is known to be loaded.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
