@@ -749,7 +749,7 @@ static int get_unit_list_recursive(
         return c;
 }
 
-static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***ret) {
+static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***ret, bool *ret_expanded) {
         _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
         char **name;
         int r, i;
@@ -778,7 +778,8 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
 
         /* Query the manager only if any of the names are a glob, since
          * this is fairly expensive */
-        if (!strv_isempty(globs)) {
+        bool expanded = !strv_isempty(globs);
+        if (expanded) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
                 size_t allocated, n;
@@ -801,6 +802,9 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
                         mangled[++n] = NULL;
                 }
         }
+
+        if (ret_expanded)
+                *ret_expanded = expanded;
 
         *ret = TAKE_PTR(mangled);
         return 0;
@@ -1033,7 +1037,7 @@ static int list_sockets(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        r = expand_names(bus, strv_skip(argv, 1), ".socket", &sockets_with_suffix);
+        r = expand_names(bus, strv_skip(argv, 1), ".socket", &sockets_with_suffix, NULL);
         if (r < 0)
                 return r;
 
@@ -1345,7 +1349,7 @@ static int list_timers(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        r = expand_names(bus, strv_skip(argv, 1), ".timer", &timers_with_suffix);
+        r = expand_names(bus, strv_skip(argv, 1), ".timer", &timers_with_suffix, NULL);
         if (r < 0)
                 return r;
 
@@ -3118,9 +3122,20 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                 if (!names)
                         return log_oom();
         } else {
-                r = expand_names(bus, strv_skip(argv, 1), suffix, &names);
+                bool expanded;
+
+                r = expand_names(bus, strv_skip(argv, 1), suffix, &names, &expanded);
                 if (r < 0)
                         return log_error_errno(r, "Failed to expand names: %m");
+
+                if (!arg_all && expanded && streq(job_type, "start") && !arg_quiet) {
+                        log_warning("Warning: %ssystemctl start called with a glob pattern.%s",
+                                    ansi_highlight_red(),
+                                    ansi_normal());
+                        log_notice("Hint: unit globs expand to loaded units, so start will usually have no effect.\n"
+                                   "      Passing --all will also load units which are pulled in by other units.\n"
+                                   "      See systemctl(1) for more details.");
+                }
         }
 
         if (!arg_no_block) {
@@ -3728,7 +3743,7 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
         if (r < 0)
                 return r;
 
-        r = expand_names(bus, args, NULL, &names);
+        r = expand_names(bus, args, NULL, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -3787,7 +3802,7 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
         if (streq(arg_job_mode, "fail"))
                 kill_who = strjoina(arg_kill_who, "-fail");
 
-        r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
+        r = expand_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -3832,7 +3847,7 @@ static int clean_unit(int argc, char *argv[], void *userdata) {
                         return log_oom();
         }
 
-        r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
+        r = expand_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -5860,7 +5875,7 @@ static int show(int argc, char *argv[], void *userdata) {
                 if (!strv_isempty(patterns)) {
                         _cleanup_strv_free_ char **names = NULL;
 
-                        r = expand_names(bus, patterns, NULL, &names);
+                        r = expand_names(bus, patterns, NULL, &names, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -5910,7 +5925,7 @@ static int cat(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
+        r = expand_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -6141,7 +6156,7 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
 
         polkit_agent_open_maybe();
 
-        r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
+        r = expand_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -7575,7 +7590,7 @@ static int edit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
+        r = expand_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
