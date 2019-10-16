@@ -3086,7 +3086,7 @@ int config_parse_unit_slice(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *k = NULL;
-        Unit *u = userdata, *slice = NULL;
+        Unit *u = userdata, *slice;
         int r;
 
         assert(filename);
