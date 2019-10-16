@@ -575,8 +575,9 @@ static int service_verify(Service *s) {
                 return -ENOEXEC;
         }
 
-        if (s->type == SERVICE_ONESHOT && s->restart != SERVICE_RESTART_NO) {
-                log_unit_error(UNIT(s), "Service has Restart= setting other than no, which isn't allowed for Type=oneshot services. Refusing.");
+        if (s->type == SERVICE_ONESHOT
+            && !IN_SET(s->restart, SERVICE_RESTART_NO, SERVICE_RESTART_ON_FAILURE, SERVICE_RESTART_ON_ABNORMAL, SERVICE_RESTART_ON_WATCHDOG, SERVICE_RESTART_ON_ABORT)) {
+                log_unit_error(UNIT(s), "Service has Restart= set to either always or on-success, which isn't allowed for Type=oneshot services. Refusing.");
                 return -ENOEXEC;
         }
 
