@@ -87,10 +87,11 @@ struct Network {
         unsigned dhcp_route_metric;
         uint32_t dhcp_route_table;
         uint16_t dhcp_client_port;
+        int dhcp_critical;
+        int ip_service_type;
         bool dhcp_anonymize;
         bool dhcp_send_hostname;
         bool dhcp_broadcast;
-        int dhcp_critical;
         bool dhcp_use_dns;
         bool dhcp_routes_to_dns;
         bool dhcp_use_ntp;
@@ -105,7 +106,7 @@ struct Network {
         DHCPUseDomains dhcp_use_domains;
         Set *dhcp_black_listed_ip;
         Set *dhcp_request_options;
-        int ip_service_type;
+        OrderedHashmap *dhcp_send_options;
 
         /* DHCPv6 Client support*/
         bool dhcp6_use_dns;

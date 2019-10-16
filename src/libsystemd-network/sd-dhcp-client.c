@@ -35,6 +35,14 @@
 #define RESTART_AFTER_NAK_MIN_USEC (1 * USEC_PER_SEC)
 #define RESTART_AFTER_NAK_MAX_USEC (30 * USEC_PER_MINUTE)
 
+struct sd_dhcp_option {
+        unsigned n_ref;
+
+        uint8_t option;
+        void *data;
+        size_t length;
+};
+
 struct sd_dhcp_client {
         unsigned n_ref;
 
@@ -90,6 +98,7 @@ struct sd_dhcp_client {
         usec_t start_time;
         uint64_t attempt;
         uint64_t max_attempts;
+        OrderedHashmap *options;
         usec_t request_sent;
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
@@ -530,6 +539,66 @@ int sd_dhcp_client_set_max_attempts(sd_dhcp_client *client, uint64_t max_attempt
         return 0;
 }
 
+static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *i) {
+        if (!i)
+                return NULL;
+
+        free(i->data);
+        return mfree(i);
+}
+
+int sd_dhcp_option_new(uint8_t option, void *data, size_t length, sd_dhcp_option **ret) {
+        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *p = NULL;
+        _cleanup_free_ void *q = NULL;
+
+        assert(ret);
+
+        q = memdup(data, length);
+        if (!q)
+                return -ENOMEM;
+
+        p = new(sd_dhcp_option, 1);
+        if (!p)
+                return -ENOMEM;
+
+        *p = (sd_dhcp_option) {
+                .n_ref = 1,
+                .option = option,
+                .length = length,
+                .data = TAKE_PTR(q),
+        };
+
+        *ret = TAKE_PTR(p);
+        return 0;
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_option, sd_dhcp_option, dhcp_option_free);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                dhcp_option_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                sd_dhcp_option,
+                sd_dhcp_option_unref);
+
+int sd_dhcp_client_set_dhcp_option(sd_dhcp_client *client, sd_dhcp_option *v) {
+        int r;
+
+        assert_return(client, -EINVAL);
+        assert_return(v, -EINVAL);
+
+        r = ordered_hashmap_ensure_allocated(&client->options, &dhcp_option_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = ordered_hashmap_put(client->options, UINT_TO_PTR(v->option), v);
+        if (r < 0)
+                return r;
+
+        sd_dhcp_option_ref(v);
+        return 0;
+}
+
 int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
         assert_return(client, -EINVAL);
 
@@ -791,6 +860,8 @@ static int dhcp_client_send_raw(
 static int client_send_discover(sd_dhcp_client *client) {
         _cleanup_free_ DHCPPacket *discover = NULL;
         size_t optoffset, optlen;
+        sd_dhcp_option *j;
+        Iterator i;
         int r;
 
         assert(client);
@@ -848,6 +919,13 @@ static int client_send_discover(sd_dhcp_client *client) {
                                        SD_DHCP_OPTION_USER_CLASS,
                                        strv_length(client->user_class),
                                        client->user_class);
+                if (r < 0)
+                        return r;
+        }
+
+        ORDERED_HASHMAP_FOREACH(j, client->options, i) {
+                r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
+                                       j->option, j->length, j->data);
                 if (r < 0)
                         return r;
         }
@@ -1991,6 +2069,7 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
         free(client->hostname);
         free(client->vendor_class_identifier);
         client->user_class = strv_free(client->user_class);
+        ordered_hashmap_free(client->options);
         return mfree(client);
 }
 

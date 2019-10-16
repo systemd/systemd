@@ -99,6 +99,7 @@ enum {
 };
 
 typedef struct sd_dhcp_client sd_dhcp_client;
+typedef struct sd_dhcp_option sd_dhcp_option;
 
 typedef int (*sd_dhcp_client_callback_t)(sd_dhcp_client *client, int event, void *userdata);
 int sd_dhcp_client_set_callback(
@@ -178,6 +179,11 @@ int sd_dhcp_client_set_service_type(
                 sd_dhcp_client *client,
                 int type);
 
+int sd_dhcp_option_new(uint8_t option, void *data, size_t length, sd_dhcp_option **ret);
+sd_dhcp_option* sd_dhcp_option_ref(sd_dhcp_option *i);
+sd_dhcp_option* sd_dhcp_option_unref(sd_dhcp_option *i);
+int sd_dhcp_client_set_dhcp_option(sd_dhcp_client *client, sd_dhcp_option *v);
+
 int sd_dhcp_client_stop(sd_dhcp_client *client);
 int sd_dhcp_client_start(sd_dhcp_client *client);
 int sd_dhcp_client_send_release(sd_dhcp_client *client);
@@ -198,6 +204,7 @@ int sd_dhcp_client_detach_event(sd_dhcp_client *client);
 sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_client, sd_dhcp_client_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_option, sd_dhcp_option_unref);
 
 _SD_END_DECLARATIONS;
 

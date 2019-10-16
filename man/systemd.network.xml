@@ -1609,6 +1609,15 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><varname>SendOptions=</varname></term>
+          <listitem>
+            <para>Send a raw option with value via DHCPv4 client. Takes a DHCP option and base64 encoded
+            data separated with a colon (option:value). The option ranges [1-254]. This option can be
+            specified multiple times. If an empty string is specified, then all options specified earlier
+            are cleared. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
        </variablelist>
    </refsect1>
 

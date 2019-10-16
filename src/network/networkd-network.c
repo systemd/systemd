@@ -630,6 +630,8 @@ static Network *network_free(Network *network) {
 
         set_free_free(network->dnssec_negative_trust_anchors);
 
+        ordered_hashmap_free(network->dhcp_send_options);
+
         return mfree(network);
 }
 
