@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "architecture.h"
 #include "conf-files.h"
 #include "dirent-util.h"
 #include "escape.h"
@@ -34,6 +35,7 @@
 #include "udev.h"
 #include "user-util.h"
 #include "util.h"
+#include "virt.h"
 
 #define PREALLOC_TOKEN          2048
 
@@ -123,6 +125,7 @@ enum token_type {
         TK_M_DEVLINK,                   /* val */
         TK_M_NAME,                      /* val */
         TK_M_ENV,                       /* val, attr */
+        TK_M_CONST,                     /* val, attr */
         TK_M_TAG,                       /* val */
         TK_M_SUBSYSTEM,                 /* val */
         TK_M_DRIVER,                    /* val */
@@ -259,6 +262,7 @@ static const char *token_str(enum token_type type) {
                 [TK_M_DEVLINK] =                "M DEVLINK",
                 [TK_M_NAME] =                   "M NAME",
                 [TK_M_ENV] =                    "M ENV",
+                [TK_M_CONST] =                  "M CONST",
                 [TK_M_TAG] =                    "M TAG",
                 [TK_M_SUBSYSTEM] =              "M SUBSYSTEM",
                 [TK_M_DRIVER] =                 "M DRIVER",
@@ -370,6 +374,7 @@ static void dump_token(struct udev_rules *rules, struct token *token) {
         case TK_M_SYSCTL:
         case TK_M_ATTRS:
         case TK_M_ENV:
+        case TK_M_CONST:
         case TK_A_ATTR:
         case TK_A_SYSCTL:
         case TK_A_ENV:
@@ -903,6 +908,7 @@ static void rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
                 token->key.builtin_cmd = *(enum udev_builtin_cmd *)data;
                 break;
         case TK_M_ENV:
+        case TK_M_CONST:
         case TK_M_ATTR:
         case TK_M_SYSCTL:
         case TK_M_ATTRS:
@@ -1225,6 +1231,17 @@ static void add_rule(struct udev_rules *rules, char *line,
 
                                 rule_add_key(&rule_tmp, TK_A_ENV, op, value, attr);
                         }
+
+                } else if (startswith(key, "CONST{")) {
+                        attr = get_key_attribute(rules->udev, key + STRLEN("CONST"));
+                        if (attr == NULL || !STR_IN_SET(attr, "arch", "virt"))
+                                LOG_AND_RETURN("error parsing %s attribute", "CONST");
+
+                        if (op == OP_REMOVE)
+                                LOG_AND_RETURN("invalid %s operation", "CONST");
+
+                        if (op < OP_MATCH_MAX)
+                                rule_add_key(&rule_tmp, TK_M_CONST, op, value, attr);
 
                 } else if (streq(key, "TAG")) {
                         if (op < OP_MATCH_MAX)
@@ -1851,6 +1868,21 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
 
                         if (!value)
                                 value = "";
+                        if (match_key(rules, cur, value))
+                                goto nomatch;
+                        break;
+                }
+                case TK_M_CONST: {
+                        const char *key_name = rules_str(rules, cur->key.attr_off);
+                        const char *value = NULL;
+
+                        if (streq(key_name, "arch")) {
+                                value = architecture_to_string(uname_architecture());
+                        } else if (streq(key_name, "virt")) {
+                                value = virtualization_to_string(detect_virtualization());
+                        } else
+                                assert_not_reached("Invalid CONST key");
+
                         if (match_key(rules, cur, value))
                                 goto nomatch;
                         break;
