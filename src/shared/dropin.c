@@ -19,6 +19,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "set.h"
+#include "special.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -226,11 +227,33 @@ int unit_file_find_dropin_paths(
                 char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL;
+        UnitType type = _UNIT_TYPE_INVALID;
         char *name, **p;
         Iterator i;
         int r;
 
         assert(ret);
+
+        /* All the names in the unit are of the same type so just grab one. */
+        name = (char*) set_first(names);
+        if (name) {
+                type = unit_name_to_type(name);
+                if (type < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Failed to to derive unit type from unit name: %s",
+                                               name);
+        }
+
+        /* Special drop in for -.service. Add this first as it's the most generic
+         * and should be able to be overridden by more specific drop-ins. */
+        if (type == UNIT_SERVICE)
+                STRV_FOREACH(p, lookup_path)
+                        (void) unit_file_find_dirs(original_root,
+                                                   unit_path_cache,
+                                                   *p,
+                                                   SPECIAL_ROOT_SERVICE,
+                                                   dir_suffix,
+                                                   &dirs);
 
         SET_FOREACH(name, names, i)
                 STRV_FOREACH(p, lookup_path)

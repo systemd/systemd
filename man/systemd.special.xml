@@ -120,6 +120,15 @@
         </varlistentry>
 
         <varlistentry>
+          <term><filename>-.service</filename></term>
+          <listitem>
+            <para>This is a reserved unit name used to support top-level drop-ins for services. See
+            <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><filename>basic.target</filename></term>
           <listitem>
             <para>A special target unit covering basic boot-up.</para>

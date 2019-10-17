@@ -105,3 +105,7 @@
 
 /* The root directory. */
 #define SPECIAL_ROOT_MOUNT "-.mount"
+
+/* Used to apply settings to all services through drop-ins.
+ * Should not exist as an actual service. */
+#define SPECIAL_ROOT_SERVICE "-.service"

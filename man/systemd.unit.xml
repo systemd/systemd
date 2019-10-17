@@ -192,6 +192,10 @@
     over unit files wherever located. Multiple drop-in files with different names are applied in
     lexicographic order, regardless of which of the directories they reside in.</para>
 
+    <para>Service units also support a top-level drop-in directory for modifying the settings of all service units. See
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details.</para>
+
     <!-- Note that we do not document .include here, as we consider it mostly obsolete, and want
          people to use .d/ drop-ins instead. -->
 
