@@ -681,4 +681,25 @@ LIBSYSTEMD_243 {
 global:
         sd_bus_object_vtable_format;
         sd_event_source_disable_unref;
+
+        sd_device_trigger_new;
+        sd_device_trigger_ref;
+        sd_device_trigger_unref;
+
+        sd_device_trigger_set_action;
+        sd_device_trigger_get_action;
+        sd_device_trigger_set_source;
+        sd_device_trigger_get_source;
+        sd_device_trigger_get_uuid;
+
+        sd_device_trigger_add_device;
+        sd_device_trigger_add_enumerator;
+
+        sd_device_trigger_add_property;
+
+        sd_device_trigger_set_pre_trigger_callback;
+        sd_device_trigger_set_settle_callback;
+
+        sd_device_trigger_execute;
+        sd_device_trigger_execute_with_settle;
 } LIBSYSTEMD_241;

@@ -30,6 +30,7 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_device sd_device;
 typedef struct sd_device_enumerator sd_device_enumerator;
 typedef struct sd_device_monitor sd_device_monitor;
+typedef struct sd_device_trigger sd_device_trigger;
 
 /* callback */
 
@@ -115,9 +116,35 @@ int sd_device_monitor_filter_add_match_tag(sd_device_monitor *m, const char *tag
 int sd_device_monitor_filter_update(sd_device_monitor *m);
 int sd_device_monitor_filter_remove(sd_device_monitor *m);
 
+/* device trigger */
+
+typedef int (*sd_device_trigger_callback_t)(sd_device_trigger *trigger, sd_device *device, void *userdata);
+
+int sd_device_trigger_new(sd_device_trigger **ret);
+sd_device_trigger *sd_device_trigger_ref(sd_device_trigger *trigger);
+sd_device_trigger *sd_device_trigger_unref(sd_device_trigger *trigger);
+
+int sd_device_trigger_set_action(sd_device_trigger *trigger, const char *action);
+const char *sd_device_trigger_get_action(sd_device_trigger *trigger);
+const char *sd_device_trigger_get_uuid(sd_device_trigger *trigger);
+int sd_device_trigger_set_source(sd_device_trigger *trigger, const char *source);
+const char *sd_device_trigger_get_source(sd_device_trigger *trigger);
+
+int sd_device_trigger_add_device(sd_device_trigger *trigger, sd_device *device);
+int sd_device_trigger_add_enumerator(sd_device_trigger *trigger, sd_device_enumerator *enumerator);
+
+int sd_device_trigger_add_property(sd_device_trigger *trigger, const char *_key, const char *_value);
+
+int sd_device_trigger_set_pre_trigger_callback(sd_device_trigger *trigger, sd_device_trigger_callback_t cb, void *userdata);
+int sd_device_trigger_set_settle_callback(sd_device_trigger *trigger, sd_device_trigger_callback_t cb, void *userdata);
+
+int sd_device_trigger_execute(sd_device_trigger *trigger);
+int sd_device_trigger_execute_with_settle(sd_device_trigger *trigger, unsigned int timeout_sec);
+
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_device, sd_device_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_device_enumerator, sd_device_enumerator_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_device_monitor, sd_device_monitor_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_device_trigger, sd_device_trigger_unref);
 
 _SD_END_DECLARATIONS;
 
