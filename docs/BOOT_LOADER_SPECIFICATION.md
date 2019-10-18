@@ -112,6 +112,12 @@ These configuration snippets shall be Unix-style text files (i.e. line separatio
 * `devicetree` refers to the binary device tree to use when executing the
 kernel. This also shall be a path relative to the `$BOOT` directory. This
 key is optional. Example: `6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.armv7hl/tegra20-paz00.dtb`.
+* `devicetree-overlay` refers to a list of device tree overlays that should be
+applied by the boot loader. Multiple overlays are separated by spaces and
+applied in the same order as they are listed. This key is optional but depends
+on the `devicetree` key. Example:
+`/6a9857a393724b7a981ebb5b8495b9ea/overlays/overlay_A.dtbo
+/6a9857a393724b7a981ebb5b8495b9ea/overlays/overlay_B.dtbo`
 * `architecture` refers to the architecture this entry is defined for. The argument should be an architecture identifier, using the architecture vocabulary defined by the EFI specification (i.e. `IA32`, `x64`, `IA64`, `ARM`, `AA64`, …). If specified and this does not match (case insensitively) the local system architecture this entry should be hidden.
 
 Each configuration drop-in snippet must include at least a `linux` or an `efi` key and is otherwise not valid. Here's an example for a complete drop-in file:
