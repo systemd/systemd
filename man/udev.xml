@@ -583,7 +583,11 @@
                 <listitem>
                   <para>Watch the device node with inotify; when the node is
                   closed after being opened for writing, a change uevent is
-                  synthesized.</para>
+                  synthesized. All synthesized uevents are marked with
+                  SYNTH_ARG_SOURCE=UDEVWATCH and SYNTH_UUID value is set to
+                  unique UUID which is generated per each WATCH rule application.
+                  If a single WATCH rule causes more uevents to be synthesized,
+                  all of the uevents have the same UUID set.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
