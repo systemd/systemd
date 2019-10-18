@@ -123,6 +123,10 @@ FastOpenNoCookie=
 Source=
 Metric=
 TTLPropagate=
+[MultiPathRoute]
+Gateway=
+Weight=
+Ifname=
 [Network]
 IPv6DuplicateAddressDetection=
 IPMasquerade=

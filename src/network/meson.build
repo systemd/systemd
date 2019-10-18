@@ -83,6 +83,8 @@ sources = files('''
         networkd-manager-bus.h
         networkd-manager.c
         networkd-manager.h
+        networkd-multipath-route.c
+        networkd-multipath-route.h
         networkd-ndisc.c
         networkd-ndisc.h
         networkd-neighbor.c

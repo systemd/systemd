@@ -347,6 +347,23 @@ int sd_netlink_message_append_data(sd_netlink_message *m, unsigned short type, c
         return 0;
 }
 
+int sd_netlink_message_append_attribute(struct rtattr *rta, unsigned short type, const void *data, size_t data_length) {
+        struct rtattr *new_rta;
+
+        assert(rta);
+
+        new_rta = (struct rtattr *)(((char *)rta) + RTA_ALIGN(rta->rta_len));
+        new_rta->rta_type = type;
+        new_rta->rta_len = RTA_LENGTH(data_length);
+
+        if (data_length)
+                memcpy(RTA_DATA(new_rta), data, data_length);
+
+       rta->rta_len = NLMSG_ALIGN(rta->rta_len) + RTA_ALIGN(data_length);
+
+       return 0;
+}
+
 int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data) {
         int r;
 

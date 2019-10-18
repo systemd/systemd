@@ -21,6 +21,7 @@
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
+#include "networkd-multipath-route.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
 #include "networkd-radv.h"
@@ -269,6 +270,7 @@ struct Network {
         Hashmap *route_prefixes_by_section;
         Hashmap *rules_by_section;
         OrderedHashmap *qdiscs_by_section;
+        OrderedHashmap *multipath_routes_by_section;
 
         /* All kinds of DNS configuration */
         struct in_addr_data *dns;

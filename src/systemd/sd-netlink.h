@@ -92,6 +92,7 @@ int sd_netlink_message_append_sockaddr_in(sd_netlink_message *m, unsigned short 
 int sd_netlink_message_append_sockaddr_in6(sd_netlink_message *m, unsigned short type, const struct sockaddr_in6 *data);
 int sd_netlink_message_append_ether_addr(sd_netlink_message *m, unsigned short type, const struct ether_addr *data);
 int sd_netlink_message_append_cache_info(sd_netlink_message *m, unsigned short type, const struct ifa_cacheinfo *info);
+int sd_netlink_message_append_attribute(struct rtattr *rta, unsigned short type, const void *data, size_t data_length);
 
 int sd_netlink_message_open_container(sd_netlink_message *m, unsigned short type);
 int sd_netlink_message_open_container_union(sd_netlink_message *m, unsigned short type, const char *key);

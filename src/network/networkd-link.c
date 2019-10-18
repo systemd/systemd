@@ -28,6 +28,7 @@
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
+#include "networkd-multipath-route.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-radv.h"
@@ -1088,6 +1089,9 @@ void link_check_ready(Link *link) {
                         link_enter_failed(link);
                 return;
         }
+
+        if (ordered_hashmap_size(link->network->multipath_routes_by_section) > 0)
+                (void) multipath_route_configure(link);
 
         if (!link->static_nexthops_configured)
                 return;

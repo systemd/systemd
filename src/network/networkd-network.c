@@ -460,6 +460,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                               "IPv6AddressLabel\0"
                               "RoutingPolicyRule\0"
                               "Route\0"
+                              "MultiPathRoute\0"
                               "NextHop\0"
                               "DHCP\0" /* compat */
                               "DHCPv4\0"
@@ -672,6 +673,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->route_prefixes_by_section);
         hashmap_free(network->rules_by_section);
         ordered_hashmap_free_with_destructor(network->qdiscs_by_section, qdisc_free);
+        ordered_hashmap_free_with_destructor(network->multipath_routes_by_section, multipath_route_free);
 
         if (network->manager &&
             network->manager->duids_requesting_uuid)
