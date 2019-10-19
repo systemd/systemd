@@ -1,4 +1,0 @@
-This appears to be failing on Ubuntu CI due to short sleep duration
-waiting for the service-restarts to complete, but doubling the
-sleep from 5 to 10 seconds didn't appear to help, so let's blacklist
-this on Ubuntu CI while debugging the test failure.
