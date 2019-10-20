@@ -3073,8 +3073,8 @@ void journal_file_print_header(JournalFile *f) {
                "State: %s\n"
                "Compatible Flags:%s%s\n"
                "Incompatible Flags:%s%s%s\n"
-               "Header size: %"PRIu64"\n"
-               "Arena size: %"PRIu64"\n"
+               "Header Size: %"PRIu64"\n"
+               "Arena Size: %"PRIu64"\n"
                "Data Hash Table Size: %"PRIu64"\n"
                "Field Hash Table Size: %"PRIu64"\n"
                "Rotate Suggested: %s\n"
@@ -3131,7 +3131,7 @@ void journal_file_print_header(JournalFile *f) {
                        le64toh(f->header->n_entry_arrays));
 
         if (fstat(f->fd, &st) >= 0)
-                printf("Disk usage: %s\n", format_bytes(bytes, sizeof(bytes), (uint64_t) st.st_blocks * 512ULL));
+                printf("Disk Usage: %s\n", format_bytes(bytes, sizeof(bytes), (uint64_t) st.st_blocks * 512ULL));
 }
 
 static int journal_file_warn_btrfs(JournalFile *f) {
