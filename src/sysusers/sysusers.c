@@ -528,7 +528,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                         .sp_max = -1,
                         .sp_warn = -1,
                         .sp_inact = -1,
-                        .sp_expire = i->uid == 0 ? -1 : 1, /* lock account as a whole, unless this is root */
+                        .sp_expire = -1,
                         .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
                 };
 
