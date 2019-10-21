@@ -3065,26 +3065,26 @@ void journal_file_print_header(JournalFile *f) {
         assert(f);
         assert(f->header);
 
-        printf("File Path: %s\n"
+        printf("File path: %s\n"
                "File ID: %s\n"
                "Machine ID: %s\n"
                "Boot ID: %s\n"
-               "Sequential Number ID: %s\n"
+               "Sequential number ID: %s\n"
                "State: %s\n"
-               "Compatible Flags:%s%s\n"
-               "Incompatible Flags:%s%s%s\n"
+               "Compatible flags:%s%s\n"
+               "Incompatible flags:%s%s%s\n"
                "Header size: %"PRIu64"\n"
                "Arena size: %"PRIu64"\n"
-               "Data Hash Table Size: %"PRIu64"\n"
-               "Field Hash Table Size: %"PRIu64"\n"
-               "Rotate Suggested: %s\n"
-               "Head Sequential Number: %"PRIu64" (%"PRIx64")\n"
-               "Tail Sequential Number: %"PRIu64" (%"PRIx64")\n"
-               "Head Realtime Timestamp: %s (%"PRIx64")\n"
-               "Tail Realtime Timestamp: %s (%"PRIx64")\n"
-               "Tail Monotonic Timestamp: %s (%"PRIx64")\n"
+               "Data hash table size: %"PRIu64"\n"
+               "Field hash table size: %"PRIu64"\n"
+               "Rotate suggested: %s\n"
+               "Head sequential number: %"PRIu64" (%"PRIx64")\n"
+               "Tail sequential number: %"PRIu64" (%"PRIx64")\n"
+               "Head realtime timestamp: %s (%"PRIx64")\n"
+               "Tail realtime timestamp: %s (%"PRIx64")\n"
+               "Tail monotonic timestamp: %s (%"PRIx64")\n"
                "Objects: %"PRIu64"\n"
-               "Entry Objects: %"PRIu64"\n",
+               "Entry objects: %"PRIu64"\n",
                f->path,
                sd_id128_to_string(f->header->file_id, a),
                sd_id128_to_string(f->header->machine_id, b),
@@ -3112,22 +3112,22 @@ void journal_file_print_header(JournalFile *f) {
                le64toh(f->header->n_entries));
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
-                printf("Data Objects: %"PRIu64"\n"
-                       "Data Hash Table Fill: %.1f%%\n",
+                printf("Data objects: %"PRIu64"\n"
+                       "Data hash table fill: %.1f%%\n",
                        le64toh(f->header->n_data),
                        100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))));
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
-                printf("Field Objects: %"PRIu64"\n"
-                       "Field Hash Table Fill: %.1f%%\n",
+                printf("Field objects: %"PRIu64"\n"
+                       "Field hash table fill: %.1f%%\n",
                        le64toh(f->header->n_fields),
                        100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))));
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_tags))
-                printf("Tag Objects: %"PRIu64"\n",
+                printf("Tag objects: %"PRIu64"\n",
                        le64toh(f->header->n_tags));
         if (JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
-                printf("Entry Array Objects: %"PRIu64"\n",
+                printf("Entry array objects: %"PRIu64"\n",
                        le64toh(f->header->n_entry_arrays));
 
         if (fstat(f->fd, &st) >= 0)
