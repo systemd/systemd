@@ -21,6 +21,7 @@
 #include "main-func.h"
 #include "process-util.h"
 #include "special.h"
+#include "stdio-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "util.h"
@@ -188,10 +189,8 @@ static int on_runlevel(Context *c) {
 
         /* Secondly, get new runlevel */
         runlevel = get_current_runlevel(c);
-
         if (runlevel < 0)
                 return runlevel;
-
         if (runlevel == 0)
                 return log_warning("Failed to get new runlevel, utmp update skipped.");
 
@@ -200,23 +199,21 @@ static int on_runlevel(Context *c) {
 
 #if HAVE_AUDIT
         if (c->audit_fd >= 0) {
-                _cleanup_free_ char *s = NULL;
+                char s[STRLEN("old-level=_ new-level=_") + 1];
 
-                if (asprintf(&s, "old-level=%c new-level=%c",
-                             previous > 0 ? previous : 'N',
-                             runlevel > 0 ? runlevel : 'N') < 0)
-                        return log_oom();
+                xsprintf(s, "old-level=%c new-level=%c",
+                         previous > 0 ? previous : 'N',
+                         runlevel);
 
-                if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 && errno != EPERM)
+                if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s,
+                                                "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 && errno != EPERM)
                         r = log_error_errno(errno, "Failed to send audit message: %m");
         }
 #endif
 
         q = utmp_put_runlevel(runlevel, previous);
-        if (q < 0 && !IN_SET(q, -ESRCH, -ENOENT)) {
-                log_error_errno(q, "Failed to write utmp record: %m");
-                r = q;
-        }
+        if (q < 0 && !IN_SET(q, -ESRCH, -ENOENT))
+                return log_error_errno(q, "Failed to write utmp record: %m");
 
         return r;
 }
