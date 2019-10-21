@@ -280,8 +280,6 @@ int seat_object_find(sd_bus *bus, const char *path, const char *interface, void 
                 return -ENOMEM;
 
         message = sd_bus_get_current_message(bus);
-        if (!message)
-                return 0;
 
         r = manager_get_seat_from_creds(m, message, e, error, &seat);
         if (r == -ENXIO) {
