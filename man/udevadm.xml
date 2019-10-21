@@ -192,8 +192,9 @@
       <arg choice="opt"><replaceable>options</replaceable></arg>
       <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
       </title>
-      <para>Request device events from the kernel. Primarily used to replay events at system coldplug time.</para>
-
+      <para>Request device events from the kernel. Primarily used to replay events at system coldplug time.
+              All generated events are marked with SYNTH_ARG_SOURCE=UDEVTRIGGER and they all have SYNTH_UUID
+              value set to the same UUID.</para>
       <para>Takes device specifications as positional arguments. See the description of <command>info</command>
       above.</para>
 

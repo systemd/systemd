@@ -23,69 +23,63 @@
 static bool arg_verbose = false;
 static bool arg_dry_run = false;
 
-static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_set) {
-        sd_device *d;
-        int r, ret = 0;
-
-        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
-                _cleanup_free_ char *filename = NULL;
-                const char *syspath;
-
-                if (sd_device_get_syspath(d, &syspath) < 0)
-                        continue;
-
-                if (arg_verbose)
-                        printf("%s\n", syspath);
-                if (arg_dry_run)
-                        continue;
-
-                filename = path_join(syspath, "uevent");
-                if (!filename)
-                        return log_oom();
-
-                r = write_string_file(filename, action, WRITE_STRING_FILE_DISABLE_BUFFER);
-                if (r < 0) {
-                        bool ignore = IN_SET(r, -ENOENT, -EACCES, -ENODEV);
-
-                        log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
-                                       "Failed to write '%s' to '%s': %m", action, filename);
-                        if (ret == 0 && !ignore)
-                                ret = r;
-                        continue;
-                }
-
-                if (settle_set) {
-                        r = set_put_strdup(settle_set, syspath);
-                        if (r < 0)
-                                return log_oom();
-                }
-        }
-
-        return ret;
-}
-
-static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *userdata) {
-        _cleanup_free_ char *val = NULL;
-        Set *settle_set = userdata;
+static int pre_trigger_cb(sd_device_trigger *trigger, sd_device *device, void *userdata) {
         const char *syspath;
 
-        assert(dev);
-        assert(settle_set);
+        if (arg_verbose && (sd_device_get_syspath(device, &syspath) >= 0))
+                printf("%s\n", syspath);
 
-        if (sd_device_get_syspath(dev, &syspath) < 0)
-                return 0;
-
-        if (arg_verbose)
-                printf("settle %s\n", syspath);
-
-        val = set_remove(settle_set, syspath);
-        if (!val)
-                log_debug("Got epoll event on syspath %s not present in syspath set", syspath);
-
-        if (set_isempty(settle_set))
-                return sd_event_exit(sd_device_monitor_get_event(m), 0);
+        if (arg_dry_run)
+                return 1;
 
         return 0;
+}
+
+static int settle_cb(sd_device_trigger *trigger, sd_device *device, void *userdata) {
+        const char *syspath;
+
+        if (arg_verbose && (sd_device_get_syspath(device, &syspath) >= 0))
+                printf("settle %s\n", syspath);
+
+        return 0;
+}
+
+static int exec_list(sd_device_enumerator *e, const char *action, bool settle) {
+        _cleanup_ (sd_device_trigger_unrefp) sd_device_trigger *trigger;
+        int r;
+
+        r = sd_device_trigger_new(&trigger);
+        if (r < 0)
+                return r;
+
+        r = sd_device_trigger_set_source(trigger, "UDEVTRIGGER");
+        if (r < 0)
+                return r;
+
+        r = sd_device_trigger_set_action(trigger, action);
+        if (r < 0)
+                return r;
+
+        if (arg_verbose || arg_dry_run) {
+                r = sd_device_trigger_set_pre_trigger_callback(trigger, pre_trigger_cb, NULL);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_trigger_set_settle_callback(trigger, settle_cb, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_device_trigger_add_enumerator(trigger, e);
+        if (r < 0)
+                return r;
+
+        if (settle)
+                r = sd_device_trigger_execute_with_settle(trigger, 0);
+        else
+                r = sd_device_trigger_execute(trigger);
+
+        return r;
 }
 
 static char* keyval(const char *str, const char **key, const char **val) {
@@ -167,9 +161,6 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         } device_type = TYPE_DEVICES;
         const char *action = "change";
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_set_free_free_ Set *settle_set = NULL;
         usec_t ping_timeout_usec = 5 * USEC_PER_SEC;
         bool settle = false, ping = false;
         int c, r;
@@ -338,28 +329,6 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to add parent match '%s': %m", argv[optind]);
         }
 
-        if (settle) {
-                settle_set = set_new(&string_hash_ops);
-                if (!settle_set)
-                        return log_oom();
-
-                r = sd_event_default(&event);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get default event: %m");
-
-                r = sd_device_monitor_new(&m);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create device monitor object: %m");
-
-                r = sd_device_monitor_attach_event(m, event);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to attach event to device monitor: %m");
-
-                r = sd_device_monitor_start(m, device_monitor_handler, settle_set);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to start device monitor: %m");
-        }
-
         switch (device_type) {
         case TYPE_SUBSYSTEMS:
                 r = device_enumerator_scan_subsystems(e);
@@ -374,15 +343,10 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         default:
                 assert_not_reached("Unknown device type");
         }
-        r = exec_list(e, action, settle_set);
+
+        r = exec_list(e, action, settle);
         if (r < 0)
                 return r;
-
-        if (event && !set_isempty(settle_set)) {
-                r = sd_event_loop(event);
-                if (r < 0)
-                        return log_error_errno(r, "Event loop failed: %m");
-        }
 
         return 0;
 }
