@@ -356,7 +356,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY]   = ":-)",
                         [SPECIAL_GLYPH_NEUTRAL_SMILEY]          = ":-|",
                         [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = ":-(",
-                        [SPECIAL_GLYPH_UNHAPPY_SMILEY]          = ":-{️",
+                        [SPECIAL_GLYPH_UNHAPPY_SMILEY]          = ":-{",
                         [SPECIAL_GLYPH_DEPRESSED_SMILEY]        = ":-[",
                 },
 
