@@ -244,8 +244,6 @@ int user_object_find(sd_bus *bus, const char *path, const char *interface, void 
                 sd_bus_message *message;
 
                 message = sd_bus_get_current_message(bus);
-                if (!message)
-                        return 0;
 
                 r = manager_get_user_from_creds(m, message, UID_INVALID, error, &user);
                 if (r == -ENXIO) {

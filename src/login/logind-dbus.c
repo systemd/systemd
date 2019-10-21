@@ -163,7 +163,6 @@ int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, 
         User *user;
 
         assert(m);
-        assert(message);
         assert(ret);
 
         if (!uid_is_valid(uid))
