@@ -41,8 +41,7 @@ static void *adjust_pointer(const void *p, void *old_base, size_t sz, void *new_
         return (uint8_t*) new_base + ((uint8_t*) p - (uint8_t*) old_base);
 }
 
-static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
-        assert(m);
+static void part_free(struct bus_body_part *part, bool free_part) {
         assert(part);
 
         if (part->memfd >= 0)
@@ -52,7 +51,7 @@ static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
         else if (part->free_this)
                 free(part->data);
 
-        if (part != &m->body)
+        if (free_part)
                 free(part);
 }
 
@@ -64,7 +63,7 @@ static void message_reset_parts(sd_bus_message *m) {
         part = &m->body;
         while (m->n_body_parts > 0) {
                 struct bus_body_part *next = part->next;
-                message_free_part(m, part);
+                part_free(part, part != &m->body);
                 part = next;
                 m->n_body_parts--;
         }
