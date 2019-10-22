@@ -3854,51 +3854,43 @@ static int build_struct_offsets(
         p = signature;
         previous = m->rindex;
         while (*p != 0) {
-                int k, n;
+                int n, align, length;
                 size_t offset;
 
-                n = signature_element_length(p);
+                n = signature_element_length_full(p, NULL, &align, &length);
                 if (n < 0)
                         return n;
-                else {
-                        char t[n+1];
 
-                        memcpy(t, p, n);
-                        t[n] = 0;
+                assert(align > 0);
 
-                        size_t align = bus_gvariant_get_alignment(t);
-                        assert(align > 0);
+                /* The possible start of this member after including alignment */
+                size_t start = ALIGN_TO(previous, align);
 
-                        /* The possible start of this member after including alignment */
-                        size_t start = ALIGN_TO(previous, align);
+                if (length > 0) {
+                        /* Fixed size */
+                        offset = start + length;
+                } else {
+                        size_t x;
 
-                        k = bus_gvariant_get_size(t);
-                        if (k < 0) {
-                                size_t x;
+                        /* Variable size */
+                        if (v > 0) {
+                                v--;
 
-                                /* Variable size */
-                                if (v > 0) {
-                                        v--;
-
-                                        x = bus_gvariant_read_word_le((uint8_t*) q + v*sz, sz);
-                                        if (x >= size)
-                                                return -EBADMSG;
-                                } else
-                                        /* The last item's end is determined
-                                         * from the start of the offset array */
-                                        x = size - (n_variable * sz);
-
-                                offset = m->rindex + x;
-                                if (offset < start)
-                                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                               "For type %s with alignment %zu, message specifies offset %zu which is smaller than previous end %zu + alignment = %zu",
-                                                               t, align,
-                                                               offset,
-                                                               previous,
-                                                               start);
+                                x = bus_gvariant_read_word_le((uint8_t*) q + v*sz, sz);
+                                if (x >= size)
+                                        return -EBADMSG;
                         } else
-                                /* Fixed size */
-                                offset = start + k;
+                                /* The last item's end is determined
+                                 * from the start of the offset array */
+                                x = size - (n_variable * sz);
+
+                        offset = m->rindex + x;
+                        if (offset < start)
+                                return log_debug_errno(
+                                                SYNTHETIC_ERRNO(EBADMSG),
+                                                "For type %.*s with alignment %d, message specifies offset %zu which is smaller than previous end %zu + alignment = %zu",
+                                                n, p, align,
+                                                offset, previous, start);
                 }
 
                 previous = (*offsets)[(*n_offsets)++] = offset;
