@@ -3821,22 +3821,13 @@ static int build_struct_offsets(
         p = signature;
         while (*p != 0) {
                 int n;
+                bool fixed_size;
 
-                n = signature_element_length(p);
+                n = signature_element_length_full(p, &fixed_size);
                 if (n < 0)
                         return n;
-                else {
-                        char t[n+1];
 
-                        memcpy(t, p, n);
-                        t[n] = 0;
-
-                        r = bus_gvariant_is_fixed_size(t);
-                }
-
-                if (r < 0)
-                        return r;
-                if (r == 0 && p[n] != 0) /* except the last item */
+                if (!fixed_size && p[n] != 0) /* except the last item */
                         n_variable++;
                 n_total++;
 

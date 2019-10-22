@@ -179,56 +179,17 @@ int bus_gvariant_get_alignment(const char *signature) {
 }
 
 int bus_gvariant_is_fixed_size(const char *signature) {
-        const char *p;
-        int r;
-
         assert(signature);
 
-        p = signature;
-        while (*p != 0) {
+        for (const char *p = signature; *p; ) {
                 int n;
+                bool fixed;
 
-                n = signature_element_length(p);
+                n = signature_element_length_full(p, &fixed);
                 if (n < 0)
                         return n;
-
-                switch (*p) {
-
-                case SD_BUS_TYPE_STRING:
-                case SD_BUS_TYPE_OBJECT_PATH:
-                case SD_BUS_TYPE_SIGNATURE:
-                case SD_BUS_TYPE_ARRAY:
-                case SD_BUS_TYPE_VARIANT:
-                        return 0;
-
-                case SD_BUS_TYPE_BYTE:
-                case SD_BUS_TYPE_BOOLEAN:
-                case SD_BUS_TYPE_INT16:
-                case SD_BUS_TYPE_UINT16:
-                case SD_BUS_TYPE_INT32:
-                case SD_BUS_TYPE_UINT32:
-                case SD_BUS_TYPE_UNIX_FD:
-                case SD_BUS_TYPE_INT64:
-                case SD_BUS_TYPE_UINT64:
-                case SD_BUS_TYPE_DOUBLE:
-                        break;
-
-                case SD_BUS_TYPE_STRUCT_BEGIN:
-                case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
-                        char t[n-1];
-
-                        memcpy(t, p + 1, n - 2);
-                        t[n - 2] = 0;
-
-                        r = bus_gvariant_is_fixed_size(t);
-                        if (r <= 0)
-                                return r;
-                        break;
-                }
-
-                default:
-                        assert_not_reached("Unknown signature type");
-                }
+                if (!fixed)
+                        return false;
 
                 p += n;
         }

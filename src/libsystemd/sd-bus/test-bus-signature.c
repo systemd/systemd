@@ -164,33 +164,60 @@ static void test_object_path_prefix(void) {
 }
 
 static void test_signature_element_length(void) {
+        bool fixed;
+
         assert_se(signature_element_length(NULL) == -EINVAL);
         assert_se(signature_element_length("") == -EINVAL);
+        assert_se(signature_element_length_full(NULL, NULL) == -EINVAL);
+        assert_se(signature_element_length_full("", NULL) == -EINVAL);
 
-        const char *s = "ybnqiuxtdsogh";
+        const char *s = "ybnqiuxtdh";
         assert(signature_element_length(s) == 1);
 
         assert_se(signature_element_length("()") == -EINVAL);
-        assert_se(signature_element_length("(x)") == 3);
+        assert_se(signature_element_length_full("(x)", &fixed) == 3);
+        assert_se(fixed);
 
         for (const char *p = s; *p; p++) {
                 char sig[2] = {*p};
-                assert_se(signature_element_length(sig) == 1);
+                assert_se(signature_element_length_full(sig, &fixed) == 1);
+                assert_se(fixed);
 
                 char sig2[3] = {*p, *p};
-                assert_se(signature_element_length(sig2) == 1);
+                assert_se(signature_element_length_full(sig2, &fixed) == 1);
+                assert_se(fixed);
 
                 char sig3[3] = {'(', *p, ')'};
-                assert_se(signature_element_length(sig3) == 3);
+                assert_se(signature_element_length_full(sig3, &fixed) == 3);
+                assert_se(fixed);
         }
 
         s = "a((((((((((((((b))))))))))))))";
-        assert(signature_element_length(s) == 30);
+        assert(signature_element_length_full(s, &fixed) == 30);
+        assert(!fixed);
 
         s = "(((((((((((((((b)))))))))))))))x";
-        assert_se(signature_element_length(s) == 31);
+        assert_se(signature_element_length_full(s, &fixed) == 31);
+        assert(fixed);
         s = "x(((((((((((((((b)))))))))))))))";
-        assert_se(signature_element_length(s) == 1);
+        assert_se(signature_element_length_full(s, &fixed) == 1);
+        assert(fixed);
+
+        s = "a(usv)";
+        assert(signature_element_length_full(s, &fixed) == 6);
+        assert(!fixed);
+
+        s = "{ix}";
+        assert_se(signature_element_length_full(s, &fixed) == 4);
+        assert_se(!fixed);
+
+        s = "{sv}";
+        assert_se(signature_element_length_full(s, &fixed) == 4);
+        assert_se(!fixed);
+
+        s = "a{sv}";
+        assert_se(signature_element_length_full(s, &fixed) == 5);
+        assert(!fixed);
 
         assert_se(signature_element_length("(((((((((((((((b))))))))))))))") == -EINVAL);
         assert_se(signature_element_length("((((((((((((((b))))))))))))))X") == 29);
