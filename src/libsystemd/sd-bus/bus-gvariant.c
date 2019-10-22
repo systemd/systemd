@@ -17,11 +17,11 @@ int bus_gvariant_get_size(const char *signature) {
 
         p = signature;
         while (*p != 0) {
-                size_t n;
+                int n;
 
-                r = signature_element_length(p, &n);
-                if (r < 0)
-                        return r;
+                n = signature_element_length(p);
+                if (n < 0)
+                        return n;
                 else {
                         char t[n+1];
 
@@ -103,16 +103,14 @@ int bus_gvariant_get_size(const char *signature) {
 int bus_gvariant_get_alignment(const char *signature) {
         size_t alignment = 1;
         const char *p;
-        int r;
 
         p = signature;
         while (*p != 0 && alignment < 8) {
-                size_t n;
-                int a;
+                int a, n;
 
-                r = signature_element_length(p, &n);
-                if (r < 0)
-                        return r;
+                n = signature_element_length(p);
+                if (n < 0)
+                        return n;
 
                 switch (*p) {
 
@@ -188,11 +186,11 @@ int bus_gvariant_is_fixed_size(const char *signature) {
 
         p = signature;
         while (*p != 0) {
-                size_t n;
+                int n;
 
-                r = signature_element_length(p, &n);
-                if (r < 0)
-                        return r;
+                n = signature_element_length(p);
+                if (n < 0)
+                        return n;
 
                 switch (*p) {
 
