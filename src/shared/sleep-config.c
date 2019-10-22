@@ -316,7 +316,7 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
         f = fopen("/proc/swaps", "re");
         if (!f) {
                 log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
-                         "Failed to retrieve open /proc/swaps: %m");
+                         "Failed to open /proc/swaps: %m");
                 return negative_errno();
         }
 
