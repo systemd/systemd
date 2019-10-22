@@ -10,30 +10,18 @@
 #include "bus-type.h"
 
 int bus_gvariant_get_size(const char *signature) {
-        const char *p;
         int sum = 0, r;
 
         /* For fixed size structs. Fails for variable size structs. */
 
-        p = signature;
-        while (*p != 0) {
-                int n;
+        for (const char *p = signature; *p; ) {
+                int n, alignment;
 
-                n = signature_element_length(p);
+                n = signature_element_length_full(p, NULL, &alignment);
                 if (n < 0)
                         return n;
-                else {
-                        char t[n+1];
 
-                        memcpy(t, p, n);
-                        t[n] = 0;
-
-                        r = bus_gvariant_get_alignment(t);
-                        if (r < 0)
-                                return r;
-
-                        sum = ALIGN_TO(sum, r);
-                }
+                sum = ALIGN_TO(sum, alignment);
 
                 switch (*p) {
 
