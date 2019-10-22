@@ -489,7 +489,7 @@ static void test_memory_deny_write_execute_mmap(void) {
                 assert_se(seccomp_memory_deny_write_execute() >= 0);
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
-#if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || defined(__aarch64__)
+#if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || defined(__aarch64__) || defined(__s390__) || defined(__s390x__)
                 assert_se(p == MAP_FAILED);
                 assert_se(errno == EPERM);
 #else /* unknown architectures */
