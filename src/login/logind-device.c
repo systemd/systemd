@@ -91,14 +91,13 @@ void device_attach(Device *d, Seat *s) {
 
         if (d->master || !s->devices)
                 LIST_PREPEND(devices, s->devices, d);
-        else {
+        else
                 LIST_FOREACH(devices, i, s->devices) {
                         if (!i->devices_next || !i->master) {
                                 LIST_INSERT_AFTER(devices, s->devices, i, d);
                                 break;
                         }
                 }
-        }
 
         if (!had_master && d->master && s->started) {
                 seat_save(s);

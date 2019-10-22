@@ -163,7 +163,6 @@ int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, 
         User *user;
 
         assert(m);
-        assert(message);
         assert(ret);
 
         if (!uid_is_valid(uid))
@@ -189,7 +188,6 @@ int manager_get_seat_from_creds(
         int r;
 
         assert(m);
-        assert(message);
         assert(ret);
 
         if (SEAT_IS_SELF(name) || SEAT_IS_AUTO(name)) {
