@@ -3823,7 +3823,7 @@ static int build_struct_offsets(
                 int n;
                 bool fixed_size;
 
-                n = signature_element_length_full(p, &fixed_size, NULL);
+                n = signature_element_length_full(p, &fixed_size, NULL, NULL);
                 if (n < 0)
                         return n;
 

@@ -165,68 +165,80 @@ static void test_object_path_prefix(void) {
 
 static void test_signature_element_length(void) {
         bool fixed;
-        int align;
+        int align, size;
 
         assert_se(signature_element_length(NULL) == -EINVAL);
         assert_se(signature_element_length("") == -EINVAL);
-        assert_se(signature_element_length_full(NULL, NULL, NULL) == -EINVAL);
-        assert_se(signature_element_length_full("", NULL, NULL) == -EINVAL);
+        assert_se(signature_element_length_full(NULL, NULL, NULL, NULL) == -EINVAL);
+        assert_se(signature_element_length_full("", NULL, NULL, NULL) == -EINVAL);
 
         const char *s = "ybnqiuxtdh";
         assert(signature_element_length(s) == 1);
 
         assert_se(signature_element_length("()") == -EINVAL);
-        assert_se(signature_element_length_full("(x)", &fixed, &align) == 3);
+        assert_se(signature_element_length_full("(x)", &fixed, &align, &size) == 3);
         assert_se(fixed);
         assert_se(align == 8);
+        assert_se(size == 8);
 
         for (const char *p = s; *p; p++) {
+                int size2;
+
                 char sig[2] = {*p};
-                assert_se(signature_element_length_full(sig, &fixed, &align) == 1);
+                assert_se(signature_element_length_full(sig, &fixed, &align, &size) == 1);
                 assert_se(fixed);
 
                 char sig2[3] = {*p, *p};
-                assert_se(signature_element_length_full(sig2, &fixed, NULL) == 1);
+                assert_se(signature_element_length_full(sig2, &fixed, NULL, &size2) == 1);
                 assert_se(fixed);
+                assert_se(size == size2);
 
                 char sig3[3] = {'(', *p, ')'};
-                assert_se(signature_element_length_full(sig3, &fixed, NULL) == 3);
+                assert_se(signature_element_length_full(sig3, &fixed, NULL, &size2) == 3);
                 assert_se(fixed);
+                assert_se(size == size2);
         }
 
         s = "a((((((((((((((b))))))))))))))";
-        assert(signature_element_length_full(s, &fixed, &align) == 30);
+        assert(signature_element_length_full(s, &fixed, &align, &size) == 30);
         assert(!fixed);
         assert(align == 1);
+        assert_se(size == -EINVAL);
 
         s = "(((((((((((((((b)))))))))))))))x";
-        assert_se(signature_element_length_full(s, &fixed, &align) == 31);
+        assert_se(signature_element_length_full(s, &fixed, &align, &size) == 31);
         assert(fixed);
         assert(align == 1);
+        assert_se(size == 1);
         s = "x(((((((((((((((b)))))))))))))))";
-        assert_se(signature_element_length_full(s, &fixed, &align) == 1);
+        assert_se(signature_element_length_full(s, &fixed, &align, &size) == 1);
         assert(fixed);
         assert(align == 8);
+        assert_se(size == 8);
 
         s = "a(usv)";
-        assert(signature_element_length_full(s, &fixed, &align) == 6);
+        assert(signature_element_length_full(s, &fixed, &align, &size) == 6);
         assert(!fixed);
         assert(align == 8);
+        assert_se(size == -EINVAL);
 
         s = "{ix}";
-        assert_se(signature_element_length_full(s, &fixed, &align) == 4);
+        assert_se(signature_element_length_full(s, &fixed, &align, &size) == 4);
         assert_se(!fixed);
         assert(align == 8);
+        assert_se(size == 16);
 
         s = "{sv}";
-        assert_se(signature_element_length_full(s, &fixed, &align) == 4);
+        assert_se(signature_element_length_full(s, &fixed, &align, &size) == 4);
         assert_se(!fixed);
         assert(align == 8);
+        assert_se(size == -EINVAL);
 
         s = "a{sv}";
-        assert_se(signature_element_length_full(s, &fixed, &align) == 5);
+        assert_se(signature_element_length_full(s, &fixed, &align, &size) == 5);
         assert(!fixed);
         assert(align == 8);
+        assert_se(size == -EINVAL);
 
         assert_se(signature_element_length("(((((((((((((((b))))))))))))))") == -EINVAL);
         assert_se(signature_element_length("((((((((((((((b))))))))))))))X") == 29);
