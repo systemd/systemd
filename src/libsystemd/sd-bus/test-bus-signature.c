@@ -163,6 +163,54 @@ static void test_object_path_prefix(void) {
         assert_se(r == 3);
 }
 
+static void test_signature_element_length(void) {
+        size_t l;
+
+        assert_se(signature_element_length(NULL, &l) == -EINVAL);
+        assert_se(signature_element_length("", &l) == -EINVAL);
+
+        const char *s = "ybnqiuxtdsogh";
+        assert(signature_element_length(s, &l) == 0);
+
+        assert_se(signature_element_length("()", &l) == -EINVAL);
+        assert_se(signature_element_length("(x)", &l) == 0);
+        assert_se(l == 3);
+
+        for (const char *p = s; *p; p++) {
+                char sig[2] = {*p};
+                assert_se(signature_element_length(sig, &l) == 0);
+                assert_se(l == 1);
+
+                char sig2[3] = {*p, *p};
+                assert_se(signature_element_length(sig2, &l) == 0);
+                assert_se(l == 1);
+
+                char sig3[3] = {'(', *p, ')'};
+                assert_se(signature_element_length(sig3, &l) == 0);
+                assert_se(l == 3);
+        }
+
+        s = "a((((((((((((((b))))))))))))))";
+        assert(signature_element_length(s, &l) == 0);
+
+        s = "(((((((((((((((b)))))))))))))))x";
+        assert_se(signature_element_length(s, &l) == 0);
+        s = "x(((((((((((((((b)))))))))))))))";
+        assert_se(signature_element_length(s, &l) == 0);
+
+        assert_se(signature_element_length("(((((((((((((((b))))))))))))))", &l) == -EINVAL);
+        assert_se(signature_element_length("((((((((((((((b))))))))))))))X", &l) == 0);
+        assert_se(l == 29);
+
+        s = "a{sv}";
+        assert_se(signature_element_length(s, &l) == 0);
+        assert_se(l == 5);
+
+        s = "a(sss)";
+        assert_se(signature_element_length(s, &l) == 0);
+        assert_se(l == 6);
+}
+
 int main(int argc, char **argv) {
         test_setup_logging(LOG_INFO);
 
@@ -171,6 +219,7 @@ int main(int argc, char **argv) {
         test_namespace_pattern();
         test_object_path();
         test_object_path_prefix();
+        test_signature_element_length();
 
         return 0;
 }
