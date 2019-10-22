@@ -56,6 +56,7 @@ int read_full_file_full(const char *filename, ReadFullFileFlags flags, char **co
 static inline int read_full_file(const char *filename, char **contents, size_t *size) {
         return read_full_file_full(filename, 0, contents, size);
 }
+int read_full_virtual_file(const char *filename, char **ret_contents, size_t *ret_size);
 int read_full_stream_full(FILE *f, const char *filename, ReadFullFileFlags flags, char **contents, size_t *size);
 static inline int read_full_stream(FILE *f, char **contents, size_t *size) {
         return read_full_stream_full(f, NULL, 0, contents, size);
