@@ -310,6 +310,113 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         return 1;
 }
 
+int read_full_virtual_file(const char *filename, char **ret_contents, size_t *ret_size) {
+        _cleanup_free_ char *buf = NULL;
+        _cleanup_close_ int fd = -1;
+        struct stat st;
+        size_t n, size;
+        int n_retries;
+        char *p;
+
+        assert(ret_contents);
+
+        /* Virtual filesystems such as sysfs or procfs use kernfs, and kernfs can work
+         * with two sorts of virtual files. One sort uses "seq_file", and the results of
+         * the first read are buffered for the second read. The other sort uses "raw"
+         * reads which always go direct to the device. In the latter case, the content of
+         * the virtual file must be retrieved with a single read otherwise a second read
+         * might get the new value instead of finding EOF immediately. That's the reason
+         * why the usage of fread(3) is prohibited in this case as it always performs a
+         * second call to read(2) looking for EOF. See issue 13585. */
+
+        fd = open(filename, O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        /* Start size for files in /proc which usually report a file size of 0. */
+        size = LINE_MAX / 2;
+
+        /* Limit the number of attempts to read the number of bytes returned by fstat(). */
+        n_retries = 3;
+
+        for (;;) {
+                if (n_retries <= 0)
+                        return -EIO;
+
+                if (fstat(fd, &st) < 0)
+                        return -errno;
+
+                if (!S_ISREG(st.st_mode))
+                        return -EBADF;
+
+                /* Be prepared for files from /proc which generally report a file size of 0. */
+                if (st.st_size > 0) {
+                        size = st.st_size;
+                        n_retries--;
+                } else
+                        size = size * 2;
+
+                if (size > READ_FULL_BYTES_MAX)
+                        return -E2BIG;
+
+                p = realloc(buf, size + 1);
+                if (!p)
+                        return -ENOMEM;
+                buf = TAKE_PTR(p);
+
+                for (;;) {
+                        ssize_t k;
+
+                        /* Read one more byte so we can detect whether the content of the
+                         * file has already changed or the guessed size for files from /proc
+                         * wasn't large enough . */
+                        k = read(fd, buf, size + 1);
+                        if (k >= 0) {
+                                n = k;
+                                break;
+                        }
+
+                        if (errno != -EINTR)
+                                return -errno;
+                }
+
+                /* Consider a short read as EOF */
+                if (n <= size)
+                        break;
+
+                /* Hmm... either we read too few bytes from /proc or less likely the content
+                 * of the file might have been changed (and is now bigger) while we were
+                 * processing, let's try again either with a bigger guessed size or the new
+                 * file size. */
+
+                if (lseek(fd, 0, SEEK_SET) < 0)
+                        return -errno;
+        }
+
+        if (n < size) {
+                p = realloc(buf, n + 1);
+                if (!p)
+                        return -ENOMEM;
+                buf = TAKE_PTR(p);
+        }
+
+        if (!ret_size) {
+                /* Safety check: if the caller doesn't want to know the size of what we
+                 * just read it will rely on the trailing NUL byte. But if there's an
+                 * embedded NUL byte, then we should refuse operation as otherwise
+                 * there'd be ambiguity about what we just read. */
+
+                if (memchr(buf, 0, n))
+                        return -EBADMSG;
+        } else
+                *ret_size = n;
+
+        buf[n] = 0;
+        *ret_contents = TAKE_PTR(buf);
+
+        return 0;
+}
+
 int read_full_stream_full(
                 FILE *f,
                 const char *filename,
@@ -342,9 +449,9 @@ int read_full_stream_full(
                         if (st.st_size > READ_FULL_BYTES_MAX)
                                 return -E2BIG;
 
-                        /* Start with the right file size, but be prepared for files from /proc which generally report a file
-                         * size of 0. Note that we increase the size to read here by one, so that the first read attempt
-                         * already makes us notice the EOF. */
+                        /* Start with the right file size. Note that we increase the size
+                         * to read here by one, so that the first read attempt already
+                         * makes us notice the EOF. */
                         if (st.st_size > 0)
                                 n_next = st.st_size + 1;
 
@@ -502,7 +609,7 @@ int get_proc_field(const char *filename, const char *pattern, const char *termin
         assert(pattern);
         assert(field);
 
-        r = read_full_file(filename, &status, NULL);
+        r = read_full_virtual_file(filename, &status, NULL);
         if (r < 0)
                 return r;
 
