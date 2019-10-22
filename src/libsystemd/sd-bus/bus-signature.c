@@ -5,12 +5,46 @@
 #include "bus-signature.h"
 #include "bus-type.h"
 
+static int element_alignment(const char element) {
+        switch (element) {
+        case SD_BUS_TYPE_BYTE:
+        case SD_BUS_TYPE_BOOLEAN:
+        case SD_BUS_TYPE_STRING:
+        case SD_BUS_TYPE_OBJECT_PATH:
+        case SD_BUS_TYPE_SIGNATURE:
+                return 1;
+
+        case SD_BUS_TYPE_INT16:
+        case SD_BUS_TYPE_UINT16:
+                return 2;
+
+        case SD_BUS_TYPE_INT32:
+        case SD_BUS_TYPE_UINT32:
+        case SD_BUS_TYPE_UNIX_FD:
+                return 4;
+
+        case SD_BUS_TYPE_INT64:
+        case SD_BUS_TYPE_UINT64:
+        case SD_BUS_TYPE_DOUBLE:
+        case SD_BUS_TYPE_VARIANT:
+                return 8;
+
+        case SD_BUS_TYPE_ARRAY:
+        case SD_BUS_TYPE_STRUCT_BEGIN:
+        case SD_BUS_TYPE_DICT_ENTRY_BEGIN:
+                return 0; /* variable */
+        default:
+                assert_not_reached("Unknown signature type");
+        }
+}
+
 static int signature_element_length_internal(
                 const char *s,
                 bool allow_dict_entry,
                 unsigned array_depth,
                 unsigned struct_depth,
-                bool *fixed_size) {
+                bool *fixed_size,
+                int *alignment) {
 
         int r;
 
@@ -20,12 +54,16 @@ static int signature_element_length_internal(
         if (bus_type_is_basic(*s)) {
                 if (fixed_size)
                         *fixed_size = !IN_SET(*s, SD_BUS_TYPE_STRING, SD_BUS_TYPE_OBJECT_PATH, SD_BUS_TYPE_SIGNATURE);
+                if (alignment)
+                        *alignment = element_alignment(*s);
                 return 1;
         }
 
         if (*s == SD_BUS_TYPE_VARIANT) {
                 if (fixed_size)
                         *fixed_size = false;
+                if (alignment)
+                        *alignment = element_alignment(*s);
                 return 1;
         }
 
@@ -33,7 +71,7 @@ static int signature_element_length_internal(
                 if (array_depth >= 32)
                         return -EINVAL;
 
-                r = signature_element_length_internal(s + 1, true, array_depth+1, struct_depth, NULL);
+                r = signature_element_length_internal(s + 1, true, array_depth+1, struct_depth, NULL, alignment);
                 if (r < 0)
                         return r;
                 if (fixed_size)
@@ -44,19 +82,23 @@ static int signature_element_length_internal(
         if (*s == SD_BUS_TYPE_STRUCT_BEGIN) {
                 const char *p = s + 1;
                 bool fixed_size_nested = true;
+                int alignment_nested = 1;
 
                 if (struct_depth >= 32)
                         return -EINVAL;
 
                 while (*p != SD_BUS_TYPE_STRUCT_END) {
                         bool fixed_size_elem;
+                        int alignment_elem;
 
-                        r = signature_element_length_internal(p, false, array_depth, struct_depth+1, &fixed_size_elem);
+                        r = signature_element_length_internal(p, false, array_depth, struct_depth+1,
+                                                              &fixed_size_elem, &alignment_elem);
                         if (r < 0)
                                 return r;
                         p += r;
                         if (!fixed_size_elem)
                                 fixed_size_nested = false;
+                        alignment_nested = MAX(alignment_nested, alignment_elem);
                 }
 
                 if (p - s < 2)
@@ -67,25 +109,31 @@ static int signature_element_length_internal(
 
                 if (fixed_size)
                         *fixed_size = fixed_size_nested;
+                if (alignment)
+                        *alignment = alignment_nested;
                 return p - s + 1;
         }
 
         if (*s == SD_BUS_TYPE_DICT_ENTRY_BEGIN && allow_dict_entry) {
                 const char *p = s + 1;
                 unsigned n = 0;
+                int alignment_nested = 1;
 
                 if (struct_depth >= 32)
                         return -EINVAL;
 
                 while (*p != SD_BUS_TYPE_DICT_ENTRY_END) {
+                        int alignment_elem;
+
                         if (n == 0 && !bus_type_is_basic(*p))
                                 return -EINVAL;
 
-                        r = signature_element_length_internal(p, false, array_depth, struct_depth+1, NULL);
+                        r = signature_element_length_internal(p, false, array_depth, struct_depth+1, NULL, &alignment_elem);
                         if (r < 0)
                                 return r;
                         p += r;
                         n++;
+                        alignment_nested = MAX(alignment_nested, alignment_elem);
                 }
 
                 if (n != 2)
@@ -93,20 +141,22 @@ static int signature_element_length_internal(
 
                 if (fixed_size)
                         *fixed_size = false;
+                if (alignment)
+                        *alignment = alignment_nested;
                 return p - s + 1;
         }
 
         return -EINVAL;
 }
 
-int signature_element_length_full(const char *s, bool *fixed_size) {
-        return signature_element_length_internal(s, true, 0, 0, fixed_size);
+int signature_element_length_full(const char *s, bool *fixed_size, int *alignment) {
+        return signature_element_length_internal(s, true, 0, 0, fixed_size, alignment);
 }
 
 bool signature_is_single(const char *s, bool allow_dict_entry) {
         int r;
 
-        r = signature_element_length_internal(s, allow_dict_entry, 0, 0, NULL);
+        r = signature_element_length_internal(s, allow_dict_entry, 0, 0, NULL, NULL);
         if (r < 0)
                 return false;
 
@@ -131,7 +181,7 @@ bool signature_is_valid(const char *s, bool allow_dict_entry) {
                 return false;
 
         for (p = s; *p; p += r) {
-                r = signature_element_length_internal(p, allow_dict_entry, 0, 0, NULL);
+                r = signature_element_length_internal(p, allow_dict_entry, 0, 0, NULL, NULL);
                 if (r < 0)
                         return false;
         }
