@@ -349,6 +349,15 @@ static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
         return 0;
 }
 
+static void acquire_ether_link_info(int *fd, LinkInfo *link) {
+        if (ethtool_get_link_info(fd, link->name,
+                                  &link->autonegotiation,
+                                  &link->speed,
+                                  &link->duplex,
+                                  &link->port) >= 0)
+                link->has_ethtool_link_info = true;
+}
+
 static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
@@ -382,11 +391,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
                 if (r == 0)
                         continue;
 
-                r = ethtool_get_link_info(&fd, links[c].name,
-                                          &links[c].autonegotiation, &links[c].speed,
-                                          &links[c].duplex, &links[c].port);
-                if (r >= 0)
-                        links[c].has_ethtool_link_info = true;
+                acquire_ether_link_info(&fd, &links[c]);
 
                 c++;
         }
