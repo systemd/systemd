@@ -76,11 +76,12 @@ static char *link_get_type_string(unsigned short iftype, sd_device *d) {
         return p;
 }
 
-static void operational_state_to_color(const char *state, const char **on, const char **off) {
+static void operational_state_to_color(const char *name, const char *state, const char **on, const char **off) {
         assert(on);
         assert(off);
 
-        if (STRPTR_IN_SET(state, "routable", "enslaved")) {
+        if (STRPTR_IN_SET(state, "routable", "enslaved") ||
+            (streq_ptr(name, "lo") && streq_ptr(state, "carrier"))) {
                 *on = ansi_highlight_green();
                 *off = ansi_normal();
         } else if (streq_ptr(state, "degraded")) {
@@ -442,7 +443,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *t = NULL;
 
                 (void) sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
-                operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
+                operational_state_to_color(links[i].name, operational_state, &on_color_operational, &off_color_operational);
 
                 r = sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
                 if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
@@ -1013,7 +1014,7 @@ static int link_status_one(
         assert(info);
 
         (void) sd_network_link_get_operational_state(info->ifindex, &operational_state);
-        operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
+        operational_state_to_color(info->name, operational_state, &on_color_operational, &off_color_operational);
 
         r = sd_network_link_get_setup_state(info->ifindex, &setup_state);
         if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
@@ -1368,7 +1369,7 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         assert(rtnl);
 
         (void) sd_network_get_operational_state(&operational_state);
-        operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
+        operational_state_to_color(NULL, operational_state, &on_color_operational, &off_color_operational);
 
         table = table_new("dot", "key", "value");
         if (!table)
