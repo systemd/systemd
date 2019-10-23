@@ -1832,6 +1832,51 @@ static int verb_reload(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_reconfigure(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_set_free_ Set *indexes = NULL;
+        int index, i, r;
+        Iterator j;
+        void *p;
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
+
+        indexes = set_new(NULL);
+        if (!indexes)
+                return log_oom();
+
+        for (i = 1; i < argc; i++) {
+                r = parse_ifindex_or_ifname(argv[i], &index);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
+
+                r = set_put(indexes, INT_TO_PTR(index));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        SET_FOREACH(p, indexes, j) {
+                index = PTR_TO_INT(p);
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.network1",
+                                "/org/freedesktop/network1",
+                                "org.freedesktop.network1.Manager",
+                                "ReconfigureLink",
+                                &error, NULL, "i", index);
+                if (r < 0) {
+                        char ifname[IF_NAMESIZE + 1];
+
+                        return log_error_errno(r, "Failed to reconfigure network interface %s: %m", format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
+                }
+        }
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1843,20 +1888,21 @@ static int help(void) {
         printf("%s%s [OPTIONS...]\n\n"
                "Query and control the networking subsystem.%s\n"
                "\nCommands:\n"
-               "  list [PATTERN...]     List links\n"
-               "  status [PATTERN...]   Show link status\n"
-               "  lldp [PATTERN...]     Show LLDP neighbors\n"
-               "  label                 Show current address label entries in the kernel\n"
-               "  delete DEVICES...     Delete virtual netdevs\n"
-               "  renew DEVICES...      Renew dynamic configurations\n"
-               "  reload                Reload .network and .netdev files\n"
+               "  list [PATTERN...]      List links\n"
+               "  status [PATTERN...]    Show link status\n"
+               "  lldp [PATTERN...]      Show LLDP neighbors\n"
+               "  label                  Show current address label entries in the kernel\n"
+               "  delete DEVICES...      Delete virtual netdevs\n"
+               "  renew DEVICES...       Renew dynamic configurations\n"
+               "  reconfigure DEVICES... Reconfigure interfaces\n"
+               "  reload                 Reload .network and .netdev files\n"
                "\nOptions\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "     --no-pager         Do not pipe output into a pager\n"
-               "     --no-legend        Do not show the headers and footers\n"
-               "  -a --all              Show status for all links\n"
-               "  -s --stats            Show detailed link statics\n"
+               "  -h --help              Show this help\n"
+               "     --version           Show package version\n"
+               "     --no-pager          Do not pipe output into a pager\n"
+               "     --no-legend         Do not show the headers and footers\n"
+               "  -a --all               Show status for all links\n"
+               "  -s --stats             Show detailed link statics\n"
                "\nSee the %s for details.\n"
                , ansi_highlight()
                , program_invocation_short_name
@@ -1929,13 +1975,14 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int networkctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "list",   VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
-                { "status", VERB_ANY, VERB_ANY, 0,            link_status         },
-                { "lldp",   VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
-                { "label",  VERB_ANY, VERB_ANY, 0,            list_address_labels },
-                { "delete", 2,        VERB_ANY, 0,            link_delete         },
-                { "renew",  2,        VERB_ANY, 0,            link_renew          },
-                { "reload", 1,        1,        0,            verb_reload         },
+                { "list",        VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
+                { "status",      VERB_ANY, VERB_ANY, 0,            link_status         },
+                { "lldp",        VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
+                { "label",       VERB_ANY, VERB_ANY, 0,            list_address_labels },
+                { "delete",      2,        VERB_ANY, 0,            link_delete         },
+                { "renew",       2,        VERB_ANY, 0,            link_renew          },
+                { "reconfigure", 2,        VERB_ANY, 0,            verb_reconfigure    },
+                { "reload",      1,        1,        0,            verb_reload         },
                 {}
         };
 
