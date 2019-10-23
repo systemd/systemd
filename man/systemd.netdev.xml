@@ -2019,6 +2019,16 @@ Remote=10.65.223.239</programlisting>
     </example>
 
     <example>
+      <title>/etc/systemd/network/25-ip6gre.netdev</title>
+      <programlisting>[NetDev]
+Name=ip6gre-tun
+Kind=ip6gre
+
+[Tunnel]
+Key=123</programlisting>
+    </example>
+
+    <example>
       <title>/etc/systemd/network/25-vti.netdev</title>
 
       <programlisting>[NetDev]

@@ -226,6 +226,10 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
 }
 
 static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        uint32_t ikey = 0;
+        uint32_t okey = 0;
+        uint16_t iflags = 0;
+        uint16_t oflags = 0;
         Tunnel *t;
         int r;
 
@@ -266,6 +270,38 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
         r = sd_netlink_message_append_u32(m, IFLA_GRE_FLAGS, t->flags);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_FLAGS attribute: %m");
+
+        if (t->key != 0) {
+                ikey = okey = htobe32(t->key);
+                iflags |= GRE_KEY;
+                oflags |= GRE_KEY;
+        }
+
+        if (t->ikey != 0) {
+                ikey = htobe32(t->ikey);
+                iflags |= GRE_KEY;
+        }
+
+        if (t->okey != 0) {
+                okey = htobe32(t->okey);
+                oflags |= GRE_KEY;
+        }
+
+        r = sd_netlink_message_append_u32(m, IFLA_GRE_IKEY, ikey);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_IKEY attribute: %m");
+
+        r = sd_netlink_message_append_u32(m, IFLA_GRE_OKEY, okey);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_OKEY attribute: %m");
+
+        r = sd_netlink_message_append_u16(m, IFLA_GRE_IFLAGS, iflags);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_IFLAGS attribute: %m");
+
+        r = sd_netlink_message_append_u16(m, IFLA_GRE_OFLAGS, oflags);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_OFLAGS, attribute: %m");
 
         return r;
 }
