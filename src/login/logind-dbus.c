@@ -1294,6 +1294,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
 
 static int trigger_device(Manager *m, sd_device *d) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_(sd_device_trigger_unrefp) sd_device_trigger *t = NULL;
         int r;
 
         assert(m);
@@ -1312,20 +1313,19 @@ static int trigger_device(Manager *m, sd_device *d) {
                         return r;
         }
 
-        FOREACH_DEVICE(e, d) {
-                _cleanup_free_ char *t = NULL;
-                const char *p;
+        r = sd_device_trigger_new(&t);
+        if (r < 0)
+                return r;
 
-                r = sd_device_get_syspath(d, &p);
-                if (r < 0)
-                        return r;
+        r = sd_device_trigger_add_enumerator(t, e);
+        if (r < 0)
+                return r;
 
-                t = path_join(p, "uevent");
-                if (!t)
-                        return -ENOMEM;
+        r = sd_device_trigger_set_source(t, "SDLOGIND");
+        if (r < 0)
+                return r;
 
-                (void) write_string_file(t, "change", WRITE_STRING_FILE_DISABLE_BUFFER);
-        }
+        (void) sd_device_trigger_execute(t);
 
         return 0;
 }
