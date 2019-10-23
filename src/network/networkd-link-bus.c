@@ -604,6 +604,29 @@ int bus_link_method_renew(sd_bus_message *message, void *userdata, sd_bus_error 
         return sd_bus_reply_method_return(message, NULL);
 }
 
+int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = userdata;
+        int r;
+
+        assert(message);
+        assert(l);
+
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.network1.reconfigure",
+                                    NULL, true, UID_INVALID,
+                                    &l->manager->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
+        r = link_reconfigure(l, true);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -625,6 +648,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_METHOD("RevertNTP", NULL, NULL, bus_link_method_revert_ntp, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RevertDNS", NULL, NULL, bus_link_method_revert_dns, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Renew", NULL, NULL, bus_link_method_renew, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Reconfigure", NULL, NULL, bus_link_method_reconfigure, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };
