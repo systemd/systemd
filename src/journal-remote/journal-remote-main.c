@@ -266,7 +266,6 @@ static int request_handler(
         int r, code, fd;
         _cleanup_free_ char *hostname = NULL;
         bool chunked = false;
-        size_t len;
 
         assert(connection);
         assert(connection_cls);
@@ -302,6 +301,8 @@ static int request_handler(
 
         header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Length");
         if (header) {
+                size_t len;
+
                 if (chunked)
                         return mhd_respond(connection, MHD_HTTP_BAD_REQUEST,
                                            "Content-Length must not specified when Transfer-Encoding type is 'chuncked'");

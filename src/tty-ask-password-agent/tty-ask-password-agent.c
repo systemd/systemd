@@ -337,7 +337,7 @@ static int process_and_watch_password_files(bool watch) {
         };
 
         _cleanup_close_ int notify = -1, signal_fd = -1, tty_block_fd = -1;
-        struct pollfd pollfd[_FD_MAX] = {};
+        struct pollfd pollfd[_FD_MAX];
         sigset_t mask;
         int r;
 
@@ -354,8 +354,7 @@ static int process_and_watch_password_files(bool watch) {
                 if (signal_fd < 0)
                         return log_error_errno(errno, "Failed to allocate signal file descriptor: %m");
 
-                pollfd[FD_SIGNAL].fd = signal_fd;
-                pollfd[FD_SIGNAL].events = POLLIN;
+                pollfd[FD_SIGNAL] = (struct pollfd) { .fd = signal_fd, .events = POLLIN };
 
                 notify = inotify_init1(IN_CLOEXEC);
                 if (notify < 0)
@@ -365,8 +364,7 @@ static int process_and_watch_password_files(bool watch) {
                 if (r < 0)
                         return r;
 
-                pollfd[FD_INOTIFY].fd = notify;
-                pollfd[FD_INOTIFY].events = POLLIN;
+                pollfd[FD_INOTIFY] = (struct pollfd) { .fd = notify, .events = POLLIN };
         }
 
         for (;;) {
@@ -389,7 +387,7 @@ static int process_and_watch_password_files(bool watch) {
                 if (!watch)
                         break;
 
-                if (poll(pollfd, watch ? _FD_MAX : _FD_MAX-1, timeout) < 0) {
+                if (poll(pollfd, _FD_MAX, timeout) < 0) {
                         if (errno == EINTR)
                                 continue;
 
