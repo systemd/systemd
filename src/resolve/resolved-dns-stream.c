@@ -515,6 +515,7 @@ int dns_stream_new(
                 .n_ref = 1,
                 .fd = -1,
                 .protocol = protocol,
+                .type = type,
         };
 
         r = ordered_set_ensure_allocated(&s->write_queue, &dns_packet_hash_ops);
