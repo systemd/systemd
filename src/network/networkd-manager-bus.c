@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <net/if.h>
+#include <sys/capability.h>
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -11,6 +12,7 @@
 #include "networkd-manager.h"
 #include "path-util.h"
 #include "strv.h"
+#include "user-util.h"
 
 static int method_list_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -187,6 +189,34 @@ static int bus_method_renew_link(sd_bus_message *message, void *userdata, sd_bus
         return call_link_method(userdata, message, bus_link_method_renew, error);
 }
 
+static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *manager = userdata;
+        Iterator i;
+        Link *link;
+        int r;
+
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.network1.reload",
+                                    NULL, true, UID_INVALID,
+                                    &manager->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
+        r = network_reload(manager);
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(link, manager->links, i) {
+                r = link_reconfigure(link);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -209,6 +239,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("RevertLinkNTP", "i", NULL, bus_method_revert_link_ntp, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RevertLinkDNS", "i", NULL, bus_method_revert_link_dns, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RenewLink", "i", NULL, bus_method_renew_link, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Reload", NULL, NULL, bus_method_reload, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };

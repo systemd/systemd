@@ -54,6 +54,7 @@ struct Network {
 
         char *filename;
         char *name;
+        usec_t timestamp;
 
         unsigned n_ref;
 
@@ -283,8 +284,9 @@ Network *network_ref(Network *network);
 Network *network_unref(Network *network);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_unref);
 
-int network_load(Manager *manager);
-int network_load_one(Manager *manager, const char *filename);
+int network_load(Manager *manager, OrderedHashmap **networks);
+int network_reload(Manager *manager);
+int network_load_one(Manager *manager, OrderedHashmap **networks, const char *filename);
 int network_verify(Network *network);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret);

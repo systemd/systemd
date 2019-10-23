@@ -1860,7 +1860,7 @@ int manager_load_config(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = network_load(m);
+        r = network_load(m, &m->networks);
         if (r < 0)
                 return r;
 
