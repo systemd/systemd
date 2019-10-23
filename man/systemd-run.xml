@@ -117,6 +117,7 @@
 
       <varlistentry>
         <term><option>--unit=</option></term>
+        <term><option>-u</option></term>
 
         <listitem><para>Use this unit name instead of an automatically
         generated one.</para></listitem>

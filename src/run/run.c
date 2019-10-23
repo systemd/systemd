@@ -92,7 +92,7 @@ static int help(void) {
                "  -H --host=[USER@]HOST           Operate on remote host\n"
                "  -M --machine=CONTAINER          Operate on local container\n"
                "     --scope                      Run this as scope rather than service\n"
-               "     --unit=UNIT                  Run under the specified unit name\n"
+               "  -u --unit=UNIT                  Run under the specified unit name\n"
                "  -p --property=NAME=VALUE        Set service or scope unit property\n"
                "     --description=TEXT           Description for unit\n"
                "     --slice=SLICE                Run in the specified slice\n"
@@ -158,7 +158,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USER,
                 ARG_SYSTEM,
                 ARG_SCOPE,
-                ARG_UNIT,
                 ARG_DESCRIPTION,
                 ARG_SLICE,
                 ARG_SEND_SIGHUP,
@@ -190,7 +189,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "user",              no_argument,       NULL, ARG_USER              },
                 { "system",            no_argument,       NULL, ARG_SYSTEM            },
                 { "scope",             no_argument,       NULL, ARG_SCOPE             },
-                { "unit",              required_argument, NULL, ARG_UNIT              },
+                { "unit",              required_argument, NULL, 'u'                   },
                 { "description",       required_argument, NULL, ARG_DESCRIPTION       },
                 { "slice",             required_argument, NULL, ARG_SLICE             },
                 { "remain-after-exit", no_argument,       NULL, 'r'                   },
@@ -234,7 +233,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hrH:M:E:p:tPqGdS", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hrH:M:E:p:tPqGdSu:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -260,7 +259,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_scope = true;
                         break;
 
-                case ARG_UNIT:
+                case 'u':
                         arg_unit = optarg;
                         break;
 
