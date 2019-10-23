@@ -21,6 +21,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "device-util.h"
+#include "escape.h"
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
@@ -46,9 +47,13 @@
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "verbs.h"
+#include "wifi-util.h"
 
 /* Kernel defines MODULE_NAME_LEN as 64 - sizeof(unsigned long). So, 64 is enough. */
 #define NETDEV_KIND_MAX 64
+
+/* use 128 kB for receive socket kernel queue, we shouldn't need more here */
+#define RCVBUF_SIZE    (128*1024)
 
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
@@ -161,6 +166,10 @@ typedef struct LinkInfo {
         Duplex duplex;
         NetDevPort port;
 
+        /* wlan info */
+        char *ssid;
+        struct ether_addr bssid;
+
         bool has_mac_address:1;
         bool has_tx_queues:1;
         bool has_rx_queues:1;
@@ -168,6 +177,7 @@ typedef struct LinkInfo {
         bool has_stats:1;
         bool has_bitrates:1;
         bool has_ethtool_link_info:1;
+        bool has_wlan_link_info:1;
 
         bool needs_freeing:1;
 } LinkInfo;
@@ -179,6 +189,7 @@ static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
 static const LinkInfo* link_info_array_free(LinkInfo *array) {
         for (unsigned i = 0; array && array[i].needs_freeing; i++) {
                 sd_device_unref(array[i].sd_device);
+                free(array[i].ssid);
         }
 
         return mfree(array);
@@ -370,6 +381,35 @@ static void acquire_ether_link_info(int *fd, LinkInfo *link) {
                 link->has_ethtool_link_info = true;
 }
 
+static void acquire_wlan_link_info(LinkInfo *link) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
+        const char *type = NULL;
+        int r, k;
+
+        if (link->sd_device)
+                (void) sd_device_get_devtype(link->sd_device, &type);
+        if (!streq_ptr(type, "wlan"))
+                return;
+
+        r = sd_genl_socket_open(&genl);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to open generic netlink socket: %m");
+                return;
+        }
+
+        (void) sd_netlink_inc_rcvbuf(genl, RCVBUF_SIZE);
+
+        r = wifi_get_ssid(genl, link->ifindex, &link->ssid);
+        if (r < 0)
+                log_debug_errno(r, "%s: failed to query ssid: %m", link->name);
+
+        k = wifi_get_bssid(genl, link->ifindex, &link->bssid);
+        if (k < 0)
+                log_debug_errno(k, "%s: failed to query bssid: %m", link->name);
+
+        link->has_wlan_link_info = r > 0 || k > 0;
+}
+
 static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
@@ -410,6 +450,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
                 (void) sd_device_new_from_device_id(&links[c].sd_device, devid);
 
                 acquire_ether_link_info(&fd, &links[c]);
+                acquire_wlan_link_info(&links[c]);
 
                 c++;
         }
@@ -1255,6 +1296,26 @@ static int link_status_one(
                         if (r < 0)
                                  return r;
                 }
+        }
+
+        if (info->has_wlan_link_info) {
+                _cleanup_free_ char *esc = NULL;
+                char buf[ETHER_ADDR_TO_STRING_MAX];
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "WiFi access point:");
+                if (r < 0)
+                        return r;
+
+                if (info->ssid)
+                        esc = cescape(info->ssid);
+
+                r = table_add_cell_stringf(table, NULL, "%s (%s)",
+                                           strnull(esc),
+                                           ether_addr_to_string(&info->bssid, buf));
+                if (r < 0)
+                        return r;
         }
 
         if (info->has_bitrates) {
