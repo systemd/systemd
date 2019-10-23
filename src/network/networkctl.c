@@ -1815,6 +1815,28 @@ static int link_renew(int argc, char *argv[], void *userdata) {
 }
 
 
+static int verb_reload(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "Reload",
+                        &error, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reload network settings: %m");
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1832,6 +1854,7 @@ static int help(void) {
                "  label                 Show current address label entries in the kernel\n"
                "  delete DEVICES...     Delete virtual netdevs\n"
                "  renew DEVICES...      Renew dynamic configurations\n"
+               "  reload                Reload .network and .netdev files\n"
                "\nOptions\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
@@ -1917,6 +1940,7 @@ static int networkctl_main(int argc, char *argv[]) {
                 { "label",  VERB_ANY, VERB_ANY, 0,            list_address_labels },
                 { "delete", 2,        VERB_ANY, 0,            link_delete         },
                 { "renew",  2,        VERB_ANY, 0,            link_renew          },
+                { "reload", 1,        1,        0,            verb_reload         },
                 {}
         };
 
