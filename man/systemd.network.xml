@@ -154,6 +154,24 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>SSID=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of shell-style globs matching the SSID of the currently
+            connected wireless LAN. If the list is prefixed with a "!", the test is inverted.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>BSSID=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of hardware address of the currently connected wireless
+            LAN. Use full colon-, hyphen- or dot-delimited hexadecimal. See the example in
+            <varname>MACAddress=</varname>. This option may appear more than one, in which case the
+            lists are merged. If the empty string is assigned to this option, the list of BSSID defined
+            prior to this is reset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Host=</varname></term>
           <listitem>
             <para>Matches against the hostname or machine ID of the host. See

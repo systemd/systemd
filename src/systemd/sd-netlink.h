@@ -35,11 +35,14 @@ typedef struct sd_netlink_message sd_netlink_message;
 typedef struct sd_netlink_slot sd_netlink_slot;
 
 typedef enum sd_gen_family {
+        SD_GENL_ERROR,
+        SD_GENL_DONE,
         SD_GENL_ID_CTRL,
         SD_GENL_WIREGUARD,
         SD_GENL_FOU,
         SD_GENL_L2TP,
         SD_GENL_MACSEC,
+        SD_GENL_NL80211,
 } sd_genl_family;
 
 /* callback */
@@ -95,6 +98,7 @@ int sd_netlink_message_open_container_union(sd_netlink_message *m, unsigned shor
 int sd_netlink_message_close_container(sd_netlink_message *m);
 
 int sd_netlink_message_read(sd_netlink_message *m, unsigned short type, size_t size, void *data);
+int sd_netlink_message_read_string_strdup(sd_netlink_message *m, unsigned short type, char **data);
 int sd_netlink_message_read_string(sd_netlink_message *m, unsigned short type, const char **data);
 int sd_netlink_message_read_u8(sd_netlink_message *m, unsigned short type, uint8_t *data);
 int sd_netlink_message_read_u16(sd_netlink_message *m, unsigned short type, uint16_t *data);
@@ -110,7 +114,7 @@ int sd_netlink_message_exit_container(sd_netlink_message *m);
 int sd_netlink_message_open_array(sd_netlink_message *m, uint16_t type);
 int sd_netlink_message_cancel_array(sd_netlink_message *m);
 
-int sd_netlink_message_rewind(sd_netlink_message *m);
+int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl);
 
 sd_netlink_message *sd_netlink_message_next(sd_netlink_message *m);
 
@@ -201,6 +205,7 @@ int sd_rtnl_message_routing_policy_rule_get_flags(sd_netlink_message *m, unsigne
 /* genl */
 int sd_genl_socket_open(sd_netlink **nl);
 int sd_genl_message_new(sd_netlink *nl, sd_genl_family family, uint8_t cmd, sd_netlink_message **m);
+int sd_genl_message_get_family(sd_netlink *nl, sd_netlink_message *m, sd_genl_family *family);
 
 /* slot */
 sd_netlink_slot *sd_netlink_slot_ref(sd_netlink_slot *nl);

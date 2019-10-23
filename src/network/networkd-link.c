@@ -33,6 +33,7 @@
 #include "networkd-neighbor.h"
 #include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"
+#include "networkd-wifi.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -661,6 +662,25 @@ void link_dns_settings_clear(Link *link) {
         link->dnssec_negative_trust_anchors = set_free_free(link->dnssec_negative_trust_anchors);
 }
 
+static void link_free_engines(Link *link) {
+        if (!link)
+                return;
+
+        link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
+        link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
+        link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
+        link->dhcp_routes = set_free(link->dhcp_routes);
+
+        link->lldp = sd_lldp_unref(link->lldp);
+
+        ndisc_flush(link);
+
+        link->ipv4ll = sd_ipv4ll_unref(link->ipv4ll);
+        link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
+        link->ndisc = sd_ndisc_unref(link->ndisc);
+        link->radv = sd_radv_unref(link->radv);
+}
+
 static Link *link_free(Link *link) {
         Address *address;
 
@@ -686,27 +706,14 @@ static Link *link_free(Link *link) {
                 address_free(address);
         }
 
-        sd_dhcp_server_unref(link->dhcp_server);
-        sd_dhcp_client_unref(link->dhcp_client);
-        sd_dhcp_lease_unref(link->dhcp_lease);
-        set_free(link->dhcp_routes);
-
         link_lldp_emit_stop(link);
-
+        link_free_engines(link);
         free(link->lease_file);
-
-        sd_lldp_unref(link->lldp);
         free(link->lldp_file);
-
-        ndisc_flush(link);
-
-        sd_ipv4ll_unref(link->ipv4ll);
-        sd_dhcp6_client_unref(link->dhcp6_client);
-        sd_ndisc_unref(link->ndisc);
-        sd_radv_unref(link->radv);
 
         free(link->ifname);
         free(link->kind);
+        free(link->ssid);
 
         (void) unlink(link->state_file);
         free(link->state_file);
@@ -2850,6 +2857,78 @@ static int link_configure_duid(Link *link) {
         return 0;
 }
 
+int link_reconfigure(Link *link) {
+        Network *network;
+        int r;
+
+        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
+                return 0;
+
+        r = network_get(link->manager, link->sd_device, link->ifname,
+                        &link->mac, link->ssid, &link->bssid, &network);
+        if (r == -ENOENT) {
+                link_enter_unmanaged(link);
+                return 0;
+        } else if (r == 0 && network->unmanaged) {
+                link_enter_unmanaged(link);
+                return 0;
+        } else if (r < 0)
+                return r;
+
+        if (link->network == network)
+                return 0;
+
+        log_link_info(link, "Re-configuring with %s", network->filename);
+
+        /* Dropping old .network file */
+        r = link_stop_clients(link, false);
+        if (r < 0) {
+                link_enter_failed(link);
+                return r;
+        }
+
+        if (link_dhcp4_server_enabled(link))
+                (void) sd_dhcp_server_stop(link->dhcp_server);
+
+        r = link_drop_config(link);
+        if (r < 0)
+                return r;
+
+        if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING)) {
+                log_link_debug(link, "State is %s, dropping config", link_state_to_string(link->state));
+                r = link_drop_foreign_config(link);
+                if (r < 0)
+                        return r;
+        }
+
+        link_free_carrier_maps(link);
+        link_free_engines(link);
+        link->network = network_unref(link->network);
+
+        /* Then, apply new .network file */
+        r = network_apply(network, link);
+        if (r < 0)
+                return r;
+
+        r = link_new_carrier_maps(link);
+        if (r < 0)
+                return r;
+
+        link_set_state(link, LINK_STATE_INITIALIZED);
+
+        /* link_configure_duid() returns 0 if it requests product UUID. In that case,
+         * link_configure() is called later asynchronously. */
+        r = link_configure_duid(link);
+        if (r <= 0)
+                return r;
+
+        r = link_configure(link);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int link_initialized_and_synced(Link *link) {
         Network *network;
         int r;
@@ -2875,8 +2954,12 @@ static int link_initialized_and_synced(Link *link) {
                 return r;
 
         if (!link->network) {
+                r = wifi_get_info(link);
+                if (r < 0)
+                        return r;
+
                 r = network_get(link->manager, link->sd_device, link->ifname,
-                                &link->mac, &network);
+                                &link->mac, link->ssid, &link->bssid, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
                         return 0;
@@ -3249,6 +3332,15 @@ static int link_carrier_gained(Link *link) {
         int r;
 
         assert(link);
+
+        r = wifi_get_info(link);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                r = link_reconfigure(link);
+                if (r < 0)
+                        return r;
+        }
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
                 r = link_acquire_conf(link);

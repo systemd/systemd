@@ -31,13 +31,15 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
            buses and their queued messages. See sd-bus.
          */
 
-        m = new0(sd_netlink_message, 1);
+        m = new(sd_netlink_message, 1);
         if (!m)
                 return -ENOMEM;
 
-        m->n_ref = 1;
-        m->protocol = rtnl->protocol;
-        m->sealed = false;
+        *m = (sd_netlink_message) {
+                .n_ref = 1,
+                .protocol = rtnl->protocol,
+                .sealed = false,
+        };
 
         *ret = m;
 
@@ -47,15 +49,12 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
 int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const NLType *nl_type;
-        const NLTypeSystem *type_system_root;
         size_t size;
         int r;
 
         assert_return(rtnl, -EINVAL);
 
-        type_system_root = type_system_get_root(rtnl->protocol);
-
-        r = type_system_get_type(type_system_root, &nl_type, type);
+        r = type_system_root_get_type(rtnl, &nl_type, type);
         if (r < 0)
                 return r;
 
@@ -616,6 +615,32 @@ int sd_netlink_message_read(sd_netlink_message *m, unsigned short type, size_t s
         return r;
 }
 
+int sd_netlink_message_read_string_strdup(sd_netlink_message *m, unsigned short type, char **data) {
+        void *attr_data;
+        char *str;
+        int r;
+
+        assert_return(m, -EINVAL);
+
+        r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_STRING);
+        if (r < 0)
+                return r;
+
+        r = netlink_message_read_internal(m, type, &attr_data, NULL);
+        if (r < 0)
+                return r;
+
+        if (data) {
+                str = strndup(attr_data, r);
+                if (!str)
+                        return -ENOMEM;
+
+                *data = str;
+        }
+
+        return 0;
+}
+
 int sd_netlink_message_read_string(sd_netlink_message *m, unsigned short type, const char **data) {
         int r;
         void *attr_data;
@@ -997,21 +1022,19 @@ int sd_netlink_message_get_errno(sd_netlink_message *m) {
         return err->error;
 }
 
-int sd_netlink_message_rewind(sd_netlink_message *m) {
+int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl) {
         const NLType *nl_type;
-        const NLTypeSystem *type_system_root;
         uint16_t type;
         size_t size;
         unsigned i;
         int r;
 
         assert_return(m, -EINVAL);
+        assert_return(genl || m->protocol != NETLINK_GENERIC, -EINVAL);
 
         /* don't allow appending to message once parsed */
         if (!m->sealed)
                 rtnl_message_seal(m);
-
-        type_system_root = type_system_get_root(m->protocol);
 
         for (i = 1; i <= m->n_containers; i++)
                 m->containers[i].attributes = mfree(m->containers[i].attributes);
@@ -1024,7 +1047,7 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
 
         assert(m->hdr);
 
-        r = type_system_get_type(type_system_root, &nl_type, m->hdr->nlmsg_type);
+        r = type_system_root_get_type(genl, &nl_type, m->hdr->nlmsg_type);
         if (r < 0)
                 return r;
 
