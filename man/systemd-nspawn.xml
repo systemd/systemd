@@ -1296,30 +1296,32 @@
       <varlistentry>
         <term><option>--console=</option><replaceable>MODE</replaceable></term>
 
-        <listitem><para>Configures how to set up standard input, output and error output for the container payload, as
-        well as the <filename>/dev/console</filename> device for the container. Takes one of
-        <option>interactive</option>, <option>read-only</option>, <option>passive</option> or <option>pipe</option>. If
-        <option>interactive</option> a pseudo-TTY is allocated and made available as <filename>/dev/console</filename>
-        in the container. It is then bi-directionally connected to the standard input and output passed to
-        <command>systemd-nspawn</command>.  <option>read-only</option> is similar but only the output of the container
-        is propagated and no input from the caller is read. In <option>passive</option> mode a pseudo TTY is allocated,
-        but it is not connected anywhere. Finally, in <option>pipe</option> mode no pseudo TTY is allocated, but the
-        passed standard input, output and error output file descriptors are passed on — as they are — to the container
-        payload. In this mode <filename>/dev/console</filename> will not exist in the container. Note that in this mode
-        the container payload generally cannot be a full init system as init systems tend to require
-        <filename>/dev/console</filename> to be available. On the other hand, in this mode container invocations can be
-        used within shell pipelines. This is because intermediary pseudo TTYs do not permit independent bidirectional
-        propagation of the end-of-file (EOF) condition, which is necessary for shell pipelines to work
-        correctly.</para>
-
-        <para>Note that the <option>pipe</option> mode should be used carefully, as passing arbitrary file descriptors
-        to less trusted container payloads might open up unwanted interfaces for access by the container payload. For
-        example, if a passed file descriptor refers to a TTY of some form, APIs such as <constant>TIOCSTI</constant>
-        may be used to synthesize input that might be used for escaping the container. Hence <option>pipe</option> mode
-        should only be used if the payload is sufficiently trusted or when the standard input/output/error output file
-        descriptors are known safe, for example pipes. Defaults to <option>interactive</option> if
+        <listitem><para>Configures how to set up standard input, output and error output for the container
+        payload, as well as the <filename>/dev/console</filename> device for the container. Takes one of
+        <option>interactive</option>, <option>read-only</option>, <option>passive</option>, or
+        <option>pipe</option>. If <option>interactive</option>, a pseudo-TTY is allocated and made available
+        as <filename>/dev/console</filename> in the container. It is then bi-directionally connected to the
+        standard input and output passed to <command>systemd-nspawn</command>. <option>read-only</option> is
+        similar but only the output of the container is propagated and no input from the caller is read. If
+        <option>passive</option>, a pseudo TTY is allocated, but it is not connected anywhere. Finally, in
+        <option>pipe</option> mode no pseudo TTY is allocated, but the standard input, output and error
+        output file descriptors passed to <command>systemd-nspawn</command> are passed on — as they are — to
+        the container payload, see the following paragraph. Defaults to <option>interactive</option> if
         <command>systemd-nspawn</command> is invoked from a terminal, and <option>read-only</option>
-        otherwise.</para></listitem>
+        otherwise.</para>
+
+        <para>In <option>pipe</option> mode, <filename>/dev/console</filename> will not exist in the
+        container. This means that the container payload generally cannot be a full init system as init
+        systems tend to require <filename>/dev/console</filename> to be available. On the other hand, in this
+        mode container invocations can be used within shell pipelines. This is because intermediary pseudo
+        TTYs do not permit independent bidirectional propagation of the end-of-file (EOF) condition, which is
+        necessary for shell pipelines to work correctly. <emphasis>Note that the <option>pipe</option> mode
+        should be used carefully</emphasis>, as passing arbitrary file descriptors to less trusted container
+        payloads might open up unwanted interfaces for access by the container payload. For example, if a
+        passed file descriptor refers to a TTY of some form, APIs such as <constant>TIOCSTI</constant> may be
+        used to synthesize input that might be used for escaping the container. Hence <option>pipe</option>
+        mode should only be used if the payload is sufficiently trusted or when the standard
+        input/output/error output file descriptors are known safe, for example pipes.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -261,6 +261,30 @@ STATIC_DESTRUCTOR_REGISTER(arg_seccomp, seccomp_releasep);
 STATIC_DESTRUCTOR_REGISTER(arg_cpu_set, cpu_set_reset);
 STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 
+static int handle_arg_console(const char *arg) {
+        if (streq(arg, "help")) {
+                puts("interactive\n"
+                     "read-only\n"
+                     "passive\n"
+                     "pipe");
+                return 0;
+        }
+
+        if (streq(arg, "interactive"))
+                arg_console_mode = CONSOLE_INTERACTIVE;
+        else if (streq(arg, "read-only"))
+                arg_console_mode = CONSOLE_READ_ONLY;
+        else if (streq(arg, "passive"))
+                arg_console_mode = CONSOLE_PASSIVE;
+        else if (streq(arg, "pipe"))
+                arg_console_mode = CONSOLE_PIPE;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown console mode: %s", optarg);
+
+        arg_settings_mask |= SETTING_CONSOLE_MODE;
+        return 1;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1389,29 +1413,16 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CONSOLE:
-                        if (streq(optarg, "interactive"))
-                                arg_console_mode = CONSOLE_INTERACTIVE;
-                        else if (streq(optarg, "read-only"))
-                                arg_console_mode = CONSOLE_READ_ONLY;
-                        else if (streq(optarg, "passive"))
-                                arg_console_mode = CONSOLE_PASSIVE;
-                        else if (streq(optarg, "pipe"))
-                                arg_console_mode = CONSOLE_PIPE;
-                        else if (streq(optarg, "help"))
-                                puts("interactive\n"
-                                     "read-only\n"
-                                     "passive\n"
-                                     "pipe");
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown console mode: %s", optarg);
-
-                        arg_settings_mask |= SETTING_CONSOLE_MODE;
+                        r = handle_arg_console(optarg);
+                        if (r <= 0)
+                                return r;
                         break;
 
                 case 'P':
                 case ARG_PIPE:
-                        arg_console_mode = CONSOLE_PIPE;
-                        arg_settings_mask |= SETTING_CONSOLE_MODE;
+                        r = handle_arg_console("pipe");
+                        if (r <= 0)
+                                return r;
                         break;
 
                 case ARG_NO_PAGER:
