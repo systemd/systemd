@@ -3,6 +3,7 @@
 #ifndef _LIBUDEV_H_
 #define _LIBUDEV_H_
 
+#include <inttypes.h>
 #include <stdarg.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
@@ -174,6 +175,32 @@ struct udev_hwdb *udev_hwdb_new(struct udev *udev);
 struct udev_hwdb *udev_hwdb_ref(struct udev_hwdb *hwdb);
 struct udev_hwdb *udev_hwdb_unref(struct udev_hwdb *hwdb);
 struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev_hwdb *hwdb, const char *modalias, unsigned flags);
+
+/*
+ * udev_trigger
+ *
+ * trigger synthetic udev events
+ */
+struct udev_trigger;
+struct udev_trigger *udev_trigger_ref(struct udev_trigger *udev_trigger);
+struct udev_trigger *udev_trigger_unref(struct udev_trigger *udev_trigger);
+struct udev *udev_trigger_get_udev(struct udev_trigger *udev_trigger);
+struct udev_trigger *udev_trigger_new(struct udev *udev);
+/*  trigger device list handling */
+int udev_trigger_add_device(struct udev_trigger *udev_trigger, struct udev_device *udev_device);
+int udev_trigger_add_enumerate(struct udev_trigger *udev_trigger, struct udev_enumerate *udev_enumerate);
+struct udev_list_entry *udev_trigger_get_devices_list_entry(struct udev_trigger *udev_trigger);
+/* trigger udev event property handling */
+int udev_trigger_set_action(struct udev_trigger *udev_trigger, const char *action);
+const char *udev_trigger_get_action(struct udev_trigger *udev_trigger);
+const char *udev_trigger_get_uuid(struct udev_trigger *udev_trigger);
+int udev_trigger_set_source(struct udev_trigger *udev_trigger, const char *source);
+const char *udev_trigger_get_source(struct udev_trigger *udev_trigger);
+int udev_trigger_add_property(struct udev_trigger *udev_trigger, const char *key, const char *value);
+struct udev_list_entry *udev_trigger_get_properties_list_entry(struct udev_trigger *udev_trigger);
+/* execute the trigger */
+int udev_trigger_execute(struct udev_trigger *udev_trigger);
+int udev_trigger_execute_with_settle(struct udev_trigger *udev_trigger, unsigned int timeout_sec);
 
 /*
  * udev_util

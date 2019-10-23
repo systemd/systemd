@@ -17,6 +17,7 @@
 #include "device-enumerator-private.h"
 #include "device-util.h"
 #include "libudev-device-internal.h"
+#include "libudev-enumerate-internal.h"
 #include "libudev-list-internal.h"
 
 /**
@@ -455,4 +456,10 @@ _public_ int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerat
         assert_return(udev_enumerate, -EINVAL);
 
         return device_enumerator_scan_subsystems(udev_enumerate->enumerator);
+}
+
+sd_device_enumerator *udev_enumerate_get_sd_enumerator(struct udev_enumerate *udev_enumerate) {
+        assert(udev_enumerate);
+
+        return udev_enumerate->enumerator;
 }

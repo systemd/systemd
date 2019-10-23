@@ -89,6 +89,22 @@ global:
         udev_set_log_fn;
         udev_set_log_priority;
         udev_set_userdata;
+        udev_trigger_add_device;
+        udev_trigger_add_enumerate;
+        udev_trigger_add_property;
+        udev_trigger_execute;
+        udev_trigger_execute_with_settle;
+        udev_trigger_get_action;
+        udev_trigger_get_devices_list_entry;
+        udev_trigger_get_properties_list_entry;
+        udev_trigger_get_source;
+        udev_trigger_get_udev;
+        udev_trigger_get_uuid;
+        udev_trigger_new;
+        udev_trigger_ref;
+        udev_trigger_set_action;
+        udev_trigger_set_source;
+        udev_trigger_unref;
         udev_unref;
         udev_util_encode_string;
 local:
