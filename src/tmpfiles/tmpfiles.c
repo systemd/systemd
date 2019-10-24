@@ -859,7 +859,7 @@ shortcut:
 
 static int path_open_parent_safe(const char *path) {
         _cleanup_free_ char *dn = NULL;
-        int fd;
+        int r, fd;
 
         if (path_equal(path, "/") || !path_is_normalized(path))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -870,15 +870,15 @@ static int path_open_parent_safe(const char *path) {
         if (!dn)
                 return log_oom();
 
-        fd = chase_symlinks(dn, arg_root, CHASE_OPEN|CHASE_SAFE|CHASE_WARN, NULL);
-        if (fd < 0 && fd != -ENOLINK)
-                return log_error_errno(fd, "Failed to validate path %s: %m", path);
+        r = chase_symlinks(dn, arg_root, CHASE_SAFE|CHASE_WARN, NULL, &fd);
+        if (r < 0 && r != -ENOLINK)
+                return log_error_errno(r, "Failed to validate path %s: %m", path);
 
-        return fd;
+        return r < 0 ? r : fd;
 }
 
 static int path_open_safe(const char *path) {
-        int fd;
+        int r, fd;
 
         /* path_open_safe() returns a file descriptor opened with O_PATH after
          * verifying that the path doesn't contain unsafe transitions, except
@@ -891,11 +891,11 @@ static int path_open_safe(const char *path) {
                                        "Failed to open invalid path '%s'.",
                                        path);
 
-        fd = chase_symlinks(path, arg_root, CHASE_OPEN|CHASE_SAFE|CHASE_WARN|CHASE_NOFOLLOW, NULL);
-        if (fd < 0 && fd != -ENOLINK)
-                return log_error_errno(fd, "Failed to validate path %s: %m", path);
+        r = chase_symlinks(path, arg_root, CHASE_SAFE|CHASE_WARN|CHASE_NOFOLLOW, NULL, &fd);
+        if (r < 0 && r != -ENOLINK)
+                return log_error_errno(r, "Failed to validate path %s: %m", path);
 
-        return fd;
+        return r < 0 ? r : fd;
 }
 
 static int path_set_perms(Item *i, const char *path) {
@@ -2257,7 +2257,7 @@ static int process_item(Item *i, OperationMask operation) {
 
         i->done |= operation;
 
-        r = chase_symlinks(i->path, arg_root, CHASE_NO_AUTOFS|CHASE_WARN, NULL);
+        r = chase_symlinks(i->path, arg_root, CHASE_NO_AUTOFS|CHASE_WARN, NULL, NULL);
         if (r == -EREMOTE) {
                 log_notice_errno(r, "Skipping %s", i->path);
                 return 0;

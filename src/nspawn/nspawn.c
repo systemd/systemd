@@ -1668,7 +1668,7 @@ static int setup_timezone(const char *dest) {
         if (m == TIMEZONE_OFF)
                 return 0;
 
-        r = chase_symlinks("/etc", dest, CHASE_PREFIX_ROOT, &etc);
+        r = chase_symlinks("/etc", dest, CHASE_PREFIX_ROOT, &etc, NULL);
         if (r < 0) {
                 log_warning_errno(r, "Failed to resolve /etc path in container, ignoring: %m");
                 return 0;
@@ -1699,7 +1699,7 @@ static int setup_timezone(const char *dest) {
                         return 0; /* Already pointing to the right place? Then do nothing .. */
 
                 check = strjoina(dest, "/usr/share/zoneinfo/", z);
-                r = chase_symlinks(check, dest, 0, NULL);
+                r = chase_symlinks(check, dest, 0, NULL, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Timezone %s does not exist (or is not accessible) in container, not creating symlink: %m", z);
                 else {
@@ -1726,7 +1726,7 @@ static int setup_timezone(const char *dest) {
                 _cleanup_free_ char *resolved = NULL;
                 int found;
 
-                found = chase_symlinks(where, dest, CHASE_NONEXISTENT, &resolved);
+                found = chase_symlinks(where, dest, CHASE_NONEXISTENT, &resolved, NULL);
                 if (found < 0) {
                         log_warning_errno(found, "Failed to resolve /etc/localtime path in container, ignoring: %m");
                         return 0;
@@ -1832,7 +1832,7 @@ static int setup_resolv_conf(const char *dest) {
         if (m == RESOLV_CONF_OFF)
                 return 0;
 
-        r = chase_symlinks("/etc", dest, CHASE_PREFIX_ROOT, &etc);
+        r = chase_symlinks("/etc", dest, CHASE_PREFIX_ROOT, &etc, NULL);
         if (r < 0) {
                 log_warning_errno(r, "Failed to resolve /etc path in container, ignoring: %m");
                 return 0;
@@ -1856,7 +1856,7 @@ static int setup_resolv_conf(const char *dest) {
                 _cleanup_free_ char *resolved = NULL;
                 int found;
 
-                found = chase_symlinks(where, dest, CHASE_NONEXISTENT, &resolved);
+                found = chase_symlinks(where, dest, CHASE_NONEXISTENT, &resolved, NULL);
                 if (found < 0) {
                         log_warning_errno(found, "Failed to resolve /etc/resolv.conf path in container, ignoring: %m");
                         return 0;
@@ -2733,12 +2733,11 @@ static int chase_symlinks_and_update(char **p, unsigned flags) {
         if (!*p)
                 return 0;
 
-        r = chase_symlinks(*p, NULL, flags, &chased);
+        r = chase_symlinks(*p, NULL, flags, &chased, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve path %s: %m", *p);
 
-        free_and_replace(*p, chased);
-        return r; /* r might be an fd here in case we ever use CHASE_OPEN in flags */
+        return free_and_replace(*p, chased);
 }
 
 static int determine_uid_shift(const char *directory) {

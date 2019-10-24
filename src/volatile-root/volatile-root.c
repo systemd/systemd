@@ -21,7 +21,7 @@ static int make_volatile(const char *path) {
 
         assert(path);
 
-        r = chase_symlinks("/usr", path, CHASE_PREFIX_ROOT, &old_usr);
+        r = chase_symlinks("/usr", path, CHASE_PREFIX_ROOT, &old_usr, NULL);
         if (r < 0)
                 return log_error_errno(r, "/usr not available in old root: %m");
 

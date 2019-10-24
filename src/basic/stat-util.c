@@ -335,7 +335,7 @@ int device_path_make_canonical(mode_t mode, dev_t devno, char **ret) {
         if (r < 0)
                 return r;
 
-        return chase_symlinks(p, NULL, 0, ret);
+        return chase_symlinks(p, NULL, 0, ret, NULL);
 }
 
 int device_path_parse_major_minor(const char *path, mode_t *ret_mode, dev_t *ret_devno) {

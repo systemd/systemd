@@ -1471,7 +1471,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                 if (!path_is_absolute(init))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path to init binary '%s' not absolute.", init);
 
-                r = chase_symlinks(init, root, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &chased);
+                r = chase_symlinks(init, root, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &chased, NULL);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Could not resolve init executable %s: %m", init);
 

@@ -946,22 +946,27 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 
         prio = may_warn ? LOG_INFO : LOG_DEBUG;
 
-        fd = chase_symlinks(s->pid_file, NULL, CHASE_OPEN|CHASE_SAFE, NULL);
-        if (fd == -ENOLINK) {
-                log_unit_full(UNIT(s), LOG_DEBUG, fd, "Potentially unsafe symlink chain, will now retry with relaxed checks: %s", s->pid_file);
+        r = chase_symlinks(s->pid_file, NULL, CHASE_SAFE, NULL, &fd);
+        if (r == -ENOLINK) {
+                log_unit_full(UNIT(s), LOG_DEBUG, r,
+                              "Potentially unsafe symlink chain, will now retry with relaxed checks: %s", s->pid_file);
 
                 questionable_pid_file = true;
 
-                fd = chase_symlinks(s->pid_file, NULL, CHASE_OPEN, NULL);
+                r = chase_symlinks(s->pid_file, NULL, 0, NULL, &fd);
         }
-        if (fd < 0)
-                return log_unit_full(UNIT(s), prio, fd, "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
+        if (r < 0)
+                return log_unit_full(UNIT(s), prio, fd,
+                                     "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
 
-        /* Let's read the PID file now that we chased it down. But we need to convert the O_PATH fd chase_symlinks() returned us into a proper fd first. */
+        /* Let's read the PID file now that we chased it down. But we need to convert the O_PATH fd
+         * chase_symlinks() returned us into a proper fd first. */
         xsprintf(procfs, "/proc/self/fd/%i", fd);
         r = read_one_line_file(procfs, &k);
         if (r < 0)
-                return log_unit_error_errno(UNIT(s), r, "Can't convert PID files %s O_PATH file descriptor to proper file descriptor: %m", s->pid_file);
+                return log_unit_error_errno(UNIT(s), r,
+                                            "Can't convert PID files %s O_PATH file descriptor to proper file descriptor: %m",
+                                            s->pid_file);
 
         r = parse_pid(k, &pid);
         if (r < 0)

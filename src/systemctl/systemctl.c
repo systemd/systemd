@@ -2520,7 +2520,7 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **re
                 if (!path)
                         return log_oom();
 
-                r = chase_symlinks(path, arg_root, 0, &lpath);
+                r = chase_symlinks(path, arg_root, 0, &lpath, NULL);
                 if (r == -ENOENT)
                         continue;
                 if (r == -ENOMEM)

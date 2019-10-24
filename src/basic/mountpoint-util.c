@@ -264,7 +264,7 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
          * /bin -> /usr/bin/ and /usr is a mount point, then the parent that we
          * look at needs to be /usr, not /. */
         if (flags & AT_SYMLINK_FOLLOW) {
-                r = chase_symlinks(t, root, CHASE_TRAIL_SLASH, &canonical);
+                r = chase_symlinks(t, root, CHASE_TRAIL_SLASH, &canonical, NULL);
                 if (r < 0)
                         return r;
 

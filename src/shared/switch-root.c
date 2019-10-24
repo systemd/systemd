@@ -52,7 +52,7 @@ int switch_root(const char *new_root,
         }
 
         /* Determine where we shall place the old root after the transition */
-        r = chase_symlinks(old_root_after, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved_old_root_after);
+        r = chase_symlinks(old_root_after, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved_old_root_after, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, old_root_after);
         if (r == 0) /* Doesn't exist yet. Let's create it */
@@ -68,7 +68,7 @@ int switch_root(const char *new_root,
         FOREACH_STRING(i, "/sys", "/dev", "/run", "/proc") {
                 _cleanup_free_ char *chased = NULL;
 
-                r = chase_symlinks(i, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &chased);
+                r = chase_symlinks(i, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &chased, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, i);
                 if (r > 0) {
