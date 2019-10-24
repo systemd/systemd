@@ -66,7 +66,7 @@ static void test_socket_address_parse_one(const char *in, int ret, int family, c
 }
 
 #define SUN_PATH_LEN (sizeof(((struct sockaddr_un){}).sun_path))
-assert_cc(sizeof(((struct sockaddr_un){}).sun_path) == 108);
+assert_cc(SUN_PATH_LEN == 108);
 
 static void test_socket_address_parse(void) {
         log_info("/* %s */", __func__);
@@ -126,6 +126,7 @@ static void test_socket_address_parse(void) {
 static void test_socket_print_unix_one(const char *in, size_t len_in, const char *expected) {
         _cleanup_free_ char *out = NULL, *c = NULL;
 
+        assert(len_in <= SUN_PATH_LEN);
         SocketAddress a = { .sockaddr = { .un = { .sun_family = AF_UNIX } },
                             .size = offsetof(struct sockaddr_un, sun_path) + len_in,
                             .type = SOCK_STREAM,
@@ -151,8 +152,6 @@ static void test_socket_print_unix(void) {
         test_socket_print_unix_one("\0_________________________there's 108 characters in this string_____________________________________________", 108,
                                    "@_________________________there\\'s 108 characters in this string_____________________________________________");
         test_socket_print_unix_one("////////////////////////////////////////////////////////////////////////////////////////////////////////////", 108,
-                                   "////////////////////////////////////////////////////////////////////////////////////////////////////////////");
-        test_socket_print_unix_one("////////////////////////////////////////////////////////////////////////////////////////////////////////////", 109,
                                    "////////////////////////////////////////////////////////////////////////////////////////////////////////////");
         test_socket_print_unix_one("\0\a\b\n\255", 6, "@\\a\\b\\n\\255\\000");
 }
