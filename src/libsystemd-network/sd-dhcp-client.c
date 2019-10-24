@@ -548,16 +548,13 @@ static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *i) {
 }
 
 int sd_dhcp_option_new(uint8_t option, void *data, size_t length, sd_dhcp_option **ret) {
-        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *p = NULL;
-        _cleanup_free_ void *q = NULL;
-
         assert(ret);
 
-        q = memdup(data, length);
+        _cleanup_free_ void *q = memdup(data, length);
         if (!q)
                 return -ENOMEM;
 
-        p = new(sd_dhcp_option, 1);
+        sd_dhcp_option *p = new(sd_dhcp_option, 1);
         if (!p)
                 return -ENOMEM;
 
