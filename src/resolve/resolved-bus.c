@@ -12,6 +12,7 @@
 #include "resolved-dnssd-bus.h"
 #include "resolved-dnssd.h"
 #include "resolved-link-bus.h"
+#include "stdio-util.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -68,7 +69,7 @@ static int reply_query_state(DnsQuery *q) {
 
                         rc = dns_rcode_to_string(q->answer_rcode);
                         if (!rc) {
-                                sprintf(p, "%i", q->answer_rcode);
+                                xsprintf(p, "%i", q->answer_rcode);
                                 rc = p;
                         }
 

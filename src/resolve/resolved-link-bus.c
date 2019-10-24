@@ -12,6 +12,7 @@
 #include "resolved-bus.h"
 #include "resolved-link-bus.h"
 #include "resolved-resolv-conf.h"
+#include "stdio-util.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -735,15 +736,13 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         return 1;
 }
 
-char *link_bus_path(Link *link) {
-        _cleanup_free_ char *ifindex = NULL;
-        char *p;
+char *link_bus_path(const Link *link) {
+        char *p, ifindex[DECIMAL_STR_MAX(link->ifindex)];
         int r;
 
         assert(link);
 
-        if (asprintf(&ifindex, "%i", link->ifindex) < 0)
-                return NULL;
+        xsprintf(ifindex, "%i", link->ifindex);
 
         r = sd_bus_path_encode("/org/freedesktop/resolve1/link", ifindex, &p);
         if (r < 0)
