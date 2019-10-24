@@ -2093,7 +2093,7 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                                 fflush(stdout);
                         }
 
-                        r = unit_name_mangle_with_suffix(*i, 0, ".service", &mangled);
+                        r = unit_name_mangle(*i, 0, &mangled);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to mangle unit name '%s': %m", *i);
 

@@ -761,10 +761,7 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
                 char *t;
                 UnitNameMangle options = UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN);
 
-                if (suffix)
-                        r = unit_name_mangle_with_suffix(*name, options, suffix, &t);
-                else
-                        r = unit_name_mangle(*name, options, &t);
+                r = unit_name_mangle_with_suffix(*name, NULL, options, suffix ?: ".service", &t);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle name: %m");
 
@@ -2182,7 +2179,9 @@ static int set_default(int argc, char *argv[], void *userdata) {
         assert(argc >= 2);
         assert(argv);
 
-        r = unit_name_mangle_with_suffix(argv[1], arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, ".target", &unit);
+        r = unit_name_mangle_with_suffix(argv[1], "set-default",
+                                         arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                         ".target", &unit);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
@@ -6565,7 +6564,7 @@ static int enable_sysv_units(const char *verb, char **args) {
         return r;
 }
 
-static int mangle_names(char **original_names, char ***mangled_names) {
+static int mangle_names(const char *operation, char **original_names, char ***mangled_names) {
         char **i, **l, **name;
         int r;
 
@@ -6585,7 +6584,9 @@ static int mangle_names(char **original_names, char ***mangled_names) {
                                 return log_oom();
                         }
                 } else {
-                        r = unit_name_mangle(*name, arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, i);
+                        r = unit_name_mangle_with_suffix(*name, operation,
+                                                         arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                                         ".service", i);
                         if (r < 0) {
                                 *i = NULL;
                                 strv_free(l);
@@ -6696,7 +6697,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
         if (!argv[1])
                 return 0;
 
-        r = mangle_names(strv_skip(argv, 1), &names);
+        r = mangle_names("to enable", strv_skip(argv, 1), &names);
         if (r < 0)
                 return r;
 
@@ -6923,11 +6924,13 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
         if (!argv[1])
                 return 0;
 
-        r = unit_name_mangle_with_suffix(argv[1], arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, ".target", &target);
+        r = unit_name_mangle_with_suffix(argv[1], "as target",
+                                         arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                         ".target", &target);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
-        r = mangle_names(strv_skip(argv, 2), &names);
+        r = mangle_names("as dependency", strv_skip(argv, 2), &names);
         if (r < 0)
                 return r;
 
@@ -7113,7 +7116,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
         char **name;
         int r;
 
-        r = mangle_names(strv_skip(argv, 1), &names);
+        r = mangle_names("to check", strv_skip(argv, 1), &names);
         if (r < 0)
                 return r;
 

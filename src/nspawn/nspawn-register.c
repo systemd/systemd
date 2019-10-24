@@ -258,7 +258,7 @@ int allocate_scope(
         if (r < 0)
                 return log_error_errno(r, "Could not watch job: %m");
 
-        r = unit_name_mangle_with_suffix(machine_name, 0, ".scope", &scope);
+        r = unit_name_mangle_with_suffix(machine_name, "as machine name", 0, ".scope", &scope);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle scope name: %m");
 
@@ -350,7 +350,7 @@ int terminate_scope(
         _cleanup_free_ char *scope = NULL;
         int r;
 
-        r = unit_name_mangle_with_suffix(machine_name, 0, ".scope", &scope);
+        r = unit_name_mangle_with_suffix(machine_name, "to terminate", 0, ".scope", &scope);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle scope name: %m");
 

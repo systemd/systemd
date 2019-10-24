@@ -52,10 +52,10 @@ typedef enum UnitNameMangle {
         UNIT_NAME_MANGLE_WARN = 1 << 1,
 } UnitNameMangle;
 
-int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const char *suffix, char **ret);
+int unit_name_mangle_with_suffix(const char *name, const char *operation, UnitNameMangle flags, const char *suffix, char **ret);
 
 static inline int unit_name_mangle(const char *name, UnitNameMangle flags, char **ret) {
-        return unit_name_mangle_with_suffix(name, flags, ".service", ret);
+        return unit_name_mangle_with_suffix(name, NULL, flags, ".service", ret);
 }
 
 bool service_unit_name_is_valid(const char *name);
