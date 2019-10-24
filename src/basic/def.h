@@ -58,3 +58,8 @@
         STRV_MAKE(CONF_PATHS(n))
 
 #define HIGH_RLIMIT_MEMLOCK (1024ULL*1024ULL*64ULL)
+
+#define PLYMOUTH_SOCKET {                                       \
+                .un.sun_family = AF_UNIX,                       \
+                .un.sun_path = "\0/org/freedesktop/plymouthd",  \
+        }
