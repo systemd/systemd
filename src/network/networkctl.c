@@ -21,6 +21,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "device-util.h"
+#include "escape.h"
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
@@ -46,9 +47,13 @@
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "verbs.h"
+#include "wifi-util.h"
 
 /* Kernel defines MODULE_NAME_LEN as 64 - sizeof(unsigned long). So, 64 is enough. */
 #define NETDEV_KIND_MAX 64
+
+/* use 128 kB for receive socket kernel queue, we shouldn't need more here */
+#define RCVBUF_SIZE    (128*1024)
 
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
@@ -76,11 +81,12 @@ static char *link_get_type_string(unsigned short iftype, sd_device *d) {
         return p;
 }
 
-static void operational_state_to_color(const char *state, const char **on, const char **off) {
+static void operational_state_to_color(const char *name, const char *state, const char **on, const char **off) {
         assert(on);
         assert(off);
 
-        if (STRPTR_IN_SET(state, "routable", "enslaved")) {
+        if (STRPTR_IN_SET(state, "routable", "enslaved") ||
+            (streq_ptr(name, "lo") && streq_ptr(state, "carrier"))) {
                 *on = ansi_highlight_green();
                 *off = ansi_normal();
         } else if (streq_ptr(state, "degraded")) {
@@ -124,6 +130,7 @@ typedef struct VxLanInfo {
 typedef struct LinkInfo {
         char name[IFNAMSIZ+1];
         char netdev_kind[NETDEV_KIND_MAX];
+        sd_device *sd_device;
         int ifindex;
         unsigned short iftype;
         struct ether_addr mac_address;
@@ -159,6 +166,10 @@ typedef struct LinkInfo {
         Duplex duplex;
         NetDevPort port;
 
+        /* wlan info */
+        char *ssid;
+        struct ether_addr bssid;
+
         bool has_mac_address:1;
         bool has_tx_queues:1;
         bool has_rx_queues:1;
@@ -166,11 +177,24 @@ typedef struct LinkInfo {
         bool has_stats:1;
         bool has_bitrates:1;
         bool has_ethtool_link_info:1;
+        bool has_wlan_link_info:1;
+
+        bool needs_freeing:1;
 } LinkInfo;
 
 static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
         return CMP(a->ifindex, b->ifindex);
 }
+
+static const LinkInfo* link_info_array_free(LinkInfo *array) {
+        for (unsigned i = 0; array && array[i].needs_freeing; i++) {
+                sd_device_unref(array[i].sd_device);
+                free(array[i].ssid);
+        }
+
+        return mfree(array);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(LinkInfo*, link_info_array_free);
 
 static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
         const char *received_kind;
@@ -348,9 +372,47 @@ static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
         return 0;
 }
 
+static void acquire_ether_link_info(int *fd, LinkInfo *link) {
+        if (ethtool_get_link_info(fd, link->name,
+                                  &link->autonegotiation,
+                                  &link->speed,
+                                  &link->duplex,
+                                  &link->port) >= 0)
+                link->has_ethtool_link_info = true;
+}
+
+static void acquire_wlan_link_info(LinkInfo *link) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
+        const char *type = NULL;
+        int r, k;
+
+        if (link->sd_device)
+                (void) sd_device_get_devtype(link->sd_device, &type);
+        if (!streq_ptr(type, "wlan"))
+                return;
+
+        r = sd_genl_socket_open(&genl);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to open generic netlink socket: %m");
+                return;
+        }
+
+        (void) sd_netlink_inc_rcvbuf(genl, RCVBUF_SIZE);
+
+        r = wifi_get_ssid(genl, link->ifindex, &link->ssid);
+        if (r < 0)
+                log_debug_errno(r, "%s: failed to query ssid: %m", link->name);
+
+        k = wifi_get_bssid(genl, link->ifindex, &link->bssid);
+        if (k < 0)
+                log_debug_errno(k, "%s: failed to query bssid: %m", link->name);
+
+        link->has_wlan_link_info = r > 0 || k > 0;
+}
+
 static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_free_ LinkInfo *links = NULL;
+        _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_close_ int fd = -1;
         size_t allocated = 0, c = 0, j;
         sd_netlink_message *i;
@@ -372,7 +434,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
         for (i = reply; i; i = sd_netlink_message_next(i)) {
-                if (!GREEDY_REALLOC0(links, allocated, c+1))
+                if (!GREEDY_REALLOC0(links, allocated, c + 2)) /* We keep one trailing one as marker */
                         return -ENOMEM;
 
                 r = decode_link(i, links + c, patterns);
@@ -381,11 +443,14 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
                 if (r == 0)
                         continue;
 
-                r = ethtool_get_link_info(&fd, links[c].name,
-                                          &links[c].autonegotiation, &links[c].speed,
-                                          &links[c].duplex, &links[c].port);
-                if (r >= 0)
-                        links[c].has_ethtool_link_info = true;
+                links[c].needs_freeing = true;
+
+                char devid[2 + DECIMAL_STR_MAX(int)];
+                xsprintf(devid, "n%i", links[c].ifindex);
+                (void) sd_device_new_from_device_id(&links[c].sd_device, devid);
+
+                acquire_ether_link_info(&fd, &links[c]);
+                acquire_wlan_link_info(&links[c]);
 
                 c++;
         }
@@ -403,7 +468,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
 
 static int list_links(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_free_ LinkInfo *links = NULL;
+        _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
         int c, i, r;
@@ -435,24 +500,19 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
         for (i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
-                _cleanup_(sd_device_unrefp) sd_device *d = NULL;
                 const char *on_color_operational, *off_color_operational,
                            *on_color_setup, *off_color_setup;
-                char devid[2 + DECIMAL_STR_MAX(int)];
                 _cleanup_free_ char *t = NULL;
 
                 (void) sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
-                operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
+                operational_state_to_color(links[i].name, operational_state, &on_color_operational, &off_color_operational);
 
                 r = sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
                 if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
                         setup_state = strdup("unmanaged");
                 setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
-                xsprintf(devid, "n%i", links[i].ifindex);
-                (void) sd_device_new_from_device_id(&d, devid);
-
-                t = link_get_type_string(links[i].iftype, d);
+                t = link_get_type_string(links[i].iftype, links[i].sd_device);
 
                 r = table_add_many(table,
                                    TABLE_INT, links[i].ifindex,
@@ -998,8 +1058,6 @@ static int link_status_one(
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains = NULL;
         _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *tz = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        char devid[2 + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *t = NULL, *network = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
         const char *on_color_operational, *off_color_operational,
@@ -1013,7 +1071,7 @@ static int link_status_one(
         assert(info);
 
         (void) sd_network_link_get_operational_state(info->ifindex, &operational_state);
-        operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
+        operational_state_to_color(info->name, operational_state, &on_color_operational, &off_color_operational);
 
         r = sd_network_link_get_setup_state(info->ifindex, &setup_state);
         if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
@@ -1025,23 +1083,19 @@ static int link_status_one(
         (void) sd_network_link_get_route_domains(info->ifindex, &route_domains);
         (void) sd_network_link_get_ntp(info->ifindex, &ntp);
 
-        xsprintf(devid, "n%i", info->ifindex);
+        if (info->sd_device) {
+                (void) sd_device_get_property_value(info->sd_device, "ID_NET_LINK_FILE", &link);
+                (void) sd_device_get_property_value(info->sd_device, "ID_NET_DRIVER", &driver);
+                (void) sd_device_get_property_value(info->sd_device, "ID_PATH", &path);
 
-        (void) sd_device_new_from_device_id(&d, devid);
+                if (sd_device_get_property_value(info->sd_device, "ID_VENDOR_FROM_DATABASE", &vendor) < 0)
+                        (void) sd_device_get_property_value(info->sd_device, "ID_VENDOR", &vendor);
 
-        if (d) {
-                (void) sd_device_get_property_value(d, "ID_NET_LINK_FILE", &link);
-                (void) sd_device_get_property_value(d, "ID_NET_DRIVER", &driver);
-                (void) sd_device_get_property_value(d, "ID_PATH", &path);
-
-                if (sd_device_get_property_value(d, "ID_VENDOR_FROM_DATABASE", &vendor) < 0)
-                        (void) sd_device_get_property_value(d, "ID_VENDOR", &vendor);
-
-                if (sd_device_get_property_value(d, "ID_MODEL_FROM_DATABASE", &model) < 0)
-                        (void) sd_device_get_property_value(d, "ID_MODEL", &model);
+                if (sd_device_get_property_value(info->sd_device, "ID_MODEL_FROM_DATABASE", &model) < 0)
+                        (void) sd_device_get_property_value(info->sd_device, "ID_MODEL", &model);
         }
 
-        t = link_get_type_string(info->iftype, d);
+        t = link_get_type_string(info->iftype, info->sd_device);
 
         (void) sd_network_link_get_network_file(info->ifindex, &network);
 
@@ -1244,6 +1298,26 @@ static int link_status_one(
                 }
         }
 
+        if (info->has_wlan_link_info) {
+                _cleanup_free_ char *esc = NULL;
+                char buf[ETHER_ADDR_TO_STRING_MAX];
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "WiFi access point:");
+                if (r < 0)
+                        return r;
+
+                if (info->ssid)
+                        esc = cescape(info->ssid);
+
+                r = table_add_cell_stringf(table, NULL, "%s (%s)",
+                                           strnull(esc),
+                                           ether_addr_to_string(&info->bssid, buf));
+                if (r < 0)
+                        return r;
+        }
+
         if (info->has_bitrates) {
                 char tx[FORMAT_BYTES_MAX], rx[FORMAT_BYTES_MAX];
 
@@ -1368,7 +1442,7 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         assert(rtnl);
 
         (void) sd_network_get_operational_state(&operational_state);
-        operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
+        operational_state_to_color(NULL, operational_state, &on_color_operational, &off_color_operational);
 
         table = table_new("dot", "key", "value");
         if (!table)
@@ -1424,7 +1498,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-        _cleanup_free_ LinkInfo *links = NULL;
+        _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         int r, c, i;
 
         (void) pager_open(arg_pager_flags);
@@ -1512,7 +1586,7 @@ static void lldp_capabilities_legend(uint16_t x) {
 
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_free_ LinkInfo *links = NULL;
+        _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         int i, r, c, m = 0;
         uint16_t all = 0;
