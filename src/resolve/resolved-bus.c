@@ -1274,13 +1274,12 @@ static int bus_property_get_dns_servers(
                         return r;
         }
 
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links, i)
                 LIST_FOREACH(servers, s, l->dns_servers) {
                         r = bus_dns_server_append(reply, s, true);
                         if (r < 0)
                                 return r;
                 }
-        }
 
         return sd_bus_message_close_container(reply);
 }
