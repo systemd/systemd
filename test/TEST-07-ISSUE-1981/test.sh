@@ -5,7 +5,7 @@ TEST_NO_QEMU=1
 
 . $TEST_BASE_DIR/test-functions
 
-NSPAWN_TIMEOUT=30s
+NSPAWN_TIMEOUT=30
 
 test_setup() {
     create_empty_image_rootdir
