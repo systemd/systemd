@@ -79,7 +79,7 @@ int sd_netlink_new_from_netlink(sd_netlink **ret, int fd) {
         return 0;
 }
 
-static bool rtnl_pid_changed(sd_netlink *rtnl) {
+static bool rtnl_pid_changed(const sd_netlink *rtnl) {
         assert(rtnl);
 
         /* We don't support people creating an rtnl connection and
@@ -673,7 +673,7 @@ int sd_netlink_call(sd_netlink *rtnl,
         }
 }
 
-int sd_netlink_get_events(sd_netlink *rtnl) {
+int sd_netlink_get_events(const sd_netlink *rtnl) {
         assert_return(rtnl, -EINVAL);
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
 
@@ -683,7 +683,7 @@ int sd_netlink_get_events(sd_netlink *rtnl) {
                 return 0;
 }
 
-int sd_netlink_get_timeout(sd_netlink *rtnl, uint64_t *timeout_usec) {
+int sd_netlink_get_timeout(const sd_netlink *rtnl, uint64_t *timeout_usec) {
         struct reply_callback *c;
 
         assert_return(rtnl, -EINVAL);
