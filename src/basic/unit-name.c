@@ -597,10 +597,10 @@ static bool do_escape_mangle(const char *f, bool allow_globs, char *t) {
  *
  *  If @allow_globs, globs characters are preserved. Otherwise, they are escaped.
  */
-int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const char *suffix, char **ret) {
+int unit_name_mangle_with_suffix(const char *name, const char *operation, UnitNameMangle flags, const char *suffix, char **ret) {
         char *s;
         int r;
-        bool mangled;
+        bool mangled, suggest_escape = true;
 
         assert(name);
         assert(suffix);
@@ -617,10 +617,14 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const c
                 goto good;
 
         /* Already a fully valid globbing expression? If so, no mangling is necessary either... */
-        if ((flags & UNIT_NAME_MANGLE_GLOB) &&
-            string_is_glob(name) &&
-            in_charset(name, VALID_CHARS_GLOB))
-                goto good;
+        if (string_is_glob(name) && in_charset(name, VALID_CHARS_GLOB)) {
+                if (flags & UNIT_NAME_MANGLE_GLOB)
+                        goto good;
+                log_full(flags & UNIT_NAME_MANGLE_WARN ? LOG_NOTICE : LOG_DEBUG,
+                         "Glob pattern passed%s%s, but globs are not supported for this.",
+                         operation ? " " : "", operation ?: "");
+                suggest_escape = false;
+        }
 
         if (is_device_path(name)) {
                 r = unit_name_from_path(name, ".device", ret);
@@ -645,11 +649,12 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const c
         mangled = do_escape_mangle(name, flags & UNIT_NAME_MANGLE_GLOB, s);
         if (mangled)
                 log_full(flags & UNIT_NAME_MANGLE_WARN ? LOG_NOTICE : LOG_DEBUG,
-                         "Invalid unit name \"%s\" was escaped as \"%s\" (maybe you should use systemd-escape?)",
-                         name, s);
+                         "Invalid unit name \"%s\" escaped as \"%s\"%s.",
+                         name, s,
+                         suggest_escape ? " (maybe you should use systemd-escape?)" : "");
 
-        /* Append a suffix if it doesn't have any, but only if this is not a glob, so that we can allow "foo.*" as a
-         * valid glob. */
+        /* Append a suffix if it doesn't have any, but only if this is not a glob, so that we can allow
+         * "foo.*" as a valid glob. */
         if ((!(flags & UNIT_NAME_MANGLE_GLOB) || !string_is_glob(s)) && unit_name_to_type(s) < 0)
                 strcat(s, suffix);
 
