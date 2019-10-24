@@ -1856,11 +1856,11 @@ int manager_load_config(Manager *m) {
         /* update timestamp */
         paths_check_timestamp(NETWORK_DIRS, &m->network_dirs_ts_usec, true);
 
-        r = netdev_load(m);
+        r = netdev_load(m, false);
         if (r < 0)
                 return r;
 
-        r = network_load(m);
+        r = network_load(m, &m->networks);
         if (r < 0)
                 return r;
 

@@ -23,6 +23,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fflush(f);
         assert_se(manager_new(&manager) >= 0);
-        (void) network_load_one(manager, network_config);
+        (void) network_load_one(manager, &manager->networks, network_config);
         return 0;
 }

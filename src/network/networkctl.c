@@ -719,10 +719,8 @@ static int dump_gateways(
                 if (ifindex <= 0) {
                         char name[IF_NAMESIZE+1];
 
-                        if (format_ifname(local[i].ifindex, name))
-                                r = table_add_cell_stringf(table, NULL, "%s on %s", with_description ?: gateway, name);
-                        else
-                                r = table_add_cell_stringf(table, NULL, "%s on %%%i", with_description ?: gateway, local[i].ifindex);
+                        r = table_add_cell_stringf(table, NULL, "%s on %s", with_description ?: gateway,
+                                                   format_ifname_full(local[i].ifindex, name, FORMAT_IFNAME_IFINDEX_WITH_PERCENT));
                 } else
                         r = table_add_cell(table, NULL, TABLE_STRING, with_description ?: gateway);
                 if (r < 0)
@@ -775,10 +773,8 @@ static int dump_addresses(
                 if (ifindex <= 0) {
                         char name[IF_NAMESIZE+1];
 
-                        if (format_ifname(local[i].ifindex, name))
-                                r = table_add_cell_stringf(table, NULL, "%s on %s", pretty, name);
-                        else
-                                r = table_add_cell_stringf(table, NULL, "%s on %%%i", pretty, local[i].ifindex);
+                        r = table_add_cell_stringf(table, NULL, "%s on %s", pretty,
+                                                   format_ifname_full(local[i].ifindex, name, FORMAT_IFNAME_IFINDEX_WITH_PERCENT));
                 } else
                         r = table_add_cell(table, NULL, TABLE_STRING, pretty);
                 if (r < 0)
@@ -1759,14 +1755,13 @@ static int link_delete(int argc, char *argv[], void *userdata) {
         }
 
         SET_FOREACH(p, indexes, j) {
-                r = link_delete_send_message(rtnl, PTR_TO_INT(p));
+                index = PTR_TO_INT(p);
+                r = link_delete_send_message(rtnl, index);
                 if (r < 0) {
                         char ifname[IF_NAMESIZE + 1];
 
-                        if (format_ifname(index, ifname))
-                                return log_error_errno(r, "Failed to delete interface %s: %m", ifname);
-                        else
-                                return log_error_errno(r, "Failed to delete interface %d: %m", index);
+                        return log_error_errno(r, "Failed to delete interface %s: %m",
+                                               format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
                 }
         }
 
@@ -1815,6 +1810,73 @@ static int link_renew(int argc, char *argv[], void *userdata) {
 }
 
 
+static int verb_reload(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "Reload",
+                        &error, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reload network settings: %m");
+
+        return 0;
+}
+
+static int verb_reconfigure(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_set_free_ Set *indexes = NULL;
+        int index, i, r;
+        Iterator j;
+        void *p;
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
+
+        indexes = set_new(NULL);
+        if (!indexes)
+                return log_oom();
+
+        for (i = 1; i < argc; i++) {
+                r = parse_ifindex_or_ifname(argv[i], &index);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
+
+                r = set_put(indexes, INT_TO_PTR(index));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        SET_FOREACH(p, indexes, j) {
+                index = PTR_TO_INT(p);
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.network1",
+                                "/org/freedesktop/network1",
+                                "org.freedesktop.network1.Manager",
+                                "ReconfigureLink",
+                                &error, NULL, "i", index);
+                if (r < 0) {
+                        char ifname[IF_NAMESIZE + 1];
+
+                        return log_error_errno(r, "Failed to reconfigure network interface %s: %m", format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
+                }
+        }
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1826,19 +1888,21 @@ static int help(void) {
         printf("%s%s [OPTIONS...]\n\n"
                "Query and control the networking subsystem.%s\n"
                "\nCommands:\n"
-               "  list [PATTERN...]     List links\n"
-               "  status [PATTERN...]   Show link status\n"
-               "  lldp [PATTERN...]     Show LLDP neighbors\n"
-               "  label                 Show current address label entries in the kernel\n"
-               "  delete DEVICES...     Delete virtual netdevs\n"
-               "  renew DEVICES...      Renew dynamic configurations\n"
+               "  list [PATTERN...]      List links\n"
+               "  status [PATTERN...]    Show link status\n"
+               "  lldp [PATTERN...]      Show LLDP neighbors\n"
+               "  label                  Show current address label entries in the kernel\n"
+               "  delete DEVICES...      Delete virtual netdevs\n"
+               "  renew DEVICES...       Renew dynamic configurations\n"
+               "  reconfigure DEVICES... Reconfigure interfaces\n"
+               "  reload                 Reload .network and .netdev files\n"
                "\nOptions\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "     --no-pager         Do not pipe output into a pager\n"
-               "     --no-legend        Do not show the headers and footers\n"
-               "  -a --all              Show status for all links\n"
-               "  -s --stats            Show detailed link statics\n"
+               "  -h --help              Show this help\n"
+               "     --version           Show package version\n"
+               "     --no-pager          Do not pipe output into a pager\n"
+               "     --no-legend         Do not show the headers and footers\n"
+               "  -a --all               Show status for all links\n"
+               "  -s --stats             Show detailed link statics\n"
                "\nSee the %s for details.\n"
                , ansi_highlight()
                , program_invocation_short_name
@@ -1911,12 +1975,14 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int networkctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "list",   VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
-                { "status", VERB_ANY, VERB_ANY, 0,            link_status         },
-                { "lldp",   VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
-                { "label",  VERB_ANY, VERB_ANY, 0,            list_address_labels },
-                { "delete", 2,        VERB_ANY, 0,            link_delete         },
-                { "renew",  2,        VERB_ANY, 0,            link_renew          },
+                { "list",        VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
+                { "status",      VERB_ANY, VERB_ANY, 0,            link_status         },
+                { "lldp",        VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
+                { "label",       VERB_ANY, VERB_ANY, 0,            list_address_labels },
+                { "delete",      2,        VERB_ANY, 0,            link_delete         },
+                { "renew",       2,        VERB_ANY, 0,            link_renew          },
+                { "reconfigure", 2,        VERB_ANY, 0,            verb_reconfigure    },
+                { "reload",      1,        1,        0,            verb_reload         },
                 {}
         };
 

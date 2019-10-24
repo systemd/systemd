@@ -2857,7 +2857,7 @@ static int link_configure_duid(Link *link) {
         return 0;
 }
 
-int link_reconfigure(Link *link) {
+int link_reconfigure(Link *link, bool force) {
         Network *network;
         int r;
 
@@ -2875,7 +2875,7 @@ int link_reconfigure(Link *link) {
         } else if (r < 0)
                 return r;
 
-        if (link->network == network)
+        if (link->network == network && !force)
                 return 0;
 
         log_link_info(link, "Re-configuring with %s", network->filename);
@@ -3337,7 +3337,7 @@ static int link_carrier_gained(Link *link) {
         if (r < 0)
                 return r;
         if (r > 0) {
-                r = link_reconfigure(link);
+                r = link_reconfigure(link, false);
                 if (r < 0)
                         return r;
         }

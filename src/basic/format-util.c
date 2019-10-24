@@ -4,11 +4,24 @@
 
 #include "format-util.h"
 #include "memory-util.h"
+#include "stdio-util.h"
 
-char *format_ifname(int ifindex, char buf[static IF_NAMESIZE + 1]) {
+assert_cc(DECIMAL_STR_MAX(int) + 1 <= IF_NAMESIZE + 1);
+char *format_ifname_full(int ifindex, char buf[static IF_NAMESIZE + 1], FormatIfnameFlag flag) {
         /* Buffer is always cleared */
         memzero(buf, IF_NAMESIZE + 1);
-        return if_indextoname(ifindex, buf);
+        if (if_indextoname(ifindex, buf))
+                return buf;
+
+        if (!FLAGS_SET(flag, FORMAT_IFNAME_IFINDEX))
+                return NULL;
+
+        if (FLAGS_SET(flag, FORMAT_IFNAME_IFINDEX_WITH_PERCENT))
+                snprintf(buf, IF_NAMESIZE + 1, "%%%d", ifindex);
+        else
+                snprintf(buf, IF_NAMESIZE + 1, "%d", ifindex);
+
+        return buf;
 }
 
 char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) {

@@ -314,7 +314,7 @@ int network_verify(Network *network) {
         return 0;
 }
 
-int network_load_one(Manager *manager, const char *filename) {
+int network_load_one(Manager *manager, OrderedHashmap **networks, const char *filename) {
         _cleanup_free_ char *fname = NULL, *name = NULL;
         _cleanup_(network_unrefp) Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
@@ -488,41 +488,89 @@ int network_load_one(Manager *manager, const char *filename) {
                 log_warning_errno(r, "%s: Failed to add default route on device, ignoring: %m",
                                   network->filename);
 
-        r = ordered_hashmap_ensure_allocated(&manager->networks, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(manager->networks, network->name, network);
-        if (r < 0)
-                return r;
+        struct stat stats;
+        if (stat(filename, &stats) < 0)
+                return -errno;
+        network->timestamp = timespec_load(&stats.st_mtim);
 
         if (network_verify(network) < 0)
+                /* Ignore .network files that do not match the conditions. */
                 return 0;
+
+        r = ordered_hashmap_ensure_allocated(networks, &string_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = ordered_hashmap_put(*networks, network->name, network);
+        if (r < 0)
+                return r;
 
         network = NULL;
         return 0;
 }
 
-int network_load(Manager *manager) {
+int network_load(Manager *manager, OrderedHashmap **networks) {
         _cleanup_strv_free_ char **files = NULL;
         char **f;
         int r;
 
         assert(manager);
 
-        ordered_hashmap_clear_with_destructor(manager->networks, network_unref);
+        ordered_hashmap_clear_with_destructor(*networks, network_unref);
 
         r = conf_files_list_strv(&files, ".network", NULL, 0, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate network files: %m");
 
         STRV_FOREACH(f, files) {
-                r = network_load_one(manager, *f);
+                r = network_load_one(manager, networks, *f);
                 if (r < 0)
                         log_error_errno(r, "Failed to load %s, ignoring: %m", *f);
         }
 
         return 0;
+}
+
+int network_reload(Manager *manager) {
+        OrderedHashmap *new_networks = NULL;
+        Network *n, *old;
+        Iterator i;
+        int r;
+
+        assert(manager);
+
+        r = network_load(manager, &new_networks);
+        if (r < 0)
+                goto failure;
+
+        ORDERED_HASHMAP_FOREACH(n, new_networks, i) {
+                r = network_get_by_name(manager, n->name, &old);
+                if (r < 0)
+                        continue; /* The .network file is new. */
+
+                if (n->timestamp != old->timestamp)
+                        continue; /* The .network file is modified. */
+
+                if (!streq(n->filename, old->filename))
+                        continue;
+
+                r = ordered_hashmap_replace(new_networks, old->name, old);
+                if (r < 0)
+                        goto failure;
+
+                network_ref(old);
+                network_unref(n);
+        }
+
+        ordered_hashmap_free_with_destructor(manager->networks, network_unref);
+        manager->networks = new_networks;
+
+        return 0;
+
+failure:
+        ordered_hashmap_free_with_destructor(new_networks, network_unref);
+
+        return r;
 }
 
 static Network *network_free(Network *network) {
@@ -615,13 +663,9 @@ static Network *network_free(Network *network) {
         hashmap_free(network->prefixes_by_section);
         hashmap_free(network->rules_by_section);
 
-        if (network->manager) {
-                if (network->manager->networks && network->name)
-                        ordered_hashmap_remove(network->manager->networks, network->name);
-
-                if (network->manager->duids_requesting_uuid)
-                        set_remove(network->manager->duids_requesting_uuid, &network->duid);
-        }
+        if (network->manager &&
+            network->manager->duids_requesting_uuid)
+                set_remove(network->manager->duids_requesting_uuid, &network->duid);
 
         free(network->name);
 
