@@ -303,7 +303,7 @@ int unit_file_build_name_map(
                                 }
 
                                 /* Get rid of "." and ".." components in target path */
-                                r = chase_symlinks(target, lp->root_dir, CHASE_NOFOLLOW | CHASE_NONEXISTENT, &simplified);
+                                r = chase_symlinks(target, lp->root_dir, CHASE_NOFOLLOW | CHASE_NONEXISTENT, &simplified, NULL);
                                 if (r < 0) {
                                         log_warning_errno(r, "Failed to resolve symlink %s pointing to %s, ignoring: %m",
                                                           filename, target);

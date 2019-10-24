@@ -846,7 +846,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (laccess(p, F_OK) < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Container does not allow propagation of mount points.");
 
-        r = chase_symlinks(src, NULL, CHASE_TRAIL_SLASH, &chased_src);
+        r = chase_symlinks(src, NULL, CHASE_TRAIL_SLASH, &chased_src, NULL);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to resolve source path: %m");
 

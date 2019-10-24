@@ -8,21 +8,23 @@
 
 static char *arg_root = NULL;
 static int arg_flags = 0;
+static bool arg_open = false;
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_ROOT = 0x1000,
+                ARG_OPEN,
         };
 
         static const struct option options[] = {
                 { "help",                no_argument,       NULL, 'h'                     },
                 { "root",                required_argument, NULL, ARG_ROOT                },
+                { "open",                no_argument,       NULL, ARG_OPEN                },
 
                 { "prefix-root",         no_argument,       NULL, CHASE_PREFIX_ROOT       },
                 { "nonexistent",         no_argument,       NULL, CHASE_NONEXISTENT       },
                 { "no_autofs",           no_argument,       NULL, CHASE_NO_AUTOFS         },
                 { "safe",                no_argument,       NULL, CHASE_SAFE              },
-                { "open",                no_argument,       NULL, CHASE_OPEN              },
                 { "trail-slash",         no_argument,       NULL, CHASE_TRAIL_SLASH       },
                 { "step",                no_argument,       NULL, CHASE_STEP              },
                 { "nofollow",            no_argument,       NULL, CHASE_NOFOLLOW          },
@@ -51,11 +53,14 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_root = optarg;
                         break;
 
+                case ARG_OPEN:
+                        arg_open = true;
+                        break;
+
                 case CHASE_PREFIX_ROOT:
                 case CHASE_NONEXISTENT:
                 case CHASE_NO_AUTOFS:
                 case CHASE_SAFE:
-                case CHASE_OPEN:
                 case CHASE_TRAIL_SLASH:
                 case CHASE_STEP:
                 case CHASE_NOFOLLOW:
@@ -89,18 +94,21 @@ static int run(int argc, char **argv) {
 
         for (int i = optind; i < argc; i++) {
                 _cleanup_free_ char *p = NULL;
+                _cleanup_close_ int fd = -1;
 
                 printf("%s ", argv[i]);
                 fflush(stdout);
 
-                r = chase_symlinks(argv[i], arg_root, arg_flags, &p);
+                r = chase_symlinks(argv[i], arg_root, arg_flags, &p, arg_open ? &fd : NULL);
                 if (r < 0)
                         log_error_errno(r, "failed: %m");
-                else
+                else {
                         log_info("→ %s", p);
-
-                if (FLAGS_SET(arg_flags, CHASE_OPEN))
-                        safe_close(r);
+                        if (arg_open)
+                                assert(fd >= 0);
+                        else
+                                assert(fd == -1);
+                }
         }
 
         return 0;

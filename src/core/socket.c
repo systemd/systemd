@@ -1429,7 +1429,7 @@ static int socket_determine_selinux_label(Socket *s, char **ret) {
                 if (!c)
                         goto no_label;
 
-                r = chase_symlinks(c->path, service->exec_context.root_directory, CHASE_PREFIX_ROOT, &path);
+                r = chase_symlinks(c->path, service->exec_context.root_directory, CHASE_PREFIX_ROOT, &path, NULL);
                 if (r < 0)
                         goto no_label;
 

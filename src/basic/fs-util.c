@@ -713,7 +713,7 @@ static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
                                  n1, path);
 }
 
-int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret) {
+int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
         _cleanup_close_ int fd = -1;
         unsigned max_follow = CHASE_SYMLINKS_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
@@ -725,10 +725,10 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         assert(path);
 
         /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
-        if (FLAGS_SET(flags, CHASE_NONEXISTENT | CHASE_OPEN))
+        if ((flags & CHASE_NONEXISTENT) && ret_fd)
                 return -EINVAL;
 
-        if (FLAGS_SET(flags, CHASE_STEP | CHASE_OPEN))
+        if ((flags & CHASE_STEP) && ret_fd)
                 return -EINVAL;
 
         if (isempty(path))
@@ -754,17 +754,17 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * function what to do when encountering a symlink with an absolute path as directory: prefix it by the
          * specified path.
          *
-         * There are three ways to invoke this function:
+         * There are five ways to invoke this function:
          *
-         * 1. Without CHASE_STEP or CHASE_OPEN: in this case the path is resolved and the normalized path is returned
-         *    in `ret`. The return value is < 0 on error. If CHASE_NONEXISTENT is also set, 0 is returned if the file
-         *    doesn't exist, > 0 otherwise. If CHASE_NONEXISTENT is not set, >= 0 is returned if the destination was
-         *    found, -ENOENT if it wasn't.
+         * 1. Without CHASE_STEP or ret_fd: in this case the path is resolved and the normalized path is
+         *    returned in `ret_path`. The return value is < 0 on error. If CHASE_NONEXISTENT is also set, 0
+         *    is returned if the file doesn't exist, > 0 otherwise. If CHASE_NONEXISTENT is not set, >= 0 is
+         *    returned if the destination was found, -ENOENT if it wasn't.
          *
-         * 2. With CHASE_OPEN: in this case the destination is opened after chasing it as O_PATH and this file
+         * 2. With ret_fd: in this case the destination is opened after chasing it as O_PATH and this file
          *    descriptor is returned as return value. This is useful to open files relative to some root
          *    directory. Note that the returned O_PATH file descriptors must be converted into a regular one (using
-         *    fd_reopen() or such) before it can be used for reading/writing. CHASE_OPEN may not be combined with
+         *    fd_reopen() or such) before it can be used for reading/writing. ret_fd may not be combined with
          *    CHASE_NONEXISTENT.
          *
          * 3. With CHASE_STEP: in this case only a single step of the normalization is executed, i.e. only the first
@@ -780,21 +780,21 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * 5. With CHASE_NO_AUTOFS: in this case if an autofs mount point is encountered, path normalization
          *    is aborted and -EREMOTE is returned. If CHASE_WARN is also set, a warning showing the path of
          *    the mount point is emitted.
-         *
          */
 
         /* A root directory of "/" or "" is identical to none */
         if (empty_or_root(original_root))
                 original_root = NULL;
 
-        if (!original_root && !ret && (flags & (CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_OPEN|CHASE_STEP)) == CHASE_OPEN) {
-                /* Shortcut the CHASE_OPEN case if the caller isn't interested in the actual path and has no root set
+        if (!original_root && !ret_path && !(flags & (CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_STEP)) && ret_fd) {
+                /* Shortcut the ret_fd case if the caller isn't interested in the actual path and has no root set
                  * and doesn't care about any of the other special features we provide either. */
                 r = open(path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
                         return -errno;
 
-                return r;
+                *ret_fd = r;
+                return 0;
         }
 
         if (original_root) {
@@ -803,7 +803,6 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         return r;
 
                 if (flags & CHASE_PREFIX_ROOT) {
-
                         /* We don't support relative paths in combination with a root directory */
                         if (!path_is_absolute(path))
                                 return -EINVAL;
@@ -948,7 +947,6 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                 if (S_ISLNK(st.st_mode) && !((flags & CHASE_NOFOLLOW) && isempty(todo))) {
                         char *joined;
-
                         _cleanup_free_ char *destination = NULL;
 
                         /* This is a symlink, in this case read the destination. But let's make sure we don't follow
@@ -1034,15 +1032,15 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         return -ENOMEM;
         }
 
-        if (ret)
-                *ret = TAKE_PTR(done);
+        if (ret_path)
+                *ret_path = TAKE_PTR(done);
 
-        if (flags & CHASE_OPEN) {
-                /* Return the O_PATH fd we currently are looking to the caller. It can translate it to a proper fd by
-                 * opening /proc/self/fd/xyz. */
+        if (ret_fd) {
+                /* Return the O_PATH fd we currently are looking to the caller. It can translate it to a
+                 * proper fd by opening /proc/self/fd/xyz. */
 
                 assert(fd >= 0);
-                return TAKE_FD(fd);
+                *ret_fd = TAKE_FD(fd);
         }
 
         if (flags & CHASE_STEP)
@@ -1051,14 +1049,14 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         return exists;
 
 chased_one:
-        if (ret) {
+        if (ret_path) {
                 char *c;
 
                 c = strjoin(strempty(done), todo);
                 if (!c)
                         return -ENOMEM;
 
-                *ret = c;
+                *ret_path = c;
         }
 
         return 0;
@@ -1087,9 +1085,10 @@ int chase_symlinks_and_open(
                 return r;
         }
 
-        path_fd = chase_symlinks(path, root, chase_flags|CHASE_OPEN, ret_path ? &p : NULL);
-        if (path_fd < 0)
-                return path_fd;
+        r = chase_symlinks(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
+        if (r < 0)
+                return r;
+        assert(path_fd >= 0);
 
         r = fd_reopen(path_fd, open_flags);
         if (r < 0)
@@ -1112,6 +1111,7 @@ int chase_symlinks_and_opendir(
         _cleanup_close_ int path_fd = -1;
         _cleanup_free_ char *p = NULL;
         DIR *d;
+        int r;
 
         if (!ret_dir)
                 return -EINVAL;
@@ -1128,9 +1128,10 @@ int chase_symlinks_and_opendir(
                 return 0;
         }
 
-        path_fd = chase_symlinks(path, root, chase_flags|CHASE_OPEN, ret_path ? &p : NULL);
-        if (path_fd < 0)
-                return path_fd;
+        r = chase_symlinks(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
+        if (r < 0)
+                return r;
+        assert(path_fd >= 0);
 
         xsprintf(procfs_path, "/proc/self/fd/%i", path_fd);
         d = opendir(procfs_path);
@@ -1149,10 +1150,12 @@ int chase_symlinks_and_stat(
                 const char *root,
                 unsigned chase_flags,
                 char **ret_path,
-                struct stat *ret_stat) {
+                struct stat *ret_stat,
+                int *ret_fd) {
 
         _cleanup_close_ int path_fd = -1;
         _cleanup_free_ char *p = NULL;
+        int r;
 
         assert(path);
         assert(ret_stat);
@@ -1168,18 +1171,18 @@ int chase_symlinks_and_stat(
                 return 1;
         }
 
-        path_fd = chase_symlinks(path, root, chase_flags|CHASE_OPEN, ret_path ? &p : NULL);
-        if (path_fd < 0)
-                return path_fd;
+        r = chase_symlinks(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
+        if (r < 0)
+                return r;
+        assert(path_fd >= 0);
 
         if (fstat(path_fd, ret_stat) < 0)
                 return -errno;
 
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
-
-        if (chase_flags & CHASE_OPEN)
-                return TAKE_FD(path_fd);
+        if (ret_fd)
+                *ret_fd = TAKE_FD(path_fd);
 
         return 1;
 }

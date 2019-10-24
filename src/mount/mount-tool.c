@@ -360,7 +360,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!u)
                                 return log_oom();
 
-                        r = chase_symlinks(u, NULL, 0, &arg_mount_what);
+                        r = chase_symlinks(u, NULL, 0, &arg_mount_what, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make path %s absolute: %m", u);
                 } else {
@@ -377,7 +377,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 if (argc > optind+1) {
                         if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                                r = chase_symlinks(argv[optind+1], NULL, CHASE_NONEXISTENT, &arg_mount_where);
+                                r = chase_symlinks(argv[optind+1], NULL, CHASE_NONEXISTENT, &arg_mount_where, NULL);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to make path %s absolute: %m", argv[optind+1]);
                         } else {
@@ -1004,7 +1004,7 @@ static int action_umount(
                 if (!u)
                         return log_oom();
 
-                r = chase_symlinks(u, NULL, 0, &p);
+                r = chase_symlinks(u, NULL, 0, &p, NULL);
                 if (r < 0) {
                         r2 = log_error_errno(r, "Failed to make path %s absolute: %m", argv[i]);
                         continue;

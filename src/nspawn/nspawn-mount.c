@@ -633,7 +633,7 @@ int mount_all(const char *dest,
                 if (!tmpfs_tmp && (bool)(mount_table[k].mount_settings & MOUNT_APPLY_TMPFS_TMP))
                         continue;
 
-                r = chase_symlinks(mount_table[k].where, dest, CHASE_NONEXISTENT|CHASE_PREFIX_ROOT, &where);
+                r = chase_symlinks(mount_table[k].where, dest, CHASE_NONEXISTENT|CHASE_PREFIX_ROOT, &where, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, mount_table[k].where);
 
@@ -734,7 +734,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
 
-        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where);
+        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, m->destination);
         if (r > 0) { /* Path exists already? */
@@ -795,7 +795,7 @@ static int mount_tmpfs(
         assert(dest);
         assert(m);
 
-        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where);
+        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, m->destination);
         if (r == 0) { /* Doesn't exist yet? */
@@ -835,7 +835,7 @@ static int mount_overlay(const char *dest, CustomMount *m) {
         assert(dest);
         assert(m);
 
-        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where);
+        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, m->destination);
         if (r == 0) { /* Doesn't exist yet? */
@@ -878,7 +878,7 @@ static int mount_inaccessible(const char *dest, CustomMount *m) {
         assert(dest);
         assert(m);
 
-        r = chase_symlinks_and_stat(m->destination, dest, CHASE_PREFIX_ROOT, &where, &st);
+        r = chase_symlinks_and_stat(m->destination, dest, CHASE_PREFIX_ROOT, &where, &st, NULL);
         if (r < 0) {
                 log_full_errno(m->graceful ? LOG_DEBUG : LOG_ERR, r, "Failed to resolve %s/%s: %m", dest, m->destination);
                 return m->graceful ? 0 : r;
@@ -906,7 +906,7 @@ static int mount_arbitrary(const char *dest, CustomMount *m) {
         assert(dest);
         assert(m);
 
-        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where);
+        r = chase_symlinks(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, m->destination);
         if (r == 0) { /* Doesn't exist yet? */

@@ -146,7 +146,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                        _syspath);
 
         if (verify) {
-                r = chase_symlinks(_syspath, NULL, 0, &syspath);
+                r = chase_symlinks(_syspath, NULL, 0, &syspath, NULL);
                 if (r == -ENOENT)
                         return -ENODEV; /* the device does not exist (any more?) */
                 if (r < 0)
@@ -157,7 +157,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                         char *p;
 
                         /* /sys is a symlink to somewhere sysfs is mounted on? In that case, we convert the path to real sysfs to "/sys". */
-                        r = chase_symlinks("/sys", NULL, 0, &real_sys);
+                        r = chase_symlinks("/sys", NULL, 0, &real_sys, NULL);
                         if (r < 0)
                                 return log_debug_errno(r, "sd-device: Failed to chase symlink /sys: %m");
 
