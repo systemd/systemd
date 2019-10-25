@@ -5,8 +5,10 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #ifdef ARCH_MIPS
@@ -523,4 +525,40 @@ static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
 }
 
 #define get_mempolicy missing_get_mempolicy
+#endif
+
+#if !HAVE_PIDFD_OPEN
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#  if ! (defined __NR_pidfd_open && __NR_pidfd_open > 0)
+#    if defined __NR_pidfd_open
+#      undef __NR_pidfd_open
+#    endif
+#    define __NR_pidfd_open 434
+#endif
+static inline int pidfd_open(pid_t pid, unsigned flags) {
+#ifdef __NR_pidfd_open
+        return syscall(__NR_pidfd_open, pid, flags);
+#else
+        errno = ENOSYS;
+        return -1;
+#endif
+}
+#endif
+
+#if !HAVE_PIDFD_SEND_SIGNAL
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#  if ! (defined __NR_pidfd_send_signal && __NR_pidfd_send_signal > 0)
+#    if defined __NR_pidfd_send_signal
+#      undef __NR_pidfd_send_signal
+#    endif
+#    define __NR_pidfd_send_signal 424
+#endif
+static inline int pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags) {
+#ifdef __NR_pidfd_open
+        return syscall(__NR_pidfd_send_signal, fd, sig, info, flags);
+#else
+        errno = ENOSYS;
+        return -1;
+#endif
+}
 #endif
