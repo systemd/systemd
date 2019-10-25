@@ -595,6 +595,7 @@ static Network *network_free(Network *network) {
         strv_free(network->match_type);
         strv_free(network->match_name);
         strv_free(network->match_property);
+        strv_free(network->match_wlan_iftype);
         strv_free(network->match_ssid);
         set_free_free(network->match_bssid);
         condition_free_list(network->conditions);
@@ -701,7 +702,8 @@ int network_get_by_name(Manager *manager, const char *name, Network **ret) {
 
 int network_get(Manager *manager, sd_device *device,
                 const char *ifname, const struct ether_addr *address,
-                const char *ssid, const struct ether_addr *bssid, Network **ret) {
+                enum nl80211_iftype wlan_iftype, const char *ssid, const struct ether_addr *bssid,
+                Network **ret) {
         Network *network;
         Iterator i;
 
@@ -711,8 +713,8 @@ int network_get(Manager *manager, sd_device *device,
         ORDERED_HASHMAP_FOREACH(network, manager->networks, i)
                 if (net_match_config(network->match_mac, network->match_path, network->match_driver,
                                      network->match_type, network->match_name, network->match_property,
-                                     network->match_ssid, network->match_bssid,
-                                     device, address, ifname, ssid, bssid)) {
+                                     network->match_wlan_iftype, network->match_ssid, network->match_bssid,
+                                     device, address, ifname, wlan_iftype, ssid, bssid)) {
                         if (network->match_name && device) {
                                 const char *attr;
                                 uint8_t name_assign_type = NET_NAME_UNKNOWN;

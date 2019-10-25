@@ -154,6 +154,18 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>WirelessType=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of wireless network type. Supported values are
+            <literal>ad-hoc</literal>, <literal>station</literal>, <literal>ap</literal>,
+            <literal>ap-vlan</literal>, <literal>wds</literal>, <literal>monitor</literal>,
+            <literal>mesh-point</literal>, <literal>p2p-client</literal>, <literal>p2p-go</literal>,
+            <literal>p2p-device</literal>, <literal>ocb</literal>, and <literal>nan</literal>. If the
+            list is prefixed with a "!", the test is inverted.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>SSID=</varname></term>
           <listitem>
             <para>A whitespace-separated list of shell-style globs matching the SSID of the currently

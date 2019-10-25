@@ -167,6 +167,7 @@ typedef struct LinkInfo {
         NetDevPort port;
 
         /* wlan info */
+        enum nl80211_iftype wlan_iftype;
         char *ssid;
         struct ether_addr bssid;
 
@@ -384,7 +385,7 @@ static void acquire_ether_link_info(int *fd, LinkInfo *link) {
 static void acquire_wlan_link_info(LinkInfo *link) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
         const char *type = NULL;
-        int r, k;
+        int r, k = 0;
 
         if (link->sd_device)
                 (void) sd_device_get_devtype(link->sd_device, &type);
@@ -399,13 +400,15 @@ static void acquire_wlan_link_info(LinkInfo *link) {
 
         (void) sd_netlink_inc_rcvbuf(genl, RCVBUF_SIZE);
 
-        r = wifi_get_ssid(genl, link->ifindex, &link->ssid);
+        r = wifi_get_interface(genl, link->ifindex, &link->wlan_iftype, &link->ssid);
         if (r < 0)
                 log_debug_errno(r, "%s: failed to query ssid: %m", link->name);
 
-        k = wifi_get_bssid(genl, link->ifindex, &link->bssid);
-        if (k < 0)
-                log_debug_errno(k, "%s: failed to query bssid: %m", link->name);
+        if (link->iftype == NL80211_IFTYPE_STATION) {
+                k = wifi_get_station(genl, link->ifindex, &link->bssid);
+                if (k < 0)
+                        log_debug_errno(k, "%s: failed to query bssid: %m", link->name);
+        }
 
         link->has_wlan_link_info = r > 0 || k > 0;
 }
