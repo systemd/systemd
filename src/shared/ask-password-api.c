@@ -24,6 +24,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -34,7 +35,6 @@
 #include "memory-util.h"
 #include "missing.h"
 #include "mkdir.h"
-#include "plymouth-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "signal-util.h"

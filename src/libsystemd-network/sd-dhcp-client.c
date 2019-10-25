@@ -548,16 +548,14 @@ static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *i) {
 }
 
 int sd_dhcp_option_new(uint8_t option, void *data, size_t length, sd_dhcp_option **ret) {
-        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *p = NULL;
-        _cleanup_free_ void *q = NULL;
+        assert_return(ret, -EINVAL);
+        assert_return(length == 0 || data, -EINVAL);
 
-        assert(ret);
-
-        q = memdup(data, length);
+        _cleanup_free_ void *q = memdup(data, length);
         if (!q)
                 return -ENOMEM;
 
-        p = new(sd_dhcp_option, 1);
+        sd_dhcp_option *p = new(sd_dhcp_option, 1);
         if (!p)
                 return -ENOMEM;
 
@@ -2050,7 +2048,8 @@ sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client) {
 }
 
 static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
-        assert(client);
+        if (!client)
+                return NULL;
 
         log_dhcp_client(client, "FREE");
 
@@ -2076,11 +2075,9 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_client, sd_dhcp_client, dhcp_client_free);
 
 int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
-        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
-
         assert_return(ret, -EINVAL);
 
-        client = new(sd_dhcp_client, 1);
+        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = new(sd_dhcp_client, 1);
         if (!client)
                 return -ENOMEM;
 

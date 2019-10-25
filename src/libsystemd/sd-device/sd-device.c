@@ -838,8 +838,7 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
 _public_ int sd_device_get_devtype(sd_device *device, const char **devtype) {
         int r;
 
-        assert(devtype);
-        assert(device);
+        assert_return(device, -EINVAL);
 
         r = device_read_uevent_file(device);
         if (r < 0)
@@ -848,9 +847,10 @@ _public_ int sd_device_get_devtype(sd_device *device, const char **devtype) {
         if (!device->devtype)
                 return -ENOENT;
 
-        *devtype = device->devtype;
+        if (devtype)
+                *devtype = device->devtype;
 
-        return 0;
+        return !!device->devtype;
 }
 
 _public_ int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const char *subsystem, const char *devtype, sd_device **ret) {

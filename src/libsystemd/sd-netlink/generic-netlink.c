@@ -136,7 +136,7 @@ static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id) {
         return 0;
 }
 
-int nlmsg_type_to_genl_family(sd_netlink *nl, uint16_t type, sd_genl_family *ret) {
+int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, sd_genl_family *ret) {
         void *p;
 
         assert_return(nl, -EINVAL);
@@ -160,7 +160,7 @@ int nlmsg_type_to_genl_family(sd_netlink *nl, uint16_t type, sd_genl_family *ret
         return 0;
 }
 
-int sd_genl_message_get_family(sd_netlink *nl, sd_netlink_message *m, sd_genl_family *family) {
+int sd_genl_message_get_family(const sd_netlink *nl, const sd_netlink_message *m, sd_genl_family *family) {
         uint16_t type;
         int r;
 
