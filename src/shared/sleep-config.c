@@ -226,16 +226,15 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
         assert(streq(swap->type, "file"));
 
         fd = open(swap->device, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (!fd)
+        if (fd < 0)
                 return log_error_errno(errno, "Failed to open %s: %m", swap->device);
 
-        r = fstat(fd, &sb);
-        if (r < 0)
+        if (fstat(fd, &sb) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", swap->device);
 
         btrfs = btrfs_is_filesystem(fd);
         if (btrfs < 0)
-                return log_error_errno(r, "Error checking %s for Btrfs filesystem: %m", swap->device);
+                return log_error_errno(btrfs, "Error checking %s for Btrfs filesystem: %m", swap->device);
         else if (btrfs > 0) {
                 log_debug("Detection of swap file offset on Btrfs is not supported: %s; skipping", swap->device);
                 *ret_offset = 0;
@@ -261,15 +260,14 @@ static int read_resume_files(char **ret_resume, uint64_t *ret_resume_offset) {
                 return log_debug_errno(r, "Error reading from /sys/power/resume: %m");
 
         r = read_one_line_file("/sys/power/resume_offset", &resume_offset_str);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        log_debug("Kernel does not support resume_offset; swap file offset detection will be skipped.");
-                else
-                        return log_debug_errno(r, "Error reading from /sys/power/resume_offset: %m");
-        } else {
+        if (r == -ENOENT)
+                log_debug("Kernel does not support resume_offset; swap file offset detection will be skipped.");
+        else if (r < 0)
+                return log_debug_errno(r, "Error reading from /sys/power/resume_offset: %m");
+        else {
                 r = safe_atou64(resume_offset_str, &resume_offset);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse 'resume_offset' from string: %s", resume_offset_str);
+                        return log_error_errno(r, "Failed to parse value in /sys/power/resume_offset \"%s\": %m", resume_offset_str);
         }
 
         if (resume_offset > 0 && streq(*ret_resume, "0:0")) {
@@ -301,7 +299,7 @@ static bool location_is_resume_device(const HibernateLocation *location, const c
  *  negative value in the case of error
  */
 int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
-        _cleanup_fclose_ FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(hibernate_location_freep) HibernateLocation *hibernate_location = NULL;
         _cleanup_free_ char *sys_resume = NULL;
         uint64_t sys_offset = 0;
@@ -377,13 +375,15 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                                 return r;
 
                         hibernate_location = hibernate_location_free(hibernate_location);
-                        hibernate_location = new0(HibernateLocation, 1);
+                        hibernate_location = new(HibernateLocation, 1);
                         if (!hibernate_location)
                                 return log_oom();
 
-                        hibernate_location->resume = TAKE_PTR(swap_device_id);
-                        hibernate_location->resume_offset = swap_offset;
-                        hibernate_location->swap = TAKE_PTR(swap);
+                        *hibernate_location = (HibernateLocation) {
+                                .resume = TAKE_PTR(swap_device_id),
+                                .resume_offset = swap_offset,
+                                .swap = TAKE_PTR(swap),
+                        };
 
                         /* if the swap is the resume device, stop looping swaps */
                         if (location_is_resume_device(hibernate_location, sys_resume, sys_offset))
