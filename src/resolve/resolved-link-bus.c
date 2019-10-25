@@ -296,6 +296,7 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
 
         (void) link_save_user(l);
         (void) manager_write_resolv_conf(l->manager);
+        (void) manager_send_changed(l->manager, "DNS");
 
         return sd_bus_reply_method_return(message, NULL);
 
@@ -675,6 +676,7 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
 
         (void) link_save_user(l);
         (void) manager_write_resolv_conf(l->manager);
+        (void) manager_send_changed(l->manager, "DNS");
 
         return sd_bus_reply_method_return(message, NULL);
 }

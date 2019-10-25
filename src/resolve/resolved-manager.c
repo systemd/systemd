@@ -282,6 +282,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
         }
 
         (void) manager_write_resolv_conf(m);
+        (void) manager_send_changed(m, "DNS");
 
         return 0;
 }
