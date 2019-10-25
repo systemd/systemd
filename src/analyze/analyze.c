@@ -1713,7 +1713,7 @@ static void kernel_syscalls_remove(Set *s, const SyscallFilterSet *set) {
                 if (syscall[0] == '@')
                         continue;
 
-                (void) set_remove(s, syscall);
+                free(set_remove(s, syscall));
         }
 }
 
