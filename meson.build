@@ -795,6 +795,10 @@ conf.set_quoted('SYSTEMD_DEFAULT_LOCALE', default_locale)
 
 conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 
+service_watchdog = get_option('service-watchdog')
+substs.set('SERVICE_WATCHDOG',
+           service_watchdog == '' ? '' : 'WatchdogSec=' + service_watchdog)
+
 substs.set('SUSHELL', get_option('debug-shell'))
 substs.set('DEBUGTTY', get_option('debug-tty'))
 conf.set_quoted('DEBUGTTY', get_option('debug-tty'))
@@ -3113,7 +3117,8 @@ status = [
         'default cgroup hierarchy:          @0@'.format(default_hierarchy),
         'default net.naming-scheme setting: @0@'.format(default_net_naming_scheme),
         'default KillUserProcesses setting: @0@'.format(kill_user_processes),
-        'default locale:                    @0@'.format(default_locale)]
+        'default locale:                    @0@'.format(default_locale),
+        'systemd service watchdog:          @0@'.format(service_watchdog == '' ? 'disabled' : service_watchdog)]
 
 alt_dns_servers = '\n                                            '.join(dns_servers.split(' '))
 alt_ntp_servers = '\n                                            '.join(ntp_servers.split(' '))

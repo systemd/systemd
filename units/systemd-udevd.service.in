@@ -25,7 +25,6 @@ RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-udevd
 ExecReload=@rootbindir@/udevadm control --reload --timeout 0
 KillMode=mixed
-WatchdogSec=3min
 TasksMax=infinity
 PrivateMounts=yes
 ProtectHostname=yes
@@ -38,3 +37,4 @@ SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
 IPAddressDeny=any
+@SERVICE_WATCHDOG@

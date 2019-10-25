@@ -36,4 +36,4 @@ RestrictSUIDSGID=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service @clock
-WatchdogSec=3min
+@SERVICE_WATCHDOG@

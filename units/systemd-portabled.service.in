@@ -15,7 +15,6 @@ RequiresMountsFor=/var/lib/portables
 [Service]
 ExecStart=@rootlibexecdir@/systemd-portabled
 BusName=org.freedesktop.portable1
-WatchdogSec=3min
 CapabilityBoundingSet=CAP_KILL CAP_SYS_PTRACE CAP_SYS_ADMIN CAP_SETGID CAP_SYS_CHROOT CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD
 MemoryDenyWriteExecute=yes
 ProtectHostname=yes
@@ -26,3 +25,4 @@ SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
 IPAddressDeny=any
+@SERVICE_WATCHDOG@
