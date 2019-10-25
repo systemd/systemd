@@ -9,7 +9,7 @@
 #include "netlink-util.h"
 #include "wifi-util.h"
 
-int wifi_get_ssid(sd_netlink *genl, int ifindex, char **ssid) {
+int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *iftype, char **ssid) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
         sd_genl_family family;
         int r;
@@ -40,14 +40,25 @@ int wifi_get_ssid(sd_netlink *genl, int ifindex, char **ssid) {
                 return 0;
         }
 
-        r = sd_netlink_message_read_string_strdup(reply, NL80211_ATTR_SSID, ssid);
-        if (r < 0 && r != -ENODATA)
-                return log_debug_errno(r, "Failed to get NL80211_ATTR_SSID attribute: %m");
+        if (iftype) {
+                uint32_t t;
+
+                r = sd_netlink_message_read_u32(reply, NL80211_ATTR_IFTYPE, &t);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get NL80211_ATTR_IFTYPE attribute: %m");
+                *iftype = t;
+        }
+
+        if (ssid) {
+                r = sd_netlink_message_read_string_strdup(reply, NL80211_ATTR_SSID, ssid);
+                if (r < 0 && r != -ENODATA)
+                        return log_debug_errno(r, "Failed to get NL80211_ATTR_SSID attribute: %m");
+        }
 
         return r == -ENODATA ? 0 : 1;
 }
 
-int wifi_get_bssid(sd_netlink *genl, int ifindex, struct ether_addr *bssid) {
+int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *bssid) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
         sd_genl_family family;
         int r;

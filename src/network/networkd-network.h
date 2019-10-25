@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <linux/nl80211.h>
+
 #include "sd-bus.h"
 #include "sd-device.h"
 
@@ -64,6 +66,7 @@ struct Network {
         char **match_type;
         char **match_name;
         char **match_property;
+        char **match_wlan_iftype;
         char **match_ssid;
         Set *match_bssid;
         LIST_HEAD(Condition, conditions);
@@ -291,7 +294,7 @@ int network_verify(Network *network);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
 int network_get(Manager *manager, sd_device *device, const char *ifname, const struct ether_addr *mac,
-                const char *ssid, const struct ether_addr *bssid, Network **ret);
+                enum nl80211_iftype wlan_iftype, const char *ssid, const struct ether_addr *bssid, Network **ret);
 int network_apply(Network *network, Link *link);
 void network_apply_anonymize_if_set(Network *network);
 

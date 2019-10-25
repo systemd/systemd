@@ -1,0 +1,6 @@
+[Match]
+Type=wifi
+WLANInterfaceType=ad-hoc
+
+[Network]
+LinkLocalAddressing=yes

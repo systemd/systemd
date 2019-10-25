@@ -20,6 +20,7 @@
 #include "parse-util.h"
 #include "siphash24.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
@@ -136,17 +137,36 @@ static int net_condition_test_property(char * const *match_property, sd_device *
         return true;
 }
 
+static const char *const wifi_iftype_table[NL80211_IFTYPE_MAX+1] = {
+        [NL80211_IFTYPE_ADHOC] = "ad-hoc",
+        [NL80211_IFTYPE_STATION] = "station",
+        [NL80211_IFTYPE_AP] = "ap",
+        [NL80211_IFTYPE_AP_VLAN] = "ap-vlan",
+        [NL80211_IFTYPE_WDS] = "wds",
+        [NL80211_IFTYPE_MONITOR] = "monitor",
+        [NL80211_IFTYPE_MESH_POINT] = "mesh-point",
+        [NL80211_IFTYPE_P2P_CLIENT] = "p2p-client",
+        [NL80211_IFTYPE_P2P_GO] = "p2p-go",
+        [NL80211_IFTYPE_P2P_DEVICE] = "p2p-device",
+        [NL80211_IFTYPE_OCB] = "ocb",
+        [NL80211_IFTYPE_NAN] = "nan",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(wifi_iftype, enum nl80211_iftype);
+
 bool net_match_config(Set *match_mac,
                       char * const *match_paths,
                       char * const *match_drivers,
                       char * const *match_types,
                       char * const *match_names,
                       char * const *match_property,
+                      char * const *match_wifi_iftype,
                       char * const *match_ssid,
                       Set *match_bssid,
                       sd_device *device,
                       const struct ether_addr *dev_mac,
                       const char *dev_name,
+                      enum nl80211_iftype wifi_iftype,
                       const char *ssid,
                       const struct ether_addr *bssid) {
 
@@ -180,6 +200,9 @@ bool net_match_config(Set *match_mac,
                 return false;
 
         if (!net_condition_test_property(match_property, device))
+                return false;
+
+        if (!net_condition_test_strv(match_wifi_iftype, wifi_iftype_to_string(wifi_iftype)))
                 return false;
 
         if (!net_condition_test_strv(match_ssid, ssid))

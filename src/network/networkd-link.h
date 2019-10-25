@@ -2,6 +2,7 @@
 #pragma once
 
 #include <endian.h>
+#include <linux/nl80211.h>
 
 #include "sd-bus.h"
 #include "sd-device.h"
@@ -56,6 +57,7 @@ typedef struct Link {
         sd_device *sd_device;
 
         /* wlan */
+        enum nl80211_iftype wlan_iftype;
         char *ssid;
         struct ether_addr bssid;
 

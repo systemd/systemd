@@ -2865,7 +2865,7 @@ int link_reconfigure(Link *link, bool force) {
                 return 0;
 
         r = network_get(link->manager, link->sd_device, link->ifname,
-                        &link->mac, link->ssid, &link->bssid, &network);
+                        &link->mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
         if (r == -ENOENT) {
                 link_enter_unmanaged(link);
                 return 0;
@@ -2959,7 +2959,7 @@ static int link_initialized_and_synced(Link *link) {
                         return r;
 
                 r = network_get(link->manager, link->sd_device, link->ifname,
-                                &link->mac, link->ssid, &link->bssid, &network);
+                                &link->mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
                         return 0;

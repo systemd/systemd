@@ -19,6 +19,7 @@ Type=
 Driver=
 Architecture=
 Path=
+WLANInterfaceType=
 SSID=
 BSSID=
 Name=

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <linux/nl80211.h>
 #include <stdbool.h>
 
 #include "sd-device.h"
@@ -20,11 +21,13 @@ bool net_match_config(Set *match_mac,
                       char * const *match_type,
                       char * const *match_name,
                       char * const *match_property,
+                      char * const *match_wifi_iftype,
                       char * const *match_ssid,
                       Set *match_bssid,
                       sd_device *device,
                       const struct ether_addr *dev_mac,
                       const char *dev_name,
+                      enum nl80211_iftype wifi_iftype,
                       const char *ssid,
                       const struct ether_addr *bssid);
 
