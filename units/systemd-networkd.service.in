@@ -44,7 +44,7 @@ SystemCallFilter=@system-service
 Type=notify
 RestartKillSignal=SIGUSR2
 User=systemd-network
-WatchdogSec=3min
+@SERVICE_WATCHDOG@
 
 [Install]
 WantedBy=multi-user.target

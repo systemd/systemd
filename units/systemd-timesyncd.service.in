@@ -46,7 +46,7 @@ SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service @clock
 Type=notify
 User=systemd-timesync
-WatchdogSec=3min
+@SERVICE_WATCHDOG@
 
 [Install]
 WantedBy=sysinit.target
