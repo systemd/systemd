@@ -46,7 +46,7 @@ SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
 User=systemd-resolve
-@SERVICE_WATCHDOG@
+WatchdogSec=3min
 
 [Install]
 WantedBy=multi-user.target

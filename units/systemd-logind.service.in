@@ -55,7 +55,7 @@ StateDirectory=systemd/linger
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
-@SERVICE_WATCHDOG@
+WatchdogSec=3min
 
 # Increase the default a bit in order to allow many simultaneous logins since
 # we keep one fd open per session.

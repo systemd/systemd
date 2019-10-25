@@ -29,7 +29,7 @@ RestrictRealtime=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service @mount
-@SERVICE_WATCHDOG@
+WatchdogSec=3min
 
 # Note that machined cannot be placed in a mount namespace, since it
 # needs access to the host's mount namespace in order to implement the

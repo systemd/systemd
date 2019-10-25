@@ -33,7 +33,7 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 SystemCallArchitectures=native
 User=systemd-journal-remote
-@SERVICE_WATCHDOG@
+WatchdogSec=3min
 
 # If there are many split up journal files we need a lot of fds to access them
 # all in parallel.

@@ -31,7 +31,7 @@ StateDirectory=systemd/journal-upload
 SupplementaryGroups=systemd-journal
 SystemCallArchitectures=native
 User=systemd-journal-upload
-@SERVICE_WATCHDOG@
+WatchdogSec=3min
 
 # If there are many split up journal files we need a lot of fds to access them
 # all in parallel.
