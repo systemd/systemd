@@ -1757,15 +1757,21 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
                         fflush(stdout);
                         log_notice_errno(k, "# Not showing unlisted system calls, couldn't retrieve kernel system call list: %m");
                 } else if (!set_isempty(kernel)) {
-                        const char *syscall;
-                        Iterator j;
+                        _cleanup_free_ char **l = NULL;
+                        char **syscall;
 
                         printf("\n"
                                "# %sUnlisted System Calls%s (supported by the local kernel, but not included in any of the groups listed above):\n",
                                ansi_highlight(), ansi_normal());
 
-                        SET_FOREACH(syscall, kernel, j)
-                                printf("#   %s\n", syscall);
+                        l = set_get_strv(kernel);
+                        if (!l)
+                                return log_oom();
+
+                        strv_sort(l);
+
+                        STRV_FOREACH(syscall, l)
+                                printf("#   %s\n", *syscall);
                 }
         } else {
                 char **name;
