@@ -438,6 +438,7 @@ static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, 
 static int on_hostname_change(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         _cleanup_free_ char *full_hostname = NULL, *llmnr_hostname = NULL, *mdns_hostname = NULL;
         Manager *m = userdata;
+        bool llmnr_hostname_changed;
         int r;
 
         assert(m);
@@ -446,8 +447,9 @@ static int on_hostname_change(sd_event_source *es, int fd, uint32_t revents, voi
         if (r < 0)
                 return 0; /* ignore invalid hostnames */
 
+        llmnr_hostname_changed = !streq(llmnr_hostname, m->llmnr_hostname);
         if (streq(full_hostname, m->full_hostname) &&
-            streq(llmnr_hostname, m->llmnr_hostname) &&
+            !llmnr_hostname_changed &&
             streq(mdns_hostname, m->mdns_hostname))
                 return 0;
 
@@ -458,6 +460,7 @@ static int on_hostname_change(sd_event_source *es, int fd, uint32_t revents, voi
         free_and_replace(m->mdns_hostname, mdns_hostname);
 
         manager_refresh_rrs(m);
+        (void) manager_send_changed(m, "LLMNRHostname");
 
         return 0;
 }
@@ -1173,6 +1176,7 @@ int manager_next_hostname(Manager *m) {
         free_and_replace(m->mdns_hostname, k);
 
         manager_refresh_rrs(m);
+        (void) manager_send_changed(m, "LLMNRHostname");
 
         return 0;
 }
