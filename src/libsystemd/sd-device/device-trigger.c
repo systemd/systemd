@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <stdbool.h>
+#include <sys/utsname.h>
 
 #include "sd-device.h"
 
@@ -16,6 +17,8 @@
 #include "set.h"
 #include "string-util.h"
 #include "time-util.h"
+
+#define EXT_SYNTH_MIN_KERNEL_VERSION "4.13"
 
 #define SYNTH_UUID_KEY       "SYNTH_UUID"
 #define SOURCE_KEY           "SOURCE"
@@ -39,6 +42,7 @@ struct sd_device_trigger {
         sd_device_trigger_callback_t settle_cb;
         void *settle_cb_userdata;
 
+        bool extended:1;
         bool executing:1;
 };
 
@@ -63,8 +67,10 @@ static inline void device_trigger_discard_uuid(sd_device_trigger *trigger) {
 
 _public_ int sd_device_trigger_new(sd_device_trigger **ret) {
         _cleanup_(sd_device_trigger_unrefp) sd_device_trigger *trigger = NULL;
+        struct utsname u;
 
         assert(ret);
+        assert_se(uname(&u) >= 0);
 
         trigger = new(sd_device_trigger, 1);
         if (!trigger)
@@ -74,6 +80,7 @@ _public_ int sd_device_trigger_new(sd_device_trigger **ret) {
                 .n_ref = 1,
                 .action = device_action_to_string(DEVICE_ACTION_CHANGE),
                 .source = DEFAULT_SOURCE_VALUE,
+                .extended = str_verscmp(u.release, EXT_SYNTH_MIN_KERNEL_VERSION) >= 0,
         };
 
         device_trigger_discard_uuid(trigger);
@@ -254,6 +261,9 @@ static char *device_trigger_get_full_action(sd_device_trigger *trigger) {
         char *full_action;
         Iterator i;
 
+        if (!trigger->extended)
+                return strdup(trigger->action);
+
         full_action = strjoin(trigger->action, " ", trigger->uuid, " " SOURCE_KEY "=", trigger->source);
         if (!full_action)
                 return NULL;
@@ -379,17 +389,19 @@ static int device_trigger_monitor_handler(sd_device_monitor *monitor, sd_device 
         if (r < 0)
                 return r;
 
-        r = sd_device_get_property_value(device, SYNTH_UUID_KEY, &uuid);
-        if (r < 0) {
-               if (r == -ENOENT)
-                       /* ignore uevents which are not synthetic */
-                       return 0;
-               return r;
-        }
+        if (trigger->extended) {
+                r = sd_device_get_property_value(device, SYNTH_UUID_KEY, &uuid);
+                if (r < 0) {
+                       if (r == -ENOENT)
+                               /* ignore uevents which are not synthetic */
+                               return 0;
+                       return r;
+                }
 
-        if (!streq(uuid, trigger->uuid))
-                /* we are interested in synthetic uevents with specific UUID only */
-                return 0;
+                if (!streq(uuid, trigger->uuid))
+                        /* we are interested in synthetic uevents with specific UUID only */
+                        return 0;
+        }
 
         settle_key = strjoin(trigger->uuid, syspath);
         if (!settle_key)
