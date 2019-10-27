@@ -10,7 +10,7 @@
 [Unit]
 Description=Remote File Systems
 Documentation=man:systemd.special(7)
-After=remote-fs-pre.target
+After=remote-fs-pre.target local-fs.target
 DefaultDependencies=no
 Conflicts=shutdown.target
 
