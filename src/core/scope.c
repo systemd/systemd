@@ -34,6 +34,7 @@ static void scope_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
+        s->runtime_max_usec = USEC_INFINITY;
         s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
         u->ignore_on_isolate = true;
 }
@@ -203,6 +204,23 @@ static int scope_load(Unit *u) {
         return scope_verify(s);
 }
 
+static usec_t scope_coldplug_timeout(Scope *s) {
+        assert(s);
+
+        switch (s->deserialized_state) {
+
+        case SCOPE_RUNNING:
+                return usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec);
+
+        case SCOPE_STOP_SIGKILL:
+        case SCOPE_STOP_SIGTERM:
+                return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->timeout_stop_usec);
+
+        default:
+                return USEC_INFINITY;
+        }
+}
+
 static int scope_coldplug(Unit *u) {
         Scope *s = SCOPE(u);
         int r;
@@ -213,11 +231,9 @@ static int scope_coldplug(Unit *u) {
         if (s->deserialized_state == s->state)
                 return 0;
 
-        if (IN_SET(s->deserialized_state, SCOPE_STOP_SIGKILL, SCOPE_STOP_SIGTERM)) {
-                r = scope_arm_timer(s, usec_add(u->state_change_timestamp.monotonic, s->timeout_stop_usec));
-                if (r < 0)
-                        return r;
-        }
+        r = scope_arm_timer(s, scope_coldplug_timeout(s));
+        if (r < 0)
+                return r;
 
         if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED))
                 (void) unit_enqueue_rewatch_pids(u);
@@ -230,15 +246,18 @@ static int scope_coldplug(Unit *u) {
 
 static void scope_dump(Unit *u, FILE *f, const char *prefix) {
         Scope *s = SCOPE(u);
+        char buf_runtime[FORMAT_TIMESPAN_MAX];
 
         assert(s);
         assert(f);
 
         fprintf(f,
                 "%sScope State: %s\n"
-                "%sResult: %s\n",
+                "%sResult: %s\n"
+                "%sRuntimeMaxSec: %s\n",
                 prefix, scope_state_to_string(s->state),
-                prefix, scope_result_to_string(s->result));
+                prefix, scope_result_to_string(s->result),
+                prefix, format_timespan(buf_runtime, sizeof(buf_runtime), s->runtime_max_usec, USEC_PER_SEC));
 
         cgroup_context_dump(UNIT(s), f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
@@ -350,6 +369,9 @@ static int scope_start(Unit *u) {
         s->result = SCOPE_SUCCESS;
 
         scope_set_state(s, SCOPE_RUNNING);
+
+        /* Set the maximum runtime timeout. */
+        scope_arm_timer(s, usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec));
 
         /* Start watching the PIDs currently in the scope */
         (void) unit_enqueue_rewatch_pids(u);
@@ -484,6 +506,11 @@ static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *user
         assert(s->timer_event_source == source);
 
         switch (s->state) {
+
+        case SCOPE_RUNNING:
+                log_unit_warning(UNIT(s), "Scope reached runtime time limit. Stopping.");
+                scope_enter_signal(s, SCOPE_STOP_SIGTERM, SCOPE_FAILURE_TIMEOUT);
+                break;
 
         case SCOPE_STOP_SIGTERM:
                 if (s->kill_context.send_sigkill) {

@@ -263,6 +263,12 @@
 
         <listitem><para>Sets unit <varname>IOWeight=</varname>.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.runtime_max_sec</varname></term>
+
+        <listitem><para>Sets unit <varname>RuntimeMaxSec=</varname>.</para></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>Example data as can be provided from an another PAM module:
@@ -271,6 +277,7 @@ pam_set_data(handle, "systemd.memory_max", (void *)"200M", cleanup);
 pam_set_data(handle, "systemd.tasks_max",  (void *)"50",   cleanup);
 pam_set_data(handle, "systemd.cpu_weight", (void *)"100",  cleanup);
 pam_set_data(handle, "systemd.io_weight",  (void *)"340",  cleanup);
+pam_set_data(handle, "systemd.runtime_max_sec", (void *)"3600", cleanup);
       </programlisting>
     </para>
 

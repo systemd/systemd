@@ -370,6 +370,7 @@ Scope units are fully supported as transient units (in fact they only exist as
 such).
 
 ```
+✓ RuntimeMaxSec=
 ✓ TimeoutStopSec=
 ```
 
