@@ -418,21 +418,21 @@ JobType job_type_collapse(JobType t, Unit *u) {
 
         case JOB_TRY_RESTART:
                 s = unit_active_state(u);
-                if (UNIT_IS_INACTIVE_OR_DEACTIVATING(s))
+                if (!UNIT_IS_ACTIVE_OR_RELOADING(s))
                         return JOB_NOP;
 
                 return JOB_RESTART;
 
         case JOB_TRY_RELOAD:
                 s = unit_active_state(u);
-                if (UNIT_IS_INACTIVE_OR_DEACTIVATING(s))
+                if (!UNIT_IS_ACTIVE_OR_RELOADING(s))
                         return JOB_NOP;
 
                 return JOB_RELOAD;
 
         case JOB_RELOAD_OR_START:
                 s = unit_active_state(u);
-                if (UNIT_IS_INACTIVE_OR_DEACTIVATING(s))
+                if (!UNIT_IS_ACTIVE_OR_RELOADING(s))
                         return JOB_START;
 
                 return JOB_RELOAD;
