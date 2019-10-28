@@ -39,7 +39,7 @@
 
     <programlisting>#Type Path                                     Mode User Group Age         Argument
 f     /file/to/create                          mode user group -           content
-F     /file/to/create-or-truncate              mode user group -           content
+f+    /file/to/create-or-truncate              mode user group -           content
 w     /file/to/write-to                        -    -    -     -           content
 d     /directory/to/create-and-cleanup         mode user group cleanup-age -
 D     /directory/to/create-and-remove          mode user group cleanup-age -
@@ -155,19 +155,16 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
       <variablelist>
         <varlistentry>
           <term><varname>f</varname></term>
-          <listitem><para>Create a file if it does not exist yet. If the argument parameter is given and the file did
-          not exist yet, it will be written to the file. Does not follow symlinks.</para></listitem>
+          <term><varname>f+</varname></term>
+          <listitem><para><varname>f</varname> will create a file if it does not exist yet. If the argument
+          parameter is given and the file did not exist yet, it will be written to the file.
+          <varname>f+</varname> will create or truncate the file. If the argument parameter is given, it will
+          be written to the file. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><varname>F</varname></term>
-          <listitem><para>Create or truncate a file. If the argument
-          parameter is given, it will be written to the file. Does not follow symlinks.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>w, w+</varname></term>
+          <term><varname>w</varname></term>
+          <term><varname>w+</varname></term>
           <listitem><para>Write the argument parameter to a file, if the file exists.
           If suffixed with <varname>+</varname>, the line will be appended to the file.
           If your configuration writes multiple lines to the same file, use <varname>w+</varname>.

@@ -943,7 +943,6 @@ Features:
 
 * tmpfiles:
   - apply "x" on "D" too (see patch from William Douglas)
-  - replace F with f+.
   - instead of ignoring unknown fields, reject them.
   - creating new directories/subvolumes/fifos/device nodes
     should not follow symlinks. None of the other adjustment or creation

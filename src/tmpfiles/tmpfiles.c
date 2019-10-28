@@ -77,7 +77,7 @@ typedef enum OperationMask {
 typedef enum ItemType {
         /* These ones take file names */
         CREATE_FILE = 'f',
-        TRUNCATE_FILE = 'F',
+        TRUNCATE_FILE = 'F', /* deprecated: use f+ */
         CREATE_DIRECTORY = 'd',
         TRUNCATE_DIRECTORY = 'D',
         CREATE_SUBVOLUME = 'v',
@@ -1370,7 +1370,7 @@ static int truncate_file(Item *i, const char *path) {
 
         assert(i);
         assert(path);
-        assert(i->type == TRUNCATE_FILE);
+        assert(i->type == TRUNCATE_FILE || (i->type == CREATE_FILE && i->append_or_force));
 
         /* We want to operate on regular file exclusively especially since
          * O_TRUNC is unspecified if the file is neither a regular file nor a
@@ -1927,20 +1927,16 @@ static int create_item(Item *i) {
         case RECURSIVE_REMOVE_PATH:
                 return 0;
 
+        case TRUNCATE_FILE:
         case CREATE_FILE:
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
-                r = create_file(i, i->path);
-                if (r < 0)
-                        return r;
-                break;
+                if ((i->type == CREATE_FILE && i->append_or_force) || i->type == TRUNCATE_FILE)
+                        r = truncate_file(i, i->path);
+                else
+                        r = create_file(i, i->path);
 
-        case TRUNCATE_FILE:
-                RUN_WITH_UMASK(0000)
-                        (void) mkdir_parents_label(i->path, 0755);
-
-                r = truncate_file(i, i->path);
                 if (r < 0)
                         return r;
                 break;
