@@ -1370,7 +1370,7 @@ static int truncate_file(Item *i, const char *path) {
 
         assert(i);
         assert(path);
-        assert(i->type == TRUNCATE_FILE);
+        assert(i->type == TRUNCATE_FILE || i->type == CREATE_FILE);
 
         /* We want to operate on regular file exclusively especially since
          * O_TRUNC is unspecified if the file is neither a regular file nor a
@@ -1927,20 +1927,13 @@ static int create_item(Item *i) {
         case RECURSIVE_REMOVE_PATH:
                 return 0;
 
+        case TRUNCATE_FILE:
         case CREATE_FILE:
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
+                r = i->append_or_force || i->type == TRUNCATE_FILE? /* deprecated */
+                        truncate_file(i, i->path) : create_file(i, i->path);
 
-                r = create_file(i, i->path);
-                if (r < 0)
-                        return r;
-                break;
-
-        case TRUNCATE_FILE:
-                RUN_WITH_UMASK(0000)
-                        (void) mkdir_parents_label(i->path, 0755);
-
-                r = truncate_file(i, i->path);
                 if (r < 0)
                         return r;
                 break;
@@ -2487,6 +2480,11 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
         return 0;
 }
 
+static void deprecate_for_force(const char from, const char to, const char *fname, const int line) {
+        assert(fname);
+        log_warning("%c is deprecated; use %c+ instead: %s:%d", from, to, fname, line);
+}
+
 static int parse_line(const char *fname, unsigned line, const char *buffer, bool *invalid_config) {
 
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
@@ -2594,7 +2592,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 break;
 
         case CREATE_FILE:
+                break;
+
         case TRUNCATE_FILE:
+                deprecate_for_force(TRUNCATE_FILE, CREATE_FILE, fname, line);
                 break;
 
         case CREATE_SYMLINK:

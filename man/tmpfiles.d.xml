@@ -39,7 +39,6 @@
 
     <programlisting>#Type Path                                     Mode User Group Age         Argument
 f     /file/to/create                          mode user group -           content
-F     /file/to/create-or-truncate              mode user group -           content
 w     /file/to/write-to                        -    -    -     -           content
 d     /directory/to/create-and-cleanup         mode user group cleanup-age -
 D     /directory/to/create-and-remove          mode user group cleanup-age -
@@ -51,7 +50,7 @@ p     /fifo/to/create                          mode user group -           -
 L     /symlink/to/create                       -    -    -     -           symlink/target/path
 c     /dev/char-device-to-create               mode user group -           -
 b     /dev/block-device-to-create              mode user group -           -
-# p+, L+, c+, b+ create target unconditionally, w+ appends to the file
+# p+, L+, c+, b+ create target unconditionally, w+ appends to the file, f+ creates or truncates the file
 C     /target/to/create                        -    -    -     -           /source/to/copy
 x     /path-or-glob/to/ignore                  -    -    -     -           -
 X     /path-or-glob/to/ignore/recursively      -    -    -     -           -
@@ -154,15 +153,15 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
 
       <variablelist>
         <varlistentry>
-          <term><varname>f</varname></term>
+          <term><varname>f, f+</varname></term>
           <listitem><para>Create a file if it does not exist yet. If the argument parameter is given and the file did
-          not exist yet, it will be written to the file. Does not follow symlinks.</para></listitem>
+          not exist yet, it will be written to the file. <varname>f+</varname> will create or truncate the
+          file. If the argument parameter is given, it will be written to the file. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>F</varname></term>
-          <listitem><para>Create or truncate a file. If the argument
-          parameter is given, it will be written to the file. Does not follow symlinks.</para>
+          <listitem><para>Is deprecated. Use f+ instead.</para>
           </listitem>
         </varlistentry>
 
