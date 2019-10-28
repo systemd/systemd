@@ -118,6 +118,7 @@ static int help(void) {
         printf("%s [OPTIONS...] [-- KERNEL_CMDLINE]\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
+               "     --root=PATH                  Operate on an alternate filesystem root\n"
                , program_invocation_short_name
                );
 
