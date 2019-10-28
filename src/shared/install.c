@@ -1897,7 +1897,7 @@ static int install_context_apply(
 
                 q = install_info_traverse(scope, c, paths, i, flags, NULL);
                 if (q < 0) {
-                        unit_file_changes_add(changes, n_changes, r, i->name, NULL);
+                        unit_file_changes_add(changes, n_changes, q, i->name, NULL);
                         return q;
                 }
 

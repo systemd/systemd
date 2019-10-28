@@ -137,10 +137,10 @@
     a symlink, so when <command>systemd</command> is asked through D-Bus to load
     <filename>dbus-org.freedesktop.network1.service</filename>, it'll load
     <filename>systemd-networkd.service</filename>. Alias names may be used in commands like
-    <command>enable</command>, <command>disable</command>, <command>start</command>, <command>stop</command>,
-    <command>status</command>, and similar, and in all unit dependency directives, including
-    <varname>Wants=</varname>, <varname>Requires=</varname>, <varname>Before=</varname>,
-    <varname>After=</varname>. Aliases cannot be used with the <command>preset</command> command.</para>
+    <command>disable</command>, <command>start</command>, <command>stop</command>, <command>status</command>,
+    and similar, and in all unit dependency directives, including <varname>Wants=</varname>,
+    <varname>Requires=</varname>, <varname>Before=</varname>, <varname>After=</varname>. Aliases cannot be
+    used with the <command>preset</command> command.</para>
 
     <para>Unit files may specify aliases through the <varname>Alias=</varname> directive in the [Install]
     section. When the unit is enabled, symlinks will be created for those names, and removed when the unit is
