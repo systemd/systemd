@@ -3,6 +3,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "resolved-bus.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stub.h"
 #include "resolved-resolv-conf.h"
@@ -680,6 +681,8 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
 
         if (m->unicast_scope)
                 dns_cache_flush(&m->unicast_scope->cache);
+
+        (void) manager_send_changed(m, "CurrentDNSServer");
 
         return s;
 }

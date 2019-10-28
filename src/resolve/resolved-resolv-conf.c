@@ -334,7 +334,6 @@ static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet 
 }
 
 int manager_write_resolv_conf(Manager *m) {
-
         _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *domains = NULL;
         _cleanup_free_ char *temp_path_uplink = NULL, *temp_path_stub = NULL;
         _cleanup_fclose_ FILE *f_uplink = NULL, *f_stub = NULL;

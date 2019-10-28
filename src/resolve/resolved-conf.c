@@ -23,7 +23,7 @@ static const char* const dns_stub_listener_mode_table[_DNS_STUB_LISTENER_MODE_MA
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_stub_listener_mode, DnsStubListenerMode, DNS_STUB_LISTENER_YES);
 
-int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
+static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
         union in_addr_union address;
         int family, r, ifindex = 0;
         DnsServer *s;
@@ -78,7 +78,7 @@ int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, con
         return 0;
 }
 
-int manager_add_search_domain_by_string(Manager *m, const char *domain) {
+static int manager_add_search_domain_by_string(Manager *m, const char *domain) {
         DnsSearchDomain *d;
         bool route_only;
         int r;

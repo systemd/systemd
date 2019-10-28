@@ -12,6 +12,8 @@
 #include "resolved-dnssd-bus.h"
 #include "resolved-dnssd.h"
 #include "resolved-link-bus.h"
+#include "stdio-util.h"
+#include "strv.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -68,7 +70,7 @@ static int reply_query_state(DnsQuery *q) {
 
                         rc = dns_rcode_to_string(q->answer_rcode);
                         if (!rc) {
-                                sprintf(p, "%i", q->answer_rcode);
+                                xsprintf(p, "%i", q->answer_rcode);
                                 rc = p;
                         }
 
@@ -1273,13 +1275,12 @@ static int bus_property_get_dns_servers(
                         return r;
         }
 
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links, i)
                 LIST_FOREACH(servers, s, l->dns_servers) {
                         r = bus_dns_server_append(reply, s, true);
                         if (r < 0)
                                 return r;
                 }
-        }
 
         return sd_bus_message_close_container(reply);
 }
@@ -1834,13 +1835,13 @@ static int bus_method_unregister_service(sd_bus_message *message, void *userdata
 
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), 0),
+        SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Manager, llmnr_support), 0),
         SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Manager, mdns_support), 0),
         SD_BUS_PROPERTY("DNSOverTLS", "s", bus_property_get_dns_over_tls_mode, 0, 0),
-        SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, 0),
+        SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("FallbackDNS", "a(iiay)", bus_property_get_fallback_dns_servers, offsetof(Manager, fallback_dns_servers), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("CurrentDNSServer", "(iiay)", bus_property_get_current_dns_server, offsetof(Manager, current_dns_server), 0),
+        SD_BUS_PROPERTY("CurrentDNSServer", "(iiay)", bus_property_get_current_dns_server, offsetof(Manager, current_dns_server), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Domains", "a(isb)", bus_property_get_domains, 0, 0),
         SD_BUS_PROPERTY("TransactionStatistics", "(tt)", bus_property_get_transaction_statistics, 0, 0),
         SD_BUS_PROPERTY("CacheStatistics", "(ttt)", bus_property_get_cache_statistics, 0, 0),
@@ -1949,4 +1950,19 @@ int manager_connect_bus(Manager *m) {
                 log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
 
         return 0;
+}
+
+int _manager_send_changed(Manager *manager, const char *property, ...) {
+        assert(manager);
+
+        char **l = strv_from_stdarg_alloca(property);
+
+        int r = sd_bus_emit_properties_changed_strv(
+                        manager->bus,
+                        "/org/freedesktop/resolve1",
+                        "org.freedesktop.resolve1.Manager",
+                        l);
+        if (r < 0)
+                log_notice_errno(r, "Failed to emit notification about changed property %s: %m", property);
+        return r;
 }
