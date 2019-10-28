@@ -197,7 +197,7 @@ static int swap_add_device_dependencies(Swap *s) {
                 return 0;
 
         if (is_device_path(s->what))
-                return unit_add_node_dependency(UNIT(s), s->what, false, UNIT_BINDS_TO, UNIT_DEPENDENCY_FILE);
+                return unit_add_node_dependency(UNIT(s), s->what, UNIT_BINDS_TO, UNIT_DEPENDENCY_FILE);
 
         /* File based swap devices need to be ordered after systemd-remount-fs.service,
          * since they might need a writable file system. */
