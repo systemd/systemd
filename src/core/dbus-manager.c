@@ -540,7 +540,7 @@ static int method_stop_unit(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 static int method_reload_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_RELOAD, false, error);
+        return method_start_unit_generic(message, userdata, JOB_TRY_RELOAD, false, error);
 }
 
 static int method_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {

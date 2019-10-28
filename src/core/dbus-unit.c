@@ -390,6 +390,8 @@ int bus_unit_method_start_generic(
 
         if (reload_if_possible)
                 verb = strjoina("reload-or-", job_type_to_string(job_type));
+        else if (job_type == JOB_TRY_RELOAD)
+                verb = job_type_to_string(JOB_RELOAD);
         else
                 verb = job_type_to_string(job_type);
 

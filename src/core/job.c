@@ -362,7 +362,7 @@ static const JobType job_merging_table[] = {
 /*JOB_START          */
 /*JOB_VERIFY_ACTIVE  */ JOB_START,
 /*JOB_STOP           */ -1,                  -1,
-/*JOB_RELOAD         */ JOB_RELOAD_OR_START, JOB_RELOAD,          -1,
+/*JOB_RELOAD         */ -1,                  JOB_RELOAD,          -1,
 /*JOB_RESTART        */ JOB_RESTART,         JOB_RESTART,         -1, JOB_RESTART,
 };
 
