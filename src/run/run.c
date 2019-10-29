@@ -16,6 +16,7 @@
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
 #include "env-util.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "main-func.h"
@@ -1296,9 +1297,14 @@ static int start_transient_service(
                         }
                 }
 
-                /* Try to propagate the service's return value */
-                if (c.result && STR_IN_SET(c.result, "success", "exit-code") && c.exit_code == CLD_EXITED)
+                /* Try to propagate the service's return value. But if the service defines
+                 * e.g. SuccessExitStatus, honour this, and return 0 to mean "success". */
+                if (streq_ptr(c.result, "success"))
+                        *retval = 0;
+                else if (streq_ptr(c.result, "exit-code") && c.exit_status > 0)
                         *retval = c.exit_status;
+                else if (streq_ptr(c.result, "signal"))
+                        *retval = EXIT_EXCEPTION;
                 else
                         *retval = EXIT_FAILURE;
         }
