@@ -743,7 +743,7 @@ static void advance_offsets(
 }
 
 char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
-        const char *i, *begin = NULL;
+        const char *begin = NULL;
         enum {
                 STATE_OTHER,
                 STATE_ESCAPE,
@@ -751,7 +751,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 STATE_CSO,
         } state = STATE_OTHER;
         char *obuf = NULL;
-        size_t osz = 0, isz, shift[2] = {};
+        size_t osz = 0, isz, shift[2] = {}, n_carriage_returns = 0;
         FILE *f;
 
         assert(ibuf);
@@ -762,6 +762,8 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
          * 1. Replaces TABs by 8 spaces
          * 2. Strips ANSI color sequences (a subset of CSI), i.e. ESC '[' … 'm' sequences
          * 3. Strips ANSI operating system sequences (CSO), i.e. ESC ']' … BEL sequences
+         * 4. Strip trailing \r characters (since they would "move the cursor", but have no
+         *    other effect).
          *
          * Everything else will be left as it is. In particular other ANSI sequences are left as they are, as
          * are any other special characters. Truncated ANSI sequences are left-as is too. This call is
@@ -777,14 +779,24 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         if (!f)
                 return NULL;
 
-        for (i = *ibuf; i < *ibuf + isz + 1; i++) {
+        for (const char *i = *ibuf; i < *ibuf + isz + 1; i++) {
 
                 switch (state) {
 
                 case STATE_OTHER:
                         if (i >= *ibuf + isz) /* EOT */
                                 break;
-                        else if (*i == '\x1B')
+
+                        if (*i == '\r') {
+                                n_carriage_returns++;
+                                break;
+                        } else if (*i == '\n')
+                                /* Ignore carriage returns before new line */
+                                n_carriage_returns = 0;
+                        for (; n_carriage_returns > 0; n_carriage_returns--)
+                                fputc('\r', f);
+
+                        if (*i == '\x1B')
                                 state = STATE_ESCAPE;
                         else if (*i == '\t') {
                                 fputs("        ", f);
@@ -795,6 +807,8 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                         break;
 
                 case STATE_ESCAPE:
+                        assert(n_carriage_returns == 0);
+
                         if (i >= *ibuf + isz) { /* EOT */
                                 fputc('\x1B', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 1);
@@ -815,6 +829,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                         break;
 
                 case STATE_CSI:
+                        assert(n_carriage_returns == 0);
 
                         if (i >= *ibuf + isz || /* EOT … */
                             !strchr("01234567890;m", *i)) { /* … or invalid chars in sequence */
@@ -829,6 +844,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                         break;
 
                 case STATE_CSO:
+                        assert(n_carriage_returns == 0);
 
                         if (i >= *ibuf + isz || /* EOT … */
                             (*i != '\a' && (uint8_t) *i < 32U) || (uint8_t) *i > 126U) { /* … or invalid chars in sequence */
@@ -848,7 +864,6 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 fclose(f);
                 return mfree(obuf);
         }
-
         fclose(f);
 
         free_and_replace(*ibuf, obuf);
