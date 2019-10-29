@@ -1022,13 +1022,13 @@
       </para>
 
       <para>If multiple conditions are specified, the unit will be executed if all of them apply (i.e. a
-      logical AND is applied). Condition checks can be prefixed with a pipe symbol (<literal>|</literal>) in
-      which case a condition becomes a triggering condition. If at least one triggering condition is defined
-      for a unit, then the unit will be executed if at least one of the triggering conditions apply and all
-      of the non-triggering conditions. If you prefix an argument with the pipe symbol and an exclamation
-      mark, the pipe symbol must be passed first, the exclamation second. If any of these options is assigned
-      the empty string, the list of conditions is reset completely, all previous condition settings (of any
-      kind) will have no effect.</para>
+      logical AND is applied). Condition checks can use a pipe symbol (<literal>|</literal>) after the equals
+      sign (<literal>Condition…=|…</literal>), which causes the condition becomes a triggering condition. If
+      at least one triggering condition is defined for a unit, then the unit will be executed if at least one
+      of the triggering conditions apply and all of the non-triggering conditions. If you prefix an argument
+      with the pipe symbol and an exclamation mark, the pipe symbol must be passed first, the exclamation
+      second. If any of these options is assigned the empty string, the list of conditions is reset
+      completely, all previous condition settings (of any kind) will have no effect.</para>
 
       <para>The <varname>AssertArchitecture=</varname>, <varname>AssertVirtualization=</varname>, … options
       provide a similar mechanism that causes the job to fail (instead of being skipped). The failed check is
