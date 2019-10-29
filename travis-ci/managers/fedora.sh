@@ -16,7 +16,7 @@ DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
 ADDITIONAL_DEPS=(dnf-plugins-core
-                 python2 iputils
+                 jq iputils
                  hostname libasan
                  python3-pyparsing
                  python3-evdev
