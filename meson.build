@@ -1199,7 +1199,7 @@ if dns_over_tls != 'false'
         if dns_over_tls == 'openssl'
                 have_gnutls = false
         else
-                have_gnutls = (conf.get('HAVE_GNUTLS') == 1 and libgnutls.version().version_compare('>= 3.5.3'))
+                have_gnutls = (conf.get('HAVE_GNUTLS') == 1 and libgnutls.version().version_compare('>= 3.6.0'))
                 if dns_over_tls == 'gnutls' and not have_gnutls
                         error('DNS-over-TLS support was requested with gnutls, but dependencies are not available')
                 endif
