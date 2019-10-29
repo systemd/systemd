@@ -62,6 +62,34 @@ static int property_get_netif(
         return sd_bus_message_append_array(reply, 'i', m->netif, m->n_netif * sizeof(int));
 }
 
+int bus_machine_method_unregister(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Machine *m = userdata;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_KILL,
+                        "org.freedesktop.machine1.manage-machines",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &m->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        r = machine_finalize(m);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Machine *m = userdata;
         int r;

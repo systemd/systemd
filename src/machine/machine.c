@@ -449,12 +449,15 @@ int machine_stop(Machine *m) {
 int machine_finalize(Machine *m) {
         assert(m);
 
-        if (m->started)
+        if (m->started) {
                 log_struct(LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_MACHINE_STOP_STR,
                            "NAME=%s", m->name,
                            "LEADER="PID_FMT, m->leader,
                            LOG_MESSAGE("Machine %s terminated.", m->name));
+
+                m->stopping = true; /* The machine is supposed to be going away. Don't try to kill it. */
+        }
 
         machine_unlink(m);
         machine_add_to_gc_queue(m);
