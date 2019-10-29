@@ -355,6 +355,7 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
                         return log_error_errno(r, "Failed to start machine scope: %s", bus_error_message(error, r));
 
                 m->unit = TAKE_PTR(scope);
+                m->referenced = true;
                 free_and_replace(m->scope_job, job);
         }
 
@@ -422,9 +423,12 @@ static int machine_stop_scope(Machine *m) {
         } else
                 free_and_replace(m->scope_job, job);
 
-        q = manager_unref_unit(m->manager, m->unit, &error);
-        if (q < 0)
-                log_warning_errno(q, "Failed to drop reference to machine scope, ignoring: %s", bus_error_message(&error, r));
+        if (m->referenced) {
+                q = manager_unref_unit(m->manager, m->unit, &error);
+                if (q < 0)
+                        log_warning_errno(q, "Failed to drop reference to machine scope, ignoring: %s", bus_error_message(&error, r));
+                m->referenced = false;
+        }
 
         return r;
 }
