@@ -116,6 +116,7 @@ typedef struct Link {
         bool routing_policy_rules_configured:1;
         bool qdiscs_configured:1;
         bool setting_mtu:1;
+        bool ipv6_mtu_set:1;
 
         LIST_HEAD(Address, pool_addresses);
 

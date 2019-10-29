@@ -1341,7 +1341,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
         if (link_ipv6_enabled(link) && mtu < IPV6_MIN_MTU) {
 
                 log_link_warning(link, "Bumping MTU to " STRINGIFY(IPV6_MIN_MTU) ", as "
-                                 "IPv6 is requested and requires a minimum MTU of " STRINGIFY(IPV6_MIN_MTU) " bytes: %m");
+                                 "IPv6 is requested and requires a minimum MTU of " STRINGIFY(IPV6_MIN_MTU) " bytes");
 
                 mtu = IPV6_MIN_MTU;
         }
@@ -2378,9 +2378,23 @@ static int link_set_ipv6_mtu(Link *link) {
         if (link->network->ipv6_mtu == 0)
                 return 0;
 
+        /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes
+         * on the interface. Bump up IPv6 MTU bytes to IPV6_MTU_MIN. */
+        if (link->network->ipv6_mtu < IPV6_MIN_MTU) {
+                log_link_notice(link, "Bumping IPv6 MTU to "STRINGIFY(IPV6_MIN_MTU)" byte minimum required");
+                link->network->ipv6_mtu = IPV6_MIN_MTU;
+        }
+
         r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", link->network->ipv6_mtu);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot set IPv6 MTU for interface: %m");
+        if (r < 0) {
+                if (link->mtu < link->network->ipv6_mtu)
+                        log_link_warning(link, "Cannot set IPv6 MTU %"PRIu32" higher than device MTU %"PRIu32,
+                                         link->network->ipv6_mtu, link->mtu);
+                else
+                        log_link_warning_errno(link, r, "Cannot set IPv6 MTU for interface: %m");
+        }
+
+        link->ipv6_mtu_set = true;
 
         return 0;
 }
@@ -2669,10 +2683,6 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_set_ipv6_mtu(link);
-        if (r < 0)
-                return r;
-
         if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4)) {
                 r = ipv4ll_configure(link);
                 if (r < 0)
@@ -2744,6 +2754,12 @@ static int link_configure_after_setting_mtu(Link *link) {
 
         if (link->setting_mtu)
                 return 0;
+
+        /* The kernel resets ipv6 mtu after changing device mtu;
+         * we must set this here, after we've set device mtu */
+        r = link_set_ipv6_mtu(link);
+        if (r < 0)
+                return r;
 
         if (link_has_carrier(link) || link->network->configure_without_carrier) {
                 r = link_acquire_conf(link);
@@ -3453,11 +3469,30 @@ int link_carrier_reset(Link *link) {
         return 0;
 }
 
+/* This is called every time an interface admin state changes to up;
+ * specifically, when IFF_UP flag changes from unset to set */
+static int link_admin_state_up(Link *link) {
+        int r;
+
+        /* We set the ipv6 mtu after the device mtu, but the kernel resets
+         * ipv6 mtu on NETDEV_UP, so we need to reset it.  The check for
+         * ipv6_mtu_set prevents this from trying to set it too early before
+         * the link->network has been setup; we only need to reset it
+         * here if we've already set it during normal initialization. */
+        if (link->ipv6_mtu_set) {
+                r = link_set_ipv6_mtu(link);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int link_update(Link *link, sd_netlink_message *m) {
         struct ether_addr mac;
         const char *ifname;
         uint32_t mtu;
-        bool had_carrier, carrier_gained, carrier_lost;
+        bool had_carrier, carrier_gained, carrier_lost, link_was_admin_up;
         int old_master, r;
 
         assert(link);
@@ -3587,11 +3622,21 @@ int link_update(Link *link, sd_netlink_message *m) {
         old_master = link->master_ifindex;
         (void) sd_netlink_message_read_u32(m, IFLA_MASTER, (uint32_t *) &link->master_ifindex);
 
+        link_was_admin_up = link->flags & IFF_UP;
         had_carrier = link_has_carrier(link);
 
         r = link_update_flags(link, m, old_master != link->master_ifindex);
         if (r < 0)
                 return r;
+
+        if (!link_was_admin_up && (link->flags & IFF_UP)) {
+                log_link_info(link, "Link UP");
+
+                r = link_admin_state_up(link);
+                if (r < 0)
+                        return r;
+        } else if (link_was_admin_up && !(link->flags & IFF_UP))
+                log_link_info(link, "Link DOWN");
 
         r = link_update_lldp(link);
         if (r < 0)
