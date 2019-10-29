@@ -1485,15 +1485,16 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-gre-tunnel-remote-any.netdev',
         '25-ip6gre-tunnel-remote-any.netdev',
         '25-ipv6-address-label-section.network',
+        '25-link-local-addressing-no.network',
+        '25-link-local-addressing-yes.network',
+        '25-link-section-unmanaged.network',
         '25-neighbor-section.network',
         '25-neighbor-next.network',
         '25-neighbor-ipv6.network',
         '25-neighbor-ip-dummy.network',
         '25-neighbor-ip.network',
         '25-nexthop.network',
-        '25-link-local-addressing-no.network',
-        '25-link-local-addressing-yes.network',
-        '25-link-section-unmanaged.network',
+        '25-qdisc.network',
         '25-route-ipv6-src.network',
         '25-route-static.network',
         '25-gateway-static.network',
@@ -2050,6 +2051,17 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip nexthop list dev veth99')
         print(output)
         self.assertRegex(output, '192.168.5.1')
+
+    def test_qdisc(self):
+        copy_unit_to_networkd_unit_path('25-qdisc.network', '12-dummy.netdev')
+        start_networkd()
+
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'limit 100 delay 50.0ms  10.0ms loss 20%')
+        self.assertRegex(output, 'limit 200 delay 100.0ms  13.0ms loss 20.5%')
 
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
     links = [
