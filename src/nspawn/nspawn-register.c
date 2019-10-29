@@ -209,7 +209,7 @@ int register_machine(
         return 0;
 }
 
-int terminate_machine(
+int unregister_machine(
                 sd_bus *bus,
                 const char *machine_name) {
 
@@ -223,13 +223,13 @@ int terminate_machine(
                         "org.freedesktop.machine1",
                         "/org/freedesktop/machine1",
                         "org.freedesktop.machine1.Manager",
-                        "TerminateMachine",
+                        "UnregisterMachine",
                         &error,
                         NULL,
                         "s",
                         machine_name);
         if (r < 0)
-                log_debug("Failed to terminate machine: %s", bus_error_message(&error, r));
+                log_debug("Failed to unregister machine: %s", bus_error_message(&error, r));
 
         return 0;
 }
