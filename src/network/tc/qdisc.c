@@ -101,7 +101,14 @@ static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_error_errno(link, r, "Could not set QDisc: %m");
+                link_enter_failed(link);
                 return 1;
+        }
+
+        if (link->route_messages == 0) {
+                log_link_debug(link, "QDiscs configured");
+                link->qdiscs_configured = true;
+                link_check_ready(link);
         }
 
         return 1;
