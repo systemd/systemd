@@ -55,8 +55,17 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
                 server->dnstls_data.session_data.size = 0;
         }
 
-        if (server->manager->dns_over_tls_mode == DNS_OVER_TLS_YES)
-                gnutls_session_set_verify_cert(gs, NULL, 0);
+        if (server->manager->dns_over_tls_mode == DNS_OVER_TLS_YES) {
+                stream->dnstls_data.validation.type = GNUTLS_DT_IP_ADDRESS;
+                if (server->family == AF_INET) {
+                        stream->dnstls_data.validation.data = (unsigned char*) &server->address.in.s_addr;
+                        stream->dnstls_data.validation.size = 4;
+                } else {
+                        stream->dnstls_data.validation.data = server->address.in6.s6_addr;
+                        stream->dnstls_data.validation.size = 16;
+                }
+                gnutls_session_set_verify_cert2(gs, &stream->dnstls_data.validation, 1, 0);
+        }
 
         gnutls_handshake_set_timeout(gs, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
 
