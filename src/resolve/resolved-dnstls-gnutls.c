@@ -9,11 +9,7 @@
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
 
-#if GNUTLS_VERSION_NUMBER >= 0x030600
 #define PRIORTY_STRING "NORMAL:-VERS-ALL:+VERS-TLS1.3:+VERS-TLS1.2"
-#else
-#define PRIORTY_STRING "NORMAL:-VERS-ALL:+VERS-TLS1.2"
-#endif
 DEFINE_TRIVIAL_CLEANUP_FUNC(gnutls_session_t, gnutls_deinit);
 
 static ssize_t dnstls_stream_writev(gnutls_transport_ptr_t p, const giovec_t *iov, int iovcnt) {
