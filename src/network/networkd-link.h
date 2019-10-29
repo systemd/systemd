@@ -104,6 +104,7 @@ typedef struct Link {
         bool static_routes_configured;
         bool routing_policy_rules_configured;
         bool setting_mtu;
+        bool ipv6_mtu_set;
 
         LIST_HEAD(Address, pool_addresses);
 
