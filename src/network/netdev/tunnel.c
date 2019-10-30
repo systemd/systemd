@@ -6,16 +6,13 @@
 #include <linux/if_tunnel.h>
 #include <linux/ip6_tunnel.h>
 
-#include "sd-netlink.h"
-
 #include "conf-parser.h"
 #include "missing.h"
 #include "netlink-util.h"
-#include "networkd-link.h"
-#include "netdev/tunnel.h"
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "tunnel.h"
 #include "util.h"
 
 #define DEFAULT_TNL_HOP_LIMIT   64

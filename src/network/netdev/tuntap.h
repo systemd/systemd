@@ -3,7 +3,7 @@
 
 typedef struct TunTap TunTap;
 
-#include "netdev/netdev.h"
+#include "netdev.h"
 
 struct TunTap {
         NetDev meta;

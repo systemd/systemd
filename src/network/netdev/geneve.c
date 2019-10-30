@@ -2,19 +2,17 @@
 
 #include <net/if.h>
 
-#include "sd-netlink.h"
-
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "extract-word.h"
 #include "geneve.h"
+#include "missing.h"
 #include "netlink-util.h"
+#include "networkd-manager.h"
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "missing.h"
-#include "networkd-manager.h"
 
 #define GENEVE_FLOW_LABEL_MAX_MASK 0xFFFFFU
 #define DEFAULT_GENEVE_DESTINATION_PORT 6081

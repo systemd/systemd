@@ -2704,7 +2704,7 @@ public_programs += exe
 if conf.get('ENABLE_NETWORKD') == 1
         executable('systemd-networkd',
                    systemd_networkd_sources,
-                   include_directories : includes,
+                   include_directories : network_include_dir,
                    link_with : [libnetworkd_core,
                                 libsystemd_network,
                                 libudev_static,

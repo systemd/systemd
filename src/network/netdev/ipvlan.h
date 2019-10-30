@@ -4,7 +4,7 @@
 #include <netinet/in.h>
 #include <linux/if_link.h>
 
-#include "netdev/netdev.h"
+#include "netdev.h"
 
 typedef enum IPVlanMode {
         NETDEV_IPVLAN_MODE_L2 = IPVLAN_MODE_L2,

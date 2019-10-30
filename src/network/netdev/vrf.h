@@ -3,7 +3,7 @@
 
 typedef struct Vrf Vrf;
 
-#include "netdev/netdev.h"
+#include "netdev.h"
 
 struct Vrf {
         NetDev meta;

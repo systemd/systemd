@@ -5,7 +5,7 @@
 
 #include "conf-parser.h"
 #include "list.h"
-#include "../networkd-link.h"
+#include "networkd-link.h"
 #include "time-util.h"
 
 typedef struct netdev_join_callback netdev_join_callback;

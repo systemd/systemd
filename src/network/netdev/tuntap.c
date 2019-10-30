@@ -11,7 +11,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "netdev/tuntap.h"
+#include "tuntap.h"
 #include "user-util.h"
 
 #define TUN_DEV "/dev/net/tun"

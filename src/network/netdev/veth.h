@@ -3,7 +3,7 @@
 
 typedef struct Veth Veth;
 
-#include "netdev/netdev.h"
+#include "netdev.h"
 
 struct Veth {
         NetDev meta;
