@@ -562,3 +562,9 @@ static inline int pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned f
 #endif
 }
 #endif
+
+#if !HAVE_RT_SIGQUEUEINFO
+static inline int rt_sigqueueinfo(pid_t tgid, int sig, siginfo_t *info) {
+        return syscall(__NR_rt_sigqueueinfo, tgid, sig, info);
+}
+#endif
