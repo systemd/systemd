@@ -5,7 +5,6 @@ typedef struct Geneve Geneve;
 
 #include "in-addr-util.h"
 #include "netdev.h"
-#include "networkd-link.h"
 #include "networkd-network.h"
 
 #define GENEVE_VID_MAX (1u << 24) - 1

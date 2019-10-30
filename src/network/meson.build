@@ -131,7 +131,7 @@ network_generator_sources = files('''
         generator/network-generator.h
 '''.split())
 
-network_include_dir = include_directories('.')
+network_include_dir = [includes, include_directories(['.', 'netdev', 'tc'])]
 
 if conf.get('ENABLE_NETWORKD') == 1
         networkd_gperf_c = custom_target(
@@ -159,7 +159,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                 networkd_gperf_c,
                 networkd_network_gperf_c,
                 netdev_gperf_c,
-                include_directories : includes,
+                include_directories : network_include_dir,
                 link_with : [libshared])
 
         install_data('org.freedesktop.network1.conf',
@@ -187,7 +187,9 @@ if conf.get('ENABLE_NETWORKD') == 1
       libudev_static,
       libsystemd_network,
       libshared],
-     [threads]],
+     [threads],
+     [],
+     network_include_dir],
 
     [['src/network/fuzz-network-parser.c',
       'src/fuzz/fuzz.h'],
@@ -195,7 +197,9 @@ if conf.get('ENABLE_NETWORKD') == 1
       libudev_static,
       libsystemd_network,
       libshared],
-     [threads]]
+     [threads],
+     [],
+     network_include_dir],
     ]
 
         tests += [
@@ -203,20 +207,21 @@ if conf.get('ENABLE_NETWORKD') == 1
      [libnetworkd_core,
       libsystemd_network,
       libudev],
-     []],
+     [], '', '', [], network_include_dir],
 
     [['src/network/test-network.c'],
      [libnetworkd_core,
       libudev_static,
       libsystemd_network,
       libshared],
-     [threads]],
+     [threads],
+     '', '', [], network_include_dir],
 
     [['src/network/test-routing-policy-rule.c'],
      [libnetworkd_core,
       libsystemd_network,
       libudev],
-     []],
+     [], '', '', [], network_include_dir],
 
     [['src/network/test-network-tables.c',
       test_tables_h],
@@ -233,6 +238,6 @@ if conf.get('ENABLE_NETWORKD') == 1
       'src/network/generator/network-generator.c',
       'src/network/generator/network-generator.h'],
      [libshared],
-     []],
+     [], '', '', [], network_include_dir],
   ]
 endif

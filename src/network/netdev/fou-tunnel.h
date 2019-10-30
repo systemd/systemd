@@ -5,7 +5,7 @@
 #include <linux/fou.h>
 
 #include "in-addr-util.h"
-#include "netdev/netdev.h"
+#include "netdev.h"
 
 typedef enum FooOverUDPEncapType {
         NETDEV_FOO_OVER_UDP_ENCAP_UNSPEC = FOU_ENCAP_UNSPEC,

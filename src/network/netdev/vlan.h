@@ -3,7 +3,7 @@
 
 typedef struct VLan VLan;
 
-#include "netdev/netdev.h"
+#include "netdev.h"
 
 struct VLan {
         NetDev meta;

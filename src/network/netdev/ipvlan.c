@@ -3,7 +3,7 @@
 #include <net/if.h>
 
 #include "conf-parser.h"
-#include "netdev/ipvlan.h"
+#include "ipvlan.h"
 #include "networkd-link.h"
 #include "string-table.h"
 

@@ -4,6 +4,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #endif
 #include <stddef.h>
 #include "conf-parser.h"
+#include "netem.h"
 #include "network-internal.h"
 #include "networkd-conf.h"
 #include "networkd-dhcp-common.h"
@@ -12,9 +13,8 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "networkd-ipv4ll.h"
 #include "networkd-ndisc.h"
 #include "networkd-network.h"
+#include "qdisc.h"
 #include "vlan-util.h"
-#include "tc/qdisc.h"
-#include "tc/netem.h"
 %}
 struct ConfigPerfItem;
 %null_strings

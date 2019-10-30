@@ -1,17 +1,17 @@
+#include "bond.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"
 #include "ethtool-util.h"
+#include "ipvlan.h"
 #include "lldp-internal.h"
+#include "macvlan.h"
 #include "ndisc-internal.h"
-#include "netdev/bond.h"
-#include "netdev/ipvlan.h"
-#include "netdev/macvlan.h"
-#include "netdev/tunnel.h"
 #include "netlink-internal.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
 #include "test-tables.h"
+#include "tunnel.h"
 
 int main(int argc, char **argv) {
         test_table(bond_ad_select, NETDEV_BOND_AD_SELECT);

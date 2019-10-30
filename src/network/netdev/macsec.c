@@ -17,7 +17,6 @@
 #include "networkd-address.h"
 #include "networkd-manager.h"
 #include "path-util.h"
-#include "sd-netlink.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"

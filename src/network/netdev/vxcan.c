@@ -2,7 +2,7 @@
 
 #include <linux/can/vxcan.h>
 
-#include "netdev/vxcan.h"
+#include "vxcan.h"
 
 static int netdev_vxcan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         VxCan *v;

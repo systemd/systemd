@@ -3,7 +3,7 @@
 
 typedef struct NetDevSim NetDevSim;
 
-#include "netdev/netdev.h"
+#include "netdev.h"
 
 struct NetDevSim {
         NetDev meta;

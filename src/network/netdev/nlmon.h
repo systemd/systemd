@@ -3,7 +3,7 @@
 
 typedef struct NLMon NLMon;
 
-#include "netdev/netdev.h"
+#include "netdev.h"
 
 struct NLMon {
         NetDev meta;

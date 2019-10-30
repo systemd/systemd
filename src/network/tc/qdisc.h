@@ -3,13 +3,12 @@
 #pragma once
 
 #include "conf-parser.h"
-#include "macro.h"
 #include "netem.h"
-#include "../networkd-util.h"
+#include "networkd-link.h"
+#include "networkd-network.h"
+#include "networkd-util.h"
 
-typedef struct QDiscs QDiscs;
-
-struct QDiscs {
+typedef struct QDiscs {
         NetworkConfigSection *section;
         Network *network;
 
@@ -23,7 +22,7 @@ struct QDiscs {
         bool has_network_emulator:1;
 
         NetworkEmulator ne;
-};
+} QDiscs;
 
 void qdisc_free(QDiscs *qdisc);
 int qdisc_new_static(Network *network, const char *filename, unsigned section_line, QDiscs **ret);

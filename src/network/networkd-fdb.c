@@ -7,9 +7,8 @@
 #include <net/if.h>
 
 #include "alloc-util.h"
+#include "bridge.h"
 #include "conf-parser.h"
-#include "netdev/bridge.h"
-#include "netdev/vxlan.h"
 #include "netlink-util.h"
 #include "networkd-fdb.h"
 #include "networkd-manager.h"
@@ -18,6 +17,7 @@
 #include "string-table.h"
 #include "util.h"
 #include "vlan-util.h"
+#include "vxlan.h"
 
 #define STATIC_FDB_ENTRIES_PER_NETWORK_MAX 1024U
 

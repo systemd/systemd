@@ -5,20 +5,18 @@
 #include "sd-netlink.h"
 
 #include "conf-parser.h"
-#include "macro.h"
-#include "../networkd-link.h"
+#include "networkd-link.h"
 #include "time-util.h"
 
-typedef struct NetworkEmulator NetworkEmulator;
 typedef struct QDiscs QDiscs;
 
-struct NetworkEmulator {
+typedef struct NetworkEmulator {
         usec_t delay;
         usec_t jitter;
 
         uint32_t limit;
         uint32_t loss;
-};
+} NetworkEmulator;
 
 int network_emulator_new(NetworkEmulator **ret);
 int network_emulator_fill_message(Link *link, QDiscs *qdisc, sd_netlink_message *req);

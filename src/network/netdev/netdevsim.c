@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include "netdev/netdevsim.h"
 #include "missing.h"
+#include "netdevsim.h"
 
 const NetDevVTable netdevsim_vtable = {
         .object_size = sizeof(NetDevSim),

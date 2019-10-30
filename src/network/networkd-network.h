@@ -6,11 +6,11 @@
 #include "sd-bus.h"
 #include "sd-device.h"
 
+#include "bridge.h"
 #include "condition.h"
 #include "conf-parser.h"
 #include "hashmap.h"
-#include "netdev/bridge.h"
-#include "netdev/netdev.h"
+#include "netdev.h"
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-brvlan.h"
@@ -27,8 +27,8 @@
 #include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
 #include "ordered-set.h"
+#include "qdisc.h"
 #include "resolve-util.h"
-#include "tc/qdisc.h"
 
 typedef enum IPv6PrivacyExtensions {
         /* The values map to the kernel's /proc/sys/net/ipv6/conf/xxx/use_tempaddr values */

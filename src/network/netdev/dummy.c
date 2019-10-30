@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include "netdev/dummy.h"
+#include "dummy.h"
 
 const NetDevVTable dummy_vtable = {
         .object_size = sizeof(Dummy),

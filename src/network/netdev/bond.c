@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include "sd-netlink.h"
-
 #include "alloc-util.h"
 #include "bond.h"
 #include "conf-parser.h"

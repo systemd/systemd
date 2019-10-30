@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "missing_network.h"
-#include "netdev/xfrm.h"
+#include "xfrm.h"
 
 static int xfrm_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *message) {
         Xfrm *x;

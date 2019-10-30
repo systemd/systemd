@@ -6,17 +6,16 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bond.h"
+#include "bridge.h"
 #include "bus-util.h"
 #include "dhcp-identifier.h"
 #include "dhcp-lease-internal.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "ipvlan.h"
 #include "missing_network.h"
-#include "netdev/bond.h"
-#include "netdev/bridge.h"
-#include "netdev/ipvlan.h"
-#include "netdev/vrf.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-can.h"
@@ -34,6 +33,7 @@
 #include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-wifi.h"
+#include "qdisc.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -43,8 +43,8 @@
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "util.h"
-#include "tc/qdisc.h"
 #include "virt.h"
+#include "vrf.h"
 
 uint32_t link_get_vrf_table(Link *link) {
         return link->network->vrf ? VRF(link->network->vrf)->table : RT_TABLE_MAIN;

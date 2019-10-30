@@ -15,7 +15,6 @@
 #include "hexdecoct.h"
 #include "memory-util.h"
 #include "netlink-util.h"
-#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-util.h"
 #include "parse-util.h"

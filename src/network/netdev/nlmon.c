@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include "netdev/nlmon.h"
+#include "nlmon.h"
 
 static int netdev_nlmon_verify(NetDev *netdev, const char *filename) {
         assert(netdev);

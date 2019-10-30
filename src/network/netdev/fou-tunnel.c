@@ -6,14 +6,12 @@
 #include <linux/ip.h>
 
 #include "conf-parser.h"
+#include "fou-tunnel.h"
 #include "ip-protocol-list.h"
 #include "missing.h"
-#include "netdev/fou-tunnel.h"
 #include "netlink-util.h"
-#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
-#include "sd-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "util.h"
