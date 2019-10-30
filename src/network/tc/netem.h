@@ -16,11 +16,12 @@ typedef struct NetworkEmulator {
 
         uint32_t limit;
         uint32_t loss;
+        uint32_t duplicate;
 } NetworkEmulator;
 
 int network_emulator_new(NetworkEmulator **ret);
 int network_emulator_fill_message(Link *link, QDiscs *qdisc, sd_netlink_message *req);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_tc_network_emulator_delay);
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_network_emulator_loss_rate);
+CONFIG_PARSER_PROTOTYPE(config_parse_tc_network_emulator_rate);
 CONFIG_PARSER_PROTOTYPE(config_parse_tc_network_emulator_packet_limit);
