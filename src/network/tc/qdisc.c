@@ -116,6 +116,7 @@ static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
 
 int qdisc_configure(Link *link, QDiscs *qdisc) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_free_ char *tca_kind = NULL;
         int r;
 
         assert(link);
@@ -132,23 +133,29 @@ int qdisc_configure(Link *link, QDiscs *qdisc) {
                 return log_link_error_errno(link, r, "Could not create tcm_parent message: %m");
 
         if (qdisc->parent == TC_H_CLSACT) {
+                tca_kind = strdup("clsact");
+                if (!tca_kind)
+                        return log_oom();
+
                 r = sd_rtnl_message_set_qdisc_handle(req, TC_H_MAKE(TC_H_CLSACT, 0));
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set tcm_handle message: %m");
-
-                r = sd_netlink_message_append_string(req, TCA_KIND, "clsact");
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
         }
 
         if (qdisc->has_network_emulator) {
-                r = sd_netlink_message_append_string(req, TCA_KIND, "netem");
+                r = free_and_strdup(&tca_kind, "netem");
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
+                        return log_oom();
 
                 r = network_emulator_fill_message(link, qdisc, req);
                 if (r < 0)
                         return r;
+        }
+
+        if (tca_kind) {
+                r = sd_netlink_message_append_string(req, TCA_KIND, tca_kind);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
         }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, qdisc_handler, link_netlink_destroy_callback, link);
