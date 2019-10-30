@@ -1566,7 +1566,7 @@ int config_parse_dhcp_request_options(
         return 0;
 }
 
-int config_parse_dhcp_send_options(
+int config_parse_dhcp_send_option(
                 const char *unit,
                 const char *filename,
                 unsigned line,
