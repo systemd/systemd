@@ -771,10 +771,12 @@ static void source_disconnect(sd_event_source *s) {
 
         event = s->event;
 
-        s->type = _SOURCE_EVENT_SOURCE_TYPE_INVALID;
         s->event = NULL;
         LIST_REMOVE(sources, event->sources, s);
         event->n_sources--;
+
+        /* Note that we don't invalidate the type here, since we still need it in order to close the fd or
+         * pidfd associated with this event source, which we'll do only on source_free(). */
 
         if (!s->floating)
                 sd_event_unref(event);
