@@ -6,7 +6,7 @@
 
 #include "alloc-util.h"
 #include "dhcp-client-internal.h"
-#include "hexdecoct.h"
+#include "escape.h"
 #include "hostname-util.h"
 #include "parse-util.h"
 #include "network-internal.h"
@@ -1579,12 +1579,11 @@ int config_parse_dhcp_send_option(
                 void *userdata) {
 
         _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt = NULL, *old = NULL;
-        _cleanup_free_ char *word = NULL;
-        _cleanup_free_ void *q = NULL;
+        _cleanup_free_ char *word = NULL, *q = NULL;
         Network *network = data;
         const char *p;
         uint8_t u;
-        size_t sz;
+        ssize_t sz;
         int r;
 
         assert(filename);
@@ -1619,10 +1618,10 @@ int config_parse_dhcp_send_option(
                 return 0;
         }
 
-        r = unbase64mem(p, (size_t) -1, &q, &sz);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to decode base64 data, ignoring assignment: %s", p);
+        sz = cunescape(p, 0, &q);
+        if (sz < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, sz,
+                           "Failed to decode option data, ignoring assignment: %s", p);
                 return 0;
         }
 
