@@ -97,7 +97,7 @@ RequestOptions=
 SendRelease=
 MaxAttempts=
 IPServiceType=
-SendOptions=
+SendOption=
 [DHCPv6]
 UseNTP=
 UseDNS=
