@@ -1165,7 +1165,6 @@ _public_ int sd_event_add_signal(
 
         _cleanup_(source_freep) sd_event_source *s = NULL;
         struct signal_data *d;
-        sigset_t ss;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1177,11 +1176,10 @@ _public_ int sd_event_add_signal(
         if (!callback)
                 callback = signal_exit_callback;
 
-        r = pthread_sigmask(SIG_SETMASK, NULL, &ss);
-        if (r != 0)
-                return -r;
-
-        if (!sigismember(&ss, sig))
+        r = signal_is_blocked(sig);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -EBUSY;
 
         if (!e->signal_sources) {
