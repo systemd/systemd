@@ -23,6 +23,7 @@
 #include <sys/inotify.h>
 #include <sys/signalfd.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <time.h>
 
 #include "_sd-common.h"
@@ -89,6 +90,7 @@ int sd_event_add_io(sd_event *e, sd_event_source **s, int fd, uint32_t events, s
 int sd_event_add_time(sd_event *e, sd_event_source **s, clockid_t clock, uint64_t usec, uint64_t accuracy, sd_event_time_handler_t callback, void *userdata);
 int sd_event_add_signal(sd_event *e, sd_event_source **s, int sig, sd_event_signal_handler_t callback, void *userdata);
 int sd_event_add_child(sd_event *e, sd_event_source **s, pid_t pid, int options, sd_event_child_handler_t callback, void *userdata);
+int sd_event_add_child_pidfd(sd_event *e, sd_event_source **s, int pidfd, int options, sd_event_child_handler_t callback, void *userdata);
 int sd_event_add_inotify(sd_event *e, sd_event_source **s, const char *path, uint32_t mask, sd_event_inotify_handler_t callback, void *userdata);
 int sd_event_add_defer(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 int sd_event_add_post(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
@@ -141,6 +143,16 @@ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec);
 int sd_event_source_get_time_clock(sd_event_source *s, clockid_t *clock);
 int sd_event_source_get_signal(sd_event_source *s);
 int sd_event_source_get_child_pid(sd_event_source *s, pid_t *pid);
+int sd_event_source_get_child_pidfd(sd_event_source *s);
+int sd_event_source_get_child_pidfd_own(sd_event_source *s);
+int sd_event_source_set_child_pidfd_own(sd_event_source *s, int own);
+int sd_event_source_get_child_process_own(sd_event_source *s);
+int sd_event_source_set_child_process_own(sd_event_source *s, int own);
+#if defined _GNU_SOURCE || (defined _POSIX_C_SOURCE && _POSIX_C_SOURCE >= 199309L)
+int sd_event_source_send_child_signal(sd_event_source *s, int sig, const siginfo_t *si, unsigned flags);
+#else
+int sd_event_source_send_child_signal(sd_event_source *s, int sig, const void *si, unsigned flags);
+#endif
 int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *ret);
 int sd_event_source_set_destroy_callback(sd_event_source *s, sd_event_destroy_t callback);
 int sd_event_source_get_destroy_callback(sd_event_source *s, sd_event_destroy_t *ret);
