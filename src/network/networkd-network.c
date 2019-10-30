@@ -471,6 +471,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                               "IPv6PrefixDelegation\0"
                               "IPv6Prefix\0"
                               "IPv6RoutePrefix\0"
+                              "TrafficControlQueueingDiscipline\0"
                               "CAN\0",
                               config_item_perf_lookup, network_network_gperf_lookup,
                               CONFIG_PARSE_WARN, network);
@@ -663,6 +664,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->address_labels_by_section);
         hashmap_free(network->prefixes_by_section);
         hashmap_free(network->rules_by_section);
+        ordered_hashmap_free_with_destructor(network->qdiscs_by_section, qdisc_free);
 
         if (network->manager &&
             network->manager->duids_requesting_uuid)

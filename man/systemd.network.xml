@@ -2288,6 +2288,56 @@
   </refsect1>
 
   <refsect1>
+    <title>[TrafficControlQueueingDiscipline] Section Options</title>
+    <para>The <literal>[TrafficControlQueueingDiscipline]</literal> section manages the Traffic control. It can be used
+    to configure the kernel packet scheduler and simulate packet delay and loss for UDP or TCP applications,
+    or limit the bandwidth usage of a particular service to simulate internet connections.</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>
+          or <literal>clsact</literal>. Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetworkEmulatorDelaySec=</varname></term>
+        <listitem>
+          <para>Specifies the fixed amount of delay to be added to all packets going out of the
+          interface. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetworkEmulatorDelayJitterSec=</varname></term>
+        <listitem>
+          <para>Specifies the chosen delay to be added to the packets outgoing to the network
+          interface. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetworkEmulatorPacketLimit=</varname></term>
+        <listitem>
+          <para>Specifies the maximum number of packets the qdisc may hold queued at a time.
+          An unsigned integer ranges 0 to 4294967294. Defaults to 1000.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetworkEmulatorLossRate=</varname></term>
+        <listitem>
+          <para>Specifies an independent loss probability to be added to the packets outgoing from the
+          network interface. Takes a percentage value, suffixed with "%". Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[BridgeVLAN] Section Options</title>
       <para>The <literal>[BridgeVLAN]</literal> section manages the VLAN ID configuration of a bridge port and accepts
       the following keys. Specify several <literal>[BridgeVLAN]</literal> sections to configure several VLAN entries.

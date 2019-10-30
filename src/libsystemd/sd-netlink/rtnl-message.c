@@ -1033,3 +1033,46 @@ int sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(const sd_netlink_m
 
         return 0;
 }
+
+int sd_rtnl_message_new_qdisc(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int tcm_family, int tcm_ifindex) {
+        struct tcmsg *tcm;
+        int r;
+
+        assert_return(rtnl_message_type_is_qdisc(nlmsg_type), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = message_new(rtnl, ret, nlmsg_type);
+        if (r < 0)
+                return r;
+
+        if (nlmsg_type == RTM_NEWQDISC)
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
+
+        tcm = NLMSG_DATA((*ret)->hdr);
+        tcm->tcm_family = tcm_family;
+        tcm->tcm_ifindex = tcm_ifindex;
+
+        return 0;
+}
+
+int sd_rtnl_message_set_qdisc_parent(sd_netlink_message *m, uint32_t parent) {
+        struct tcmsg *tcm;
+
+        assert_return(rtnl_message_type_is_qdisc(m->hdr->nlmsg_type), -EINVAL);
+
+        tcm = NLMSG_DATA(m->hdr);
+        tcm->tcm_parent = parent;
+
+        return 0;
+}
+
+int sd_rtnl_message_set_qdisc_handle(sd_netlink_message *m, uint32_t handle) {
+        struct tcmsg *tcm;
+
+        assert_return(rtnl_message_type_is_qdisc(m->hdr->nlmsg_type), -EINVAL);
+
+        tcm = NLMSG_DATA(m->hdr);
+        tcm->tcm_handle = handle;
+
+        return 0;
+}

@@ -43,6 +43,7 @@
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "util.h"
+#include "tc/qdisc.h"
 #include "virt.h"
 
 uint32_t link_get_vrf_table(Link *link) {
@@ -1092,6 +1093,9 @@ void link_check_ready(Link *link) {
                 return;
 
         if (!link->routing_policy_rules_configured)
+                return;
+
+        if (!link->qdiscs_configured)
                 return;
 
         if (link_has_carrier(link) || !link->network->configure_without_carrier) {
@@ -2580,12 +2584,38 @@ static int link_drop_config(Link *link) {
         return 0;
 }
 
+static int link_configure_qdiscs(Link *link) {
+        QDiscs *qdisc;
+        Iterator i;
+        int r;
+
+        link->qdiscs_configured = false;
+        link->qdisc_messages = 0;
+
+        ORDERED_HASHMAP_FOREACH(qdisc, link->network->qdiscs_by_section, i) {
+                r = qdisc_configure(link, qdisc);
+                if (r < 0)
+                        return r;
+        }
+
+        if (link->qdisc_messages == 0)
+                link->qdiscs_configured = true;
+        else
+                log_link_debug(link, "Configuring QDiscs");
+
+        return 0;
+}
+
 static int link_configure(Link *link) {
         int r;
 
         assert(link);
         assert(link->network);
         assert(link->state == LINK_STATE_INITIALIZED);
+
+        r = link_configure_qdiscs(link);
+        if (r < 0)
+                return r;
 
         if (link->iftype == ARPHRD_CAN)
                 return link_configure_can(link);

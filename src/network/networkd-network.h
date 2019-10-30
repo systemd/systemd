@@ -28,6 +28,7 @@
 #include "networkd-util.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
+#include "tc/qdisc.h"
 
 typedef enum IPv6PrivacyExtensions {
         /* The values map to the kernel's /proc/sys/net/ipv6/conf/xxx/use_tempaddr values */
@@ -265,6 +266,7 @@ struct Network {
         Hashmap *prefixes_by_section;
         Hashmap *route_prefixes_by_section;
         Hashmap *rules_by_section;
+        OrderedHashmap *qdiscs_by_section;
 
         /* All kinds of DNS configuration */
         struct in_addr_data *dns;
