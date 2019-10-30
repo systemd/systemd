@@ -149,6 +149,9 @@ CHANGES WITH 244 in spe:
 
         * libcryptsetup >= 2.0.1 is now required.
 
+	* systemd-resolved validates IP addresses in certificates now when GnuTLS
+	  is being used.
+
 CHANGES WITH 243:
 
         * This release enables unprivileged programs (i.e. requiring neither
