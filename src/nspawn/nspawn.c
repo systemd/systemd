@@ -4618,18 +4618,18 @@ static int run_container(
         }
 
         /* Kill if it is not dead yet anyway */
-        if (bus) {
-                if (arg_register)
-                        terminate_machine(bus, arg_machine);
-                else if (!arg_keep_unit)
-                        terminate_scope(bus, arg_machine);
-        }
+        if (!arg_register && !arg_keep_unit && bus)
+                terminate_scope(bus, arg_machine);
 
         /* Normally redundant, but better safe than sorry */
         (void) kill(*pid, SIGKILL);
 
         r = wait_for_container(*pid, &container_status);
         *pid = 0;
+
+        /* Tell machined that we are gone. */
+        if (bus)
+                (void) unregister_machine(bus, arg_machine);
 
         if (r < 0)
                 /* We failed to wait for the container, or the container exited abnormally. */

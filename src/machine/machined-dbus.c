@@ -448,6 +448,10 @@ static int redirect_method_to_machine(sd_bus_message *message, Manager *m, sd_bu
         return method(message, machine, error);
 }
 
+static int method_unregister_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_unregister);
+}
+
 static int method_terminate_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return redirect_method_to_machine(message, userdata, error, bus_machine_method_terminate);
 }
@@ -1137,6 +1141,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("CreateMachineWithNetwork", "sayssusaia(sv)", "o", method_create_machine_with_network, 0),
         SD_BUS_METHOD("RegisterMachine", "sayssus", "o", method_register_machine, 0),
         SD_BUS_METHOD("RegisterMachineWithNetwork", "sayssusai", "o", method_register_machine_with_network, 0),
+        SD_BUS_METHOD("UnregisterMachine", "s", NULL, method_unregister_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("TerminateMachine", "s", NULL, method_terminate_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("KillMachine", "ssi", NULL, method_kill_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetMachineAddresses", "s", "a(iay)", method_get_machine_addresses, SD_BUS_VTABLE_UNPRIVILEGED),

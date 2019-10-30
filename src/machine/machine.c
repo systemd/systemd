@@ -355,6 +355,7 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
                         return log_error_errno(r, "Failed to start machine scope: %s", bus_error_message(error, r));
 
                 m->unit = TAKE_PTR(scope);
+                m->referenced = true;
                 free_and_replace(m->scope_job, job);
         }
 
@@ -422,9 +423,12 @@ static int machine_stop_scope(Machine *m) {
         } else
                 free_and_replace(m->scope_job, job);
 
-        q = manager_unref_unit(m->manager, m->unit, &error);
-        if (q < 0)
-                log_warning_errno(q, "Failed to drop reference to machine scope, ignoring: %s", bus_error_message(&error, r));
+        if (m->referenced) {
+                q = manager_unref_unit(m->manager, m->unit, &error);
+                if (q < 0)
+                        log_warning_errno(q, "Failed to drop reference to machine scope, ignoring: %s", bus_error_message(&error, r));
+                m->referenced = false;
+        }
 
         return r;
 }
@@ -449,12 +453,15 @@ int machine_stop(Machine *m) {
 int machine_finalize(Machine *m) {
         assert(m);
 
-        if (m->started)
+        if (m->started) {
                 log_struct(LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_MACHINE_STOP_STR,
                            "NAME=%s", m->name,
                            "LEADER="PID_FMT, m->leader,
                            LOG_MESSAGE("Machine %s terminated.", m->name));
+
+                m->stopping = true; /* The machine is supposed to be going away. Don't try to kill it. */
+        }
 
         machine_unlink(m);
         machine_add_to_gc_queue(m);

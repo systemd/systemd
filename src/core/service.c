@@ -1658,21 +1658,28 @@ static int cgroup_good(Service *s) {
         return r == 0;
 }
 
-static bool service_shall_restart(Service *s) {
+static bool service_shall_restart(Service *s, const char **reason) {
         assert(s);
 
         /* Don't restart after manual stops */
-        if (s->forbid_restart)
+        if (s->forbid_restart) {
+                *reason = "manual stop";
                 return false;
+        }
 
         /* Never restart if this is configured as special exception */
-        if (exit_status_set_test(&s->restart_prevent_status, s->main_exec_status.code, s->main_exec_status.status))
+        if (exit_status_set_test(&s->restart_prevent_status, s->main_exec_status.code, s->main_exec_status.status)) {
+                *reason = "prevented by exit status";
                 return false;
+        }
 
         /* Restart if the exit code/status are configured as restart triggers */
-        if (exit_status_set_test(&s->restart_force_status,  s->main_exec_status.code, s->main_exec_status.status))
+        if (exit_status_set_test(&s->restart_force_status,  s->main_exec_status.code, s->main_exec_status.status)) {
+                *reason = "forced by exit status";
                 return true;
+        }
 
+        *reason = "restart setting";
         switch (s->restart) {
 
         case SERVICE_RESTART_NO:
@@ -1739,8 +1746,19 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 end_state = SERVICE_FAILED;
         }
 
-        if (allow_restart && service_shall_restart(s))
-                s->will_auto_restart = true;
+        if (!allow_restart)
+                log_unit_debug(UNIT(s), "Service restart not allowed.");
+        else {
+                const char *reason;
+                bool shall_restart;
+
+                shall_restart = service_shall_restart(s, &reason);
+                log_unit_debug(UNIT(s), "Service will %srestart (%s)",
+                                        shall_restart ? "" : "not ",
+                                        reason);
+                if (shall_restart)
+                        s->will_auto_restart = true;
+        }
 
         /* Make sure service_release_resources() doesn't destroy our FD store, while we are changing through
          * SERVICE_FAILED/SERVICE_DEAD before entering into SERVICE_AUTO_RESTART. */
