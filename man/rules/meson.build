@@ -49,7 +49,7 @@ manpages = [
  ['pstore.conf', '5', ['pstore.conf.d'], 'ENABLE_PSTORE'],
  ['resolvectl', '1', ['resolvconf'], 'ENABLE_RESOLVE'],
  ['resolved.conf', '5', ['resolved.conf.d'], 'ENABLE_RESOLVE'],
- ['runlevel', '8', [], 'ENABLE_UTMP'],
+ ['runlevel', '8', [], ''],
  ['sd-bus-errors',
   '3',
   ['SD_BUS_ERROR_ACCESS_DENIED',
