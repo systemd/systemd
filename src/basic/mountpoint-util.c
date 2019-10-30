@@ -111,7 +111,9 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id
                 return r;
 
         p = startswith(fdinfo, "mnt_id:");
-        if (!p) {
+        if (p)
+                p += 7;
+        else {
                 p = strstr(fdinfo, "\nmnt_id:");
                 if (!p) /* The mnt_id field is a relatively new addition */
                         return -EOPNOTSUPP;
