@@ -314,6 +314,9 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "io_pgetevents\0"
                 "io_setup\0"
                 "io_submit\0"
+                "io_uring_enter\0"
+                "io_uring_register\0"
+                "io_uring_setup\0"
         },
         [SYSCALL_FILTER_SET_BASIC_IO] = {
                 .name = "@basic-io",
@@ -543,7 +546,13 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .help = "Mounting and unmounting of file systems",
                 .value =
                 "chroot\0"
+                "fsconfig\0"
+                "fsmount\0"
+                "fsopen\0"
+                "fspick\0"
                 "mount\0"
+                "move_mount\0"
+                "open_tree\0"
                 "pivot_root\0"
                 "umount\0"
                 "umount2\0"
@@ -622,6 +631,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "capset\0"
                 "chroot\0"
                 "fanotify_init\0"
+                "fanotify_mark\0"
                 "nfsservctl\0"
                 "open_by_handle_at\0"
                 "pivot_root\0"
@@ -647,10 +657,12 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "arch_prctl\0"
                 "capget\0"      /* Able to query arbitrary processes */
                 "clone\0"
+                "clone3\0"
                 "execveat\0"
                 "fork\0"
                 "getrusage\0"
                 "kill\0"
+                "pidfd_open\0"
                 "pidfd_send_signal\0"
                 "prctl\0"
                 "rt_sigqueueinfo\0"
