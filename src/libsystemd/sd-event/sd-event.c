@@ -1762,7 +1762,7 @@ _public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
                         return r;
                 }
 
-                epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, saved_fd, NULL);
+                (void) epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, saved_fd, NULL);
         }
 
         return 0;
@@ -3473,7 +3473,7 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
 
         } else {
                 if (e->watchdog_fd >= 0) {
-                        epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, e->watchdog_fd, NULL);
+                        (void) epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, e->watchdog_fd, NULL);
                         e->watchdog_fd = safe_close(e->watchdog_fd);
                 }
         }
