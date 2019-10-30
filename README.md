@@ -1,5 +1,7 @@
 # systemd - System and Service Manager
 
+![systemd logo](https://avatars0.githubusercontent.com/u/1918868?s=200&v=4)
+
 <a href="https://in.waw.pl/systemd-github-state/systemd-systemd-issues.svg"><img align="right" src="https://in.waw.pl/systemd-github-state/systemd-systemd-issues-small.svg" alt="Count of open issues over time"></a>
 <a href="https://in.waw.pl/systemd-github-state/systemd-systemd-pull-requests.svg"><img align="right" src="https://in.waw.pl/systemd-github-state/systemd-systemd-pull-requests-small.svg" alt="Count of open pull requests over time"></a>
 [![Semaphore CI Build Status](https://semaphoreci.com/api/v1/projects/28a5a3ca-3c56-4078-8b5e-7ed6ef912e14/443470/shields_badge.svg)](https://semaphoreci.com/systemd/systemd)<br/>
