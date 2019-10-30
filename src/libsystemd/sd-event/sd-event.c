@@ -1239,6 +1239,20 @@ _public_ int sd_event_add_child(
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
+        if (e->n_enabled_child_sources == 0) {
+                /* Caller must block SIGCHLD before using us to watch children, even if pidfd is available,
+                 * for compatibility with pre-pidfd and because we don't want the reap the child processes
+                 * ourselves, i.e. call waitid(), and don't want Linux' default internal logic for that to
+                 * take effect.
+                 *
+                 * (As an optimization we only do this check on the first child event source created.) */
+                r = signal_is_blocked(SIGCHLD);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EBUSY;
+        }
+
         r = hashmap_ensure_allocated(&e->child_sources, NULL);
         if (r < 0)
                 return r;
@@ -1325,6 +1339,14 @@ _public_ int sd_event_add_child_pidfd(
         assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
+
+        if (e->n_enabled_child_sources == 0) {
+                r = signal_is_blocked(SIGCHLD);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EBUSY;
+        }
 
         r = hashmap_ensure_allocated(&e->child_sources, NULL);
         if (r < 0)
