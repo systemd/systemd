@@ -3297,6 +3297,101 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2001:db8:0:1::/64 proto ra')
 
+class NetworkdMTUTests(unittest.TestCase, Utilities):
+    links = ['dummy98']
+
+    units = [
+        '12-dummy.netdev',
+        '12-dummy-mtu.netdev',
+        '12-dummy-mtu.link',
+        '12-dummy.network',
+        ]
+
+    def setUp(self):
+        remove_links(self.links)
+        stop_networkd(show_logs=False)
+
+    def tearDown(self):
+        remove_log_file()
+        remove_links(self.links)
+        remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
+
+    def check_mtu(self, mtu, ipv6_mtu=None, reset=True):
+        if not ipv6_mtu:
+            ipv6_mtu = mtu
+
+        # test normal start
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+        self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'mtu'), ipv6_mtu)
+        self.assertEqual(read_link_attr('dummy98', 'mtu'), mtu)
+
+        # test normal restart
+        restart_networkd()
+        self.wait_online(['dummy98:routable'])
+        self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'mtu'), ipv6_mtu)
+        self.assertEqual(read_link_attr('dummy98', 'mtu'), mtu)
+
+        if reset:
+            self.reset_check_mtu(mtu, ipv6_mtu)
+
+    def reset_check_mtu(self, mtu, ipv6_mtu=None):
+        ''' test setting mtu/ipv6_mtu with interface already up '''
+        stop_networkd()
+
+        # note - changing the device mtu resets the ipv6 mtu
+        run('ip link set up mtu 1501 dev dummy98')
+        run('ip link set up mtu 1500 dev dummy98')
+        self.assertEqual(read_link_attr('dummy98', 'mtu'), '1500')
+        self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'mtu'), '1500')
+
+        self.check_mtu(mtu, ipv6_mtu, reset=False)
+
+    def test_mtu_network(self):
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '12-dummy.network.d/mtu.conf')
+        self.check_mtu('1600')
+
+    def test_mtu_netdev(self):
+        copy_unit_to_networkd_unit_path('12-dummy-mtu.netdev', '12-dummy.network', dropins=False)
+        # note - MTU set by .netdev happens ONLY at device creation!
+        self.check_mtu('1600', reset=False)
+
+    def test_mtu_link(self):
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '12-dummy-mtu.link', '12-dummy.network', dropins=False)
+        # must reload udev because it only picks up new files after 3 second delay
+        call('udevadm control --reload')
+        # note - MTU set by .link happens ONLY at udev processing of device 'add' uevent!
+        self.check_mtu('1600', reset=False)
+
+    def test_ipv6_mtu(self):
+        ''' set ipv6 mtu without setting device mtu '''
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '12-dummy.network.d/ipv6-mtu-1400.conf')
+        self.check_mtu('1500', '1400')
+
+    def test_ipv6_mtu_toolarge(self):
+        ''' try set ipv6 mtu over device mtu (it shouldn't work) '''
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '12-dummy.network.d/ipv6-mtu-1550.conf')
+        self.check_mtu('1500', '1500')
+
+    def test_mtu_network_ipv6_mtu(self):
+        ''' set ipv6 mtu and set device mtu via network file '''
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '12-dummy.network.d/mtu.conf', '12-dummy.network.d/ipv6-mtu-1550.conf')
+        self.check_mtu('1600', '1550')
+
+    def test_mtu_netdev_ipv6_mtu(self):
+        ''' set ipv6 mtu and set device mtu via netdev file '''
+        copy_unit_to_networkd_unit_path('12-dummy-mtu.netdev', '12-dummy.network.d/ipv6-mtu-1550.conf')
+        self.check_mtu('1600', '1550', reset=False)
+
+    def test_mtu_link_ipv6_mtu(self):
+        ''' set ipv6 mtu and set device mtu via link file '''
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '12-dummy-mtu.link', '12-dummy.network.d/ipv6-mtu-1550.conf')
+        # must reload udev because it only picks up new files after 3 second delay
+        call('udevadm control --reload')
+        self.check_mtu('1600', '1550', reset=False)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--build-dir', help='Path to build dir', dest='build_dir')
