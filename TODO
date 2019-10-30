@@ -581,7 +581,6 @@ Features:
   - allow multiple signal handlers per signal?
   - document chaining of signal handler for SIGCHLD and child handlers
   - define more intervals where we will shift wakeup intervals around in, 1h, 6h, 24h, ...
-  - generate a failure of a default event loop is executed out-of-thread
   - maybe add support for inotify events (which we can do safely now, with O_PATH)
 
 * investigate endianness issues of UUID vs. GUID

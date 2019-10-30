@@ -3360,6 +3360,11 @@ _public_ int sd_event_prepare(sd_event *e) {
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(e->state == SD_EVENT_INITIAL, -EBUSY);
 
+        /* Let's check that if we are a default event loop we are executed in the correct thread. We only do
+         * this check here once, since gettid() is typically not cached, and thus want to minimize
+         * syscalls */
+        assert_return(!e->default_event_ptr || e->tid == gettid(), -EREMOTEIO);
+
         if (e->exit_requested)
                 goto pending;
 
