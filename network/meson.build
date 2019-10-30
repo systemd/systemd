@@ -4,6 +4,9 @@ if conf.get('ENABLE_NETWORKD') == 1
         install_data('80-container-host0.network',
                      '80-container-ve.network',
                      '80-container-vz.network',
+                     '80-wifi-adhoc.network',
+                     '80-wifi-ap.network.example',
+                     '80-wifi-station.network.example',
                      install_dir : networkdir)
 
         meson.add_install_script('sh', '-c',

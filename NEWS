@@ -1,5 +1,154 @@
 systemd System and Service Manager
 
+CHANGES WITH 243 in spe:
+
+        * Support for the cpuset cgroups v2 controller has been added.
+          Processes may be restricted to specific CPUs using the new
+          AllowedCPUs= setting, and to specific memory NUMA nodes using the new
+          AllowedMemoryNodes= setting.
+
+        * The signal used in restart jobs (as opposed to e.g. stop jobs) may
+          now be configured using a new RestartKillSignal= settting. This
+          allows units which signals to request termination to implement
+          different behaviour when stopping in preparation for a restart.
+
+        * "systemctl clean" may now be used also for socket, mount, and swap
+          units.
+
+        * systemd will also read configuration options from the EFI variable
+          SystemdOptions. This may be used to configure systemd behaviour when
+          modifying the kernel command line is inconvenient, but configuration
+          on disk is read too late, for example for the options related to
+          cgroup hierarchy setup. 'bootctl system-options' may be used to
+          set the EFI variable.
+
+        * systemd will now disable printk ratelimits in early boot. This should
+          allow us to capture more logs from the early boot phase where normal
+          storage is not available and the kernel ring buffer is used for
+          logging. Configuration on the kernel command line has higher priority
+          and overrides the systemd setting.
+
+          systemd programs which log to /dev/kmsg directly use internal
+          ratelimits to prevent runaway logging. (Normally this is only used
+          during early boot, so in practice this change has very little
+          effect.)
+
+        * The special -.service.d dropin directory may be used to add
+          configuration that affects all services. The "-.service" service name
+          is now disallowed (though hopefully no one would use such a service
+          name. -.mount gives us enough grief.)
+
+        * The RuntimeMaxSec= setting is now supported by scopes, not just
+          .service units. This is particularly useful for PAM sessions which
+          create a scope unit for the user login. systemd.runtime_max_sec=
+          setting may used with the pam_systemd module to limit the duration
+          of the PAM session, for example for time-limited logins.
+
+        * udev now provides a program (fido_id) that identifies FIDO CTAP1
+          ("U2F")/CTAP2 security tokens based on the usage declared in their
+          report and descriptor and outputs suitable environment variables.
+          This replaces the externally maintained whitelists of all known
+          security tokens that were used previously.
+
+        * Automatically generated autosuspend udev rules for whitelisted
+          devices have been imported from the Chromium OS project. This should
+          improve power saving with of many more devices.
+
+        * udev gained a new "CONST{key}=value" setting that allows matching
+          against system-wide constants without forking a helper binary.
+          Currently "arch" and "virt" keys are supported.
+
+        * udev now opens CDROMs in non-exclusive mode when querying their
+          capabilities. This should fix issues where other programs trying to
+          use the CDROM cannot gain access to it, but carries a risk of
+          interfering with programs writing to the disk, if they did not open
+          the device in exclusive mode as they should.
+
+        * systemd-networkd does not create a default route for IPv4 link local
+          addressing anymore. The creation of the route was unexpected and was
+          breaking routing in various cases, but people who rely on it being
+          created implicitly will need to adjust. Such a route may be requested
+          with DefaultRouteOnDevice=yes.
+
+          Similarly, systemd-networkd will not assign a link-local IPv6 address
+          when IPv6 link-local routing is not enabled.
+
+        * Receive and transmit buffers may now be configured on links with
+          the new RxBufferSize= and TxBufferSize= settings.
+
+        * systemd-networkd may now advertise additional IPv6 routes. A new
+          [IPv6RoutePrefix] section with Route= and LifetimeSec= options is
+          now supported.
+
+        * systemd-networkd may now configure "next hop" routes using the
+          [NextHop] section and Gateway= and Id= settings.
+
+        * systemd-networkd will now retain DHCP config on restarts by default
+          (but this may be overridden using the KeepConfiguration= setting).
+          The default for SendRelease= has been changed to true.
+
+        * The DHCPv4 client now uses the OPTION_INFORMATION_REFRESH_TIME option
+          received from the server.
+
+          The client will use the received SIP server list if UseSIP=yes is
+          set.
+
+          The client may be configured to request specific options from the
+          server using a new RequestOptions= setting.
+
+          A new IPServiceType= setting has been added to configure the "IP
+          service type" value used by the client.
+
+        * The DHCPv6 client learnt a new PrefixDelegationHint= option to
+          request prefix hints in the DHCPv6 solicitation.
+
+        * systemd-networkd and networkctl may now renew DHCP leases on demand.
+          networkctl has a new 'networkctl renew' verb.
+
+        * systemd-networkd may now reconfigure links on demand. networkctl
+          gained two new verbs: "reload" will reload the configuration, and
+          "reconfigure DEVICE…" will reconfigure one or more devices.
+
+        * .network files may now match on SSID and BSSID of a wireless network,
+          i.e. the access point name and hardware address using the new SSID=
+          and BSSID= options. networkctl will display the current SSID and
+          BSSID for wireless links.
+
+          .network files may also match on the wireless network type using the
+          new WirelessType= option.
+
+        * systemd-networkd now includes default configuration that enables
+          link-local addressing when connected to an ad-hoc wireless network.
+
+        * The DHCPv4 server may now be configured to emit SIP server list using
+          the new EmitSIP= and SIP= settings.
+
+        * systemd-networkd may configure the Traffic Control queueing
+          disciplines in the kernel using the new
+          [TrafficControlQueueingDiscipline] section and Parent=,
+          NetworkEmulatorDelaySec=, NetworkEmulatorDelayJitterSec=,
+          NetworkEmulatorPacketLimit=, NetworkEmulatorLossRate= settings.
+
+        * systemd-tmpfiles gained a new w+ setting to append to files.
+
+        * systemd-analyze dump will now report when the memory configuration in
+          the kernel does not match what systemd has configured (usually,
+          because some external program has modified the kernel configuration
+          on its own).
+
+        * journalctl --update-catalog now produces deterministic output (making
+          reproducible image builds easier).
+
+        * A new devicetree-overlay setting is now documented in the Boot Loader
+          Specification.
+
+        * The default value of the WatchdogSec= setting used in systemd
+          services (the ones bundled with the project itself) may be set at
+          configuration time using the -Dservice-watchdog= setting. If set to
+          empty, the watchdogs will be disabled.
+
+        * libcryptsetup >= 2.0.1 is now required.
+
 CHANGES WITH 243:
 
         * This release enables unprivileged programs (i.e. requiring neither
