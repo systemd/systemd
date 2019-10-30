@@ -36,7 +36,7 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                 switch (state) {
                 case KMOD_MODULE_BUILTIN:
                         log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                 "Module '%s' is builtin", kmod_module_get_name(mod));
+                                 "Module '%s' is built in", kmod_module_get_name(mod));
                         break;
 
                 case KMOD_MODULE_LIVE:
