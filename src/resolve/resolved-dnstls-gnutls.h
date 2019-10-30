@@ -18,6 +18,7 @@ struct DnsTlsServerData {
 
 struct DnsTlsStreamData {
         gnutls_session_t session;
+        gnutls_typed_vdata_st validation;
         int handshake;
         bool shutdown;
 };
