@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 243 in spe:
+CHANGES WITH 244 in spe:
 
         * Support for the cpuset cgroups v2 controller has been added.
           Processes may be restricted to specific CPUs using the new
@@ -52,7 +52,7 @@ CHANGES WITH 243 in spe:
 
         * Automatically generated autosuspend udev rules for whitelisted
           devices have been imported from the Chromium OS project. This should
-          improve power saving with of many more devices.
+          improve power saving with many more devices.
 
         * udev gained a new "CONST{key}=value" setting that allows matching
           against system-wide constants without forking a helper binary.
