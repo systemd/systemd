@@ -115,7 +115,7 @@ CHANGES WITH 243 in spe:
           BSSID for wireless links.
 
           .network files may also match on the wireless network type using the
-          new WirelessType= option.
+          new WLANInterfaceType= option.
 
         * systemd-networkd now includes default configuration that enables
           link-local addressing when connected to an ad-hoc wireless network.
