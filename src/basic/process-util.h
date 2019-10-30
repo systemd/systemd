@@ -197,3 +197,5 @@ assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
                 (pid) = 0;                      \
                 _pid_;                          \
         })
+
+int pidfd_get_pid(int fd, pid_t *ret);
