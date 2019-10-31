@@ -136,7 +136,7 @@ static sd_dhcp_raw_option* raw_option_free(sd_dhcp_raw_option *i) {
 }
 
 _public_ int sd_dhcp_raw_option_new(uint8_t type, char *data, size_t length, sd_dhcp_raw_option **ret) {
-        sd_dhcp_raw_option *p;
+        _cleanup_(sd_dhcp_raw_option_unrefp) sd_dhcp_raw_option *p = NULL;
 
         assert_return(ret, -EINVAL);
 
@@ -156,7 +156,7 @@ _public_ int sd_dhcp_raw_option_new(uint8_t type, char *data, size_t length, sd_
                 return -ENOMEM;
         }
 
-        *ret = p;
+        *ret = TAKE_PTR(p);
         return 0;
 }
 
