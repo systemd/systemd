@@ -286,6 +286,15 @@ static void test_make_salt(void) {
         assert(!streq(s, t));
 }
 
+static void test_in_gid(void) {
+
+        assert(in_gid(getgid()) >= 0);
+        assert(in_gid(getegid()) >= 0);
+
+        assert(in_gid(GID_INVALID) < 0);
+        assert(in_gid(TTY_GID) == 0); /* The TTY gid is for owning ttys, it would be really really weird if we were in it. */
+}
+
 int main(int argc, char *argv[]) {
         test_uid_to_name_one(0, "root");
         test_uid_to_name_one(UID_NOBODY, NOBODY_USER_NAME);
@@ -319,6 +328,8 @@ int main(int argc, char *argv[]) {
         test_valid_home();
 
         test_make_salt();
+
+        test_in_gid();
 
         return 0;
 }
