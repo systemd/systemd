@@ -216,8 +216,8 @@ def tearDownModule():
     for u in running_units:
         check_output(f'systemctl start {u}')
 
-def read_link_attr(link, dev, attribute):
-    with open(os.path.join(os.path.join(os.path.join('/sys/class/net/', link), dev), attribute)) as f:
+def read_link_attr(*args):
+    with open(os.path.join('/sys/class/net/', *args)) as f:
         return f.readline().strip()
 
 def read_bridge_port_attr(bridge, link, attribute):
