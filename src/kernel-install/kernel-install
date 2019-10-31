@@ -94,6 +94,9 @@ fi
 if ! [[ $MACHINE_ID ]]; then
     ENTRY_DIR_ABS=$(mktemp -d /tmp/kernel-install.XXXXX) || exit 1
     trap "rm -rf '$ENTRY_DIR_ABS'" EXIT INT QUIT PIPE
+elif ! [[ -d /efi/$MACHINE_ID ]]; then
+    echo "Efi directory not found, creating one" >&2
+    mkdir -p '/efi/$MACHINE_ID'
 elif [[ -d /efi/loader/entries ]] || [[ -d /efi/$MACHINE_ID ]]; then
     ENTRY_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
 elif [[ -d /boot/loader/entries ]] || [[ -d /boot/$MACHINE_ID ]]; then
