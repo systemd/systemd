@@ -75,7 +75,13 @@
 #   XKB_FIXED_VARIANT=""
 # Examples of such devices: the Yubikey or other key-code generating
 # devices.
-#
+
+# A device where the scan code to key code mapping is insufficient and
+# requires a special key code to symbol configuration may specify that with:
+#   XKB_FIXED_MODEL="xkbmodel"
+# Examples of such devices: Chromebooks where the top row is used for both
+# media and F1-F10 keys.
+
 # To update this file, create a new file
 #   /etc/udev/hwdb.d/70-keyboard.hwdb
 # and add your rules there. To load the new rules execute (as root):
@@ -568,21 +574,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHDX9494NR:pvr*
  KEYBOARD_KEY_b2=www                                    # Fn+F3
  KEYBOARD_KEY_d8=!f23                                   # touchpad off
  KEYBOARD_KEY_d9=!f22                                   # touchpad on
-
-# Chromebook 14
-# Top row keys (between ESC and power button)
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnFalco:pvr*
- KEYBOARD_KEY_3b=back
- KEYBOARD_KEY_3c=forward
- KEYBOARD_KEY_3d=refresh
- KEYBOARD_KEY_3f=switchvideomode
- KEYBOARD_KEY_40=brightnessdown
- KEYBOARD_KEY_41=brightnessup
- KEYBOARD_KEY_42=mute
- KEYBOARD_KEY_43=volumedown
- KEYBOARD_KEY_44=volumeup
- KEYBOARD_KEY_db=search # Same position as caps lock key on most keyboards
- # KEYBOARD_KEY_3e=fullscreen, no defined key sym
 
 # HP EliteBook 725 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPLicrice:pvr*
@@ -1733,3 +1724,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT560s
 # Lenovo ThinkPad X1 Carbon 3rd Gen
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX1Carbon3rd
  KEYBOARD_LED_CAPSLOCK=0
+
+######################### FIXED MODEL DEVICES #############################
+# This section lists devices which require special handling in their key
+# code to keysym mapping by setting the xkb model.
+# The model must be an xkb compatible model (defined with XKB_FIXED_MODEL).
+
+# Chromebooks
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnFalco:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPeppy:pvr*
+ XKB_FIXED_MODEL="chromebook"
