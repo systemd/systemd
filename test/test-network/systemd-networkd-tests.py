@@ -53,7 +53,7 @@ def run(*command, **kwargs):
 def is_module_available(module_name):
     lsmod_output = check_output('lsmod')
     module_re = re.compile(rf'^{re.escape(module_name)}\b', re.MULTILINE)
-    return module_re.search(lsmod_output) or not call('modprobe', module_name)
+    return module_re.search(lsmod_output) or not call('modprobe', module_name, stderr=subprocess.DEVNULL)
 
 def expectedFailureIfModuleIsNotAvailable(module_name):
     def f(func):
@@ -65,7 +65,7 @@ def expectedFailureIfModuleIsNotAvailable(module_name):
 
 def expectedFailureIfERSPANModuleIsNotAvailable():
     def f(func):
-        rc = call('ip link add dev erspan99 type erspan seq key 30 local 192.168.1.4 remote 192.168.1.1 erspan_ver 1 erspan 123')
+        rc = call('ip link add dev erspan99 type erspan seq key 30 local 192.168.1.4 remote 192.168.1.1 erspan_ver 1 erspan 123', stderr=subprocess.DEVNULL)
         if rc == 0:
             call('ip link del erspan99')
             return func
@@ -76,7 +76,7 @@ def expectedFailureIfERSPANModuleIsNotAvailable():
 
 def expectedFailureIfRoutingPolicyPortRangeIsNotAvailable():
     def f(func):
-        rc = call('ip rule add from 192.168.100.19 sport 1123-1150 dport 3224-3290 table 7')
+        rc = call('ip rule add from 192.168.100.19 sport 1123-1150 dport 3224-3290 table 7', stderr=subprocess.DEVNULL)
         if rc == 0:
             call('ip rule del from 192.168.100.19 sport 1123-1150 dport 3224-3290 table 7')
             return func
@@ -87,7 +87,7 @@ def expectedFailureIfRoutingPolicyPortRangeIsNotAvailable():
 
 def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
     def f(func):
-        rc = call('ip rule add not from 192.168.100.19 ipproto tcp table 7')
+        rc = call('ip rule add not from 192.168.100.19 ipproto tcp table 7', stderr=subprocess.DEVNULL)
         if rc == 0:
             call('ip rule del not from 192.168.100.19 ipproto tcp table 7')
             return func
@@ -99,7 +99,7 @@ def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
 def expectedFailureIfLinkFileFieldIsNotSet():
     def f(func):
         support = False
-        rc = call('ip link add name dummy99 type dummy')
+        rc = call('ip link add name dummy99 type dummy', stderr=subprocess.DEVNULL)
         if rc == 0:
             ret = run('udevadm info -w10s /sys/class/net/dummy99', stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             if ret.returncode == 0 and 'E: ID_NET_LINK_FILE=' in ret.stdout.rstrip():
@@ -115,7 +115,7 @@ def expectedFailureIfLinkFileFieldIsNotSet():
 
 def expectedFailureIfNexthopIsNotAvailable():
     def f(func):
-        rc = call('ip nexthop list')
+        rc = call('ip nexthop list', stderr=subprocess.DEVNULL)
         if rc == 0:
             return func
         else:
