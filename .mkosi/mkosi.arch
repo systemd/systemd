@@ -23,6 +23,7 @@ BuildPackages=
         cryptsetup
         curl
         dbus
+        diffutils
         docbook-xsl
         elfutils
         gcc
