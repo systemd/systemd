@@ -13,7 +13,7 @@
 #include "io-util.h"
 #include "khash.h"
 #include "macro.h"
-#include "missing.h"
+#include "missing_syscall.h"
 #include "random-util.h"
 #include "user-util.h"
 #include "util.h"

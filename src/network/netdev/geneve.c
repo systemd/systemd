@@ -6,7 +6,6 @@
 #include "conf-parser.h"
 #include "extract-word.h"
 #include "geneve.h"
-#include "missing.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "parse-util.h"

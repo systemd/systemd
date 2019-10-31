@@ -9,7 +9,6 @@
 #include "sd-netlink.h"
 
 #include "format-util.h"
-#include "missing.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
 #include "netlink-util.h"

@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <fcntl.h>
 #include <sys/mman.h>
 
 #include "alloc-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "fileio.h"
-#include "missing.h"
+#include "missing_mman.h"
+#include "missing_syscall.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "serialize.h"

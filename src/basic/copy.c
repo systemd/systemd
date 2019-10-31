@@ -22,7 +22,7 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "macro.h"
-#include "missing.h"
+#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "stat-util.h"
 #include "string-util.h"

@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "fido_id/fido_id_desc.h"
+#include "fido_id_desc.h"
 #include "macro.h"
 
 static void test_is_fido_security_token_desc__fido(void) {

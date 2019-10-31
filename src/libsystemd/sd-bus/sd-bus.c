@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -34,7 +35,7 @@
 #include "hostname-util.h"
 #include "macro.h"
 #include "memory-util.h"
-#include "missing.h"
+#include "missing_syscall.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

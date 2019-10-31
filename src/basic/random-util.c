@@ -17,17 +17,12 @@
 #  include <sys/auxv.h>
 #endif
 
-#if USE_SYS_RANDOM_H
-#  include <sys/random.h>
-#else
-#  include <linux/random.h>
-#endif
-
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
-#include "missing.h"
+#include "missing_random.h"
+#include "missing_syscall.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "siphash24.h"

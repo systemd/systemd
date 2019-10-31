@@ -8,7 +8,6 @@
 #include "cap-list.h"
 #include "extract-word.h"
 #include "macro.h"
-#include "missing.h"
 #include "parse-util.h"
 #include "util.h"
 

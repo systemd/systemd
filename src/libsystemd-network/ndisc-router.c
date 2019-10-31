@@ -11,7 +11,7 @@
 #include "dns-domain.h"
 #include "hostname-util.h"
 #include "memory-util.h"
-#include "missing.h"
+#include "missing_network.h"
 #include "ndisc-internal.h"
 #include "ndisc-router.h"
 #include "strv.h"

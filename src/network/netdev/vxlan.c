@@ -9,7 +9,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "parse-util.h"
-#include "missing.h"
 #include "vxlan.h"
 
 static const char* const df_table[_NETDEV_VXLAN_DF_MAX] = {

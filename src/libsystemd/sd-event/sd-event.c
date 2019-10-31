@@ -16,7 +16,7 @@
 #include "list.h"
 #include "macro.h"
 #include "memory-util.h"
-#include "missing.h"
+#include "missing_syscall.h"
 #include "prioq.h"
 #include "process-util.h"
 #include "set.h"

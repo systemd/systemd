@@ -19,7 +19,6 @@
 #include "io-util.h"
 #include "macro.h"
 #include "memory-util.h"
-#include "missing.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"

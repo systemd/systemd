@@ -8,7 +8,6 @@
 #include "conf-parser.h"
 #include "fou-tunnel.h"
 #include "ip-protocol-list.h"
-#include "missing.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "parse-util.h"

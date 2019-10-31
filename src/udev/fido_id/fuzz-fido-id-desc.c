@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "fido_id/fido_id_desc.h"
+#include "fido_id_desc.h"
 #include "fuzz.h"
 #include "log.h"
 

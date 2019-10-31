@@ -21,7 +21,7 @@
 #include "io-util.h"
 #include "list.h"
 #include "memory-util.h"
-#include "missing.h"
+#include "missing_syscall.h"
 #include "process-util.h"
 #include "resolve-private.h"
 #include "socket-util.h"

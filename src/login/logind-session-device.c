@@ -14,7 +14,8 @@
 #include "fd-util.h"
 #include "logind-session-dbus.h"
 #include "logind-session-device.h"
-#include "missing.h"
+#include "missing_drm.h"
+#include "missing_input.h"
 #include "parse-util.h"
 #include "util.h"
 

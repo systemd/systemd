@@ -10,7 +10,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing.h"
+#include "missing_syscall.h"
 #include "path-util.h"
 
 int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
