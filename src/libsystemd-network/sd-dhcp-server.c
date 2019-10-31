@@ -151,10 +151,8 @@ _public_ int sd_dhcp_raw_option_new(uint8_t type, char *data, size_t length, sd_
                   .type = type,
         };
 
-        if (!p->data) {
-                free(p);
+        if (!p->data)
                 return -ENOMEM;
-        }
 
         *ret = TAKE_PTR(p);
         return 0;
