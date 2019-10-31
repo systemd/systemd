@@ -22,12 +22,16 @@ network_sysctl_ipv4_path='/proc/sys/net/ipv4/conf'
 dnsmasq_pid_file='/run/networkd-ci/test-test-dnsmasq.pid'
 dnsmasq_log_file='/run/networkd-ci/test-dnsmasq-log-file'
 
-networkd_bin='/usr/lib/systemd/systemd-networkd'
-resolved_bin='/usr/lib/systemd/systemd-resolved'
-wait_online_bin='/usr/lib/systemd/systemd-networkd-wait-online'
-networkctl_bin='/usr/bin/networkctl'
-resolvectl_bin='/usr/bin/resolvectl'
-timedatectl_bin='/usr/bin/timedatectl'
+systemd_lib_paths=['/usr/lib/systemd', '/lib/systemd']
+which_paths=':'.join(systemd_lib_paths + os.getenv('PATH', os.defpath).lstrip(':').split(':'))
+
+networkd_bin=shutil.which('systemd-networkd', path=which_paths)
+resolved_bin=shutil.which('systemd-resolved', path=which_paths)
+wait_online_bin=shutil.which('systemd-networkd-wait-online', path=which_paths)
+networkctl_bin=shutil.which('networkctl', path=which_paths)
+resolvectl_bin=shutil.which('resolvectl', path=which_paths)
+timedatectl_bin=shutil.which('timedatectl', path=which_paths)
+
 use_valgrind=False
 enable_debug=True
 env = {}
