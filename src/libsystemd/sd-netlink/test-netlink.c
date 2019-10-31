@@ -9,7 +9,6 @@
 #include "alloc-util.h"
 #include "ether-addr-util.h"
 #include "macro.h"
-#include "missing.h"
 #include "netlink-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"

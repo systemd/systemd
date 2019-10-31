@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <fcntl.h>
-#include <linux/magic.h>
+#include <sys/ioctl.h>
 
 #include "fd-util.h"
-#include "missing.h"
+#include "missing_fs.h"
+#include "missing_magic.h"
 #include "namespace-util.h"
 #include "process-util.h"
 #include "stat-util.h"

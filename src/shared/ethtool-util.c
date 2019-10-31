@@ -10,7 +10,6 @@
 #include "extract-word.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "strxcpyx.h"

@@ -8,7 +8,7 @@
 #include "lldp-internal.h"
 #include "lldp-neighbor.h"
 #include "memory-util.h"
-#include "missing.h"
+#include "missing_network.h"
 #include "unaligned.h"
 
 static void lldp_neighbor_id_hash_func(const LLDPNeighborID *id, struct siphash *state) {

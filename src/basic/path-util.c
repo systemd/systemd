@@ -20,7 +20,6 @@
 #include "glob-util.h"
 #include "log.h"
 #include "macro.h"
-#include "missing.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"

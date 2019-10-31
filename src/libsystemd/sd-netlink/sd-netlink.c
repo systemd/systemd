@@ -9,7 +9,6 @@
 #include "fd-util.h"
 #include "hashmap.h"
 #include "macro.h"
-#include "missing.h"
 #include "netlink-internal.h"
 #include "netlink-slot.h"
 #include "netlink-util.h"

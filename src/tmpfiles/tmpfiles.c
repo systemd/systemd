@@ -41,7 +41,6 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
-#include "missing.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
 #include "pager.h"

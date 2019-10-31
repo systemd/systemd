@@ -58,7 +58,7 @@
 #include "machine-image.h"
 #include "macro.h"
 #include "main-func.h"
-#include "missing.h"
+#include "missing_sched.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

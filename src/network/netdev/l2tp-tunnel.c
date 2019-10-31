@@ -7,7 +7,6 @@
 #include "conf-parser.h"
 #include "hashmap.h"
 #include "l2tp-tunnel.h"
-#include "missing.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-manager.h"

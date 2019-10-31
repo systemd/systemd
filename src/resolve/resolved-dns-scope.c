@@ -7,7 +7,7 @@
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "hostname-util.h"
-#include "missing.h"
+#include "missing_network.h"
 #include "random-util.h"
 #include "resolved-dnssd.h"
 #include "resolved-dns-scope.h"

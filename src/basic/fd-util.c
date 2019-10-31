@@ -16,7 +16,7 @@
 #include "io-util.h"
 #include "macro.h"
 #include "memfd-util.h"
-#include "missing.h"
+#include "missing_syscall.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

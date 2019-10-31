@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <sys/resource.h>
 
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "macro.h"
-#include "missing.h"
+#include "missing_resource.h"
 #include "rlimit-util.h"
 #include "string-table.h"
 #include "time-util.h"

@@ -124,7 +124,6 @@ basic_sources = files('''
         memory-util.h
         mempool.c
         mempool.h
-        missing.h
         missing_audit.h
         missing_capability.h
         missing_drm.h

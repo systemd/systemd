@@ -30,7 +30,6 @@
 #include "generic-netlink.h"
 #include "hashmap.h"
 #include "macro.h"
-#include "missing.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
 #include "string-table.h"

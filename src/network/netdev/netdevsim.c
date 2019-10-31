@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include "missing.h"
 #include "netdevsim.h"
 
 const NetDevVTable netdevsim_vtable = {

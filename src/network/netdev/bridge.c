@@ -3,7 +3,6 @@
 #include <net/if.h>
 
 #include "bridge.h"
-#include "missing.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-manager.h"

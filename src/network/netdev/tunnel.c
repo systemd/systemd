@@ -7,7 +7,7 @@
 #include <linux/ip6_tunnel.h>
 
 #include "conf-parser.h"
-#include "missing.h"
+#include "missing_network.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "string-table.h"

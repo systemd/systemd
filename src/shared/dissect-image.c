@@ -28,7 +28,6 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "id128-util.h"
-#include "missing.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"

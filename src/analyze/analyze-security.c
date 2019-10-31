@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <sched.h>
 #include <sys/utsname.h>
 
 #include "analyze-security.h"
@@ -12,7 +11,8 @@
 #include "in-addr-util.h"
 #include "locale-util.h"
 #include "macro.h"
-#include "missing.h"
+#include "missing_capability.h"
+#include "missing_sched.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"

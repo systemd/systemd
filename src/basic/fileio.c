@@ -20,7 +20,6 @@
 #include "hexdecoct.h"
 #include "log.h"
 #include "macro.h"
-#include "missing.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"

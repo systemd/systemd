@@ -20,7 +20,6 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "macro.h"
-#include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"

@@ -11,7 +11,6 @@
 #include "hexdecoct.h"
 #include "macsec.h"
 #include "memory-util.h"
-#include "missing.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-address.h"

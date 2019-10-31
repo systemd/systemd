@@ -20,6 +20,7 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "main-func.h"
+#include "missing_sched.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"

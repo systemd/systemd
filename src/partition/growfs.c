@@ -19,7 +19,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "missing.h"
+#include "missing_fs.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"

@@ -54,7 +54,6 @@
 #include "macro.h"
 #include "manager.h"
 #include "memory-util.h"
-#include "missing.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-lookup.h"

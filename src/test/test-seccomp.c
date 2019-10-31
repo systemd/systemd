@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <fcntl.h>
 #include <poll.h>
 #include <sched.h>
 #include <stdlib.h>
@@ -15,7 +16,7 @@
 #include "fd-util.h"
 #include "macro.h"
 #include "memory-util.h"
-#include "missing.h"
+#include "missing_sched.h"
 #include "nsflags.h"
 #include "nulstr-util.h"
 #include "process-util.h"
