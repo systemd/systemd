@@ -23,14 +23,10 @@ static EFI_STATUS acquire_rng(UINTN size, VOID **ret) {
         /* Try to acquire the specified number of bytes from the UEFI RNG */
 
         err = LibLocateProtocol((EFI_GUID*) &rng_protocol_guid, (VOID**) &rng);
-        if (EFI_ERROR(err)) {
-                Print(L"Failed to acquire RNG protocol: %r\n", err);
+        if (EFI_ERROR(err))
                 return err;
-        }
-        if (!rng) {
-                /* Print(L"RNG protocol not available.\n"); */
+        if (!rng)
                 return EFI_UNSUPPORTED;
-        }
 
         data = AllocatePool(size);
         if (!data)
@@ -233,36 +229,25 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
 
         validate_sha256();
 
-        if (mode == RANDOM_SEED_OFF) {
-                /* Print(L"Random seed handling turned off.\n"); */
+        if (mode == RANDOM_SEED_OFF)
                 return EFI_NOT_FOUND;
-        }
 
         /* Let's better be safe than sorry, and for now disable this logic in SecureBoot mode, so that we
          * don't credit a random seed that is not authenticated. */
-        if (secure_boot_enabled()) {
-                /* Print(L"Not loading random seed, because we are in SecureBoot mode.\n"); */
+        if (secure_boot_enabled())
                 return EFI_NOT_FOUND;
-        }
 
         /* Get some system specific seed that the installer might have placed in an EFI variable. We include
          * it in our hash. This is protection against golden master image sloppiness, and it remains on the
          * system, even when disk images are duplicated or swapped out. */
         err = acquire_system_token(&system_token, &system_token_size);
-        if (mode != RANDOM_SEED_ALWAYS) {
-                /* if (err == EFI_NOT_FOUND) */
-                /*         Print(L"Not loading random seed, because no system token is set.\n"); */
-                if (EFI_ERROR(err))
-                        return err; /* in all other error cases we already logged */
-        }
+        if (mode != RANDOM_SEED_ALWAYS && EFI_ERROR(err))
+                return err;
 
         err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, L"\\loader\\random-seed", EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (EFI_ERROR(err)) {
                 if (err != EFI_NOT_FOUND)
                         Print(L"Failed to open random seed file: %r\n", err);
-                /* else */
-                /*         Print(L"Not loading random seed, because there is none.\n"); */
-
                 return err;
         }
 
