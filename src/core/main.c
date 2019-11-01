@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <signal.h>
 #include <stdio.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>

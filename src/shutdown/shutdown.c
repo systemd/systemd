@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <getopt.h>
 #include <linux/reboot.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/mman.h>
