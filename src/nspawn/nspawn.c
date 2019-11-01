@@ -2390,7 +2390,8 @@ static int drop_capabilities(uid_t uid) {
                 /* If we're not using OCI, proceed with mangled capabilities (so we don't error out)
                  * in order to maintain the same behavior as systemd < 242. */
                 if (capability_quintet_mangle(&q))
-                        log_warning("Some capabilities will not be set because they are not in the current bounding set.");
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_WARNING,
+                                 "Some capabilities will not be set because they are not in the current bounding set.");
 
         }
 
