@@ -926,23 +926,23 @@ int bus_cgroup_set_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *setstr = NULL;
-                        _cleanup_free_ char *data = NULL;
                         CPUSet *set;
 
                         setstr = cpu_set_to_range_string(&new_set);
+                        if (!setstr)
+                                return -ENOMEM;
 
                         if (streq(name, "AllowedCPUs"))
                                 set = &c->cpuset_cpus;
                         else
                                 set = &c->cpuset_mems;
 
-                        if (asprintf(&data, "%s=%s", name, setstr) < 0)
-                                return -ENOMEM;
-
                         cpu_set_reset(set);
-                        cpu_set_add_all(set, &new_set);
+                        *set = new_set;
+                        new_set = (CPUSet) {};
+
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPUSET);
-                        unit_write_setting(u, flags, name, data);
+                        unit_write_settingf(u, flags, name, "%s=%s", name, setstr);
                 }
 
                 return 1;
