@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <fcntl.h>
-#include <linux/input.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
