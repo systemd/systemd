@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <poll.h>
-#include <sched.h>
 #include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
