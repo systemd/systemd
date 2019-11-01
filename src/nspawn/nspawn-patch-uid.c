@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <linux/magic.h>
-#include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/vfs.h>
 #include <unistd.h>

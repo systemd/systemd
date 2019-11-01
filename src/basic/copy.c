@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/sendfile.h>
-#include <sys/stat.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 

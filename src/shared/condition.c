@@ -5,7 +5,6 @@
 #include <fnmatch.h>
 #include <limits.h>
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <time.h>

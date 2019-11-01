@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <linux/falloc.h>
 #include <linux/magic.h>
 #include <unistd.h>

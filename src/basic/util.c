@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
-#include <sys/statfs.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <unistd.h>

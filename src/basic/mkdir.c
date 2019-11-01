@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <string.h>
-#include <sys/stat.h>
 
 #include "alloc-util.h"
 #include "format-util.h"

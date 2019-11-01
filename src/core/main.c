@@ -8,7 +8,6 @@
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/reboot.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #if HAVE_SECCOMP
 #include <seccomp.h>

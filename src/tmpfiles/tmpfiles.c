@@ -11,7 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/file.h>
-#include <sys/stat.h>
 #include <sys/xattr.h>
 #include <sysexits.h>
 #include <time.h>

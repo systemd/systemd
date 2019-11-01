@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <linux/loop.h>
 #include <sys/ioctl.h>
-#include <sys/stat.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
