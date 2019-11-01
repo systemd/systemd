@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <stdio.h>
 
 #include "format-util.h"
 #include "memory-util.h"

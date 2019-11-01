@@ -9,7 +9,6 @@
 #include <getopt.h>
 #include <linux/fiemap.h>
 #include <poll.h>
-#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/timerfd.h>

@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <stdarg.h>
-#include <stdio.h>
 
 #include "macro.h"
 #include "parse-util.h"

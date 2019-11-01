@@ -6,7 +6,6 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <sys/signalfd.h>
 #include <sys/time.h>
 #include <sys/uio.h>

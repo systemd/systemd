@@ -7,7 +7,6 @@
 #include <limits.h>
 #include <linux/magic.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
