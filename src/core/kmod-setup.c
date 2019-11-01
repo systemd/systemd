@@ -12,7 +12,6 @@
 #include "string-util.h"
 
 #if HAVE_KMOD
-#include <libkmod.h>
 #include "module-util.h"
 
 static void systemd_kmod_log(
