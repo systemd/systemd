@@ -146,6 +146,9 @@ static OOMPolicy arg_default_oom_policy;
 static CPUSet arg_cpu_affinity;
 static NUMAPolicy arg_numa_policy;
 
+/* A copy of the original environment block */
+static char **saved_env = NULL;
+
 static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
                                const struct rlimit *saved_rlimit_memlock);
 
@@ -2353,6 +2356,17 @@ static bool early_skip_setup_check(int argc, char *argv[]) {
         return found_deserialize; /* When we are deserializing, then we are reexecuting, hence avoid the extensive setup */
 }
 
+static int save_env(void) {
+        char **l;
+
+        l = strv_copy(environ);
+        if (!l)
+                return -ENOMEM;
+
+        strv_free_and_replace(saved_env, l);
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
 
         dual_timestamp initrd_timestamp = DUAL_TIMESTAMP_NULL, userspace_timestamp = DUAL_TIMESTAMP_NULL, kernel_timestamp = DUAL_TIMESTAMP_NULL,
@@ -2391,9 +2405,13 @@ int main(int argc, char *argv[]) {
         /* Save the original command line */
         save_argc_argv(argc, argv);
 
-        /* Save the original environment as we might need to restore it if we're requested to
-         * execute another system manager later. */
-        save_env();
+        /* Save the original environment as we might need to restore it if we're requested to execute another
+         * system manager later. */
+        r = save_env();
+        if (r < 0) {
+                error_message = "Failed to copy environment block";
+                goto finish;
+        }
 
         /* Make sure that if the user says "syslog" we actually log to the journal. */
         log_set_upgrade_syslog_to_journal(true);
@@ -2680,6 +2698,8 @@ finish:
 
         arg_serialization = safe_fclose(arg_serialization);
         fds = fdset_free(fds);
+
+        saved_env = strv_free(saved_env);
 
 #if HAVE_VALGRIND_VALGRIND_H
         /* If we are PID 1 and running under valgrind, then let's exit
