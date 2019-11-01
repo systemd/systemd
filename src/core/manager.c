@@ -1740,6 +1740,9 @@ int manager_add_job(
         if (mode == JOB_ISOLATE && !unit->allow_isolate)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
 
+        if (mode == JOB_TRIGGERING && type != JOB_STOP)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=triggering is only valid for stop.");
+
         log_unit_debug(unit, "Trying to enqueue job %s/%s/%s", unit->id, job_type_to_string(type), job_mode_to_string(mode));
 
         type = job_type_collapse(type, unit);
@@ -1756,6 +1759,12 @@ int manager_add_job(
 
         if (mode == JOB_ISOLATE) {
                 r = transaction_add_isolate_jobs(tr, m);
+                if (r < 0)
+                        goto tr_abort;
+        }
+
+        if (mode == JOB_TRIGGERING) {
+                r = transaction_add_triggering_jobs(tr, unit);
                 if (r < 0)
                         goto tr_abort;
         }

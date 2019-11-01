@@ -31,4 +31,5 @@ int transaction_add_job_and_dependencies(
                 sd_bus_error *e);
 int transaction_activate(Transaction *tr, Manager *m, JobMode mode, Set *affected, sd_bus_error *e);
 int transaction_add_isolate_jobs(Transaction *tr, Manager *m);
+int transaction_add_triggering_jobs(Transaction *tr, Unit *u);
 void transaction_abort(Transaction *tr);
