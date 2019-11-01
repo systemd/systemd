@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <syslog.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "sd-id128.h"

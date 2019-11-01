@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
-#include <time.h>
 
 #include "alloc-util.h"
 #include "calendarspec.h"
