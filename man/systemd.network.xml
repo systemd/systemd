@@ -2351,6 +2351,14 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>NetworkEmulatorDuplicateRate=</varname></term>
+        <listitem>
+          <para>Specifies that the chosen percent of packets is duplicated before queuing them.
+          Takes a percentage value, suffixed with "%". Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

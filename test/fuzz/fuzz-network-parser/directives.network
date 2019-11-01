@@ -268,4 +268,5 @@ Parent=
 NetworkEmulatorDelaySec=
 NetworkEmulatorDelayJitterSec=
 NetworkEmulatorLossRate=
+NetworkEmulatorDuplicateRate=
 NetworkEmulatorPacketLimit=

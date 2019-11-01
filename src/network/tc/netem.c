@@ -50,6 +50,9 @@ int network_emulator_fill_message(Link *link, QDiscs *qdisc, sd_netlink_message 
         if (qdisc->ne.loss > 0)
                 opt.loss = qdisc->ne.loss;
 
+        if (qdisc->ne.duplicate > 0)
+                opt.duplicate = qdisc->ne.duplicate;
+
         if (qdisc->ne.delay != USEC_INFINITY) {
                 r = tc_time_to_tick(qdisc->ne.delay, &opt.latency);
                 if (r < 0)
@@ -124,7 +127,7 @@ int config_parse_tc_network_emulator_delay(
         return 0;
 }
 
-int config_parse_tc_network_emulator_loss_rate(
+int config_parse_tc_network_emulator_rate(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -138,6 +141,7 @@ int config_parse_tc_network_emulator_loss_rate(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDiscs *qdisc = NULL;
         Network *network = data;
+        uint32_t rate;
         int r;
 
         assert(filename);
@@ -156,13 +160,18 @@ int config_parse_tc_network_emulator_loss_rate(
                 return 0;
         }
 
-        r = parse_tc_percent(rvalue, &qdisc->ne.loss);
+        r = parse_tc_percent(rvalue, &rate);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse 'NetworkEmularorLossRate=', ignoring assignment: %s",
-                           rvalue);
+                           "Failed to parse '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
                 return 0;
         }
+
+        if (streq(lvalue, "NetworkEmulatorLossRate"))
+                qdisc->ne.loss = rate;
+        else if (streq(lvalue, "NetworkEmulatorDuplicateRate"))
+                qdisc->ne.duplicate = rate;
 
         qdisc = NULL;
         return 0;

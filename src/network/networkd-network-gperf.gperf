@@ -247,7 +247,8 @@ CAN.TripleSampling,                     config_parse_tristate,                  
 TrafficControlQueueingDiscipline.Parent,                             config_parse_tc_qdiscs_parent,                     0,                             0
 TrafficControlQueueingDiscipline.NetworkEmulatorDelaySec,            config_parse_tc_network_emulator_delay,            0,                             0
 TrafficControlQueueingDiscipline.NetworkEmulatorDelayJitterSec,      config_parse_tc_network_emulator_delay,            0,                             0
-TrafficControlQueueingDiscipline.NetworkEmulatorLossRate,            config_parse_tc_network_emulator_loss_rate,        0,                             0
+TrafficControlQueueingDiscipline.NetworkEmulatorLossRate,            config_parse_tc_network_emulator_rate,             0,                             0
+TrafficControlQueueingDiscipline.NetworkEmulatorDuplicateRate,       config_parse_tc_network_emulator_rate,             0,                             0
 TrafficControlQueueingDiscipline.NetworkEmulatorPacketLimit,         config_parse_tc_network_emulator_packet_limit,     0,                             0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                         config_parse_ipv4ll,                             0,                             offsetof(Network, link_local)
