@@ -2,9 +2,6 @@
 
 #include <fcntl.h>
 #include <linux/magic.h>
-#if HAVE_ACL
-#include <sys/acl.h>
-#endif
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/vfs.h>
