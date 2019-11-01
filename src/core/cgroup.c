@@ -360,9 +360,7 @@ static char *format_cgroup_memory_limit_comparison(char *buf, size_t l, Unit *u,
 }
 
 void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
-        _cleanup_free_ char *disable_controllers_str = NULL;
-        _cleanup_free_ char *cpuset_cpus = NULL;
-        _cleanup_free_ char *cpuset_mems = NULL;
+        _cleanup_free_ char *disable_controllers_str = NULL, *cpuset_cpus = NULL, *cpuset_mems = NULL;
         CGroupIODeviceLimit *il;
         CGroupIODeviceWeight *iw;
         CGroupIODeviceLatency *l;
@@ -437,8 +435,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->startup_cpu_shares,
                 prefix, format_timespan(q, sizeof(q), c->cpu_quota_per_sec_usec, 1),
                 prefix, format_timespan(v, sizeof(v), c->cpu_quota_period_usec, 1),
-                prefix, cpuset_cpus,
-                prefix, cpuset_mems,
+                prefix, strempty(cpuset_cpus),
+                prefix, strempty(cpuset_mems),
                 prefix, c->io_weight,
                 prefix, c->startup_io_weight,
                 prefix, c->blockio_weight,
