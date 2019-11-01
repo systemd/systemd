@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <locale.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>

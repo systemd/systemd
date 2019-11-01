@@ -5,7 +5,6 @@
 #include <ftw.h>
 #include <langinfo.h>
 #include <libintl.h>
-#include <locale.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
