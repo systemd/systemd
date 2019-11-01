@@ -1300,6 +1300,7 @@ static VOID config_entry_bump_counters(
 static VOID config_entry_add_from_file(
                 Config *config,
                 EFI_HANDLE *device,
+                EFI_FILE *root_dir,
                 CHAR16 *path,
                 CHAR16 *file,
                 CHAR8 *content,
@@ -1310,6 +1311,8 @@ static VOID config_entry_add_from_file(
         UINTN pos = 0;
         CHAR8 *key, *value;
         UINTN len;
+        EFI_STATUS err;
+        EFI_FILE_HANDLE handle;
         _cleanup_freepool_ CHAR16 *initrd = NULL;
 
         entry = AllocatePool(sizeof(ConfigEntry));
@@ -1405,6 +1408,14 @@ static VOID config_entry_add_from_file(
                 config_entry_free(entry);
                 return;
         }
+
+        /* check existence */
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, entry->loader, EFI_FILE_MODE_READ, 0ULL);
+        if (EFI_ERROR(err)) {
+                config_entry_free(entry);
+                return;
+        }
+        uefi_call_wrapper(handle->Close, 1, handle);
 
         /* add initrd= to options */
         if (entry->type == LOADER_LINUX && initrd) {
@@ -1503,7 +1514,7 @@ static VOID config_load_entries(
 
                         err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
                         if (!EFI_ERROR(err))
-                                config_entry_add_from_file(config, device, L"\\loader\\entries", f->FileName, content, loaded_image_path);
+                                config_entry_add_from_file(config, device, root_dir, L"\\loader\\entries", f->FileName, content, loaded_image_path);
                 }
                 uefi_call_wrapper(entries_dir->Close, 1, entries_dir);
         }
