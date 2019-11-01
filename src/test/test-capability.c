@@ -2,7 +2,6 @@
 
 #include <netinet/in.h>
 #include <pwd.h>
-#include <sys/capability.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
