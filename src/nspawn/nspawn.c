@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #if HAVE_BLKID
-#include <blkid.h>
 #endif
 #include <errno.h>
 #include <getopt.h>

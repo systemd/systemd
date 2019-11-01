@@ -5,7 +5,6 @@
  * Copyright © 2011 Karel Zak <kzak@redhat.com>
  */
 
-#include <blkid.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
