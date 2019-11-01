@@ -972,8 +972,10 @@ static void cgroup_apply_unified_cpuset(Unit *u, const CPUSet *cpus, const char 
         _cleanup_free_ char *buf = NULL;
 
         buf = cpu_set_to_range_string(cpus);
-        if (!buf)
-            return;
+        if (!buf) {
+                log_oom();
+                return;
+        }
 
         (void) set_attribute_and_warn(u, "cpuset", name, buf);
 }
