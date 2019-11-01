@@ -103,6 +103,7 @@
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
+#include "unit-name.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -879,13 +880,17 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_MACHINE_ID;
                         break;
 
-                case 'S':
-                        r = free_and_strdup(&arg_slice, optarg);
+                case 'S': {
+                        _cleanup_free_ char *mangled = NULL;
+
+                        r = unit_name_mangle_with_suffix(optarg, UNIT_NAME_MANGLE_WARN, ".slice", &mangled);
                         if (r < 0)
                                 return log_oom();
 
+                        free_and_replace(arg_slice, mangled);
                         arg_settings_mask |= SETTING_SLICE;
                         break;
+                }
 
                 case 'M':
                         if (isempty(optarg))
