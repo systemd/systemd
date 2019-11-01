@@ -41,6 +41,7 @@
 f     /file/to/create                          mode user group -           content
 f+    /file/to/create-or-truncate              mode user group -           content
 w     /file/to/write-to                        -    -    -     -           content
+w+    /file/to/append-to                       -    -    -     -           content
 d     /directory/to/create-and-cleanup         mode user group cleanup-age -
 D     /directory/to/create-and-remove          mode user group cleanup-age -
 e     /directory/to/cleanup                    mode user group cleanup-age -
@@ -48,10 +49,13 @@ v     /subvolume/to/create                     mode user group -           -
 v     /subvolume-or-directory/to/create        mode user group -           -
 Q     /subvolume/to/create                     mode user group -           -
 p     /fifo/to/create                          mode user group -           -
+p+    /fifo/to/[re]create                      mode user group -           -
 L     /symlink/to/create                       -    -    -     -           symlink/target/path
+L+    /symlink/to/[re]create                   -    -    -     -           symlink/target/path
 c     /dev/char-device-to-create               mode user group -           -
+c+    /dev/char-device-to-[re]create           mode user group -           -
 b     /dev/block-device-to-create              mode user group -           -
-# p+, L+, c+, b+ create target unconditionally, w+ appends to the file
+b+    /dev/block-device-to-[re]create          mode user group -           -
 C     /target/to/create                        -    -    -     -           /source/to/copy
 x     /path-or-glob/to/ignore                  -    -    -     -           -
 X     /path-or-glob/to/ignore/recursively      -    -    -     -           -
@@ -64,8 +68,10 @@ T     /path-or-glob/to/set/xattrs/recursively  -    -    -     -           xattr
 h     /path-or-glob/to/set/attrs               -    -    -     -           file attrs
 H     /path-or-glob/to/set/attrs/recursively   -    -    -     -           file attrs
 a     /path-or-glob/to/set/acls                -    -    -     -           POSIX ACLs
+a+    /path-or-glob/to/append/acls             -    -    -     -           POSIX ACLs
 A     /path-or-glob/to/set/acls/recursively    -    -    -     -           POSIX ACLs
-# a+, A+ append ACLs
+A+    /path-or-glob/to/append/acls/recursively -    -    -     -           POSIX ACLs
+
 </programlisting>
   </refsynopsisdiv>
 
