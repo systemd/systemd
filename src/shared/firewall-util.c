@@ -5,7 +5,6 @@
  */
 #define _NET_IF_H 1
 
-#include <alloca.h>
 #include <arpa/inet.h>
 #include <endian.h>
 #include <errno.h>

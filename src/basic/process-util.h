@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include <alloca.h>
 #include <errno.h>
 #include <sched.h>
 #include <signal.h>
