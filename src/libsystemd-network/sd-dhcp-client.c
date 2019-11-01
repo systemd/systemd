@@ -8,7 +8,6 @@
 #include <net/if_arp.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <linux/if_infiniband.h>
 

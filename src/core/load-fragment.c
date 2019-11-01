@@ -11,7 +11,6 @@
 #include <seccomp.h>
 #endif
 #include <sched.h>
-#include <string.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 

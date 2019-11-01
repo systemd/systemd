@@ -4,7 +4,6 @@
 #include <mntent.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "device-nodes.h"

@@ -16,7 +16,6 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/file.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>

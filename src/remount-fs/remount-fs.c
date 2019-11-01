@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <mntent.h>
-#include <string.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>

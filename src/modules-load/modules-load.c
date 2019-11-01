@@ -4,7 +4,6 @@
 #include <getopt.h>
 #include <libkmod.h>
 #include <limits.h>
-#include <string.h>
 #include <sys/stat.h>
 
 #include "conf-files.h"

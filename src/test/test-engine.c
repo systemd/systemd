@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <stdio.h>
-#include <string.h>
 
 #include "bus-util.h"
 #include "manager.h"

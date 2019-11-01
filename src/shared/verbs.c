@@ -4,7 +4,6 @@
 #include <getopt.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <string.h>
 
 #include "env-util.h"
 #include "log.h"

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <ftw.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "alloc-util.h"

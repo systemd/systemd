@@ -5,7 +5,6 @@
 #include <locale.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "sd-bus.h"
 

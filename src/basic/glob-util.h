@@ -3,7 +3,6 @@
 
 #include <glob.h>
 #include <stdbool.h>
-#include <string.h>
 
 #include "macro.h"
 #include "string-util.h"

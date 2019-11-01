@@ -4,7 +4,6 @@
 #include <inttypes.h>
 #include <net/if.h>
 #include <net/if_arp.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "env-file.h"

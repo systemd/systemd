@@ -5,7 +5,6 @@
 #include <linux/kd.h>
 #include <linux/vt.h>
 #include <signal.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
