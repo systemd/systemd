@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#if HAVE_GCRYPT
-#  include <gcrypt.h>
-#endif
-
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
