@@ -17,6 +17,17 @@ Janitorial Clean-ups:
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
 
+Before v244:
+
+* revisit SystemdOptions EFI variable. Find a better, systematic name and use
+  it for the env var, the bootctl verb and the EFI variable itself, clear up
+  semantics.
+
+* Figure out a better name for the global per-unit-type drop-in dirs, it's
+  confusing when it comes to -.mount.d/ (is it a drop-in-dir for all mount
+  units, or one for the root mount?). Also, OOM handling in
+  service_unit_name_is_valid() is borked.
+
 Features:
 
 * coredump: maybe when coredumping read a new xattr from /proc/$PID/exe that
@@ -256,9 +267,6 @@ Features:
 * show invocation ID in systemd-run output
 
 * bypass SIGTERM state in unit files if KillSignal is SIGKILL
-
-* tree-wide: ensure we always block the signals we hook into with
-  sd_event_add_signal() first
 
 * add proper dbus APIs for the various sd_notify() commands, such as MAINPID=1
   and so on, which would mean we could report errors and such.
