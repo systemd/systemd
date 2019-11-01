@@ -2,7 +2,6 @@
 
 #include <blkid.h>
 #include <ctype.h>
-#include <dirent.h>
 #include <errno.h>
 #include <ftw.h>
 #include <getopt.h>
