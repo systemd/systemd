@@ -127,7 +127,8 @@ CHANGES WITH 244 in spe:
           disciplines in the kernel using the new
           [TrafficControlQueueingDiscipline] section and Parent=,
           NetworkEmulatorDelaySec=, NetworkEmulatorDelayJitterSec=,
-          NetworkEmulatorPacketLimit=, NetworkEmulatorLossRate= settings.
+          NetworkEmulatorPacketLimit=, NetworkEmulatorLossRate=,
+          NetworkEmulatorDuplicateRate= settings.
 
         * systemd-tmpfiles gained a new w+ setting to append to files.
 
