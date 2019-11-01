@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-
 #include "login-util.h"
 #include "string-util.h"
 

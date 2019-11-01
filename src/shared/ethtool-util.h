@@ -87,7 +87,6 @@ typedef struct netdev_ring_param {
         bool tx_pending_set;
 } netdev_ring_param;
 
-
 int ethtool_get_driver(int *fd, const char *ifname, char **ret);
 int ethtool_get_link_info(int *fd, const char *ifname,
                           int *ret_autonegotiation, size_t *ret_speed,

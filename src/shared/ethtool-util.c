@@ -411,7 +411,6 @@ int ethtool_set_nic_buffer_size(int *fd, const char *ifname, netdev_ring_param *
         return 0;
 }
 
-
 static int get_stringset(int fd, struct ifreq *ifr, int stringset_id, struct ethtool_gstrings **gstrings) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct {

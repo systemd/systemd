@@ -149,7 +149,6 @@ int cg_blkio_weight_parse(const char *s, uint64_t *ret) {
         return 0;
 }
 
-
 static int trim_cb(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
         assert(path);
         assert(sb);

@@ -804,7 +804,6 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
         return 0;
 }
 
-
 static int list_units(int argc, char *argv[], void *userdata) {
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_(message_set_freep) Set *replies = NULL;

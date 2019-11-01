@@ -99,7 +99,6 @@ static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id) {
                 return 0;
         }
 
-
         r = sd_genl_message_new(nl, SD_GENL_ID_CTRL, CTRL_CMD_GETFAMILY, &req);
         if (r < 0)
                 return r;

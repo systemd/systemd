@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-
 #include "alloc-util.h"
 #include "escape.h"
 #include "nulstr-util.h"
