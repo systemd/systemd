@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <stdlib.h>
-#include <sys/socket.h>
 
 #include "fd-util.h"
 #include "log.h"

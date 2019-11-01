@@ -2,7 +2,6 @@
 #pragma once
 
 #include <pthread.h>
-#include <sys/socket.h>
 
 #include "sd-bus.h"
 

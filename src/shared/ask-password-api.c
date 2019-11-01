@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <sys/inotify.h>
 #include <sys/signalfd.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/uio.h>

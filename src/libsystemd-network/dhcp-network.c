@@ -9,7 +9,6 @@
 #include <net/if_arp.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <linux/filter.h>
 #include <linux/if_infiniband.h>
 #include <linux/if_packet.h>

@@ -6,7 +6,6 @@
 #include <netinet/ip.h>
 #include <resolv.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 #include <sys/timerfd.h>
 #include <sys/timex.h>
 #include <sys/types.h>

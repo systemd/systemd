@@ -8,7 +8,6 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/signalfd.h>
-#include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/un.h>
