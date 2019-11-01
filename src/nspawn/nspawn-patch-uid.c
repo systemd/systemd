@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <fcntl.h>
-#include <linux/magic.h>
 #include <sys/statvfs.h>
 #include <sys/vfs.h>
 #include <unistd.h>
