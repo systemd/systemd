@@ -1191,6 +1191,11 @@ static int config_parse_default_instance(
         if (r < 0)
                 return r;
 
+        if (isempty(printed)) {
+                i->default_instance = mfree(i->default_instance);
+                return 0;
+        }
+
         if (!unit_instance_is_valid(printed))
                 return -EINVAL;
 
