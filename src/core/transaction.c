@@ -1148,6 +1148,7 @@ int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
         int r;
 
         assert(tr);
+        assert(u);
 
         HASHMAP_FOREACH_KEY(v, trigger, u->dependencies[UNIT_TRIGGERED_BY], i) {
                 /* No need to stop inactive jobs */
