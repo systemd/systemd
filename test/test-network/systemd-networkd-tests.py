@@ -371,7 +371,7 @@ class Utilities():
     def check_operstate(self, link, expected, show_status=True, setup_state='configured'):
         self.assertRegex(get_operstate(link, show_status, setup_state), expected)
 
-    def wait_online(self, links_with_operstate, timeout='20s', bool_any=False, setup_state='configured'):
+    def wait_online(self, links_with_operstate, timeout='20s', bool_any=False, setup_state='configured', setup_timeout=5):
         args = wait_online_cmd + [f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
         if bool_any:
             args += ['--any']
@@ -382,13 +382,23 @@ class Utilities():
                 output = check_output(*networkctl_cmd, 'status', link.split(':')[0], env=env)
                 print(output)
             raise
-        if not bool_any:
-            for link in links_with_operstate:
-                output = check_output(*networkctl_cmd, 'status', link.split(':')[0])
-                print(output)
-                for line in output.splitlines():
-                    if 'State:' in line:
-                        self.assertRegex(line, setup_state)
+        if not bool_any and setup_state:
+            # check at least once now, then once per sec for setup_timeout secs
+            for secs in range(setup_timeout + 1):
+                for link in links_with_operstate:
+                    output = check_output(*networkctl_cmd, 'status', link.split(':')[0])
+                    print(output)
+                    if not re.search(rf'(?m)^\s*State:.*({setup_state}).*$', output):
+                        # this link isn't in the right state; break into the sleep below
+                        break
+                else:
+                    # all the links were in the right state; break to exit the timer loop
+                    break
+                # don't bother sleeping if time is up
+                if secs < setup_timeout:
+                    time.sleep(1)
+            else:
+                self.fail(f'link {link} state does not match {setup_state}')
 
     def wait_address(self, link, address_regex, scope='global', ipv='', timeout_sec=100):
         for i in range(timeout_sec):
