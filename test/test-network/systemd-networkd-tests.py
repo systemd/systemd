@@ -267,14 +267,33 @@ def read_ipv4_sysctl_attr(link, attribute):
     with open(os.path.join(os.path.join(network_sysctl_ipv4_path, link), attribute)) as f:
         return f.readline().strip()
 
-def copy_unit_to_networkd_unit_path(*units):
+def copy_unit_to_networkd_unit_path(*units, dropins=True):
+    """Copy networkd unit files into the testbed.
+
+    Any networkd unit file type can be specified, as well as drop-in files.
+
+    By default, all drop-ins for a specified unit file are copied in;
+    to avoid that specify dropins=False.
+
+    When a drop-in file is specified, its unit file is also copied in automatically.
+    """
     print()
     for unit in units:
-        shutil.copy(os.path.join(networkd_ci_path, unit), network_unit_file_path)
-        if (os.path.exists(os.path.join(networkd_ci_path, unit + '.d'))):
+        if dropins and os.path.exists(os.path.join(networkd_ci_path, unit + '.d')):
             copytree(os.path.join(networkd_ci_path, unit + '.d'), os.path.join(network_unit_file_path, unit + '.d'))
+        if unit.endswith('.conf'):
+            dropin = unit
+            dropindir = os.path.join(network_unit_file_path, os.path.dirname(dropin))
+            os.makedirs(dropindir, exist_ok=True)
+            shutil.copy(os.path.join(networkd_ci_path, dropin), dropindir)
+            unit = os.path.dirname(dropin).rstrip('.d')
+        shutil.copy(os.path.join(networkd_ci_path, unit), network_unit_file_path)
 
 def remove_unit_from_networkd_path(units):
+    """Remove previously copied unit files from the testbed.
+
+    Drop-ins will be removed automatically.
+    """
     for unit in units:
         if (os.path.exists(os.path.join(network_unit_file_path, unit))):
             os.remove(os.path.join(network_unit_file_path, unit))
