@@ -2242,9 +2242,6 @@ int main(int argc, char *argv[]) {
                 HASHMAP_FOREACH(d, j->directories_by_path, i) {
                         int q;
 
-                        if (d->is_root)
-                                continue;
-
                         q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, NULL, !arg_quiet);
                         if (q < 0) {
                                 log_error_errno(q, "Failed to vacuum %s: %m", d->path);
