@@ -409,8 +409,10 @@ char* gid_to_name(gid_t gid) {
 }
 
 int in_gid(gid_t gid) {
-        gid_t *gids;
-        int ngroups, r, i;
+        _cleanup_free_ gid_t *allocated = NULL;
+        gid_t local[16], *p = local;
+        int ngroups = ELEMENTSOF(local);
+        unsigned attempt = 0;
 
         if (getgid() == gid)
                 return 1;
@@ -421,23 +423,39 @@ int in_gid(gid_t gid) {
         if (!gid_is_valid(gid))
                 return -EINVAL;
 
-        ngroups = getgroups(0, NULL);
-        if (ngroups < 0)
-                return -errno;
-        if (ngroups == 0)
-                return 0;
+        for (;;) {
+                ngroups = getgroups(ngroups, p);
+                if (ngroups >= 0)
+                        break;
+                if (errno != EINVAL)
+                        return -errno;
 
-        gids = newa(gid_t, ngroups);
+                /* Give up eventually */
+                if (attempt++ > 10)
+                        return -EINVAL;
 
-        r = getgroups(ngroups, gids);
-        if (r < 0)
-                return -errno;
+                /* Get actual size needed, and size the array explicitly. Note that this is potentially racy
+                 * to use (in multi-threaded programs), hence let's call this in a loop. */
+                ngroups = getgroups(0, NULL);
+                if (ngroups < 0)
+                        return -errno;
+                if (ngroups == 0)
+                        return false;
 
-        for (i = 0; i < r; i++)
-                if (gids[i] == gid)
-                        return 1;
+                free(allocated);
 
-        return 0;
+                allocated = new(gid_t, ngroups);
+                if (!allocated)
+                        return -ENOMEM;
+
+                p = allocated;
+        }
+
+        for (int i = 0; i < ngroups; i++)
+                if (p[i] == gid)
+                        return true;
+
+        return false;
 }
 
 int in_group(const char *name) {
