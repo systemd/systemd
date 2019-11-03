@@ -38,7 +38,6 @@
 #include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
-#include "static-destruct.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -49,10 +48,7 @@
 
 int saved_argc = 0;
 char **saved_argv = NULL;
-char **saved_env = NULL;
 static int saved_in_initrd = -1;
-
-STATIC_DESTRUCTOR_REGISTER(saved_env, strv_freep);
 
 bool kexec_loaded(void) {
        _cleanup_free_ char *s = NULL;
@@ -300,8 +296,4 @@ void disable_coredumps(void) {
         r = write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_debug_errno(r, "Failed to turn off coredumps, ignoring: %m");
-}
-
-void save_env(void) {
-        saved_env = strv_copy(environ);
 }
