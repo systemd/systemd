@@ -22,12 +22,16 @@ network_sysctl_ipv4_path='/proc/sys/net/ipv4/conf'
 dnsmasq_pid_file='/run/networkd-ci/test-test-dnsmasq.pid'
 dnsmasq_log_file='/run/networkd-ci/test-dnsmasq-log-file'
 
-networkd_bin='/usr/lib/systemd/systemd-networkd'
-resolved_bin='/usr/lib/systemd/systemd-resolved'
-wait_online_bin='/usr/lib/systemd/systemd-networkd-wait-online'
-networkctl_bin='/usr/bin/networkctl'
-resolvectl_bin='/usr/bin/resolvectl'
-timedatectl_bin='/usr/bin/timedatectl'
+systemd_lib_paths=['/usr/lib/systemd', '/lib/systemd']
+which_paths=':'.join(systemd_lib_paths + os.getenv('PATH', os.defpath).lstrip(':').split(':'))
+
+networkd_bin=shutil.which('systemd-networkd', path=which_paths)
+resolved_bin=shutil.which('systemd-resolved', path=which_paths)
+wait_online_bin=shutil.which('systemd-networkd-wait-online', path=which_paths)
+networkctl_bin=shutil.which('networkctl', path=which_paths)
+resolvectl_bin=shutil.which('resolvectl', path=which_paths)
+timedatectl_bin=shutil.which('timedatectl', path=which_paths)
+
 use_valgrind=False
 enable_debug=True
 env = {}
@@ -53,7 +57,7 @@ def run(*command, **kwargs):
 def is_module_available(module_name):
     lsmod_output = check_output('lsmod')
     module_re = re.compile(rf'^{re.escape(module_name)}\b', re.MULTILINE)
-    return module_re.search(lsmod_output) or not call('modprobe', module_name)
+    return module_re.search(lsmod_output) or not call('modprobe', module_name, stderr=subprocess.DEVNULL)
 
 def expectedFailureIfModuleIsNotAvailable(module_name):
     def f(func):
@@ -65,7 +69,7 @@ def expectedFailureIfModuleIsNotAvailable(module_name):
 
 def expectedFailureIfERSPANModuleIsNotAvailable():
     def f(func):
-        rc = call('ip link add dev erspan99 type erspan seq key 30 local 192.168.1.4 remote 192.168.1.1 erspan_ver 1 erspan 123')
+        rc = call('ip link add dev erspan99 type erspan seq key 30 local 192.168.1.4 remote 192.168.1.1 erspan_ver 1 erspan 123', stderr=subprocess.DEVNULL)
         if rc == 0:
             call('ip link del erspan99')
             return func
@@ -76,7 +80,7 @@ def expectedFailureIfERSPANModuleIsNotAvailable():
 
 def expectedFailureIfRoutingPolicyPortRangeIsNotAvailable():
     def f(func):
-        rc = call('ip rule add from 192.168.100.19 sport 1123-1150 dport 3224-3290 table 7')
+        rc = call('ip rule add from 192.168.100.19 sport 1123-1150 dport 3224-3290 table 7', stderr=subprocess.DEVNULL)
         if rc == 0:
             call('ip rule del from 192.168.100.19 sport 1123-1150 dport 3224-3290 table 7')
             return func
@@ -87,7 +91,7 @@ def expectedFailureIfRoutingPolicyPortRangeIsNotAvailable():
 
 def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
     def f(func):
-        rc = call('ip rule add not from 192.168.100.19 ipproto tcp table 7')
+        rc = call('ip rule add not from 192.168.100.19 ipproto tcp table 7', stderr=subprocess.DEVNULL)
         if rc == 0:
             call('ip rule del not from 192.168.100.19 ipproto tcp table 7')
             return func
@@ -99,7 +103,7 @@ def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
 def expectedFailureIfLinkFileFieldIsNotSet():
     def f(func):
         support = False
-        rc = call('ip link add name dummy99 type dummy')
+        rc = call('ip link add name dummy99 type dummy', stderr=subprocess.DEVNULL)
         if rc == 0:
             ret = run('udevadm info -w10s /sys/class/net/dummy99', stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             if ret.returncode == 0 and 'E: ID_NET_LINK_FILE=' in ret.stdout.rstrip():
@@ -115,7 +119,7 @@ def expectedFailureIfLinkFileFieldIsNotSet():
 
 def expectedFailureIfNexthopIsNotAvailable():
     def f(func):
-        rc = call('ip nexthop list')
+        rc = call('ip nexthop list', stderr=subprocess.DEVNULL)
         if rc == 0:
             return func
         else:
@@ -510,12 +514,12 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, 'status', 'test1')
         print(output)
-        self.assertRegex(output, r'Link File: (?:/usr)/lib/systemd/network/99-default.link')
+        self.assertRegex(output, r'Link File: (/usr)?/lib/systemd/network/99-default.link')
         self.assertRegex(output, r'Network File: /run/systemd/network/11-dummy.network')
 
         output = check_output(*networkctl_cmd, 'status', 'lo')
         print(output)
-        self.assertRegex(output, r'Link File: (?:/usr)/lib/systemd/network/99-default.link')
+        self.assertRegex(output, r'Link File: (/usr)?/lib/systemd/network/99-default.link')
         self.assertRegex(output, r'Network File: n/a')
 
     def test_delete_links(self):
@@ -748,7 +752,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.wait_online(['bridge99', 'test1:degraded'], bool_any=True)
 
-        self.check_operstate('bridge99', '(?:off|no-carrier)', setup_state='configuring')
+        self.check_operstate('bridge99', '(off|no-carrier)', setup_state='configuring')
         self.check_operstate('test1', 'degraded')
 
     def test_bridge(self):
@@ -921,7 +925,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -d link show tun99')
         print(output)
         # Old ip command does not support IFF_ flags
-        self.assertRegex(output, 'tun (?:type tun pi on vnet_hdr on multi_queue|addrgenmode) ')
+        self.assertRegex(output, 'tun (type tun pi on vnet_hdr on multi_queue|addrgenmode) ')
 
     def test_tap(self):
         copy_unit_to_networkd_unit_path('25-tap.netdev')
@@ -932,7 +936,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -d link show tap99')
         print(output)
         # Old ip command does not support IFF_ flags
-        self.assertRegex(output, 'tun (?:type tap pi on vnet_hdr on multi_queue|addrgenmode) ')
+        self.assertRegex(output, 'tun (type tap pi on vnet_hdr on multi_queue|addrgenmode) ')
 
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_vrf(self):
@@ -1010,16 +1014,16 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -d link show ipiptun99')
         print(output)
-        self.assertRegex(output, 'ipip (?:ipip |)remote 192.169.224.239 local 192.168.223.238 dev dummy98')
+        self.assertRegex(output, 'ipip (ipip )?remote 192.169.224.239 local 192.168.223.238 dev dummy98')
         output = check_output('ip -d link show ipiptun98')
         print(output)
-        self.assertRegex(output, 'ipip (?:ipip |)remote 192.169.224.239 local any dev dummy98')
+        self.assertRegex(output, 'ipip (ipip )?remote 192.169.224.239 local any dev dummy98')
         output = check_output('ip -d link show ipiptun97')
         print(output)
-        self.assertRegex(output, 'ipip (?:ipip |)remote any local 192.168.223.238 dev dummy98')
+        self.assertRegex(output, 'ipip (ipip )?remote any local 192.168.223.238 dev dummy98')
         output = check_output('ip -d link show ipiptun96')
         print(output)
-        self.assertRegex(output, 'ipip (?:ipip |)remote any local any dev dummy98')
+        self.assertRegex(output, 'ipip (ipip )?remote any local any dev dummy98')
 
     def test_gre_tunnel(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'gretun.network',
@@ -1159,10 +1163,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'vti6 remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98')
         output = check_output('ip -d link show vti6tun98')
         print(output)
-        self.assertRegex(output, 'vti6 remote 2001:473:fece:cafe::5179 local (?:any|::) dev dummy98')
+        self.assertRegex(output, 'vti6 remote 2001:473:fece:cafe::5179 local (any|::) dev dummy98')
         output = check_output('ip -d link show vti6tun97')
         print(output)
-        self.assertRegex(output, 'vti6 remote (?:any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
+        self.assertRegex(output, 'vti6 remote (any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
 
     def test_ip6tnl_tunnel(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ip6tnl.network',
@@ -1177,10 +1181,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98')
         output = check_output('ip -d link show ip6tnl98')
         print(output)
-        self.assertRegex(output, 'ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local (?:any|::) dev dummy98')
+        self.assertRegex(output, 'ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local (any|::) dev dummy98')
         output = check_output('ip -d link show ip6tnl97')
         print(output)
-        self.assertRegex(output, 'ip6tnl ip6ip6 remote (?:any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
+        self.assertRegex(output, 'ip6tnl ip6ip6 remote (any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
 
     def test_sit_tunnel(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'sit.network',
@@ -1193,16 +1197,16 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -d link show sittun99')
         print(output)
-        self.assertRegex(output, "sit (?:ip6ip |)remote 10.65.223.239 local 10.65.223.238 dev dummy98")
+        self.assertRegex(output, "sit (ip6ip )?remote 10.65.223.239 local 10.65.223.238 dev dummy98")
         output = check_output('ip -d link show sittun98')
         print(output)
-        self.assertRegex(output, "sit (?:ip6ip |)remote 10.65.223.239 local any dev dummy98")
+        self.assertRegex(output, "sit (ip6ip )?remote 10.65.223.239 local any dev dummy98")
         output = check_output('ip -d link show sittun97')
         print(output)
-        self.assertRegex(output, "sit (?:ip6ip |)remote any local 10.65.223.238 dev dummy98")
+        self.assertRegex(output, "sit (ip6ip )?remote any local 10.65.223.238 dev dummy98")
         output = check_output('ip -d link show sittun96')
         print(output)
-        self.assertRegex(output, "sit (?:ip6ip |)remote any local any dev dummy98")
+        self.assertRegex(output, "sit (ip6ip )?remote any local any dev dummy98")
 
     def test_isatap_tunnel(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'isatap.network',
@@ -1596,7 +1600,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '111:')
         self.assertRegex(output, 'from 192.168.100.18')
-        self.assertRegex(output, r'tos (?:0x08|throughput)\s')
+        self.assertRegex(output, r'tos (0x08|throughput)\s')
         self.assertRegex(output, 'iif test1')
         self.assertRegex(output, 'oif test1')
         self.assertRegex(output, 'lookup 7')
@@ -1634,11 +1638,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
             output = check_output('ip rule list table 7')
             print(output)
-            self.assertRegex(output, '111:	from 192.168.100.18 tos (?:0x08|throughput) iif test1 oif test1 lookup 7')
+            self.assertRegex(output, '111:	from 192.168.100.18 tos (0x08|throughput) iif test1 oif test1 lookup 7')
 
             output = check_output('ip rule list table 8')
             print(output)
-            self.assertRegex(output, '112:	from 192.168.101.18 tos (?:0x08|throughput) iif dummy98 oif dummy98 lookup 8')
+            self.assertRegex(output, '112:	from 192.168.101.18 tos (0x08|throughput) iif dummy98 oif dummy98 lookup 8')
 
             stop_networkd(remove_state_files=False)
 
@@ -2109,7 +2113,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
             self.assertRegex(data, r'LLMNR=no')
             self.assertRegex(data, r'MDNS=yes')
             self.assertRegex(data, r'DNSSEC=no')
-            self.assertRegex(data, r'ADDRESSES=192.168.(?:10.10|12.12)/24 192.168.(?:12.12|10.10)/24')
+            self.assertRegex(data, r'ADDRESSES=192.168.(10.10|12.12)/24 192.168.(12.12|10.10)/24')
 
         check_output(*resolvectl_cmd, 'dns', 'dummy98', '10.10.10.12', '10.10.10.13', env=env)
         check_output(*resolvectl_cmd, 'domain', 'dummy98', 'hogehogehoge', '~foofoofoo', env=env)
@@ -2379,7 +2383,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         print('### ip -6 route list table all dev bridge99')
         output = check_output('ip -6 route list table all dev bridge99')
         print(output)
-        self.assertRegex(output, 'ff00::/8 table local metric 256 (?:linkdown |)pref medium')
+        self.assertRegex(output, 'ff00::/8 table local metric 256 (linkdown )?pref medium')
 
     def test_bridge_ignore_carrier_loss(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
@@ -2645,7 +2649,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         # link become 'routable' when at least one protocol provide an valid address.
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
-        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         output = check_output(*networkctl_cmd, 'status', 'veth99', env=env)
         print(output)
@@ -2824,7 +2828,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         output = check_output('ip address show dev veth99 scope global')
         print(output)
-        self.assertRegex(output, r'inet6 2600::[0-9a-f]*/128 scope global (?:noprefixroute dynamic|dynamic noprefixroute)')
+        self.assertRegex(output, r'inet6 2600::[0-9a-f]*/128 scope global (noprefixroute dynamic|dynamic noprefixroute)')
 
         output = check_output('ip -6 route show dev veth99')
         print(output)
@@ -2933,7 +2937,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         # link become 'routable' when at least one protocol provide an valid address.
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
-        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         output = check_output('ip address show dev veth99 scope global')
         print(output)
@@ -2976,7 +2980,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         # link become 'routable' when at least one protocol provide an valid address.
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
-        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         print('## ip -d link show dev vrf99')
         output = check_output('ip -d link show dev vrf99')
@@ -2988,7 +2992,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'inet 169.254.[0-9]*.[0-9]*/16 brd 169.254.255.255 scope link veth99')
         self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
-        self.assertRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)')
+        self.assertRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)')
         self.assertRegex(output, 'inet6 .* scope link')
 
         print('## ip address show dev veth99')
@@ -2996,7 +3000,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'inet 169.254.[0-9]*.[0-9]*/16 brd 169.254.255.255 scope link veth99')
         self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
-        self.assertRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)')
+        self.assertRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)')
         self.assertRegex(output, 'inet6 .* scope link')
 
         print('## ip route show vrf vrf99')
@@ -3145,7 +3149,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         # link become 'routable' when at least one protocol provide an valid address.
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
-        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         time.sleep(3)
         output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
@@ -3163,7 +3167,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         # link become 'routable' when at least one protocol provide an valid address.
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
-        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         time.sleep(3)
         output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
@@ -3181,7 +3185,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         # link become 'routable' when at least one protocol provide an valid address.
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
-        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         time.sleep(3)
         output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
@@ -3199,7 +3203,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         # link become 'routable' when at least one protocol provide an valid address.
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
-        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (?:dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         time.sleep(3)
         output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
