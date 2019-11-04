@@ -32,6 +32,7 @@
 #include "fs-util.h"
 #include "locale-util.h"
 #include "main-func.h"
+#include "mkdir.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "pretty-print.h"
@@ -1367,6 +1368,13 @@ static int install_random_seed(const char *esp) {
         r = genuine_random_bytes(buffer, sz, RANDOM_BLOCK);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire random seed: %m");
+
+        /* Normally create_subdirs() should already have created everything we need, but in case "bootctl
+         * random-seed" is called we want to just create the minimum we need for it, and not the full
+         * list. */
+        r = mkdir_parents(path, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create parent directory for %s: %m", path);
 
         r = tempfn_random(path, "bootctl", &tmp);
         if (r < 0)
