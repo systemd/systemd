@@ -42,7 +42,7 @@
     <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     Available naming schemes are described below.</para>
 
-    <para>After the udev proprties have been generated, appropriate udev rules may be used to actually rename
+    <para>After the udev properties have been generated, appropriate udev rules may be used to actually rename
     devices based on those properties. See the description of <varname>NamePolicy=</varname> and
     <varname>MACAddressPolicy=</varname> in
     <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
