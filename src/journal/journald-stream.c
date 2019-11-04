@@ -487,10 +487,21 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
 }
 
 static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
         StdoutStream *s = userdata;
+        struct ucred *ucred = NULL;
+        struct cmsghdr *cmsg;
+        struct iovec iovec;
         size_t limit;
         ssize_t l;
         int r;
+
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+                .msg_control = buf,
+                .msg_controllen = sizeof(buf),
+        };
 
         assert(s);
 
@@ -511,18 +522,48 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
          * always leave room for a terminating NUL we might need to add. */
         limit = MIN(s->allocated - 1, s->server->line_max);
 
-        l = read(s->fd, s->buffer + s->length, limit - s->length);
+        iovec = IOVEC_MAKE(s->buffer + s->length, limit - s->length);
+
+        l = recvmsg(s->fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (l < 0) {
-                if (errno == EAGAIN)
+                if (IN_SET(errno, EINTR, EAGAIN))
                         return 0;
 
                 log_warning_errno(errno, "Failed to read from stream: %m");
                 goto terminate;
         }
+        cmsg_close_all(&msghdr);
 
         if (l == 0) {
                 stdout_stream_scan(s, true);
                 goto terminate;
+        }
+
+        CMSG_FOREACH(cmsg, &msghdr)
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_CREDENTIALS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+                        ucred = (struct ucred *)CMSG_DATA(cmsg);
+                        break;
+                }
+
+        /* Invalidate the context if the pid of the sender changed.
+         * This happens when a forked process inherits stdout / stderr
+         * from a parent. In this case getpeercred returns the ucred
+         * of the parent, which can be invalid if the parent has exited
+         * in the meantime.
+         */
+        if (ucred && ucred->pid != s->ucred.pid) {
+                /* force out any previously half-written lines from a
+                 * different process, before we switch to the new ucred
+                 * structure for everything we just added */
+                r = stdout_stream_scan(s, true);
+                if (r < 0)
+                        goto terminate;
+
+                s->ucred = *ucred;
+                client_context_release(s->server, s->context);
+                s->context = NULL;
         }
 
         s->length += l;
@@ -561,6 +602,10 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         r = getpeercred(fd, &stream->ucred);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine peer credentials: %m");
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return log_error_errno(r, "SO_PASSCRED failed: %m");
 
         if (mac_selinux_use()) {
                 r = getpeersec(fd, &stream->label);

@@ -74,6 +74,22 @@ cmp /expected /output
 { journalctl -ball -b  -m 2>&1 || :; } | head -1 > /output
 cmp /expected /output
 
+# https://github.com/systemd/systemd/issues/13708
+ID=$(systemd-id128 new)
+systemd-cat -t "$ID" bash -c 'echo parent; (echo child) & wait' &
+PID=$!
+wait %%
+journalctl --sync
+# We can drop this grep when https://github.com/systemd/systemd/issues/13937
+# has a fix.
+journalctl -b -o export -t "$ID" --output-fields=_PID | grep '^_PID=' >/output
+[[ `grep -c . /output` -eq 2 ]]
+grep -q "^_PID=$PID" /output
+grep -vq "^_PID=$PID" /output
+
+# Add new tests before here, the journald restarts below
+# may make tests flappy.
+
 # Don't lose streams on restart
 systemctl start forever-print-hola
 sleep 3
