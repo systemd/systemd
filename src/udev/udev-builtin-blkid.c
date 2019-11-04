@@ -266,7 +266,7 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device name: %m");
 
-        fd = open(devnode, O_RDONLY|O_CLOEXEC);
+        fd = open(devnode, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return log_device_debug_errno(dev, errno, "Failed to open block device %s: %m", devnode);
 
