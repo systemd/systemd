@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "format-table.h"
 #include "string-util.h"
@@ -154,12 +156,20 @@ int main(int argc, char *argv[]) {
         assert_se(table_format(t, &formatted) >= 0);
         printf("%s\n", formatted);
 
-        assert_se(streq(formatted,
-                        "  no a long f…   no a long f… a long fi…\n"
-                        "  no fäää        no fäää      fäää      \n"
-                        " yes fäää       yes fäää      fäää      \n"
-                        " yes xxx        yes xxx       xxx       \n"
-                        "5min           5min                     \n"));
+        if (isatty(STDOUT_FILENO))
+                assert_se(streq(formatted,
+                                "  no a long f…   no a long f… a long fi…\n"
+                                "  no fäää        no fäää      fäää      \n"
+                                " yes fäää       yes fäää      fäää      \n"
+                                " yes xxx        yes xxx       xxx       \n"
+                                "5min           5min                     \n"));
+        else
+                assert_se(streq(formatted,
+                                "  no a long field   no a long field a long field\n"
+                                "  no fäää           no fäää         fäää        \n"
+                                " yes fäää          yes fäää         fäää        \n"
+                                " yes xxx           yes xxx          xxx         \n"
+                                "5min              5min                          \n"));
 
         test_issue_9549();
 
