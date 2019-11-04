@@ -4210,24 +4210,24 @@ static void print_status_info(
                 path = formatted_path;
 
         if (!isempty(i->load_error))
-                printf("   Loaded: %s%s%s (Reason: %s)\n",
+                printf("     Loaded: %s%s%s (Reason: %s)\n",
                        on, strna(i->load_state), off, i->load_error);
         else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset) &&
                  !STR_IN_SET(i->unit_file_state, "generated", "transient"))
-                printf("   Loaded: %s%s%s (%s; %s; vendor preset: %s)\n",
+                printf("     Loaded: %s%s%s (%s; %s; vendor preset: %s)\n",
                        on, strna(i->load_state), off, path, i->unit_file_state, i->unit_file_preset);
         else if (path && !isempty(i->unit_file_state))
-                printf("   Loaded: %s%s%s (%s; %s)\n",
+                printf("     Loaded: %s%s%s (%s; %s)\n",
                        on, strna(i->load_state), off, path, i->unit_file_state);
         else if (path)
-                printf("   Loaded: %s%s%s (%s)\n",
+                printf("     Loaded: %s%s%s (%s)\n",
                        on, strna(i->load_state), off, path);
         else
-                printf("   Loaded: %s%s%s\n",
+                printf("     Loaded: %s%s%s\n",
                        on, strna(i->load_state), off);
 
         if (i->transient)
-                printf("Transient: yes\n");
+                printf("  Transient: yes\n");
 
         if (!strv_isempty(i->dropin_paths)) {
                 _cleanup_free_ char *dir = NULL;
@@ -4239,8 +4239,8 @@ static void print_status_info(
                         const char *df;
 
                         if (!dir || last) {
-                                printf(dir ? "           " :
-                                             "  Drop-In: ");
+                                printf(dir ? "             " :
+                                             "    Drop-In: ");
 
                                 dir = mfree(dir);
 
@@ -4251,7 +4251,7 @@ static void print_status_info(
                                 }
 
                                 printf("%s\n"
-                                       "           %s", dir,
+                                       "             %s", dir,
                                        special_glyph(SPECIAL_GLYPH_TREE_RIGHT));
                         }
 
@@ -4268,10 +4268,10 @@ static void print_status_info(
 
         ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
         if (ss)
-                printf("   Active: %s%s (%s)%s",
+                printf("     Active: %s%s (%s)%s",
                        active_on, strna(i->active_state), ss, active_off);
         else
-                printf("   Active: %s%s%s",
+                printf("     Active: %s%s%s",
                        active_on, strna(i->active_state), active_off);
 
         if (!isempty(i->result) && !streq(i->result, "success"))
@@ -4298,7 +4298,7 @@ static void print_status_info(
                 char **trigger;
                 bool first = true;
 
-                printf("   TriggeredBy:");
+                printf("TriggeredBy:");
                 STRV_FOREACH(trigger, i->triggered_by) {
                         UnitActiveState state = _UNIT_ACTIVE_STATE_INVALID;
 
@@ -4308,7 +4308,7 @@ static void print_status_info(
                                 printf(" %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
                                 first = false;
                         } else {
-                                printf("                %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
+                                printf("             %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
                         }
                 }
         }
@@ -4321,7 +4321,7 @@ static void print_status_info(
                                            i->next_elapse_monotonic};
                 usec_t next_elapse;
 
-                printf("  Trigger: ");
+                printf("    Trigger: ");
 
                 dual_timestamp_get(&nw);
                 next_elapse = calc_next_elapse(&nw, &next);
@@ -4338,7 +4338,7 @@ static void print_status_info(
                 char **trigger;
                 bool first = true;
 
-                printf(" Triggers:");
+                printf("   Triggers:");
                 STRV_FOREACH(trigger, i->triggers) {
                         UnitActiveState state = _UNIT_ACTIVE_STATE_INVALID;
 
@@ -4348,7 +4348,7 @@ static void print_status_info(
                                 printf(" %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
                                 first = false;
                         } else {
-                                printf("                %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
+                                printf("             %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
                         }
                 }
         }
@@ -4360,7 +4360,7 @@ static void print_status_info(
                 s1 = format_timestamp_relative(since1, sizeof(since1), i->condition_timestamp);
                 s2 = format_timestamp(since2, sizeof(since2), i->condition_timestamp);
 
-                printf("Condition: start %scondition failed%s at %s%s%s\n",
+                printf("  Condition: start %scondition failed%s at %s%s%s\n",
                        ansi_highlight_yellow(), ansi_normal(),
                        s2, s1 ? "; " : "", strempty(s1));
 
@@ -4370,7 +4370,7 @@ static void print_status_info(
 
                 LIST_FOREACH(conditions, c, i->conditions)
                         if (c->tristate < 0)
-                                printf("           %s %s=%s%s%s was not met\n",
+                                printf("             %s %s=%s%s%s was not met\n",
                                        --n ? special_glyph(SPECIAL_GLYPH_TREE_BRANCH) : special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
                                        c->name,
                                        c->trigger ? "|" : "",
@@ -4382,24 +4382,24 @@ static void print_status_info(
                 s1 = format_timestamp_relative(since1, sizeof(since1), i->assert_timestamp);
                 s2 = format_timestamp(since2, sizeof(since2), i->assert_timestamp);
 
-                printf("   Assert: start %sassertion failed%s at %s%s%s\n",
+                printf("     Assert: start %sassertion failed%s at %s%s%s\n",
                        ansi_highlight_red(), ansi_normal(),
                        s2, s1 ? "; " : "", strempty(s1));
                 if (i->failed_assert_trigger)
-                        printf("           none of the trigger assertions were met\n");
+                        printf("             none of the trigger assertions were met\n");
                 else if (i->failed_assert)
-                        printf("           %s=%s%s was not met\n",
+                        printf("             %s=%s%s was not met\n",
                                i->failed_assert,
                                i->failed_assert_negate ? "!" : "",
                                i->failed_assert_parameter);
         }
 
         if (i->sysfs_path)
-                printf("   Device: %s\n", i->sysfs_path);
+                printf("     Device: %s\n", i->sysfs_path);
         if (i->where)
-                printf("    Where: %s\n", i->where);
+                printf("      Where: %s\n", i->where);
         if (i->what)
-                printf("     What: %s\n", i->what);
+                printf("       What: %s\n", i->what);
 
         STRV_FOREACH(t, i->documentation) {
                 _cleanup_free_ char *formatted = NULL;
@@ -4410,16 +4410,16 @@ static void print_status_info(
                 else
                         q = *t;
 
-                printf(" %*s %s\n", 9, t == i->documentation ? "Docs:" : "", q);
+                printf("   %*s %s\n", 9, t == i->documentation ? "Docs:" : "", q);
         }
 
         STRV_FOREACH_PAIR(t, t2, i->listen)
-                printf(" %*s %s (%s)\n", 9, t == i->listen ? "Listen:" : "", *t2, *t);
+                printf("   %*s %s (%s)\n", 9, t == i->listen ? "Listen:" : "", *t2, *t);
 
         if (i->accept) {
-                printf(" Accepted: %u; Connected: %u;", i->n_accepted, i->n_connections);
+                printf("   Accepted: %u; Connected: %u;", i->n_accepted, i->n_connections);
                 if (i->n_refused)
-                        printf(" Refused: %u", i->n_refused);
+                        printf("   Refused: %u", i->n_refused);
                 printf("\n");
         }
 
@@ -4437,7 +4437,7 @@ static void print_status_info(
                         continue;
 
                 argv = strv_join(p->argv, " ");
-                printf("  Process: "PID_FMT" %s=%s ", p->pid, p->name, strna(argv));
+                printf("    Process: "PID_FMT" %s=%s ", p->pid, p->name, strna(argv));
 
                 good = is_clean_exit(p->code, p->status, EXIT_CLEAN_DAEMON, NULL);
                 if (!good) {
@@ -4474,7 +4474,7 @@ static void print_status_info(
 
         if (i->main_pid > 0 || i->control_pid > 0) {
                 if (i->main_pid > 0) {
-                        printf(" Main PID: "PID_FMT, i->main_pid);
+                        printf("   Main PID: "PID_FMT, i->main_pid);
 
                         if (i->running) {
 
@@ -4526,14 +4526,14 @@ static void print_status_info(
         }
 
         if (i->status_text)
-                printf("   Status: \"%s\"\n", i->status_text);
+                printf("     Status: \"%s\"\n", i->status_text);
         if (i->status_errno > 0)
-                printf("    Error: %i (%s)\n", i->status_errno, strerror_safe(i->status_errno));
+                printf("      Error: %i (%s)\n", i->status_errno, strerror_safe(i->status_errno));
 
         if (i->ip_ingress_bytes != (uint64_t) -1 && i->ip_egress_bytes != (uint64_t) -1) {
                 char buf_in[FORMAT_BYTES_MAX], buf_out[FORMAT_BYTES_MAX];
 
-                printf("       IP: %s in, %s out\n",
+                printf("         IP: %s in, %s out\n",
                         format_bytes(buf_in, sizeof(buf_in), i->ip_ingress_bytes),
                         format_bytes(buf_out, sizeof(buf_out), i->ip_egress_bytes));
         }
@@ -4541,13 +4541,13 @@ static void print_status_info(
         if (i->io_read_bytes != UINT64_MAX && i->io_write_bytes != UINT64_MAX) {
                 char buf_in[FORMAT_BYTES_MAX], buf_out[FORMAT_BYTES_MAX];
 
-                printf("       IO: %s read, %s written\n",
+                printf("         IO: %s read, %s written\n",
                         format_bytes(buf_in, sizeof(buf_in), i->io_read_bytes),
                         format_bytes(buf_out, sizeof(buf_out), i->io_write_bytes));
         }
 
         if (i->tasks_current != (uint64_t) -1) {
-                printf("    Tasks: %" PRIu64, i->tasks_current);
+                printf("      Tasks: %" PRIu64, i->tasks_current);
 
                 if (i->tasks_max != (uint64_t) -1)
                         printf(" (limit: %" PRIu64 ")\n", i->tasks_max);
@@ -4558,7 +4558,7 @@ static void print_status_info(
         if (i->memory_current != (uint64_t) -1) {
                 char buf[FORMAT_BYTES_MAX];
 
-                printf("   Memory: %s", format_bytes(buf, sizeof(buf), i->memory_current));
+                printf("     Memory: %s", format_bytes(buf, sizeof(buf), i->memory_current));
 
                 if (i->memory_min > 0 || i->memory_low > 0 ||
                     i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX ||
@@ -4598,7 +4598,7 @@ static void print_status_info(
 
         if (i->cpu_usage_nsec != (uint64_t) -1) {
                 char buf[FORMAT_TIMESPAN_MAX];
-                printf("      CPU: %s\n", format_timespan(buf, sizeof(buf), i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
+                printf("        CPU: %s\n", format_timespan(buf, sizeof(buf), i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
         }
 
         if (i->control_group) {
@@ -4606,7 +4606,7 @@ static void print_status_info(
                 static const char prefix[] = "           ";
                 unsigned c;
 
-                printf("   CGroup: %s\n", i->control_group);
+                printf("     CGroup: %s\n", i->control_group);
 
                 c = columns();
                 if (c > sizeof(prefix) - 1)
