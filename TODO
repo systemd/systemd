@@ -1107,7 +1107,6 @@ External:
   - <command> <verb> -<TAB> should complete options, but currently does not
   - systemctl add-wants,add-requires
 
-* systemctl status foo.service should say that it is trigger by foo.timer
 * systemctl status should know about 'systemd-analyze calendar ... --iterations='
 * If timer has just OnInactiveSec=..., it should fire after a specified time
   after being started.

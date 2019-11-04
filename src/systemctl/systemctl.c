@@ -4054,6 +4054,9 @@ typedef struct UnitStatusInfo {
 
         char **dropin_paths;
 
+        char **triggered_by;
+        char **triggers;
+
         const char *load_error;
         const char *result;
 
@@ -4138,6 +4141,8 @@ static void unit_status_info_free(UnitStatusInfo *info) {
 
         strv_free(info->documentation);
         strv_free(info->dropin_paths);
+        strv_free(info->triggered_by);
+        strv_free(info->triggers);
         strv_free(info->listen);
 
         while ((c = info->conditions)) {
@@ -4149,6 +4154,17 @@ static void unit_status_info_free(UnitStatusInfo *info) {
                 LIST_REMOVE(exec, info->exec, p);
                 exec_status_info_free(p);
         }
+}
+
+static void format_active_state(const char *active_state, const char **active_on, const char **active_off) {
+        if (streq_ptr(active_state, "failed")) {
+                *active_on = ansi_highlight_red();
+                *active_off = ansi_normal();
+        } else if (STRPTR_IN_SET(active_state, "active", "reloading")) {
+                *active_on = ansi_highlight_green();
+                *active_off = ansi_normal();
+        } else
+                *active_on = *active_off = "";
 }
 
 static void print_status_info(
@@ -4164,20 +4180,14 @@ static void print_status_info(
         const char *path;
         char **t, **t2;
         int r;
+        bool is_timer;
 
         assert(i);
 
         /* This shows pretty information about a unit. See
          * print_property() for a low-level property printer */
 
-        if (streq_ptr(i->active_state, "failed")) {
-                active_on = ansi_highlight_red();
-                active_off = ansi_normal();
-        } else if (STRPTR_IN_SET(i->active_state, "active", "reloading")) {
-                active_on = ansi_highlight_green();
-                active_off = ansi_normal();
-        } else
-                active_on = active_off = "";
+        format_active_state(i->active_state, &active_on, &active_off);
 
         printf("%s%s%s %s", active_on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), active_off, strna(i->id));
 
@@ -4282,7 +4292,28 @@ static void print_status_info(
         else
                 printf("\n");
 
-        if (endswith(i->id, ".timer")) {
+        is_timer = endswith(i->id, ".timer");
+
+        if (!is_timer && !strv_isempty(i->triggered_by)) {
+                char **trigger;
+                bool first = true;
+
+                printf("   TriggeredBy:");
+                STRV_FOREACH(trigger, i->triggered_by) {
+                        UnitActiveState state = _UNIT_ACTIVE_STATE_INVALID;
+
+                        (void) get_state_one_unit(bus, *trigger, &state);
+                        format_active_state(unit_active_state_to_string(state), &on, &off);
+                        if (first) {
+                                printf(" %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
+                                first = false;
+                        } else {
+                                printf("                %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
+                        }
+                }
+        }
+
+        if (is_timer) {
                 char tstamp1[FORMAT_TIMESTAMP_RELATIVE_MAX],
                      tstamp2[FORMAT_TIMESTAMP_MAX];
                 const char *next_rel_time, *next_time;
@@ -4301,6 +4332,25 @@ static void print_status_info(
                         printf("%s; %s\n", next_time, next_rel_time);
                 else
                         printf("n/a\n");
+        }
+
+        if (!strv_isempty(i->triggers)) {
+                char **trigger;
+                bool first = true;
+
+                printf(" Triggers:");
+                STRV_FOREACH(trigger, i->triggers) {
+                        UnitActiveState state = _UNIT_ACTIVE_STATE_INVALID;
+
+                        (void) get_state_one_unit(bus, *trigger, &state);
+                        format_active_state(unit_active_state_to_string(state), &on, &off);
+                        if (first) {
+                                printf(" %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
+                                first = false;
+                        } else {
+                                printf("                %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
+                        }
+                }
         }
 
         if (!i->condition_result && i->condition_timestamp > 0) {
@@ -5514,6 +5564,8 @@ static int show_one(
                 { "DropInPaths",                    "as",              NULL,           offsetof(UnitStatusInfo, dropin_paths)                      },
                 { "LoadError",                      "(ss)",            map_load_error, offsetof(UnitStatusInfo, load_error)                        },
                 { "Result",                         "s",               NULL,           offsetof(UnitStatusInfo, result)                            },
+                { "TriggeredBy",                    "as",              NULL,           offsetof(UnitStatusInfo, triggered_by)                      },
+                { "Triggers",                       "as",              NULL,           offsetof(UnitStatusInfo, triggers)                          },
                 { "InactiveExitTimestamp",          "t",               NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp)           },
                 { "InactiveExitTimestampMonotonic", "t",               NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp_monotonic) },
                 { "ActiveEnterTimestamp",           "t",               NULL,           offsetof(UnitStatusInfo, active_enter_timestamp)            },
