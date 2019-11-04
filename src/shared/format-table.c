@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <net/if.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -1611,10 +1612,12 @@ int table_print(Table *t, FILE *f) {
         }
 
         /* Calculate effective table width */
-        if (t->width == (size_t) -1)
-                table_effective_width = pager_have() ? table_requested_width : MIN(table_requested_width, columns());
-        else
+        if (t->width != (size_t) -1)
                 table_effective_width = t->width;
+        else if (pager_have() || !isatty(STDOUT_FILENO))
+                table_effective_width = table_requested_width;
+        else
+                table_effective_width = MIN(table_requested_width, columns());
 
         if (table_maximum_width != (size_t) -1 && table_effective_width > table_maximum_width)
                 table_effective_width = table_maximum_width;
