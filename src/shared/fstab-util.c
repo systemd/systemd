@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <mntent.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "device-nodes.h"

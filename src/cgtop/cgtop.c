@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <alloca.h>
 #include <errno.h>
 #include <getopt.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "sd-bus.h"

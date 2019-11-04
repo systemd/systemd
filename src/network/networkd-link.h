@@ -145,7 +145,6 @@ typedef struct Link {
         struct rtnl_link_stats64 stats_old, stats_new;
         bool stats_updated;
 
-
         /* All kinds of DNS configuration */
         struct in_addr_data *dns;
         unsigned n_dns;

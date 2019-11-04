@@ -5,7 +5,6 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "bus-error.h"

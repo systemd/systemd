@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <getopt.h>
-#include <stdio.h>
 #include <sys/epoll.h>
 #include <unistd.h>
 

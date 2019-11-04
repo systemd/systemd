@@ -5,13 +5,11 @@
 #include <fnmatch.h>
 #include <getopt.h>
 #include <linux/fs.h>
-#include <locale.h>
 #include <poll.h>
 #include <signal.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/inotify.h>
 #include <sys/stat.h>
 #include <unistd.h>

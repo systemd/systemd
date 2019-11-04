@@ -3,15 +3,12 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <locale.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <string.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/reboot.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -806,7 +803,6 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
         *ret = TAKE_PTR(mangled);
         return 0;
 }
-
 
 static int list_units(int argc, char *argv[], void *userdata) {
         _cleanup_free_ UnitInfo *unit_infos = NULL;

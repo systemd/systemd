@@ -8,12 +8,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/epoll.h>
 #include <sys/file.h>
 #include <sys/inotify.h>
@@ -21,7 +19,6 @@
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/signalfd.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/wait.h>

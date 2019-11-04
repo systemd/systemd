@@ -3,13 +3,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <signal.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/reboot.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #if HAVE_SECCOMP
 #include <seccomp.h>

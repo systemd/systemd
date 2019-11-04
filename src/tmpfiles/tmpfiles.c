@@ -4,16 +4,12 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <getopt.h>
-#include <glob.h>
 #include <limits.h>
 #include <linux/fs.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/file.h>
-#include <sys/stat.h>
 #include <sys/xattr.h>
 #include <sysexits.h>
 #include <time.h>

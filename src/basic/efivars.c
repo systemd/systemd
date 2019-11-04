@@ -4,9 +4,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <linux/fs.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 

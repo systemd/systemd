@@ -1,48 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <alloca.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <sched.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/mman.h>
-#include <sys/prctl.h>
-#include <sys/statfs.h>
-#include <sys/sysmacros.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
-#include "btrfs-util.h"
 #include "build.h"
-#include "def.h"
-#include "device-nodes.h"
 #include "dirent-util.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-util.h"
-#include "hashmap.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
-#include "path-util.h"
-#include "process-util.h"
-#include "procfs-util.h"
-#include "set.h"
-#include "signal-util.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "strv.h"
-#include "time-util.h"
-#include "umask-util.h"
-#include "user-util.h"
 #include "util.h"
 #include "virt.h"
 

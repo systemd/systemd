@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #if HAVE_GCRYPT
-#include <gcrypt.h>
 
 #include "gcrypt-util.h"
 #include "hexdecoct.h"

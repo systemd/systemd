@@ -1,22 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #if HAVE_BLKID
-#include <blkid.h>
 #endif
 #include <errno.h>
 #include <getopt.h>
-#include <grp.h>
 #include <linux/fs.h>
 #include <linux/loop.h>
-#include <pwd.h>
-#include <sched.h>
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
-#include <signal.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/file.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>

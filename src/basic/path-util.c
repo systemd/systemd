@@ -4,8 +4,6 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 /* When we include libgen.h because we need dirname() we immediately

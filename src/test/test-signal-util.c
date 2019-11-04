@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <signal.h>
 #include <unistd.h>
 
 #include "log.h"

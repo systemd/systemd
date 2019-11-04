@@ -342,8 +342,6 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to show table: %m");
 
-
-
         return 0;
 }
 

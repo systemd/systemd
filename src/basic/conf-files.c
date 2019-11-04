@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <dirent.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "conf-files.h"
 #include "def.h"

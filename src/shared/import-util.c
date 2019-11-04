@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "btrfs-util.h"

@@ -7,7 +7,6 @@
 #include <errno.h>
 #include <selinux/avc.h>
 #include <selinux/selinux.h>
-#include <stdio.h>
 #if HAVE_AUDIT
 #include <libaudit.h>
 #endif

@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/sendfile.h>
-#include <sys/stat.h>
 #include <sys/xattr.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "alloc-util.h"

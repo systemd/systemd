@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "extract-word.h"
 #include "log.h"

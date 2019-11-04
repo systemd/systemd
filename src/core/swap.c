@@ -727,7 +727,6 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
         if (s->result == SWAP_SUCCESS)
                 s->result = f;
 
-
         r = unit_kill_context(UNIT(s),
                               &s->kill_context,
                               state_to_kill_operation(s, state),
@@ -928,7 +927,6 @@ static int swap_stop(Unit *u) {
                 /* If we are currently cleaning, then abort it, brutally. */
                 swap_enter_signal(s, SWAP_DEACTIVATING_SIGKILL, SWAP_SUCCESS);
                 return 0;
-
 
         default:
                 assert_not_reached("Unexpected state.");

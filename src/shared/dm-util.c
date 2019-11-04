@@ -1,6 +1,5 @@
 #include <fcntl.h>
 #include <linux/dm-ioctl.h>
-#include <string.h>
 #include <sys/ioctl.h>
 
 #include "dm-util.h"

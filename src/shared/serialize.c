@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <fcntl.h>
-#include <sys/mman.h>
 
 #include "alloc-util.h"
 #include "env-util.h"

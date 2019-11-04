@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <sys/statfs.h>
 
 #include "btrfs-util.h"
 #include "label.h"

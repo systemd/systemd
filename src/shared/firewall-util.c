@@ -5,13 +5,11 @@
  */
 #define _NET_IF_H 1
 
-#include <alloca.h>
 #include <arpa/inet.h>
 #include <endian.h>
 #include <errno.h>
 #include <stddef.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <net/if.h>
 #ifndef IFNAMSIZ
 #define IFNAMSIZ 16

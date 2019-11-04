@@ -8,7 +8,6 @@
 #include <netinet/if_ether.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "sd-ipv4acd.h"
 

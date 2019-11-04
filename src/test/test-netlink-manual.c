@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <arpa/inet.h>
-#include <libkmod.h>
 #include <linux/if_tunnel.h>
 #include <linux/ip.h>
 #include <sys/types.h>

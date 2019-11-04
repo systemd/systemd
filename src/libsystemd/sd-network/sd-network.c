@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <poll.h>
-#include <string.h>
 #include <sys/inotify.h>
 
 #include "sd-network.h"

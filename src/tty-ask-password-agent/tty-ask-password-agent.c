@@ -7,13 +7,10 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <poll.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <string.h>
 #include <sys/prctl.h>
 #include <sys/signalfd.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/un.h>

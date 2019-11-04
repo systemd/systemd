@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "env-file.h"
 #include "env-util.h"

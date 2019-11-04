@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/random.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #if USE_SYS_RANDOM_H
 #  include <sys/random.h>

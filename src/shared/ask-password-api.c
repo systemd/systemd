@@ -5,16 +5,13 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <poll.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/inotify.h>
 #include <sys/signalfd.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/uio.h>

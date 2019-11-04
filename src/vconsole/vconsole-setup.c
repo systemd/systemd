@@ -10,7 +10,6 @@
 #include <linux/tiocl.h>
 #include <linux/vt.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sysexits.h>

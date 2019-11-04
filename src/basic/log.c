@@ -6,14 +6,10 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/signalfd.h>
-#include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/un.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "sd-messages.h"

@@ -1,20 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <blkid.h>
 #include <ctype.h>
-#include <dirent.h>
 #include <errno.h>
 #include <ftw.h>
 #include <getopt.h>
 #include <limits.h>
 #include <linux/magic.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/statfs.h>
 #include <unistd.h>
 
 #include "sd-id128.h"

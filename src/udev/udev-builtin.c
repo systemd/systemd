@@ -2,7 +2,6 @@
 
 #include <getopt.h>
 #include <stdio.h>
-#include <string.h>
 
 #include "device-private.h"
 #include "device-util.h"

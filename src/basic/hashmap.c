@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "fileio.h"

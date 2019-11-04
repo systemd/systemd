@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <grp.h>
-#include <pwd.h>
 #include <stdio.h>
 #include <sys/prctl.h>
 #include <sys/types.h>

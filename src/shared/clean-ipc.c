@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <mqueue.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <string.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/sem.h>

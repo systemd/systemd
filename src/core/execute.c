@@ -2,20 +2,13 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <glob.h>
-#include <grp.h>
 #include <poll.h>
-#include <signal.h>
-#include <string.h>
-#include <sys/capability.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/shm.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>

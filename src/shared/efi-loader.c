@@ -181,7 +181,6 @@ int efi_set_reboot_to_firmware(bool value) {
         return 0;
 }
 
-
 static ssize_t utf16_size(const uint16_t *s, size_t buf_len_bytes) {
         size_t l = 0;
 
