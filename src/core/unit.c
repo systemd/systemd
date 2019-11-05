@@ -4269,6 +4269,9 @@ int unit_patch_contexts(Unit *u) {
                 if (ec->protect_kernel_modules)
                         ec->capability_bounding_set &= ~(UINT64_C(1) << CAP_SYS_MODULE);
 
+                if (ec->protect_kernel_logs)
+                        ec->capability_bounding_set &= ~(UINT64_C(1) << CAP_SYSLOG);
+
                 if (ec->dynamic_user) {
                         if (!ec->user) {
                                 r = user_from_unit_name(u, &ec->user);

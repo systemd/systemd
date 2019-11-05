@@ -1396,6 +1396,7 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 exec_context_restrict_namespaces_set(c) ||
                 c->protect_kernel_tunables ||
                 c->protect_kernel_modules ||
+                c->protect_kernel_logs ||
                 c->private_devices ||
                 context_has_syscall_filters(c) ||
                 !set_isempty(c->syscall_archs) ||
@@ -1540,6 +1541,19 @@ static int apply_protect_kernel_modules(const Unit *u, const ExecContext *c) {
                 return 0;
 
         return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM), false);
+}
+
+static int apply_protect_kernel_logs(const Unit *u, const ExecContext *c) {
+        assert(u);
+        assert(c);
+
+        if (!c->protect_kernel_logs)
+                return 0;
+
+        if (skip_seccomp_unavailable(u, "ProtectKernelLogs="))
+                return 0;
+
+        return seccomp_protect_syslog();
 }
 
 static int apply_private_devices(const Unit *u, const ExecContext *c) {
@@ -3679,6 +3693,12 @@ static int exec_child(
                         return log_unit_error_errno(unit, r, "Failed to apply module loading restrictions: %m");
                 }
 
+                r = apply_protect_kernel_logs(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return log_unit_error_errno(unit, r, "Failed to apply kernel log restrictions: %m");
+                }
+
                 r = apply_private_devices(unit, context);
                 if (r < 0) {
                         *exit_status = EXIT_SECCOMP;
@@ -4318,6 +4338,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sPrivateDevices: %s\n"
                 "%sProtectKernelTunables: %s\n"
                 "%sProtectKernelModules: %s\n"
+                "%sProtectKernelLogs: %s\n"
                 "%sProtectControlGroups: %s\n"
                 "%sPrivateNetwork: %s\n"
                 "%sPrivateUsers: %s\n"
@@ -4338,6 +4359,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->private_devices),
                 prefix, yes_no(c->protect_kernel_tunables),
                 prefix, yes_no(c->protect_kernel_modules),
+                prefix, yes_no(c->protect_kernel_logs),
                 prefix, yes_no(c->protect_control_groups),
                 prefix, yes_no(c->private_network),
                 prefix, yes_no(c->private_users),
