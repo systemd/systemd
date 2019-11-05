@@ -388,7 +388,8 @@ int config_parse_route_prefix_lifetime(const char *unit,
 
         r = parse_sec(rvalue, &usec);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Roure lifetime is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Route lifetime is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
