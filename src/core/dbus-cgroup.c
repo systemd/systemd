@@ -698,9 +698,10 @@ static int bus_cgroup_set_boolean(
                         /* Prepare to chop off suffix */                \
                         assert_se(endswith(name, "Scale"));             \
                                                                         \
-                        unit_write_settingf(u, flags, name, "%.*s=%" PRIu32 "%%", \
+                        uint32_t scaled = DIV_ROUND_UP((uint64_t) raw * 1000, (uint64_t) UINT32_MAX); \
+                        unit_write_settingf(u, flags, name, "%.*s=%" PRIu32 ".%" PRIu32 "%%", \
                                             (int)(strlen(name) - strlen("Scale")), name, \
-                                            (uint32_t) (DIV_ROUND_UP((uint64_t) raw * 100U, (uint64_t) UINT32_MAX))); \
+                                            scaled / 10, scaled % 10);  \
                 }                                                       \
                                                                         \
                 return 1;                                               \
@@ -778,8 +779,9 @@ static int bus_cgroup_set_tasks_max_scale(
                 *p = (TasksMax) { v, UINT32_MAX };
                 unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
 
-                unit_write_settingf(u, flags, name, "%s=%" PRIu32 "%%", "TasksMax",
-                                    (uint32_t) (DIV_ROUND_UP((uint64_t) v * 100U, (uint64_t) UINT32_MAX)));
+                uint32_t scaled = DIV_ROUND_UP((uint64_t) v * 100U, (uint64_t) UINT32_MAX);
+                unit_write_settingf(u, flags, name, "%s=%" PRIu32 ".%" PRIu32 "%%", "TasksMax",
+                                    scaled / 10, scaled % 10);
         }
 
         return 1;
