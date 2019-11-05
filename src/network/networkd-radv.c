@@ -31,7 +31,7 @@ void prefix_free(Prefix *prefix) {
         }
 
         network_config_section_free(prefix->section);
-        prefix->radv_prefix = sd_radv_prefix_unref(prefix->radv_prefix);
+        sd_radv_prefix_unref(prefix->radv_prefix);
 
         free(prefix);
 }
@@ -131,6 +131,7 @@ void route_prefix_free(Prefix *prefix) {
         }
 
         network_config_section_free(prefix->section);
+        sd_radv_route_prefix_unref(prefix->radv_route_prefix);
 
         free(prefix);
 }
@@ -330,7 +331,7 @@ int config_parse_route_prefix(const char *unit,
                               void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
+        _cleanup_(route_prefix_free_or_set_invalidp) Prefix *p = NULL;
         uint8_t prefixlen = 64;
         union in_addr_union in6addr;
         int r;
@@ -372,7 +373,7 @@ int config_parse_route_prefix_lifetime(const char *unit,
                                        void *data,
                                        void *userdata) {
         Network *network = userdata;
-        _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
+        _cleanup_(route_prefix_free_or_set_invalidp) Prefix *p = NULL;
         usec_t usec;
         int r;
 
@@ -388,7 +389,8 @@ int config_parse_route_prefix_lifetime(const char *unit,
 
         r = parse_sec(rvalue, &usec);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Roure lifetime is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Route lifetime is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
