@@ -1,0 +1,7 @@
+[Unit]
+Description=Test CAP_SYSLOG for ProtectKernelLogs=no
+
+[Service]
+ProtectKernelLogs=no
+ExecStart=/bin/sh -x -c 'capsh --print | grep cap_syslog'
+Type=oneshot
