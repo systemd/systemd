@@ -127,7 +127,7 @@ void cgroup_context_init(CGroupContext *c) {
                 .blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID,
                 .startup_blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID,
 
-                .tasks_max = (TasksMax) { CGROUP_LIMIT_MAX },
+                .tasks_max = TASKS_MAX_UNSET,
         };
 }
 

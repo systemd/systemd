@@ -619,7 +619,7 @@ static int bus_cgroup_set_boolean(
                                                                         \
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
                         *p = v;                                         \
-                        unit_invalidate_cgroup(u, (mask));              \
+                        unit_invalidate_cgroup(u, mask);                \
                                                                         \
                         if (v == (val))                                 \
                                 unit_write_settingf(u, flags, name,     \
@@ -656,7 +656,7 @@ static int bus_cgroup_set_boolean(
                                                                         \
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
                         *p = v;                                         \
-                        unit_invalidate_cgroup(u, (mask));              \
+                        unit_invalidate_cgroup(u, mask);                \
                                                                         \
                         if (v == CGROUP_LIMIT_MAX)                      \
                                 unit_write_settingf(u, flags, name,     \
@@ -695,7 +695,7 @@ static int bus_cgroup_set_boolean(
                         const char *e;                                  \
                                                                         \
                         *p = v;                                         \
-                        unit_invalidate_cgroup(u, (mask));              \
+                        unit_invalidate_cgroup(u, mask);                \
                                                                         \
                         /* Chop off suffix */                           \
                         assert_se(e = endswith(name, "Scale"));         \

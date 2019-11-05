@@ -16,8 +16,10 @@ typedef struct TasksMax {
         uint64_t scale;
 } TasksMax;
 
+#define TASKS_MAX_UNSET ((TasksMax) { UINT64_MAX })
+
 static inline bool tasks_max_isset(const TasksMax *tasks_max) {
-        return tasks_max->value != CGROUP_LIMIT_MAX || tasks_max->scale != 0;
+        return tasks_max->value != UINT64_MAX || tasks_max->scale != 0;
 }
 
 uint64_t tasks_max_scale(const TasksMax *tasks_max);

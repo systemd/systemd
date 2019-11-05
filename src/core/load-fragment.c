@@ -3263,17 +3263,18 @@ int config_parse_tasks_max(
                 void *data,
                 void *userdata) {
 
+        const Unit *u = userdata;
         TasksMax *tasks_max = data;
         uint64_t v;
         int r;
 
         if (isempty(rvalue)) {
-                *tasks_max = (TasksMax) {};
+                *tasks_max = u ? u->manager->default_tasks_max : TASKS_MAX_UNSET;
                 return 0;
         }
 
         if (streq(rvalue, "infinity")) {
-                *tasks_max = (TasksMax) { CGROUP_LIMIT_MAX };
+                *tasks_max = TASKS_MAX_UNSET;
                 return 0;
         }
 
