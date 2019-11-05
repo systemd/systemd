@@ -1281,6 +1281,38 @@ int seccomp_protect_sysctl(void) {
         return 0;
 }
 
+int seccomp_protect_syslog(void) {
+        uint32_t arch;
+        int r;
+
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
+                if (r < 0)
+                        return r;
+
+                r = seccomp_rule_add_exact(
+                                seccomp,
+                                SCMP_ACT_ERRNO(EPERM),
+                                SCMP_SYS(syslog),
+                                0);
+
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to add syslog() rule for architecture %s, skipping %m", seccomp_arch_to_string(arch));
+                        continue;
+                }
+
+                r = seccomp_load(seccomp);
+                if (ERRNO_IS_SECCOMP_FATAL(r))
+                        return r;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to install syslog protection rules for architecture %s, skipping %m", seccomp_arch_to_string(arch));
+        }
+
+        return 0;
+}
+
 int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
         uint32_t arch;
         int r;

@@ -818,8 +818,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                        "PrivateDevices", "PrivateNetwork", "PrivateUsers", "PrivateMounts",
                        "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute", "RestrictRealtime",
                        "DynamicUser", "RemoveIPC", "ProtectKernelTunables", "ProtectKernelModules",
-                       "ProtectControlGroups", "MountAPIVFS", "CPUSchedulingResetOnFork", "LockPersonality",
-                       "ProtectHostname", "RestrictSUIDSGID"))
+                       "ProtectKernelLogs", "ProtectControlGroups", "MountAPIVFS", "CPUSchedulingResetOnFork",
+                       "LockPersonality", "ProtectHostname", "RestrictSUIDSGID"))
                 return bus_append_parse_boolean(m, field, eq);
 
         if (STR_IN_SET(field,
