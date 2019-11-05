@@ -762,7 +762,7 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                 .default_timer_accuracy_usec = USEC_PER_MINUTE,
                 .default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
                 .default_tasks_accounting = true,
-                .default_tasks_max = UINT64_MAX,
+                .default_tasks_max = (TasksMax) { UINT64_MAX },
                 .default_timeout_start_usec = DEFAULT_TIMEOUT_USEC,
                 .default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC,
                 .default_restart_usec = DEFAULT_RESTART_USEC,

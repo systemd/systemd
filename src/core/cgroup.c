@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "limits-util.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -35,6 +36,13 @@
  * problems we downgrade to LOG_DEBUG. This is supposed to be nice to container managers and kernels which want to mask
  * out specific attributes from us. */
 #define LOG_LEVEL_CGROUP_WRITE(r) (IN_SET(abs(r), ENOENT, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING)
+
+uint64_t tasks_max_scale(const TasksMax *tasks_max) {
+        if (tasks_max->scale == 0)
+                return tasks_max->value;
+
+        return system_tasks_max_scale(tasks_max->value, tasks_max->scale);
+}
 
 bool manager_owns_host_root_cgroup(Manager *m) {
         assert(m);
@@ -119,7 +127,7 @@ void cgroup_context_init(CGroupContext *c) {
                 .blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID,
                 .startup_blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID,
 
-                .tasks_max = CGROUP_LIMIT_MAX,
+                .tasks_max = (TasksMax) { CGROUP_LIMIT_MAX },
         };
 }
 
@@ -449,7 +457,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->memory_max, format_cgroup_memory_limit_comparison(cdd, sizeof(cdd), u, "MemoryMax"),
                 prefix, c->memory_swap_max, format_cgroup_memory_limit_comparison(cde, sizeof(cde), u, "MemorySwapMax"),
                 prefix, c->memory_limit,
-                prefix, c->tasks_max,
+                prefix, tasks_max_scale(&c->tasks_max),
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, strempty(disable_controllers_str),
                 prefix, yes_no(c->delegate));
@@ -1518,9 +1526,9 @@ static void cgroup_context_apply(
                          * which is desirable so that there's an official way to release control of the sysctl from
                          * systemd: set the limit to unbounded and reload. */
 
-                        if (c->tasks_max != CGROUP_LIMIT_MAX) {
+                        if (tasks_max_isset(&c->tasks_max)) {
                                 u->manager->sysctl_pid_max_changed = true;
-                                r = procfs_tasks_set_limit(c->tasks_max);
+                                r = procfs_tasks_set_limit(tasks_max_scale(&c->tasks_max));
                         } else if (u->manager->sysctl_pid_max_changed)
                                 r = procfs_tasks_set_limit(TASKS_MAX);
                         else
@@ -1533,10 +1541,10 @@ static void cgroup_context_apply(
                 /* The attribute itself is not available on the host root cgroup, and in the container case we want to
                  * leave it for the container manager. */
                 if (!is_local_root) {
-                        if (c->tasks_max != CGROUP_LIMIT_MAX) {
-                                char buf[DECIMAL_STR_MAX(uint64_t) + 2];
+                        if (tasks_max_isset(&c->tasks_max)) {
+                                char buf[DECIMAL_STR_MAX(uint64_t) + 1];
 
-                                sprintf(buf, "%" PRIu64 "\n", c->tasks_max);
+                                xsprintf(buf, "%" PRIu64 "\n", tasks_max_scale(&c->tasks_max));
                                 (void) set_attribute_and_warn(u, "pids", "pids.max", buf);
                         } else
                                 (void) set_attribute_and_warn(u, "pids", "pids.max", "max\n");
@@ -1613,7 +1621,7 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
                 mask |= CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES;
 
         if (c->tasks_accounting ||
-            c->tasks_max != CGROUP_LIMIT_MAX)
+            tasks_max_isset(&c->tasks_max))
                 mask |= CGROUP_MASK_PIDS;
 
         return CGROUP_MASK_EXTEND_JOINED(mask);

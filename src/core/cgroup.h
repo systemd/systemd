@@ -9,6 +9,19 @@
 #include "list.h"
 #include "time-util.h"
 
+typedef struct TasksMax {
+        /* If scale == 0, just use value; otherwise, value / scale.
+         * See tasks_max_scale(). */
+        uint64_t value;
+        uint64_t scale;
+} TasksMax;
+
+static inline bool tasks_max_isset(const TasksMax *tasks_max) {
+        return tasks_max->value != CGROUP_LIMIT_MAX || tasks_max->scale != 0;
+}
+
+uint64_t tasks_max_scale(const TasksMax *tasks_max);
+
 typedef struct CGroupContext CGroupContext;
 typedef struct CGroupDeviceAllow CGroupDeviceAllow;
 typedef struct CGroupIODeviceWeight CGroupIODeviceWeight;
@@ -136,7 +149,7 @@ struct CGroupContext {
         LIST_HEAD(CGroupDeviceAllow, device_allow);
 
         /* Common */
-        uint64_t tasks_max;
+        TasksMax tasks_max;
 };
 
 /* Used when querying IP accounting data */
