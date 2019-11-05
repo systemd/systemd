@@ -31,7 +31,7 @@ void prefix_free(Prefix *prefix) {
         }
 
         network_config_section_free(prefix->section);
-        prefix->radv_prefix = sd_radv_prefix_unref(prefix->radv_prefix);
+        sd_radv_prefix_unref(prefix->radv_prefix);
 
         free(prefix);
 }
@@ -131,6 +131,7 @@ void route_prefix_free(Prefix *prefix) {
         }
 
         network_config_section_free(prefix->section);
+        sd_radv_route_prefix_unref(prefix->radv_route_prefix);
 
         free(prefix);
 }
