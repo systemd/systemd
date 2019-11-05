@@ -11,6 +11,7 @@
 #include "networkd-util.h"
 
 typedef struct Prefix Prefix;
+typedef struct RoutePrefix RoutePrefix;
 
 typedef enum RADVPrefixDelegation {
         RADV_PREFIX_DELEGATION_NONE,
@@ -26,21 +27,26 @@ struct Prefix {
         NetworkConfigSection *section;
 
         sd_radv_prefix *radv_prefix;
-        sd_radv_route_prefix *radv_route_prefix;
 
         LIST_FIELDS(Prefix, prefixes);
-        LIST_FIELDS(Prefix, route_prefixes);
 };
 
-int prefix_new(Prefix **ret);
+struct RoutePrefix {
+        Network *network;
+        NetworkConfigSection *section;
+
+        sd_radv_route_prefix *radv_route_prefix;
+
+        LIST_FIELDS(RoutePrefix, route_prefixes);
+};
+
 void prefix_free(Prefix *prefix);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(Prefix, prefix_free);
 
-int route_prefix_new(Prefix **ret);
-void route_prefix_free(Prefix *prefix);
+void route_prefix_free(RoutePrefix *prefix);
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(Prefix, route_prefix_free);
+DEFINE_NETWORK_SECTION_FUNCTIONS(RoutePrefix, route_prefix_free);
 
 int radv_emit_dns(Link *link);
 int radv_configure(Link *link);
