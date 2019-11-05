@@ -506,7 +506,10 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
 
                 initialized = sd_device_get_is_initialized(device);
                 if (initialized < 0) {
-                        r = initialized;
+                        if (initialized != -ENOENT)
+                                /* this is necessarily racey, so ignore missing devices */
+                                r = initialized;
+
                         continue;
                 }
 
@@ -639,7 +642,9 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
 
                 k = sd_device_get_subsystem(device, &subsystem);
                 if (k < 0) {
-                        r = k;
+                        if (k != -ENOENT)
+                                /* this is necessarily racy, so ignore missing devices */
+                                r = k;
                         continue;
                 }
 
