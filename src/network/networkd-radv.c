@@ -36,7 +36,7 @@ void prefix_free(Prefix *prefix) {
         free(prefix);
 }
 
-int prefix_new(Prefix **ret) {
+static int prefix_new(Prefix **ret) {
         _cleanup_(prefix_freep) Prefix *prefix = NULL;
 
         prefix = new0(Prefix, 1);
@@ -101,10 +101,10 @@ static int prefix_new_static(Network *network, const char *filename,
         return 0;
 }
 
-int route_prefix_new(Prefix **ret) {
-        _cleanup_(prefix_freep) Prefix *prefix = NULL;
+static int route_prefix_new(RoutePrefix **ret) {
+        _cleanup_(route_prefix_freep) RoutePrefix *prefix = NULL;
 
-        prefix = new0(Prefix, 1);
+        prefix = new0(RoutePrefix, 1);
         if (!prefix)
                 return -ENOMEM;
 
@@ -116,12 +116,12 @@ int route_prefix_new(Prefix **ret) {
         return 0;
 }
 
-void route_prefix_free(Prefix *prefix) {
+void route_prefix_free(RoutePrefix *prefix) {
         if (!prefix)
                 return;
 
         if (prefix->network) {
-                LIST_REMOVE(prefixes, prefix->network->static_route_prefixes, prefix);
+                LIST_REMOVE(route_prefixes, prefix->network->static_route_prefixes, prefix);
                 assert(prefix->network->n_static_route_prefixes > 0);
                 prefix->network->n_static_route_prefixes--;
 
@@ -137,9 +137,9 @@ void route_prefix_free(Prefix *prefix) {
 }
 
 static int route_prefix_new_static(Network *network, const char *filename,
-                                   unsigned section_line, Prefix **ret) {
+                                   unsigned section_line, RoutePrefix **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
-        _cleanup_(prefix_freep) Prefix *prefix = NULL;
+        _cleanup_(route_prefix_freep) RoutePrefix *prefix = NULL;
         int r;
 
         assert(network);
@@ -166,7 +166,7 @@ static int route_prefix_new_static(Network *network, const char *filename,
                 return r;
 
         prefix->network = network;
-        LIST_APPEND(prefixes, network->static_route_prefixes, prefix);
+        LIST_APPEND(route_prefixes, network->static_route_prefixes, prefix);
         network->n_static_route_prefixes++;
 
         if (filename) {
@@ -331,7 +331,7 @@ int config_parse_route_prefix(const char *unit,
                               void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_prefix_free_or_set_invalidp) Prefix *p = NULL;
+        _cleanup_(route_prefix_free_or_set_invalidp) RoutePrefix *p = NULL;
         uint8_t prefixlen = 64;
         union in_addr_union in6addr;
         int r;
@@ -373,7 +373,7 @@ int config_parse_route_prefix_lifetime(const char *unit,
                                        void *data,
                                        void *userdata) {
         Network *network = userdata;
-        _cleanup_(route_prefix_free_or_set_invalidp) Prefix *p = NULL;
+        _cleanup_(route_prefix_free_or_set_invalidp) RoutePrefix *p = NULL;
         usec_t usec;
         int r;
 
@@ -549,8 +549,9 @@ int radv_emit_dns(Link *link) {
 }
 
 int radv_configure(Link *link) {
-        int r;
+        RoutePrefix *q;
         Prefix *p;
+        int r;
 
         assert(link);
         assert(link->network);
@@ -609,8 +610,8 @@ int radv_configure(Link *link) {
                                 return r;
                 }
 
-                LIST_FOREACH(prefixes, p, link->network->static_route_prefixes) {
-                        r = sd_radv_add_route_prefix(link->radv, p->radv_route_prefix, false);
+                LIST_FOREACH(route_prefixes, q, link->network->static_route_prefixes) {
+                        r = sd_radv_add_route_prefix(link->radv, q->radv_route_prefix, false);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)

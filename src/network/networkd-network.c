@@ -145,6 +145,7 @@ static int network_resolve_stacked_netdevs(Network *network) {
 }
 
 int network_verify(Network *network) {
+        RoutePrefix *route_prefix, *route_prefix_next;
         RoutingPolicyRule *rule, *rule_next;
         Neighbor *neighbor, *neighbor_next;
         AddressLabel *label, *label_next;
@@ -304,9 +305,9 @@ int network_verify(Network *network) {
                 if (section_is_invalid(prefix->section))
                         prefix_free(prefix);
 
-        LIST_FOREACH_SAFE(prefixes, prefix, prefix_next, network->static_route_prefixes)
-                if (section_is_invalid(prefix->section))
-                        route_prefix_free(prefix);
+        LIST_FOREACH_SAFE(route_prefixes, route_prefix, route_prefix_next, network->static_route_prefixes)
+                if (section_is_invalid(route_prefix->section))
+                        route_prefix_free(route_prefix);
 
         LIST_FOREACH_SAFE(rules, rule, rule_next, network->rules)
                 if (routing_policy_rule_section_verify(rule) < 0)
@@ -577,10 +578,11 @@ failure:
 
 static Network *network_free(Network *network) {
         IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
+        RoutePrefix *route_prefix;
         RoutingPolicyRule *rule;
+        AddressLabel *label;
         FdbEntry *fdb_entry;
         Neighbor *neighbor;
-        AddressLabel *label;
         Address *address;
         NextHop *nexthop;
         Prefix *prefix;
@@ -654,8 +656,8 @@ static Network *network_free(Network *network) {
         while ((prefix = network->static_prefixes))
                 prefix_free(prefix);
 
-        while ((prefix = network->static_route_prefixes))
-                route_prefix_free(prefix);
+        while ((route_prefix = network->static_route_prefixes))
+                route_prefix_free(route_prefix);
 
         while ((rule = network->rules))
                 routing_policy_rule_free(rule);
