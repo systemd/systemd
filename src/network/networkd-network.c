@@ -306,7 +306,7 @@ int network_verify(Network *network) {
 
         LIST_FOREACH_SAFE(prefixes, prefix, prefix_next, network->static_route_prefixes)
                 if (section_is_invalid(prefix->section))
-                        prefix_free(prefix);
+                        route_prefix_free(prefix);
 
         LIST_FOREACH_SAFE(rules, rule, rule_next, network->rules)
                 if (routing_policy_rule_section_verify(rule) < 0)
