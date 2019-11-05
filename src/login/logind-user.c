@@ -849,7 +849,6 @@ int config_parse_compat_user_tasks_max(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         log_syntax(unit, LOG_NOTICE, filename, line, 0,
                    "Support for option %s= has been removed.",
