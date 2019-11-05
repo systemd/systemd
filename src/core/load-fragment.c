@@ -3263,36 +3263,39 @@ int config_parse_tasks_max(
                 void *data,
                 void *userdata) {
 
-        uint64_t *tasks_max = data, v;
         const Unit *u = userdata;
+        TasksMax *tasks_max = data;
+        uint64_t v;
         int r;
 
         if (isempty(rvalue)) {
-                *tasks_max = u ? u->manager->default_tasks_max : UINT64_MAX;
+                *tasks_max = u ? u->manager->default_tasks_max : TASKS_MAX_UNSET;
                 return 0;
         }
 
         if (streq(rvalue, "infinity")) {
-                *tasks_max = CGROUP_LIMIT_MAX;
+                *tasks_max = TASKS_MAX_UNSET;
                 return 0;
         }
 
         r = parse_permille(rvalue);
-        if (r < 0) {
+        if (r >= 0)
+                *tasks_max = (TasksMax) { r, 1000U }; /* r‰ */
+        else {
                 r = safe_atou64(rvalue, &v);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Invalid maximum tasks value '%s', ignoring: %m", rvalue);
                         return 0;
                 }
-        } else
-                v = system_tasks_max_scale(r, 1000U);
 
-        if (v <= 0 || v >= UINT64_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Maximum tasks value '%s' out of range, ignoring.", rvalue);
-                return 0;
+                if (v <= 0 || v >= UINT64_MAX) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Maximum tasks value '%s' out of range, ignoring.", rvalue);
+                        return 0;
+                }
+
+                *tasks_max = (TasksMax) { v };
         }
 
-        *tasks_max = v;
         return 0;
 }
 

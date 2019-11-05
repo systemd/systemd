@@ -99,7 +99,6 @@ uint64_t physical_memory_scale(uint64_t v, uint64_t max) {
 }
 
 uint64_t system_tasks_max(void) {
-
         uint64_t a = TASKS_MAX, b = TASKS_MAX;
         _cleanup_free_ char *root = NULL;
         int r;
