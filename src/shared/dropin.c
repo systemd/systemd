@@ -19,7 +19,6 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "set.h"
-#include "special.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -164,6 +163,10 @@ static int unit_file_find_dirs(
                         return r;
         }
 
+        /* Return early for top level drop-ins. */
+        if (unit_type_from_string(name) >= 0)
+                return 0;
+
         /* Let's see if there's a "-" prefix for this unit name. If so, let's invoke ourselves for it. This will then
          * recursively do the same for all our prefixes. i.e. this means given "foo-bar-waldo.service" we'll also
          * search "foo-bar-.service" and "foo-.service".
@@ -244,16 +247,15 @@ int unit_file_find_dropin_paths(
                                                name);
         }
 
-        /* Special drop in for -.service. Add this first as it's the most generic
+        /* Special top level drop in for "<unit type>.<suffix>". Add this first as it's the most generic
          * and should be able to be overridden by more specific drop-ins. */
-        if (type == UNIT_SERVICE)
-                STRV_FOREACH(p, lookup_path)
-                        (void) unit_file_find_dirs(original_root,
-                                                   unit_path_cache,
-                                                   *p,
-                                                   SPECIAL_ROOT_SERVICE,
-                                                   dir_suffix,
-                                                   &dirs);
+        STRV_FOREACH(p, lookup_path)
+                (void) unit_file_find_dirs(original_root,
+                                           unit_path_cache,
+                                           *p,
+                                           unit_type_to_string(type),
+                                           dir_suffix,
+                                           &dirs);
 
         SET_FOREACH(name, names, i)
                 STRV_FOREACH(p, lookup_path)
