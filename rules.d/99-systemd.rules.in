@@ -15,7 +15,6 @@ KERNEL=="vport*", TAG+="systemd"
 SUBSYSTEM=="ubi", TAG+="systemd"
 
 SUBSYSTEM=="block", TAG+="systemd"
-SUBSYSTEM=="block", ACTION=="add", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"
 
 # Ignore encrypted devices with no identified superblock on it, since
 # we are probably still calling mke2fs or mkswap on it.
