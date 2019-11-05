@@ -282,6 +282,8 @@ option('gnutls', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'gnutls support')
 option('openssl', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'openssl support')
+option('p11kit', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'p11kit support')
 option('elfutils', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'elfutils support')
 option('zlib', type : 'combo', choices : ['auto', 'true', 'false'],
