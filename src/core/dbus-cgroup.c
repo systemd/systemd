@@ -692,16 +692,14 @@ static int bus_cgroup_set_boolean(
                                                  "Value specified in %s is out of range", name); \
                                                                         \
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
-                        const char *e;                                  \
-                                                                        \
                         *p = v;                                         \
                         unit_invalidate_cgroup(u, mask);                \
                                                                         \
-                        /* Chop off suffix */                           \
-                        assert_se(e = endswith(name, "Scale"));         \
-                        name = strndupa(name, e - name);                \
+                        /* Prepare to chop off suffix */                \
+                        assert_se(endswith(name, "Scale"));             \
                                                                         \
-                        unit_write_settingf(u, flags, name, "%s=%" PRIu32 "%%", name, \
+                        unit_write_settingf(u, flags, name, "%.*s=%" PRIu32 "%%", \
+                                            (int)(strlen(name) - strlen("Scale")), name, \
                                             (uint32_t) (DIV_ROUND_UP((uint64_t) raw * 100U, (uint64_t) UINT32_MAX))); \
                 }                                                       \
                                                                         \
