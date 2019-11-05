@@ -4180,7 +4180,6 @@ static void print_status_info(
         const char *path;
         char **t, **t2;
         int r;
-        bool is_timer;
 
         assert(i);
 
@@ -4292,28 +4291,19 @@ static void print_status_info(
         else
                 printf("\n");
 
-        is_timer = endswith(i->id, ".timer");
+        STRV_FOREACH(t, i->triggered_by) {
+                UnitActiveState state = _UNIT_ACTIVE_STATE_INVALID;
 
-        if (!is_timer && !strv_isempty(i->triggered_by)) {
-                char **trigger;
-                bool first = true;
+                (void) get_state_one_unit(bus, *t, &state);
+                format_active_state(unit_active_state_to_string(state), &on, &off);
 
-                printf("TriggeredBy:");
-                STRV_FOREACH(trigger, i->triggered_by) {
-                        UnitActiveState state = _UNIT_ACTIVE_STATE_INVALID;
-
-                        (void) get_state_one_unit(bus, *trigger, &state);
-                        format_active_state(unit_active_state_to_string(state), &on, &off);
-                        if (first) {
-                                printf(" %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
-                                first = false;
-                        } else {
-                                printf("             %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
-                        }
-                }
+                printf("%s %s%s%s %s\n",
+                       t == i->triggered_by ? "TriggeredBy:" : "            ",
+                       on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off,
+                       *t);
         }
 
-        if (is_timer) {
+        if (endswith(i->id, ".timer")) {
                 char tstamp1[FORMAT_TIMESTAMP_RELATIVE_MAX],
                      tstamp2[FORMAT_TIMESTAMP_MAX];
                 const char *next_rel_time, *next_time;
@@ -4334,23 +4324,16 @@ static void print_status_info(
                         printf("n/a\n");
         }
 
-        if (!strv_isempty(i->triggers)) {
-                char **trigger;
-                bool first = true;
+        STRV_FOREACH(t, i->triggers) {
+                UnitActiveState state = _UNIT_ACTIVE_STATE_INVALID;
 
-                printf("   Triggers:");
-                STRV_FOREACH(trigger, i->triggers) {
-                        UnitActiveState state = _UNIT_ACTIVE_STATE_INVALID;
+                (void) get_state_one_unit(bus, *t, &state);
+                format_active_state(unit_active_state_to_string(state), &on, &off);
 
-                        (void) get_state_one_unit(bus, *trigger, &state);
-                        format_active_state(unit_active_state_to_string(state), &on, &off);
-                        if (first) {
-                                printf(" %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
-                                first = false;
-                        } else {
-                                printf("             %s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, *trigger);
-                        }
-                }
+                printf("%s %s%s%s %s\n",
+                       t == i->triggers ? "   Triggers:" : "            ",
+                       on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off,
+                       *t);
         }
 
         if (!i->condition_result && i->condition_timestamp > 0) {
