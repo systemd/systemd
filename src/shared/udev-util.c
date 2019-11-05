@@ -23,9 +23,10 @@ int udev_parse_config_full(
                 unsigned *ret_children_max,
                 usec_t *ret_exec_delay_usec,
                 usec_t *ret_event_timeout_usec,
-                ResolveNameTiming *ret_resolve_name_timing) {
+                ResolveNameTiming *ret_resolve_name_timing,
+                usec_t *ret_exit_timeout_usec) {
 
-        _cleanup_free_ char *log_val = NULL, *children_max = NULL, *exec_delay = NULL, *event_timeout = NULL, *resolve_names = NULL;
+        _cleanup_free_ char *log_val = NULL, *children_max = NULL, *exec_delay = NULL, *event_timeout = NULL, *resolve_names = NULL, *exit_timeout = NULL;
         int r;
 
         r = parse_env_file(NULL, "/etc/udev/udev.conf",
@@ -33,6 +34,7 @@ int udev_parse_config_full(
                            "children_max", &children_max,
                            "exec_delay", &exec_delay,
                            "event_timeout", &event_timeout,
+                           "exit_timeout", &exit_timeout,
                            "resolve_names", &resolve_names);
         if (r == -ENOENT)
                 return 0;
@@ -80,6 +82,13 @@ int udev_parse_config_full(
                 if (r < 0)
                         log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
                                    "failed to set parse event_timeout=%s, ignoring: %m", event_timeout);
+        }
+
+        if (ret_exit_timeout_usec && exit_timeout) {
+                r = parse_sec(exit_timeout, ret_exit_timeout_usec);
+                if (r < 0)
+                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
+                                   "failed to set parse exit_timeout=%s, ignoring: %m", exit_timeout);
         }
 
         if (ret_resolve_name_timing && resolve_names) {

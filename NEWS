@@ -2,6 +2,13 @@ systemd System and Service Manager
 
 CHANGES WITH 244 in spe:
 
+        * udev: add support for the option -x/--exit-timeout in systemd-udevd,
+          as well as for the kernel command line parameter udev.exit-timeout.
+          Increasing this timeout may be helpful to avoid "modprobe" being
+          killed prematurely if drivers take a long time for probing devices
+          during initrd processing, after the root FS is found and mounted.
+          The default for the exit timeout is unchanged (30s).
+
         * Support for the cpuset cgroups v2 controller has been added.
           Processes may be restricted to specific CPUs using the new
           AllowedCPUs= setting, and to specific memory NUMA nodes using the new

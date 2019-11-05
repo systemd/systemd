@@ -36,6 +36,7 @@
       <arg><option>--children-max=</option></arg>
       <arg><option>--exec-delay=</option></arg>
       <arg><option>--event-timeout=</option></arg>
+      <arg><option>--exit-timeout=</option></arg>
       <arg><option>--resolve-names=early|late|never</option></arg>
       <arg><option>--version</option></arg>
       <arg><option>--help</option></arg>
@@ -106,6 +107,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-x=</option></term>
+        <term><option>--exit-timeout=</option></term>
+        <listitem>
+          <para>Set the number of seconds to wait for events to finish when systemd-udevd
+          receives an exit signal. After this time, all remaining events will be
+          terminated. The default is 30 seconds.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-N=</option></term>
         <term><option>--resolve-names=</option></term>
         <listitem>
@@ -158,6 +169,18 @@
           <para>Wait for events to finish up to the given number
           of seconds. This option might be useful if events are
           terminated due to kernel drivers taking too long to initialize.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>udev.exit_timeout=</varname></term>
+        <term><varname>rd.udev.exit_timeout=</varname></term>
+        <listitem>
+          <para>Wait for events to finish up to the given number
+          of seconds after systemd-udevd has received an exit signal.
+          After the timeout expires, all remaining events will be terminated.
+          This option might be useful if uevent workers get killed
+          when systemd-udevd exits during initrd processing, due to
+          kernel drivers taking a long time to probe devices.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

@@ -289,6 +289,7 @@ rd.systemd.unit=
 rd.systemd.verity=
 rd.udev.children_max=
 rd.udev.event_timeout=
+rd.udev.exit_timeout=
 rd.udev.exec_delay=
 rd.udev.log_priority=
 resume=

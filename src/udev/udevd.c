@@ -74,6 +74,7 @@ static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
 static unsigned arg_children_max = 0;
 static usec_t arg_exec_delay_usec = 0;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
+static usec_t arg_exit_timeout_usec = 30 * USEC_PER_SEC;
 
 typedef struct Manager {
         sd_event *event;
@@ -787,7 +788,6 @@ static int on_exit_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
 static void manager_exit(Manager *manager) {
         uint64_t usec;
-        int r;
 
         assert(manager);
 
@@ -811,10 +811,10 @@ static void manager_exit(Manager *manager) {
 
         assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
 
-        r = sd_event_add_time(manager->event, NULL, CLOCK_MONOTONIC,
-                              usec + 30 * USEC_PER_SEC, USEC_PER_SEC, on_exit_timeout, manager);
-        if (r < 0)
-                return;
+        if (arg_exit_timeout_usec != USEC_INFINITY)
+                (void)sd_event_add_time(manager->event, NULL, CLOCK_MONOTONIC,
+                                        usec + arg_exit_timeout_usec, USEC_PER_SEC,
+                                        on_exit_timeout, manager);
 }
 
 /* reload requested, HUP signal received, rules changed, builtin changed */
@@ -1450,6 +1450,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = parse_sec(value, &arg_event_timeout_usec);
 
+        } else if (proc_cmdline_key_streq(key, "udev.exit_timeout")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = parse_sec(value, &arg_exit_timeout_usec);
+
         } else if (proc_cmdline_key_streq(key, "udev.children_max")) {
 
                 if (proc_cmdline_value_missing(key, value))
@@ -1507,6 +1514,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "children-max",       required_argument,      NULL, 'c' },
                 { "exec-delay",         required_argument,      NULL, 'e' },
                 { "event-timeout",      required_argument,      NULL, 't' },
+                { "exit-timeout",       required_argument,      NULL, 'x' },
                 { "resolve-names",      required_argument,      NULL, 'N' },
                 { "help",               no_argument,            NULL, 'h' },
                 { "version",            no_argument,            NULL, 'V' },
@@ -1518,7 +1526,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "c:de:Dt:N:hV", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "c:de:Dt:x:N:hV", options, NULL)) >= 0) {
                 switch (c) {
 
                 case 'd':
@@ -1538,6 +1546,11 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_sec(optarg, &arg_event_timeout_usec);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse --event-timeout= value '%s', ignoring: %m", optarg);
+                        break;
+                case 'x':
+                        r = parse_sec(optarg, &arg_exit_timeout_usec);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse --exit-timeout= value '%s', ignoring: %m", optarg);
                         break;
                 case 'D':
                         arg_debug = true;
@@ -1727,7 +1740,7 @@ static int run(int argc, char *argv[]) {
 
         log_set_target(LOG_TARGET_AUTO);
         log_open();
-        udev_parse_config_full(&arg_children_max, &arg_exec_delay_usec, &arg_event_timeout_usec, &arg_resolve_name_timing);
+        udev_parse_config_full(&arg_children_max, &arg_exec_delay_usec, &arg_event_timeout_usec, &arg_resolve_name_timing, &arg_exit_timeout_usec);
         log_parse_environment();
         log_open(); /* Done again to update after reading configuration. */
 
