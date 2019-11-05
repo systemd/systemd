@@ -353,24 +353,6 @@ static void test_unit_name_build(void) {
         free(t);
 }
 
-static void test_service_unit_name_is_valid(void) {
-        assert_se(service_unit_name_is_valid("foo.service"));
-        assert_se(service_unit_name_is_valid("foo@bar.service"));
-        assert_se(service_unit_name_is_valid("foo@bar@bar.service"));
-        assert_se(service_unit_name_is_valid("--.service"));
-        assert_se(service_unit_name_is_valid(".-.service"));
-        assert_se(service_unit_name_is_valid("-foo-bar.service"));
-        assert_se(service_unit_name_is_valid("-foo-bar-.service"));
-        assert_se(service_unit_name_is_valid("foo-bar-.service"));
-
-        assert_se(!service_unit_name_is_valid("-.service"));
-        assert_se(!service_unit_name_is_valid(""));
-        assert_se(!service_unit_name_is_valid("foo.slice"));
-        assert_se(!service_unit_name_is_valid("@.service"));
-        assert_se(!service_unit_name_is_valid("@bar.service"));
-        assert_se(!service_unit_name_is_valid("-@.service"));
-}
-
 static void test_slice_name_is_valid(void) {
         assert_se( slice_name_is_valid(SPECIAL_ROOT_SLICE));
         assert_se( slice_name_is_valid("foo.slice"));
@@ -856,7 +838,6 @@ int main(int argc, char* argv[]) {
         test_unit_prefix_is_valid();
         test_unit_name_change_suffix();
         test_unit_name_build();
-        test_service_unit_name_is_valid();
         test_slice_name_is_valid();
         test_build_subslice();
         test_build_parent_slice();

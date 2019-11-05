@@ -192,9 +192,14 @@
     over unit files wherever located. Multiple drop-in files with different names are applied in
     lexicographic order, regardless of which of the directories they reside in.</para>
 
-    <para>Service units also support a top-level drop-in directory for modifying the settings of all service units. See
-    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details.</para>
+    <para>Units also support a top-level drop-in with <filename><replaceable>type</replaceable>.d/</filename>,
+    where <replaceable>type</replaceable> may be e.g. <literal>service</literal> or <literal>socket</literal>,
+    that allows altering or adding to the settings of all corresponding unit files on the system.
+    The formatting and precedence of applying drop-in configurations follow what is defined above.
+    Configurations in <filename><replaceable>type</replaceable>.d/</filename> have the lowest precedence
+    compared to settings in the name specific override directories. So the contents of
+    <filename>foo-.service.d/10-override.conf</filename> would override
+    <filename>service.d/10-override.conf</filename>.</para>
 
     <!-- Note that we do not document .include here, as we consider it mostly obsolete, and want
          people to use .d/ drop-ins instead. -->

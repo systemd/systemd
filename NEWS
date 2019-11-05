@@ -33,10 +33,9 @@ CHANGES WITH 244 in spe:
           during early boot, so in practice this change has very little
           effect.)
 
-        * The special -.service.d dropin directory may be used to add
-          configuration that affects all services. The "-.service" service name
-          is now disallowed (though hopefully no one would use such a service
-          name. -.mount gives us enough grief.)
+        * Unit files now support top level dropin directories of the form
+          <unit_type>.d/ (e.g. service.d/) that may be used to add configuration
+          that affects all corresponding unit files.
 
         * The RuntimeMaxSec= setting is now supported by scopes, not just
           .service units. This is particularly useful for PAM sessions which
