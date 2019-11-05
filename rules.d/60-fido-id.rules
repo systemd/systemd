@@ -4,4 +4,10 @@ ACTION=="remove", GOTO="fido_id_end"
 
 SUBSYSTEM=="hidraw", IMPORT{program}="fido_id"
 
+# Tag any form of security token as such
+ENV{ID_SECURITY_TOKEN}=="1", TAG+="security-device"
+
+# Tag any CCID device (i.e. Smartcard Reader) as security token
+SUBSYSTEM=="usb", ATTR{bInterfaceClass}=="0b", TAG+="security-device"
+
 LABEL="fido_id_end"
