@@ -654,6 +654,9 @@ static Network *network_free(Network *network) {
         while ((prefix = network->static_prefixes))
                 prefix_free(prefix);
 
+        while ((prefix = network->static_route_prefixes))
+                route_prefix_free(prefix);
+
         while ((rule = network->rules))
                 routing_policy_rule_free(rule);
 
@@ -664,6 +667,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->neighbors_by_section);
         hashmap_free(network->address_labels_by_section);
         hashmap_free(network->prefixes_by_section);
+        hashmap_free(network->route_prefixes_by_section);
         hashmap_free(network->rules_by_section);
         ordered_hashmap_free_with_destructor(network->qdiscs_by_section, qdisc_free);
 
