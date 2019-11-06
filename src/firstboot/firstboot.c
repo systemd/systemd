@@ -164,6 +164,18 @@ static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned perc
         return 0;
 }
 
+static bool locale_is_valid_func(const char *name) {
+        int r;
+
+        r = locale_is_valid(name);
+        if (r == -ENOMEM) {
+                (void) log_oom();
+                return false;
+        }
+
+        return r > 0;
+}
+
 static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*is_valid)(const char *name), char **ret) {
         int r;
 
@@ -250,7 +262,7 @@ static int prompt_locale(void) {
                 print_welcome();
 
                 r = prompt_loop("Please enter system locale name or number",
-                                locales, 60, locale_is_valid, &arg_locale);
+                                locales, 60, locale_is_valid_func, &arg_locale);
                 if (r < 0)
                         return r;
 
@@ -258,7 +270,7 @@ static int prompt_locale(void) {
                         return 0;
 
                 r = prompt_loop("Please enter system message locale name or number",
-                                locales, 60, locale_is_valid, &arg_locale_messages);
+                                locales, 60, locale_is_valid_func, &arg_locale_messages);
                 if (r < 0)
                         return r;
 
@@ -801,7 +813,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOCALE:
-                        if (!locale_is_valid(optarg))
+                        r = locale_is_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine whether locale %s is valid: %m", optarg);
+                        else if (r == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Locale %s is not valid.", optarg);
 
@@ -812,7 +827,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOCALE_MESSAGES:
-                        if (!locale_is_valid(optarg))
+                        r = locale_is_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine whether locale %s is valid: %m", optarg);
+                        else if (r == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Locale %s is not valid.", optarg);
 

@@ -24,16 +24,11 @@ static void test_get_locales(void) {
 static void test_locale_is_valid(void) {
         log_info("/* %s */", __func__);
 
-        assert_se(locale_is_valid("en_EN.utf8"));
-        assert_se(locale_is_valid("fr_FR.utf8"));
-        assert_se(locale_is_valid("fr_FR@euro"));
-        assert_se(locale_is_valid("fi_FI"));
         assert_se(locale_is_valid("POSIX"));
         assert_se(locale_is_valid("C"));
 
         assert_se(!locale_is_valid(""));
-        assert_se(!locale_is_valid("/usr/bin/foo"));
-        assert_se(!locale_is_valid("\x01gar\x02 bage\x03"));
+        assert_se(!locale_is_valid("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"));
 }
 
 static void test_keymaps(void) {

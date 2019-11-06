@@ -234,24 +234,24 @@ int get_locales(char ***ret) {
         return 0;
 }
 
-bool locale_is_valid(const char *name) {
+int locale_is_valid(const char *name) {
+        _cleanup_(freelocalep) locale_t loc = (locale_t) 0;
 
         if (isempty(name))
-                return false;
+                return 0;
 
         if (strlen(name) >= 128)
-                return false;
+                return 0;
 
-        if (!utf8_is_valid(name))
-                return false;
+        loc = newlocale(LC_ALL_MASK, name, 0);
+        if (loc == (locale_t) 0) {
+                if (errno == ENOMEM)
+                        return -ENOMEM;
+                else
+                        return 0;
+        }
 
-        if (!filename_is_valid(name))
-                return false;
-
-        if (!string_is_safe(name))
-                return false;
-
-        return true;
+        return 1;
 }
 
 void init_gettext(void) {
