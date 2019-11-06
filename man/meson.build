@@ -68,7 +68,6 @@ foreach tuple : xsltproc.found() ? manpages : []
                 foreach htmlalias : htmlaliases
                         link = custom_target(
                                 htmlalias,
-                                input : p2,
                                 output : htmlalias,
                                 command : ['ln', '-fs', html, '@OUTPUT@'])
                         if want_html
