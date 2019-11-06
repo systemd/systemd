@@ -1927,6 +1927,8 @@ static VOID config_entry_add_linux(
                         continue;
                 if (StriCmp(f->FileName + len - 4, L".efi") != 0)
                         continue;
+                if (StrnCmp(f->FileName, L"auto-", 5) == 0)
+                        continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
                 err = pe_file_locate_sections(linux_dir, f->FileName, sections, addrs, offs, szs);
