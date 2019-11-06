@@ -32,7 +32,7 @@ enum loader_type {
 };
 
 typedef struct {
-        CHAR16 *id; /* The identifier for this entry (note that this id is not necessarily unique though!) */
+        CHAR16 *id; /* The unique identifier for this entry */
         CHAR16 *title_show;
         CHAR16 *title;
         CHAR16 *version;
@@ -1310,7 +1310,6 @@ static VOID config_entry_add_from_file(
         CHAR8 *line;
         UINTN pos = 0;
         CHAR8 *key, *value;
-        UINTN len;
         EFI_STATUS err;
         EFI_FILE_HANDLE handle;
         _cleanup_freepool_ CHAR16 *initrd = NULL;
@@ -1431,10 +1430,6 @@ static VOID config_entry_add_from_file(
 
         entry->device = device;
         entry->id = StrDuplicate(file);
-        len = StrLen(entry->id);
-        /* remove ".conf" */
-        if (len > 5)
-                entry->id[len - 5] = '\0';
         StrLwr(entry->id);
 
         config_add_entry(config, entry);
