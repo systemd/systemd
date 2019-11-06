@@ -556,21 +556,43 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Wants=</varname></term>
+
+        <listitem><para>Configures requirement dependencies on other units. This option may be specified more
+        than once or multiple space-separated units may be specified in one option in which case dependencies
+        for all listed names will be created. Dependencies of this type may also be configured outside of the
+        unit configuration file by adding a symlink to a <filename>.wants/</filename> directory accompanying
+        the unit file. For details, see above.</para>
+
+        <para>Units listed in this option will be started if the configuring unit is. However, if the listed
+        units fail to start or cannot be added to the transaction, this has no impact on the validity of the
+        transaction as a whole, and this unit will still be started. This is the recommended way to hook
+        start-up of one unit to the start-up of another unit.</para>
+
+        <para>Note that requirement dependencies do not influence the order in which services are started or
+        stopped. This has to be configured independently with the <varname>After=</varname> or
+        <varname>Before=</varname> options. If unit <filename>foo.service</filename> pulls in unit
+        <filename>bar.service</filename> as configured with <varname>Wants=</varname> and no ordering is
+        configured with <varname>After=</varname> or <varname>Before=</varname>, then both units will be
+        started simultaneously and without any delay between them if <filename>foo.service</filename> is
+        activated.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Requires=</varname></term>
 
-        <listitem><para>Configures requirement dependencies on other units. If this unit gets activated, the units
-        listed here will be activated as well. If one of the other units fails to activate, and an ordering dependency
-        <varname>After=</varname> on the failing unit is set, this unit will not be started. Besides, with or without
-        specifying <varname>After=</varname>, this unit will be stopped if one of the other units is explicitly
-        stopped. This option may be specified more than once or multiple space-separated units may be
-        specified in one option in which case requirement dependencies for all listed names will be created. Note that
-        requirement dependencies do not influence the order in which services are started or stopped.  This has to be
-        configured independently with the <varname>After=</varname> or <varname>Before=</varname> options. If a unit
-        <filename>foo.service</filename> requires a unit <filename>bar.service</filename> as configured with
-        <varname>Requires=</varname> and no ordering is configured with <varname>After=</varname> or
-        <varname>Before=</varname>, then both units will be started simultaneously and without any delay between them
-        if <filename>foo.service</filename> is activated. Often, it is a better choice to use <varname>Wants=</varname>
-        instead of <varname>Requires=</varname> in order to achieve a system that is more robust when dealing with
+        <listitem><para>Similar to <varname>Wants=</varname>, but declares a stronger
+        dependency. Dependencies of this type may also be configured by adding a symlink to a
+        <filename>.requires/</filename> directory accompanying the unit file.</para>
+
+        <para>If this unit gets activated, the units listed will be activated as well. If one of
+        the other units fails to activate, and an ordering dependency <varname>After=</varname> on the
+        failing unit is set, this unit will not be started. Besides, with or without specifying
+        <varname>After=</varname>, this unit will be stopped if one of the other units is explicitly
+        stopped.</para>
+
+        <para>Often, it is a better choice to use <varname>Wants=</varname> instead of
+        <varname>Requires=</varname> in order to achieve a system that is more robust when dealing with
         failing services.</para>
 
         <para>Note that this dependency type does not imply that the other unit always has to be in active state when
@@ -580,11 +602,7 @@
         example, a service process may decide to exit cleanly, or a device may be unplugged by the user), which is not
         propagated to units having a <varname>Requires=</varname> dependency. Use the <varname>BindsTo=</varname>
         dependency type together with <varname>After=</varname> to ensure that a unit may never be in active state
-        without a specific other unit also in active state (see below).</para>
-
-        <para>Note that dependencies of this type may also be configured outside of the unit configuration file by
-        adding a symlink to a <filename>.requires/</filename> directory accompanying the unit file. For details, see
-        above.</para></listitem>
+        without a specific other unit also in active state (see below).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -603,24 +621,6 @@
         <filename>b.service</filename>. <varname>RequisiteOf=</varname>
         dependency cannot be specified directly.</para>
         </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Wants=</varname></term>
-
-        <listitem><para>A weaker version of
-        <varname>Requires=</varname>. Units listed in this option will
-        be started if the configuring unit is. However, if the listed
-        units fail to start or cannot be added to the transaction,
-        this has no impact on the validity of the transaction as a
-        whole. This is the recommended way to hook start-up of one
-        unit to the start-up of another unit.</para>
-
-        <para>Note that dependencies of this type may also be
-        configured outside of the unit configuration file by adding
-        symlinks to a <filename>.wants/</filename> directory
-        accompanying the unit file. For details, see
-        above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -679,7 +679,7 @@
         <varname>After=</varname> and <varname>Before=</varname>
         ordering dependencies.</para>
 
-        <para>If a unit A that conflicts with a unit B is scheduled to
+        <para>If unit A that conflicts with unit B is scheduled to
         be started at the same time as B, the transaction will either
         fail (in case both are required parts of the transaction) or be
         modified to be fixed (in case one or both jobs are not a
@@ -693,29 +693,36 @@
         <term><varname>Before=</varname></term>
         <term><varname>After=</varname></term>
 
-        <listitem><para>These two settings expect a space-separated list of unit names. They configure ordering
-        dependencies between units. If a unit <filename>foo.service</filename> contains a setting
-        <option>Before=bar.service</option> and both units are being started, <filename>bar.service</filename>'s
-        start-up is delayed until <filename>foo.service</filename> has finished starting up.  Note that this setting is
-        independent of and orthogonal to the requirement dependencies as configured by <varname>Requires=</varname>,
-        <varname>Wants=</varname> or <varname>BindsTo=</varname>. It is a common pattern to include a unit name in both
-        the <varname>After=</varname> and <varname>Requires=</varname> options, in which case the unit listed will be
-        started before the unit that is configured with these options. This option may be specified more than once, in
-        which case ordering dependencies for all listed names are created. <varname>After=</varname> is the inverse of
-        <varname>Before=</varname>, i.e. while <varname>After=</varname> ensures that the configured unit is started
-        after the listed unit finished starting up, <varname>Before=</varname> ensures the opposite, that the
-        configured unit is fully started up before the listed unit is started. Note that when two units with an
-        ordering dependency between them are shut down, the inverse of the start-up order is applied. i.e. if a unit is
-        configured with <varname>After=</varname> on another unit, the former is stopped before the latter if both are
-        shut down. Given two units with any ordering dependency between them, if one unit is shut down and the other is
-        started up, the shutdown is ordered before the start-up. It doesn't matter if the ordering dependency is
-        <varname>After=</varname> or <varname>Before=</varname>, in this case. It also doesn't matter which of the two
-        is shut down, as long as one is shut down and the other is started up. The shutdown is ordered before the
-        start-up in all cases. If two units have no ordering dependencies between them, they are shut down or started
-        up simultaneously, and no ordering takes place. It depends on the unit type when precisely a unit has finished
-        starting up. Most importantly, for service units start-up is considered completed for the purpose of
-        <varname>Before=</varname>/<varname>After=</varname> when all its configured start-up commands have been
-        invoked and they either failed or reported start-up success.</para></listitem>
+        <listitem><para>These two settings expect a space-separated list of unit names. They may be specified
+        more than once, in which case dependencies for all listed names are created.</para>
+
+        <para>Those two setttings configure ordering dependencies between units. If unit
+        <filename>foo.service</filename> contains the setting <option>Before=bar.service</option> and both
+        units are being started, <filename>bar.service</filename>'s start-up is delayed until
+        <filename>foo.service</filename> has finished starting up. <varname>After=</varname> is the inverse
+        of <varname>Before=</varname>, i.e. while <varname>Before=</varname> ensures that the configured unit
+        is started before the listed unit begins starting up, <varname>After=</varname> ensures the opposite,
+        that the listed unit is fully started up before the configured unit is started.</para>
+
+        <para>When two units with an ordering dependency between them are shut down, the inverse of the
+        start-up order is applied. i.e. if a unit is configured with <varname>After=</varname> on another
+        unit, the former is stopped before the latter if both are shut down. Given two units with any
+        ordering dependency between them, if one unit is shut down and the other is started up, the shutdown
+        is ordered before the start-up. It doesn't matter if the ordering dependency is
+        <varname>After=</varname> or <varname>Before=</varname>, in this case. It also doesn't matter which
+        of the two is shut down, as long as one is shut down and the other is started up; the shutdown is
+        ordered before the start-up in all cases. If two units have no ordering dependencies between them,
+        they are shut down or started up simultaneously, and no ordering takes place. It depends on the unit
+        type when precisely a unit has finished starting up. Most importantly, for service units start-up is
+        considered completed for the purpose of <varname>Before=</varname>/<varname>After=</varname> when all
+        its configured start-up commands have been invoked and they either failed or reported start-up
+        success.</para>
+
+        <para>Note that those settings are independent of and orthogonal to the requirement dependencies as
+        configured by <varname>Requires=</varname>, <varname>Wants=</varname>, <varname>Requisite=</varname>,
+        or <varname>BindsTo=</varname>. It is a common pattern to include a unit name in both the
+        <varname>After=</varname> and <varname>Wants=</varname> options, in which case the unit listed will
+        be started before the unit that is configured with these options.</para></listitem>
       </varlistentry>
 
       <varlistentry>
