@@ -592,6 +592,12 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnUMAX:pnVisionBook10WiPlus:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
+# Wortmann
+#########################################
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnWortmann_AG:pnTERRA_PAD_1061:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, -1
+
+#########################################
 # Yours
 #########################################
 sensor:modalias:acpi:BMA250E*:dmi:*:svnYOURS:pnY8W81:*
