@@ -668,13 +668,16 @@
       <varlistentry>
         <term><varname>Conflicts=</varname></term>
 
-        <listitem><para>A space-separated list of unit names.
-        Configures negative requirement dependencies. If a unit has a
-        <varname>Conflicts=</varname> setting on another unit,
-        starting the former will stop the latter and vice versa. Note
-        that this setting is independent of and orthogonal to the
-        <varname>After=</varname> and <varname>Before=</varname>
-        ordering dependencies.</para>
+        <listitem><para>A space-separated list of unit names. Configures negative requirement
+        dependencies. If a unit has a <varname>Conflicts=</varname> setting on another unit, starting the
+        former will stop the latter and vice versa.</para>
+
+        <para>Note that this setting does not imply an ordering dependency, similarly to the
+        <varname>Wants=</varname> and <varname>Requires=</varname> dependencies described above. This means
+        that to ensure that the conflicting unit is stopped before the other unit is started, an
+        <varname>After=</varname> or <varname>Before=</varname> dependency must be declared. It doesn't
+        matter which of the two ordering dependencies is used, because stop jobs are always ordered before
+        start jobs, see the discussion in <varname>Before=</varname>/<varname>After=</varname> below.</para>
 
         <para>If unit A that conflicts with unit B is scheduled to
         be started at the same time as B, the transaction will either
