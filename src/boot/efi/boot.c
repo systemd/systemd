@@ -1965,12 +1965,11 @@ static VOID config_entry_add_linux(
                 }
 
                 if (os_name && os_id && (os_version || os_build)) {
-                        _cleanup_freepool_ CHAR16 *conf = NULL, *path = NULL;
+                        _cleanup_freepool_ CHAR16 *path = NULL;
 
-                        conf = PoolPrint(L"%s-%s", os_id, os_version ? : os_build);
                         path = PoolPrint(L"\\EFI\\Linux\\%s", f->FileName);
 
-                        entry = config_entry_add_loader(config, device, LOADER_LINUX, conf, 'l', os_name, path);
+                        entry = config_entry_add_loader(config, device, LOADER_LINUX, f->FileName, 'l', os_name, path);
 
                         FreePool(content);
                         content = NULL;
