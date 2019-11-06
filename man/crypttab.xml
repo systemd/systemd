@@ -208,11 +208,11 @@
         <term><option>nofail</option></term>
 
         <listitem><para>This device will not be a hard dependency of
-        <filename>cryptsetup.target</filename>. It'll be still pulled in and started, but the system
+        <filename>cryptsetup.target</filename>. It'll still be pulled in and started, but the system
         will not wait for the device to show up and be unlocked, and boot will not fail if this is
         unsuccessful. Note that other units that depend on the unlocked device may still fail. In
-        particular, if the device is used for a mount point, the mount point itself is also needs to
-        have <option>noauto</option> option, or the boot will fail if the device is not unlocked
+        particular, if the device is used for a mount point, the mount point itself also needs to
+        have the <option>nofail</option> option, or the boot will fail if the device is not unlocked
         successfully.</para></listitem>
       </varlistentry>
 
