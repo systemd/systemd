@@ -183,7 +183,7 @@
       <varlistentry>
         <term><varname>$XDG_SESSION_TYPE</varname></term>
 
-        <listitem><para>The session type. This may be used instead of <varname>session=</varname> on the module parameter
+        <listitem><para>The session type. This may be used instead of <varname>type=</varname> on the module parameter
         line, and is usually preferred.</para></listitem>
       </varlistentry>
 
