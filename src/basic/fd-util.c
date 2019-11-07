@@ -15,6 +15,7 @@
 #include "io-util.h"
 #include "macro.h"
 #include "memfd-util.h"
+#include "missing_fcntl.h"
 #include "missing_syscall.h"
 #include "parse-util.h"
 #include "path-util.h"
