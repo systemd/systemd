@@ -117,7 +117,7 @@
     block is left:</para>
 
     <programlisting>{
-  __attribute__((cleanup(sd_bus_unrefp)) sd_bus *bus = NULL;
+  __attribute__((cleanup(sd_bus_unrefp))) sd_bus *bus = NULL;
   int r;
   …
   r = sd_bus_default(&amp;bus);
