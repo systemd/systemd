@@ -14,6 +14,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "macro.h"
+#include "missing_fcntl.h"
 #include "missing_fs.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
