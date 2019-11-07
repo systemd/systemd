@@ -1141,6 +1141,32 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
         return 0;
 }
 
+int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
+        Iterator i;
+        void *v;
+        Unit *trigger;
+        int r;
+
+        assert(tr);
+        assert(u);
+
+        HASHMAP_FOREACH_KEY(v, trigger, u->dependencies[UNIT_TRIGGERED_BY], i) {
+                /* No need to stop inactive jobs */
+                if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(trigger)) && !trigger->job)
+                        continue;
+
+                /* Is there already something listed for this? */
+                if (hashmap_get(tr->jobs, trigger))
+                        continue;
+
+                r = transaction_add_job_and_dependencies(tr, JOB_STOP, trigger, tr->anchor_job, true, false, false, false, NULL);
+                if (r < 0)
+                        log_unit_warning_errno(u, r, "Cannot add triggered by job, ignoring: %m");
+        }
+
+        return 0;
+}
+
 Transaction *transaction_new(bool irreversible) {
         Transaction *tr;
 
