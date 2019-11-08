@@ -955,6 +955,78 @@ static void cgroup_apply_firewall(Unit *u) {
         (void) bpf_firewall_install(u);
 }
 
+static int cgroup_apply_devices(Unit *u) {
+        _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
+        const char *path;
+        CGroupContext *c;
+        CGroupDeviceAllow *a;
+        int r;
+
+        assert_se(c = unit_get_cgroup_context(u));
+        assert_se(path = u->cgroup_path);
+
+        if (cg_all_unified() > 0) {
+                r = bpf_devices_cgroup_init(&prog, c->device_policy, c->device_allow);
+                if (r < 0)
+                        return log_unit_warning_errno(u, r, "Failed to initialize device control bpf program: %m");
+
+        } else {
+                /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore
+                 * EINVAL here. */
+
+                if (c->device_allow || c->device_policy != CGROUP_DEVICE_POLICY_AUTO)
+                        r = cg_set_attribute("devices", path, "devices.deny", "a");
+                else
+                        r = cg_set_attribute("devices", path, "devices.allow", "a");
+                if (r < 0)
+                        log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to reset devices.allow/devices.deny: %m");
+        }
+
+        if (c->device_policy == CGROUP_DEVICE_POLICY_CLOSED ||
+            (c->device_policy == CGROUP_DEVICE_POLICY_AUTO && c->device_allow))
+                (void) bpf_devices_whitelist_static(prog, path);
+
+        LIST_FOREACH(device_allow, a, c->device_allow) {
+                char acc[4], *val;
+                unsigned k = 0;
+
+                if (a->r)
+                        acc[k++] = 'r';
+                if (a->w)
+                        acc[k++] = 'w';
+                if (a->m)
+                        acc[k++] = 'm';
+
+                if (k == 0)
+                        continue;
+
+                acc[k++] = 0;
+
+                if (path_startswith(a->path, "/dev/"))
+                        (void) bpf_devices_whitelist_device(prog, path, a->path, acc);
+                else if ((val = startswith(a->path, "block-")))
+                        (void) bpf_devices_whitelist_major(prog, path, val, 'b', acc);
+                else if ((val = startswith(a->path, "char-")))
+                        (void) bpf_devices_whitelist_major(prog, path, val, 'c', acc);
+                else
+                        log_unit_debug(u, "Ignoring device '%s' while writing cgroup attribute.", a->path);
+        }
+
+        r = bpf_devices_apply_policy(u, prog, c->device_policy, c->device_allow);
+        if (r < 0) {
+                static bool warned = false;
+
+                log_full_errno(warned ? LOG_DEBUG : LOG_WARNING, r,
+                               "Unit %s configures device ACL, but the local system doesn't seem to support the BPF-based device controller.\n"
+                               "Proceeding WITHOUT applying ACL (all devices will be accessible)!\n"
+                               "(This warning is only shown for the first loaded unit using device ACL.)", u->id);
+
+                warned = true;
+        }
+        return r;
+}
+
 static void cgroup_context_apply(
                 Unit *u,
                 CGroupMask apply_mask,
@@ -1231,69 +1303,8 @@ static void cgroup_context_apply(
         /* On cgroup v2 we can apply BPF everywhere. On cgroup v1 we apply it everywhere except for the root of
          * containers, where we leave this to the manager */
         if ((apply_mask & (CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES)) &&
-            (is_host_root || cg_all_unified() > 0 || !is_local_root)) {
-                _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
-                CGroupDeviceAllow *a;
-
-                if (cg_all_unified() > 0) {
-                        r = bpf_devices_cgroup_init(&prog, c->device_policy, c->device_allow);
-                        if (r < 0)
-                                log_unit_warning_errno(u, r, "Failed to initialize device control bpf program: %m");
-                } else {
-                        /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore EINVAL
-                         * here. */
-
-                        if (c->device_allow || c->device_policy != CGROUP_DEVICE_POLICY_AUTO)
-                                r = cg_set_attribute("devices", path, "devices.deny", "a");
-                        else
-                                r = cg_set_attribute("devices", path, "devices.allow", "a");
-                        if (r < 0)
-                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
-                                              "Failed to reset devices.allow/devices.deny: %m");
-                }
-
-                if (c->device_policy == CGROUP_DEVICE_POLICY_CLOSED ||
-                    (c->device_policy == CGROUP_DEVICE_POLICY_AUTO && c->device_allow))
-                        (void) bpf_devices_whitelist_static(prog, path);
-
-                LIST_FOREACH(device_allow, a, c->device_allow) {
-                        char acc[4], *val;
-                        unsigned k = 0;
-
-                        if (a->r)
-                                acc[k++] = 'r';
-                        if (a->w)
-                                acc[k++] = 'w';
-                        if (a->m)
-                                acc[k++] = 'm';
-
-                        if (k == 0)
-                                continue;
-
-                        acc[k++] = 0;
-
-                        if (path_startswith(a->path, "/dev/"))
-                                (void) bpf_devices_whitelist_device(prog, path, a->path, acc);
-                        else if ((val = startswith(a->path, "block-")))
-                                (void) bpf_devices_whitelist_major(prog, path, val, 'b', acc);
-                        else if ((val = startswith(a->path, "char-")))
-                                (void) bpf_devices_whitelist_major(prog, path, val, 'c', acc);
-                        else
-                                log_unit_debug(u, "Ignoring device '%s' while writing cgroup attribute.", a->path);
-                }
-
-                r = bpf_devices_apply_policy(u, prog, c->device_policy, c->device_allow);
-                if (r < 0) {
-                        static bool warned = false;
-
-                        log_full_errno(warned ? LOG_DEBUG : LOG_WARNING, r,
-                                 "Unit %s configures device ACL, but the local system doesn't seem to support the BPF-based device controller.\n"
-                                 "Proceeding WITHOUT applying ACL (all devices will be accessible)!\n"
-                                 "(This warning is only shown for the first loaded unit using device ACL.)", u->id);
-
-                        warned = true;
-                }
-        }
+            (is_host_root || cg_all_unified() > 0 || !is_local_root))
+                (void) cgroup_apply_devices(u);
 
         if (apply_mask & CGROUP_MASK_PIDS) {
 
