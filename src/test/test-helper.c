@@ -28,8 +28,3 @@ int enter_cgroup_subroot(void) {
 
         return cg_attach_everywhere(supported, cgroup_subroot, 0, NULL, NULL);
 }
-
-/* https://docs.travis-ci.com/user/environment-variables#default-environment-variables */
-bool is_run_on_travis_ci(void) {
-        return streq_ptr(getenv("TRAVIS"), "true");
-}

@@ -37,6 +37,11 @@ static int cld_dumped_to_killed(int code) {
         return code == CLD_DUMPED ? CLD_KILLED : code;
 }
 
+_unused_ static bool is_run_on_travis_ci(void) {
+        /* https://docs.travis-ci.com/user/environment-variables#default-environment-variables */
+        return streq_ptr(getenv("TRAVIS"), "true");
+}
+
 static void wait_for_service_finish(Manager *m, Unit *unit) {
         Service *service = NULL;
         usec_t ts;
