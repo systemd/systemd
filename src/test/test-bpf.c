@@ -42,7 +42,7 @@ static bool can_memlock(void) {
 }
 
 int main(int argc, char *argv[]) {
-        struct bpf_insn exit_insn[] = {
+        const struct bpf_insn exit_insn[] = {
                 BPF_MOV64_IMM(BPF_REG_0, 0), /* drop */
                 BPF_EXIT_INSN()
         };

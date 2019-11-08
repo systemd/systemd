@@ -133,7 +133,7 @@ static int add_instructions_for_ip_any(
 
         assert(p);
 
-        struct bpf_insn insn[] = {
+        const struct bpf_insn insn[] = {
                 BPF_ALU32_IMM(BPF_OR, BPF_REG_8, verdict),
         };
 
@@ -151,7 +151,7 @@ static int bpf_firewall_compile_bpf(
                 bool ip_allow_any,
                 bool ip_deny_any) {
 
-        struct bpf_insn pre_insn[] = {
+        const struct bpf_insn pre_insn[] = {
                 /*
                  * When the eBPF program is entered, R1 contains the address of the skb.
                  * However, R1-R5 are scratch registers that are not preserved when calling
@@ -187,7 +187,7 @@ static int bpf_firewall_compile_bpf(
          * This means that if both ACCESS_DENIED and ACCESS_ALLOWED are set, the packet
          * is allowed to pass.
          */
-        struct bpf_insn post_insn[] = {
+        const struct bpf_insn post_insn[] = {
                 BPF_MOV64_IMM(BPF_REG_0, 1),
                 BPF_JMP_IMM(BPF_JNE, BPF_REG_8, ACCESS_DENIED, 1),
                 BPF_MOV64_IMM(BPF_REG_0, 0),
@@ -322,7 +322,7 @@ static int bpf_firewall_compile_bpf(
                  * Exit from the eBPF program, R0 contains the verdict.
                  * 0 means the packet is denied, 1 means the packet may pass.
                  */
-                struct bpf_insn insn[] = {
+                const struct bpf_insn insn[] = {
                         BPF_EXIT_INSN()
                 };
 
@@ -796,7 +796,7 @@ int bpf_firewall_reset_accounting(int map_fd) {
 static int bpf_firewall_unsupported_reason = 0;
 
 int bpf_firewall_supported(void) {
-        struct bpf_insn trivial[] = {
+        const struct bpf_insn trivial[] = {
                 BPF_MOV64_IMM(BPF_REG_0, 1),
                 BPF_EXIT_INSN()
         };

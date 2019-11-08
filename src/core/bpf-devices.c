@@ -30,15 +30,6 @@ static int bpf_access_type(const char *acc) {
 }
 
 int cgroup_bpf_whitelist_device(BPFProgram *prog, int type, int major, int minor, const char *acc) {
-        struct bpf_insn insn[] = {
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 6), /* compare device type */
-                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
-                BPF_ALU32_IMM(BPF_AND, BPF_REG_1, 0),
-                BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 3), /* compare access type */
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_4, major, 2), /* compare major */
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_5, minor, 1), /* compare minor */
-                BPF_JMP_A(PASS_JUMP_OFF), /* jump to PASS */
-        };
         int r, access;
 
         assert(prog);
@@ -48,7 +39,15 @@ int cgroup_bpf_whitelist_device(BPFProgram *prog, int type, int major, int minor
         if (access <= 0)
                 return -EINVAL;
 
-        insn[2].imm = access;
+        const struct bpf_insn insn[] = {
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 6), /* compare device type */
+                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
+                BPF_ALU32_IMM(BPF_AND, BPF_REG_1, access),
+                BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 3), /* compare access type */
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_4, major, 2), /* compare major */
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_5, minor, 1), /* compare minor */
+                BPF_JMP_A(PASS_JUMP_OFF), /* jump to PASS */
+        };
 
         r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
         if (r < 0)
@@ -58,14 +57,6 @@ int cgroup_bpf_whitelist_device(BPFProgram *prog, int type, int major, int minor
 }
 
 int cgroup_bpf_whitelist_major(BPFProgram *prog, int type, int major, const char *acc) {
-        struct bpf_insn insn[] = {
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 5), /* compare device type */
-                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
-                BPF_ALU32_IMM(BPF_AND, BPF_REG_1, 0),
-                BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 2), /* compare access type */
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_4, major, 1), /* compare major */
-                BPF_JMP_A(PASS_JUMP_OFF), /* jump to PASS */
-        };
         int r, access;
 
         assert(prog);
@@ -75,7 +66,14 @@ int cgroup_bpf_whitelist_major(BPFProgram *prog, int type, int major, const char
         if (access <= 0)
                 return -EINVAL;
 
-        insn[2].imm = access;
+        const struct bpf_insn insn[] = {
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 5), /* compare device type */
+                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
+                BPF_ALU32_IMM(BPF_AND, BPF_REG_1, access),
+                BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 2), /* compare access type */
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_4, major, 1), /* compare major */
+                BPF_JMP_A(PASS_JUMP_OFF), /* jump to PASS */
+        };
 
         r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
         if (r < 0)
@@ -85,13 +83,6 @@ int cgroup_bpf_whitelist_major(BPFProgram *prog, int type, int major, const char
 }
 
 int cgroup_bpf_whitelist_class(BPFProgram *prog, int type, const char *acc) {
-        struct bpf_insn insn[] = {
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 5), /* compare device type */
-                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
-                BPF_ALU32_IMM(BPF_AND, BPF_REG_1, 0),
-                BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 1), /* compare access type */
-                BPF_JMP_A(PASS_JUMP_OFF), /* jump to PASS */
-        };
         int r, access;
 
         assert(prog);
@@ -101,7 +92,13 @@ int cgroup_bpf_whitelist_class(BPFProgram *prog, int type, const char *acc) {
         if (access <= 0)
                 return -EINVAL;
 
-        insn[2].imm = access;
+        const struct bpf_insn insn[] = {
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 5), /* compare device type */
+                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
+                BPF_ALU32_IMM(BPF_AND, BPF_REG_1, access),
+                BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 1), /* compare access type */
+                BPF_JMP_A(PASS_JUMP_OFF), /* jump to PASS */
+        };
 
         r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
         if (r < 0)
@@ -111,7 +108,7 @@ int cgroup_bpf_whitelist_class(BPFProgram *prog, int type, const char *acc) {
 }
 
 int cgroup_init_device_bpf(BPFProgram **ret, CGroupDevicePolicy policy, bool whitelist) {
-        struct bpf_insn pre_insn[] = {
+        const struct bpf_insn pre_insn[] = {
                 /* load device type to r2 */
                 BPF_LDX_MEM(BPF_H, BPF_REG_2, BPF_REG_1,
                             offsetof(struct bpf_cgroup_dev_ctx, access_type)),
@@ -154,19 +151,6 @@ int cgroup_init_device_bpf(BPFProgram **ret, CGroupDevicePolicy policy, bool whi
 }
 
 int cgroup_apply_device_bpf(Unit *u, BPFProgram *prog, CGroupDevicePolicy policy, bool whitelist) {
-        struct bpf_insn post_insn[] = {
-                /* return DENY */
-                BPF_MOV64_IMM(BPF_REG_0, 0),
-                BPF_JMP_A(1),
-
-        };
-
-        struct bpf_insn exit_insn[] = {
-                /* else return ALLOW */
-                BPF_MOV64_IMM(BPF_REG_0, 1),
-                BPF_EXIT_INSN()
-        };
-
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -176,23 +160,33 @@ int cgroup_apply_device_bpf(Unit *u, BPFProgram *prog, CGroupDevicePolicy policy
                 return 0;
         }
 
-        if (policy != CGROUP_STRICT || whitelist) {
-                size_t off;
+        const bool deny_everything = policy == CGROUP_STRICT && !whitelist;
 
+        const struct bpf_insn post_insn[] = {
+                /* return DENY */
+                BPF_MOV64_IMM(BPF_REG_0, 0),
+                BPF_JMP_A(1),
+        };
+
+        const struct bpf_insn exit_insn[] = {
+                /* finally return DENY if deny_everything else ALLOW */
+                BPF_MOV64_IMM(BPF_REG_0, deny_everything ? 0 : 1),
+                BPF_EXIT_INSN()
+        };
+
+        if (!deny_everything) {
                 r = bpf_program_add_instructions(prog, post_insn, ELEMENTSOF(post_insn));
                 if (r < 0)
                         return log_error_errno(r, "Extending device control BPF program failed: %m");
 
                 /* Fixup PASS_JUMP_OFF jump offsets. */
-                for (off = 0; off < prog->n_instructions; off++) {
+                for (size_t off = 0; off < prog->n_instructions; off++) {
                         struct bpf_insn *ins = &prog->instructions[off];
 
                         if (ins->code == (BPF_JMP | BPF_JA) && ins->off == PASS_JUMP_OFF)
                                 ins->off = prog->n_instructions - off - 1;
                 }
-        } else
-                /* Explicitly forbid everything. */
-                exit_insn[0].imm = 0;
+        }
 
         r = bpf_program_add_instructions(prog, exit_insn, ELEMENTSOF(exit_insn));
         if (r < 0)
@@ -216,7 +210,7 @@ int cgroup_apply_device_bpf(Unit *u, BPFProgram *prog, CGroupDevicePolicy policy
 }
 
 int bpf_devices_supported(void) {
-        struct bpf_insn trivial[] = {
+        const struct bpf_insn trivial[] = {
                 BPF_MOV64_IMM(BPF_REG_0, 1),
                 BPF_EXIT_INSN()
         };
