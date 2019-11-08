@@ -738,8 +738,6 @@ static int whitelist_device(BPFProgram *prog, const char *path, const char *node
 }
 
 static int whitelist_major(BPFProgram *prog, const char *path, const char *name, char type, const char *acc) {
-        _cleanup_fclose_ FILE *f = NULL;
-        bool good = false;
         unsigned maj;
         int r;
 
@@ -747,18 +745,17 @@ static int whitelist_major(BPFProgram *prog, const char *path, const char *name,
         assert(acc);
         assert(IN_SET(type, 'b', 'c'));
 
-        if (streq(name, "*")) {
+        if (streq(name, "*"))
                 /* If the name is a wildcard, then apply this list to all devices of this type */
-                (void) whitelist_device_pattern(prog, path, type, NULL, NULL, acc);
-                return 0;
-        }
+                return whitelist_device_pattern(prog, path, type, NULL, NULL, acc);
 
-        if (safe_atou(name, &maj) >= 0 && DEVICE_MAJOR_VALID(maj)) {
+        if (safe_atou(name, &maj) >= 0 && DEVICE_MAJOR_VALID(maj))
                 /* The name is numeric and suitable as major. In that case, let's take its major, and create
                  * the entry directly. */
-                (void) whitelist_device_pattern(prog, path, type, &maj, NULL, acc);
-                return 0;
-        }
+                return whitelist_device_pattern(prog, path, type, &maj, NULL, acc);
+
+        _cleanup_fclose_ FILE *f = NULL;
+        bool good = false;
 
         f = fopen("/proc/devices", "re");
         if (!f)
