@@ -249,27 +249,28 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
 }
 
 static int read_resume_files(char **ret_resume, uint64_t *ret_resume_offset) {
-        _cleanup_free_ char *resume, *resume_offset_str = NULL;
+        _cleanup_free_ char *resume = NULL, *resume_offset_str = NULL;
         uint64_t resume_offset = 0;
         int r;
 
         r = read_one_line_file("/sys/power/resume", &resume);
         if (r < 0)
-                return log_debug_errno(r, "Error reading from /sys/power/resume: %m");
+                return log_debug_errno(r, "Error reading /sys/power/resume: %m");
 
         r = read_one_line_file("/sys/power/resume_offset", &resume_offset_str);
         if (r == -ENOENT)
                 log_debug("Kernel does not support resume_offset; swap file offset detection will be skipped.");
         else if (r < 0)
-                return log_debug_errno(r, "Error reading from /sys/power/resume_offset: %m");
+                return log_debug_errno(r, "Error reading /sys/power/resume_offset: %m");
         else {
                 r = safe_atou64(resume_offset_str, &resume_offset);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse value in /sys/power/resume_offset \"%s\": %m", resume_offset_str);
         }
 
-        if (resume_offset > 0 && streq(*ret_resume, "0:0")) {
-                log_debug("Found offset in /sys/power/resume_offset: %" PRIu64 "; no device id found in /sys/power/resume; ignoring resume_offset", resume_offset);
+        if (resume_offset > 0 && streq(resume, "0:0")) {
+                log_debug("Found offset in /sys/power/resume_offset: %" PRIu64 "; no device id found in /sys/power/resume; ignoring resume_offset",
+                          resume_offset);
                 resume_offset = 0;
         }
 
