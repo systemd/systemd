@@ -132,14 +132,14 @@ int cgroup_init_device_bpf(BPFProgram **ret, CGroupDevicePolicy policy, bool whi
 
         assert(ret);
 
-        if (policy == CGROUP_AUTO && !whitelist)
+        if (policy == CGROUP_DEVICE_POLICY_AUTO && !whitelist)
                 return 0;
 
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_DEVICE, &prog);
         if (r < 0)
                 return log_error_errno(r, "Loading device control BPF program failed: %m");
 
-        if (policy == CGROUP_CLOSED || whitelist) {
+        if (policy == CGROUP_DEVICE_POLICY_CLOSED || whitelist) {
                 r = bpf_program_add_instructions(prog, pre_insn, ELEMENTSOF(pre_insn));
                 if (r < 0)
                         return log_error_errno(r, "Extending device control BPF program failed: %m");
@@ -160,7 +160,7 @@ int cgroup_apply_device_bpf(Unit *u, BPFProgram *prog, CGroupDevicePolicy policy
                 return 0;
         }
 
-        const bool deny_everything = policy == CGROUP_STRICT && !whitelist;
+        const bool deny_everything = policy == CGROUP_DEVICE_POLICY_STRICT && !whitelist;
 
         const struct bpf_insn post_insn[] = {
                 /* return DENY */

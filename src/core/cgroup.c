@@ -1392,7 +1392,7 @@ static void cgroup_context_apply(
                         /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore EINVAL
                          * here. */
 
-                        if (c->device_allow || c->device_policy != CGROUP_AUTO)
+                        if (c->device_allow || c->device_policy != CGROUP_DEVICE_POLICY_AUTO)
                                 r = cg_set_attribute("devices", path, "devices.deny", "a");
                         else
                                 r = cg_set_attribute("devices", path, "devices.allow", "a");
@@ -1401,8 +1401,8 @@ static void cgroup_context_apply(
                                               "Failed to reset devices.allow/devices.deny: %m");
                 }
 
-                if (c->device_policy == CGROUP_CLOSED ||
-                    (c->device_policy == CGROUP_AUTO && c->device_allow)) {
+                if (c->device_policy == CGROUP_DEVICE_POLICY_CLOSED ||
+                    (c->device_policy == CGROUP_DEVICE_POLICY_AUTO && c->device_allow)) {
                         static const char auto_devices[] =
                                 "/dev/null\0" "rwm\0"
                                 "/dev/zero\0" "rwm\0"
@@ -1570,7 +1570,7 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
                 mask |= CGROUP_MASK_MEMORY;
 
         if (c->device_allow ||
-            c->device_policy != CGROUP_AUTO)
+            c->device_policy != CGROUP_DEVICE_POLICY_AUTO)
                 mask |= CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES;
 
         if (c->tasks_accounting ||
@@ -3708,9 +3708,9 @@ int compare_job_priority(const void *a, const void *b) {
 }
 
 static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] = {
-        [CGROUP_AUTO] = "auto",
-        [CGROUP_CLOSED] = "closed",
-        [CGROUP_STRICT] = "strict",
+        [CGROUP_DEVICE_POLICY_AUTO]   = "auto",
+        [CGROUP_DEVICE_POLICY_CLOSED] = "closed",
+        [CGROUP_DEVICE_POLICY_STRICT] = "strict",
 };
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {

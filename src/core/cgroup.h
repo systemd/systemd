@@ -18,16 +18,15 @@ typedef struct CGroupBlockIODeviceWeight CGroupBlockIODeviceWeight;
 typedef struct CGroupBlockIODeviceBandwidth CGroupBlockIODeviceBandwidth;
 
 typedef enum CGroupDevicePolicy {
-
-        /* When devices listed, will allow those, plus built-in ones,
-        if none are listed will allow everything. */
-        CGROUP_AUTO,
+        /* When devices listed, will allow those, plus built-in ones, if none are listed will allow
+         * everything. */
+        CGROUP_DEVICE_POLICY_AUTO,
 
         /* Everything forbidden, except built-in ones and listed ones. */
-        CGROUP_CLOSED,
+        CGROUP_DEVICE_POLICY_CLOSED,
 
         /* Everything forbidden, except for the listed devices */
-        CGROUP_STRICT,
+        CGROUP_DEVICE_POLICY_STRICT,
 
         _CGROUP_DEVICE_POLICY_MAX,
         _CGROUP_DEVICE_POLICY_INVALID = -1
