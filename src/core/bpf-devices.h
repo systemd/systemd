@@ -7,11 +7,9 @@
 
 struct BPFProgram;
 
+int bpf_devices_cgroup_init(BPFProgram **ret, CGroupDevicePolicy policy, bool whitelist);
+int bpf_devices_apply_policy(Unit *u, BPFProgram *prog, CGroupDevicePolicy policy, bool whitelist);
+
 int bpf_devices_supported(void);
-
-int cgroup_bpf_whitelist_device(BPFProgram *prog, int type, int major, int minor, const char *acc);
-int cgroup_bpf_whitelist_major(BPFProgram *prog, int type, int major, const char *acc);
-int cgroup_bpf_whitelist_class(BPFProgram *prog, int type, const char *acc);
-
-int cgroup_init_device_bpf(BPFProgram **ret, CGroupDevicePolicy policy, bool whitelist);
-int cgroup_apply_device_bpf(Unit *u, BPFProgram *prog, CGroupDevicePolicy policy, bool whitelist);
+int bpf_devices_whitelist_device(BPFProgram *prog, const char *path, const char *node, const char *acc);
+int bpf_devices_whitelist_major(BPFProgram *prog, const char *path, const char *name, char type, const char *acc);

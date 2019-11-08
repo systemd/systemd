@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <fcntl.h>
-#include <fnmatch.h>
 
 #include "sd-messages.h"
 
@@ -667,153 +666,6 @@ static int lookup_block_device(const char *p, dev_t *ret) {
         return 0;
 }
 
-static int whitelist_device_pattern(BPFProgram *prog, const char *path, char type, const unsigned *maj, const unsigned *min, const char *acc) {
-        assert(IN_SET(type, 'b', 'c'));
-
-        if (cg_all_unified() > 0) {
-                if (!prog)
-                        return 0;
-
-                const int bpf_type = type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK;
-                if (maj && min)
-                        return cgroup_bpf_whitelist_device(prog, bpf_type, *maj, *min, acc);
-                else if (maj)
-                        return cgroup_bpf_whitelist_major(prog, bpf_type, *maj, acc);
-                else
-                        return cgroup_bpf_whitelist_class(prog, bpf_type, acc);
-
-        } else {
-                char buf[2+DECIMAL_STR_MAX(unsigned)*2+2+4];
-                int r;
-
-                if (maj && min)
-                        xsprintf(buf, "%c %u:%u %s", type, *maj, *min, acc);
-                else if (maj)
-                        xsprintf(buf, "%c %u:* %s", type, *maj, acc);
-                else
-                        xsprintf(buf, "%c *:* %s", type, acc);
-
-                /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore
-                 * EINVAL here. */
-
-                r = cg_set_attribute("devices", path, "devices.allow", buf);
-                if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING,
-                                       r, "Failed to set devices.allow on %s: %m", path);
-
-                return r;
-        }
-}
-
-static int whitelist_device(BPFProgram *prog, const char *path, const char *node, const char *acc) {
-        mode_t mode;
-        dev_t rdev;
-        int r;
-
-        assert(path);
-        assert(acc);
-        assert(strlen(acc) <= 3);
-
-        /* Some special handling for /dev/block/%u:%u, /dev/char/%u:%u, /run/systemd/inaccessible/chr and
-         * /run/systemd/inaccessible/blk paths. Instead of stat()ing these we parse out the major/minor directly. This
-         * means clients can use these path without the device node actually around */
-        r = device_path_parse_major_minor(node, &mode, &rdev);
-        if (r < 0) {
-                if (r != -ENODEV)
-                        return log_warning_errno(r, "Couldn't parse major/minor from device path '%s': %m", node);
-
-                struct stat st;
-                if (stat(node, &st) < 0)
-                        return log_warning_errno(errno, "Couldn't stat device %s: %m", node);
-
-                if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode))
-                        return log_warning_errno(SYNTHETIC_ERRNO(ENODEV), "%s is not a device.", node);
-
-                mode = st.st_mode;
-                rdev = (dev_t) st.st_rdev;
-        }
-
-        unsigned maj = major(rdev), min = minor(rdev);
-        return whitelist_device_pattern(prog, path, S_ISCHR(mode) ? 'c' : 'b', &maj, &min, acc);
-}
-
-static int whitelist_major(BPFProgram *prog, const char *path, const char *name, char type, const char *acc) {
-        unsigned maj;
-        int r;
-
-        assert(path);
-        assert(acc);
-        assert(IN_SET(type, 'b', 'c'));
-
-        if (streq(name, "*"))
-                /* If the name is a wildcard, then apply this list to all devices of this type */
-                return whitelist_device_pattern(prog, path, type, NULL, NULL, acc);
-
-        if (safe_atou(name, &maj) >= 0 && DEVICE_MAJOR_VALID(maj))
-                /* The name is numeric and suitable as major. In that case, let's take its major, and create
-                 * the entry directly. */
-                return whitelist_device_pattern(prog, path, type, &maj, NULL, acc);
-
-        _cleanup_fclose_ FILE *f = NULL;
-        bool good = false;
-
-        f = fopen("/proc/devices", "re");
-        if (!f)
-                return log_warning_errno(errno, "Cannot open /proc/devices to resolve %s: %m", name);
-
-        for (;;) {
-                _cleanup_free_ char *line = NULL;
-                char *w, *p;
-
-                r = read_line(f, LONG_LINE_MAX, &line);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to read /proc/devices: %m");
-                if (r == 0)
-                        break;
-
-                if (type == 'c' && streq(line, "Character devices:")) {
-                        good = true;
-                        continue;
-                }
-
-                if (type == 'b' && streq(line, "Block devices:")) {
-                        good = true;
-                        continue;
-                }
-
-                if (isempty(line)) {
-                        good = false;
-                        continue;
-                }
-
-                if (!good)
-                        continue;
-
-                p = strstrip(line);
-
-                w = strpbrk(p, WHITESPACE);
-                if (!w)
-                        continue;
-                *w = 0;
-
-                r = safe_atou(p, &maj);
-                if (r < 0)
-                        continue;
-                if (maj <= 0)
-                        continue;
-
-                w++;
-                w += strspn(w, WHITESPACE);
-
-                if (fnmatch(name, w, 0) != 0)
-                        continue;
-
-                (void) whitelist_device_pattern(prog, path, type, &maj, NULL, acc);
-        }
-
-        return 0;
-}
-
 static bool cgroup_context_has_cpu_weight(CGroupContext *c) {
         return c->cpu_weight != CGROUP_WEIGHT_INVALID ||
                 c->startup_cpu_weight != CGROUP_WEIGHT_INVALID;
@@ -1385,7 +1237,7 @@ static void cgroup_context_apply(
                 CGroupDeviceAllow *a;
 
                 if (cg_all_unified() > 0) {
-                        r = cgroup_init_device_bpf(&prog, c->device_policy, c->device_allow);
+                        r = bpf_devices_cgroup_init(&prog, c->device_policy, c->device_allow);
                         if (r < 0)
                                 log_unit_warning_errno(u, r, "Failed to initialize device control bpf program: %m");
                 } else {
@@ -1415,13 +1267,12 @@ static void cgroup_context_apply(
                                 "/run/systemd/inaccessible/chr\0" "rwm\0"
                                 "/run/systemd/inaccessible/blk\0" "rwm\0";
 
-                        const char *x, *y;
-
-                        NULSTR_FOREACH_PAIR(x, y, auto_devices)
-                                (void) whitelist_device(prog, path, x, y);
+                        const char *node, *acc;
+                        NULSTR_FOREACH_PAIR(node, acc, auto_devices)
+                                (void) bpf_devices_whitelist_device(prog, path, node, acc);
 
                         /* PTS (/dev/pts) devices may not be duplicated, but accessed */
-                        (void) whitelist_major(prog, path, "pts", 'c', "rw");
+                        (void) bpf_devices_whitelist_major(prog, path, "pts", 'c', "rw");
                 }
 
                 LIST_FOREACH(device_allow, a, c->device_allow) {
@@ -1441,16 +1292,16 @@ static void cgroup_context_apply(
                         acc[k++] = 0;
 
                         if (path_startswith(a->path, "/dev/"))
-                                (void) whitelist_device(prog, path, a->path, acc);
+                                (void) bpf_devices_whitelist_device(prog, path, a->path, acc);
                         else if ((val = startswith(a->path, "block-")))
-                                (void) whitelist_major(prog, path, val, 'b', acc);
+                                (void) bpf_devices_whitelist_major(prog, path, val, 'b', acc);
                         else if ((val = startswith(a->path, "char-")))
-                                (void) whitelist_major(prog, path, val, 'c', acc);
+                                (void) bpf_devices_whitelist_major(prog, path, val, 'c', acc);
                         else
                                 log_unit_debug(u, "Ignoring device '%s' while writing cgroup attribute.", a->path);
                 }
 
-                r = cgroup_apply_device_bpf(u, prog, c->device_policy, c->device_allow);
+                r = bpf_devices_apply_policy(u, prog, c->device_policy, c->device_allow);
                 if (r < 0) {
                         static bool warned = false;
 
