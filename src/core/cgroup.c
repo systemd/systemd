@@ -750,9 +750,7 @@ static int whitelist_major(BPFProgram *prog, const char *path, const char *name,
         if (streq(name, "*")) {
                 /* If the name is a wildcard, then apply this list to all devices of this type */
                 (void) whitelist_device_pattern(prog, path, type, NULL, NULL, acc);
-
-                if (cg_all_unified() <= 0)
-                        return 0;
+                return 0;
         }
 
         if (safe_atou(name, &maj) >= 0 && DEVICE_MAJOR_VALID(maj)) {
