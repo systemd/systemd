@@ -10,7 +10,6 @@
 #include "manager.h"
 #include "rm-rf.h"
 #include "service.h"
-#include "test-helper.h"
 #include "tests.h"
 #include "unit.h"
 #include "virt.h"

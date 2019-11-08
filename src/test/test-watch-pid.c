@@ -4,7 +4,6 @@
 #include "manager.h"
 #include "rm-rf.h"
 #include "service.h"
-#include "test-helper.h"
 #include "tests.h"
 
 int main(int argc, char *argv[]) {

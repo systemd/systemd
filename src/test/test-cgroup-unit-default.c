@@ -5,7 +5,6 @@
 #include "cgroup.h"
 #include "manager.h"
 #include "rm-rf.h"
-#include "test-helper.h"
 #include "tests.h"
 #include "unit.h"
 

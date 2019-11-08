@@ -13,7 +13,6 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "test-helper.h"
 #include "tests.h"
 #include "user-util.h"
 #include "util.h"

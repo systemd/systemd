@@ -23,7 +23,6 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
-#include "test-helper.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "user-util.h"

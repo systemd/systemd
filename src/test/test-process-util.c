@@ -25,7 +25,6 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
-#include "test-helper.h"
 #include "tests.h"
 #include "util.h"
 #include "virt.h"

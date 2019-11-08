@@ -15,7 +15,6 @@
 #include "special.h"
 #include "specifier.h"
 #include "string-util.h"
-#include "test-helper.h"
 #include "tests.h"
 #include "unit-def.h"
 #include "unit-name.h"

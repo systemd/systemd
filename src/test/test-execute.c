@@ -20,7 +20,6 @@
 #endif
 #include "service.h"
 #include "stat-util.h"
-#include "test-helper.h"
 #include "tests.h"
 #include "unit.h"
 #include "user-util.h"

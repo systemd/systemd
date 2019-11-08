@@ -16,7 +16,6 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
-#include "test-helper.h"
 #include "tests.h"
 #include "unit.h"
 #include "util.h"

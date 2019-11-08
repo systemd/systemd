@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#include "sd-daemon.h"
+
 #include "macro.h"
 
 static inline bool manager_errno_skip_test(int r) {
@@ -17,6 +19,7 @@ static inline bool manager_errno_skip_test(int r) {
 }
 
 char* setup_fake_runtime_dir(void);
+int enter_cgroup_subroot(void);
 const char* get_testdata_dir(void);
 const char* get_catalog_dir(void);
 bool slow_tests_enabled(void);
@@ -29,3 +32,10 @@ bool have_namespaces(void);
 /* We use the small but non-trivial limit here */
 #define CAN_MEMLOCK_SIZE (512 * 1024U)
 bool can_memlock(void);
+
+#define TEST_REQ_RUNNING_SYSTEMD(x)                                 \
+        if (sd_booted() > 0) {                                      \
+                x;                                                  \
+        } else {                                                    \
+                printf("systemd not booted skipping '%s'\n", #x);   \
+        }
