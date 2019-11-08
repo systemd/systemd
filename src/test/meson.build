@@ -428,7 +428,7 @@ tests += [
          [libbasic],
          []],
 
-        [['src/test/test-bpf.c',
+        [['src/test/test-bpf-firewall.c',
           'src/test/test-helper.c'],
          [libcore,
           libshared],

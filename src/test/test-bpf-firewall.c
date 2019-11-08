@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         if (detect_container() > 0)
-                return log_tests_skipped("test-bpf fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
+                return log_tests_skipped("test-bpf-firewall fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
 
         assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
         rl.rlim_cur = rl.rlim_max = MAX3(rl.rlim_cur, rl.rlim_max, CAN_MEMLOCK_SIZE);
