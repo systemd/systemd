@@ -16,7 +16,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -1254,26 +1253,8 @@ static void cgroup_context_apply(
                 }
 
                 if (c->device_policy == CGROUP_DEVICE_POLICY_CLOSED ||
-                    (c->device_policy == CGROUP_DEVICE_POLICY_AUTO && c->device_allow)) {
-                        static const char auto_devices[] =
-                                "/dev/null\0" "rwm\0"
-                                "/dev/zero\0" "rwm\0"
-                                "/dev/full\0" "rwm\0"
-                                "/dev/random\0" "rwm\0"
-                                "/dev/urandom\0" "rwm\0"
-                                "/dev/tty\0" "rwm\0"
-                                "/dev/ptmx\0" "rwm\0"
-                                /* Allow /run/systemd/inaccessible/{chr,blk} devices for mapping InaccessiblePaths */
-                                "/run/systemd/inaccessible/chr\0" "rwm\0"
-                                "/run/systemd/inaccessible/blk\0" "rwm\0";
-
-                        const char *node, *acc;
-                        NULSTR_FOREACH_PAIR(node, acc, auto_devices)
-                                (void) bpf_devices_whitelist_device(prog, path, node, acc);
-
-                        /* PTS (/dev/pts) devices may not be duplicated, but accessed */
-                        (void) bpf_devices_whitelist_major(prog, path, "pts", 'c', "rw");
-                }
+                    (c->device_policy == CGROUP_DEVICE_POLICY_AUTO && c->device_allow))
+                        (void) bpf_devices_whitelist_static(prog, path);
 
                 LIST_FOREACH(device_allow, a, c->device_allow) {
                         char acc[4], *val;

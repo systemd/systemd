@@ -13,3 +13,4 @@ int bpf_devices_apply_policy(Unit *u, BPFProgram *prog, CGroupDevicePolicy polic
 int bpf_devices_supported(void);
 int bpf_devices_whitelist_device(BPFProgram *prog, const char *path, const char *node, const char *acc);
 int bpf_devices_whitelist_major(BPFProgram *prog, const char *path, const char *name, char type, const char *acc);
+int bpf_devices_whitelist_static(BPFProgram *prog, const char *path);

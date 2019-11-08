@@ -7,6 +7,7 @@
 #include "bpf-program.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -416,4 +417,33 @@ int bpf_devices_whitelist_major(BPFProgram *prog, const char *path, const char *
         }
 
         return 0;
+}
+
+int bpf_devices_whitelist_static(BPFProgram *prog, const char *path) {
+        static const char auto_devices[] =
+                "/dev/null\0" "rwm\0"
+                "/dev/zero\0" "rwm\0"
+                "/dev/full\0" "rwm\0"
+                "/dev/random\0" "rwm\0"
+                "/dev/urandom\0" "rwm\0"
+                "/dev/tty\0" "rwm\0"
+                "/dev/ptmx\0" "rwm\0"
+                /* Allow /run/systemd/inaccessible/{chr,blk} devices for mapping InaccessiblePaths */
+                "/run/systemd/inaccessible/chr\0" "rwm\0"
+                "/run/systemd/inaccessible/blk\0" "rwm\0";
+        int r = 0, k;
+
+        const char *node, *acc;
+        NULSTR_FOREACH_PAIR(node, acc, auto_devices) {
+                k = bpf_devices_whitelist_device(prog, path, node, acc);
+                if (r >= 0 && k < 0)
+                        r = k;
+        }
+
+        /* PTS (/dev/pts) devices may not be duplicated, but accessed */
+        k = bpf_devices_whitelist_major(prog, path, "pts", 'c', "rw");
+        if (r >= 0 && k < 0)
+                r = k;
+
+        return r;
 }
