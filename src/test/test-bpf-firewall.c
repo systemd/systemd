@@ -2,7 +2,6 @@
 
 #include <linux/bpf_insn.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <unistd.h>
 
 #include "bpf-firewall.h"
@@ -15,30 +14,6 @@
 #include "tests.h"
 #include "unit.h"
 #include "virt.h"
-
-/* We use the small but non-trivial limit here */
-#define CAN_MEMLOCK_SIZE (512 * 1024U)
-
-static bool can_memlock(void) {
-        void *p;
-        bool b;
-
-        /* Let's see if we can mlock() a larger blob of memory. BPF programs are charged against
-         * RLIMIT_MEMLOCK, hence let's first make sure we can lock memory at all, and skip the test if we
-         * cannot. Why not check RLIMIT_MEMLOCK explicitly? Because in container environments the
-         * RLIMIT_MEMLOCK value we see might not match the RLIMIT_MEMLOCK value actually in effect. */
-
-        p = mmap(NULL, CAN_MEMLOCK_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_SHARED, -1, 0);
-        if (p == MAP_FAILED)
-                return false;
-
-        b = mlock(p, CAN_MEMLOCK_SIZE) >= 0;
-        if (b)
-                assert_se(munlock(p, CAN_MEMLOCK_SIZE) >= 0);
-
-        assert_se(munmap(p, CAN_MEMLOCK_SIZE) >= 0);
-        return b;
-}
 
 int main(int argc, char *argv[]) {
         const struct bpf_insn exit_insn[] = {

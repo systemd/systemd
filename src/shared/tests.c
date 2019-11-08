@@ -3,6 +3,7 @@
 #include <sched.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
 #include <util.h>
@@ -148,4 +149,22 @@ bool have_namespaces(void) {
                 return false;
 
         assert_not_reached("unexpected exit code");
+}
+
+bool can_memlock(void) {
+        /* Let's see if we can mlock() a larger blob of memory. BPF programs are charged against
+         * RLIMIT_MEMLOCK, hence let's first make sure we can lock memory at all, and skip the test if we
+         * cannot. Why not check RLIMIT_MEMLOCK explicitly? Because in container environments the
+         * RLIMIT_MEMLOCK value we see might not match the RLIMIT_MEMLOCK value actually in effect. */
+
+        void *p = mmap(NULL, CAN_MEMLOCK_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_SHARED, -1, 0);
+        if (p == MAP_FAILED)
+                return false;
+
+        bool b = mlock(p, CAN_MEMLOCK_SIZE) >= 0;
+        if (b)
+                assert_se(munlock(p, CAN_MEMLOCK_SIZE) >= 0);
+
+        assert_se(munmap(p, CAN_MEMLOCK_SIZE) >= 0);
+        return b;
 }

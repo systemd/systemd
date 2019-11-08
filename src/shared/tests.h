@@ -12,3 +12,7 @@ int log_tests_skipped(const char *message);
 int log_tests_skipped_errno(int r, const char *message);
 
 bool have_namespaces(void);
+
+/* We use the small but non-trivial limit here */
+#define CAN_MEMLOCK_SIZE (512 * 1024U)
+bool can_memlock(void);
