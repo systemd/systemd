@@ -629,6 +629,14 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "ustat\0"
                 "vserver\0"
         },
+        [SYSCALL_FILTER_SET_PKEY] = {
+                .name = "@pkey",
+                .help = "System calls used for memory protection keys",
+                .value =
+                "pkey_alloc\0"
+                "pkey_free\0"
+                "pkey_mprotect\0"
+        },
         [SYSCALL_FILTER_SET_PRIVILEGED] = {
                 .name = "@privileged",
                 .help = "All system calls which need super-user capabilities",
