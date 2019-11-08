@@ -667,13 +667,52 @@ static int lookup_block_device(const char *p, dev_t *ret) {
         return 0;
 }
 
+static int whitelist_device_pattern(BPFProgram *prog, const char *path, char type, const unsigned *maj, const unsigned *min, const char *acc) {
+        assert(IN_SET(type, 'b', 'c'));
+
+        if (cg_all_unified() > 0) {
+                if (!prog)
+                        return 0;
+
+                const int bpf_type = type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK;
+                if (maj && min)
+                        return cgroup_bpf_whitelist_device(prog, bpf_type, *maj, *min, acc);
+                else if (maj)
+                        return cgroup_bpf_whitelist_major(prog, bpf_type, *maj, acc);
+                else
+                        return cgroup_bpf_whitelist_class(prog, bpf_type, acc);
+
+        } else {
+                char buf[2+DECIMAL_STR_MAX(unsigned)*2+2+4];
+                int r;
+
+                if (maj && min)
+                        xsprintf(buf, "%c %u:%u %s", type, *maj, *min, acc);
+                else if (maj)
+                        xsprintf(buf, "%c %u:* %s", type, *maj, acc);
+                else
+                        xsprintf(buf, "%c *:* %s", type, acc);
+
+                /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore
+                 * EINVAL here. */
+
+                r = cg_set_attribute("devices", path, "devices.allow", buf);
+                if (r < 0)
+                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING,
+                                       r, "Failed to set devices.allow on %s: %m", path);
+
+                return r;
+        }
+}
+
 static int whitelist_device(BPFProgram *prog, const char *path, const char *node, const char *acc) {
-        dev_t rdev;
         mode_t mode;
+        dev_t rdev;
         int r;
 
         assert(path);
         assert(acc);
+        assert(strlen(acc) <= 3);
 
         /* Some special handling for /dev/block/%u:%u, /dev/char/%u:%u, /run/systemd/inaccessible/chr and
          * /run/systemd/inaccessible/blk paths. Instead of stat()ing these we parse out the major/minor directly. This
@@ -687,44 +726,19 @@ static int whitelist_device(BPFProgram *prog, const char *path, const char *node
                 if (stat(node, &st) < 0)
                         return log_warning_errno(errno, "Couldn't stat device %s: %m", node);
 
-                if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
-                        log_warning("%s is not a device.", node);
-                        return -ENODEV;
-                }
-                rdev = (dev_t) st.st_rdev;
+                if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode))
+                        return log_warning_errno(SYNTHETIC_ERRNO(ENODEV), "%s is not a device.", node);
+
                 mode = st.st_mode;
+                rdev = (dev_t) st.st_rdev;
         }
 
-        if (cg_all_unified() > 0) {
-                if (!prog)
-                        return 0;
-
-                return cgroup_bpf_whitelist_device(prog, S_ISCHR(mode) ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
-                                                   major(rdev), minor(rdev), acc);
-
-        } else {
-                char buf[2+DECIMAL_STR_MAX(dev_t)*2+2+4];
-
-                sprintf(buf,
-                        "%c %u:%u %s",
-                        S_ISCHR(mode) ? 'c' : 'b',
-                        major(rdev), minor(rdev),
-                        acc);
-
-                /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore EINVAL here. */
-
-                r = cg_set_attribute("devices", path, "devices.allow", buf);
-                if (r < 0)
-                        return log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING,
-                                              r, "Failed to set devices.allow on %s: %m", path);
-
-                return 0;
-        }
+        unsigned maj = major(rdev), min = minor(rdev);
+        return whitelist_device_pattern(prog, path, S_ISCHR(mode) ? 'c' : 'b', &maj, &min, acc);
 }
 
 static int whitelist_major(BPFProgram *prog, const char *path, const char *name, char type, const char *acc) {
         _cleanup_fclose_ FILE *f = NULL;
-        char buf[2+DECIMAL_STR_MAX(unsigned)+3+4];
         bool good = false;
         unsigned maj;
         int r;
@@ -735,49 +749,22 @@ static int whitelist_major(BPFProgram *prog, const char *path, const char *name,
 
         if (streq(name, "*")) {
                 /* If the name is a wildcard, then apply this list to all devices of this type */
+                (void) whitelist_device_pattern(prog, path, type, NULL, NULL, acc);
 
-                if (cg_all_unified() > 0) {
-                        if (!prog)
-                                return 0;
-
-                        (void) cgroup_bpf_whitelist_class(prog, type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK, acc);
-                } else {
-                        xsprintf(buf, "%c *:* %s", type, acc);
-
-                        r = cg_set_attribute("devices", path, "devices.allow", buf);
-                        if (r < 0)
-                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                               "Failed to set devices.allow on %s: %m", path);
+                if (cg_all_unified() <= 0)
                         return 0;
-                }
         }
 
         if (safe_atou(name, &maj) >= 0 && DEVICE_MAJOR_VALID(maj)) {
-                /* The name is numeric and suitable as major. In that case, let's take is major, and create the entry
-                 * directly */
-
-                if (cg_all_unified() > 0) {
-                        if (!prog)
-                                return 0;
-
-                        (void) cgroup_bpf_whitelist_major(prog,
-                                                          type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
-                                                          maj, acc);
-                } else {
-                        xsprintf(buf, "%c %u:* %s", type, maj, acc);
-
-                        r = cg_set_attribute("devices", path, "devices.allow", buf);
-                        if (r < 0)
-                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                               "Failed to set devices.allow on %s: %m", path);
-                }
-
+                /* The name is numeric and suitable as major. In that case, let's take its major, and create
+                 * the entry directly. */
+                (void) whitelist_device_pattern(prog, path, type, &maj, NULL, acc);
                 return 0;
         }
 
         f = fopen("/proc/devices", "re");
         if (!f)
-                return log_warning_errno(errno, "Cannot open /proc/devices to resolve %s (%c): %m", name, type);
+                return log_warning_errno(errno, "Cannot open /proc/devices to resolve %s: %m", name);
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
@@ -826,28 +813,7 @@ static int whitelist_major(BPFProgram *prog, const char *path, const char *name,
                 if (fnmatch(name, w, 0) != 0)
                         continue;
 
-                if (cg_all_unified() > 0) {
-                        if (!prog)
-                                continue;
-
-                        (void) cgroup_bpf_whitelist_major(prog,
-                                                          type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
-                                                          maj, acc);
-                } else {
-                        sprintf(buf,
-                                "%c %u:* %s",
-                                type,
-                                maj,
-                                acc);
-
-                        /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore EINVAL
-                         * here. */
-
-                        r = cg_set_attribute("devices", path, "devices.allow", buf);
-                        if (r < 0)
-                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING,
-                                               r, "Failed to set devices.allow on %s: %m", path);
-                }
+                (void) whitelist_device_pattern(prog, path, type, &maj, NULL, acc);
         }
 
         return 0;
