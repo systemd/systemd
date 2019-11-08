@@ -16,8 +16,8 @@
 #include "unit.h"
 #include "virt.h"
 
-/* We use the same limit here that PID 1 bumps RLIMIT_MEMLOCK to if it can */
-#define CAN_MEMLOCK_SIZE (64U*1024U*1024U)
+/* We use the small but non-trivial limit here */
+#define CAN_MEMLOCK_SIZE (512 * 1024U)
 
 static bool can_memlock(void) {
         void *p;
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("test-bpf-firewall fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
 
         assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
-        rl.rlim_cur = rl.rlim_max = MAX3(rl.rlim_cur, rl.rlim_max, CAN_MEMLOCK_SIZE);
+        rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
         (void) setrlimit(RLIMIT_MEMLOCK, &rl);
 
         if (!can_memlock())
