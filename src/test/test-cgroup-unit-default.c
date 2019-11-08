@@ -18,7 +18,7 @@ static int test_default_memory_low(void) {
         uint64_t dml_tree_default;
         int r;
 
-        r = enter_cgroup_subroot();
+        r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 

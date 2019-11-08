@@ -33,7 +33,7 @@ static int test_cgroup_mask(void) {
         int r;
         CGroupMask cpu_accounting_mask = get_cpu_accounting_mask();
 
-        r = enter_cgroup_subroot();
+        r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 

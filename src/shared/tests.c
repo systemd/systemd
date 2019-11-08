@@ -172,7 +172,7 @@ bool can_memlock(void) {
         return b;
 }
 
-int enter_cgroup_subroot(void) {
+int enter_cgroup_subroot(char **ret_cgroup) {
         _cleanup_free_ char *cgroup_root = NULL, *cgroup_subroot = NULL;
         CGroupMask supported;
         int r;
@@ -192,5 +192,11 @@ int enter_cgroup_subroot(void) {
         if (r < 0)
                 return r;
 
-        return cg_attach_everywhere(supported, cgroup_subroot, 0, NULL, NULL);
+        r = cg_attach_everywhere(supported, cgroup_subroot, 0, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        if (ret_cgroup)
+                *ret_cgroup = TAKE_PTR(cgroup_subroot);
+        return 0;
 }

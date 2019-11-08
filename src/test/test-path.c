@@ -31,7 +31,7 @@ static int setup_test(Manager **m) {
 
         assert_se(m);
 
-        r = enter_cgroup_subroot();
+        r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
