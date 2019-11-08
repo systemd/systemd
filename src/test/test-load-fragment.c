@@ -97,7 +97,7 @@ static void test_config_parse_exec(void) {
         _cleanup_(unit_freep) Unit *u = NULL;
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (MANAGER_SKIP_TEST(r)) {
+        if (manager_errno_skip_test(r)) {
                 log_notice_errno(r, "Skipping test: manager_new: %m");
                 return;
         }
@@ -442,7 +442,7 @@ static void test_config_parse_log_extra_fields(void) {
         ExecContext c = {};
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (MANAGER_SKIP_TEST(r)) {
+        if (manager_errno_skip_test(r)) {
                 log_notice_errno(r, "Skipping test: manager_new: %m");
                 return;
         }

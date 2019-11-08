@@ -3,6 +3,19 @@
 
 #include <stdbool.h>
 
+#include "macro.h"
+
+static inline bool manager_errno_skip_test(int r) {
+        return IN_SET(abs(r),
+                      EPERM,
+                      EACCES,
+                      EADDRINUSE,
+                      EHOSTDOWN,
+                      ENOENT,
+                      ENOMEDIUM /* cannot determine cgroup */
+        );
+}
+
 char* setup_fake_runtime_dir(void);
 const char* get_testdata_dir(void);
 const char* get_catalog_dir(void);

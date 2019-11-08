@@ -5,9 +5,9 @@
   Copyright © 2013 Holger Hans Peter Freyther
 ***/
 
-#include "sd-daemon.h"
+#include <stdbool.h>
 
-#include "macro.h"
+#include "sd-daemon.h"
 
 #define TEST_REQ_RUNNING_SYSTEMD(x)                                 \
         if (sd_booted() > 0) {                                      \
@@ -15,16 +15,6 @@
         } else {                                                    \
                 printf("systemd not booted skipping '%s'\n", #x);   \
         }
-
-#define MANAGER_SKIP_TEST(r)                                    \
-        IN_SET(r,                                               \
-               -EPERM,                                          \
-               -EACCES,                                         \
-               -EADDRINUSE,                                     \
-               -EHOSTDOWN,                                      \
-               -ENOENT,                                         \
-               -ENOMEDIUM /* cannot determine cgroup */         \
-               )
 
 int enter_cgroup_subroot(void);
 
