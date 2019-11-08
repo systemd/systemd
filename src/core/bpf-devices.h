@@ -3,12 +3,17 @@
 
 #include <inttypes.h>
 
-#include "unit.h"
+#include "cgroup.h"
 
-struct BPFProgram;
+typedef struct BPFProgram BPFProgram;
 
 int bpf_devices_cgroup_init(BPFProgram **ret, CGroupDevicePolicy policy, bool whitelist);
-int bpf_devices_apply_policy(Unit *u, BPFProgram *prog, CGroupDevicePolicy policy, bool whitelist);
+int bpf_devices_apply_policy(
+                BPFProgram *prog,
+                CGroupDevicePolicy policy,
+                bool whitelist,
+                const char *cgroup_path,
+                BPFProgram **prog_installed);
 
 int bpf_devices_supported(void);
 int bpf_devices_whitelist_device(BPFProgram *prog, const char *path, const char *node, const char *acc);

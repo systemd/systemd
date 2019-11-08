@@ -1013,7 +1013,7 @@ static int cgroup_apply_devices(Unit *u) {
                         log_unit_debug(u, "Ignoring device '%s' while writing cgroup attribute.", a->path);
         }
 
-        r = bpf_devices_apply_policy(u, prog, c->device_policy, c->device_allow);
+        r = bpf_devices_apply_policy(prog, c->device_policy, c->device_allow, path, &u->bpf_device_control_installed);
         if (r < 0) {
                 static bool warned = false;
 

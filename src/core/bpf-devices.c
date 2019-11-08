@@ -159,13 +159,18 @@ int bpf_devices_cgroup_init(BPFProgram **ret, CGroupDevicePolicy policy, bool wh
         return 0;
 }
 
-int bpf_devices_apply_policy(Unit *u, BPFProgram *prog, CGroupDevicePolicy policy, bool whitelist) {
-        _cleanup_free_ char *path = NULL;
+int bpf_devices_apply_policy(
+                BPFProgram *prog,
+                CGroupDevicePolicy policy,
+                bool whitelist,
+                const char *cgroup_path,
+                BPFProgram **prog_installed) {
         int r;
 
+        /* This will assign *keep_program if everything goes well. */
         if (!prog) {
                 /* Remove existing program. */
-                u->bpf_device_control_installed = bpf_program_unref(u->bpf_device_control_installed);
+                *prog_installed = bpf_program_unref(*prog_installed);
                 return 0;
         }
 
@@ -201,20 +206,19 @@ int bpf_devices_apply_policy(Unit *u, BPFProgram *prog, CGroupDevicePolicy polic
         if (r < 0)
                 return log_error_errno(r, "Extending device control BPF program failed: %m");
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL, &path);
+        _cleanup_free_ char *controller_path = NULL;
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, NULL, &controller_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine cgroup path: %m");
 
-        r = bpf_program_cgroup_attach(prog, BPF_CGROUP_DEVICE, path, BPF_F_ALLOW_MULTI);
+        r = bpf_program_cgroup_attach(prog, BPF_CGROUP_DEVICE, controller_path, BPF_F_ALLOW_MULTI);
         if (r < 0)
-                return log_error_errno(r, "Attaching device control BPF program to cgroup %s failed: %m", path);
+                return log_error_errno(r, "Attaching device control BPF program to cgroup %s failed: %m",
+                                       cgroup_path);
 
         /* Unref the old BPF program (which will implicitly detach it) right before attaching the new program. */
-        u->bpf_device_control_installed = bpf_program_unref(u->bpf_device_control_installed);
-
-        /* Remember that this BPF program is installed now. */
-        u->bpf_device_control_installed = bpf_program_ref(prog);
-
+        bpf_program_unref(*prog_installed);
+        *prog_installed = bpf_program_ref(prog);
         return 0;
 }
 
