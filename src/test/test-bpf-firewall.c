@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
         (void) setrlimit(RLIMIT_MEMLOCK, &rl);
 
         if (!can_memlock())
-                return log_tests_skipped("Can't use mlock(), skipping.");
+                return log_tests_skipped("Can't use mlock()");
 
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
