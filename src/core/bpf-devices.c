@@ -172,14 +172,14 @@ int bpf_devices_apply_policy(
                 bool whitelist,
                 const char *cgroup_path,
                 BPFProgram **prog_installed) {
+
+        _cleanup_free_ char *controller_path = NULL;
         int r;
 
         /* This will assign *keep_program if everything goes well. */
-        if (!prog) {
-                /* Remove existing program. */
-                *prog_installed = bpf_program_unref(*prog_installed);
-                return 0;
-        }
+
+        if (!prog)
+                goto finish;
 
         const bool deny_everything = policy == CGROUP_DEVICE_POLICY_STRICT && !whitelist;
 
@@ -213,7 +213,6 @@ int bpf_devices_apply_policy(
         if (r < 0)
                 return log_error_errno(r, "Extending device control BPF program failed: %m");
 
-        _cleanup_free_ char *controller_path = NULL;
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, NULL, &controller_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine cgroup path: %m");
@@ -223,9 +222,12 @@ int bpf_devices_apply_policy(
                 return log_error_errno(r, "Attaching device control BPF program to cgroup %s failed: %m",
                                        cgroup_path);
 
+ finish:
         /* Unref the old BPF program (which will implicitly detach it) right before attaching the new program. */
-        bpf_program_unref(*prog_installed);
-        *prog_installed = bpf_program_ref(prog);
+        if (prog_installed) {
+                bpf_program_unref(*prog_installed);
+                *prog_installed = bpf_program_ref(prog);
+        }
         return 0;
 }
 
