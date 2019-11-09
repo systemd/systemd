@@ -11,7 +11,6 @@
 Description=Load/Save Random Seed
 Documentation=man:systemd-random-seed.service(8) man:random(4)
 DefaultDependencies=no
-RequiresMountsFor=@RANDOM_SEED@
 Conflicts=shutdown.target
 After=systemd-remount-fs.service
 Before=shutdown.target
@@ -22,6 +21,7 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-random-seed load
 ExecStop=@rootlibexecdir@/systemd-random-seed save
+StateDirectory=systemd
 
 # This service waits until the kernel's entropy pool is initialized, and may be
 # used as ordering barrier for service that require an initialized entropy
