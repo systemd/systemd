@@ -123,6 +123,7 @@ static int seccomp_add_default_syscall_filter(
                  * @cpu-emulation
                  * @keyring           (NB: keyring is not namespaced!)
                  * @obsolete
+                 * @pkey
                  * @swap
                  *
                  * bpf                (NB: bpffs is not namespaced!)
@@ -134,9 +135,6 @@ static int seccomp_add_default_syscall_filter(
                  * nfsservctl
                  * open_by_handle_at
                  * perf_event_open
-                 * pkey_alloc
-                 * pkey_free
-                 * pkey_mprotect
                  * quotactl
                  */
         };
