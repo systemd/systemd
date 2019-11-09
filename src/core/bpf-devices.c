@@ -44,6 +44,8 @@ static int bpf_prog_whitelist_device(BPFProgram *prog, int type, int major, int 
         assert(prog);
         assert(acc);
 
+        log_trace("%s: %c %d:%d %s", __func__, type, major, minor, acc);
+
         access = bpf_access_type(acc);
         if (access <= 0)
                 return -EINVAL;
@@ -71,6 +73,8 @@ static int bpf_prog_whitelist_major(BPFProgram *prog, int type, int major, const
         assert(prog);
         assert(acc);
 
+        log_trace("%s: %c %d:* %s", __func__, type, major, acc);
+
         access = bpf_access_type(acc);
         if (access <= 0)
                 return -EINVAL;
@@ -96,6 +100,8 @@ static int bpf_prog_whitelist_class(BPFProgram *prog, int type, const char *acc)
 
         assert(prog);
         assert(acc);
+
+        log_trace("%s: %c *:* %s", __func__, type, acc);
 
         access = bpf_access_type(acc);
         if (access <= 0)
@@ -322,6 +328,8 @@ int bpf_devices_whitelist_device(BPFProgram *prog, const char *path, const char 
         assert(path);
         assert(acc);
         assert(strlen(acc) <= 3);
+
+        log_trace("%s: %s %s", __func__, node, acc);
 
         /* Some special handling for /dev/block/%u:%u, /dev/char/%u:%u, /run/systemd/inaccessible/chr and
          * /run/systemd/inaccessible/blk paths. Instead of stat()ing these we parse out the major/minor directly. This
