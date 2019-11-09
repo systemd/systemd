@@ -38,7 +38,7 @@ static int bpf_access_type(const char *acc) {
         return r;
 }
 
-static int bpf_prog_whitelist_device(BPFProgram *prog, int type, int major, int minor, const char *acc) {
+static int bpf_prog_whitelist_device(BPFProgram *prog, char type, int major, int minor, const char *acc) {
         int r, access;
 
         assert(prog);
@@ -50,8 +50,11 @@ static int bpf_prog_whitelist_device(BPFProgram *prog, int type, int major, int 
         if (access <= 0)
                 return -EINVAL;
 
+        assert(IN_SET(type, 'b', 'c'));
+        const int bpf_type = type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK;
+
         const struct bpf_insn insn[] = {
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 6), /* compare device type */
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, bpf_type, 6), /* compare device type */
                 BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
                 BPF_ALU32_IMM(BPF_AND, BPF_REG_1, access),
                 BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 3), /* compare access type */
@@ -67,7 +70,7 @@ static int bpf_prog_whitelist_device(BPFProgram *prog, int type, int major, int 
         return r;
 }
 
-static int bpf_prog_whitelist_major(BPFProgram *prog, int type, int major, const char *acc) {
+static int bpf_prog_whitelist_major(BPFProgram *prog, char type, int major, const char *acc) {
         int r, access;
 
         assert(prog);
@@ -79,8 +82,11 @@ static int bpf_prog_whitelist_major(BPFProgram *prog, int type, int major, const
         if (access <= 0)
                 return -EINVAL;
 
+        assert(IN_SET(type, 'b', 'c'));
+        const int bpf_type = type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK;
+
         const struct bpf_insn insn[] = {
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 5), /* compare device type */
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, bpf_type, 5), /* compare device type */
                 BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
                 BPF_ALU32_IMM(BPF_AND, BPF_REG_1, access),
                 BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 2), /* compare access type */
@@ -95,7 +101,7 @@ static int bpf_prog_whitelist_major(BPFProgram *prog, int type, int major, const
         return r;
 }
 
-static int bpf_prog_whitelist_class(BPFProgram *prog, int type, const char *acc) {
+static int bpf_prog_whitelist_class(BPFProgram *prog, char type, const char *acc) {
         int r, access;
 
         assert(prog);
@@ -107,8 +113,11 @@ static int bpf_prog_whitelist_class(BPFProgram *prog, int type, const char *acc)
         if (access <= 0)
                 return -EINVAL;
 
+        assert(IN_SET(type, 'b', 'c'));
+        const int bpf_type = type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK;
+
         const struct bpf_insn insn[] = {
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 4), /* compare device type */
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, bpf_type, 4), /* compare device type */
                 BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
                 BPF_ALU32_IMM(BPF_AND, BPF_REG_1, access),
                 BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 1), /* compare access type */
@@ -292,13 +301,12 @@ static int whitelist_device_pattern(BPFProgram *prog, const char *path, char typ
                 if (!prog)
                         return 0;
 
-                const int bpf_type = type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK;
                 if (maj && min)
-                        return bpf_prog_whitelist_device(prog, bpf_type, *maj, *min, acc);
+                        return bpf_prog_whitelist_device(prog, type, *maj, *min, acc);
                 else if (maj)
-                        return bpf_prog_whitelist_major(prog, bpf_type, *maj, acc);
+                        return bpf_prog_whitelist_major(prog, type, *maj, acc);
                 else
-                        return bpf_prog_whitelist_class(prog, bpf_type, acc);
+                        return bpf_prog_whitelist_class(prog, type, acc);
 
         } else {
                 char buf[2+DECIMAL_STR_MAX(unsigned)*2+2+4];
