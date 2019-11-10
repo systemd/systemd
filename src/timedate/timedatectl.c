@@ -15,13 +15,15 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "pretty-print.h"
-#include "spawn-polkit-agent.h"
 #include "sparse-endian.h"
+#include "spawn-polkit-agent.h"
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-dst.h"
 #include "util.h"
 #include "verbs.h"
+#include "virt.h"
 
 static PagerFlags arg_pager_flags = 0;
 static bool arg_ask_password = true;
@@ -45,9 +47,26 @@ typedef struct StatusInfo {
         bool ntp_synced;
 } StatusInfo;
 
+static const char *jump_str(int delta_minutes, char *s, size_t size) {
+        if (delta_minutes == 60)
+                return "one hour forward";
+        if (delta_minutes == -60)
+                return "one hour backwards";
+        if (delta_minutes < 0) {
+                snprintf(s, size, "%i minutes backwards", -delta_minutes);
+                return s;
+        }
+        if (delta_minutes > 0) {
+                snprintf(s, size, "%i minutes forward", delta_minutes);
+                return s;
+        }
+        return "";
+}
+
 static void print_status_info(const StatusInfo *i) {
         const char *old_tz = NULL, *tz;
-        bool have_time = false;
+        const char *on, *off, *synced_on = "", *synced_off = "", *rtc_local_on = "", *rtc_local_off = "";
+        bool have_time = false, is_dstc = false;
         char a[LINE_MAX];
         struct tm tm;
         time_t sec;
@@ -76,15 +95,20 @@ static void print_status_info(const StatusInfo *i) {
         } else
                 log_warning("Could not get time from timedated and not operating locally, ignoring.");
 
+        on = ansi_highlight_blue();
+        off = ansi_normal();
+
         if (have_time) {
                 n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm));
-                printf("               Local time: %s\n", n > 0 ? a : "n/a");
+                printf("               Local time: %s%s%s\n",
+                       on, n > 0 ? a : "n/a", off);
 
                 n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm));
-                printf("           Universal time: %s\n", n > 0 ? a : "n/a");
+                printf("           Universal time: %s%s%s\n",
+                       on, n > 0 ? a : "n/a", off);
         } else {
-                printf("               Local time: %s\n", "n/a");
-                printf("           Universal time: %s\n", "n/a");
+                printf("               Local time: %sn/a%s\n", on, off);
+                printf("           Universal time: %sn/a%s\n", on, off);
         }
 
         if (i->rtc_time > 0) {
@@ -109,14 +133,65 @@ static void print_status_info(const StatusInfo *i) {
         else
                 tzset();
 
+        if (!i->ntp_synced && detect_virtualization() == 0) {
+                synced_on = ansi_highlight_red();
+                synced_off = ansi_normal();
+        }
+
+        if (i->rtc_local) {
+                rtc_local_on = ansi_highlight_red();
+                rtc_local_off = ansi_normal();
+        }
+
         printf("                Time zone: %s (%s)\n"
-               "System clock synchronized: %s\n"
+               "System clock synchronized: %s%s%s\n"
                "              NTP service: %s\n"
-               "          RTC in local TZ: %s\n",
+               "          RTC in local TZ: %s%s%s\n",
                strna(i->timezone), have_time && n > 0 ? a : "n/a",
-               yes_no(i->ntp_synced),
+               synced_on, yes_no(i->ntp_synced), synced_off,
                i->ntp_capable ? (i->ntp_active ? "active" : "inactive") : "n/a",
-               yes_no(i->rtc_local));
+               rtc_local_on, yes_no(i->rtc_local), rtc_local_off);
+
+        if (have_time) {
+                char b[LINE_MAX], s[32];
+                _cleanup_free_ char *zc = NULL, *zn = NULL;
+                time_t t, tc, tn;
+                int dn = 0;
+                bool is_dstn = false;
+                size_t n2;
+
+                r = time_get_dst(sec, "/etc/localtime",
+                                 &tc, &zc, &is_dstc,
+                                 &tn, &dn, &zn, &is_dstn);
+                if (r < 0)
+                        printf("               DST active: %s\n", "n/a");
+                else {
+                        printf("               DST active: %s\n", yes_no(is_dstc));
+
+                        t = tc - 1;
+                        n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm));
+                        n2 = strftime(b, sizeof b, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&tc, &tm));
+
+                        printf("          Last DST change: DST %s at\n"
+                               "                           %s\n"
+                               "                           %s\n",
+                               is_dstc ? "began" : "ended",
+                               n > 0 ? a : "n/a",
+                               n2 > 0 ? b : "n/a");
+
+                        t = tn - 1;
+                        n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm));
+                        n2 = strftime(b, sizeof b, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&tn, &tm));
+                        printf("          Next DST change: DST %s (the clock jumps %s) at\n"
+                               "                           %s\n"
+                               "                           %s\n",
+                               is_dstn ? "begins" : "ends",
+                               jump_str(dn, s, sizeof(s)),
+                               n > 0 ? a : "n/a",
+                               n2 > 0 ? b : "n/a");
+                }
+        } else
+                printf("      DST active: %s\n", yes_no(is_dstc));
 
         if (i->rtc_local)
                 printf("\n%s"
