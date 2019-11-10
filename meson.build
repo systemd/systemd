@@ -8,6 +8,7 @@ project('systemd', 'c',
                 'prefix=/usr',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
+                'warning_level=2',
         ],
         meson_version : '>= 0.46',
        )
@@ -323,7 +324,6 @@ elif want_fuzzbuzz
 endif
 
 possible_cc_flags = [
-        '-Wextra',
         '-Werror=undef',
         '-Wlogical-op',
         '-Wmissing-include-dirs',
