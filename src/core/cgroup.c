@@ -960,13 +960,16 @@ static int cgroup_apply_devices(Unit *u) {
         const char *path;
         CGroupContext *c;
         CGroupDeviceAllow *a;
+        CGroupDevicePolicy policy;
         int r;
 
         assert_se(c = unit_get_cgroup_context(u));
         assert_se(path = u->cgroup_path);
 
+        policy = c->device_policy;
+
         if (cg_all_unified() > 0) {
-                r = bpf_devices_cgroup_init(&prog, c->device_policy, c->device_allow);
+                r = bpf_devices_cgroup_init(&prog, policy, c->device_allow);
                 if (r < 0)
                         return log_unit_warning_errno(u, r, "Failed to initialize device control bpf program: %m");
 
@@ -974,7 +977,7 @@ static int cgroup_apply_devices(Unit *u) {
                 /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore
                  * EINVAL here. */
 
-                if (c->device_allow || c->device_policy != CGROUP_DEVICE_POLICY_AUTO)
+                if (c->device_allow || policy != CGROUP_DEVICE_POLICY_AUTO)
                         r = cg_set_attribute("devices", path, "devices.deny", "a");
                 else
                         r = cg_set_attribute("devices", path, "devices.allow", "a");
@@ -983,10 +986,12 @@ static int cgroup_apply_devices(Unit *u) {
                                       "Failed to reset devices.allow/devices.deny: %m");
         }
 
-        if (c->device_policy == CGROUP_DEVICE_POLICY_CLOSED ||
-            (c->device_policy == CGROUP_DEVICE_POLICY_AUTO && c->device_allow))
+        bool whitelist_static = policy == CGROUP_DEVICE_POLICY_CLOSED ||
+                (policy == CGROUP_DEVICE_POLICY_AUTO && c->device_allow);
+        if (whitelist_static)
                 (void) bpf_devices_whitelist_static(prog, path);
 
+        bool any = whitelist_static;
         LIST_FOREACH(device_allow, a, c->device_allow) {
                 char acc[4], *val;
                 unsigned k = 0;
@@ -997,23 +1002,35 @@ static int cgroup_apply_devices(Unit *u) {
                         acc[k++] = 'w';
                 if (a->m)
                         acc[k++] = 'm';
-
                 if (k == 0)
                         continue;
-
                 acc[k++] = 0;
 
                 if (path_startswith(a->path, "/dev/"))
-                        (void) bpf_devices_whitelist_device(prog, path, a->path, acc);
+                        r = bpf_devices_whitelist_device(prog, path, a->path, acc);
                 else if ((val = startswith(a->path, "block-")))
-                        (void) bpf_devices_whitelist_major(prog, path, val, 'b', acc);
+                        r = bpf_devices_whitelist_major(prog, path, val, 'b', acc);
                 else if ((val = startswith(a->path, "char-")))
-                        (void) bpf_devices_whitelist_major(prog, path, val, 'c', acc);
-                else
+                        r = bpf_devices_whitelist_major(prog, path, val, 'c', acc);
+                else {
                         log_unit_debug(u, "Ignoring device '%s' while writing cgroup attribute.", a->path);
+                        continue;
+                }
+
+                if (r >= 0)
+                        any = true;
         }
 
-        r = bpf_devices_apply_policy(prog, c->device_policy, c->device_allow, path, &u->bpf_device_control_installed);
+        if (prog && !any) {
+                log_unit_warning_errno(u, SYNTHETIC_ERRNO(ENODEV), "No devices matched by device filter.");
+
+                /* The kernel verifier would reject a program we would build with the normal intro and outro
+                   but no whitelisting rules (outro would contain an unreachable instruction for successful
+                   return). */
+                policy = CGROUP_DEVICE_POLICY_STRICT;
+        }
+
+        r = bpf_devices_apply_policy(prog, policy, any, path, &u->bpf_device_control_installed);
         if (r < 0) {
                 static bool warned = false;
 

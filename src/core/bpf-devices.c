@@ -395,7 +395,7 @@ int bpf_devices_whitelist_major(BPFProgram *prog, const char *path, const char *
                 return whitelist_device_pattern(prog, path, type, &maj, NULL, acc);
 
         _cleanup_fclose_ FILE *f = NULL;
-        bool good = false;
+        bool good = false, any = false;
 
         f = fopen("/proc/devices", "re");
         if (!f)
@@ -448,8 +448,13 @@ int bpf_devices_whitelist_major(BPFProgram *prog, const char *path, const char *
                 if (fnmatch(name, w, 0) != 0)
                         continue;
 
+                any = true;
                 (void) whitelist_device_pattern(prog, path, type, &maj, NULL, acc);
         }
+
+        if (!any)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Device whitelist pattern \"%s\" did not match anything.", name);
 
         return 0;
 }

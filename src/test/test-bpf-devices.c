@@ -219,6 +219,37 @@ static void test_policy_whitelist_major_star(char type, const char *cgroup_path,
         assert_se(wrong == 0);
 }
 
+static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFProgram **installed_prog) {
+        _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
+        unsigned wrong = 0;
+        int r;
+
+        log_info("/* %s(add_mismatched=%s) */", __func__, yes_no(add_mismatched));
+
+        r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, add_mismatched);
+        assert_se(r >= 0);
+
+        if (add_mismatched) {
+                r = bpf_devices_whitelist_major(prog, cgroup_path, "foobarxxx", 'c', "rw");
+                assert_se(r < 0);
+        }
+
+        r = bpf_devices_apply_policy(prog, CGROUP_DEVICE_POLICY_STRICT, false, cgroup_path, installed_prog);
+        assert_se(r >= 0);
+
+        {
+                _cleanup_close_ int fd;
+                const char *s = "/dev/null";
+
+                fd = open(s, O_CLOEXEC|O_RDWR|O_NOCTTY);
+                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? errno_to_name(errno) : "-");
+                wrong += fd >= 0;
+        }
+
+        assert_se(wrong == 0);
+}
+
+
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *cgroup = NULL, *parent = NULL;
         _cleanup_(rmdir_and_freep) char *controller_path = NULL;
@@ -257,6 +288,9 @@ int main(int argc, char *argv[]) {
 
         test_policy_whitelist_major_star('c', cgroup, &prog);
         test_policy_whitelist_major_star('b', cgroup, &prog);
+
+        test_policy_empty(false, cgroup, &prog);
+        test_policy_empty(true, cgroup, &prog);
 
         assert_se(parent = dirname_malloc(cgroup));
 
