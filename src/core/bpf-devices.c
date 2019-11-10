@@ -110,8 +110,9 @@ int cgroup_bpf_whitelist_class(BPFProgram *prog, int type, const char *acc) {
 int cgroup_init_device_bpf(BPFProgram **ret, CGroupDevicePolicy policy, bool whitelist) {
         const struct bpf_insn pre_insn[] = {
                 /* load device type to r2 */
-                BPF_LDX_MEM(BPF_H, BPF_REG_2, BPF_REG_1,
+                BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
                             offsetof(struct bpf_cgroup_dev_ctx, access_type)),
+                BPF_ALU32_IMM(BPF_AND, BPF_REG_2, 0xFFFF),
 
                 /* load access type to r3 */
                 BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
