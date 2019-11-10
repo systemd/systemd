@@ -54,16 +54,20 @@ static int bpf_prog_whitelist_device(BPFProgram *prog, char type, int major, int
         const int bpf_type = type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK;
 
         const struct bpf_insn insn[] = {
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, bpf_type, 6), /* compare device type */
-                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
+                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3),
                 BPF_ALU32_IMM(BPF_AND, BPF_REG_1, access),
-                BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 3), /* compare access type */
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_4, major, 2), /* compare major */
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_5, minor, 1), /* compare minor */
-                BPF_JMP_A(PASS_JUMP_OFF), /* jump to PASS */
+                BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 4), /* compare access type */
+
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, bpf_type, 3),  /* compare device type */
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_4, major, 2),     /* compare major */
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_5, minor, 1),     /* compare minor */
+                BPF_JMP_A(PASS_JUMP_OFF),                      /* jump to PASS */
         };
 
-        r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
+        if (FLAGS_SET(access, BPF_DEVCG_ACC_READ | BPF_DEVCG_ACC_WRITE | BPF_DEVCG_ACC_MKNOD))
+                r = bpf_program_add_instructions(prog, insn + 3, ELEMENTSOF(insn) - 3);
+        else
+                r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
         if (r < 0)
                 log_error_errno(r, "Extending device control BPF program failed: %m");
 
@@ -86,15 +90,19 @@ static int bpf_prog_whitelist_major(BPFProgram *prog, char type, int major, cons
         const int bpf_type = type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK;
 
         const struct bpf_insn insn[] = {
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, bpf_type, 5), /* compare device type */
-                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
+                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3),
                 BPF_ALU32_IMM(BPF_AND, BPF_REG_1, access),
-                BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 2), /* compare access type */
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_4, major, 1), /* compare major */
-                BPF_JMP_A(PASS_JUMP_OFF), /* jump to PASS */
+                BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 3), /* compare access type */
+
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, bpf_type, 2),  /* compare device type */
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_4, major, 1),     /* compare major */
+                BPF_JMP_A(PASS_JUMP_OFF),                      /* jump to PASS */
         };
 
-        r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
+        if (FLAGS_SET(access, BPF_DEVCG_ACC_READ | BPF_DEVCG_ACC_WRITE | BPF_DEVCG_ACC_MKNOD))
+                r = bpf_program_add_instructions(prog, insn + 3, ELEMENTSOF(insn) - 3);
+        else
+                r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
         if (r < 0)
                 log_error_errno(r, "Extending device control BPF program failed: %m");
 
@@ -117,14 +125,18 @@ static int bpf_prog_whitelist_class(BPFProgram *prog, char type, const char *acc
         const int bpf_type = type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK;
 
         const struct bpf_insn insn[] = {
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, bpf_type, 4), /* compare device type */
-                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
+                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3),
                 BPF_ALU32_IMM(BPF_AND, BPF_REG_1, access),
-                BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 1), /* compare access type */
-                BPF_JMP_A(PASS_JUMP_OFF), /* jump to PASS */
+                BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 2), /* compare access type */
+
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, bpf_type, 1), /* compare device type */
+                BPF_JMP_A(PASS_JUMP_OFF),                     /* jump to PASS */
         };
 
-        r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
+        if (FLAGS_SET(access, BPF_DEVCG_ACC_READ | BPF_DEVCG_ACC_WRITE | BPF_DEVCG_ACC_MKNOD))
+                r = bpf_program_add_instructions(prog, insn + 3, ELEMENTSOF(insn) - 3);
+        else
+                r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
         if (r < 0)
                 log_error_errno(r, "Extending device control BPF program failed: %m");
 
