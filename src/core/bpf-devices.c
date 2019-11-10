@@ -93,7 +93,7 @@ int cgroup_bpf_whitelist_class(BPFProgram *prog, int type, const char *acc) {
                 return -EINVAL;
 
         const struct bpf_insn insn[] = {
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 5), /* compare device type */
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 4), /* compare device type */
                 BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
                 BPF_ALU32_IMM(BPF_AND, BPF_REG_1, access),
                 BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 1), /* compare access type */
