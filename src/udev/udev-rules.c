@@ -2082,7 +2082,7 @@ static int udev_rule_apply_token_to_event(
                 (void) udev_event_apply_format(event, token->value, value, sizeof(value), false);
 
                 log_rule_debug(dev, rules, "ATTR '%s' writing '%s'", buf, value);
-                r = write_string_file(buf, value, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+                r = write_string_file(buf, value, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER | WRITE_STRING_FILE_AVOID_NEWLINE);
                 if (r < 0)
                         log_rule_error_errno(dev, rules, r, "Failed to write ATTR{%s}, ignoring: %m", buf);
                 break;
