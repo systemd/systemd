@@ -753,7 +753,7 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
 
         switch (o->object.type) {
 
-        case OBJECT_DATA: {
+        case OBJECT_DATA:
                 if ((le64toh(o->data.entry_offset) == 0) ^ (le64toh(o->data.n_entries) == 0))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Bad n_entries: %" PRIu64 ": %" PRIu64,
@@ -780,7 +780,6 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                                                offset);
 
                 break;
-        }
 
         case OBJECT_FIELD:
                 if (le64toh(o->object.size) - offsetof(FieldObject, payload) <= 0)
