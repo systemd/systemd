@@ -51,6 +51,7 @@ struct NamespaceInfo {
         bool protect_control_groups:1;
         bool protect_kernel_tunables:1;
         bool protect_kernel_modules:1;
+        bool protect_kernel_logs:1;
         bool mount_apivfs:1;
         bool protect_hostname:1;
 };

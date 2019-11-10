@@ -109,6 +109,12 @@ static const MountEntry protect_kernel_modules_table[] = {
         { "/usr/lib/modules",    INACCESSIBLE, true  },
 };
 
+/* ProtectKernelLogs= option */
+static const MountEntry protect_kernel_logs_table[] = {
+        { "/proc/kmsg",          INACCESSIBLE, true },
+        { "/dev/kmsg",           INACCESSIBLE, true },
+};
+
 /*
  * ProtectHome=read-only table, protect $HOME and $XDG_RUNTIME_DIR and rest of
  * system should be protected by ProtectSystem=
@@ -1147,8 +1153,9 @@ static size_t namespace_calculate_mounts(
                 n_temporary_filesystems +
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
-                (ns_info->protect_control_groups ? 1 : 0) +
                 (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
+                (ns_info->protect_kernel_logs ? ELEMENTSOF(protect_kernel_logs_table) : 0) +
+                (ns_info->protect_control_groups ? 1 : 0) +
                 protect_home_cnt + protect_system_cnt +
                 (ns_info->protect_hostname ? 2 : 0) +
                 (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0);
@@ -1315,6 +1322,12 @@ int setup_namespace(
 
                 if (ns_info->protect_kernel_modules) {
                         r = append_static_mounts(&m, protect_kernel_modules_table, ELEMENTSOF(protect_kernel_modules_table), ns_info->ignore_protect_paths);
+                        if (r < 0)
+                                goto finish;
+                }
+
+                if (ns_info->protect_kernel_logs) {
+                        r = append_static_mounts(&m, protect_kernel_logs_table, ELEMENTSOF(protect_kernel_logs_table), ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
                 }

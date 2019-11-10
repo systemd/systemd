@@ -1872,6 +1872,7 @@ static bool exec_needs_mount_namespace(
             context->protect_home != PROTECT_HOME_NO ||
             context->protect_kernel_tunables ||
             context->protect_kernel_modules ||
+            context->protect_kernel_logs ||
             context->protect_control_groups)
                 return true;
 
@@ -2507,6 +2508,7 @@ static int apply_mount_namespace(
                         .protect_control_groups = context->protect_control_groups,
                         .protect_kernel_tunables = context->protect_kernel_tunables,
                         .protect_kernel_modules = context->protect_kernel_modules,
+                        .protect_kernel_logs = context->protect_kernel_logs,
                         .protect_hostname = context->protect_hostname,
                         .mount_apivfs = context->mount_apivfs,
                         .private_mounts = context->private_mounts,
