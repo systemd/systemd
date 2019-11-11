@@ -230,6 +230,12 @@ sensor:modalias:acpi:*KIOX000A*:dmi:*svn*CytrixTechnology:*pn*Complex11t*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
+# Dell
+#########################################
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:pnVostro5581:*
+ ACCEL_LOCATION=base
+
+#########################################
 # DEXP
 #########################################
 sensor:modalias:acpi:SMO8500*:dmi:*svn*DEXP*:*pn*DEXPOEM*
