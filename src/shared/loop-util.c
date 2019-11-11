@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#if HAVE_VALGRIND_MEMCHECK_H
+#include <valgrind/memcheck.h>
+#endif
+
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/blkpg.h>
@@ -42,6 +46,11 @@ int loop_device_make_full(
         if (S_ISBLK(st.st_mode)) {
                 if (ioctl(loop, LOOP_GET_STATUS64, &info) >= 0) {
                         /* Oh! This is a loopback device? That's interesting! */
+
+#if HAVE_VALGRIND_MEMCHECK_H
+                        /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
+                        VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
+#endif
                         nr = info.lo_number;
 
                         if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
@@ -217,9 +226,13 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
         if (!S_ISBLK(st.st_mode))
                 return -ENOTBLK;
 
-        if (ioctl(loop_fd, LOOP_GET_STATUS64, &info) >= 0)
+        if (ioctl(loop_fd, LOOP_GET_STATUS64, &info) >= 0) {
+#if HAVE_VALGRIND_MEMCHECK_H
+                /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
+                VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
+#endif
                 nr = info.lo_number;
-        else
+        } else
                 nr = -1;
 
         p = strdup(loop_path);
@@ -346,6 +359,11 @@ int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
 
         if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
                 return -errno;
+
+#if HAVE_VALGRIND_MEMCHECK_H
+        /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
+        VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
+#endif
 
         if (size == UINT64_MAX && offset == UINT64_MAX)
                 return 0;

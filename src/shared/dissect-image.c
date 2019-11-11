@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#if HAVE_VALGRIND_MEMCHECK_H
+#include <valgrind/memcheck.h>
+#endif
+
 #include <linux/dm-ioctl.h>
 #include <linux/loop.h>
 #include <sys/mount.h>
@@ -215,9 +219,15 @@ static int wait_for_partitions_to_appear(
                          * an explicit recognizable error about this, so that callers can generate a
                          * proper message explaining the situation. */
 
-                        if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0 && (info.lo_flags & LO_FLAGS_PARTSCAN) == 0) {
-                                log_debug("Device is a loop device and partition scanning is off!");
-                                return -EPROTONOSUPPORT;
+                        if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
+#if HAVE_VALGRIND_MEMCHECK_H
+                                /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
+                                VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
+#endif
+
+                                if ((info.lo_flags & LO_FLAGS_PARTSCAN) == 0)
+                                        return log_debug_errno(EPROTONOSUPPORT,
+                                                               "Device is a loop device and partition scanning is off!");
                         }
                 }
                 if (r != -EBUSY)
