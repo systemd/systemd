@@ -1279,6 +1279,10 @@ bool timezone_is_valid(const char *name, int log_level) {
         if (isempty(name))
                 return false;
 
+        /* Always accept "UTC" as valid timezone, since it's the fallback, even if user has no timezones installed. */
+        if (streq(name, "UTC"))
+                return true;
+
         if (name[0] == '/')
                 return false;
 
