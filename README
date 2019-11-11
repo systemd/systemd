@@ -121,6 +121,8 @@ REQUIREMENTS:
 
         Required for systemd-nspawn:
           CONFIG_DEVPTS_MULTIPLE_INSTANCES or Linux kernel >= 4.7
+          CONFIG_MQUEUE
+
 
         Note that kernel auditing is broken when used with systemd's
         container code. When using systemd in conjunction with
