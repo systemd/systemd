@@ -1260,6 +1260,7 @@ int get_timezones(char ***ret) {
                 }
 
                 strv_sort(zones);
+                strv_uniq(zones);
 
         } else if (errno != ENOENT)
                 return -errno;
