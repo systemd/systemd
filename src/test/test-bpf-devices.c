@@ -263,6 +263,10 @@ int main(int argc, char *argv[]) {
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
         (void) setrlimit(RLIMIT_MEMLOCK, &rl);
 
+        r = cg_all_unified();
+        if (r <= 0)
+                return log_tests_skipped("We don't seem to be running with unified cgroup hierarchy");
+
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock()");
 
