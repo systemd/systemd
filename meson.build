@@ -824,6 +824,11 @@ conf.set10('ENABLE_DEBUG_SIPHASH', enable_debug_siphash)
 conf.set10('VALGRIND', get_option('valgrind'))
 conf.set10('LOG_TRACE', get_option('log-trace'))
 
+default_user_path = get_option('user-path')
+if default_user_path != ''
+        conf.set_quoted('DEFAULT_USER_PATH', default_user_path)
+endif
+
 #####################################################################
 
 threads = dependency('threads')
@@ -3119,6 +3124,8 @@ status = [
         'default net.naming-scheme setting: @0@'.format(default_net_naming_scheme),
         'default KillUserProcesses setting: @0@'.format(kill_user_processes),
         'default locale:                    @0@'.format(default_locale),
+        'default user $PATH:                @0@'.format(
+                default_user_path != '' ? default_user_path : '(same as system services)'),
         'systemd service watchdog:          @0@'.format(watchdog_opt)]
 
 alt_dns_servers = '\n                                            '.join(dns_servers.split(' '))
