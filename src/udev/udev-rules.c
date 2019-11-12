@@ -2313,6 +2313,8 @@ static int apply_static_dev_perms(const char *devnode, uid_t uid, gid_t gid, mod
                 gid = 0;
 
         r = chmod_and_chown(device_node, mode, uid, gid);
+        if (r == -ENOENT)
+                return 0;
         if (r < 0)
                 return log_error_errno(errno, "Failed to chown '%s' %u %u: %m",
                                                device_node, uid, gid);
