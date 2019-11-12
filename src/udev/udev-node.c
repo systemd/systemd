@@ -298,8 +298,11 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
         else
                 mode |= S_IFCHR;
 
-        if (lstat(devnode, &stats) < 0)
+        if (lstat(devnode, &stats) < 0) {
+                if (errno == ENOENT)
+                        return 0; /* this is necessarily racey, so ignore missing the device */
                 return log_device_debug_errno(dev, errno, "cannot stat() node %s: %m", devnode);
+        }
 
         if ((mode != MODE_INVALID && (stats.st_mode & S_IFMT) != (mode & S_IFMT)) || stats.st_rdev != devnum)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
@@ -324,11 +327,13 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
 
                         r = chmod_and_chown(devnode, mode, uid, gid);
                         if (r < 0)
-                                log_device_warning_errno(dev, r, "Failed to set owner/mode of %s to uid=" UID_FMT ", gid=" GID_FMT ", mode=%#o: %m",
-                                                         devnode,
-                                                         uid_is_valid(uid) ? uid : stats.st_uid,
-                                                         gid_is_valid(gid) ? gid : stats.st_gid,
-                                                         mode != MODE_INVALID ? mode & 0777 : stats.st_mode & 0777);
+                                log_device_full(dev, r == -ENOENT ? LOG_DEBUG : LOG_ERR, r,
+                                                "Failed to set owner/mode of %s to uid=" UID_FMT
+                                                ", gid=" GID_FMT ", mode=%#o: %m",
+                                                devnode,
+                                                uid_is_valid(uid) ? uid : stats.st_uid,
+                                                gid_is_valid(gid) ? gid : stats.st_gid,
+                                                mode != MODE_INVALID ? mode & 0777 : stats.st_mode & 0777);
                 } else
                         log_device_debug(dev, "Preserve permissions of %s, uid=" UID_FMT ", gid=" GID_FMT ", mode=%#o",
                                          devnode,
@@ -345,7 +350,8 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
 
                                 q = mac_selinux_apply(devnode, label);
                                 if (q < 0)
-                                        log_device_error_errno(dev, q, "SECLABEL: failed to set SELinux label '%s': %m", label);
+                                        log_device_full(dev, q == -ENOENT ? LOG_DEBUG : LOG_ERR, q,
+                                                        "SECLABEL: failed to set SELinux label '%s': %m", label);
                                 else
                                         log_device_debug(dev, "SECLABEL: set SELinux label '%s'", label);
 
@@ -354,7 +360,8 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
 
                                 q = mac_smack_apply(devnode, SMACK_ATTR_ACCESS, label);
                                 if (q < 0)
-                                        log_device_error_errno(dev, q, "SECLABEL: failed to set SMACK label '%s': %m", label);
+                                        log_device_full(dev, q == -ENOENT ? LOG_DEBUG : LOG_ERR, q,
+                                                        "SECLABEL: failed to set SMACK label '%s': %m", label);
                                 else
                                         log_device_debug(dev, "SECLABEL: set SMACK label '%s'", label);
 
