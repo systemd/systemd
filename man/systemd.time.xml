@@ -136,9 +136,8 @@
     evaluated relative to the UNIX time epoch 1st Jan, 1970,
     00:00.</para>
 
-    <para>Examples for valid timestamps and their normalized form
-    (assuming the current time was 2012-11-23 18:15:22 and the timezone
-    was UTC+8, for example TZ=Asia/Shanghai):</para>
+    <para>Examples for valid timestamps and their normalized form (assuming the current time was 2012-11-23
+    18:15:22 and the timezone was UTC+8, for example <literal>TZ=:Asia/Shanghai</literal>):</para>
 
     <programlisting>  Fri 2012-11-23 11:12:13 → Fri 2012-11-23 11:12:13
       2012-11-23 11:12:13 → Fri 2012-11-23 11:12:13

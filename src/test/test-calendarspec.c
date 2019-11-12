@@ -43,9 +43,12 @@ static void test_next(const char *input, const char *new_tz, usec_t after, usec_
         if (old_tz)
                 old_tz = strdupa(old_tz);
 
-        if (new_tz)
-                assert_se(setenv("TZ", new_tz, 1) >= 0);
-        else
+        if (new_tz) {
+                char *colon_tz;
+
+                colon_tz = strjoina(":", new_tz);
+                assert_se(setenv("TZ", colon_tz, 1) >= 0);
+        } else
                 assert_se(unsetenv("TZ") >= 0);
         tzset();
 

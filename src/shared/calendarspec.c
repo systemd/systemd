@@ -1352,7 +1352,12 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *ret_n
                 return r;
         }
         if (r == 0) {
-                if (setenv("TZ", spec->timezone, 1) != 0) {
+                char *colon_tz;
+
+                /* tzset(3) says $TZ should be prefixed with ":" if we reference timezone files */
+                colon_tz = strjoina(":", spec->timezone);
+
+                if (setenv("TZ", colon_tz, 1) != 0) {
                         shared->return_value = negative_errno();
                         _exit(EXIT_FAILURE);
                 }

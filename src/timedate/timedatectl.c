@@ -46,7 +46,7 @@ typedef struct StatusInfo {
 } StatusInfo;
 
 static void print_status_info(const StatusInfo *i) {
-        const char *old_tz = NULL, *tz;
+        const char *old_tz = NULL, *tz, *tz_colon;
         bool have_time = false;
         char a[LINE_MAX];
         struct tm tm;
@@ -62,7 +62,8 @@ static void print_status_info(const StatusInfo *i) {
                 old_tz = strdupa(tz);
 
         /* Set the new $TZ */
-        if (setenv("TZ", isempty(i->timezone) ? "UTC" : i->timezone, true) < 0)
+        tz_colon = strjoina(":", isempty(i->timezone) ? "UTC" : i->timezone);
+        if (setenv("TZ", tz_colon, true) < 0)
                 log_warning_errno(errno, "Failed to set TZ environment variable, ignoring: %m");
         else
                 tzset();

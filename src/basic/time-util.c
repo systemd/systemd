@@ -832,8 +832,12 @@ int parse_timestamp(const char *t, usec_t *usec) {
         }
         if (r == 0) {
                 bool with_tz = true;
+                char *colon_tz;
 
-                if (setenv("TZ", tz, 1) != 0) {
+                /* tzset(3) says $TZ should be prefixed with ":" if we reference timezone files */
+                colon_tz = strjoina(":", tz);
+
+                if (setenv("TZ", colon_tz, 1) != 0) {
                         shared->return_value = negative_errno();
                         _exit(EXIT_FAILURE);
                 }
