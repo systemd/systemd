@@ -132,6 +132,7 @@ shared_sources = files('''
         nscd-flush.h
         nsflags.c
         nsflags.h
+        openssl-util.h
         os-util.c
         os-util.h
         output-mode.c
