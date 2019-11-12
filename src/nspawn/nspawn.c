@@ -3770,6 +3770,7 @@ static int merge_settings(Settings *settings, const char *path) {
 
         if ((arg_settings_mask & SETTING_CAPABILITY) == 0) {
                 uint64_t plus, minus;
+                uint64_t network_minus = 0;
 
                 /* Note that we copy both the simple plus/minus caps here, and the full quintet from the
                  * Settings structure */
@@ -3781,14 +3782,16 @@ static int merge_settings(Settings *settings, const char *path) {
                         if (settings_private_network(settings))
                                 plus |= UINT64_C(1) << CAP_NET_ADMIN;
                         else
-                                minus |= UINT64_C(1) << CAP_NET_ADMIN;
+                                network_minus |= UINT64_C(1) << CAP_NET_ADMIN;
                 }
 
                 if (!arg_settings_trusted && plus != 0) {
                         if (settings->capability != 0)
                                 log_warning("Ignoring Capability= setting, file %s is not trusted.", path);
-                } else
+                } else {
+                        arg_caps_retain &= ~network_minus;
                         arg_caps_retain |= plus;
+                }
 
                 arg_caps_retain &= ~minus;
 
