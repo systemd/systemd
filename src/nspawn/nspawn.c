@@ -437,14 +437,9 @@ static int detect_unified_cgroup_hierarchy_from_environment(void) {
 
         e = getenv(var);
         if (!e) {
-                static bool warned = false;
-
+                /* $UNIFIED_CGROUP_HIERARCHY has been renamed to $SYSTEMD_NSPAWN_UNIFIED_HIERARCHY. */
                 var = "UNIFIED_CGROUP_HIERARCHY";
                 e = getenv(var);
-                if (e && !warned) {
-                        log_info("$UNIFIED_CGROUP_HIERARCHY has been renamed to $SYSTEMD_NSPAWN_UNIFIED_HIERARCHY.");
-                        warned = true;
-                }
         }
 
         if (!isempty(e)) {
