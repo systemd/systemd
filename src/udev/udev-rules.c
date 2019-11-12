@@ -2316,8 +2316,7 @@ static int apply_static_dev_perms(const char *devnode, uid_t uid, gid_t gid, mod
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(errno, "Failed to chown '%s' %u %u: %m",
-                                               device_node, uid, gid);
+                return log_error_errno(r, "Failed to chown '%s' %u %u: %m", device_node, uid, gid);
         else
                 log_debug("chown '%s' %u:%u with mode %#o", device_node, uid, gid, mode);
 
