@@ -8,6 +8,7 @@ project('systemd', 'c',
                 'prefix=/usr',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
+                'warning_level=2',
         ],
         meson_version : '>= 0.46',
        )
@@ -302,7 +303,8 @@ install_tests = get_option('install-tests')
 
 if add_languages('cpp', required : fuzzer_build)
         #  Used only for tests
-        cxx_cmd = ' '.join(meson.get_compiler('cpp').cmd_array())
+        cxx = meson.get_compiler('cpp')
+        cxx_cmd = ' '.join(cxx.cmd_array())
 else
         cxx_cmd = ''
 endif
@@ -322,8 +324,25 @@ elif want_fuzzbuzz
         fuzzing_engine = meson.get_compiler('cpp').find_library(get_option('fuzzbuzz-engine'), dirs: get_option('fuzzbuzz-engine-dir'))
 endif
 
+# Those generate many false positives, and we do not want to change the code to
+# avoid them.
+basic_disabled_warnings = [
+        '-Wno-unused-parameter',
+        '-Wno-missing-field-initializers',
+        '-Wno-unused-result',
+        '-Wno-format-signedness',
+]
+if get_option('b_ndebug') == 'true'
+        # With asserts disabled with get a bunch of warnings about variables which
+        # are used only in the asserts. This is not useful at all, so let's just silence
+        # those warnings.
+        basic_disabled_warnings += [
+                '-Wno-unused-variable',
+                '-Wno-unused-but-set-variable',
+        ]
+endif
+
 possible_cc_flags = [
-        '-Wextra',
         '-Werror=undef',
         '-Wlogical-op',
         '-Wmissing-include-dirs',
@@ -353,10 +372,6 @@ possible_cc_flags = [
         '-Wnested-externs',
 
         # negative arguments are correctly detected starting with meson 0.46.
-        '-Wno-unused-parameter',
-        '-Wno-missing-field-initializers',
-        '-Wno-unused-result',
-        '-Wno-format-signedness',
         '-Wno-error=#warnings',  # clang
         '-Wno-string-plus-int',  # clang
 
@@ -401,16 +416,7 @@ if get_option('buildtype') != 'debug'
         possible_link_flags += '-Wl,--gc-sections'
 endif
 
-if get_option('b_ndebug') == 'true'
-        # With asserts disabled with get a bunch of warnings about variables which
-        # are used only in the asserts. This is not useful at all, so let's just silence
-        # those warnings.
-        possible_cc_flags += [
-                '-Wno-unused-variable',
-                '-Wno-unused-but-set-variable',
-        ]
-endif
-
+add_project_arguments(cc.get_supported_arguments(basic_disabled_warnings), language : 'c')
 add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
 add_project_link_arguments(cc.get_supported_link_arguments(possible_link_flags), language : 'c')
 
@@ -425,6 +431,10 @@ if cc.compiles('''
    }
 ''', args: '-Werror=shadow', name : '-Werror=shadow with local shadowing')
         add_project_arguments('-Werror=shadow', language : 'c')
+endif
+
+if cxx_cmd != ''
+        add_project_arguments(cxx.get_supported_arguments(basic_disabled_warnings), language : 'cpp')
 endif
 
 cpp = ' '.join(cc.cmd_array()) + ' -E'
