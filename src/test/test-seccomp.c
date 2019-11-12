@@ -17,9 +17,11 @@
 #include "nsflags.h"
 #include "process-util.h"
 #include "raw-clone.h"
+#include "rm-rf.h"
 #include "seccomp-util.h"
 #include "set.h"
 #include "string-util.h"
+#include "umask-util.h"
 #include "util.h"
 #include "virt.h"
 
@@ -666,6 +668,229 @@ static void test_filter_sets_ordered(void) {
         }
 }
 
+static int mkostemp_safe(char *pattern) {
+        _unused_ _cleanup_umask_ mode_t u = umask(0077);
+        int fd;
+
+        assert(pattern);
+
+        fd = mkostemp(pattern, O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        return fd;
+}
+
+static int real_open(const char *path, int flags, mode_t mode) {
+        /* glibc internally calls openat() when open() is requested. Let's hence define our own wrapper for
+         * testing purposes that calls the real syscall, on architectures where SYS_open is defined. On
+         * other architectures, let's just fall back to the glibc call. */
+
+#ifdef SYS_open
+        return (int) syscall(SYS_open, path, flags, mode);
+#else
+        return open(path, flags, mode);
+#endif
+}
+
+static void test_restrict_suid_sgid(void) {
+        pid_t pid;
+
+        log_info("/* %s */", __func__);
+
+        if (!is_seccomp_available()) {
+                log_notice("Seccomp not available, skipping %s", __func__);
+                return;
+        }
+        if (geteuid() != 0) {
+                log_notice("Not root, skipping %s", __func__);
+                return;
+        }
+
+        pid = fork();
+        assert_se(pid >= 0);
+
+        if (pid == 0) {
+                char path[] = "/tmp/suidsgidXXXXXX", dir[] = "/tmp/suidsgiddirXXXXXX";
+                int fd = -1, k = -1;
+                const char *z;
+
+                fd = mkostemp_safe(path);
+                assert_se(fd >= 0);
+
+                assert_se(mkdtemp(dir));
+                z = strjoina(dir, "/test");
+
+                assert_se(chmod(path, 0755 | S_ISUID) >= 0);
+                assert_se(chmod(path, 0755 | S_ISGID) >= 0);
+                assert_se(chmod(path, 0755 | S_ISGID | S_ISUID) >= 0);
+                assert_se(chmod(path, 0755) >= 0);
+
+                assert_se(fchmod(fd, 0755 | S_ISUID) >= 0);
+                assert_se(fchmod(fd, 0755 | S_ISGID) >= 0);
+                assert_se(fchmod(fd, 0755 | S_ISGID | S_ISUID) >= 0);
+                assert_se(fchmod(fd, 0755) >= 0);
+
+                assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISUID, 0) >= 0);
+                assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID, 0) >= 0);
+                assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0) >= 0);
+                assert_se(fchmodat(AT_FDCWD, path, 0755, 0) >= 0);
+
+                k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                k = creat(z, 0644 | S_ISUID);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                k = creat(z, 0644 | S_ISGID);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                k = creat(z, 0644 | S_ISUID | S_ISGID);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                k = creat(z, 0644);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                assert_se(mkdir(z, 0755 | S_ISUID) >= 0);
+                assert_se(rmdir(z) >= 0);
+                assert_se(mkdir(z, 0755 | S_ISGID) >= 0);
+                assert_se(rmdir(z) >= 0);
+                assert_se(mkdir(z, 0755 | S_ISUID | S_ISGID) >= 0);
+                assert_se(rmdir(z) >= 0);
+                assert_se(mkdir(z, 0755) >= 0);
+                assert_se(rmdir(z) >= 0);
+
+                assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISUID) >= 0);
+                assert_se(rmdir(z) >= 0);
+                assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISGID) >= 0);
+                assert_se(rmdir(z) >= 0);
+                assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISUID | S_ISGID) >= 0);
+                assert_se(rmdir(z) >= 0);
+                assert_se(mkdirat(AT_FDCWD, z, 0755) >= 0);
+                assert_se(rmdir(z) >= 0);
+
+                assert_se(mknod(z, S_IFREG | 0755 | S_ISUID, 0) >= 0);
+                assert_se(unlink(z) >= 0);
+                assert_se(mknod(z, S_IFREG | 0755 | S_ISGID, 0) >= 0);
+                assert_se(unlink(z) >= 0);
+                assert_se(mknod(z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0) >= 0);
+                assert_se(unlink(z) >= 0);
+                assert_se(mknod(z, S_IFREG | 0755, 0) >= 0);
+                assert_se(unlink(z) >= 0);
+
+                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID, 0) >= 0);
+                assert_se(unlink(z) >= 0);
+                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISGID, 0) >= 0);
+                assert_se(unlink(z) >= 0);
+                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0) >= 0);
+                assert_se(unlink(z) >= 0);
+                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755, 0) >= 0);
+                assert_se(unlink(z) >= 0);
+
+                assert_se(seccomp_restrict_suid_sgid() >= 0);
+
+                assert_se(chmod(path, 0775 | S_ISUID) < 0 && errno == EPERM);
+                assert_se(chmod(path, 0775 | S_ISGID) < 0  && errno == EPERM);
+                assert_se(chmod(path, 0775 | S_ISGID | S_ISUID) < 0  && errno == EPERM);
+                assert_se(chmod(path, 0775) >= 0);
+
+                assert_se(fchmod(fd, 0775 | S_ISUID) < 0 && errno == EPERM);
+                assert_se(fchmod(fd, 0775 | S_ISGID) < 0  && errno == EPERM);
+                assert_se(fchmod(fd, 0775 | S_ISGID | S_ISUID) < 0  && errno == EPERM);
+                assert_se(fchmod(fd, 0775) >= 0);
+
+                assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISUID, 0) < 0 && errno == EPERM);
+                assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID, 0) < 0 && errno == EPERM);
+                assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0) < 0 && errno == EPERM);
+                assert_se(fchmodat(AT_FDCWD, path, 0755, 0) >= 0);
+
+                assert_se(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID) < 0 && errno == EPERM);
+                assert_se(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID) < 0 && errno == EPERM);
+                assert_se(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
+                k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                assert_se(creat(z, 0644 | S_ISUID) < 0 && errno == EPERM);
+                assert_se(creat(z, 0644 | S_ISGID) < 0 && errno == EPERM);
+                assert_se(creat(z, 0644 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
+                k = creat(z, 0644);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                assert_se(openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID) < 0 && errno == EPERM);
+                assert_se(openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID) < 0 && errno == EPERM);
+                assert_se(openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
+                k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644);
+                k = safe_close(k);
+                assert_se(unlink(z) >= 0);
+
+                assert_se(mkdir(z, 0755 | S_ISUID) < 0 && errno == EPERM);
+                assert_se(mkdir(z, 0755 | S_ISGID) < 0 && errno == EPERM);
+                assert_se(mkdir(z, 0755 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
+                assert_se(mkdir(z, 0755) >= 0);
+                assert_se(rmdir(z) >= 0);
+
+                assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISUID) < 0 && errno == EPERM);
+                assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISGID) < 0 && errno == EPERM);
+                assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
+                assert_se(mkdirat(AT_FDCWD, z, 0755) >= 0);
+                assert_se(rmdir(z) >= 0);
+
+                assert_se(mknod(z, S_IFREG | 0755 | S_ISUID, 0) < 0 && errno == EPERM);
+                assert_se(mknod(z, S_IFREG | 0755 | S_ISGID, 0) < 0 && errno == EPERM);
+                assert_se(mknod(z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0) < 0 && errno == EPERM);
+                assert_se(mknod(z, S_IFREG | 0755, 0) >= 0);
+                assert_se(unlink(z) >= 0);
+
+                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID, 0) < 0 && errno == EPERM);
+                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISGID, 0) < 0 && errno == EPERM);
+                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0) < 0 && errno == EPERM);
+                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755, 0) >= 0);
+                assert_se(unlink(z) >= 0);
+
+                assert_se(unlink(path) >= 0);
+                assert_se(rm_rf(dir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(wait_for_terminate_and_check("suidsgidseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -684,6 +909,7 @@ int main(int argc, char *argv[]) {
         test_load_syscall_filter_set_raw();
         test_lock_personality();
         test_filter_sets_ordered();
+        test_restrict_suid_sgid();
 
         return 0;
 }
