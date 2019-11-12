@@ -265,20 +265,20 @@ shared_sources += shared_generated_gperf_headers
 libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
 
 libshared_deps = [threads,
-                  librt,
-                  libcap,
                   libacl,
+                  libblkid,
+                  libcap,
                   libcryptsetup,
                   libgcrypt,
+                  libidn,
                   libiptc,
                   libkmod,
+                  liblz4,
                   libmount,
+                  librt,
                   libseccomp,
                   libselinux,
-                  libidn,
-                  libxz,
-                  liblz4,
-                  libblkid]
+                  libxz]
 
 libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 
