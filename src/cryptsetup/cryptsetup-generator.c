@@ -60,17 +60,36 @@ static int split_keyspec(const char *keyspec, char **ret_keyfile, char **ret_key
 
         c = strrchr(keyspec, ':');
         if (c) {
-                keyfile = strndup(keyspec, c-keyspec);
-                keydev = strdup(c + 1);
-                if (!keyfile || !keydev)
+                /* The keydev part has to be either an absolute path to device node (/dev/something,
+                 * /dev/foo/something, or even possibly /dev/foo/something:part), or a fstab device
+                 * specification starting with LABEL= or similar. The keyfile part has the same syntax.
+                 *
+                 * Let's try to guess if the second part looks like a keydev specification, or just part of a
+                 * filename with a colon. fstab_node_to_udev_node() will convert the fstab device syntax to
+                 * an absolute path. If we didn't get an absolute path, assume that it is just part of the
+                 * first keyfile argument. */
+
+                keydev = fstab_node_to_udev_node(c + 1);
+                if (!keydev)
                         return log_oom();
-        } else {
+
+                if (path_is_absolute(keydev))
+                        keyfile = strndup(keyspec, c-keyspec);
+                else {
+                        log_debug("Keyspec argument contains a colon, but \"%s\" doesn't look like a device specification.\n"
+                                  "Assuming that \"%s\" is a single device specification.",
+                                  c + 1, keyspec);
+                        keydev = mfree(keydev);
+                        c = NULL;
+                }
+        }
+
+        if (!c)
                 /* No keydev specified */
                 keyfile = strdup(keyspec);
-                keydev = NULL;
-                if (!keyfile)
-                        return log_oom();
-        }
+
+        if (!keyfile)
+                return log_oom();
 
         *ret_keyfile = TAKE_PTR(keyfile);
         *ret_keydev = TAKE_PTR(keydev);
@@ -79,7 +98,7 @@ static int split_keyspec(const char *keyspec, char **ret_keyfile, char **ret_key
 }
 
 static int generate_keydev_mount(const char *name, const char *keydev, const char *keydev_timeout, bool canfail, char **unit, char **mount) {
-        _cleanup_free_ char *u = NULL, *what = NULL, *where = NULL, *name_escaped = NULL, *device_unit = NULL;
+        _cleanup_free_ char *u = NULL, *where = NULL, *name_escaped = NULL, *device_unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
         usec_t timeout_us;
@@ -117,22 +136,18 @@ static int generate_keydev_mount(const char *name, const char *keydev, const cha
         if (r < 0)
                 return r;
 
-        what = fstab_node_to_udev_node(keydev);
-        if (!what)
-                return -ENOMEM;
-
         fprintf(f,
                 "[Unit]\n"
                 "DefaultDependencies=no\n\n"
                 "[Mount]\n"
                 "What=%s\n"
                 "Where=%s\n"
-                "Options=ro%s\n", what, where, canfail ? ",nofail" : "");
+                "Options=ro%s\n", keydev, where, canfail ? ",nofail" : "");
 
         if (keydev_timeout) {
                 r = parse_sec_fix_0(keydev_timeout, &timeout_us);
                 if (r >= 0) {
-                        r = unit_name_from_path(what, ".device", &device_unit);
+                        r = unit_name_from_path(keydev, ".device", &device_unit);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to generate unit name: %m");
 
