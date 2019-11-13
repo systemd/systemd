@@ -787,7 +787,7 @@ install_libnss() {
 install_dbus() {
     inst $ROOTLIBDIR/system/dbus.socket
 
-    # Newer Fedora versions use dbus-broker by default. Let's install it is available.
+    # Newer Fedora versions use dbus-broker by default. Let's install it if it's available.
     if [ -f $ROOTLIBDIR/system/dbus-broker.service ]; then
         inst $ROOTLIBDIR/system/dbus-broker.service
         inst_symlink /etc/systemd/system/dbus.service
@@ -807,6 +807,31 @@ install_dbus() {
         | while read file; do
         inst $file
     done
+}
+
+install_user_dbus() {
+    inst $ROOTLIBDIR/user/dbus.socket
+    inst_symlink /usr/lib/systemd/user/sockets.target.wants/dbus.socket || inst_symlink /etc/systemd/user/sockets.target.wants/dbus.socket
+
+    # Append the After= dependency on dbus in case it isn't already set up
+    mkdir -p "$initdir/etc/systemd/system/user@.service.d/"
+    cat <<EOF >"$initdir/etc/systemd/system/user@.service.d/dbus.conf"
+[Unit]
+After=dbus.service
+EOF
+
+    # Newer Fedora versions use dbus-broker by default. Let's install it if it's available.
+    if [ -f $ROOTLIBDIR/user/dbus-broker.service ]; then
+        inst $ROOTLIBDIR/user/dbus-broker.service
+        inst_symlink /etc/systemd/user/dbus.service
+    elif [ -f $ROOTLIBDIR/system/dbus-daemon.service ]; then
+        # Fedora rawhide replaced dbus.service with dbus-daemon.service
+        inst $ROOTLIBDIR/user/dbus-daemon.service
+        # Alias symlink
+        inst_symlink /etc/systemd/user/dbus.service
+    else
+        inst $ROOTLIBDIR/user/dbus.service
+    fi
 }
 
 install_pam() {
@@ -877,6 +902,28 @@ install_terminfo() {
         [ -f ${_terminfodir}/l/linux ] && break
     done
     dracut_install -o ${_terminfodir}/l/linux
+}
+
+has_user_dbus_socket() {
+    if [ -f /usr/lib/systemd/user/dbus.socket ] || [ -f /etc/systemd/user/dbus.socket ]; then
+        return 0
+    else
+        echo "Per-user instances are not supported. Skipping..."
+        return 1
+    fi
+}
+
+enable_user_manager() {
+    has_user_dbus_socket || return 0
+
+    local _userid
+    [[ $# -gt 0 ]] || set -- nobody
+    mkdir -p "$initdir/var/lib/systemd/linger"
+    for _userid; do
+        touch "$initdir/var/lib/systemd/linger/$_userid"
+    done
+    dracut_install su
+    install_user_dbus
 }
 
 setup_testsuite() {
