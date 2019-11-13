@@ -73,3 +73,14 @@ int make_salt(char **ret) {
         return 0;
 #endif
 }
+
+bool hashed_password_valid(const char *s) {
+
+        /* Returns true if the specified string is a 'valid' hashed UNIX password, i.e. if starts with '$' or
+         * with '!$' (the latter being a valid, yet locked password). */
+
+        if (isempty(s))
+                return false;
+
+        return STARTSWITH_SET(s, "$", "!$");
+}
