@@ -2425,6 +2425,20 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
       </varlistentry>
 
       <varlistentry>
+        <term><varname>$RUNTIME_DIRECTORY</varname></term>
+        <term><varname>$STATE_DIRECTORY</varname></term>
+        <term><varname>$CACHE_DIRECTORY</varname></term>
+        <term><varname>$LOGS_DIRECTORY</varname></term>
+        <term><varname>$CONFIGURATION_DIRECTORY</varname></term>
+
+        <listitem><para>Contains and absolute paths to the directories defined with
+        <varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>,
+        <varname>CacheDirectory=</varname>, <varname>LogsDirectory=</varname>, and
+        <varname>ConfigurationDirectory=</varname> when those settings are used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>$MAINPID</varname></term>
 
         <listitem><para>The PID of the unit's main process if it is
