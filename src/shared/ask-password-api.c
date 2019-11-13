@@ -105,9 +105,10 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
         int r;
 
         assert(keyname);
-        assert(passwords);
 
         if (!(flags & ASK_PASSWORD_PUSH_CACHE))
+                return 0;
+        if (strv_isempty(passwords))
                 return 0;
 
         r = lookup_key(keyname, &serial);
@@ -147,7 +148,6 @@ static int add_to_keyring_and_log(const char *keyname, AskPasswordFlags flags, c
         int r;
 
         assert(keyname);
-        assert(passwords);
 
         r = add_to_keyring(keyname, flags, passwords);
         if (r < 0)
