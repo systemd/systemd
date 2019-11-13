@@ -653,7 +653,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                 return r;
 
         if (!timezone_is_valid(z, LOG_DEBUG))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid time zone '%s'", z);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid or not installed time zone '%s'", z);
 
         if (streq_ptr(z, c->zone))
                 return sd_bus_reply_method_return(m, NULL);
