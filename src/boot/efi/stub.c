@@ -31,6 +31,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN addrs[ELEMENTSOF(sections)-1] = {};
         UINTN offs[ELEMENTSOF(sections)-1] = {};
         UINTN szs[ELEMENTSOF(sections)-1] = {};
+        CHAR16 *options = NULL;
         CHAR8 *cmdline = NULL;
         UINTN cmdline_len;
         CHAR16 uuid[37];
@@ -64,10 +65,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace the built-in one */
         if ((!secure || cmdline_len == 0) && loaded_image->LoadOptionsSize > 0 && *(CHAR16 *)loaded_image->LoadOptions > 0x1F) {
-                CHAR16 *options;
                 CHAR8 *line;
                 UINTN i;
-
                 options = (CHAR16 *)loaded_image->LoadOptions;
                 cmdline_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16)) * sizeof(CHAR8);
                 line = AllocatePool(cmdline_len);
@@ -76,10 +75,17 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 cmdline = line;
 
 #if ENABLE_TPM
+        } else if (cmdline_len > 0) {
+                UINTN i;
+                options = AllocatePool(cmdline_len * sizeof(CHAR16));
+                for (i= 0; i < cmdline_len; i++)
+                        options[i] = cmdline[0];
+        }
+        if (options) {
                 /* Try to log any options to the TPM, especially manually edited options */
                 err = tpm_log_event(SD_TPM_PCR,
-                                    (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->LoadOptions,
-                                    loaded_image->LoadOptionsSize, loaded_image->LoadOptions);
+                                    (EFI_PHYSICAL_ADDRESS) (UINTN) options,
+                                    cmdline_len, options);
                 if (EFI_ERROR(err)) {
                         Print(L"Unable to add image options measurement: %r", err);
                         uefi_call_wrapper(BS->Stall, 1, 200 * 1000);
