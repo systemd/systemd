@@ -16,7 +16,6 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
-#include "test-helper.h"
 #include "tests.h"
 #include "unit.h"
 #include "util.h"
@@ -32,12 +31,12 @@ static int setup_test(Manager **m) {
 
         assert_se(m);
 
-        r = enter_cgroup_subroot();
+        r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &tmp);
-        if (MANAGER_SKIP_TEST(r))
+        if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
         assert_se(manager_startup(tmp, NULL, NULL) >= 0);

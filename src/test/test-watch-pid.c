@@ -4,7 +4,6 @@
 #include "manager.h"
 #include "rm-rf.h"
 #include "service.h"
-#include "test-helper.h"
 #include "tests.h"
 
 int main(int argc, char *argv[]) {
@@ -17,7 +16,7 @@ int main(int argc, char *argv[]) {
 
         if (getuid() != 0)
                 return log_tests_skipped("not root");
-        r = enter_cgroup_subroot();
+        r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 

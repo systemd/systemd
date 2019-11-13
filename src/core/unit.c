@@ -4303,11 +4303,11 @@ int unit_patch_contexts(Unit *u) {
         if (cc && ec) {
 
                 if (ec->private_devices &&
-                    cc->device_policy == CGROUP_AUTO)
-                        cc->device_policy = CGROUP_CLOSED;
+                    cc->device_policy == CGROUP_DEVICE_POLICY_AUTO)
+                        cc->device_policy = CGROUP_DEVICE_POLICY_CLOSED;
 
                 if (ec->root_image &&
-                    (cc->device_policy != CGROUP_AUTO || cc->device_allow)) {
+                    (cc->device_policy != CGROUP_DEVICE_POLICY_AUTO || cc->device_allow)) {
 
                         /* When RootImage= is specified, the following devices are touched. */
                         r = cgroup_add_device_allow(cc, "/dev/loop-control", "rw");

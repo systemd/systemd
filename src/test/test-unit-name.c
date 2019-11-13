@@ -15,7 +15,6 @@
 #include "special.h"
 #include "specifier.h"
 #include "string-util.h"
-#include "test-helper.h"
 #include "tests.h"
 #include "unit-def.h"
 #include "unit-name.h"
@@ -234,7 +233,7 @@ static int test_unit_printf(void) {
         assert_se(get_shell(&shell) >= 0);
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (MANAGER_SKIP_TEST(r))
+        if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         assert_se(r == 0);
 
@@ -871,7 +870,7 @@ int main(int argc, char* argv[]) {
 
         test_setup_logging(LOG_INFO);
 
-        r = enter_cgroup_subroot();
+        r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 

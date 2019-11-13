@@ -20,7 +20,6 @@
 #endif
 #include "service.h"
 #include "stat-util.h"
-#include "test-helper.h"
 #include "tests.h"
 #include "unit.h"
 #include "user-util.h"
@@ -35,6 +34,11 @@ static int cld_dumped_to_killed(int code) {
         /* Depending on the system, seccomp version, … some signals might result in dumping, others in plain
          * killing. Let's ignore the difference here, and map both cases to CLD_KILLED */
         return code == CLD_DUMPED ? CLD_KILLED : code;
+}
+
+_unused_ static bool is_run_on_travis_ci(void) {
+        /* https://docs.travis-ci.com/user/environment-variables#default-environment-variables */
+        return streq_ptr(getenv("TRAVIS"), "true");
 }
 
 static void wait_for_service_finish(Manager *m, Unit *unit) {
@@ -781,7 +785,7 @@ static int run_tests(UnitFileScope scope, const test_entry tests[], char **patte
         assert_se(tests);
 
         r = manager_new(scope, MANAGER_TEST_RUN_BASIC, &m);
-        if (MANAGER_SKIP_TEST(r))
+        if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
         assert_se(manager_startup(m, NULL, NULL) >= 0);
@@ -865,7 +869,7 @@ int main(int argc, char *argv[]) {
         if (getuid() != 0)
                 return log_tests_skipped("not root");
 
-        r = enter_cgroup_subroot();
+        r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
