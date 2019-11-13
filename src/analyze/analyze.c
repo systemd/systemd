@@ -84,6 +84,7 @@ static bool arg_man = true;
 static bool arg_generators = false;
 static const char *arg_root = NULL;
 static unsigned arg_iterations = 1;
+static usec_t arg_base_time = USEC_INFINITY;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
@@ -2136,7 +2137,10 @@ static int test_calendar(int argc, char *argv[], void *userdata) {
         char **p;
         usec_t n;
 
-        n = now(CLOCK_REALTIME); /* We want to use the same "base" for all expressions */
+        if (arg_base_time != USEC_INFINITY)
+                n = arg_base_time;
+        else
+                n = now(CLOCK_REALTIME); /* We want to use the same "base" for all expressions */
 
         STRV_FOREACH(p, strv_skip(argv, 1)) {
                 r = test_calendar_one(n, *p);
@@ -2258,6 +2262,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --man[=BOOL]          Do [not] check for existence of man pages\n"
                "     --generators[=BOOL]   Do [not] run unit generators (requires privileges)\n"
                "     --iterations=N        Show the specified number of iterations\n"
+               "     --base-time=TIMESTAMP Calculate calendar times relative to specified time\n"
                "\nCommands:\n"
                "  time                     Print time spent in the kernel\n"
                "  blame                    Print list of running units ordered by time to init\n"
@@ -2307,6 +2312,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MAN,
                 ARG_GENERATORS,
                 ARG_ITERATIONS,
+                ARG_BASE_TIME,
         };
 
         static const struct option options[] = {
@@ -2327,6 +2333,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "host",         required_argument, NULL, 'H'                  },
                 { "machine",      required_argument, NULL, 'M'                  },
                 { "iterations",   required_argument, NULL, ARG_ITERATIONS       },
+                { "base-time",    required_argument, NULL, ARG_BASE_TIME        },
                 {}
         };
 
@@ -2430,6 +2437,13 @@ static int parse_argv(int argc, char *argv[]) {
                         r = safe_atou(optarg, &arg_iterations);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse iterations: %s", optarg);
+
+                        break;
+
+                case ARG_BASE_TIME:
+                        r = parse_timestamp(optarg, &arg_base_time);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --base-time= parameter: %s", optarg);
 
                         break;
 
