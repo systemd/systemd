@@ -778,6 +778,13 @@ Service b@0.service not loaded, b.socket cannot be started.
         iterations the specified calendar expression will elapse next. Defaults to 1.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--base-time=<replaceable>TIMESTAMP</replaceable></option></term>
+
+        <listitem><para>When used with the <command>calendar</command> command, show next iterations relative
+        to the specified point in time. If not specified defaults to the current time.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
