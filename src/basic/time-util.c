@@ -1389,13 +1389,22 @@ bool clock_supported(clockid_t clock) {
         }
 }
 
-int get_timezone(char **tz) {
+int get_timezone(char **ret) {
         _cleanup_free_ char *t = NULL;
         const char *e;
         char *z;
         int r;
 
         r = readlink_malloc("/etc/localtime", &t);
+        if (r == -ENOENT) {
+                /* If the symlink does not exist, assume "UTC", like glibc does*/
+                z = strdup("UTC");
+                if (!z)
+                        return -ENOMEM;
+
+                *ret = z;
+                return 0;
+        }
         if (r < 0)
                 return r; /* returns EINVAL if not a symlink */
 
@@ -1410,7 +1419,7 @@ int get_timezone(char **tz) {
         if (!z)
                 return -ENOMEM;
 
-        *tz = z;
+        *ret = z;
         return 0;
 }
 
