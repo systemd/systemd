@@ -106,6 +106,8 @@ shared_sources = files('''
         json-internal.h
         json.c
         json.h
+        libcrypt-util.c
+        libcrypt-util.h
         libmount-util.h
         linux/auto_dev-ioctl.h
         linux/bpf.h
@@ -279,6 +281,7 @@ libshared_deps = [threads,
                   libacl,
                   libblkid,
                   libcap,
+                  libcrypt,
                   libcryptsetup,
                   libgcrypt,
                   libidn,
