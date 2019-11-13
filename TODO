@@ -30,9 +30,6 @@ Before v244:
 
 Features:
 
-* localed: if UTC is selected but timezone file for it doesn't exist, delete
-  /etc/localtime instead of creating a symlink
-
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then actviate app thorugh that passing socket oveer
 
