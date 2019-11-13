@@ -9,6 +9,7 @@
 
 #include "env-util.h"
 #include "exit-status.h"
+#include "fstab-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mount-setup.h"
@@ -86,10 +87,10 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        f = setmntent("/etc/fstab", "re");
+        f = setmntent(fstab_path(), "re");
         if (!f) {
                 if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to open /etc/fstab: %m");
+                        return log_error_errno(errno, "Failed to open %s: %m", fstab_path());
         } else
                 while ((me = getmntent(f))) {
                         /* Remount the root fs, /usr, and all API VFSs */

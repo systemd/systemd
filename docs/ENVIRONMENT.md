@@ -41,6 +41,9 @@ All tools:
   debugging, in order to test generators and other code against specific kernel
   command lines.
 
+* `$SYSTEMD_FSTAB` — if set, use this path instead of /etc/fstab. Only useful
+  for debugging.
+
 * `$SYSTEMD_CRYPTTAB` — if set, use this path instead of /etc/crypttab. Only
   useful for debugging. Currently only supported by systemd-cryptsetup-generator.
 
