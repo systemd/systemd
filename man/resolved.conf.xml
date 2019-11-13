@@ -210,8 +210,9 @@
         send for setting up an encrypted connection, and thus results
         in a small DNS look-up time penalty.</para>
 
-        <para>Note as the resolver is not capable of authenticating
-        the server, it is vulnerable for "man-in-the-middle" attacks.</para>
+        <para>Note that in <literal>opportunistic</literal> mode the
+        resolver is not capable of authenticating the server, so it is
+        vulnerable to "man-in-the-middle" attacks.</para>
 
         <para>In addition to this global DNSOverTLS setting
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
