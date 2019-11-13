@@ -293,6 +293,8 @@ static void manager_free(Manager *manager) {
         if (!manager)
                 return;
 
+        manager->monitor = sd_device_monitor_unref(manager->monitor);
+
         udev_builtin_exit();
 
         if (manager->pid == getpid_cached())
@@ -774,21 +776,7 @@ set_delaying_seqnum:
         return true;
 }
 
-static int on_exit_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        Manager *manager = userdata;
-
-        assert(manager);
-
-        log_error("Giving up waiting for workers to finish.");
-        sd_event_exit(manager->event, -ETIMEDOUT);
-
-        return 1;
-}
-
 static void manager_exit(Manager *manager) {
-        uint64_t usec;
-        int r;
-
         assert(manager);
 
         manager->exit = true;
@@ -803,18 +791,9 @@ static void manager_exit(Manager *manager) {
         manager->inotify_event = sd_event_source_unref(manager->inotify_event);
         manager->fd_inotify = safe_close(manager->fd_inotify);
 
-        manager->monitor = sd_device_monitor_unref(manager->monitor);
-
         /* discard queued events and kill workers */
         event_queue_cleanup(manager, EVENT_QUEUED);
         manager_kill_workers(manager);
-
-        assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
-
-        r = sd_event_add_time(manager->event, NULL, CLOCK_MONOTONIC,
-                              usec + 30 * USEC_PER_SEC, USEC_PER_SEC, on_exit_timeout, manager);
-        if (r < 0)
-                return;
 }
 
 /* reload requested, HUP signal received, rules changed, builtin changed */

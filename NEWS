@@ -2,6 +2,17 @@ systemd System and Service Manager
 
 CHANGES WITH 244 in spe:
 
+        * systemd-udevd: removed the 30s timeout for killing stale workers on
+          exit. systemd-udevd now waits for workers to finish. The hard-coded
+          exit timeout of 30s was too short for some large installations, where
+          driver initialization could be prematurely interrupted during initrd
+          processing if the root file system had been mounted and init was
+          preparing to switch root. If udevd is run without systemd and workers
+          are hanging while udevd receives an exit signal, udevd will now exit
+          when udev.event_timeout is reached for the last hanging worker. With
+          systemd, the exit timeout can additionally be configured using
+          TimeoutStopSec= in systemd-udevd.service.
+
         * Support for the cpuset cgroups v2 controller has been added.
           Processes may be restricted to specific CPUs using the new
           AllowedCPUs= setting, and to specific memory NUMA nodes using the new
