@@ -271,10 +271,13 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                 }
 
                 k = manager_load_startable_unit_or_warn(m, NULL, prepared, &units[count]);
-                if (k < 0 && r == 0)
-                        r = k;
-                else
-                        count++;
+                if (k < 0) {
+                        if (r == 0)
+                                r = k;
+                        continue;
+                }
+
+                count++;
         }
 
         for (i = 0; i < count; i++) {
