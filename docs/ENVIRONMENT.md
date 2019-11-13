@@ -64,6 +64,10 @@ All tools:
   this only controls use of Unicode emoji glyphs, and has no effect on other
   Unicode glyphs.
 
+* `$RUNTIME_DIRECTORY` — various tools use this variable to locate the
+  appropriate path under /run. This variable is also set by the manager when
+  RuntimeDirectory= is used, see systemd.exec(5).
+
 systemctl:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID1's private D-Bus

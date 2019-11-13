@@ -38,6 +38,7 @@ static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static bool arg_read_crypttab = true;
 static const char *arg_crypttab = NULL;
+static const char *arg_runtime_directory = NULL;
 static bool arg_whitelist = false;
 static Hashmap *arg_disks = NULL;
 static char *arg_default_options = NULL;
@@ -90,11 +91,11 @@ static int generate_keydev_mount(const char *name, const char *keydev, const cha
         assert(unit);
         assert(mount);
 
-        r = mkdir_parents("/run/systemd/cryptsetup", 0755);
+        r = mkdir_parents(arg_runtime_directory, 0755);
         if (r < 0)
                 return r;
 
-        r = mkdir("/run/systemd/cryptsetup", 0700);
+        r = mkdir(arg_runtime_directory, 0700);
         if (r < 0 && errno != EEXIST)
                 return -errno;
 
@@ -102,7 +103,7 @@ static int generate_keydev_mount(const char *name, const char *keydev, const cha
         if (!name_escaped)
                 return -ENOMEM;
 
-        where = strjoin("/run/systemd/cryptsetup/keydev-", name_escaped);
+        where = strjoin(arg_runtime_directory, "/keydev-", name_escaped);
         if (!where)
                 return -ENOMEM;
 
@@ -670,6 +671,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         assert_se(arg_dest = dest);
 
         arg_crypttab = getenv("SYSTEMD_CRYPTTAB") ?: "/etc/crypttab";
+        arg_runtime_directory = getenv("RUNTIME_DIRECTORY") ?: "/run/systemd/cryptsetup";
 
         arg_disks = hashmap_new(&crypt_device_hash_ops);
         if (!arg_disks)
