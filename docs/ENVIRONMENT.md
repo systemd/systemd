@@ -41,6 +41,9 @@ All tools:
   debugging, in order to test generators and other code against specific kernel
   command lines.
 
+* `$SYSTEMD_CRYPTTAB` — if set, use this path instead of /etc/crypttab. Only
+  useful for debugging. Currently only supported by systemd-cryptsetup-generator.
+
 * `$SYSTEMD_EFI_OPTIONS` — if set, used instead of the string in SystemdOptions
   EFI variable. Analogous to `$SYSTEMD_PROC_CMDLINE`.
 

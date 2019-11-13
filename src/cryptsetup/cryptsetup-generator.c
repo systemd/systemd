@@ -37,6 +37,7 @@ typedef struct crypto_device {
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static bool arg_read_crypttab = true;
+static const char *arg_crypttab = NULL;
 static bool arg_whitelist = false;
 static Hashmap *arg_disks = NULL;
 static char *arg_default_options = NULL;
@@ -271,11 +272,12 @@ static int create_disk(
                 "[Unit]\n"
                 "Description=Cryptography Setup for %%I\n"
                 "Documentation=man:crypttab(5) man:systemd-cryptsetup-generator(8) man:systemd-cryptsetup@.service(8)\n"
-                "SourcePath=/etc/crypttab\n"
+                "SourcePath=%s\n"
                 "DefaultDependencies=no\n"
                 "Conflicts=umount.target\n"
                 "IgnoreOnIsolate=true\n"
                 "After=%s\n",
+                arg_crypttab,
                 netdev ? "remote-fs-pre.target" : "cryptsetup-pre.target");
 
         if (password) {
@@ -558,15 +560,15 @@ static int add_crypttab_devices(void) {
         if (!arg_read_crypttab)
                 return 0;
 
-        r = fopen_unlocked("/etc/crypttab", "re", &f);
+        r = fopen_unlocked(arg_crypttab, "re", &f);
         if (r < 0) {
                 if (errno != ENOENT)
-                        log_error_errno(errno, "Failed to open /etc/crypttab: %m");
+                        log_error_errno(errno, "Failed to open %s: %m", arg_crypttab);
                 return 0;
         }
 
         if (fstat(fileno(f), &st) < 0) {
-                log_error_errno(errno, "Failed to stat /etc/crypttab: %m");
+                log_error_errno(errno, "Failed to stat %s: %m", arg_crypttab);
                 return 0;
         }
 
@@ -578,7 +580,7 @@ static int add_crypttab_devices(void) {
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read /etc/crypttab: %m");
+                        return log_error_errno(r, "Failed to read %s: %m", arg_crypttab);
                 if (r == 0)
                         break;
 
@@ -590,7 +592,7 @@ static int add_crypttab_devices(void) {
 
                 k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &keyspec, &options);
                 if (k < 2 || k > 4) {
-                        log_error("Failed to parse /etc/crypttab:%u, ignoring.", crypttab_line);
+                        log_error("Failed to parse %s:%u, ignoring.", arg_crypttab, crypttab_line);
                         continue;
                 }
 
@@ -666,6 +668,8 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         int r;
 
         assert_se(arg_dest = dest);
+
+        arg_crypttab = getenv("SYSTEMD_CRYPTTAB") ?: "/etc/crypttab";
 
         arg_disks = hashmap_new(&crypt_device_hash_ops);
         if (!arg_disks)
