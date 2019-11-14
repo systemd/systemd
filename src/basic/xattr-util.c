@@ -234,3 +234,37 @@ int fd_setcrtime(int fd, usec_t usec) {
 
         return 0;
 }
+
+int flistxattr_malloc(int fd, char **ret) {
+        size_t l = 100;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        for (;;) {
+                _cleanup_free_ char *v = NULL;
+                ssize_t n;
+
+                v = new(char, l+1);
+                if (!v)
+                        return -ENOMEM;
+
+                n = flistxattr(fd, v, l);
+                if (n < 0) {
+                        if (errno != ERANGE)
+                                return -errno;
+                } else {
+                        v[n] = 0; /* NUL terminate */
+                        *ret = TAKE_PTR(v);
+                        return (int) n;
+                }
+
+                n = flistxattr(fd, NULL, 0);
+                if (n < 0)
+                        return -errno;
+                if (n > INT_MAX) /* We couldn't return this as 'int' anymore */
+                        return -E2BIG;
+
+                l = (size_t) n;
+        }
+}
