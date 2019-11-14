@@ -15,6 +15,11 @@
 #include "tests.h"
 #include "util.h"
 
+static void test_print_paths(void) {
+        log_info("DEFAULT_PATH=%s", DEFAULT_PATH);
+        log_info("DEFAULT_USER_PATH=%s", DEFAULT_USER_PATH);
+}
+
 #define test_path_compare(a, b, result) {                 \
                 assert_se(path_compare(a, b) == result);  \
                 assert_se(path_compare(b, a) == -result); \
@@ -659,6 +664,7 @@ static void test_path_startswith_strv(void) {
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
+        test_print_paths();
         test_path();
         test_path_equal_root();
         test_find_binary(argv[0]);
