@@ -383,7 +383,6 @@ int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
         unsigned long l;
 
         assert(s);
-        assert(ret_u);
         assert(base <= 16);
 
         /* strtoul() is happy to parse negative values, and silently
@@ -407,7 +406,9 @@ int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
         if ((unsigned long) (unsigned) l != l)
                 return -ERANGE;
 
-        *ret_u = (unsigned) l;
+        if (ret_u)
+                *ret_u = (unsigned) l;
+
         return 0;
 }
 
@@ -416,7 +417,6 @@ int safe_atoi(const char *s, int *ret_i) {
         long l;
 
         assert(s);
-        assert(ret_i);
 
         errno = 0;
         l = strtol(s, &x, 0);
@@ -427,7 +427,9 @@ int safe_atoi(const char *s, int *ret_i) {
         if ((long) (int) l != l)
                 return -ERANGE;
 
-        *ret_i = (int) l;
+        if (ret_i)
+                *ret_i = (int) l;
+
         return 0;
 }
 
@@ -436,7 +438,6 @@ int safe_atollu(const char *s, long long unsigned *ret_llu) {
         unsigned long long l;
 
         assert(s);
-        assert(ret_llu);
 
         s += strspn(s, WHITESPACE);
 
@@ -449,7 +450,9 @@ int safe_atollu(const char *s, long long unsigned *ret_llu) {
         if (*s == '-')
                 return -ERANGE;
 
-        *ret_llu = l;
+        if (ret_llu)
+                *ret_llu = l;
+
         return 0;
 }
 
@@ -458,7 +461,6 @@ int safe_atolli(const char *s, long long int *ret_lli) {
         long long l;
 
         assert(s);
-        assert(ret_lli);
 
         errno = 0;
         l = strtoll(s, &x, 0);
@@ -467,7 +469,9 @@ int safe_atolli(const char *s, long long int *ret_lli) {
         if (!x || x == s || *x != 0)
                 return -EINVAL;
 
-        *ret_lli = l;
+        if (ret_lli)
+                *ret_lli = l;
+
         return 0;
 }
 
@@ -476,7 +480,6 @@ int safe_atou8(const char *s, uint8_t *ret) {
         unsigned long l;
 
         assert(s);
-        assert(ret);
 
         s += strspn(s, WHITESPACE);
 
@@ -491,7 +494,8 @@ int safe_atou8(const char *s, uint8_t *ret) {
         if ((unsigned long) (uint8_t) l != l)
                 return -ERANGE;
 
-        *ret = (uint8_t) l;
+        if (ret)
+                *ret = (uint8_t) l;
         return 0;
 }
 
@@ -525,7 +529,6 @@ int safe_atoi16(const char *s, int16_t *ret) {
         long l;
 
         assert(s);
-        assert(ret);
 
         errno = 0;
         l = strtol(s, &x, 0);
@@ -536,7 +539,9 @@ int safe_atoi16(const char *s, int16_t *ret) {
         if ((long) (int16_t) l != l)
                 return -ERANGE;
 
-        *ret = (int16_t) l;
+        if (ret)
+                *ret = (int16_t) l;
+
         return 0;
 }
 
@@ -546,7 +551,6 @@ int safe_atod(const char *s, double *ret_d) {
         double d = 0;
 
         assert(s);
-        assert(ret_d);
 
         loc = newlocale(LC_NUMERIC_MASK, "C", (locale_t) 0);
         if (loc == (locale_t) 0)
@@ -559,7 +563,9 @@ int safe_atod(const char *s, double *ret_d) {
         if (!x || x == s || *x != 0)
                 return -EINVAL;
 
-        *ret_d = (double) d;
+        if (ret_d)
+                *ret_d = (double) d;
+
         return 0;
 }
 
