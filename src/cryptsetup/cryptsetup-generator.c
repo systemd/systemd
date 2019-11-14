@@ -37,6 +37,8 @@ typedef struct crypto_device {
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static bool arg_read_crypttab = true;
+static const char *arg_crypttab = NULL;
+static const char *arg_runtime_directory = NULL;
 static bool arg_whitelist = false;
 static Hashmap *arg_disks = NULL;
 static char *arg_default_options = NULL;
@@ -60,17 +62,36 @@ static int split_keyspec(const char *keyspec, char **ret_keyfile, char **ret_key
 
         c = strrchr(keyspec, ':');
         if (c) {
-                keyfile = strndup(keyspec, c-keyspec);
-                keydev = strdup(c + 1);
-                if (!keyfile || !keydev)
+                /* The keydev part has to be either an absolute path to device node (/dev/something,
+                 * /dev/foo/something, or even possibly /dev/foo/something:part), or a fstab device
+                 * specification starting with LABEL= or similar. The keyfile part has the same syntax.
+                 *
+                 * Let's try to guess if the second part looks like a keydev specification, or just part of a
+                 * filename with a colon. fstab_node_to_udev_node() will convert the fstab device syntax to
+                 * an absolute path. If we didn't get an absolute path, assume that it is just part of the
+                 * first keyfile argument. */
+
+                keydev = fstab_node_to_udev_node(c + 1);
+                if (!keydev)
                         return log_oom();
-        } else {
+
+                if (path_is_absolute(keydev))
+                        keyfile = strndup(keyspec, c-keyspec);
+                else {
+                        log_debug("Keyspec argument contains a colon, but \"%s\" doesn't look like a device specification.\n"
+                                  "Assuming that \"%s\" is a single device specification.",
+                                  c + 1, keyspec);
+                        keydev = mfree(keydev);
+                        c = NULL;
+                }
+        }
+
+        if (!c)
                 /* No keydev specified */
                 keyfile = strdup(keyspec);
-                keydev = NULL;
-                if (!keyfile)
-                        return log_oom();
-        }
+
+        if (!keyfile)
+                return log_oom();
 
         *ret_keyfile = TAKE_PTR(keyfile);
         *ret_keydev = TAKE_PTR(keydev);
@@ -79,7 +100,7 @@ static int split_keyspec(const char *keyspec, char **ret_keyfile, char **ret_key
 }
 
 static int generate_keydev_mount(const char *name, const char *keydev, const char *keydev_timeout, bool canfail, char **unit, char **mount) {
-        _cleanup_free_ char *u = NULL, *what = NULL, *where = NULL, *name_escaped = NULL, *device_unit = NULL;
+        _cleanup_free_ char *u = NULL, *where = NULL, *name_escaped = NULL, *device_unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
         usec_t timeout_us;
@@ -89,11 +110,11 @@ static int generate_keydev_mount(const char *name, const char *keydev, const cha
         assert(unit);
         assert(mount);
 
-        r = mkdir_parents("/run/systemd/cryptsetup", 0755);
+        r = mkdir_parents(arg_runtime_directory, 0755);
         if (r < 0)
                 return r;
 
-        r = mkdir("/run/systemd/cryptsetup", 0700);
+        r = mkdir(arg_runtime_directory, 0700);
         if (r < 0 && errno != EEXIST)
                 return -errno;
 
@@ -101,7 +122,7 @@ static int generate_keydev_mount(const char *name, const char *keydev, const cha
         if (!name_escaped)
                 return -ENOMEM;
 
-        where = strjoin("/run/systemd/cryptsetup/keydev-", name_escaped);
+        where = strjoin(arg_runtime_directory, "/keydev-", name_escaped);
         if (!where)
                 return -ENOMEM;
 
@@ -117,22 +138,18 @@ static int generate_keydev_mount(const char *name, const char *keydev, const cha
         if (r < 0)
                 return r;
 
-        what = fstab_node_to_udev_node(keydev);
-        if (!what)
-                return -ENOMEM;
-
         fprintf(f,
                 "[Unit]\n"
                 "DefaultDependencies=no\n\n"
                 "[Mount]\n"
                 "What=%s\n"
                 "Where=%s\n"
-                "Options=ro%s\n", what, where, canfail ? ",nofail" : "");
+                "Options=ro%s\n", keydev, where, canfail ? ",nofail" : "");
 
         if (keydev_timeout) {
                 r = parse_sec_fix_0(keydev_timeout, &timeout_us);
                 if (r >= 0) {
-                        r = unit_name_from_path(what, ".device", &device_unit);
+                        r = unit_name_from_path(keydev, ".device", &device_unit);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to generate unit name: %m");
 
@@ -271,11 +288,12 @@ static int create_disk(
                 "[Unit]\n"
                 "Description=Cryptography Setup for %%I\n"
                 "Documentation=man:crypttab(5) man:systemd-cryptsetup-generator(8) man:systemd-cryptsetup@.service(8)\n"
-                "SourcePath=/etc/crypttab\n"
+                "SourcePath=%s\n"
                 "DefaultDependencies=no\n"
                 "Conflicts=umount.target\n"
                 "IgnoreOnIsolate=true\n"
                 "After=%s\n",
+                arg_crypttab,
                 netdev ? "remote-fs-pre.target" : "cryptsetup-pre.target");
 
         if (password) {
@@ -558,15 +576,15 @@ static int add_crypttab_devices(void) {
         if (!arg_read_crypttab)
                 return 0;
 
-        r = fopen_unlocked("/etc/crypttab", "re", &f);
+        r = fopen_unlocked(arg_crypttab, "re", &f);
         if (r < 0) {
                 if (errno != ENOENT)
-                        log_error_errno(errno, "Failed to open /etc/crypttab: %m");
+                        log_error_errno(errno, "Failed to open %s: %m", arg_crypttab);
                 return 0;
         }
 
         if (fstat(fileno(f), &st) < 0) {
-                log_error_errno(errno, "Failed to stat /etc/crypttab: %m");
+                log_error_errno(errno, "Failed to stat %s: %m", arg_crypttab);
                 return 0;
         }
 
@@ -578,7 +596,7 @@ static int add_crypttab_devices(void) {
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read /etc/crypttab: %m");
+                        return log_error_errno(r, "Failed to read %s: %m", arg_crypttab);
                 if (r == 0)
                         break;
 
@@ -590,7 +608,7 @@ static int add_crypttab_devices(void) {
 
                 k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &keyspec, &options);
                 if (k < 2 || k > 4) {
-                        log_error("Failed to parse /etc/crypttab:%u, ignoring.", crypttab_line);
+                        log_error("Failed to parse %s:%u, ignoring.", arg_crypttab, crypttab_line);
                         continue;
                 }
 
@@ -666,6 +684,9 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         int r;
 
         assert_se(arg_dest = dest);
+
+        arg_crypttab = getenv("SYSTEMD_CRYPTTAB") ?: "/etc/crypttab";
+        arg_runtime_directory = getenv("RUNTIME_DIRECTORY") ?: "/run/systemd/cryptsetup";
 
         arg_disks = hashmap_new(&crypt_device_hash_ops);
         if (!arg_disks)

@@ -112,14 +112,16 @@ static int add_swap(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        r = generator_open_unit_file(arg_dest, "/etc/fstab", name, &f);
+        r = generator_open_unit_file(arg_dest, fstab_path(), name, &f);
         if (r < 0)
                 return r;
 
-        fputs("[Unit]\n"
-              "SourcePath=/etc/fstab\n"
-              "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n\n"
-              "[Swap]\n", f);
+        fprintf(f,
+                "[Unit]\n"
+                "SourcePath=%s\n"
+                "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n\n"
+                "[Swap]\n",
+                fstab_path());
 
         r = write_what(f, what);
         if (r < 0)
@@ -340,7 +342,7 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        r = generator_open_unit_file(dest, "/etc/fstab", name, &f);
+        r = generator_open_unit_file(dest, fstab_path(), name, &f);
         if (r < 0)
                 return r;
 
@@ -463,7 +465,7 @@ static int add_mount(
 
                 f = safe_fclose(f);
 
-                r = generator_open_unit_file(dest, "/etc/fstab", automount_name, &f);
+                r = generator_open_unit_file(dest, fstab_path(), automount_name, &f);
                 if (r < 0)
                         return r;
 
@@ -515,19 +517,19 @@ static int add_mount(
 
 static int parse_fstab(bool initrd) {
         _cleanup_endmntent_ FILE *f = NULL;
-        const char *fstab_path;
+        const char *fstab;
         struct mntent *me;
         int r = 0;
 
-        fstab_path = initrd ? "/sysroot/etc/fstab" : "/etc/fstab";
-        log_debug("Parsing %s...", fstab_path);
+        fstab = initrd ? "/sysroot/etc/fstab" : fstab_path();
+        log_debug("Parsing %s...", fstab);
 
-        f = setmntent(fstab_path, "re");
+        f = setmntent(fstab, "re");
         if (!f) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open %s: %m", fstab_path);
+                return log_error_errno(errno, "Failed to open %s: %m", fstab);
         }
 
         while ((me = getmntent(f))) {
@@ -606,7 +608,7 @@ static int parse_fstab(bool initrd) {
                                       me->mnt_passno,
                                       makefs*MAKEFS | growfs*GROWFS | noauto*NOAUTO | nofail*NOFAIL | automount*AUTOMOUNT,
                                       post,
-                                      fstab_path);
+                                      fstab);
                 }
 
                 if (r >= 0 && k < 0)
