@@ -118,6 +118,8 @@ static int detect_vm_device_tree(void) {
                 return VIRTUALIZATION_KVM;
         else if (strstr(hvtype, "xen"))
                 return VIRTUALIZATION_XEN;
+        else if (strstr(hvtype, "vmware"))
+                return VIRTUALIZATION_VMWARE;
         else
                 return VIRTUALIZATION_VM_OTHER;
 #else
