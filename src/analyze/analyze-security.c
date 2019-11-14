@@ -64,6 +64,7 @@ struct security_info {
         bool protect_control_groups;
         bool protect_kernel_modules;
         bool protect_kernel_tunables;
+        bool protect_kernel_logs;
 
         char *protect_home;
         char *protect_system;
@@ -771,6 +772,16 @@ static const struct security_assessor security_assessor_table[] = {
                 .range = 1,
                 .assess = assess_bool,
                 .offset = offsetof(struct security_info, protect_kernel_tunables),
+        },
+        {
+                .id = "ProtectKernelLogs=",
+                .description_good = "Service cannot read from or write to the kernel log ring buffer",
+                .description_bad = "Service may read from or write to the kernel log ring buffer",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectKernelLogs=",
+                .weight = 1000,
+                .range = 1,
+                .assess = assess_bool,
+                .offset = offsetof(struct security_info, protect_kernel_logs),
         },
         {
                 .id = "ProtectHome=",
@@ -1906,6 +1917,7 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
                 { "ProtectHostname",         "b",       NULL,                                    offsetof(struct security_info, protect_hostname)          },
                 { "ProtectKernelModules",    "b",       NULL,                                    offsetof(struct security_info, protect_kernel_modules)    },
                 { "ProtectKernelTunables",   "b",       NULL,                                    offsetof(struct security_info, protect_kernel_tunables)   },
+                { "ProtectKernelLogs",       "b",       NULL,                                    offsetof(struct security_info, protect_kernel_logs)       },
                 { "ProtectSystem",           "s",       NULL,                                    offsetof(struct security_info, protect_system)            },
                 { "RemoveIPC",               "b",       NULL,                                    offsetof(struct security_info, remove_ipc)                },
                 { "RestrictAddressFamilies", "(bas)",   property_read_restrict_address_families, 0                                                         },
@@ -1979,6 +1991,9 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
 
         if (info->protect_kernel_modules)
                 info->capability_bounding_set &= ~(UINT64_C(1) << CAP_SYS_MODULE);
+
+        if (info->protect_kernel_logs)
+                info->capability_bounding_set &= ~(UINT64_C(1) << CAP_SYSLOG);
 
         if (info->private_devices)
                 info->capability_bounding_set &= ~((UINT64_C(1) << CAP_MKNOD) |
