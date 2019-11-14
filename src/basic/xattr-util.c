@@ -17,17 +17,23 @@
 #include "time-util.h"
 #include "xattr-util.h"
 
-int getxattr_malloc(const char *path, const char *name, char **value, bool allow_symlink) {
-        char *v;
-        size_t l;
-        ssize_t n;
+int getxattr_malloc(
+                const char *path,
+                const char *name,
+                char **ret,
+                bool allow_symlink) {
+
+        size_t l = 100;
 
         assert(path);
         assert(name);
-        assert(value);
+        assert(ret);
 
-        for (l = 100; ; l = (size_t) n + 1 /* extra byte to make sure this remains NUL suffixed */) {
-                v = new0(char, l);
+        for(;;) {
+                _cleanup_free_ char *v = NULL;
+                ssize_t n;
+
+                v = new0(char, l+1);
                 if (!v)
                         return -ENOMEM;
 
@@ -35,15 +41,14 @@ int getxattr_malloc(const char *path, const char *name, char **value, bool allow
                         n = lgetxattr(path, name, v, l);
                 else
                         n = getxattr(path, name, v, l);
-                if (n >= 0 && (size_t) n < l) {
-                        *value = v;
-                        return n;
+                if (n < 0) {
+                        if (errno != ERANGE)
+                                return -errno;
+                } else {
+                        v[n] = 0; /* NUL terminate */
+                        *ret = TAKE_PTR(v);
+                        return (int) n;
                 }
-
-                free(v);
-
-                if (n < 0 && errno != ERANGE)
-                        return -errno;
 
                 if (allow_symlink)
                         n = lgetxattr(path, name, NULL, 0);
@@ -51,37 +56,49 @@ int getxattr_malloc(const char *path, const char *name, char **value, bool allow
                         n = getxattr(path, name, NULL, 0);
                 if (n < 0)
                         return -errno;
+                if (n > INT_MAX) /* We couldn't return this as 'int' anymore */
+                        return -E2BIG;
+
+                l = (size_t) n;
         }
 }
 
-int fgetxattr_malloc(int fd, const char *name, char **value) {
-        char *v;
-        size_t l;
-        ssize_t n;
+int fgetxattr_malloc(
+                int fd,
+                const char *name,
+                char **ret) {
+
+        size_t l = 100;
 
         assert(fd >= 0);
         assert(name);
-        assert(value);
+        assert(ret);
 
-        for (l = 100;; l = (size_t) n + 1 /* extra byte to make sure this remains NUL suffixed */) {
-                v = new0(char, l);
+        for (;;) {
+                _cleanup_free_ char *v = NULL;
+                ssize_t n;
+
+                v = new(char, l+1);
                 if (!v)
                         return -ENOMEM;
 
                 n = fgetxattr(fd, name, v, l);
-                if (n >= 0 && (size_t) n < l) {
-                        *value = v;
-                        return n;
+                if (n < 0) {
+                        if (errno != ERANGE)
+                                return -errno;
+                } else {
+                        v[n] = 0; /* NUL terminate */
+                        *ret = TAKE_PTR(v);
+                        return (int) n;
                 }
-
-                free(v);
-
-                if (n < 0 && errno != ERANGE)
-                        return -errno;
 
                 n = fgetxattr(fd, name, NULL, 0);
                 if (n < 0)
                         return -errno;
+                if (n > INT_MAX) /* We couldn't return this as 'int' anymore */
+                        return -E2BIG;
+
+                l = (size_t) n;
         }
 }
 
