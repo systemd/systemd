@@ -29,6 +29,7 @@ NoNewPrivileges=yes
 ProtectControlGroups=yes
 ProtectHome=yes
 ProtectKernelModules=yes
+ProtectKernelLogs=yes
 ProtectSystem=strict
 Restart=on-failure
 RestartSec=0
