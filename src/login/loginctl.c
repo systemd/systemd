@@ -1279,8 +1279,8 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Send control commands to or query the login manager.%s\n"
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sSend control commands to or query the login manager.%s\n"
                "\nSession Commands:\n"
                "  list-sessions            List sessions\n"
                "  session-status [ID...]   Show session status\n"
@@ -1291,23 +1291,23 @@ static int help(int argc, char *argv[], void *userdata) {
                "  lock-sessions            Screen lock all current sessions\n"
                "  unlock-sessions          Screen unlock all current sessions\n"
                "  terminate-session ID...  Terminate one or more sessions\n"
-               "  kill-session ID...       Send signal to processes of a session\n\n"
-               "User Commands:\n"
+               "  kill-session ID...       Send signal to processes of a session\n"
+               "\nUser Commands:\n"
                "  list-users               List users\n"
                "  user-status [USER...]    Show user status\n"
                "  show-user [USER...]      Show properties of users or the manager\n"
                "  enable-linger [USER...]  Enable linger state of one or more users\n"
                "  disable-linger [USER...] Disable linger state of one or more users\n"
                "  terminate-user USER...   Terminate all sessions of one or more users\n"
-               "  kill-user USER...        Send signal to processes of a user\n\n"
-               "Seat Commands:\n"
+               "  kill-user USER...        Send signal to processes of a user\n"
+               "\nSeat Commands:\n"
                "  list-seats               List seats\n"
                "  seat-status [NAME...]    Show seat status\n"
                "  show-seat [NAME...]      Show properties of seats or the manager\n"
                "  attach NAME DEVICE...    Attach one or more devices to a seat\n"
                "  flush-devices            Flush all device associations\n"
                "  terminate-seat NAME...   Terminate all sessions on one or more seats\n"
-               "\nOptions\n"
+               "\nOptions:\n"
                "  -h --help                Show this help\n"
                "     --version             Show package version\n"
                "     --no-pager            Do not pipe output into a pager\n"
@@ -1328,8 +1328,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                             json, json-pretty, json-sse, json-seq, cat,\n"
                "                             with-unit)\n"
                "\nSee the %s for details.\n"
-               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_highlight()
                , ansi_normal()
                , link
         );

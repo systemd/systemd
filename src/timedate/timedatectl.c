@@ -810,8 +810,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s%s [OPTIONS...] COMMAND ...\n\n"
-               "Query or change system time and date settings.%s\n"
+        printf("%s [OPTIONS...] COMMAND ...\n"
+               "\n%sQuery or change system time and date settings.%s\n"
                "\nCommands:\n"
                "  status                   Show current time settings\n"
                "  show                     Show properties of systemd-timedated\n"
@@ -820,11 +820,10 @@ static int help(void) {
                "  list-timezones           Show known time zones\n"
                "  set-local-rtc BOOL       Control whether RTC is in local time\n"
                "  set-ntp BOOL             Enable or disable network time synchronization\n"
-               "\n"
-               "systemd-timesyncd Commands:\n"
+               "\nsystemd-timesyncd Commands:\n"
                "  timesync-status          Show status of systemd-timesyncd\n"
                "  show-timesync            Show properties of systemd-timesyncd\n"
-               "\nOptions\n"
+               "\nOptions:\n"
                "  -h --help                Show this help message\n"
                "     --version             Show package version\n"
                "     --no-pager            Do not pipe output into a pager\n"
@@ -837,8 +836,8 @@ static int help(void) {
                "  -a --all                 Show all properties, including empty ones\n"
                "     --value               When showing properties, only print the value\n"
                "\nSee the %s for details.\n"
-               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_highlight()
                , ansi_normal()
                , link
         );

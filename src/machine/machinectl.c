@@ -2690,9 +2690,9 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Send control commands to or query the virtual machine and container\n"
-               "registration manager.%s\n"
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sSend control commands to or query the virtual machine and container%s\n"
+               "%sregistration manager.%s\n"
                "\nMachine Commands:\n"
                "  list                        List running VMs and containers\n"
                "  status NAME...              Show VM/container details\n"
@@ -2732,7 +2732,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  export-raw NAME [FILE]      Export a RAW container or VM image locally\n"
                "  list-transfers              Show list of downloads in progress\n"
                "  cancel-transfer             Cancel a download\n"
-               "\nOptions\n"
+               "\nOptions:\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
                "     --no-pager               Do not pipe output into a pager\n"
@@ -2762,8 +2762,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              checksum, signature)\n"
                "     --force                  Download image even if already exists\n"
                "\nSee the %s for details.\n"
-               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_highlight()
+               , ansi_normal()
+               , ansi_highlight()
                , ansi_normal()
                , link
         );

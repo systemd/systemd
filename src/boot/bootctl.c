@@ -1032,8 +1032,8 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [COMMAND] [OPTIONS...]\n\n"
-               "Install, update or remove the systemd-boot EFI boot manager.\n"
+        printf("%s  [OPTIONS...] COMMAND ...\n"
+               "\n%sInstall, update or remove the systemd-boot EFI boot manager.%s\n"
                "\nBoot Loader Commands:\n"
                "     status            Show status of installed systemd-boot and EFI variables\n"
                "     install           Install systemd-boot to the ESP and EFI variables\n"
@@ -1046,6 +1046,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     list              List boot loader entries\n"
                "     set-default ID    Set default boot loader entry\n"
                "     set-oneshot ID    Set default boot loader entry, for next boot only\n"
+               "\nOptions:\n"
                "  -h --help            Show this help\n"
                "     --version         Print version\n"
                "     --esp-path=PATH   Path to the EFI System Partition (ESP)\n"
@@ -1056,6 +1057,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-pager        Do not pipe output into a pager\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight()
+               , ansi_normal()
                , link);
 
         return 0;

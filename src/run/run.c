@@ -84,8 +84,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} [ARGS...]\n\n"
-               "Run the specified command in a transient scope or service.\n\n"
+        printf("%s [OPTIONS...] COMMAND [ARGUMENTS...]\n"
+               "\n%sRun the specified command in a transient scope or service.%s\n\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
                "     --no-ask-password            Do not prompt for password\n"
@@ -130,6 +130,7 @@ static int help(void) {
                "     --timer-property=NAME=VALUE  Set timer unit property\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 

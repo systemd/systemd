@@ -13,6 +13,8 @@
 #include "main-func.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
+#include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"
 #include "virt.h"
@@ -22,19 +24,29 @@ static char **arg_path = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_path, strv_freep);
 
 static int help(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *link = NULL;
+        int r;
 
-        printf("%s [COMMAND] [OPTIONS...]\n"
-               "\n"
-               "Mark the boot process as good or bad.\n\n"
+        r = terminal_urlify_man("systemd-bless-boot.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%s [OPTIONS...] COMMAND\n"
+               "\n%sMark the boot process as good or bad.%s\n"
+               "\nCommands:\n"
+               "     good            Mark this boot as good\n"
+               "     bad             Mark this boot as bad\n"
+               "     indeterminate   Undo any marking as good or bad\n"
+               "\nOptions:\n"
                "  -h --help          Show this help\n"
                "     --version       Print version\n"
                "     --path=PATH     Path to the $BOOT partition (may be used multiple times)\n"
-               "\n"
-               "Commands:\n"
-               "     good            Mark this boot as good\n"
-               "     bad             Mark this boot as bad\n"
-               "     indeterminate   Undo any marking as good or bad\n",
-               program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , ansi_highlight()
+               , ansi_normal()
+               , link
+        );
 
         return 0;
 }

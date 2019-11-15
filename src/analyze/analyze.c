@@ -2243,26 +2243,8 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Profile systemd, show unit dependencies, check unit files.\n\n"
-               "  -h --help                Show this help\n"
-               "     --version             Show package version\n"
-               "     --no-pager            Do not pipe output into a pager\n"
-               "     --system              Operate on system systemd instance\n"
-               "     --user                Operate on user systemd instance\n"
-               "     --global              Operate on global user configuration\n"
-               "  -H --host=[USER@]HOST    Operate on remote host\n"
-               "  -M --machine=CONTAINER   Operate on local container\n"
-               "     --order               Show only order in the graph\n"
-               "     --require             Show only requirement in the graph\n"
-               "     --from-pattern=GLOB   Show only origins in the graph\n"
-               "     --to-pattern=GLOB     Show only destinations in the graph\n"
-               "     --fuzz=SECONDS        Also print services which finished SECONDS earlier\n"
-               "                           than the latest in the branch\n"
-               "     --man[=BOOL]          Do [not] check for existence of man pages\n"
-               "     --generators[=BOOL]   Do [not] run unit generators (requires privileges)\n"
-               "     --iterations=N        Show the specified number of iterations\n"
-               "     --base-time=TIMESTAMP Calculate calendar times relative to specified time\n"
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sProfile systemd, show unit dependencies, check unit files.%s\n"
                "\nCommands:\n"
                "  time                     Print time spent in the kernel\n"
                "  blame                    Print list of running units ordered by time to init\n"
@@ -2284,8 +2266,29 @@ static int help(int argc, char *argv[], void *userdata) {
                "  timestamp TIMESTAMP...   Validate a timestamp\n"
                "  timespan SPAN...         Validate a time span\n"
                "  security [UNIT...]       Analyze security of unit\n"
+               "\nOptions:\n"
+               "  -h --help                Show this help\n"
+               "     --version             Show package version\n"
+               "     --no-pager            Do not pipe output into a pager\n"
+               "     --system              Operate on system systemd instance\n"
+               "     --user                Operate on user systemd instance\n"
+               "     --global              Operate on global user configuration\n"
+               "  -H --host=[USER@]HOST    Operate on remote host\n"
+               "  -M --machine=CONTAINER   Operate on local container\n"
+               "     --order               Show only order in the graph\n"
+               "     --require             Show only requirement in the graph\n"
+               "     --from-pattern=GLOB   Show only origins in the graph\n"
+               "     --to-pattern=GLOB     Show only destinations in the graph\n"
+               "     --fuzz=SECONDS        Also print services which finished SECONDS earlier\n"
+               "                           than the latest in the branch\n"
+               "     --man[=BOOL]          Do [not] check for existence of man pages\n"
+               "     --generators[=BOOL]   Do [not] run unit generators (requires privileges)\n"
+               "     --iterations=N        Show the specified number of iterations\n"
+               "     --base-time=TIMESTAMP Calculate calendar times relative to specified time\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight()
+               , ansi_normal()
                , dot_link
                , link
         );

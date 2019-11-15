@@ -20,6 +20,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -158,8 +159,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Execute a process while inhibiting shutdown/sleep/idle.\n\n"
+        printf("%s [OPTIONS...] COMMAND ...\n"
+               "\n%sExecute a process while inhibiting shutdown/sleep/idle.%s\n\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "     --no-pager           Do not pipe output into a pager\n"
@@ -174,6 +175,7 @@ static int help(void) {
                "     --list               List active inhibitors\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 

@@ -781,9 +781,9 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Attach or detach portable services from the local system.%s\n"
-               "Commands:\n"
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sAttach or detach portable services from the local system.%s\n"
+               "\nCommands:\n"
                "  list                        List available portable service images\n"
                "  attach NAME|PATH [PREFIX...]\n"
                "                              Attach the specified portable service image\n"
@@ -794,7 +794,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  read-only NAME|PATH [BOOL]  Mark or unmark portable service image read-only\n"
                "  remove NAME|PATH...         Remove a portable service image\n"
                "  set-limit [NAME|PATH]       Set image or pool size limit (disk quota)\n"
-               "\nOptions\n"
+               "\nOptions:\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
                "     --no-pager               Do not pipe output into a pager\n"
@@ -810,8 +810,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --cat                    When inspecting include unit and os-release file\n"
                "                              contents\n"
                "\nSee the %s for details.\n"
-               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_highlight()
                , ansi_normal()
                , link
         );
