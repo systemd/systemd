@@ -42,7 +42,7 @@ int id128_pretty_print(sd_id128_t id, Id128PrettyPrintMode mode) {
                "As UUID:\n"
                "%s" SD_ID128_UUID_FORMAT_STR "%s\n\n"
                "As %s macro:\n"
-               "%s#define MESSAGE_XYZ SD_ID128_MAKE(",
+               "%s#define XYZ SD_ID128_MAKE(",
                on, SD_ID128_FORMAT_VAL(id), off,
                on, SD_ID128_FORMAT_VAL(id), off,
                man_link,
@@ -53,7 +53,7 @@ int id128_pretty_print(sd_id128_t id, Id128PrettyPrintMode mode) {
 
         printf("As Python constant:\n"
                ">>> import %s\n"
-               ">>> %sMESSAGE_XYZ = uuid.UUID('" SD_ID128_FORMAT_STR "')%s\n",
+               ">>> %sXYZ = uuid.UUID('" SD_ID128_FORMAT_STR "')%s\n",
                mod_link,
                on, SD_ID128_FORMAT_VAL(id), off);
 
