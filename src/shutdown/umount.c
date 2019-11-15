@@ -185,6 +185,8 @@ int swap_list_get(const char *swaps, MountPoint **head) {
                 return log_oom();
 
         r = mnt_table_parse_swaps(t, swaps);
+        if (r == -ENOENT) /* no /proc/swaps is fine */
+                return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to parse %s: %m", swaps ?: "/proc/swaps");
 
