@@ -2,17 +2,6 @@ systemd System and Service Manager
 
 CHANGES WITH 244 in spe:
 
-        * systemd-udevd: removed the 30s timeout for killing stale workers on
-          exit. systemd-udevd now waits for workers to finish. The hard-coded
-          exit timeout of 30s was too short for some large installations, where
-          driver initialization could be prematurely interrupted during initrd
-          processing if the root file system had been mounted and init was
-          preparing to switch root. If udevd is run without systemd and workers
-          are hanging while udevd receives an exit signal, udevd will now exit
-          when udev.event_timeout is reached for the last hanging worker. With
-          systemd, the exit timeout can additionally be configured using
-          TimeoutStopSec= in systemd-udevd.service.
-
         * Support for the cpuset cgroups v2 controller has been added.
           Processes may be restricted to specific CPUs using the new
           AllowedCPUs= setting, and to specific memory NUMA nodes using the new
@@ -48,11 +37,32 @@ CHANGES WITH 244 in spe:
           <unit_type>.d/ (e.g. service.d/) that may be used to add configuration
           that affects all corresponding unit files.
 
+        * systemctl gained support for 'stop --job-mode=triggering' which will
+          stop the specified unit and any units which could trigger it.
+
+        * Unit status display now includes units triggering and triggered by
+          the unit being shown.
+
         * The RuntimeMaxSec= setting is now supported by scopes, not just
           .service units. This is particularly useful for PAM sessions which
           create a scope unit for the user login. systemd.runtime_max_sec=
           setting may used with the pam_systemd module to limit the duration
           of the PAM session, for example for time-limited logins.
+
+        * A new @pkey system call group is now defined to make it easier to
+          whitelist memory protection syscalls for containers and services
+          which need to use them.
+
+        * systemd-udevd: removed the 30s timeout for killing stale workers on
+          exit. systemd-udevd now waits for workers to finish. The hard-coded
+          exit timeout of 30s was too short for some large installations, where
+          driver initialization could be prematurely interrupted during initrd
+          processing if the root file system had been mounted and init was
+          preparing to switch root. If udevd is run without systemd and workers
+          are hanging while udevd receives an exit signal, udevd will now exit
+          when udev.event_timeout is reached for the last hanging worker. With
+          systemd, the exit timeout can additionally be configured using
+          TimeoutStopSec= in systemd-udevd.service.
 
         * udev now provides a program (fido_id) that identifies FIDO CTAP1
           ("U2F")/CTAP2 security tokens based on the usage declared in their
@@ -106,11 +116,20 @@ CHANGES WITH 244 in spe:
           The client may be configured to request specific options from the
           server using a new RequestOptions= setting.
 
+          The client may be configured to send arbitrary options to the server
+          using a new SendOption= setting.
+
           A new IPServiceType= setting has been added to configure the "IP
           service type" value used by the client.
 
         * The DHCPv6 client learnt a new PrefixDelegationHint= option to
           request prefix hints in the DHCPv6 solicitation.
+
+        * The DHCPv4 server may be configured to send arbitrary options using
+          a new SendRawOption= setting.
+
+        * The DHCPv4 server may now be configured to emit SIP server list using
+          the new EmitSIP= and SIP= settings.
 
         * systemd-networkd and networkctl may now renew DHCP leases on demand.
           networkctl has a new 'networkctl renew' verb.
@@ -130,9 +149,6 @@ CHANGES WITH 244 in spe:
         * systemd-networkd now includes default configuration that enables
           link-local addressing when connected to an ad-hoc wireless network.
 
-        * The DHCPv4 server may now be configured to emit SIP server list using
-          the new EmitSIP= and SIP= settings.
-
         * systemd-networkd may configure the Traffic Control queueing
           disciplines in the kernel using the new
           [TrafficControlQueueingDiscipline] section and Parent=,
@@ -147,6 +163,10 @@ CHANGES WITH 244 in spe:
           because some external program has modified the kernel configuration
           on its own).
 
+        * systemd-analyze gained a new --base-time= switch instructs the
+          'calendar' verb to resolve times relative to that timestamp instead
+          of the present time.
+
         * journalctl --update-catalog now produces deterministic output (making
           reproducible image builds easier).
 
@@ -158,10 +178,14 @@ CHANGES WITH 244 in spe:
           configuration time using the -Dservice-watchdog= setting. If set to
           empty, the watchdogs will be disabled.
 
-        * libcryptsetup >= 2.0.1 is now required.
-
 	* systemd-resolved validates IP addresses in certificates now when GnuTLS
 	  is being used.
+
+        * libcryptsetup >= 2.0.1 is now required.
+
+        * A configuration option -Duser-path= may be used to override the $PATH
+          used by the user service manager. The default is again to use the same
+          path as the system manager.
 
 CHANGES WITH 243:
 
