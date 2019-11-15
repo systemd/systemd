@@ -2248,8 +2248,6 @@ static int help(int argc, char *argv[], void *userdata) {
                "  critical-chain [UNIT...] Print a tree of the time critical chain of units\n"
                "  plot                     Output SVG graphic showing service initialization\n"
                "  dot [UNIT...]            Output dependency graph in %s format\n"
-               "  log-level [LEVEL]        Get/set logging threshold for manager\n"
-               "  log-target [TARGET]      Get/set logging target for manager\n"
                "  dump                     Output state serialization of service manager\n"
                "  cat-config               Show configuration file and drop-ins\n"
                "  unit-files               List files and symlinks for units\n"
@@ -2258,7 +2256,6 @@ static int help(int argc, char *argv[], void *userdata) {
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
                "  condition CONDITION...   Evaluate conditions and asserts\n"
                "  verify FILE...           Check unit files for correctness\n"
-               "  service-watchdogs [BOOL] Get/set service watchdog state\n"
                "  calendar SPEC...         Validate repetitive calendar time events\n"
                "  timestamp TIMESTAMP...   Validate a timestamp\n"
                "  timespan SPAN...         Validate a time span\n"
@@ -2479,13 +2476,14 @@ static int run(int argc, char *argv[]) {
                 { "critical-chain",    VERB_ANY, VERB_ANY, 0,            analyze_critical_chain },
                 { "plot",              VERB_ANY, 1,        0,            analyze_plot           },
                 { "dot",               VERB_ANY, VERB_ANY, 0,            dot                    },
+                /* The following seven verbs are deprecated */
                 { "log-level",         VERB_ANY, 2,        0,            get_or_set_log_level   },
                 { "log-target",        VERB_ANY, 2,        0,            get_or_set_log_target  },
-                /* The following four verbs are deprecated aliases */
                 { "set-log-level",     2,        2,        0,            set_log_level          },
                 { "get-log-level",     VERB_ANY, 1,        0,            get_log_level          },
                 { "set-log-target",    2,        2,        0,            set_log_target         },
                 { "get-log-target",    VERB_ANY, 1,        0,            get_log_target         },
+                { "service-watchdogs", VERB_ANY, 2,        0,            service_watchdogs      },
                 { "dump",              VERB_ANY, 1,        0,            dump                   },
                 { "cat-config",        2,        VERB_ANY, 0,            cat_config             },
                 { "unit-files",        VERB_ANY, VERB_ANY, 0,            do_unit_files          },
@@ -2497,7 +2495,6 @@ static int run(int argc, char *argv[]) {
                 { "calendar",          2,        VERB_ANY, 0,            test_calendar          },
                 { "timestamp",         2,        VERB_ANY, 0,            test_timestamp         },
                 { "timespan",          2,        VERB_ANY, 0,            dump_timespan          },
-                { "service-watchdogs", VERB_ANY, 2,        0,            service_watchdogs      },
                 { "security",          VERB_ANY, VERB_ANY, 0,            do_security            },
                 {}
         };
