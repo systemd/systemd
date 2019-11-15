@@ -2246,7 +2246,7 @@ static int help(int argc, char *argv[], void *userdata) {
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "%sProfile systemd, show unit dependencies, check unit files.%s\n"
                "\nCommands:\n"
-               "  time                     Print time spent in the kernel\n"
+               "  [time]                   Print time required to boot the machine\n"
                "  blame                    Print list of running units ordered by time to init\n"
                "  critical-chain [UNIT...] Print a tree of the time critical chain of units\n"
                "  plot                     Output SVG graphic showing service initialization\n"
