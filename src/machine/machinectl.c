@@ -46,6 +46,7 @@
 #include "sigbus.h"
 #include "signal-util.h"
 #include "sort-util.h"
+#include "spawn-ask-password-agent.h"
 #include "spawn-polkit-agent.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -1722,6 +1723,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_wait_for_jobs_new(bus, &w);
         if (r < 0)
