@@ -47,3 +47,7 @@ endif
 run_target(
         'hwdb-update',
         command : [hwdb_update_sh, meson.current_source_dir()])
+
+run_target(
+        'autosuspend-update',
+        command : [autosuspend_update_sh, project_source_root + '/tools/chromiumos'])
