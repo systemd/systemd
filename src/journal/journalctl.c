@@ -314,7 +314,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...] [MATCHES...]\n\n"
-               "Query the journal.\n\n"
+               "%sQuery the journal.%s\n\n"
                "Options:\n"
                "     --system                Show the system journal\n"
                "     --user                  Show the user journal for the current user\n"
@@ -381,6 +381,7 @@ static int help(void) {
                "     --setup-keys            Generate a new FSS key pair\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 

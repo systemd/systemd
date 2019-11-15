@@ -1887,8 +1887,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s%s [OPTIONS...]\n\n"
-               "Query and control the networking subsystem.%s\n"
+        printf("%s [OPTIONS...] COMMAND\n\n"
+               "%sQuery and control the networking subsystem.%s\n"
                "\nCommands:\n"
                "  list [PATTERN...]      List links\n"
                "  status [PATTERN...]    Show link status\n"
@@ -1898,7 +1898,7 @@ static int help(void) {
                "  renew DEVICES...       Renew dynamic configurations\n"
                "  reconfigure DEVICES... Reconfigure interfaces\n"
                "  reload                 Reload .network and .netdev files\n"
-               "\nOptions\n"
+               "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "     --no-pager          Do not pipe output into a pager\n"
@@ -1906,8 +1906,8 @@ static int help(void) {
                "  -a --all               Show status for all links\n"
                "  -s --stats             Show detailed link statics\n"
                "\nSee the %s for details.\n"
-               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_highlight()
                , ansi_normal()
                , link
         );

@@ -332,9 +332,9 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n\n"
-               "Listen on sockets and launch child on connection.\n\n"
-               "Options:\n"
+        printf("%s [OPTIONS...]\n"
+               "\n%sListen on sockets and launch child on connection.%s\n"
+               "\nOptions:\n"
                "  -h --help                  Show this help and exit\n"
                "     --version               Print version string and exit\n"
                "  -l --listen=ADDR           Listen for raw connections at ADDR\n"
@@ -347,6 +347,7 @@ static int help(void) {
                "\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 

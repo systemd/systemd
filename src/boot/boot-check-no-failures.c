@@ -11,16 +11,28 @@
 #include "bus-error.h"
 #include "log.h"
 #include "main-func.h"
+#include "pretty-print.h"
+#include "terminal-util.h"
 #include "util.h"
 
 static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
 
-        printf("%s [COMMAND] [OPTIONS...]\n"
-               "\n"
-               "Verify system operational state.\n\n"
+        r = terminal_urlify_man("systemd-boot-check-no-failures.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%s [OPTIONS...]\n"
+               "\n%sVerify system operational state.%s\n\n"
                "  -h --help          Show this help\n"
-               "     --version       Print version\n",
-               program_invocation_short_name);
+               "     --version       Print version\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , ansi_highlight()
+               , ansi_normal()
+               , link
+        );
 
         return 0;
 }

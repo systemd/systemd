@@ -310,8 +310,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s%s [OPTIONS...] COMMAND ...\n\n"
-               "Query or change system hostname.%s\n"
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sQuery or change system hostname.%s\n"
                "\nCommands:\n"
                "  status                 Show current hostname settings\n"
                "  set-hostname NAME      Set system hostname\n"
@@ -329,8 +329,8 @@ static int help(void) {
                "     --static            Only set static hostname\n"
                "     --pretty            Only set pretty hostname\n"
                "\nSee the %s for details.\n"
-               , ansi_highlight()
                , program_invocation_short_name
+               , ansi_highlight()
                , ansi_normal()
                , link
         );

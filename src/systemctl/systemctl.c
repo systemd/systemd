@@ -7694,9 +7694,9 @@ static int systemctl_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%5$s%1$s [OPTIONS...] {COMMAND} ...\n\n"
-               "Query or send control commands to the systemd manager.%6$s\n\n"
-               "%3$sUnit Commands:%4$s\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
+               "%5$sQuery or send control commands to the system manager.%6$s\n"
+               "\n%3$sUnit Commands:%4$s\n"
                "  list-units [PATTERN...]             List units currently in memory\n"
                "  list-sockets [PATTERN...]           List socket units currently in memory,\n"
                "                                      ordered by address\n"
@@ -7727,8 +7727,8 @@ static int systemctl_help(void) {
                "                                      units\n"
                "  list-dependencies [UNIT]            Recursively show units which are required\n"
                "                                      or wanted by this unit or by which this\n"
-               "                                      unit is required or wanted\n\n"
-               "%3$sUnit File Commands:%4$s\n"
+               "                                      unit is required or wanted\n"
+               "\n%3$sUnit File Commands:%4$s\n"
                "  list-unit-files [PATTERN...]        List installed unit files\n"
                "  enable [UNIT...|PATH...]            Enable one or more unit files\n"
                "  disable UNIT...                     Disable one or more unit files\n"
@@ -7750,21 +7750,21 @@ static int systemctl_help(void) {
                "                                      on specified one or more units\n"
                "  edit UNIT...                        Edit one or more unit files\n"
                "  get-default                         Get the name of the default target\n"
-               "  set-default TARGET                  Set the default target\n\n"
-               "%3$sMachine Commands:%4$s\n"
+               "  set-default TARGET                  Set the default target\n"
+               "\n%3$sMachine Commands:%4$s\n"
                "  list-machines [PATTERN...]          List local containers and host\n\n"
-               "%3$sJob Commands:%4$s\n"
+               "\n%3$sJob Commands:%4$s\n"
                "  list-jobs [PATTERN...]              List jobs\n"
-               "  cancel [JOB...]                     Cancel all, one, or more jobs\n\n"
-               "%3$sEnvironment Commands:%4$s\n"
+               "  cancel [JOB...]                     Cancel all, one, or more jobs\n"
+               "\n%3$sEnvironment Commands:%4$s\n"
                "  show-environment                    Dump environment\n"
                "  set-environment VARIABLE=VALUE...   Set one or more environment variables\n"
                "  unset-environment VARIABLE...       Unset one or more environment variables\n"
                "  import-environment [VARIABLE...]    Import all or some environment variables\n\n"
-               "%3$sManager Lifecycle Commands:%4$s\n"
+               "\n%3$sManager Lifecycle Commands:%4$s\n"
                "  daemon-reload                       Reload systemd manager configuration\n"
-               "  daemon-reexec                       Reexecute systemd manager\n\n"
-               "%3$sSystem Commands:%4$s\n"
+               "  daemon-reexec                       Reexecute systemd manager\n"
+               "\n%3$sSystem Commands:%4$s\n"
                "  is-system-running                   Check whether system is fully running\n"
                "  default                             Enter system default mode\n"
                "  rescue                              Enter system rescue mode\n"
@@ -7780,7 +7780,7 @@ static int systemctl_help(void) {
                "  hybrid-sleep                        Hibernate and suspend the system\n"
                "  suspend-then-hibernate              Suspend the system, wake after a period of\n"
                "                                      time and put it into hibernate\n"
-               "\nOptions\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
                "     --system         Connect to system manager\n"
@@ -7859,8 +7859,9 @@ static int halt_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]%s\n\n"
-               "%s the system.\n\n"
+        printf("%s [OPTIONS...]%s\n"
+               "\n%s%s the system.%s\n"
+               "\nOptions:\n"
                "     --help      Show this help\n"
                "     --halt      Halt the machine\n"
                "  -p --poweroff  Switch off the machine\n"
@@ -7871,10 +7872,12 @@ static int halt_help(void) {
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
-               , arg_action == ACTION_REBOOT   ? " [ARG]" : "",
-                 arg_action == ACTION_REBOOT   ? "Reboot" :
+               , arg_action == ACTION_REBOOT   ? " [ARG]" : ""
+               , ansi_highlight()
+               , arg_action == ACTION_REBOOT   ? "Reboot" :
                  arg_action == ACTION_POWEROFF ? "Power off" :
                                                  "Halt"
+               , ansi_normal()
                , link
         );
 
@@ -7889,8 +7892,9 @@ static int shutdown_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [TIME] [WALL...]\n\n"
-               "Shut down the system.\n\n"
+        printf("%s [OPTIONS...] [TIME] [WALL...]\n"
+               "\n%sShut down the system.%s\n"
+               "\nOptions:\n"
                "     --help      Show this help\n"
                "  -H --halt      Halt the machine\n"
                "  -P --poweroff  Power-off the machine\n"
@@ -7901,6 +7905,7 @@ static int shutdown_help(void) {
                "  -c             Cancel a pending shutdown\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 
@@ -7915,19 +7920,21 @@ static int telinit_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND}\n\n"
-               "Send control commands to the init daemon.\n\n"
-               "     --help      Show this help\n"
-               "     --no-wall   Don't send wall message before halt/power-off/reboot\n\n"
-               "Commands:\n"
+        printf("%s [OPTIONS...] COMMAND\n\n"
+               "%sSend control commands to the init daemon.%s\n"
+               "\nCommands:\n"
                "  0              Power-off the machine\n"
                "  6              Reboot the machine\n"
                "  2, 3, 4, 5     Start runlevelX.target unit\n"
                "  1, s, S        Enter rescue mode\n"
                "  q, Q           Reload init daemon configuration\n"
                "  u, U           Reexecute init daemon\n"
+               "\nOptions:\n"
+               "     --help      Show this help\n"
+               "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 
@@ -7942,11 +7949,13 @@ static int runlevel_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n\n"
-               "Prints the previous and current runlevel of the init system.\n\n"
+        printf("%s [OPTIONS...]\n"
+               "\n%sPrints the previous and current runlevel of the init system.%s\n"
+               "\nOptions:\n"
                "     --help      Show this help\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 
@@ -8525,7 +8534,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         /* Output an error mimicking getopt, and print a hint afterwards */
                         log_error("%s: invalid option -- '.'", program_invocation_name);
                         log_notice("Hint: to specify units starting with a dash, use \"--\":\n"
-                                   "      %s [OPTIONS...] {COMMAND} -- -.%s ...",
+                                   "      %s [OPTIONS...] COMMAND -- -.%s ...",
                                    program_invocation_name, optarg ?: "mount");
                         _fallthrough_;
 
