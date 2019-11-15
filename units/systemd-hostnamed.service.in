@@ -27,6 +27,7 @@ ProtectControlGroups=yes
 ProtectHome=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
+ProtectKernelLogs=yes
 ProtectSystem=strict
 ReadWritePaths=/etc
 RestrictAddressFamilies=AF_UNIX

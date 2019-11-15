@@ -32,6 +32,7 @@ ProtectControlGroups=yes
 ProtectHome=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
+ProtectKernelLogs=yes
 ProtectSystem=strict
 Restart=always
 RestartSec=0

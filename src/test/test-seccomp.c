@@ -323,6 +323,48 @@ static void test_protect_sysctl(void) {
         assert_se(wait_for_terminate_and_check("sysctlseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
+static void test_protect_syslog(void) {
+        pid_t pid;
+
+        log_info("/* %s */", __func__);
+
+        if (!is_seccomp_available()) {
+                log_notice("Seccomp not available, skipping %s", __func__);
+                return;
+        }
+        if (geteuid() != 0) {
+                log_notice("Not root, skipping %s", __func__);
+                return;
+        }
+
+        /* in containers syslog() is likely missing anyway */
+        if (detect_container() > 0) {
+                log_notice("Testing in container, skipping %s", __func__);
+                return;
+        }
+
+        pid = fork();
+        assert_se(pid >= 0);
+
+        if (pid == 0) {
+#if defined __NR_syslog && __NR_syslog > 0
+                assert_se(syscall(__NR_syslog, -1, NULL, 0) < 0);
+                assert_se(errno == EINVAL);
+#endif
+
+                assert_se(seccomp_protect_syslog() >= 0);
+
+#if defined __NR_syslog && __NR_syslog > 0
+                assert_se(syscall(__NR_syslog, 0, 0, 0) < 0);
+                assert_se(errno == EPERM);
+#endif
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(wait_for_terminate_and_check("syslogseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
+}
+
 static void test_restrict_address_families(void) {
         pid_t pid;
 
@@ -983,6 +1025,7 @@ int main(int argc, char *argv[]) {
         test_filter_sets_ordered();
         test_restrict_namespace();
         test_protect_sysctl();
+        test_protect_syslog();
         test_restrict_address_families();
         test_restrict_realtime();
         test_memory_deny_write_execute_mmap();

@@ -402,11 +402,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>SystemCallFilter=</varname>, <varname>SystemCallArchitectures=</varname>,
         <varname>RestrictAddressFamilies=</varname>, <varname>RestrictNamespaces=</varname>,
         <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
-        <varname>ProtectKernelModules=</varname>, <varname>MemoryDenyWriteExecute=</varname>,
-        <varname>RestrictRealtime=</varname>, <varname>RestrictSUIDSGID=</varname>,
-        <varname>DynamicUser=</varname> or <varname>LockPersonality=</varname> are specified. Note that even
-        if this setting is overridden by them, <command>systemctl show</command> shows the original value of
-        this setting. Also see <ulink
+        <varname>ProtectKernelModules=</varname>, <varname>ProtectKernelLogs=</varname>,
+        <varname>MemoryDenyWriteExecute=</varname>, <varname>RestrictRealtime=</varname>,
+        <varname>RestrictSUIDSGID=</varname>, <varname>DynamicUser=</varname> or <varname>LockPersonality=</varname>
+        are specified. Note that even if this setting is overridden by them, <command>systemctl show</command> shows the
+        original value of this setting. Also see <ulink
         url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges
         Flag</ulink>.</para></listitem>
       </varlistentry>
@@ -1322,6 +1322,22 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ProtectKernelLogs=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, access to the kernel log ring buffer will be denied. It is
+        recommended to turn this on for most services that do not need to read from or write to the kernel log ring
+        buffer. Enabling this option removes <constant>CAP_SYSLOG</constant> from the capability bounding set for this
+        unit, and installs a system call filter to block the
+        <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        system call (not to be confused with the libc API
+        <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        for userspace logging). The kernel exposes its log buffer to userspace via <filename>/dev/kmsg</filename> and
+        <filename>/proc/kmsg</filename>. If enabled, these are made inaccessible to all the processes in the unit.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ProtectControlGroups=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, the Linux Control Groups (<citerefentry
@@ -1772,8 +1788,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         mappings. Specifically these are the options <varname>PrivateTmp=</varname>,
         <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>, <varname>ProtectHome=</varname>,
         <varname>ProtectKernelTunables=</varname>, <varname>ProtectControlGroups=</varname>,
-        <varname>ReadOnlyPaths=</varname>, <varname>InaccessiblePaths=</varname> and
-        <varname>ReadWritePaths=</varname>.</para></listitem>
+        <varname>ProtectKernelLogs=</varname>, <varname>ReadOnlyPaths=</varname>,
+        <varname>InaccessiblePaths=</varname> and <varname>ReadWritePaths=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
