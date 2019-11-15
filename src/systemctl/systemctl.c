@@ -236,22 +236,16 @@ static void release_busses(void) {
                 buses[w] = sd_bus_flush_close_unref(buses[w]);
 }
 
-static void ask_password_agent_open_if_enabled(void) {
+static void ask_password_agent_open_maybe(void) {
         /* Open the password agent as a child process if necessary */
 
         if (arg_dry_run)
                 return;
 
-        if (!arg_ask_password)
-                return;
-
         if (arg_scope != UNIT_FILE_SYSTEM)
                 return;
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL)
-                return;
-
-        ask_password_agent_open();
+        ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
 }
 
 static void polkit_agent_open_maybe(void) {
@@ -3071,7 +3065,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        ask_password_agent_open_if_enabled();
+        ask_password_agent_open_maybe();
         polkit_agent_open_maybe();
 
         if (arg_action == ACTION_SYSTEMCTL) {
