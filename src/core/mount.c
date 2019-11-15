@@ -409,9 +409,13 @@ static bool mount_is_extrinsic(Mount *m) {
         if (!MANAGER_IS_SYSTEM(UNIT(m)->manager)) /* We only automatically manage mounts if we are in system mode */
                 return true;
 
+        if (UNIT(m)->perpetual) /* All perpetual units never change state */
+                return true;
+
         if (PATH_IN_SET(m->where,  /* Don't bother with the OS data itself */
-                        "/",
-                        "/usr"))
+                        "/",       /* (strictly speaking redundant: should already be covered by the perpetual flag check above) */
+                        "/usr",
+                        "/etc"))
                 return true;
 
         if (PATH_STARTSWITH_SET(m->where,
