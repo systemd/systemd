@@ -1701,7 +1701,7 @@
         <varlistentry>
           <term><varname>PrefixDelegationHint=</varname></term>
           <listitem>
-            <para>Takes an IPv6 address with prefix length as <varname>Addresss=</varname> in
+            <para>Takes an IPv6 address with prefix length as <varname>Address=</varname> in
             the "[Network]" section. Specifies the DHCPv6 client for the requesting router to include
             a prefix-hint in the DHCPv6 solicitation. Prefix ranges 1-128. Defaults to unset.</para>
           </listitem>
