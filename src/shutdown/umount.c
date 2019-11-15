@@ -206,11 +206,11 @@ int swap_list_get(const char *swaps, MountPoint **head) {
 
                 swap = new0(MountPoint, 1);
                 if (!swap)
-                        return -ENOMEM;
+                        return log_oom();
 
                 swap->path = strdup(source);
                 if (!swap->path)
-                        return -ENOMEM;
+                        return log_oom();
 
                 LIST_PREPEND(mount_point, *head, TAKE_PTR(swap));
         }
