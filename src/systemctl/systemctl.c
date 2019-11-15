@@ -6431,6 +6431,57 @@ static int log_target(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int service_watchdogs(int argc, char *argv[], void *userdata) {
+        sd_bus *bus;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int b, r;
+
+        assert(argv);
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        if (argc == 1) {
+                /* get ServiceWatchdogs */
+                r = sd_bus_get_property_trivial(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "ServiceWatchdogs",
+                                &error,
+                                'b',
+                                &b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get service-watchdog state: %s", bus_error_message(&error, r));
+
+                printf("%s\n", yes_no(!!b));
+
+        } else {
+                /* set ServiceWatchdogs */
+                assert(argc == 2);
+
+                b = parse_boolean(argv[1]);
+                if (b < 0)
+                        return log_error_errno(b, "Failed to parse service-watchdogs argument: %m");
+
+                r = sd_bus_set_property(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "ServiceWatchdogs",
+                                &error,
+                                "b",
+                                b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set service-watchdog state: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
 static int set_environment(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -7854,6 +7905,7 @@ static int systemctl_help(void) {
                "  daemon-reexec                       Reexecute systemd manager\n"
                "  log-level [LEVEL]                   Get/set logging threshold for manager\n"
                "  log-target [TARGET]                 Get/set logging target for manager\n"
+               "  service-watchdogs [BOOL]            Get/set service watchdog state\n"
                "\n%3$sSystem Commands:%4$s\n"
                "  is-system-running                   Check whether system is fully running\n"
                "  default                             Enter system default mode\n"
@@ -9078,6 +9130,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "daemon-reexec",         VERB_ANY, 1,        VERB_ONLINE_ONLY, daemon_reload           },
                 { "log-level",             VERB_ANY, 2,        0,                log_level               },
                 { "log-target",            VERB_ANY, 2,        0,                log_target              },
+                { "service-watchdogs",     VERB_ANY, 2,        0,                service_watchdogs       },
                 { "show-environment",      VERB_ANY, 1,        VERB_ONLINE_ONLY, show_environment        },
                 { "set-environment",       2,        VERB_ANY, VERB_ONLINE_ONLY, set_environment         },
                 { "unset-environment",     2,        VERB_ANY, VERB_ONLINE_ONLY, set_environment         },

@@ -2166,8 +2166,8 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
-        /* get ServiceWatchdogs */
         if (argc == 1) {
+                /* get ServiceWatchdogs */
                 r = sd_bus_get_property_trivial(
                                 bus,
                                 "org.freedesktop.systemd1",
@@ -2182,27 +2182,24 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
 
                 printf("%s\n", yes_no(!!b));
 
-                return 0;
-        }
+        } else {
+                /* set ServiceWatchdogs */
+                b = parse_boolean(argv[1]);
+                if (b < 0)
+                        return log_error_errno(b, "Failed to parse service-watchdogs argument: %m");
 
-        /* set ServiceWatchdogs */
-        b = parse_boolean(argv[1]);
-        if (b < 0) {
-                log_error("Failed to parse service-watchdogs argument.");
-                return -EINVAL;
+                r = sd_bus_set_property(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "ServiceWatchdogs",
+                                &error,
+                                "b",
+                                b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set service-watchdog state: %s", bus_error_message(&error, r));
         }
-
-        r = sd_bus_set_property(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "ServiceWatchdogs",
-                        &error,
-                        "b",
-                        b);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set service-watchdog state: %s", bus_error_message(&error, r));
 
         return 0;
 }
