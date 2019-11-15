@@ -537,29 +537,41 @@ static int hello_callback(sd_bus_message *reply, void *userdata, sd_bus_error *e
         assert(IN_SET(bus->state, BUS_HELLO, BUS_CLOSING));
 
         r = sd_bus_message_get_errno(reply);
-        if (r > 0)
-                return -r;
+        if (r > 0) {
+                r = -r;
+                goto fail;
+        }
 
         r = sd_bus_message_read(reply, "s", &s);
         if (r < 0)
-                return r;
+                goto fail;
 
-        if (!service_name_is_valid(s) || s[0] != ':')
-                return -EBADMSG;
+        if (!service_name_is_valid(s) || s[0] != ':') {
+                r = -EBADMSG;
+                goto fail;
+        }
 
         r = free_and_strdup(&bus->unique_name, s);
         if (r < 0)
-                return r;
+                goto fail;
 
         if (bus->state == BUS_HELLO) {
                 bus_set_state(bus, BUS_RUNNING);
 
                 r = synthesize_connected_signal(bus);
                 if (r < 0)
-                        return r;
+                        goto fail;
         }
 
         return 1;
+
+fail:
+        /* When Hello() failed, let's propagate this in two ways: first we return the error immediately here,
+         * which is the propagated up towards the event loop. Let's also invalidate the connection, so that
+         * if the user then calls back into us again we won't wait any longer. */
+
+        bus_set_state(bus, BUS_CLOSING);
+        return r;
 }
 
 static int bus_send_hello(sd_bus *bus) {
