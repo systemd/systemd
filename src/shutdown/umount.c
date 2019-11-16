@@ -62,7 +62,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
 
         r = libmount_parse(mountinfo, NULL, &table, &iter);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse %s: %m", mountinfo);
+                return log_error_errno(r, "Failed to parse %s: %m", mountinfo ?: "/proc/self/mountinfo");
 
         for (;;) {
                 struct libmnt_fs *fs;
@@ -77,7 +77,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 if (r == 1)
                         break;
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get next entry from %s: %m", mountinfo);
+                        return log_error_errno(r, "Failed to get next entry from %s: %m", mountinfo ?: "/proc/self/mountinfo");
 
                 path = mnt_fs_get_target(fs);
                 if (!path)
@@ -184,8 +184,10 @@ int swap_list_get(const char *swaps, MountPoint **head) {
                 return log_oom();
 
         r = mnt_table_parse_swaps(t, swaps);
+        if (r == -ENOENT) /* no /proc/swaps is fine */
+                return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to parse %s: %m", swaps);
+                return log_error_errno(r, "Failed to parse %s: %m", swaps ?: "/proc/swaps");
 
         for (;;) {
                 struct libmnt_fs *fs;
@@ -196,7 +198,7 @@ int swap_list_get(const char *swaps, MountPoint **head) {
                 if (r == 1)
                         break;
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get next entry from %s: %m", swaps);
+                        return log_error_errno(r, "Failed to get next entry from %s: %m", swaps ?: "/proc/swaps");
 
                 source = mnt_fs_get_source(fs);
                 if (!source)
@@ -204,11 +206,11 @@ int swap_list_get(const char *swaps, MountPoint **head) {
 
                 swap = new0(MountPoint, 1);
                 if (!swap)
-                        return -ENOMEM;
+                        return log_oom();
 
                 swap->path = strdup(source);
                 if (!swap->path)
-                        return -ENOMEM;
+                        return log_oom();
 
                 LIST_PREPEND(mount_point, *head, TAKE_PTR(swap));
         }
