@@ -875,7 +875,9 @@ static int client_send_discover(sd_dhcp_client *client) {
            address be assigned, and may include the ’IP address lease time’
            option to suggest the lease time it would like.
          */
-        if (client->last_addr != INADDR_ANY) {
+        /* RFC7844 section 3:
+           SHOULD NOT contain any other option. */
+        if (!client->anonymize && client->last_addr != INADDR_ANY) {
                 r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
                                        SD_DHCP_OPTION_REQUESTED_IP_ADDRESS,
                                        4, &client->last_addr);
