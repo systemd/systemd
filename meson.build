@@ -2930,6 +2930,7 @@ make_directive_index_py = find_program('tools/make-directive-index.py')
 make_man_index_py = find_program('tools/make-man-index.py')
 xml_helper_py = find_program('tools/xml_helper.py')
 hwdb_update_sh = find_program('tools/meson-hwdb-update.sh')
+autosuspend_update_sh = find_program('tools/meson-autosuspend-update.sh')
 
 subdir('sysctl.d')
 subdir('sysusers.d')

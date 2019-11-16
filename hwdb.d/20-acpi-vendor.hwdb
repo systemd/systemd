@@ -1086,6 +1086,9 @@ acpi:BIO*:
 acpi:BIT*:
  ID_VENDOR_FROM_DATABASE=Bit 3 Computer
 
+acpi:BLD*:
+ ID_VENDOR_FROM_DATABASE=BILD INNOVATIVE TECHNOLOGY LLC
+
 acpi:BLI*:
  ID_VENDOR_FROM_DATABASE=Busicom
 
@@ -2064,6 +2067,9 @@ acpi:DSA*:
 acpi:DSD*:
  ID_VENDOR_FROM_DATABASE=DS Multimedia Pte Ltd
 
+acpi:DSG*:
+ ID_VENDOR_FROM_DATABASE=Disguise Technologies
+
 acpi:DSI*:
  ID_VENDOR_FROM_DATABASE=Digitan Systems Inc
 
@@ -2273,6 +2279,9 @@ acpi:ELA*:
 
 acpi:ELC*:
  ID_VENDOR_FROM_DATABASE=Electro Scientific Ind
+
+acpi:ELD*:
+ ID_VENDOR_FROM_DATABASE=Express Luck, Inc.
 
 acpi:ELE*:
  ID_VENDOR_FROM_DATABASE=Elecom Company Ltd
@@ -2534,6 +2543,9 @@ acpi:FDI*:
 
 acpi:FDT*:
  ID_VENDOR_FROM_DATABASE=Fujitsu Display Technologies Corp.
+
+acpi:FDX*:
+ ID_VENDOR_FROM_DATABASE=Findex, Inc.
 
 acpi:FEC*:
  ID_VENDOR_FROM_DATABASE=FURUNO ELECTRIC CO., LTD.
@@ -3264,6 +3276,9 @@ acpi:ICO*:
 acpi:ICP*:
  ID_VENDOR_FROM_DATABASE=ICP Electronics, Inc./iEi Technology Corp.
 
+acpi:ICR*:
+ ID_VENDOR_FROM_DATABASE=Icron
+
 acpi:ICS*:
  ID_VENDOR_FROM_DATABASE=Integrated Circuit Systems
 
@@ -3984,6 +3999,9 @@ acpi:LGX*:
 acpi:LHA*:
  ID_VENDOR_FROM_DATABASE=Lars Haagh ApS
 
+acpi:LHC*:
+ ID_VENDOR_FROM_DATABASE=Beihai Century Joint Innovation Technology Co.,Ltd
+
 acpi:LHE*:
  ID_VENDOR_FROM_DATABASE=Lung Hwa Electronics Company Ltd
 
@@ -4347,6 +4365,9 @@ acpi:MGL*:
 acpi:MGT*:
  ID_VENDOR_FROM_DATABASE=Megatech R & D Company
 
+acpi:MHQ*:
+ ID_VENDOR_FROM_DATABASE=Moxa Inc.
+
 acpi:MIC*:
  ID_VENDOR_FROM_DATABASE=Micom Communications Inc
 
@@ -4448,6 +4469,9 @@ acpi:MMN*:
 
 acpi:MMS*:
  ID_VENDOR_FROM_DATABASE=MMS Electronics
+
+acpi:MMT*:
+ ID_VENDOR_FROM_DATABASE=MIMO Monitors
 
 acpi:MNC*:
  ID_VENDOR_FROM_DATABASE=Mini Micro Methods Ltd
@@ -5295,6 +5319,9 @@ acpi:PIM*:
 acpi:PIO*:
  ID_VENDOR_FROM_DATABASE=Pioneer Electronic Corporation
 
+acpi:PIS*:
+ ID_VENDOR_FROM_DATABASE=TECNART CO.,LTD.
+
 acpi:PIX*:
  ID_VENDOR_FROM_DATABASE=Pixie Tech Inc
 
@@ -6107,6 +6134,9 @@ acpi:SJE*:
 
 acpi:SKD*:
  ID_VENDOR_FROM_DATABASE=Schneider & Koch
+
+acpi:SKI*:
+ ID_VENDOR_FROM_DATABASE=LLC SKTB “SKIT”
 
 acpi:SKM*:
  ID_VENDOR_FROM_DATABASE=Guangzhou Teclast Information Technology Limited
@@ -7415,6 +7445,9 @@ acpi:WKH*:
 
 acpi:WLD*:
  ID_VENDOR_FROM_DATABASE=Wildfire Communications Inc
+
+acpi:WLF*:
+ ID_VENDOR_FROM_DATABASE=WOLF Advanced Technology
 
 acpi:WML*:
  ID_VENDOR_FROM_DATABASE=Wolfson Microelectronics Ltd
