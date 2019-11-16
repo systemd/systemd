@@ -284,7 +284,7 @@ int dhcp4_server_configure(Link *link) {
 
         r = sd_dhcp_server_set_emit_router(link->dhcp_server, link->network->dhcp_server_emit_router);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to set router emission for DHCP server: %m");
+                return log_link_error_errno(link, r, "Failed to set router emission for DHCP server: %m");
 
         if (link->network->dhcp_server_emit_timezone) {
                 _cleanup_free_ char *buffer = NULL;
@@ -295,7 +295,7 @@ int dhcp4_server_configure(Link *link) {
                 else {
                         r = get_timezone(&buffer);
                         if (r < 0)
-                                return log_warning_errno(r, "Failed to determine timezone: %m");
+                                return log_error_errno(r, "Failed to determine timezone: %m");
 
                         tz = buffer;
                 }
@@ -316,7 +316,7 @@ int dhcp4_server_configure(Link *link) {
         if (!sd_dhcp_server_is_running(link->dhcp_server)) {
                 r = sd_dhcp_server_start(link->dhcp_server);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not start DHCPv4 server instance: %m");
+                        return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");
         }
 
         return 0;
