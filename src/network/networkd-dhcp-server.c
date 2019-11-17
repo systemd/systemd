@@ -559,14 +559,13 @@ int config_parse_dhcp_server_raw_option_data(
                 return 0;
         }
 
-        r = dhcp_raw_option_data_type_from_string(word);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+        type = dhcp_raw_option_data_type_from_string(word);
+        if (type < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
                            "Invalid DHCP server send data type, ignoring assignment: %s", p);
                 return 0;
         }
 
-        type = r;
         switch(type) {
         case DHCP_RAW_OPTION_DATA_UINT8:{
                 r = safe_atou8(p, &uint8_data);
