@@ -241,6 +241,7 @@ int sd_dhcp_client_set_mac(
 
         DHCP_CLIENT_DONT_DESTROY(client);
         bool need_restart = false;
+        int r;
 
         assert_return(client, -EINVAL);
         assert_return(addr, -EINVAL);
@@ -268,8 +269,11 @@ int sd_dhcp_client_set_mac(
         client->mac_addr_len = addr_len;
         client->arp_type = arp_type;
 
-        if (need_restart && client->state != DHCP_STATE_STOPPED)
-                sd_dhcp_client_start(client);
+        if (need_restart && client->state != DHCP_STATE_STOPPED) {
+                r = sd_dhcp_client_start(client);
+                if (r < 0)
+                        return log_dhcp_client_errno(client, r, "Failed to restart DHCPv4 client: %m");
+        }
 
         return 0;
 }
@@ -305,6 +309,7 @@ int sd_dhcp_client_set_client_id(
 
         DHCP_CLIENT_DONT_DESTROY(client);
         bool need_restart = false;
+        int r;
 
         assert_return(client, -EINVAL);
         assert_return(data, -EINVAL);
@@ -337,8 +342,11 @@ int sd_dhcp_client_set_client_id(
         memcpy(&client->client_id.raw.data, data, data_len);
         client->client_id_len = data_len + sizeof (client->client_id.type);
 
-        if (need_restart && client->state != DHCP_STATE_STOPPED)
-                sd_dhcp_client_start(client);
+        if (need_restart && client->state != DHCP_STATE_STOPPED) {
+                r = sd_dhcp_client_start(client);
+                if (r < 0)
+                        return log_dhcp_client_errno(client, r, "Failed to restart DHCPv4 client: %m");
+        }
 
         return 0;
 }
@@ -429,7 +437,9 @@ static int dhcp_client_set_iaid_duid_internal(
         if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {
                 log_dhcp_client(client, "Configured %sDUID, restarting.", iaid_append ? "IAID+" : "");
                 client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
-                sd_dhcp_client_start(client);
+                r = sd_dhcp_client_start(client);
+                if (r < 0)
+                        return log_dhcp_client_errno(client, r, "Failed to restart DHCPv4 client: %m");
         }
 
         return 0;
