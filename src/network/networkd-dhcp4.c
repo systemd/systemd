@@ -1580,9 +1580,14 @@ int config_parse_dhcp_send_option(
 
         _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt = NULL, *old = NULL;
         _cleanup_free_ char *word = NULL, *q = NULL;
+        union in_addr_union addr;
+        DHCPOptionDataType type;
         Network *network = data;
+        uint8_t u, uint8_data;
+        uint16_t uint16_data;
+        uint32_t uint32_data;
         const char *p;
-        uint8_t u;
+        void *udata;
         ssize_t sz;
         int r;
 
@@ -1618,14 +1623,87 @@ int config_parse_dhcp_send_option(
                 return 0;
         }
 
-        sz = cunescape(p, 0, &q);
-        if (sz < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, sz,
-                           "Failed to decode option data, ignoring assignment: %s", p);
+        free(word);
+        r = extract_first_word(&p, &word, ":", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Invalid DHCP send option, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        r = sd_dhcp_option_new(u, q, sz, &opt);
+        type = dhcp_option_data_type_from_string(word);
+        if (type < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Invalid DHCP send data type, ignoring assignment: %s", p);
+                return 0;
+        }
+
+        switch(type) {
+        case DHCP_OPTION_DATA_UINT8:{
+                r = safe_atou8(p, &uint8_data);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse DHCPv4 uint8 data, ignoring assignment: %s", p);
+                        return 0;
+                }
+
+                udata = &uint8_data;
+                sz = sizeof(uint8_t);
+                break;
+        }
+        case DHCP_OPTION_DATA_UINT16:{
+                r = safe_atou16(p, &uint16_data);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse DHCPv4 uint16 data, ignoring assignment: %s", p);
+                        return 0;
+                }
+
+                udata = &uint16_data;
+                sz = sizeof(uint16_t);
+                break;
+        }
+        case DHCP_OPTION_DATA_UINT32: {
+                r = safe_atou32(p, &uint32_data);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse DHCPv4 uint32 data, ignoring assignment: %s", p);
+                        return 0;
+                }
+
+                udata = &uint32_data;
+                sz = sizeof(uint32_t);
+
+                break;
+        }
+        case DHCP_OPTION_DATA_IPV4ADDRESS: {
+                r = in_addr_from_string(AF_INET, p, &addr);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse DHCPv4 ipv4address data, ignoring assignment: %s", p);
+                        return 0;
+                }
+
+                udata = &addr.in;
+                sz = sizeof(addr.in.s_addr);
+                break;
+        }
+        case DHCP_OPTION_DATA_STRING:
+                sz = cunescape(p, 0, &q);
+                if (sz < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, sz,
+                                   "Failed to decode option data, ignoring assignment: %s", p);
+                }
+
+                udata = q;
+                break;
+        default:
+                return -EINVAL;
+        }
+
+        r = sd_dhcp_option_new(u, udata, sz, &opt);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Failed to store DHCP send option '%s', ignoring assignment: %m", rvalue);
