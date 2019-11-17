@@ -273,3 +273,13 @@ static const char* const dhcp_use_domains_table[_DHCP_USE_DOMAINS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dhcp_use_domains, DHCPUseDomains, DHCP_USE_DOMAINS_YES);
+
+static const char * const dhcp_option_data_type_table[_DHCP_OPTION_DATA_MAX] = {
+        [DHCP_OPTION_DATA_UINT8]       = "uint8",
+        [DHCP_OPTION_DATA_UINT16]      = "uint16",
+        [DHCP_OPTION_DATA_UINT32]      = "uint32",
+        [DHCP_OPTION_DATA_STRING]      = "string",
+        [DHCP_OPTION_DATA_IPV4ADDRESS] = "ipv4address",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(dhcp_option_data_type, DHCPOptionDataType);

@@ -15,6 +15,16 @@ typedef enum DHCPUseDomains {
         _DHCP_USE_DOMAINS_INVALID = -1,
 } DHCPUseDomains;
 
+typedef enum DHCPOptionDataType {
+        DHCP_OPTION_DATA_UINT8,
+        DHCP_OPTION_DATA_UINT16,
+        DHCP_OPTION_DATA_UINT32,
+        DHCP_OPTION_DATA_STRING,
+        DHCP_OPTION_DATA_IPV4ADDRESS,
+        _DHCP_OPTION_DATA_MAX,
+        _DHCP_OPTION_DATA_INVALID,
+} DHCPOptionDataType;
+
 typedef struct DUID {
         /* Value of Type in [DHCP] section */
         DUIDType type;
@@ -26,6 +36,9 @@ typedef struct DUID {
 
 const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
 DHCPUseDomains dhcp_use_domains_from_string(const char *s) _pure_;
+
+const char *dhcp_option_data_type_to_string(DHCPOptionDataType d) _const_;
+DHCPOptionDataType dhcp_option_data_type_from_string(const char *d) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_dns);
