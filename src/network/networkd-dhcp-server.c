@@ -480,16 +480,6 @@ int config_parse_dhcp_server_sip(
         }
 }
 
-static const char * const dhcp_raw_option_data_type_table[_DHCP_RAW_OPTION_DATA_MAX] = {
-        [DHCP_RAW_OPTION_DATA_UINT8]      = "uint8",
-        [DHCP_RAW_OPTION_DATA_UINT16]     = "uint16",
-        [DHCP_RAW_OPTION_DATA_UINT32]     = "uint32",
-        [DHCP_RAW_OPTION_DATA_STRING]     = "string",
-        [DHCP_RAW_OPTION_DATA_IPV4ADDRESS] = "ipv4address",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(dhcp_raw_option_data_type, DHCPRawOption);
-
 int config_parse_dhcp_server_raw_option_data(
                 const char *unit,
                 const char *filename,
@@ -505,11 +495,11 @@ int config_parse_dhcp_server_raw_option_data(
         _cleanup_(sd_dhcp_raw_option_unrefp) sd_dhcp_raw_option *opt = NULL, *old = NULL;
         _cleanup_free_ char *word = NULL, *q = NULL;
         union in_addr_union addr;
+        DHCPOptionDataType type;
         Network *network = data;
         uint16_t uint16_data;
         uint32_t uint32_data;
         uint8_t uint8_data;
-        DHCPRawOption type;
         const char *p;
         void *udata;
         ssize_t sz;
@@ -559,16 +549,15 @@ int config_parse_dhcp_server_raw_option_data(
                 return 0;
         }
 
-        r = dhcp_raw_option_data_type_from_string(word);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+        type = dhcp_option_data_type_from_string(word);
+        if (type < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
                            "Invalid DHCP server send data type, ignoring assignment: %s", p);
                 return 0;
         }
 
-        type = r;
         switch(type) {
-        case DHCP_RAW_OPTION_DATA_UINT8:{
+        case DHCP_OPTION_DATA_UINT8:{
                 r = safe_atou8(p, &uint8_data);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
@@ -580,7 +569,7 @@ int config_parse_dhcp_server_raw_option_data(
                 sz = sizeof(uint8_t);
                 break;
         }
-        case DHCP_RAW_OPTION_DATA_UINT16:{
+        case DHCP_OPTION_DATA_UINT16:{
                 r = safe_atou16(p, &uint16_data);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
@@ -592,7 +581,7 @@ int config_parse_dhcp_server_raw_option_data(
                 sz = sizeof(uint16_t);
                 break;
         }
-        case DHCP_RAW_OPTION_DATA_UINT32: {
+        case DHCP_OPTION_DATA_UINT32: {
                 r = safe_atou32(p, &uint32_data);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
@@ -605,7 +594,7 @@ int config_parse_dhcp_server_raw_option_data(
 
                 break;
         }
-        case DHCP_RAW_OPTION_DATA_IPV4ADDRESS: {
+        case DHCP_OPTION_DATA_IPV4ADDRESS: {
                 r = in_addr_from_string(AF_INET, p, &addr);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
@@ -617,7 +606,7 @@ int config_parse_dhcp_server_raw_option_data(
                 sz = sizeof(addr.in.s_addr);
                 break;
         }
-        case DHCP_RAW_OPTION_DATA_STRING:
+        case DHCP_OPTION_DATA_STRING:
                 sz = cunescape(p, 0, &q);
                 if (sz < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, sz,
