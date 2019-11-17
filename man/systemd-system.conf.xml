@@ -418,7 +418,20 @@
         for details. Note that this default is not used for services that have <varname>Delegate=</varname>
         turned on.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>FirtBootMarkFile=</varname></term>
+
+        <listitem><para>Configures the file who's existence will prevent the first boot logic from running.
+        If the file pointed by this variable exists, the boot will not be considered a first boot and units
+        conditionned on first boot will not be run. Defaults to <filename>/etc/machine-id</filename>.
+        If you set that variable to something else, it is your responsibility to create the file during the
+        first boot to prevent the logic from running on subsequent boots.
+       </para></listitem>
+      </varlistentry>
     </variablelist>
+
+
   </refsect1>
 
   <refsect1>

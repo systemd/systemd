@@ -141,6 +141,7 @@ static EmergencyAction arg_cad_burst_action;
 static OOMPolicy arg_default_oom_policy;
 static CPUSet arg_cpu_affinity;
 static NUMAPolicy arg_numa_policy;
+static char *arg_firstboot_file;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -602,6 +603,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,          0, &arg_default_tasks_max                 },
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,   0, &arg_cad_burst_action                  },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,         0, &arg_default_oom_policy                },
+                { "Manager", "FirstBootMarkFile",            config_parse_path,               0, &arg_firstboot_file                    },
                 {}
         };
 
@@ -1845,7 +1847,10 @@ static void log_execution_mode(bool *ret_first_boot) {
                          * couple of files already. If the container manager wants to provision the machine ID itself
                          * it should pass $container_uuid to PID 1. */
 
-                        *ret_first_boot = access("/etc/machine-id", F_OK) < 0;
+                        if (arg_firstboot_file)
+                                *ret_first_boot = access(arg_firstboot_file, F_OK) < 0;
+                        else
+                                *ret_first_boot = access("/etc/machine-id", F_OK) < 0;
                         if (*ret_first_boot)
                                 log_info("Running with unpopulated /etc.");
                 }
@@ -2112,6 +2117,7 @@ static void reset_arguments(void) {
         arg_kexec_watchdog = 0;
         arg_early_core_pattern = NULL;
         arg_watchdog_device = NULL;
+        mfree(arg_firstboot_file);
 
         arg_default_environment = strv_free(arg_default_environment);
         rlimit_free_all(arg_default_rlimit);

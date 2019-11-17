@@ -68,3 +68,4 @@
 #DefaultLimitNICE=
 #DefaultLimitRTPRIO=
 #DefaultLimitRTTIME=
+#FirstBootMarkFile=/etc/machine-id

@@ -1250,10 +1250,11 @@
           <term><varname>ConditionFirstBoot=</varname></term>
 
           <listitem><para>Takes a boolean argument. This condition may be used to conditionalize units on
-          whether the system is booting up with an unpopulated <filename>/etc</filename> directory
-          (specifically: an <filename>/etc</filename> with no <filename>/etc/machine-id</filename>). This may
-          be used to populate <filename>/etc</filename> on the first boot after factory reset, or when a new
-          system instance boots up for the first time.</para>
+          whether the system is booting up for the first time
+          (by default: an <filename>/etc</filename> with no <filename>/etc/machine-id</filename>. This can be changed using
+          the <varname>FirstBootMarkFile=</varname> systemd configuration option). This may be used to populate
+          <filename>/etc</filename> on the first boot after factory reset, or when a new system instance boots up for the
+          first time.</para>
           </listitem>
         </varlistentry>
 
