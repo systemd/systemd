@@ -109,6 +109,8 @@ sources = files('''
         tc/netem.h
         tc/qdisc.c
         tc/qdisc.h
+        tc/tbf.c
+        tc/tbf.h
         tc/tc-util.c
         tc/tc-util.h
 '''.split())
