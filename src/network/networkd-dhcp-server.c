@@ -200,14 +200,14 @@ int dhcp4_server_configure(Link *link) {
 
         address = link_find_dhcp_server_address(link);
         if (!address)
-                return log_link_warning_errno(link, SYNTHETIC_ERRNO(EBUSY),
-                                              "Failed to find suitable address for DHCPv4 server instance.");
+                return log_link_error_errno(link, SYNTHETIC_ERRNO(EBUSY),
+                                            "Failed to find suitable address for DHCPv4 server instance.");
 
         /* use the server address' subnet as the pool */
         r = sd_dhcp_server_configure_pool(link->dhcp_server, &address->in_addr.in, address->prefixlen,
                                           link->network->dhcp_server_pool_offset, link->network->dhcp_server_pool_size);
         if (r < 0)
-                return r;
+                return log_link_error_errno(link, r, "Failed to configure address pool for DHCPv4 server instance: %m");
 
         /* TODO:
         r = sd_dhcp_server_set_router(link->dhcp_server, &main_address->in_addr.in);
@@ -219,14 +219,14 @@ int dhcp4_server_configure(Link *link) {
                 r = sd_dhcp_server_set_max_lease_time(link->dhcp_server,
                                                       DIV_ROUND_UP(link->network->dhcp_server_max_lease_time_usec, USEC_PER_SEC));
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "Failed to set maximum lease time for DHCPv4 server instance: %m");
         }
 
         if (link->network->dhcp_server_default_lease_time_usec > 0) {
                 r = sd_dhcp_server_set_default_lease_time(link->dhcp_server,
                                                           DIV_ROUND_UP(link->network->dhcp_server_default_lease_time_usec, USEC_PER_SEC));
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "Failed to set default lease time for DHCPv4 server instance: %m");
         }
 
         if (link->network->dhcp_server_emit_dns) {
@@ -302,7 +302,7 @@ int dhcp4_server_configure(Link *link) {
 
                 r = sd_dhcp_server_set_timezone(link->dhcp_server, tz);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "Failed to set timezone for DHCP server: %m");
         }
 
         ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_raw_options, i) {
@@ -310,7 +310,7 @@ int dhcp4_server_configure(Link *link) {
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "Failed to set DHCPv4 option: %m");
         }
 
         if (!sd_dhcp_server_is_running(link->dhcp_server)) {
