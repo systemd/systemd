@@ -152,6 +152,16 @@ int qdisc_configure(Link *link, QDiscs *qdisc) {
                         return r;
         }
 
+        if (qdisc->has_token_buffer_filter) {
+                r = free_and_strdup(&tca_kind, "tbf");
+                if (r < 0)
+                        return log_oom();
+
+                r = token_buffer_filter_fill_message(link, &qdisc->tbf, req);
+                if (r < 0)
+                        return r;
+        }
+
         if (tca_kind) {
                 r = sd_netlink_message_append_string(req, TCA_KIND, tca_kind);
                 if (r < 0)

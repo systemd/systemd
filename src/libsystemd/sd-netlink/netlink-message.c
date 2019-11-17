@@ -532,7 +532,6 @@ int sd_netlink_message_open_array(sd_netlink_message *m, uint16_t type) {
 
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
-        assert_return(m->n_containers > 0, -EINVAL);
 
         r = add_rtattr(m, type | NLA_F_NESTED, NULL, 0);
         if (r < 0)

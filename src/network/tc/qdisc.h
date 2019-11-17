@@ -7,6 +7,7 @@
 #include "networkd-link.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
+#include "tbf.h"
 
 typedef struct QDiscs {
         NetworkConfigSection *section;
@@ -20,8 +21,10 @@ typedef struct QDiscs {
         uint32_t parent;
 
         bool has_network_emulator:1;
+        bool has_token_buffer_filter:1;
 
         NetworkEmulator ne;
+        TokenBufferFilter tbf;
 } QDiscs;
 
 void qdisc_free(QDiscs *qdisc);
