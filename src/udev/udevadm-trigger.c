@@ -45,10 +45,13 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_se
 
                 r = write_string_file(filename, action, WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (r < 0) {
-                        bool ignore = IN_SET(r, -ENOENT, -EACCES, -ENODEV);
+                        bool ignore = IN_SET(r, -ENOENT, -EACCES, -ENODEV, -EROFS);
 
                         log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
-                                       "Failed to write '%s' to '%s': %m", action, filename);
+                                       "Failed to write '%s' to '%s'%s: %m",
+                                       action, filename, ignore ? ", ignoring" : "");
+                        if (r == -EROFS)
+                                return 0; /* Read only filesystem. Return earlier. */
                         if (ret == 0 && !ignore)
                                 ret = r;
                         continue;
