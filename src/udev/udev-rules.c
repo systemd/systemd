@@ -742,10 +742,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (!is_match) {
-                        if (op == OP_ASSIGN)
-                                log_token_debug(rules, "Operator '=' is specified to %s key, assuming '=='.", key);
-                        else
-                                log_token_warning(rules, "%s key takes '==' or '!=' operator, assuming '==', but please fix it.", key);
+                        log_token_debug(rules, "%s key takes '==' or '!=' operator, assuming '=='.", key);
                         op = OP_MATCH;
                 }
 
@@ -757,10 +754,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (!is_match) {
-                        if (op == OP_ASSIGN)
-                                log_token_debug(rules, "Operator '=' is specified to %s key, assuming '=='.", key);
-                        else
-                                log_token_warning(rules, "%s key takes '==' or '!=' operator, assuming '==', but please fix it.", key);
+                        log_token_debug(rules, "%s key takes '==' or '!=' operator, assuming '=='.", key);
                         op = OP_MATCH;
                 }
 
