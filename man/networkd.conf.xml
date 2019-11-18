@@ -43,6 +43,28 @@
   <xi:include href="standard-conf.xml" xpointer="main-conf" />
 
   <refsect1>
+    <title>[Network] Section Options</title>
+
+    <para>The following options are available in the <literal>[Network]</literal> section:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>SpeedMeter=</varname></term>
+        <listitem><para>Takes a boolean. If set to yes, then <command>systemd-networkd</command>
+        measures the traffic of each interface, and
+        <command>networkctl status <replaceable>INTERFACE</replaceable> shows the measured speed.
+        </command>Defaults to no.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SpeedMeterIntervalSec=</varname></term>
+        <listitem><para>Specifies the time interval to calculate the traffic speed of each interface.
+        If <varname>SpeedMeter=no</varname>, the value is ignored. Defaults to 10sec.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[DHCP] Section Options</title>
 
     <para>This section configures the DHCP Unique Identifier (DUID) value used by DHCP
