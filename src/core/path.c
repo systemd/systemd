@@ -175,12 +175,14 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
 }
 
 static bool path_spec_check_good(PathSpec *s, bool initial) {
-        bool good = false;
+        bool b, good = false;
 
         switch (s->type) {
 
         case PATH_EXISTS:
-                good = access(s->path, F_OK) >= 0;
+                b = access(s->path, F_OK) >= 0;
+                good = b && !s->previous_exists;
+                s->previous_exists = b;
                 break;
 
         case PATH_EXISTS_GLOB:
@@ -196,14 +198,11 @@ static bool path_spec_check_good(PathSpec *s, bool initial) {
         }
 
         case PATH_CHANGED:
-        case PATH_MODIFIED: {
-                bool b;
-
+        case PATH_MODIFIED:
                 b = access(s->path, F_OK) >= 0;
                 good = !initial && b != s->previous_exists;
                 s->previous_exists = b;
                 break;
-        }
 
         default:
                 ;
