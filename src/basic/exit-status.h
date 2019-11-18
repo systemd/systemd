@@ -69,6 +69,7 @@ enum {
         EXIT_CACHE_DIRECTORY,
         EXIT_LOGS_DIRECTORY, /* 240 */
         EXIT_CONFIGURATION_DIRECTORY,
+        EXIT_NUMA_POLICY,
 };
 
 typedef enum ExitStatusLevel {

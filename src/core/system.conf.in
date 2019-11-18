@@ -24,6 +24,8 @@
 #CtrlAltDelBurstAction=reboot-force
 #CPUAffinity=1 2
 #JoinControllers=cpu,cpuacct net_cls,net_prio
+#NUMAPolicy=default
+#NUMAMask=
 #RuntimeWatchdogSec=0
 #ShutdownWatchdogSec=10min
 #CapabilityBoundingSet=

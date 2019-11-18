@@ -134,6 +134,7 @@ static uint64_t arg_default_tasks_max;
 static sd_id128_t arg_machine_id;
 static EmergencyAction arg_cad_burst_action;
 static CPUSet arg_cpu_affinity;
+static NUMAPolicy arg_numa_policy;
 
 static int parse_configuration(void);
 
@@ -660,6 +661,8 @@ static int parse_config_file(void) {
                 { "Manager", "ShowStatus",                config_parse_show_status,      0, &arg_show_status                       },
                 { "Manager", "CPUAffinity",               config_parse_cpu_affinity2,    0, &arg_cpu_affinity                      },
                 { "Manager", "JoinControllers",           config_parse_join_controllers, 0, &arg_join_controllers                  },
+                { "Manager", "NUMAPolicy",                config_parse_numa_policy,      0, &arg_numa_policy.type                  },
+                { "Manager", "NUMAMask",                  config_parse_numa_mask,        0, &arg_numa_policy                       },
                 { "Manager", "RuntimeWatchdogSec",        config_parse_sec,              0, &arg_runtime_watchdog                  },
                 { "Manager", "ShutdownWatchdogSec",       config_parse_sec,              0, &arg_shutdown_watchdog                 },
                 { "Manager", "WatchdogDevice",            config_parse_path,             0, &arg_watchdog_device                   },
@@ -1501,6 +1504,27 @@ static void update_cpu_affinity(bool skip_setup) {
                 log_warning_errno(errno, "Failed to set CPU affinity: %m");
 }
 
+static void update_numa_policy(bool skip_setup) {
+        int r;
+        _cleanup_free_ char *nodes = NULL;
+        const char * policy = NULL;
+
+        if (skip_setup || !mpol_is_valid(numa_policy_get_type(&arg_numa_policy)))
+                return;
+
+        if (DEBUG_LOGGING) {
+                policy = mpol_to_string(numa_policy_get_type(&arg_numa_policy));
+                nodes = cpu_set_to_range_string(&arg_numa_policy.nodes);
+                log_debug("Setting NUMA policy to %s, with nodes %s.", strnull(policy), strnull(nodes));
+        }
+
+        r = apply_numa_policy(&arg_numa_policy);
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "NUMA support not available, ignoring.");
+        else if (r < 0)
+                log_warning_errno(r, "Failed to set NUMA memory policy: %m");
+}
+
 static void do_reexecute(
                 int argc,
                 char *argv[],
@@ -1672,6 +1696,7 @@ static int invoke_main_loop(
                         set_manager_defaults(m);
 
                         update_cpu_affinity(false);
+                        update_numa_policy(false);
 
                         if (saved_log_level >= 0)
                                 manager_override_log_level(m, saved_log_level);
@@ -1832,6 +1857,7 @@ static int initialize_runtime(
                 return 0;
 
         update_cpu_affinity(skip_setup);
+        update_numa_policy(skip_setup);
 
         if (arg_system) {
                 /* Make sure we leave a core dump without panicing the kernel. */
@@ -2011,6 +2037,7 @@ static void reset_arguments(void) {
         arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
 
         cpu_set_reset(&arg_cpu_affinity);
+        numa_policy_reset(&arg_numa_policy);
 }
 
 static int parse_configuration(void) {
