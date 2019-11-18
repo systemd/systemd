@@ -505,7 +505,7 @@ CHANGES WITH 243:
         * SuccessExitStatus=, RestartPreventExitStatus=, and
           RestartForceExitStatus= now accept exit status names (e.g. "DATAERR"
           is equivalent to "65"). Those exit status name mappings may be
-          displayed with the sytemd-analyze exit-status verb describe above.
+          displayed with the systemd-analyze exit-status verb describe above.
 
         * systemd-logind now exposes a per-session SetBrightness() bus call,
           which may be used to securely change the brightness of a kernel
