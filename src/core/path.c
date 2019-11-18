@@ -9,12 +9,14 @@
 #include "bus-util.h"
 #include "dbus-path.h"
 #include "dbus-unit.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "path.h"
+#include "path-util.h"
 #include "serialize.h"
 #include "special.h"
 #include "stat-util.h"
@@ -27,19 +29,18 @@ static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = UNIT_INACTIVE,
         [PATH_WAITING] = UNIT_ACTIVE,
         [PATH_RUNNING] = UNIT_ACTIVE,
-        [PATH_FAILED] = UNIT_FAILED
+        [PATH_FAILED] = UNIT_FAILED,
 };
 
 static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 
 int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
-
         static const int flags_table[_PATH_TYPE_MAX] = {
                 [PATH_EXISTS] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
                 [PATH_EXISTS_GLOB] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
                 [PATH_CHANGED] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO,
                 [PATH_MODIFIED] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO|IN_MODIFY,
-                [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO
+                [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO,
         };
 
         bool exists = false;
@@ -601,6 +602,7 @@ static int path_stop(Unit *u) {
 
 static int path_serialize(Unit *u, FILE *f, FDSet *fds) {
         Path *p = PATH(u);
+        PathSpec *s;
 
         assert(u);
         assert(f);
@@ -608,6 +610,19 @@ static int path_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         (void) serialize_item(f, "state", path_state_to_string(p->state));
         (void) serialize_item(f, "result", path_result_to_string(p->result));
+
+        LIST_FOREACH(spec, s, p->specs) {
+                _cleanup_free_ char *escaped = NULL;
+
+                escaped = cescape(s->path);
+                if (!escaped)
+                        return log_oom();
+
+                (void) serialize_item_format(f, "path-spec", "%s %i %s",
+                                             path_type_to_string(s->type),
+                                             s->previous_exists,
+                                             s->path);
+        }
 
         return 0;
 }
@@ -637,6 +652,38 @@ static int path_deserialize_item(Unit *u, const char *key, const char *value, FD
                         log_unit_debug(u, "Failed to parse result value: %s", value);
                 else if (f != PATH_SUCCESS)
                         p->result = f;
+
+        } else if (streq(key, "path-spec")) {
+                int previous_exists, skip = 0, r;
+                _cleanup_free_ char *type_str = NULL;
+
+                if (sscanf(value, "%ms %i %n", &type_str, &previous_exists, &skip) < 2)
+                        log_unit_debug(u, "Failed to parse path-spec value: %s", value);
+                else {
+                        _cleanup_free_ char *unescaped = NULL;
+                        PathType type;
+                        PathSpec *s;
+
+                        type = path_type_from_string(type_str);
+                        if (type < 0) {
+                                log_unit_warning(u, "Unknown path type \"%s\", ignoring.", type_str);
+                                return 0;
+                        }
+
+                        r = cunescape(value+skip, 0, &unescaped);
+                        if (r < 0) {
+                                log_unit_warning_errno(u, r, "Failed to unescape serialize path: %m");
+                                return 0;
+                        }
+
+                        LIST_FOREACH(spec, s, p->specs)
+                                if (s->type == type &&
+                                    path_equal(s->path, unescaped)) {
+
+                                        s->previous_exists = previous_exists;
+                                        break;
+                                }
+                }
 
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
@@ -670,7 +717,7 @@ static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
         if (!IN_SET(p->state, PATH_WAITING, PATH_RUNNING))
                 return 0;
 
-        /* log_debug("inotify wakeup on %s.", u->id); */
+        /* log_debug("inotify wakeup on %s.", UNIT(p)->id); */
 
         LIST_FOREACH(spec, s, p->specs)
                 if (path_spec_owns_inotify_fd(s, fd))
