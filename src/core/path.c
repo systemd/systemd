@@ -501,18 +501,14 @@ fail:
 
 static bool path_check_good(Path *p, bool initial) {
         PathSpec *s;
-        bool good = false;
 
         assert(p);
 
-        LIST_FOREACH(spec, s, p->specs) {
-                good = path_spec_check_good(s, initial);
+        LIST_FOREACH(spec, s, p->specs)
+                if (path_spec_check_good(s, initial))
+                        return true;
 
-                if (good)
-                        break;
-        }
-
-        return good;
+        return false;
 }
 
 static void path_enter_waiting(Path *p, bool initial, bool recheck) {
