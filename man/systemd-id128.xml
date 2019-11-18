@@ -99,6 +99,16 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>-u</option></term>
+        <term><option>--uuid</option></term>
+
+        <listitem><para>Generate output as an UUID formatted in the "canonical representation", with five
+        groups of digits seperated by hyphens. See the
+        <ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">wikipedia</ulink>
+        for more discussion.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
