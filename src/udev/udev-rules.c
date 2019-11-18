@@ -1671,10 +1671,13 @@ static int udev_rule_apply_token_to_event(
                 log_rule_debug(dev, rules, "Running PROGRAM '%s'", buf);
 
                 r = udev_event_spawn(event, timeout_usec, true, buf, result, sizeof(result));
-                if (r < 0)
-                        return log_rule_error_errno(dev, rules, r, "Failed to execute '%s': %m", buf);
-                if (r > 0)
+                if (r != 0) {
+                        if (r < 0)
+                                log_rule_warning_errno(dev, rules, r, "Failed to execute '%s', ignoring: %m", buf);
+                        else /* returned value is positive when program fails */
+                                log_rule_debug(dev, rules, "Command \"%s\" returned %d (error), ignoring", buf, r);
                         return token->op == OP_NOMATCH;
+                }
 
                 delete_trailing_chars(result, "\n");
                 count = util_replace_chars(result, UDEV_ALLOWED_CHARS_INPUT);
@@ -1738,10 +1741,11 @@ static int udev_rule_apply_token_to_event(
                 log_rule_debug(dev, rules, "Importing properties from results of '%s'", buf);
 
                 r = udev_event_spawn(event, timeout_usec, true, buf, result, sizeof result);
-                if (r < 0)
-                        return log_rule_error_errno(dev, rules, r, "Failed to execute '%s': %m", buf);
-                if (r > 0) {
-                        log_rule_debug(dev, rules, "Command \"%s\" returned %d (error), ignoring", buf, r);
+                if (r != 0) {
+                        if (r < 0)
+                                log_rule_warning_errno(dev, rules, r, "Failed to execute '%s', ignoring: %m", buf);
+                        else /* returned value is positive when program fails */
+                                log_rule_debug(dev, rules, "Command \"%s\" returned %d (error), ignoring", buf, r);
                         return token->op == OP_NOMATCH;
                 }
 
