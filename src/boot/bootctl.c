@@ -1033,7 +1033,7 @@ static int help(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         printf("%s  [OPTIONS...] COMMAND ...\n"
-               "\n%sInstall, update or remove the systemd-boot EFI boot manager.%s\n"
+               "\n%sInstall/update/remove the systemd-boot EFI boot manager and list/select entries.%s\n"
                "\nBoot Loader Commands:\n"
                "     status            Show status of installed systemd-boot and EFI variables\n"
                "     install           Install systemd-boot to the ESP and EFI variables\n"
