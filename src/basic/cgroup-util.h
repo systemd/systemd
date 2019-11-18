@@ -129,10 +129,6 @@ static inline bool CGROUP_BLKIO_WEIGHT_IS_OK(uint64_t x) {
             (x >= CGROUP_BLKIO_WEIGHT_MIN && x <= CGROUP_BLKIO_WEIGHT_MAX);
 }
 
-/* Default resource limits */
-#define DEFAULT_TASKS_MAX_PERCENTAGE            15U /* 15% of PIDs, 4915 on default settings */
-#define DEFAULT_USER_TASKS_MAX_PERCENTAGE       33U /* 33% of PIDs, 10813 on default settings */
-
 typedef enum CGroupUnified {
         CGROUP_UNIFIED_UNKNOWN = -1,
         CGROUP_UNIFIED_NONE = 0,        /* Both systemd and controllers on legacy */

@@ -16,6 +16,8 @@
 #include "limits-util.h"
 #include "path-util.h"
 
+BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", TasksMax, tasks_max_resolve);
+
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cgroup_device_policy, cgroup_device_policy, CGroupDevicePolicy);
 
 static int property_get_cgroup_mask(
@@ -382,7 +384,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("DevicePolicy", "s", property_get_cgroup_device_policy, offsetof(CGroupContext, device_policy), 0),
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
         SD_BUS_PROPERTY("TasksAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, tasks_accounting), 0),
-        SD_BUS_PROPERTY("TasksMax", "t", NULL, offsetof(CGroupContext, tasks_max), 0),
+        SD_BUS_PROPERTY("TasksMax", "t", bus_property_get_tasks_max, offsetof(CGroupContext, tasks_max), 0),
         SD_BUS_PROPERTY("IPAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, ip_accounting), 0),
         SD_BUS_PROPERTY("IPAddressAllow", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_allow), 0),
         SD_BUS_PROPERTY("IPAddressDeny", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_deny), 0),
@@ -617,7 +619,7 @@ static int bus_cgroup_set_boolean(
                                                                         \
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
                         *p = v;                                         \
-                        unit_invalidate_cgroup(u, (mask));              \
+                        unit_invalidate_cgroup(u, mask);                \
                                                                         \
                         if (v == (val))                                 \
                                 unit_write_settingf(u, flags, name,     \
@@ -654,7 +656,7 @@ static int bus_cgroup_set_boolean(
                                                                         \
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
                         *p = v;                                         \
-                        unit_invalidate_cgroup(u, (mask));              \
+                        unit_invalidate_cgroup(u, mask);                \
                                                                         \
                         if (v == CGROUP_LIMIT_MAX)                      \
                                 unit_write_settingf(u, flags, name,     \
@@ -690,17 +692,16 @@ static int bus_cgroup_set_boolean(
                                                  "Value specified in %s is out of range", name); \
                                                                         \
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
-                        const char *e;                                  \
-                                                                        \
                         *p = v;                                         \
-                        unit_invalidate_cgroup(u, (mask));              \
+                        unit_invalidate_cgroup(u, mask);                \
                                                                         \
-                        /* Chop off suffix */                           \
-                        assert_se(e = endswith(name, "Scale"));         \
-                        name = strndupa(name, e - name);                \
+                        /* Prepare to chop off suffix */                \
+                        assert_se(endswith(name, "Scale"));             \
                                                                         \
-                        unit_write_settingf(u, flags, name, "%s=%" PRIu32 "%%", name, \
-                                            (uint32_t) (DIV_ROUND_UP((uint64_t) raw * 100U, (uint64_t) UINT32_MAX))); \
+                        uint32_t scaled = DIV_ROUND_UP((uint64_t) raw * 1000, (uint64_t) UINT32_MAX); \
+                        unit_write_settingf(u, flags, name, "%.*s=%" PRIu32 ".%" PRIu32 "%%", \
+                                            (int)(strlen(name) - strlen("Scale")), name, \
+                                            scaled / 10, scaled % 10);  \
                 }                                                       \
                                                                         \
                 return 1;                                               \
@@ -715,8 +716,76 @@ BUS_DEFINE_SET_CGROUP_WEIGHT(blockio_weight, CGROUP_MASK_BLKIO, CGROUP_BLKIO_WEI
 BUS_DEFINE_SET_CGROUP_LIMIT(memory, CGROUP_MASK_MEMORY, physical_memory_scale, 1);
 BUS_DEFINE_SET_CGROUP_LIMIT(memory_protection, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 BUS_DEFINE_SET_CGROUP_LIMIT(swap, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
-BUS_DEFINE_SET_CGROUP_LIMIT(tasks_max, CGROUP_MASK_PIDS, system_tasks_max_scale, 1);
 #pragma GCC diagnostic pop
+
+static int bus_cgroup_set_tasks_max(
+                Unit *u,
+                const char *name,
+                TasksMax *p,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+
+        uint64_t v;
+        int r;
+
+        assert(p);
+
+        r = sd_bus_message_read(message, "t", &v);
+        if (r < 0)
+                return r;
+
+        if (v < 1)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Value specified in %s is out of range", name);
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                *p = (TasksMax) { .value = v, .scale = 0 }; /* When .scale==0, .value is the absolute value */
+                unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
+
+                if (v == CGROUP_LIMIT_MAX)
+                        unit_write_settingf(u, flags, name,
+                                            "%s=infinity", name);
+                else
+                        unit_write_settingf(u, flags, name,
+                                            "%s=%" PRIu64, name, v);
+        }
+
+        return 1;
+}
+
+static int bus_cgroup_set_tasks_max_scale(
+                Unit *u,
+                const char *name,
+                TasksMax *p,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+
+        uint32_t v;
+        int r;
+
+        assert(p);
+
+        r = sd_bus_message_read(message, "u", &v);
+        if (r < 0)
+                return r;
+
+        if (v < 1 || v >= UINT32_MAX)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Value specified in %s is out of range", name);
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                *p = (TasksMax) { v, UINT32_MAX }; /* .scale is not 0, so this is interpreted as v/UINT32_MAX. */
+                unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
+
+                uint32_t scaled = DIV_ROUND_UP((uint64_t) v * 100U, (uint64_t) UINT32_MAX);
+                unit_write_settingf(u, flags, name, "%s=%" PRIu32 ".%" PRIu32 "%%", "TasksMax",
+                                    scaled / 10, scaled % 10);
+        }
+
+        return 1;
+}
 
 int bus_cgroup_set_property(
                 Unit *u,

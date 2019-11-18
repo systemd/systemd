@@ -84,6 +84,8 @@
 #include <sanitizer/lsan_interface.h>
 #endif
 
+#define DEFAULT_TASKS_MAX ((TasksMax) { 15U, 100U }) /* 15% */
+
 static enum {
         ACTION_RUN,
         ACTION_HELP,
@@ -135,7 +137,7 @@ static bool arg_default_ip_accounting;
 static bool arg_default_blockio_accounting;
 static bool arg_default_memory_accounting;
 static bool arg_default_tasks_accounting;
-static uint64_t arg_default_tasks_max;
+static TasksMax arg_default_tasks_max;
 static sd_id128_t arg_machine_id;
 static EmergencyAction arg_cad_burst_action;
 static OOMPolicy arg_default_oom_policy;
@@ -2131,7 +2133,7 @@ static void reset_arguments(void) {
         arg_default_blockio_accounting = false;
         arg_default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT;
         arg_default_tasks_accounting = true;
-        arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
+        arg_default_tasks_max = DEFAULT_TASKS_MAX;
         arg_machine_id = (sd_id128_t) {};
         arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
         arg_default_oom_policy = OOM_STOP;

@@ -56,7 +56,7 @@ static int test_cgroup_mask(void) {
                 m->default_blockio_accounting =
                 m->default_io_accounting =
                 m->default_tasks_accounting = false;
-        m->default_tasks_max = (uint64_t) -1;
+        m->default_tasks_max = TASKS_MAX_UNSET;
 
         assert_se(manager_startup(m, NULL, NULL) >= 0);
 
