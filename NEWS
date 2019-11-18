@@ -19,7 +19,7 @@ CHANGES WITH 244 in spe:
           SystemdOptions. This may be used to configure systemd behaviour when
           modifying the kernel command line is inconvenient, but configuration
           on disk is read too late, for example for the options related to
-          cgroup hierarchy setup. 'bootctl system-options' may be used to
+          cgroup hierarchy setup. 'bootctl systemd-efi-options' may be used to
           set the EFI variable.
 
         * systemd will now disable printk ratelimits in early boot. This should

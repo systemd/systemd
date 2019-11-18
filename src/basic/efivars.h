@@ -28,7 +28,7 @@ int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p);
 int efi_set_variable(sd_id128_t vendor, const char *name, const void *value, size_t size);
 int efi_set_variable_string(sd_id128_t vendor, const char *name, const char *p);
 
-int efi_systemd_options_variable(char **line);
+int systemd_efi_options_variable(char **line);
 
 #else
 
@@ -52,7 +52,7 @@ static inline int efi_set_variable_string(sd_id128_t vendor, const char *name, c
         return -EOPNOTSUPP;
 }
 
-static inline int efi_systemd_options_variable(char **line) {
+static inline int systemd_efi_options_variable(char **line) {
         return -ENODATA;
 }
 

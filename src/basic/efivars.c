@@ -220,7 +220,7 @@ int efi_set_variable_string(sd_id128_t vendor, const char *name, const char *v) 
         return efi_set_variable(vendor, name, u16, (char16_strlen(u16) + 1) * sizeof(char16_t));
 }
 
-int efi_systemd_options_variable(char **line) {
+int systemd_efi_options_variable(char **line) {
         const char *e;
         int r;
 
