@@ -2,7 +2,6 @@
 
 #include "sd-dhcp-server.h"
 
-#include "escape.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -192,7 +191,7 @@ static int link_push_uplink_sip_to_dhcp_server(Link *link, sd_dhcp_server *s) {
 
 int dhcp4_server_configure(Link *link) {
         bool acquired_uplink = false;
-        sd_dhcp_raw_option *p;
+        sd_dhcp_option *p;
         Link *uplink = NULL;
         Address *address;
         Iterator i;
@@ -305,8 +304,8 @@ int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set timezone for DHCP server: %m");
         }
 
-        ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_raw_options, i) {
-                r = sd_dhcp_server_add_raw_option(link->dhcp_server, p);
+        ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_options, i) {
+                r = sd_dhcp_server_add_option(link->dhcp_server, p);
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
@@ -478,168 +477,4 @@ int config_parse_dhcp_server_sip(
                 m[n->n_dhcp_server_sip++] = a.in;
                 n->dhcp_server_sip = m;
         }
-}
-
-int config_parse_dhcp_server_raw_option_data(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_(sd_dhcp_raw_option_unrefp) sd_dhcp_raw_option *opt = NULL, *old = NULL;
-        _cleanup_free_ char *word = NULL, *q = NULL;
-        union in_addr_union addr;
-        DHCPOptionDataType type;
-        Network *network = data;
-        uint16_t uint16_data;
-        uint32_t uint32_data;
-        uint8_t uint8_data;
-        const char *p;
-        void *udata;
-        ssize_t sz;
-        uint8_t u;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (isempty(rvalue)) {
-                network->dhcp_server_raw_options = ordered_hashmap_free(network->dhcp_server_raw_options);
-                return 0;
-        }
-
-        p = rvalue;
-        r = extract_first_word(&p, &word, ":", 0);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r <= 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Invalid DHCP server send raw option, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        r = safe_atou8(word, &u);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse  DHCP server send raw option type, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-        if (u < 1 || u >= 255) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Invalid DHCP server send raw option, valid range is 1-254, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        free(word);
-
-        r = extract_first_word(&p, &word, ":", 0);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r <= 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Invalid DHCP server send raw option, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        type = dhcp_option_data_type_from_string(word);
-        if (type < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Invalid DHCP server send data type, ignoring assignment: %s", p);
-                return 0;
-        }
-
-        switch(type) {
-        case DHCP_OPTION_DATA_UINT8:{
-                r = safe_atou8(p, &uint8_data);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse DHCPv4 vendor specific uint8 data, ignoring assignment: %s", p);
-                        return 0;
-                }
-
-                udata = &uint8_data;
-                sz = sizeof(uint8_t);
-                break;
-        }
-        case DHCP_OPTION_DATA_UINT16:{
-                r = safe_atou16(p, &uint16_data);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse DHCPv4 vendor specific uint16 data, ignoring assignment: %s", p);
-                        return 0;
-                }
-
-                udata = &uint16_data;
-                sz = sizeof(uint16_t);
-                break;
-        }
-        case DHCP_OPTION_DATA_UINT32: {
-                r = safe_atou32(p, &uint32_data);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse DHCPv4 vendor specific uint32 data, ignoring assignment: %s", p);
-                        return 0;
-                }
-
-                udata = &uint32_data;
-                sz = sizeof(uint32_t);
-
-                break;
-        }
-        case DHCP_OPTION_DATA_IPV4ADDRESS: {
-                r = in_addr_from_string(AF_INET, p, &addr);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse DHCPv4 vendor specific ipv4address data, ignoring assignment: %s", p);
-                        return 0;
-                }
-
-                udata = &addr.in;
-                sz = sizeof(addr.in.s_addr);
-                break;
-        }
-        case DHCP_OPTION_DATA_STRING:
-                sz = cunescape(p, 0, &q);
-                if (sz < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, sz,
-                                   "Failed to decode option data, ignoring assignment: %s", p);
-                }
-
-                udata = q;
-                break;
-        default:
-                return -EINVAL;
-        }
-
-        r = sd_dhcp_raw_option_new(u, udata, sz, &opt);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to store DHCP send raw option '%s', ignoring assignment: %m", rvalue);
-                return 0;
-        }
-
-        r = ordered_hashmap_ensure_allocated(&network->dhcp_server_raw_options, &dhcp_raw_options_hash_ops);
-        if (r < 0)
-                return log_oom();
-
-        /* Overwrite existing option */
-        old = ordered_hashmap_remove(network->dhcp_server_raw_options, UINT_TO_PTR(u));
-        r = ordered_hashmap_put(network->dhcp_server_raw_options, UINT_TO_PTR(u), opt);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to store DHCP server send raw option '%s'", rvalue);
-                return 0;
-        }
-
-        TAKE_PTR(opt);
-
-        return 0;
 }

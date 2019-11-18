@@ -127,46 +127,6 @@ int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b) {
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(dhcp_lease_hash_ops, DHCPClientId, client_id_hash_func, client_id_compare_func,
                                               DHCPLease, dhcp_lease_free);
 
-static sd_dhcp_raw_option* raw_option_free(sd_dhcp_raw_option *i) {
-        if (!i)
-                return NULL;
-
-        free(i->data);
-        return mfree(i);
-}
-
-_public_ int sd_dhcp_raw_option_new(uint8_t type, char *data, size_t length, sd_dhcp_raw_option **ret) {
-        _cleanup_(sd_dhcp_raw_option_unrefp) sd_dhcp_raw_option *p = NULL;
-
-        assert_return(ret, -EINVAL);
-
-        p = new(sd_dhcp_raw_option, 1);
-        if (!p)
-                return -ENOMEM;
-
-        *p = (sd_dhcp_raw_option) {
-                  .n_ref = 1,
-                  .data = memdup(data, length),
-                  .length = length,
-                  .type = type,
-        };
-
-        if (!p->data)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(p);
-        return 0;
-}
-
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_raw_option, sd_dhcp_raw_option, raw_option_free);
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
-                dhcp_raw_options_hash_ops,
-                void,
-                trivial_hash_func,
-                trivial_compare_func,
-                sd_dhcp_raw_option,
-                sd_dhcp_raw_option_unref);
-
 static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         assert(server);
 
@@ -1222,13 +1182,13 @@ int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled) {
         return 1;
 }
 
-int sd_dhcp_server_add_raw_option(sd_dhcp_server *server, sd_dhcp_raw_option *v) {
+int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v) {
         int r;
 
         assert_return(server, -EINVAL);
         assert_return(v, -EINVAL);
 
-        r = ordered_hashmap_ensure_allocated(&server->raw_option, &dhcp_raw_options_hash_ops);
+        r = ordered_hashmap_ensure_allocated(&server->raw_option, &dhcp_option_hash_ops);
         if (r < 0)
                 return -ENOMEM;
 
@@ -1236,7 +1196,7 @@ int sd_dhcp_server_add_raw_option(sd_dhcp_server *server, sd_dhcp_raw_option *v)
         if (r < 0)
                 return r;
 
-        sd_dhcp_raw_option_ref(v);
+        sd_dhcp_option_ref(v);
 
         return 1;
 }

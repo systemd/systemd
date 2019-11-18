@@ -259,7 +259,7 @@ MaxLeaseTimeSec=
 DefaultLeaseTimeSec=
 EmitTimezone=
 DNS=
-SendRawOption=
+SendOption=
 [NextHop]
 Id=
 Gateway=

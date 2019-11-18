@@ -48,3 +48,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_sip);
 CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
 CONFIG_PARSER_PROTOTYPE(config_parse_section_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_hint);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_send_option);

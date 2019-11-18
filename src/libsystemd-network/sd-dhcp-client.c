@@ -34,14 +34,6 @@
 #define RESTART_AFTER_NAK_MIN_USEC (1 * USEC_PER_SEC)
 #define RESTART_AFTER_NAK_MAX_USEC (30 * USEC_PER_MINUTE)
 
-struct sd_dhcp_option {
-        unsigned n_ref;
-
-        uint8_t option;
-        void *data;
-        size_t length;
-};
-
 struct sd_dhcp_client {
         unsigned n_ref;
 
@@ -547,46 +539,6 @@ int sd_dhcp_client_set_max_attempts(sd_dhcp_client *client, uint64_t max_attempt
 
         return 0;
 }
-
-static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *i) {
-        if (!i)
-                return NULL;
-
-        free(i->data);
-        return mfree(i);
-}
-
-int sd_dhcp_option_new(uint8_t option, void *data, size_t length, sd_dhcp_option **ret) {
-        assert_return(ret, -EINVAL);
-        assert_return(length == 0 || data, -EINVAL);
-
-        _cleanup_free_ void *q = memdup(data, length);
-        if (!q)
-                return -ENOMEM;
-
-        sd_dhcp_option *p = new(sd_dhcp_option, 1);
-        if (!p)
-                return -ENOMEM;
-
-        *p = (sd_dhcp_option) {
-                .n_ref = 1,
-                .option = option,
-                .length = length,
-                .data = TAKE_PTR(q),
-        };
-
-        *ret = TAKE_PTR(p);
-        return 0;
-}
-
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_option, sd_dhcp_option, dhcp_option_free);
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
-                dhcp_option_hash_ops,
-                void,
-                trivial_hash_func,
-                trivial_compare_func,
-                sd_dhcp_option,
-                sd_dhcp_option_unref);
 
 int sd_dhcp_client_set_dhcp_option(sd_dhcp_client *client, sd_dhcp_option *v) {
         int r;

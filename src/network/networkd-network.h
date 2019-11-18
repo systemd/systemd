@@ -114,8 +114,8 @@ struct Network {
         DHCPUseDomains dhcp_use_domains;
         Set *dhcp_black_listed_ip;
         Set *dhcp_request_options;
-        OrderedHashmap *dhcp_send_options;
-        OrderedHashmap *dhcp_server_raw_options;
+        OrderedHashmap *dhcp_client_send_options;
+        OrderedHashmap *dhcp_server_send_options;
 
         /* DHCPv6 Client support*/
         bool dhcp6_use_dns;

@@ -15,6 +15,16 @@
 #include "dhcp-protocol.h"
 #include "socket-util.h"
 
+typedef struct sd_dhcp_option {
+        unsigned n_ref;
+
+        uint8_t option;
+        void *data;
+        size_t length;
+} sd_dhcp_option;
+
+extern const struct hash_ops dhcp_option_hash_ops;
+
 int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
                                  uint32_t xid, const uint8_t *mac_addr,
                                  size_t mac_addr_len, uint16_t arp_type,
