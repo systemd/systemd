@@ -480,7 +480,7 @@ int config_parse_dhcp_server_sip(
         }
 }
 
-int config_parse_dhcp_server_raw_option_data(
+int config_parse_dhcp_server_option_data(
                 const char *unit,
                 const char *filename,
                 unsigned line,
