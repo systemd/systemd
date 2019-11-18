@@ -10,13 +10,20 @@
 #include "pretty-print.h"
 #include "terminal-util.h"
 
-int id128_pretty_print(sd_id128_t id, bool pretty) {
-        unsigned i;
+int id128_pretty_print(sd_id128_t id, Id128PrettyPrintMode mode) {
         _cleanup_free_ char *man_link = NULL, *mod_link = NULL;
         const char *on, *off;
+        unsigned i;
 
-        if (!pretty) {
+        assert(mode >= 0);
+        assert(mode < _ID128_PRETTY_PRINT_MODE_MAX);
+
+        if (mode == ID128_PRINT_ID128) {
                 printf(SD_ID128_FORMAT_STR "\n",
+                       SD_ID128_FORMAT_VAL(id));
+                return 0;
+        } else if (mode == ID128_PRINT_UUID) {
+                printf(SD_ID128_UUID_FORMAT_STR "\n",
                        SD_ID128_FORMAT_VAL(id));
                 return 0;
         }
@@ -35,7 +42,7 @@ int id128_pretty_print(sd_id128_t id, bool pretty) {
                "As UUID:\n"
                "%s" SD_ID128_UUID_FORMAT_STR "%s\n\n"
                "As %s macro:\n"
-               "%s#define MESSAGE_XYZ SD_ID128_MAKE(",
+               "%s#define XYZ SD_ID128_MAKE(",
                on, SD_ID128_FORMAT_VAL(id), off,
                on, SD_ID128_FORMAT_VAL(id), off,
                man_link,
@@ -46,14 +53,14 @@ int id128_pretty_print(sd_id128_t id, bool pretty) {
 
         printf("As Python constant:\n"
                ">>> import %s\n"
-               ">>> %sMESSAGE_XYZ = uuid.UUID('" SD_ID128_FORMAT_STR "')%s\n",
+               ">>> %sXYZ = uuid.UUID('" SD_ID128_FORMAT_STR "')%s\n",
                mod_link,
                on, SD_ID128_FORMAT_VAL(id), off);
 
         return 0;
 }
 
-int id128_print_new(bool pretty) {
+int id128_print_new(Id128PrettyPrintMode mode) {
         sd_id128_t id;
         int r;
 
@@ -61,5 +68,5 @@ int id128_print_new(bool pretty) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate ID: %m");
 
-        return id128_pretty_print(id, pretty);
+        return id128_pretty_print(id, mode);
 }

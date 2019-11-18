@@ -2048,7 +2048,7 @@ int main(int argc, char *argv[]) {
         switch (arg_action) {
 
         case ACTION_NEW_ID128:
-                r = id128_print_new(true);
+                r = id128_print_new(ID128_PRINT_PRETTY);
                 goto finish;
 
         case ACTION_SETUP_KEYS:
