@@ -79,7 +79,7 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 break;
         case SD_DHCP_OPTION_VENDOR_SPECIFIC: {
                 OrderedHashmap *s = (OrderedHashmap *) optval;
-                struct sd_dhcp_raw_option *p;
+                struct sd_dhcp_option *p;
                 size_t l = 0;
                 Iterator i;
 
@@ -95,7 +95,7 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 *offset += 2;
 
                 ORDERED_HASHMAP_FOREACH(p, s, i) {
-                        options[*offset] = p->type;
+                        options[*offset] = p->option;
                         options[*offset + 1] = p->length;
                         memcpy(&options[*offset + 2], p->data, p->length);
                         *offset += 2 + p->length;
@@ -315,3 +315,43 @@ int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t c
 
         return message_type;
 }
+
+static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *i) {
+        if (!i)
+                return NULL;
+
+        free(i->data);
+        return mfree(i);
+}
+
+int sd_dhcp_option_new(uint8_t option, const void *data, size_t length, sd_dhcp_option **ret) {
+        assert_return(ret, -EINVAL);
+        assert_return(length == 0 || data, -EINVAL);
+
+        _cleanup_free_ void *q = memdup(data, length);
+        if (!q)
+                return -ENOMEM;
+
+        sd_dhcp_option *p = new(sd_dhcp_option, 1);
+        if (!p)
+                return -ENOMEM;
+
+        *p = (sd_dhcp_option) {
+                .n_ref = 1,
+                .option = option,
+                .length = length,
+                .data = TAKE_PTR(q),
+        };
+
+        *ret = TAKE_PTR(p);
+        return 0;
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_option, sd_dhcp_option, dhcp_option_free);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                dhcp_option_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                sd_dhcp_option,
+                sd_dhcp_option_unref);

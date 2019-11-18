@@ -37,15 +37,6 @@ typedef struct DHCPLease {
         usec_t expiration;
 } DHCPLease;
 
-struct sd_dhcp_raw_option {
-        unsigned n_ref;
-
-        uint8_t type;
-        uint8_t length;
-
-        void *data;
-};
-
 struct sd_dhcp_server {
         unsigned n_ref;
 

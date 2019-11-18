@@ -2,6 +2,7 @@
 
 #include "sd-dhcp-server.h"
 
+#include "dhcp-internal.h"
 #include "escape.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-link.h"
@@ -192,7 +193,7 @@ static int link_push_uplink_sip_to_dhcp_server(Link *link, sd_dhcp_server *s) {
 
 int dhcp4_server_configure(Link *link) {
         bool acquired_uplink = false;
-        sd_dhcp_raw_option *p;
+        sd_dhcp_option *p;
         Link *uplink = NULL;
         Address *address;
         Iterator i;
@@ -305,8 +306,8 @@ int dhcp4_server_configure(Link *link) {
                         return r;
         }
 
-        ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_raw_options, i) {
-                r = sd_dhcp_server_add_raw_option(link->dhcp_server, p);
+        ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_options, i) {
+                r = sd_dhcp_server_add_option(link->dhcp_server, p);
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
@@ -492,7 +493,7 @@ int config_parse_dhcp_server_option_data(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(sd_dhcp_raw_option_unrefp) sd_dhcp_raw_option *opt = NULL, *old = NULL;
+        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt = NULL, *old = NULL;
         _cleanup_free_ char *word = NULL, *q = NULL;
         union in_addr_union addr;
         DHCPOptionDataType type;
@@ -512,7 +513,7 @@ int config_parse_dhcp_server_option_data(
         assert(data);
 
         if (isempty(rvalue)) {
-                network->dhcp_server_raw_options = ordered_hashmap_free(network->dhcp_server_raw_options);
+                network->dhcp_server_options = ordered_hashmap_free(network->dhcp_server_options);
                 return 0;
         }
 
@@ -619,20 +620,20 @@ int config_parse_dhcp_server_option_data(
                 return -EINVAL;
         }
 
-        r = sd_dhcp_raw_option_new(u, udata, sz, &opt);
+        r = sd_dhcp_option_new(u, udata, sz, &opt);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Failed to store DHCP send raw option '%s', ignoring assignment: %m", rvalue);
                 return 0;
         }
 
-        r = ordered_hashmap_ensure_allocated(&network->dhcp_server_raw_options, &dhcp_raw_options_hash_ops);
+        r = ordered_hashmap_ensure_allocated(&network->dhcp_server_options, &dhcp_option_hash_ops);
         if (r < 0)
                 return log_oom();
 
         /* Overwrite existing option */
-        old = ordered_hashmap_remove(network->dhcp_server_raw_options, UINT_TO_PTR(u));
-        r = ordered_hashmap_put(network->dhcp_server_raw_options, UINT_TO_PTR(u), opt);
+        old = ordered_hashmap_remove(network->dhcp_server_options, UINT_TO_PTR(u));
+        r = ordered_hashmap_put(network->dhcp_server_options, UINT_TO_PTR(u), opt);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Failed to store DHCP server send raw option '%s'", rvalue);

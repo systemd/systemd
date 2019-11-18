@@ -21,25 +21,19 @@
 #include <inttypes.h>
 #include <netinet/in.h>
 
+#include "sd-dhcp-option.h"
 #include "sd-event.h"
 
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 
-extern const struct hash_ops dhcp_raw_options_hash_ops;
-
 typedef struct sd_dhcp_server sd_dhcp_server;
-typedef struct sd_dhcp_raw_option sd_dhcp_raw_option;
 
 int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex);
 
 sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server);
 sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server);
-
-int sd_dhcp_raw_option_new(uint8_t type, char *data, size_t lengt, sd_dhcp_raw_option **ret);
-sd_dhcp_raw_option *sd_dhcp_raw_option_ref(sd_dhcp_raw_option *ra);
-sd_dhcp_raw_option *sd_dhcp_raw_option_unref(sd_dhcp_raw_option *ra);
 
 int sd_dhcp_server_attach_event(sd_dhcp_server *client, sd_event *event, int64_t priority);
 int sd_dhcp_server_detach_event(sd_dhcp_server *client);
@@ -58,7 +52,7 @@ int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], u
 int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], unsigned n);
 int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled);
 
-int sd_dhcp_server_add_raw_option(sd_dhcp_server *server, sd_dhcp_raw_option *v);
+int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v);
 
 int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint32_t t);
 int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t);
@@ -66,7 +60,6 @@ int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t);
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_server, sd_dhcp_server_unref);
-_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_raw_option, sd_dhcp_raw_option_unref);
 
 _SD_END_DECLARATIONS;
 
