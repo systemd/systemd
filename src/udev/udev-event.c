@@ -1014,7 +1014,9 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec) {
 
                         log_device_debug(event->dev, "Running command \"%s\"", command);
                         r = udev_event_spawn(event, timeout_usec, false, command, NULL, 0);
-                        if (r > 0) /* returned value is positive when program fails */
+                        if (r < 0)
+                                log_device_warning_errno(event->dev, r, "Failed to execute '%s', ignoring: %m", command);
+                        else if (r > 0) /* returned value is positive when program fails */
                                 log_device_debug(event->dev, "Command \"%s\" returned %d (error), ignoring.", command, r);
                 }
         }
