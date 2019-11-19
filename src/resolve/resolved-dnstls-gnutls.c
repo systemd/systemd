@@ -9,7 +9,7 @@
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
 
-#define PRIORTY_STRING "NORMAL:-VERS-ALL:+VERS-TLS1.3:+VERS-TLS1.2"
+#define TLS_PROTOCOL_PRIORITY "NORMAL:-VERS-ALL:+VERS-TLS1.3:+VERS-TLS1.2"
 DEFINE_TRIVIAL_CLEANUP_FUNC(gnutls_session_t, gnutls_deinit);
 
 static ssize_t dnstls_stream_writev(gnutls_transport_ptr_t p, const giovec_t *iov, int iovcnt) {
@@ -38,7 +38,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
                 return r;
 
         /* As DNS-over-TLS is a recent protocol, older TLS versions can be disabled */
-        r = gnutls_priority_set_direct(gs, PRIORTY_STRING, NULL);
+        r = gnutls_priority_set_direct(gs, TLS_PROTOCOL_PRIORITY, NULL);
         if (r < 0)
                 return r;
 
