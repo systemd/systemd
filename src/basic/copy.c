@@ -20,6 +20,7 @@
 #include "macro.h"
 #include "missing_syscall.h"
 #include "mountpoint-util.h"
+#include "nulstr-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -913,63 +914,28 @@ int copy_times(int fdf, int fdt, CopyFlags flags) {
 }
 
 int copy_xattr(int fdf, int fdt) {
-        _cleanup_free_ char *bufa = NULL, *bufb = NULL;
-        size_t sza = 100, szb = 100;
-        ssize_t n;
-        int ret = 0;
+        _cleanup_free_ char *names = NULL;
+        int ret = 0, r;
         const char *p;
 
-        for (;;) {
-                bufa = malloc(sza);
-                if (!bufa)
-                        return -ENOMEM;
+        r = flistxattr_malloc(fdf, &names);
+        if (r < 0)
+                return r;
 
-                n = flistxattr(fdf, bufa, sza);
-                if (n == 0)
-                        return 0;
-                if (n > 0)
-                        break;
-                if (errno != ERANGE)
-                        return -errno;
+        NULSTR_FOREACH(p, names) {
+                _cleanup_free_ char *value = NULL;
 
-                sza *= 2;
+                if (!startswith(p, "user."))
+                        continue;
 
-                bufa = mfree(bufa);
-        }
+                r = fgetxattr_malloc(fdf, p, &value);
+                if (r == -ENODATA)
+                        continue; /* gone by now */
+                if (r < 0)
+                        return r;
 
-        p = bufa;
-        while (n > 0) {
-                size_t l;
-
-                l = strlen(p);
-                assert(l < (size_t) n);
-
-                if (startswith(p, "user.")) {
-                        ssize_t m;
-
-                        if (!bufb) {
-                                bufb = malloc(szb);
-                                if (!bufb)
-                                        return -ENOMEM;
-                        }
-
-                        m = fgetxattr(fdf, p, bufb, szb);
-                        if (m < 0) {
-                                if (errno == ERANGE) {
-                                        szb *= 2;
-                                        bufb = mfree(bufb);
-                                        continue;
-                                }
-
-                                return -errno;
-                        }
-
-                        if (fsetxattr(fdt, p, bufb, m, 0) < 0)
-                                ret = -errno;
-                }
-
-                p += l + 1;
-                n -= l + 1;
+                if (fsetxattr(fdt, p, value, r, 0) < 0)
+                        ret = -errno;
         }
 
         return ret;
