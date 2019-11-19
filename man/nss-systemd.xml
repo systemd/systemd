@@ -18,7 +18,7 @@
   <refnamediv>
     <refname>nss-systemd</refname>
     <refname>libnss_systemd.so.2</refname>
-    <refpurpose>Provide UNIX user and group name resolution for dynamic users and groups.</refpurpose>
+    <refpurpose>Provide UNIX user and group name resolution for user/group lookup via Varlink</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -28,15 +28,23 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>nss-systemd</command> is a plug-in module for the GNU Name Service Switch (NSS) functionality of the
-    GNU C Library (<command>glibc</command>), providing UNIX user and group name resolution for dynamic users and
-    groups allocated through the <varname>DynamicUser=</varname> option in systemd unit files. See
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details on
-    this option.</para>
+    <para><command>nss-systemd</command> is a plug-in module for the GNU Name Service Switch (NSS)
+    functionality of the GNU C Library (<command>glibc</command>), providing UNIX user and group name
+    resolution for services implementing the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record
+    Lookup API via Varlink</ulink>, such as the system and service manager
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> (for its
+    <varname>DynamicUser=</varname> feature, see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details) or
+    <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
     <para>This module also ensures that the root and nobody users and groups (i.e. the users/groups with the UIDs/GIDs
     0 and 65534) remain resolvable at all times, even if they aren't listed in <filename>/etc/passwd</filename> or
     <filename>/etc/group</filename>, or if these files are missing.</para>
+
+    <para>This module preferably utilizes
+    <citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for resolving users and groups, but also works without the service running.</para>
 
     <para>To activate the NSS module, add <literal>systemd</literal> to the lines starting with
     <literal>passwd:</literal> and <literal>group:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
@@ -54,7 +62,7 @@
 
     <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
     <programlisting>passwd:         compat mymachines <command>systemd</command>
-group:          compat mymachines <command>systemd</command>
+group:          compat [SUCCESS=merge] mymachines [SUCCESS=merge] <command>systemd</command>
 shadow:         compat
 
 hosts:          files mymachines resolve [!UNAVAIL=return] dns myhostname
