@@ -228,7 +228,7 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse %s: %m", option);
 
-        } else if (!streq(option, "none"))
+        } else
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
         return 0;
@@ -253,10 +253,10 @@ static int parse_options(const char *options) {
         }
 
         /* sanity-check options */
-        if (arg_type != NULL && !streq(arg_type, CRYPT_PLAIN)) {
-                if (arg_offset)
+        if (arg_type && !streq(arg_type, CRYPT_PLAIN)) {
+                if (arg_offset != 0)
                       log_warning("offset= ignored with type %s", arg_type);
-                if (arg_skip)
+                if (arg_skip != 0)
                       log_warning("skip= ignored with type %s", arg_type);
         }
 
@@ -462,11 +462,13 @@ static int attach_tcrypt(
         return 0;
 }
 
-static int attach_luks_or_plain(struct crypt_device *cd,
-                                const char *name,
-                                const char *key_file,
-                                char **passwords,
-                                uint32_t flags) {
+static int attach_luks_or_plain(
+                struct crypt_device *cd,
+                const char *name,
+                const char *key_file,
+                char **passwords,
+                uint32_t flags) {
+
         int r = 0;
         bool pass_volume_key = false;
 
@@ -538,6 +540,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to activate with key file '%s': %m", key_file);
+
         } else {
                 char **p;
 
@@ -632,25 +635,21 @@ static int run(int argc, char *argv[]) {
                 if (argc < 4)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach requires at least two arguments.");
 
-                if (argc >= 5 &&
-                    argv[4][0] &&
-                    !streq(argv[4], "-") &&
-                    !streq(argv[4], "none")) {
-
-                        if (!path_is_absolute(argv[4]))
-                                log_warning("Password file path '%s' is not absolute. Ignoring.", argv[4]);
-                        else
+                if (argc >= 5 && !STR_IN_SET(argv[4], "", "-", "none")) {
+                        if (path_is_absolute(argv[4]))
                                 key_file = argv[4];
+                        else
+                                log_warning("Password file path '%s' is not absolute. Ignoring.", argv[4]);
                 }
 
-                if (argc >= 6 && argv[5][0] && !streq(argv[5], "-")) {
+                if (argc >= 6 && !STR_IN_SET(argv[5], "", "-", "none")) {
                         r = parse_options(argv[5]);
                         if (r < 0)
                                 return r;
                 }
 
                 /* A delicious drop of snake oil */
-                mlockall(MCL_FUTURE);
+                (void) mlockall(MCL_FUTURE);
 
                 if (arg_header) {
                         log_debug("LUKS header: %s", arg_header);
@@ -723,11 +722,7 @@ static int run(int argc, char *argv[]) {
                         if (streq_ptr(arg_type, CRYPT_TCRYPT))
                                 r = attach_tcrypt(cd, argv[2], key_file, passwords, flags);
                         else
-                                r = attach_luks_or_plain(cd,
-                                                         argv[2],
-                                                         key_file,
-                                                         passwords,
-                                                         flags);
+                                r = attach_luks_or_plain(cd, argv[2], key_file, passwords, flags);
                         if (r >= 0)
                                 break;
                         if (r != -EAGAIN)
