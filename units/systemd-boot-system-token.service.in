@@ -31,4 +31,4 @@ ConditionPathExists=|!/sys/firmware/efi/efivars/LoaderRandomSeed-4a67b082-0a4c-4
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@bindir@/bootctl random-seed
+ExecStart=@bindir@/bootctl random-seed --graceful

@@ -183,6 +183,12 @@
         <listitem><para>Do not touch the firmware's boot loader list stored in EFI variables.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--graceful</option></term>
+        <listitem><para>Ignore failure when the EFI System Partition cannot be found, or when EFI variables
+        cannot be written. Currently only applies to random seed operations.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
       <xi:include href="standard-options.xml" xpointer="help"/>
       <xi:include href="standard-options.xml" xpointer="version"/>
