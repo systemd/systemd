@@ -51,6 +51,7 @@ static bool arg_print_esp_path = false;
 static bool arg_print_dollar_boot_path = false;
 static bool arg_touch_variables = true;
 static PagerFlags arg_pager_flags = 0;
+static bool arg_graceful = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -1055,6 +1056,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -x --print-boot-path Print path to the $BOOT partition\n"
                "     --no-variables    Don't touch EFI variables\n"
                "     --no-pager        Do not pipe output into a pager\n"
+               "     --graceful        Don't fail when the ESP cannot be found or EFI\n"
+               "                       variables cannot be written\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , ansi_highlight()
@@ -1071,6 +1074,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION,
                 ARG_NO_VARIABLES,
                 ARG_NO_PAGER,
+                ARG_GRACEFUL,
         };
 
         static const struct option options[] = {
@@ -1084,6 +1088,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "print-boot-path", no_argument,       NULL, 'x'                 },
                 { "no-variables",    no_argument,       NULL, ARG_NO_VARIABLES    },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
+                { "graceful",        no_argument,       NULL, ARG_GRACEFUL        },
                 {}
         };
 
@@ -1134,6 +1139,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_GRACEFUL:
+                        arg_graceful = true;
                         break;
 
                 case '?':
@@ -1458,11 +1467,18 @@ static int install_random_seed(const char *esp) {
          * state. */
         RUN_WITH_UMASK(0077) {
                 r = efi_set_variable(EFI_VENDOR_LOADER, "LoaderSystemToken", buffer, sz);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set LoaderSystemToken EFI variable: %m");
+                if (r < 0) {
+                        if (!arg_graceful)
+                                return log_error_errno(r, "Failed to write 'LoaderSystemToken' EFI variable: %m");
+
+                        if (r == -EINVAL)
+                                log_warning_errno(r, "Unable to write 'LoaderSystemToken' EFI variable (firmware problem?), ignoring: %m");
+                        else
+                                log_warning_errno(r, "Unable to write 'LoaderSystemToken' EFI variable, ignoring: %m");
+                } else
+                        log_info("Successfully initialized system token in EFI variable with %zu bytes.", sz);
         }
 
-        log_info("Successfully initialized system token in EFI variable with %zu bytes.", sz);
         return 0;
 }
 
@@ -1704,7 +1720,15 @@ static int verb_set_default(int argc, char *argv[], void *userdata) {
 static int verb_random_seed(int argc, char *argv[], void *userdata) {
         int r;
 
-        r = acquire_esp(false, NULL, NULL, NULL, NULL);
+        r = find_esp_and_warn(arg_esp_path, false, &arg_esp_path, NULL, NULL, NULL, NULL);
+        if (r == -ENOKEY) {
+                /* find_esp_and_warn() doesn't warn about ENOKEY, so let's do that on our own */
+                if (!arg_graceful)
+                        return log_error_errno(r, "Unable to find ESP.");
+
+                log_notice("No ESP found, not initializing random seed.");
+                return 0;
+        }
         if (r < 0)
                 return r;
 
