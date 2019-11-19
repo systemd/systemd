@@ -3252,6 +3252,7 @@ static int outer_child(
                 int netns_fd) {
 
         _cleanup_close_ int fd = -1;
+        const char *p;
         pid_t pid;
         ssize_t l;
         int r;
@@ -3447,7 +3448,9 @@ static int outer_child(
                 return r;
 
         (void) dev_setup(directory, arg_uid_shift, arg_uid_shift);
-        (void) make_inaccessible_nodes(directory, arg_uid_shift, arg_uid_shift);
+
+        p = prefix_roota(directory, "/run/systemd");
+        (void) make_inaccessible_nodes(p, arg_uid_shift, arg_uid_shift);
 
         r = setup_pts(directory);
         if (r < 0)

@@ -46,6 +46,15 @@ runas nobody systemd-run --user --unit=test-protect-home-tmpfs \
     -p PrivateUsers=yes -p ProtectHome=tmpfs \
     -P test ! -e /home/nobody
 
+# Confirm that home, /root, and /run/user are inaccessible under "yes"
+runas nobody systemd-run --user --unit=test-protect-home-yes \
+    -p PrivateUsers=yes -p ProtectHome=yes \
+    -P bash -c '
+        test "$(stat -c %a /home)" = "0"
+        test "$(stat -c %a /root)" = "0"
+        test "$(stat -c %a /run/user)" = "0"
+    '
+
 # Confirm we cannot change groups because we only have one mapping in the user
 # namespace (no CAP_SETGID in the parent namespace to write the additional
 # mapping of the user supplied group and thus cannot change groups to an

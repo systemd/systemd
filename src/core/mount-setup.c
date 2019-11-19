@@ -536,7 +536,7 @@ int mount_setup(bool loaded_policy) {
 
         /* Also create /run/systemd/inaccessible nodes, so that we always have something to mount inaccessible nodes
          * from. */
-        (void) make_inaccessible_nodes(NULL, UID_INVALID, GID_INVALID);
+        (void) make_inaccessible_nodes("/run/systemd", UID_INVALID, GID_INVALID);
 
         return 0;
 }

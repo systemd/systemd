@@ -31,4 +31,4 @@ int mount_option_mangle(
                 unsigned long *ret_mount_flags,
                 char **ret_remaining_options);
 
-const char* mode_to_inaccessible_node(mode_t mode);
+int mode_to_inaccessible_node(const char *runtime_dir, mode_t mode, char **dest);

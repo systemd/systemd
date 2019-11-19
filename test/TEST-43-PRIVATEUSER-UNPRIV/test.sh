@@ -11,6 +11,7 @@ test_setup() {
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
         setup_basic_environment
+        inst_binary stat
 
         mask_supporting_services
 
