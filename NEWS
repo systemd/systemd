@@ -126,7 +126,7 @@ CHANGES WITH 244 in spe:
           request prefix hints in the DHCPv6 solicitation.
 
         * The DHCPv4 server may be configured to send arbitrary options using
-          a new SendRawOption= setting.
+          a new SendOption= setting.
 
         * The DHCPv4 server may now be configured to emit SIP server list using
           the new EmitSIP= and SIP= settings.
