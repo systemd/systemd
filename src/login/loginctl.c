@@ -184,7 +184,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
 
                 r = table_add_many(table,
                                    TABLE_STRING, id,
-                                   TABLE_UINT32, uid,
+                                   TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user,
                                    TABLE_STRING, seat,
                                    TABLE_STRING, strna(tty));
@@ -243,7 +243,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
                         break;
 
                 r = table_add_many(table,
-                                   TABLE_UINT32, uid,
+                                   TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add row to table: %m");

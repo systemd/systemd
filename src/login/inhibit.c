@@ -114,9 +114,9 @@ static int print_inhibitors(sd_bus *bus) {
 
                 r = table_add_many(table,
                                    TABLE_STRING, who,
-                                   TABLE_UINT32, uid,
+                                   TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, strna(u),
-                                   TABLE_UINT32, pid,
+                                   TABLE_PID, (pid_t) pid,
                                    TABLE_STRING, strna(comm),
                                    TABLE_STRING, what,
                                    TABLE_STRING, why,
