@@ -23,11 +23,6 @@ Before v244:
   it for the env var, the bootctl verb and the EFI variable itself, clear up
   semantics.
 
-* Figure out a better name for the global per-unit-type drop-in dirs, it's
-  confusing when it comes to -.mount.d/ (is it a drop-in-dir for all mount
-  units, or one for the root mount?). Also, OOM handling in
-  service_unit_name_is_valid() is borked.
-
 Features:
 
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
