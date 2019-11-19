@@ -383,25 +383,62 @@ JobType job_type_lookup_merge(JobType a, JobType b) {
         return job_merging_table[(a - 1) * a / 2 + b];
 }
 
-bool job_type_is_redundant(JobType a, UnitActiveState b) {
-        switch (a) {
+bool job_later_link_matters(Job *j, JobType type, unsigned generation) {
+        JobDependency *l;
+
+        assert(j);
+
+        j->generation = generation;
+
+        LIST_FOREACH(subject, l, j->subject_list) {
+                UnitActiveState state = _UNIT_ACTIVE_STATE_INVALID;
+
+                /* Have we seen this before? */
+                if (l->object->generation == generation)
+                        continue;
+
+                state = unit_active_state(l->object->unit);
+                switch (type) {
+
+                case JOB_START:
+                        return IN_SET(state, UNIT_INACTIVE, UNIT_FAILED) ||
+                               job_later_link_matters(l->object, type, generation);
+
+                case JOB_STOP:
+                        return IN_SET(state, UNIT_ACTIVE, UNIT_RELOADING) ||
+                               job_later_link_matters(l->object, type, generation);
+
+                default:
+                        assert_not_reached("Invalid job type");
+                }
+        }
+
+        return false;
+}
+
+bool job_is_redundant(Job *j, unsigned generation) {
+
+        assert(j);
+
+        UnitActiveState state = unit_active_state(j->unit);
+        switch (j->type) {
 
         case JOB_START:
-                return IN_SET(b, UNIT_ACTIVE, UNIT_RELOADING);
+                return IN_SET(state, UNIT_ACTIVE, UNIT_RELOADING) && !job_later_link_matters(j, JOB_START, generation);
 
         case JOB_STOP:
-                return IN_SET(b, UNIT_INACTIVE, UNIT_FAILED);
+                return IN_SET(state, UNIT_INACTIVE, UNIT_FAILED) && !job_later_link_matters(j, JOB_STOP, generation);
 
         case JOB_VERIFY_ACTIVE:
-                return IN_SET(b, UNIT_ACTIVE, UNIT_RELOADING);
+                return IN_SET(state, UNIT_ACTIVE, UNIT_RELOADING);
 
         case JOB_RELOAD:
                 return
-                        b == UNIT_RELOADING;
+                        state == UNIT_RELOADING;
 
         case JOB_RESTART:
                 return
-                        b == UNIT_ACTIVATING;
+                        state == UNIT_ACTIVATING;
 
         case JOB_NOP:
                 return true;
