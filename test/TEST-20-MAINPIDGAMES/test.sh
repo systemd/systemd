@@ -18,6 +18,8 @@ test_setup() {
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
 [Unit]
 Description=Testsuite service
+Before=getty-pre.target
+Wants=getty-pre.target
 
 [Service]
 ExecStart=/bin/bash -x /testsuite.sh

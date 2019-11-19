@@ -1,6 +1,8 @@
 [Unit]
 Description=Testsuite service
 After=systemd-tmpfiles-setup.service
+Before=getty-pre.target
+Wants=getty-pre.target
 
 [Service]
 WorkingDirectory=/testsuite
