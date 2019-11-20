@@ -1033,19 +1033,19 @@ static int help(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         printf("%s  [OPTIONS...] COMMAND ...\n"
-               "\n%sInstall, update or remove the systemd-boot EFI boot manager.%s\n"
+               "\n%sInstall/update/remove the systemd-boot EFI boot manager and list/select entries.%s\n"
                "\nBoot Loader Commands:\n"
-               "     status            Show status of installed systemd-boot and EFI variables\n"
-               "     install           Install systemd-boot to the ESP and EFI variables\n"
-               "     update            Update systemd-boot in the ESP and EFI variables\n"
-               "     remove            Remove systemd-boot from the ESP and EFI variables\n"
-               "     is-installed      Test whether systemd-boot is installed in the ESP\n"
-               "     random-seed       Initialize random seed in ESP and EFI variables\n"
-               "     system-options    Query or set system options string in EFI variable\n"
+               "  status              Show status of installed systemd-boot and EFI variables\n"
+               "  install             Install systemd-boot to the ESP and EFI variables\n"
+               "  update              Update systemd-boot in the ESP and EFI variables\n"
+               "  remove              Remove systemd-boot from the ESP and EFI variables\n"
+               "  is-installed        Test whether systemd-boot is installed in the ESP\n"
+               "  random-seed         Initialize random seed in ESP and EFI variables\n"
+               "  systemd-efi-options Query or set system options string in EFI variable\n"
                "\nBoot Loader Entries Commands:\n"
-               "     list              List boot loader entries\n"
-               "     set-default ID    Set default boot loader entry\n"
-               "     set-oneshot ID    Set default boot loader entry, for next boot only\n"
+               "  list                List boot loader entries\n"
+               "  set-default ID      Set default boot loader entry\n"
+               "  set-oneshot ID      Set default boot loader entry, for next boot only\n"
                "\nOptions:\n"
                "  -h --help            Show this help\n"
                "     --version         Print version\n"
@@ -1716,17 +1716,17 @@ static int verb_random_seed(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_system_options(int argc, char *argv[], void *userdata) {
+static int verb_systemd_efi_options(int argc, char *argv[], void *userdata) {
         int r;
 
         if (argc == 1) {
                 _cleanup_free_ char *line = NULL;
 
-                r = efi_systemd_options_variable(&line);
+                r = systemd_efi_options_variable(&line);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query SystemdOptions EFI variable: %m");
 
-                printf("SystemdOptions: %s\n", line);
+                puts(line);
 
         } else {
                 r = efi_set_variable_string(EFI_VENDOR_SYSTEMD, "SystemdOptions", argv[1]);
@@ -1739,17 +1739,17 @@ static int verb_system_options(int argc, char *argv[], void *userdata) {
 
 static int bootctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",           VERB_ANY, VERB_ANY, 0,            help                },
-                { "status",         VERB_ANY, 1,        VERB_DEFAULT, verb_status         },
-                { "install",        VERB_ANY, 1,        0,            verb_install        },
-                { "update",         VERB_ANY, 1,        0,            verb_install        },
-                { "remove",         VERB_ANY, 1,        0,            verb_remove         },
-                { "is-installed",   VERB_ANY, 1,        0,            verb_is_installed   },
-                { "list",           VERB_ANY, 1,        0,            verb_list           },
-                { "set-default",    2,        2,        0,            verb_set_default    },
-                { "set-oneshot",    2,        2,        0,            verb_set_default    },
-                { "random-seed",    VERB_ANY, 1,        0,            verb_random_seed    },
-                { "system-options", VERB_ANY, 2,        0,            verb_system_options },
+                { "help",                VERB_ANY, VERB_ANY, 0,            help                     },
+                { "status",              VERB_ANY, 1,        VERB_DEFAULT, verb_status              },
+                { "install",             VERB_ANY, 1,        0,            verb_install             },
+                { "update",              VERB_ANY, 1,        0,            verb_install             },
+                { "remove",              VERB_ANY, 1,        0,            verb_remove              },
+                { "is-installed",        VERB_ANY, 1,        0,            verb_is_installed        },
+                { "list",                VERB_ANY, 1,        0,            verb_list                },
+                { "set-default",         2,        2,        0,            verb_set_default         },
+                { "set-oneshot",         2,        2,        0,            verb_set_default         },
+                { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
+                { "systemd-efi-options", VERB_ANY, 2,        0,            verb_systemd_efi_options },
                 {}
         };
 

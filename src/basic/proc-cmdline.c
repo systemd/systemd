@@ -119,7 +119,7 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
 
         /* We parse the EFI variable first, because later settings have higher priority. */
 
-        r = efi_systemd_options_variable(&line);
+        r = systemd_efi_options_variable(&line);
         if (r < 0 && r != -ENODATA)
                 log_debug_errno(r, "Failed to get SystemdOptions EFI variable, ignoring: %m");
 
@@ -250,7 +250,7 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
                 return r;
 
         line = mfree(line);
-        r = efi_systemd_options_variable(&line);
+        r = systemd_efi_options_variable(&line);
         if (r == -ENODATA)
                 return false; /* Not found */
         if (r < 0)

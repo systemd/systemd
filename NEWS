@@ -19,7 +19,7 @@ CHANGES WITH 244 in spe:
           SystemdOptions. This may be used to configure systemd behaviour when
           modifying the kernel command line is inconvenient, but configuration
           on disk is read too late, for example for the options related to
-          cgroup hierarchy setup. 'bootctl system-options' may be used to
+          cgroup hierarchy setup. 'bootctl systemd-efi-options' may be used to
           set the EFI variable.
 
         * systemd will now disable printk ratelimits in early boot. This should
@@ -505,7 +505,7 @@ CHANGES WITH 243:
         * SuccessExitStatus=, RestartPreventExitStatus=, and
           RestartForceExitStatus= now accept exit status names (e.g. "DATAERR"
           is equivalent to "65"). Those exit status name mappings may be
-          displayed with the sytemd-analyze exit-status verb describe above.
+          displayed with the systemd-analyze exit-status verb describe above.
 
         * systemd-logind now exposes a per-session SetBrightness() bus call,
           which may be used to securely change the brightness of a kernel

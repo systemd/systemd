@@ -102,7 +102,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>system-options</option> <optional><replaceable>VALUE</replaceable></optional></term>
+        <term><option>systemd-efi-options</option> <optional><replaceable>VALUE</replaceable></optional></term>
 
         <listitem><para>When called without the optional argument, prints the current value of the
         <literal>SystemdOptions</literal> EFI variable. When called with an argument, sets the

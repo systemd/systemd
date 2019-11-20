@@ -47,8 +47,8 @@ All tools:
 * `$SYSTEMD_CRYPTTAB` — if set, use this path instead of /etc/crypttab. Only
   useful for debugging. Currently only supported by systemd-cryptsetup-generator.
 
-* `$SYSTEMD_EFI_OPTIONS` — if set, used instead of the string in SystemdOptions
-  EFI variable. Analogous to `$SYSTEMD_PROC_CMDLINE`.
+* `$SYSTEMD_EFI_OPTIONS` — if set, used instead of the string in the
+  SystemdOptions EFI variable. Analogous to `$SYSTEMD_PROC_CMDLINE`.
 
 * `$SYSTEMD_IN_INITRD` — takes a boolean. If set, overrides initrd detection.
   This is useful for debugging and testing initrd-only programs in the main
