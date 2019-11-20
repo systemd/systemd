@@ -17,12 +17,14 @@
 #include "locale-util.h"
 #include "macro.h"
 #include "output-mode.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "unit-name.h"
+#include "xattr-util.h"
 
 static void show_pid_array(
                 pid_t pids[],
@@ -117,6 +119,44 @@ static int show_cgroup_one_by_path(
         return 0;
 }
 
+static int show_cgroup_name(
+                const char *path,
+                const char *prefix,
+                const char *glyph) {
+
+        _cleanup_free_ char *b = NULL;
+        bool delegate = false;
+        int r;
+
+        r = getxattr_malloc(path, "trusted.delegate", &b, false);
+        if (r < 0) {
+                if (r != -ENODATA)
+                        log_debug_errno(r, "Failed to read trusted.delegate extended attribute: %m");
+        } else {
+                r = parse_boolean(b);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse trusted.delegate extended attribute boolean value: %m");
+                else
+                        delegate = r > 0;
+
+                b = mfree(b);
+        }
+
+        b = strdup(basename(path));
+        if (!b)
+                return -ENOMEM;
+
+        printf("%s%s%s%s%s %s%s%s\n",
+               prefix, glyph,
+               delegate ? ansi_underline() : "",
+               cg_unescape(b),
+               delegate ? ansi_normal() : "",
+               delegate ? ansi_highlight() : "",
+               delegate ? special_glyph(SPECIAL_GLYPH_ELLIPSIS) : "",
+               delegate ? ansi_normal() : "");
+        return 0;
+}
+
 int show_cgroup_by_path(
                 const char *path,
                 const char *prefix,
@@ -125,8 +165,8 @@ int show_cgroup_by_path(
 
         _cleanup_free_ char *fn = NULL, *p1 = NULL, *last = NULL, *p2 = NULL;
         _cleanup_closedir_ DIR *d = NULL;
-        char *gn = NULL;
         bool shown_pids = false;
+        char *gn = NULL;
         int r;
 
         assert(path);
@@ -161,7 +201,9 @@ int show_cgroup_by_path(
                 }
 
                 if (last) {
-                        printf("%s%s%s\n", prefix, special_glyph(SPECIAL_GLYPH_TREE_BRANCH), cg_unescape(basename(last)));
+                        r = show_cgroup_name(last, prefix, special_glyph(SPECIAL_GLYPH_TREE_BRANCH));
+                        if (r < 0)
+                                return r;
 
                         if (!p1) {
                                 p1 = strjoin(prefix, special_glyph(SPECIAL_GLYPH_TREE_VERTICAL));
@@ -183,7 +225,9 @@ int show_cgroup_by_path(
                 show_cgroup_one_by_path(path, prefix, n_columns, !!last, flags);
 
         if (last) {
-                printf("%s%s%s\n", prefix, special_glyph(SPECIAL_GLYPH_TREE_RIGHT), cg_unescape(basename(last)));
+                r = show_cgroup_name(last, prefix, special_glyph(SPECIAL_GLYPH_TREE_RIGHT));
+                if (r < 0)
+                        return r;
 
                 if (!p2) {
                         p2 = strjoin(prefix, "  ");
