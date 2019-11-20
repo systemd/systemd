@@ -188,6 +188,7 @@ int cg_set_access(const char *controller, const char *path, uid_t uid, gid_t gid
 
 int cg_set_xattr(const char *controller, const char *path, const char *name, const void *value, size_t size, int flags);
 int cg_get_xattr(const char *controller, const char *path, const char *name, void *value, size_t size);
+int cg_remove_xattr(const char *controller, const char *path, const char *name);
 
 int cg_install_release_agent(const char *controller, const char *agent);
 int cg_uninstall_release_agent(const char *controller);
