@@ -441,8 +441,12 @@ mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:1017:
 mouse:usb:v046dp1017:name:Logitech Anywhere MX:
  MOUSE_WHEEL_CLICK_ANGLE=20
 
-# Logitech Anywhere MX 2S
+# Logitech Anywhere MX 2S (via Logitech Unifying Receiver)
 mouse:usb:v046dp406a:name:Logitech MX Anywhere 2S:
+ MOUSE_WHEEL_CLICK_ANGLE=20
+
+# Logitech Anywhere MX 2S (via Bluetooth)
+mouse:bluetooth:v046dpb01a:name:MX Anywhere 2S Mouse:
  MOUSE_WHEEL_CLICK_ANGLE=20
 
 # Logitech MX Master
