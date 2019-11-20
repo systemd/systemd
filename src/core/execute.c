@@ -2459,6 +2459,40 @@ finish:
         return r;
 }
 
+static bool insist_on_sandboxing(
+                const ExecContext *context,
+                const char *root_dir,
+                const char *root_image,
+                const BindMount *bind_mounts,
+                size_t n_bind_mounts) {
+
+        size_t i;
+
+        assert(context);
+        assert(n_bind_mounts == 0 || bind_mounts);
+
+        /* Checks whether we need to insist on fs namespacing. i.e. whether we have settings configured that
+         * would alter the view on the file system beyond making things read-only or invisble, i.e. would
+         * rearrange stuff in a way we cannot ignore gracefully. */
+
+        if (context->n_temporary_filesystems > 0)
+                return true;
+
+        if (root_dir || root_image)
+                return true;
+
+        if (context->dynamic_user)
+                return true;
+
+        /* If there are any bind mounts set that don't map back onto themselves, fs namespacing becomes
+         * essential. */
+        for (i = 0; i < n_bind_mounts; i++)
+                if (!path_equal(bind_mounts[i].source, bind_mounts[i].destination))
+                        return true;
+
+        return false;
+}
+
 static int apply_mount_namespace(
                 const Unit *u,
                 const ExecCommand *command,
@@ -2545,28 +2579,28 @@ static int apply_mount_namespace(
                             DISSECT_IMAGE_DISCARD_ON_LOOP,
                             error_path);
 
-        bind_mount_free_many(bind_mounts, n_bind_mounts);
-
         /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports
          * that with a special, recognizable error ENOANO. In this case, silently proceed, but only if exclusively
          * sandboxing options were used, i.e. nothing such as RootDirectory= or BindMount= that would result in a
          * completely different execution environment. */
         if (r == -ENOANO) {
-                if (n_bind_mounts == 0 &&
-                    context->n_temporary_filesystems == 0 &&
-                    !root_dir && !root_image &&
-                    !context->dynamic_user) {
+                if (insist_on_sandboxing(
+                                    context,
+                                    root_dir, root_image,
+                                    bind_mounts,
+                                    n_bind_mounts)) {
+                        log_unit_debug(u, "Failed to set up namespace, and refusing to continue since the selected namespacing options alter mount environment non-trivially.\n"
+                                       "Bind mounts: %zu, temporary filesystems: %zu, root directory: %s, root image: %s, dynamic user: %s",
+                                       n_bind_mounts, context->n_temporary_filesystems, yes_no(root_dir), yes_no(root_image), yes_no(context->dynamic_user));
+
+                        r = -EOPNOTSUPP;
+                } else {
                         log_unit_debug(u, "Failed to set up namespace, assuming containerized execution and ignoring.");
-                        return 0;
+                        r = 0;
                 }
-
-                log_unit_debug(u, "Failed to set up namespace, and refusing to continue since the selected namespacing options alter mount environment non-trivially.\n"
-                               "Bind mounts: %zu, temporary filesystems: %zu, root directory: %s, root image: %s, dynamic user: %s",
-                               n_bind_mounts, context->n_temporary_filesystems, yes_no(root_dir), yes_no(root_image), yes_no(context->dynamic_user));
-
-                return -EOPNOTSUPP;
         }
 
+        bind_mount_free_many(bind_mounts, n_bind_mounts);
         return r;
 }
 
