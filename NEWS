@@ -187,6 +187,19 @@ CHANGES WITH 244 in spe:
           used by the user service manager. The default is again to use the same
           path as the system manager.
 
+        * The systemd-id128 tool gained a new switch "-u" (or "--uuid") for
+          outputting the 128bit IDs in UUID format (i.e. in the "canonical
+          representation").
+
+        * Service units gained a new sandboxing option ProtectKernelLogs= which
+          makes sure the program cannot get direct access to the kernel log
+          buffer anymore, i.e. the syslog() system call (not to be confused
+          with the API of the same name in libc, which is not affected), the
+          /proc/kmsg and /dev/kmsg nodes and the CAP_SYSLOG capability are made
+          inaccessible to the service. It's recommended to enable this setting
+          for all services that should not be able to read from or write to the
+          kernel log buffer, which are probably almost all.
+
 CHANGES WITH 243:
 
         * This release enables unprivileged programs (i.e. requiring neither
