@@ -139,11 +139,10 @@ static int seccomp_add_default_syscall_filter(
                  */
         };
 
-        int r;
-        size_t i;
         char **p;
+        int r;
 
-        for (i = 0; i < ELEMENTSOF(whitelist); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(whitelist); i++) {
                 if (whitelist[i].capability != 0 && (cap_list_retain & (1ULL << whitelist[i].capability)) == 0)
                         continue;
 
@@ -153,7 +152,7 @@ static int seccomp_add_default_syscall_filter(
         }
 
         STRV_FOREACH(p, syscall_whitelist) {
-                r = seccomp_add_syscall_filter_item(ctx, *p, SCMP_ACT_ALLOW, syscall_blacklist, false);
+                r = seccomp_add_syscall_filter_item(ctx, *p, SCMP_ACT_ALLOW, syscall_blacklist, true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add rule for system call %s on %s, ignoring: %m",
                                           *p, seccomp_arch_to_string(arch));
