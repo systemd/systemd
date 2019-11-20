@@ -953,7 +953,10 @@
         CAP_SETGID, CAP_SETPCAP, CAP_SETUID, CAP_SYS_ADMIN, CAP_SYS_BOOT, CAP_SYS_CHROOT,
         CAP_SYS_NICE, CAP_SYS_PTRACE, CAP_SYS_RESOURCE, CAP_SYS_TTY_CONFIG. Also CAP_NET_ADMIN
         is retained if <option>--private-network</option> is specified.  If the special value
-        <literal>all</literal> is passed, all capabilities are retained.</para></listitem>
+        <literal>all</literal> is passed, all capabilities are retained.</para>
+
+        <para>If the special value of <literal>help</literal> is passed, the program will print known
+        capability names and exit.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -962,7 +965,10 @@
         <listitem><para>Specify one or more additional capabilities to
         drop for the container. This allows running the container with
         fewer capabilities than the default (see
-        above).</para></listitem>
+        above).</para>
+
+        <para>If the special value of <literal>help</literal> is passed, the program will print known
+        capability names and exit.</para></listitem>
       </varlistentry>
 
       <varlistentry>
