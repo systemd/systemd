@@ -12,7 +12,7 @@
 #include "verbs.h"
 
 static Id128PrettyPrintMode arg_mode = ID128_PRINT_ID128;
-static sd_id128_t arg_app = SD_ID128_NULL;
+static sd_id128_t arg_app = {};
 
 static int verb_new(int argc, char **argv, void *userdata) {
         return id128_print_new(arg_mode);
