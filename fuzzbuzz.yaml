@@ -5,7 +5,7 @@ setup:
 - sudo apt-get update -y
 - sudo apt-get build-dep -y systemd
 - sudo apt-get install -y python3-pip
-- sudo apt-get install -y libfdisk-dev libp11-kit-dev libssl-dev
+- sudo apt-get install -y libfdisk-dev libp11-kit-dev libssl-dev libpwquality-dev
 - pip3 install meson ninja
 - export PATH="$HOME/.local/bin/:$PATH"
 - CC=$FUZZ_CC CXX=$FUZZ_CXX meson -Dfuzzbuzz=true -Dfuzzbuzz-engine-dir=$(dirname "$FUZZ_ENGINE") -Dfuzzbuzz-engine=$(cut -d. -f1 <(basename "$FUZZ_ENGINE")) -Db_lundef=false ./build

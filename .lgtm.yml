@@ -5,6 +5,7 @@ extraction:
         - python3-pip
         - python3-setuptools
         - python3-wheel
+        - libpwquality-dev
         - libfdisk-dev
         - libp11-kit-dev
         - libssl-dev
