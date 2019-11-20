@@ -3448,8 +3448,12 @@ static int exec_child(
         if (context->protect_hostname) {
                 if (ns_type_supported(NAMESPACE_UTS)) {
                         if (unshare(CLONE_NEWUTS) < 0) {
-                                *exit_status = EXIT_NAMESPACE;
-                                return log_unit_error_errno(unit, errno, "Failed to set up UTS namespacing: %m");
+                                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno)) {
+                                        *exit_status = EXIT_NAMESPACE;
+                                        return log_unit_error_errno(unit, errno, "Failed to set up UTS namespacing: %m");
+                                }
+
+                                log_unit_warning(unit, "ProtectHostname=yes is configured, but UTS namespace setup is prohibited (container manager?), ignoring namespace setup.");
                         }
                 } else
                         log_unit_warning(unit, "ProtectHostname=yes is configured, but the kernel does not support UTS namespaces, ignoring namespace setup.");
