@@ -313,6 +313,7 @@ static void test_exec_privatedevices(Manager *m) {
         test(__func__, m, "exec-privatedevices-yes.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(__func__, m, "exec-privatedevices-no.service", 0, CLD_EXITED);
         test(__func__, m, "exec-privatedevices-disabled-by-prefix.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(__func__, m, "exec-privatedevices-yes-with-group.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
 
         /* We use capsh to test if the capabilities are
          * properly set, so be sure that it exists */
