@@ -36,6 +36,7 @@ static void boot_entry_free(BootEntry *entry) {
         assert(entry);
 
         free(entry->id);
+        free(entry->id_old);
         free(entry->path);
         free(entry->root);
         free(entry->title);
@@ -74,7 +75,8 @@ static int boot_entry_load(
 
         b = basename(path);
         tmp.id = strdup(b);
-        if (!tmp.id)
+        tmp.id_old = strndup(b, c - b);
+        if (!tmp.id || !tmp.id_old)
                 return log_oom();
 
         if (!efi_loader_entry_name_valid(tmp.id))
@@ -283,7 +285,7 @@ static int boot_entry_load_unified(
                 const char *cmdline,
                 BootEntry *ret) {
 
-        _cleanup_free_ char *os_pretty_name = NULL;
+        _cleanup_free_ char *os_pretty_name = NULL, *os_id = NULL, *version_id = NULL, *build_id = NULL;
         _cleanup_(boot_entry_free) BootEntry tmp = {
                 .type = BOOT_ENTRY_UNIFIED,
         };
@@ -304,16 +306,21 @@ static int boot_entry_load_unified(
         if (!f)
                 return log_error_errno(errno, "Failed to open os-release buffer: %m");
 
-        r = parse_env_file(f, "os-release", "PRETTY_NAME", &os_pretty_name);
+        r = parse_env_file(f, "os-release",
+                           "PRETTY_NAME", &os_pretty_name,
+                           "ID", &os_id,
+                           "VERSION_ID", &version_id,
+                           "BUILD_ID", &build_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse os-release data from unified kernel image %s: %m", path);
 
-        if (!os_pretty_name)
+        if (!os_pretty_name || !os_id || !(version_id || build_id))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Missing fields in os-release data from unified kernel image %s, refusing.", path);
 
         b = basename(path);
         tmp.id = strdup(b);
-        if (!tmp.id)
+        tmp.id_old = strjoin(os_id, "-", version_id ?: build_id);
+        if (!tmp.id || !tmp.id_old)
                 return log_oom();
 
         if (!efi_loader_entry_name_valid(tmp.id))
