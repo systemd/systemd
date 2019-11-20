@@ -94,3 +94,10 @@ static inline bool ERRNO_IS_NOT_SUPPORTED(int r) {
                       ENOTTY,
                       ENOSYS);
 }
+
+/* Two different errors for access problems */
+static inline bool ERRNO_IS_PRIVILEGE(int r) {
+        return IN_SET(abs(r),
+                      EACCES,
+                      EPERM);
+}
