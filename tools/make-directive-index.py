@@ -187,6 +187,9 @@ def _extract_directives(directive_groups, formatting, page):
                              storvar if klass else storopt)):
             for name in variablelist.iterfind(xpath):
                 text = re.sub(r'([= ]).*', r'\1', name.text).rstrip()
+                if text.startswith('-'):
+                    # for options, merge options with and without mandatory arg
+                    text = text.partition('=')[0]
                 stor[text].append((pagename, section))
                 if text not in formatting:
                     # use element as formatted display
