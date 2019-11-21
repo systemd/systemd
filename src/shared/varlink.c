@@ -343,11 +343,8 @@ static void varlink_detach_event_sources(Varlink *v) {
         assert(v);
 
         v->io_event_source = sd_event_source_disable_unref(v->io_event_source);
-
         v->time_event_source = sd_event_source_disable_unref(v->time_event_source);
-
         v->quit_event_source = sd_event_source_disable_unref(v->quit_event_source);
-
         v->defer_event_source = sd_event_source_disable_unref(v->defer_event_source);
 }
 
