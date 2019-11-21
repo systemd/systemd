@@ -13,6 +13,8 @@ typedef struct Address Address;
 #include "networkd-network.h"
 #include "networkd-util.h"
 
+#include "sd-ipv4acd.h"
+
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
 
 typedef struct Network Network;
@@ -38,11 +40,13 @@ struct Address {
         union in_addr_union in_addr_peer;
 
         bool ip_masquerade_done:1;
-        bool duplicate_address_detection;
-        bool manage_temporary_address;
-        bool home_address;
-        bool prefix_route;
-        bool autojoin;
+        bool manage_temporary_address:1;
+        bool home_address:1;
+        bool prefix_route:1;
+        bool autojoin:1;
+        AddressFamily duplicate_address_detection;
+
+        sd_ipv4acd *acd;
 
         LIST_FIELDS(Address, addresses);
 };
@@ -59,6 +63,7 @@ int address_remove(Address *address, Link *link, link_netlink_message_handler_t 
 bool address_equal(Address *a1, Address *a2);
 bool address_is_ready(const Address *a);
 int address_section_verify(Address *a);
+int configure_ipv4_duplicate_address_detection(Link *link, Address *address);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 
@@ -68,3 +73,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_label);
 CONFIG_PARSER_PROTOTYPE(config_parse_lifetime);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_scope);
+CONFIG_PARSER_PROTOTYPE(config_parse_duplicate_address_detection);
