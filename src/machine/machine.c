@@ -331,24 +331,29 @@ int machine_load(Machine *m) {
 }
 
 static int machine_start_scope(
-                Manager *manager,
-                const char *scope,
-                pid_t pid,
-                const char *slice,
-                const char *description,
+                Machine *machine,
                 sd_bus_message *more_properties,
-                sd_bus_error *error,
-                char **job) {
+                sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_free_ char *escaped = NULL, *unit = NULL;
+        const char *description;
         int r;
 
-        assert(manager);
-        assert(scope);
-        assert(pid > 1);
+        assert(machine);
+        assert(machine->leader > 0);
+        assert(!machine->unit);
+
+        escaped = unit_name_escape(machine->name);
+        if (!escaped)
+                return log_oom();
+
+        unit = strjoin("machine-", escaped, ".scope");
+        if (!unit)
+                return log_oom();
 
         r = sd_bus_message_new_method_call(
-                        manager->bus,
+                        machine->manager->bus,
                         &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
@@ -357,7 +362,7 @@ static int machine_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "ss", strempty(scope), "fail");
+        r = sd_bus_message_append(m, "ss", unit, "fail");
         if (r < 0)
                 return r;
 
@@ -365,20 +370,17 @@ static int machine_start_scope(
         if (r < 0)
                 return r;
 
-        if (!isempty(slice)) {
-                r = sd_bus_message_append(m, "(sv)", "Slice", "s", slice);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_bus_message_append(m, "(sv)", "Slice", "s", SPECIAL_MACHINE_SLICE);
+        if (r < 0)
+                return r;
 
-        if (!isempty(description)) {
-                r = sd_bus_message_append(m, "(sv)", "Description", "s", description);
-                if (r < 0)
-                        return r;
-        }
+        description = strjoina(machine->class == MACHINE_VM ? "Virtual Machine " : "Container ", machine->name);
+        r = sd_bus_message_append(m, "(sv)", "Description", "s", description);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
-                                  "PIDs", "au", 1, pid,
+                                  "PIDs", "au", 1, machine->leader,
                                   "Delegate", "b", 1,
                                   "CollectMode", "s", "inactive-or-failed",
                                   "AddRef", "b", 1,
@@ -400,58 +402,35 @@ static int machine_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_call(manager->bus, m, 0, error, &reply);
+        r = sd_bus_call(NULL, m, 0, error, &reply);
         if (r < 0)
                 return r;
 
-        if (job) {
-                const char *j;
-                char *copy;
+        machine->unit = TAKE_PTR(unit);
+        machine->referenced = true;
 
-                r = sd_bus_message_read(reply, "o", &j);
-                if (r < 0)
-                        return r;
+        const char *job;
+        r = sd_bus_message_read(reply, "o", &job);
+        if (r < 0)
+                return r;
 
-                copy = strdup(j);
-                if (!copy)
-                        return -ENOMEM;
-
-                *job = copy;
-        }
-
-        return 1;
+        return free_and_strdup(&machine->scope_job, job);
 }
 
 static int machine_ensure_scope(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
+        int r;
+
         assert(m);
         assert(m->class != MACHINE_HOST);
 
         if (!m->unit) {
-                _cleanup_free_ char *escaped = NULL, *scope = NULL;
-                char *description, *job = NULL;
-                int r;
-
-                escaped = unit_name_escape(m->name);
-                if (!escaped)
-                        return log_oom();
-
-                scope = strjoin("machine-", escaped, ".scope");
-                if (!scope)
-                        return log_oom();
-
-                description = strjoina(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
-
-                r = machine_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
+                r = machine_start_scope(m, properties, error);
                 if (r < 0)
                         return log_error_errno(r, "Failed to start machine scope: %s", bus_error_message(error, r));
-
-                m->unit = TAKE_PTR(scope);
-                m->referenced = true;
-                free_and_replace(m->scope_job, job);
         }
 
-        if (m->unit)
-                hashmap_put(m->manager->machine_units, m->unit, m);
+        assert(m->unit);
+        hashmap_put(m->manager->machine_units, m->unit, m);
 
         return 0;
 }
