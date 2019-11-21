@@ -478,7 +478,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
 static int machine_stop_scope(Machine *m) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job = NULL;
-        int r, q;
+        int r;
 
         assert(m);
         assert(m->class != MACHINE_HOST);
@@ -487,20 +487,11 @@ static int machine_stop_scope(Machine *m) {
                 return 0;
 
         r = manager_stop_unit(m->manager, m->unit, &error, &job);
-        if (r < 0) {
-                log_error_errno(r, "Failed to stop machine scope: %s", bus_error_message(&error, r));
-                sd_bus_error_free(&error);
-        } else
-                free_and_replace(m->scope_job, job);
+        if (r < 0)
+                return log_error_errno(r, "Failed to stop machine scope: %s", bus_error_message(&error, r));
 
-        if (m->referenced) {
-                q = manager_unref_unit(m->manager, m->unit, &error);
-                if (q < 0)
-                        log_warning_errno(q, "Failed to drop reference to machine scope, ignoring: %s", bus_error_message(&error, r));
-                m->referenced = false;
-        }
-
-        return r;
+        free_and_replace(m->scope_job, job);
+        return 0;
 }
 
 int machine_stop(Machine *m) {
@@ -653,6 +644,18 @@ void machine_release_unit(Machine *m) {
 
         if (!m->unit)
                 return;
+
+        if (m->referenced) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                int r;
+
+                r = manager_unref_unit(m->manager, m->unit, &error);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to drop reference to machine scope, ignoring: %s",
+                                          bus_error_message(&error, r));
+
+                m->referenced = false;
+        }
 
         (void) hashmap_remove(m->manager->machine_units, m->unit);
         m->unit = mfree(m->unit);
