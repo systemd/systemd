@@ -330,7 +330,99 @@ int machine_load(Machine *m) {
         return r;
 }
 
-static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
+static int machine_start_scope(
+                Manager *manager,
+                const char *scope,
+                pid_t pid,
+                const char *slice,
+                const char *description,
+                sd_bus_message *more_properties,
+                sd_bus_error *error,
+                char **job) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        int r;
+
+        assert(manager);
+        assert(scope);
+        assert(pid > 1);
+
+        r = sd_bus_message_new_method_call(
+                        manager->bus,
+                        &m,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartTransientUnit");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "ss", strempty(scope), "fail");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return r;
+
+        if (!isempty(slice)) {
+                r = sd_bus_message_append(m, "(sv)", "Slice", "s", slice);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!isempty(description)) {
+                r = sd_bus_message_append(m, "(sv)", "Description", "s", description);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
+                                  "PIDs", "au", 1, pid,
+                                  "Delegate", "b", 1,
+                                  "CollectMode", "s", "inactive-or-failed",
+                                  "AddRef", "b", 1,
+                                  "TasksMax", "t", UINT64_C(16384));
+        if (r < 0)
+                return r;
+
+        if (more_properties) {
+                r = sd_bus_message_copy(m, more_properties, true);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "a(sa(sv))", 0);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call(manager->bus, m, 0, error, &reply);
+        if (r < 0)
+                return r;
+
+        if (job) {
+                const char *j;
+                char *copy;
+
+                r = sd_bus_message_read(reply, "o", &j);
+                if (r < 0)
+                        return r;
+
+                copy = strdup(j);
+                if (!copy)
+                        return -ENOMEM;
+
+                *job = copy;
+        }
+
+        return 1;
+}
+
+static int machine_ensure_scope(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         assert(m);
         assert(m->class != MACHINE_HOST);
 
@@ -349,7 +441,7 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
 
                 description = strjoina(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
 
-                r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
+                r = machine_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
                 if (r < 0)
                         return log_error_errno(r, "Failed to start machine scope: %s", bus_error_message(error, r));
 
@@ -380,7 +472,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
                 return r;
 
         /* Create cgroup */
-        r = machine_start_scope(m, properties, error);
+        r = machine_ensure_scope(m, properties, error);
         if (r < 0)
                 return r;
 
