@@ -475,40 +475,31 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         return 0;
 }
 
-static int machine_stop_scope(Machine *m) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char *job = NULL;
-        int r;
-
-        assert(m);
-        assert(m->class != MACHINE_HOST);
-
-        if (!m->unit)
-                return 0;
-
-        r = manager_stop_unit(m->manager, m->unit, &error, &job);
-        if (r < 0)
-                return log_error_errno(r, "Failed to stop machine scope: %s", bus_error_message(&error, r));
-
-        free_and_replace(m->scope_job, job);
-        return 0;
-}
-
 int machine_stop(Machine *m) {
         int r;
+
         assert(m);
 
         if (!IN_SET(m->class, MACHINE_CONTAINER, MACHINE_VM))
                 return -EOPNOTSUPP;
 
-        r = machine_stop_scope(m);
+        if (m->unit) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                char *job = NULL;
+
+                r = manager_stop_unit(m->manager, m->unit, &error, &job);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to stop machine scope: %s", bus_error_message(&error, r));
+
+                free_and_replace(m->scope_job, job);
+        }
 
         m->stopping = true;
 
         machine_save(m);
         (void) manager_enqueue_nscd_cache_flush(m->manager);
 
-        return r;
+        return 0;
 }
 
 int machine_finalize(Machine *m) {
