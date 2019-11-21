@@ -321,7 +321,7 @@
 
     <example>
       <title>Extract the last core dump of /usr/bin/bar to a file named
-      <filename noindex="true">bar.coredump</filename></title>
+      <filename index="false">bar.coredump</filename></title>
 
       <programlisting># coredumpctl -o bar.coredump dump /usr/bin/bar</programlisting>
     </example>

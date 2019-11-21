@@ -204,7 +204,7 @@ def _extract_directives(directive_groups, formatting, page):
         for name in t.iterfind(xpath):
             if absolute_only and not (name.text and name.text.startswith('/')):
                 continue
-            if name.attrib.get('noindex'):
+            if name.attrib.get('index') == 'false':
                 continue
             name.tail = ''
             if name.text:
@@ -228,7 +228,7 @@ def _extract_directives(directive_groups, formatting, page):
 
     storfile = directive_groups['constants']
     for name in t.iterfind('.//constant'):
-        if name.attrib.get('noindex'):
+        if name.attrib.get('index') == 'false':
             continue
         name.tail = ''
         if name.text.startswith('('): # a cast, strip it

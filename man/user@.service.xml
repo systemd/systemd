@@ -68,16 +68,16 @@
     different levels. As described in the previous section, <filename>user.slice</filename> contains
     processes of all users, so any resource limits on that slice apply to all users together. The
     usual way to configure them would be through drop-ins, e.g. <filename
-    noindex='true'>/etc/systemd/system/user.slice.d/resources.conf</filename>.
+    index="false">/etc/systemd/system/user.slice.d/resources.conf</filename>.
     </para>
 
     <para>The processes of a single user are collected under
     <filename>user-<replaceable>UID</replaceable>.slice</filename>. Resource limits for that user
     can be configured through drop-ins for that unit, e.g. <filename
-    noindex='true'>/etc/systemd/system/user-1000.slice.d/resources.conf</filename>. If the limits
+    index="false">/etc/systemd/system/user-1000.slice.d/resources.conf</filename>. If the limits
     should apply to all users instead, they may be configured through drop-ins for the truncated
     unit name, <filename>user-.slice</filename>. For example, configuration in <filename
-    noindex='true'>/etc/systemd/system/user-.slice.d/resources.conf</filename> is included in all
+    index="false">/etc/systemd/system/user-.slice.d/resources.conf</filename> is included in all
     <filename>user-<replaceable>UID</replaceable>.slice</filename> units, see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for a discussion of the drop-in mechanism.</para>
@@ -141,20 +141,20 @@ Control group /:
 │       └─6706 /usr/bin/sleep 30
 …</programlisting>
       <para>User with UID 1000 is logged in using <command>gdm</command> (<filename
-      noindex='true'>session-4.scope</filename>) and
+      index="false">session-4.scope</filename>) and
       <citerefentry><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-      (<filename noindex='true'>session-19.scope</filename>), and also has a user manager instance
-      running (<filename noindex='true'>user@1000.service</filename>).  User with UID 1001 is logged
-      in using <command>ssh</command> (<filename noindex='true'>session-20.scope</filename>) and
+      (<filename index="false">session-19.scope</filename>), and also has a user manager instance
+      running (<filename index="false">user@1000.service</filename>).  User with UID 1001 is logged
+      in using <command>ssh</command> (<filename index="false">session-20.scope</filename>) and
       also has a user manager instance running (<filename
-      noindex='true'>user@1001.service</filename>).  Those are all (leaf) system units, and form
-      part of the slice hierarchy, with <filename noindex='true'>user-1000.slice</filename> and
-      <filename noindex='true'>user-1001.slice</filename> below <filename
-      noindex='true'>user.slice</filename>.  User units are visible below the
+      index="false">user@1001.service</filename>).  Those are all (leaf) system units, and form
+      part of the slice hierarchy, with <filename index="false">user-1000.slice</filename> and
+      <filename index="false">user-1001.slice</filename> below <filename
+      index="false">user.slice</filename>.  User units are visible below the
       <filename>user@.service</filename> instances (<filename
-      noindex='true'>pulseaudio.service</filename>, <filename
-      noindex='true'>gnome-terminal-server.service</filename>, <filename
-      noindex='true'>init.scope</filename>, <filename noindex='true'>sleep.service</filename>).
+      index="false">pulseaudio.service</filename>, <filename
+      index="false">gnome-terminal-server.service</filename>, <filename
+      index="false">init.scope</filename>, <filename index="false">sleep.service</filename>).
       </para>
     </example>
 

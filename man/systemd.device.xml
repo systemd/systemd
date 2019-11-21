@@ -51,7 +51,7 @@
 
     <para>Device units are named after the <filename>/sys</filename>
     and <filename>/dev</filename> paths they control. Example: the
-    device <filename noindex='true'>/dev/sda5</filename> is exposed in
+    device <filename index="false">/dev/sda5</filename> is exposed in
     systemd as <filename>dev-sda5.device</filename>. For details about
     the escaping logic used to convert a file system path to a unit
     name see

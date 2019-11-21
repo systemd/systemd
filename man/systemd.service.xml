@@ -1329,8 +1329,8 @@ WantedBy=multi-user.target</programlisting>
       <para><varname>Type=</varname><option>oneshot</option> are the
       only service units that may have more than one
       <varname>ExecStart=</varname> specified. For units with multiple
-      commands (<varname noindex="true">Type=oneshot</varname>), all commands will be run again.</para>
-      <para> For <varname noindex="true">Type=oneshot</varname>, <varname>Restart=</varname><option>always</option>
+      commands (<varname index="false">Type=oneshot</varname>), all commands will be run again.</para>
+      <para> For <varname index="false">Type=oneshot</varname>, <varname>Restart=</varname><option>always</option>
       and <varname>Restart=</varname><option>on-success</option> are <emphasis>not</emphasis> allowed.</para>
     </example>
 

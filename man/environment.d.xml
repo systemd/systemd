@@ -75,7 +75,7 @@
       <title>Example</title>
       <example>
         <title>Setup environment to allow access to a program installed in
-        <filename noindex='true'>/opt/foo</filename></title>
+        <filename index="false">/opt/foo</filename></title>
 
         <para><filename>/etc/environment.d/60-foo.conf</filename>:
         </para>
