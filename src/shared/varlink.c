@@ -1831,6 +1831,7 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
         Varlink *v = userdata;
         int r, e;
         usec_t until;
+        bool have_timeout;
 
         assert(s);
         assert(v);
@@ -1846,13 +1847,15 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
         r = varlink_get_timeout(v, &until);
         if (r < 0)
                 return r;
-        if (r > 0) {
+        have_timeout = r > 0;
+
+        if (have_timeout) {
                 r = sd_event_source_set_time(v->time_event_source, until);
                 if (r < 0)
                         return r;
         }
 
-        r = sd_event_source_set_enabled(v->time_event_source, r > 0 ? SD_EVENT_ON : SD_EVENT_OFF);
+        r = sd_event_source_set_enabled(v->time_event_source, have_timeout ? SD_EVENT_ON : SD_EVENT_OFF);
         if (r < 0)
                 return r;
 
