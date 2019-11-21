@@ -24,7 +24,7 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>/path/to/generator</command>
+      <command index='false'>/path/to/generator</command>
       <arg choice="plain"><replaceable>normal-dir</replaceable></arg>
       <arg choice="plain"><replaceable>early-dir</replaceable></arg>
       <arg choice="plain"><replaceable>late-dir</replaceable></arg>

@@ -574,8 +574,8 @@
       <varlistentry>
         <term><varname>TimeoutStopSec=</varname></term>
         <listitem><para>This option serves two purposes. First, it configures the time to wait for each
-        <constant>ExecStop=</constant> command. If any of them times out, subsequent <constant>ExecStop=</constant> commands
-        are skipped and the service will be terminated by <constant>SIGTERM</constant>. If no <constant>ExecStop=</constant>
+        <varname>ExecStop=</varname> command. If any of them times out, subsequent <varname>ExecStop=</varname> commands
+        are skipped and the service will be terminated by <constant>SIGTERM</constant>. If no <varname>ExecStop=</varname>
         commands are specified, the service gets the <constant>SIGTERM</constant> immediately. Second, it configures the time
         to wait for the service itself to stop. If it doesn't terminate in the specified time, it will be forcibly terminated
         by <constant>SIGKILL</constant> (see <varname>KillMode=</varname> in

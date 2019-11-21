@@ -27,7 +27,7 @@
 
       <para>Users might want to change two options in particular:</para>
 
-      <variablelist class='environment-variables'>
+      <variablelist>
         <varlistentry>
           <term><option>K</option></term>
 

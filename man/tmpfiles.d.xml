@@ -33,7 +33,7 @@
     <para><literallayout><filename>~/.config/user-tmpfiles.d/*.conf</filename>
 <filename>$XDG_RUNTIME_DIR/user-tmpfiles.d/*.conf</filename>
 <filename>~/.local/share/user-tmpfiles.d/*.conf</filename>
-<filename>…</filename>
+<filename index='false'>…</filename>
 <filename>/usr/share/user-tmpfiles.d/*.conf</filename>
     </literallayout></para>
 

@@ -190,7 +190,7 @@ def _extract_directives(directive_groups, formatting, page):
                 stor[text].append((pagename, section))
                 if text not in formatting:
                     # use element as formatted display
-                    if name.text[-1] in '= ':
+                    if name.text[-1] in "= '":
                         name.clear()
                     else:
                         name.tail = ''

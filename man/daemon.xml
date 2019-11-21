@@ -102,7 +102,7 @@
 
         <listitem><para>In the daemon process, write the daemon PID
         (as returned by <function>getpid()</function>) to a PID file,
-        for example <filename>/run/foobar.pid</filename> (for a
+        for example <filename index='false'>/run/foobar.pid</filename> (for a
         hypothetical daemon "foobar") to ensure that the daemon cannot
         be started more than once. This must be implemented in
         race-free fashion so that the PID file is only updated when it
