@@ -99,7 +99,7 @@ void journal_ratelimit_free(JournalRateLimit *r) {
         free(r);
 }
 
-_pure_ static bool journal_ratelimit_group_expired(JournalRateLimitGroup *g, usec_t ts) {
+static bool journal_ratelimit_group_expired(JournalRateLimitGroup *g, usec_t ts) {
         unsigned i;
 
         assert(g);
