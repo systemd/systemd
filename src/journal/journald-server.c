@@ -379,27 +379,23 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
 
 static JournalFile* find_journal(Server *s, uid_t uid) {
         _cleanup_free_ char *p = NULL;
-        int r;
         JournalFile *f;
-        sd_id128_t machine;
+        int r;
 
         assert(s);
 
-        /* A rotate that fails to create the new journal (ENOSPC) leaves the
-         * rotated journal as NULL.  Unless we revisit opening, even after
-         * space is made available we'll continue to return NULL indefinitely.
+        /* A rotate that fails to create the new journal (ENOSPC) leaves the rotated journal as NULL.  Unless
+         * we revisit opening, even after space is made available we'll continue to return NULL indefinitely.
          *
-         * system_journal_open() is a noop if the journals are already open, so
-         * we can just call it here to recover from failed rotates (or anything
-         * else that's left the journals as NULL).
+         * system_journal_open() is a noop if the journals are already open, so we can just call it here to
+         * recover from failed rotates (or anything else that's left the journals as NULL).
          *
          * Fixes https://github.com/systemd/systemd/issues/3968 */
         (void) system_journal_open(s, false, false);
 
-        /* We split up user logs only on /var, not on /run. If the
-         * runtime file is open, we write to it exclusively, in order
-         * to guarantee proper order as soon as we flush /run to
-         * /var and close the runtime file. */
+        /* We split up user logs only on /var, not on /run. If the runtime file is open, we write to it
+         * exclusively, in order to guarantee proper order as soon as we flush /run to /var and close the
+         * runtime file. */
 
         if (s->runtime_journal)
                 return s->runtime_journal;
@@ -411,22 +407,14 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (f)
                 return f;
 
-        r = sd_id128_get_machine(&machine);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to determine machine ID, using system log: %m");
-                return s->system_journal;
-        }
-
-        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/user-"UID_FMT".journal",
-                     SD_ID128_FORMAT_VAL(machine), uid) < 0) {
+        if (asprintf(&p, "%s/user-" UID_FMT ".journal", s->system_storage.path, uid) < 0) {
                 log_oom();
                 return s->system_journal;
         }
 
+        /* Too many open? Then let's close one (or more) */
         while (ordered_hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
-                /* Too many open? Then let's close one */
-                f = ordered_hashmap_steal_first(s->user_journals);
-                assert(f);
+                assert_se(f = ordered_hashmap_steal_first(s->user_journals));
                 (void) journal_file_close(f);
         }
 
@@ -434,14 +422,13 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (r < 0)
                 return s->system_journal;
 
-        server_add_acls(f, uid);
-
         r = ordered_hashmap_put(s->user_journals, UID_TO_PTR(uid), f);
         if (r < 0) {
                 (void) journal_file_close(f);
                 return s->system_journal;
         }
 
+        server_add_acls(f, uid);
         return f;
 }
 
