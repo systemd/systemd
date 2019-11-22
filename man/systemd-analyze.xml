@@ -348,8 +348,8 @@ DATAERR 65     BSD
     <refsect2>
       <title><command>systemd-analyze condition <replaceable>CONDITION</replaceable>...</command></title>
 
-      <para>This command will evaluate <varname noindex='true'>Condition*=...</varname> and
-      <varname noindex='true'>Assert*=...</varname> assignments, and print their values, and
+      <para>This command will evaluate <varname index="false">Condition*=...</varname> and
+      <varname index="false">Assert*=...</varname> assignments, and print their values, and
       the resulting value of the combined condition set. See
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       for a list of available conditions and asserts.</para>
@@ -602,7 +602,7 @@ Service b@0.service not loaded, b.socket cannot be started.
       policy is not validated too.</para>
 
       <example>
-      <title>Analyze <filename noindex="true">systemd-logind.service</filename></title>
+      <title>Analyze <filename index="false">systemd-logind.service</filename></title>
 
       <programlisting>$ systemd-analyze security --no-pager systemd-logind.service
   NAME                DESCRIPTION                              EXPOSURE

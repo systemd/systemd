@@ -709,7 +709,7 @@ ID_NET_LINK_FILE=/usr/lib/systemd/network/99-default.link
 </programlisting>
 
      <para>In this case, the interface was already renamed, so the <option>keep</option> policy specified as
-     the first option in <filename noindex='true'>99-default.link</filename> means that the existing name is
+     the first option in <filename index="false">99-default.link</filename> means that the existing name is
      preserved. If <option>keep</option> was removed, or if were in boot before the renaming has happened,
      we might get the following instead:</para>
 

@@ -356,11 +356,12 @@
         <para>Example: if a unit has the following,
         <programlisting>CapabilityBoundingSet=CAP_A CAP_B
 CapabilityBoundingSet=CAP_B CAP_C</programlisting>
-        then <constant>CAP_A</constant>, <constant>CAP_B</constant>, and <constant>CAP_C</constant> are set.
-        If the second line is prefixed with <literal>~</literal>, e.g.,
+        then <constant index='false'>CAP_A</constant>, <constant index='false'>CAP_B</constant>, and
+        <constant index='false'>CAP_C</constant> are set.  If the second line is prefixed with
+        <literal>~</literal>, e.g.,
         <programlisting>CapabilityBoundingSet=CAP_A CAP_B
 CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
-        then, only <constant>CAP_A</constant> is set.</para></listitem>
+        then, only <constant index='false'>CAP_A</constant> is set.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -994,8 +995,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <para>Example: if a system service unit has the following,
         <programlisting>RuntimeDirectory=foo/bar baz</programlisting>
         the service manager creates <filename>/run/foo</filename> (if it does not exist),
-        <filename>/run/foo/bar</filename>, and <filename>/run/baz</filename>. The directories
-        <filename>/run/foo/bar</filename> and <filename>/run/baz</filename> except <filename>/run/foo</filename> are
+
+        <filename index='false'>/run/foo/bar</filename>, and <filename index='false'>/run/baz</filename>. The
+        directories <filename index='false'>/run/foo/bar</filename> and
+        <filename index='false'>/run/baz</filename> except <filename index='false'>/run/foo</filename> are
         owned by the user and group specified in <varname>User=</varname> and <varname>Group=</varname>, and removed
         when the service is stopped.</para>
 

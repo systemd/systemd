@@ -140,7 +140,7 @@
     <example>
       <title>Invoke a program</title>
 
-      <para>This calls <filename noindex='true'>/bin/ls</filename>
+      <para>This calls <filename index="false">/bin/ls</filename>
       with standard output and error connected to the journal:</para>
 
       <programlisting># systemd-cat ls</programlisting>

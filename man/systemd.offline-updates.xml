@@ -35,13 +35,13 @@
       <listitem>
         <para>The package manager prepares system updates by downloading all (RPM or DEB or
         whatever) packages to update off-line in a special directory
-        <filename noindex="true">/var/lib/system-update</filename> (or
+        <filename index="false">/var/lib/system-update</filename> (or
         another directory of the package/upgrade manager's choice).</para>
       </listitem>
 
       <listitem>
         <para>When the user OK'ed the update, the symlink <filename>/system-update</filename> is
-        created that points to <filename noindex="true">/var/lib/system-update</filename> (or
+        created that points to <filename index="false">/var/lib/system-update</filename> (or
         wherever the directory with the upgrade files is located) and the system is rebooted. This
         symlink is in the root directory, since we need to check for it very early at boot, at a
         time where <filename>/var</filename> is not available yet.</para>
@@ -106,12 +106,12 @@
     <orderedlist>
       <listitem>
         <para>To make things a bit more robust we recommend hooking the update script into
-        <filename>system-update.target</filename> via a <filename noindex='true'>.wants/</filename>
+        <filename>system-update.target</filename> via a <filename index="false">.wants/</filename>
         symlink in the distribution package, rather than depending on <command>systemctl
         enable</command> in the postinst scriptlets of your package. More specifically, for your
         update script create a .service file, without [Install] section, and then add a symlink like
-        <filename noindex='true'>/usr/lib/systemd/system-update.target.wants/foobar.service</filename>
-        → <filename noindex='true'>../foobar.service</filename> to your package.</para>
+        <filename index="false">/usr/lib/systemd/system-update.target.wants/foobar.service</filename>
+        → <filename index="false">../foobar.service</filename> to your package.</para>
       </listitem>
 
       <listitem>
@@ -144,7 +144,7 @@
         <varname>Wants=system-update-pre.target</varname> and
         <varname>Before=system-update-pre.target</varname> and add a symlink
         to that file under
-        <filename noindex='true'>/usr/lib/systemd/system-update.target.wants</filename>
+        <filename index="false">/usr/lib/systemd/system-update.target.wants</filename>
         .</para>
       </listitem>
     </orderedlist>

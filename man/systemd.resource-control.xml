@@ -91,7 +91,7 @@
       <variablelist>
 
         <varlistentry>
-          <term><option>CPU</option></term>
+          <term>CPU</term>
           <listitem>
             <para><varname>CPUWeight=</varname> and <varname>StartupCPUWeight=</varname> replace
             <varname>CPUShares=</varname> and <varname>StartupCPUShares=</varname>, respectively.</para>
@@ -101,7 +101,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>Memory</option></term>
+          <term>Memory</term>
           <listitem>
             <para><varname>MemoryMax=</varname> replaces <varname>MemoryLimit=</varname>. <varname>MemoryLow=</varname>
             and <varname>MemoryHigh=</varname> are effective only on unified hierarchy.</para>
@@ -109,10 +109,11 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>IO</option></term>
+          <term>IO</term>
           <listitem>
-            <para><varname>IO</varname> prefixed settings are a superset of and replace <varname>BlockIO</varname>
-            prefixed ones. On unified hierarchy, IO resource control also applies to buffered writes.</para>
+            <para><literal>IO</literal>-prefixed settings are a superset of and replace
+            <literal>BlockIO</literal>-prefixed ones. On unified hierarchy, IO resource control also applies
+            to buffered writes.</para>
           </listitem>
         </varlistentry>
 

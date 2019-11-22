@@ -300,7 +300,7 @@
           again. Previously, this naming policy applied implicitly, and now it must be explicitly
           requested. Effectively, this means that network devices will be renamed according to the
           configuration, even if they have been renamed already, if <constant>keep</constant> is not
-          specified as the naming policy in the <filename noindex='true'>.link</filename> file. See
+          specified as the naming policy in the <filename index="false">.link</filename> file. See
           <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for a description of <varname>NamePolicy=</varname>.</para></listitem>
         </varlistentry>
@@ -310,7 +310,7 @@
 
           <listitem><para><option>MACAddressPolicy=persistent</option> was extended to set MAC addresses
           based on the device name. Previously addresses were only based on the
-          <varname noindex='true'>ID_NET_NAME_*</varname> attributes, which meant that interface names would
+          <varname index="false">ID_NET_NAME_*</varname> attributes, which meant that interface names would
           never be generated for virtual devices. Now a persistent address will be generated for most
           devices, including in particular bridges.</para>
 

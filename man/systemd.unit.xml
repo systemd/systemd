@@ -48,7 +48,7 @@
 <filename>/run/systemd/system/*</filename>
 <filename>/run/systemd/systemd.attached/*</filename>
 <filename>/run/systemd/generator/*</filename>
-<filename>…</filename>
+<filename index='false'>…</filename>
 <filename>/usr/lib/systemd/system/*</filename>
 <filename>/run/systemd/generator.late/*</filename></literallayout></para>
     </refsect2>
@@ -65,7 +65,7 @@
 <filename>/run/systemd/user/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/generator/*</filename>
 <filename>~/.local/share/systemd/user/*</filename>
-<filename>…</filename>
+<filename index='false'>…</filename>
 <filename>/usr/lib/systemd/user/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/generator.late/*</filename></literallayout></para>
     </refsect2>
@@ -246,7 +246,7 @@
     escaping is used, in order to map strings containing arbitrary byte values (except NUL) into valid unit names and
     their restricted character set. A common special case are unit names that reflect paths to objects in the file
     system hierarchy. Example: a device unit <filename>dev-sda.device</filename> refers to a device with the device
-    node <filename noindex='true'>/dev/sda</filename> in the file system.</para>
+    node <filename index="false">/dev/sda</filename> in the file system.</para>
 
     <para>The escaping algorithm operates as follows: given a string, any <literal>/</literal> character is replaced by
     <literal>-</literal>, and all other characters which are not ASCII alphanumerics or <literal>_</literal> are
@@ -435,7 +435,7 @@
             <entry>Units of packages that have been installed in the home directory (<varname>$XDG_DATA_HOME</varname> is used if set, <filename>~/.local/share</filename> otherwise)</entry>
           </row>
           <row>
-            <entry><filename>$dir/systemd/user</filename> for each <varname noindex='true'>$dir</varname> in <varname>$XDG_DATA_DIRS</varname></entry>
+            <entry><filename>$dir/systemd/user</filename> for each <varname index="false">$dir</varname> in <varname>$XDG_DATA_DIRS</varname></entry>
             <entry>Additional locations for installed user units, one for each entry in <varname>$XDG_DATA_DIRS</varname></entry>
           </row>
           <row>
@@ -1026,8 +1026,8 @@
     <refsect2>
       <title>Conditions and Asserts</title>
 
-      <para>Unit files may also include a number of <varname noindex="true">Condition…=</varname> and
-      <varname noindex="true">Assert…=</varname> settings. Before the unit is started, systemd will verify
+      <para>Unit files may also include a number of <varname index="false">Condition…=</varname> and
+      <varname index="false">Assert…=</varname> settings. Before the unit is started, systemd will verify
       that the specified conditions are true. If not, the starting of the unit will be (mostly silently)
       skipped. Failing conditions will not result in the unit being moved into the <literal>failed</literal>
       state. The conditions are checked at the time the queued start job is to be executed. The ordering
@@ -1731,7 +1731,7 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
           <row>
             <entry><literal>%L</literal></entry>
             <entry>Log directory root</entry>
-            <entry>This is either <filename>/var/log</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to with <filename noindex='true'>/log</filename> appended (for user managers).</entry>
+            <entry>This is either <filename>/var/log</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to with <filename index="false">/log</filename> appended (for user managers).</entry>
           </row>
           <row>
             <entry><literal>%m</literal></entry>

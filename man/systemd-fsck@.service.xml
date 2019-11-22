@@ -51,7 +51,7 @@
     <para><filename>systemd-fsck</filename> does not know any details
     about specific filesystems, and simply executes file system
     checkers specific to each filesystem type
-    (<filename>/sbin/fsck.*</filename>). These checkers will decide if
+    (<filename>/sbin/fsck.<replaceable>type</replaceable></filename>). These checkers will decide if
     the filesystem should actually be checked based on the time since
     last check, number of mounts, unclean unmount, etc.</para>
 

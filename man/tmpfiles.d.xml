@@ -33,7 +33,7 @@
     <para><literallayout><filename>~/.config/user-tmpfiles.d/*.conf</filename>
 <filename>$XDG_RUNTIME_DIR/user-tmpfiles.d/*.conf</filename>
 <filename>~/.local/share/user-tmpfiles.d/*.conf</filename>
-<filename>…</filename>
+<filename index='false'>…</filename>
 <filename>/usr/share/user-tmpfiles.d/*.conf</filename>
     </literallayout></para>
 
@@ -654,7 +654,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
             <row>
               <entry><literal>%L</literal></entry>
               <entry>System or user log directory</entry>
-              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CONFIG_HOME</varname> with <filename noindex='true'>/log</filename> appended, and <filename>/var/log</filename> otherwise.</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CONFIG_HOME</varname> with <filename index="false">/log</filename> appended, and <filename>/var/log</filename> otherwise.</entry>
             </row>
             <row>
               <entry><literal>%m</literal></entry>

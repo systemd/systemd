@@ -1366,7 +1366,7 @@
 # systemd-nspawn -bD /var/lib/machines/f&fedora_latest_version;</programlisting>
 
       <para>This installs a minimal Fedora distribution into the
-      directory <filename noindex='true'>/var/lib/machines/f&fedora_latest_version;</filename>
+      directory <filename index="false">/var/lib/machines/f&fedora_latest_version;</filename>
       and then boots an OS in a namespace container in it. Because the installation
       is located underneath the standard <filename>/var/lib/machines/</filename>
       directory, it is also possible to start the machine using

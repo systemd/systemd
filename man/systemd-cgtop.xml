@@ -42,7 +42,7 @@
 
     <para>If <command>systemd-cgtop</command> is not connected to a
     tty, no column headers are printed and the default is to only run
-    one iteration.  The <varname>--iterations=</varname> argument, if
+    one iteration. The <option>--iterations=</option> argument, if
     given, is honored. This mode is suitable for scripting.</para>
 
     <para>Resource usage is only accounted for control groups in the
