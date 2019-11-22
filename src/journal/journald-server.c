@@ -2177,11 +2177,11 @@ int server_init(Server *s) {
 
         s->ratelimit = journal_ratelimit_new();
         if (!s->ratelimit)
-                return -ENOMEM;
+                return log_oom();
 
         r = cg_get_root_path(&s->cgroup_root);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to acquire cgroup root path: %m");
 
         server_cache_hostname(s);
         server_cache_boot_id(s);
@@ -2190,7 +2190,7 @@ int server_init(Server *s) {
         s->runtime_storage.path = path_join("/run/log/journal", SERVER_MACHINE_ID(s));
         s->system_storage.path  = path_join("/var/log/journal", SERVER_MACHINE_ID(s));
         if (!s->runtime_storage.path || !s->system_storage.path)
-                return -ENOMEM;
+                return log_oom();
 
         (void) server_connect_notify(s);
 
