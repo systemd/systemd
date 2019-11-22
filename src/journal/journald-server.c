@@ -2043,7 +2043,7 @@ int server_init(Server *s) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
-        if (!!s->ratelimit_interval ^ !!s->ratelimit_burst) {
+        if (!!s->ratelimit_interval != !!s->ratelimit_burst) { /* One set to 0 and the other not? */
                 log_debug("Setting both rate limit interval and burst from "USEC_FMT",%u to 0,0",
                           s->ratelimit_interval, s->ratelimit_burst);
                 s->ratelimit_interval = s->ratelimit_burst = 0;
