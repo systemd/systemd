@@ -98,7 +98,7 @@ units = [
         ['systemd-poweroff.service',             ''],
         ['systemd-reboot.service',               ''],
         ['systemd-rfkill.socket',               'ENABLE_RFKILL'],
-        ['systemd-tmpfiles-clean.timer',        '',
+        ['systemd-tmpfiles-clean.timer',        'ENABLE_TMPFILES',
          'timers.target.wants/'],
         ['systemd-udevd-control.socket',        '',
          'sockets.target.wants/'],
