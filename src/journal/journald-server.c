@@ -741,8 +741,7 @@ static void server_cache_hostname(Server *s) {
         if (!x)
                 return;
 
-        free(s->hostname_field);
-        s->hostname_field = x;
+        free_and_replace(s->hostname_field, x);
 }
 
 static bool shall_try_append_again(JournalFile *f, int r) {
