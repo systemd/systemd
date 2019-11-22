@@ -169,6 +169,8 @@ basic_sources = files('''
         process-util.h
         procfs-util.c
         procfs-util.h
+        quota-util.c
+        quota-util.h
         random-util.c
         random-util.h
         ratelimit.c
