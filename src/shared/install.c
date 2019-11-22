@@ -1290,9 +1290,21 @@ static int unit_file_load(
         assert(c);
 
         r = config_parse(info->name, path, f,
-                         NULL,
+                         "Install\0"
+                         "-Unit\0"
+                         "-Automount\0"
+                         "-Device\0"
+                         "-Mount\0"
+                         "-Path\0"
+                         "-Scope\0"
+                         "-Service\0"
+                         "-Slice\0"
+                         "-Socket\0"
+                         "-Swap\0"
+                         "-Target\0"
+                         "-Timer\0",
                          config_item_table_lookup, items,
-                         CONFIG_PARSE_RELAXED|CONFIG_PARSE_ALLOW_INCLUDE, info);
+                         CONFIG_PARSE_ALLOW_INCLUDE, info);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse %s: %m", info->name);
 
