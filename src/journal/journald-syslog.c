@@ -25,7 +25,12 @@
 /* Warn once every 30s if we missed syslog message */
 #define WARN_FORWARD_SYSLOG_MISSED_USEC (30 * USEC_PER_SEC)
 
-static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, const struct ucred *ucred, const struct timeval *tv) {
+static void forward_syslog_iovec(
+                Server *s,
+                const struct iovec *iovec,
+                unsigned n_iovec,
+                const struct ucred *ucred,
+                const struct timeval *tv) {
 
         static const union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
