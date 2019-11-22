@@ -14,9 +14,9 @@
 /* An abstract parser for simple, line based, shallow configuration files consisting of variable assignments only. */
 
 typedef enum ConfigParseFlags {
-        CONFIG_PARSE_RELAXED       = 1 << 0,
-        CONFIG_PARSE_ALLOW_INCLUDE = 1 << 1,
-        CONFIG_PARSE_WARN          = 1 << 2,
+        CONFIG_PARSE_RELAXED       = 1 << 0, /* Do not warn about unknown non-extension fields */
+        CONFIG_PARSE_ALLOW_INCLUDE = 1 << 1, /* Allow the deprecated .include stanza */
+        CONFIG_PARSE_WARN          = 1 << 2, /* Emit non-debug messages */
 } ConfigParseFlags;
 
 /* Argument list for parsers of specific configuration settings. */
