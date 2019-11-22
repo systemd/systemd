@@ -1340,7 +1340,9 @@ static void cgroup_context_apply(
 
         /* On cgroup v2 we can apply BPF everywhere. On cgroup v1 we apply it everywhere except for the root of
          * containers, where we leave this to the manager */
-        if ((apply_mask & (CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES)) &&
+
+        CGroupMask devices_mask = CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES;
+        if ((apply_mask & devices_mask) == devices_mask &&
             (is_host_root || cg_all_unified() > 0 || !is_local_root))
                 (void) cgroup_apply_devices(u);
 
@@ -1450,8 +1452,9 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
             unit_has_unified_memory_config(u))
                 mask |= CGROUP_MASK_MEMORY;
 
-        if (c->device_allow ||
-            c->device_policy != CGROUP_DEVICE_POLICY_AUTO)
+        if ((c->device_allow ||
+             c->device_policy != CGROUP_DEVICE_POLICY_AUTO)
+            && bpf_devices_supported())
                 mask |= CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES;
 
         if (c->tasks_accounting ||
@@ -1970,11 +1973,13 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         if (set_isempty(pids))
                 return 0;
 
-        /* Load any custom firewall BPF programs here once to test if they are existing and actually loadable.
-         * Fail here early since later errors in the call chain unit_realize_cgroup to cgroup_context_apply are ignored. */
-        r = bpf_firewall_load_custom(u);
-        if (r < 0)
-                return r;
+        if (bpf_firewall_supported()) {
+                /* Load any custom firewall BPF programs here once to test if they are existing and actually loadable.
+                 * Fail here early since later errors in the call chain unit_realize_cgroup to cgroup_context_apply are ignored. */
+                r = bpf_firewall_load_custom(u);
+                if (r < 0)
+                        return r;
+        }
 
         r = unit_realize_cgroup(u);
         if (r < 0)
@@ -2431,6 +2436,12 @@ void unit_release_cgroup(Unit *u) {
         }
 }
 
+static void unit_prune_cgroup_bpf(Unit *u) {
+#if HAVE_LIBBPF
+        u->bpf_device_control_installed = bpf_program_unref(u->bpf_device_control_installed);
+#endif
+}
+
 void unit_prune_cgroup(Unit *u) {
         int r;
         bool is_root_slice;
@@ -2464,7 +2475,7 @@ void unit_prune_cgroup(Unit *u) {
         u->cgroup_realized_mask = 0;
         u->cgroup_enabled_mask = 0;
 
-        u->bpf_device_control_installed = bpf_program_unref(u->bpf_device_control_installed);
+        unit_prune_cgroup_bpf(u);
 }
 
 int unit_search_main_pid(Unit *u, pid_t *ret) {

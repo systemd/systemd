@@ -581,6 +581,22 @@ static void unit_done(Unit *u) {
                 cgroup_context_done(cc);
 }
 
+static void unit_free_bpf(Unit *u) {
+#if HAVE_LIBBPF
+        bpf_program_unref(u->ip_bpf_ingress);
+        bpf_program_unref(u->ip_bpf_ingress_installed);
+        bpf_program_unref(u->ip_bpf_egress);
+        bpf_program_unref(u->ip_bpf_egress_installed);
+
+        set_free(u->ip_bpf_custom_ingress);
+        set_free(u->ip_bpf_custom_egress);
+        set_free(u->ip_bpf_custom_ingress_installed);
+        set_free(u->ip_bpf_custom_egress_installed);
+
+        bpf_program_unref(u->bpf_device_control_installed);
+#endif
+}
+
 void unit_free(Unit *u) {
         UnitDependency d;
         Iterator i;
@@ -689,17 +705,7 @@ void unit_free(Unit *u) {
         safe_close(u->ipv4_deny_map_fd);
         safe_close(u->ipv6_deny_map_fd);
 
-        bpf_program_unref(u->ip_bpf_ingress);
-        bpf_program_unref(u->ip_bpf_ingress_installed);
-        bpf_program_unref(u->ip_bpf_egress);
-        bpf_program_unref(u->ip_bpf_egress_installed);
-
-        set_free(u->ip_bpf_custom_ingress);
-        set_free(u->ip_bpf_custom_egress);
-        set_free(u->ip_bpf_custom_ingress_installed);
-        set_free(u->ip_bpf_custom_egress_installed);
-
-        bpf_program_unref(u->bpf_device_control_installed);
+        unit_free_bpf(u);
 
         condition_free_list(u->conditions);
         condition_free_list(u->asserts);
@@ -5671,11 +5677,13 @@ int unit_prepare_exec(Unit *u) {
 
         assert(u);
 
-        /* Load any custom firewall BPF programs here once to test if they are existing and actually loadable.
-         * Fail here early since later errors in the call chain unit_realize_cgroup to cgroup_context_apply are ignored. */
-        r = bpf_firewall_load_custom(u);
-        if (r < 0)
-                return r;
+        if (bpf_firewall_supported()) {
+                /* Load any custom firewall BPF programs here once to test if they are existing and actually loadable.
+                 * Fail here early since later errors in the call chain unit_realize_cgroup to cgroup_context_apply are ignored. */
+                r = bpf_firewall_load_custom(u);
+                if (r < 0)
+                        return r;
+        }
 
         /* Prepares everything so that we can fork of a process for this unit */
 

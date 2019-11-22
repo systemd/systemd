@@ -4576,6 +4576,11 @@ int config_parse_ip_filter_bpf_progs(
         assert(rvalue);
         assert(paths);
 
+#if !(HAVE_LIBBPF)
+        log_syntax(unit, LOG_ERR, filename, line, -1, "libbpf is not found, ignoring %m");
+        return 0;
+#endif
+
         if (isempty(rvalue)) {
                 *paths = strv_free(*paths);
                 return 0;

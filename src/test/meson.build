@@ -428,26 +428,6 @@ tests += [
          [libbasic],
          []],
 
-        [['src/test/test-bpf-devices.c'],
-         [libcore,
-          libshared],
-         [libmount,
-          threads,
-          librt,
-          libseccomp,
-          libselinux,
-          libblkid]],
-
-        [['src/test/test-bpf-firewall.c'],
-         [libcore,
-          libshared],
-         [libmount,
-          threads,
-          librt,
-          libseccomp,
-          libselinux,
-          libblkid]],
-
         [['src/test/test-watch-pid.c'],
          [libcore,
           libshared],
@@ -779,6 +759,30 @@ tests += [
          [],
          []],
 ]
+
+if conf.get('HAVE_LIBBPF') == 1
+        tests += [
+        [['src/test/test-bpf-devices.c'],
+         [libcore,
+          libshared],
+         [libmount,
+          threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libblkid]],
+
+        [['src/test/test-bpf-firewall.c'],
+         [libcore,
+          libshared],
+         [libmount,
+          threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libblkid]],
+]
+endif
 
 ############################################################
 

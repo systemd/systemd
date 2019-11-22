@@ -16,9 +16,7 @@ libcore_sources = '''
         audit-fd.h
         automount.c
         automount.h
-        bpf-devices.c
         bpf-devices.h
-        bpf-firewall.c
         bpf-firewall.h
         cgroup.c
         cgroup.h
@@ -127,6 +125,19 @@ libcore_sources = '''
         unit.c
         unit.h
 '''.split()
+
+have_libbpf = conf.get('HAVE_LIBBPF')
+if have_libbpf == 1
+        libcore_sources += files('''
+        bpf-devices.c
+        bpf-firewall.c
+        '''.split())
+elif have_libbpf == 0
+        libcore_sources += files('''
+        bpf-devices-mock.c
+        bpf-firewall-mock.c
+        '''.split())
+endif
 
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',

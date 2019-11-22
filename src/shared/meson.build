@@ -12,6 +12,7 @@ shared_sources = files('''
         barrier.h
         base-filesystem.c
         base-filesystem.h
+        bpf-program.h
         bitmap.c
         bitmap.h
         blkid-util.h
@@ -19,8 +20,6 @@ shared_sources = files('''
         boot-timestamps.h
         bootspec.c
         bootspec.h
-        bpf-program.c
-        bpf-program.h
         bus-unit-procs.c
         bus-unit-procs.h
         bus-unit-util.c
@@ -256,6 +255,16 @@ if conf.get('HAVE_PAM') == 1
 '''.split())
 endif
 
+if conf.get('HAVE_LIBBPF') == 1
+        shared_sources += files('''
+        bpf-program.c
+        '''.split())
+elif conf.get('HAVE_LIBBPF') == 0
+        shared_sources += files('''
+        bpf-program-mock.c
+        '''.split())
+endif
+
 generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
 ip_protocol_list_txt = custom_target(
         'ip-protocol-list.txt',
@@ -331,7 +340,7 @@ libshared = shared_library(
         libshared_name,
         libudev_sources,
         include_directories : includes,
-        link_args : ['-shared',
+        link_args : ['-shared', '-fPIC',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_whole : [libshared_static,
                       libbasic,

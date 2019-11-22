@@ -870,6 +870,9 @@ if not libcap.found()
         libcap = cc.find_library('cap')
 endif
 
+libbpf = dependency('libbpf', required : false, static : true)
+conf.set10('HAVE_LIBBPF', libbpf.found())
+
 libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30')
 
