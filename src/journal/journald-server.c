@@ -163,13 +163,19 @@ static void patch_min_use(JournalStorage *storage) {
         storage->metrics.min_use = MAX(storage->metrics.min_use, storage->space.vfs_used);
 }
 
+static JournalStorage* server_current_storage(Server *s) {
+        assert(s);
+
+        return s->system_journal ? &s->system_storage : &s->runtime_storage;
+}
+
 static int determine_space(Server *s, uint64_t *available, uint64_t *limit) {
         JournalStorage *js;
         int r;
 
         assert(s);
 
-        js = s->system_journal ? &s->system_storage : &s->runtime_storage;
+        js = server_current_storage(s);
 
         r = cache_space_refresh(s, js);
         if (r >= 0) {
@@ -189,7 +195,7 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
         assert(s);
 
         if (!storage)
-                storage = s->system_journal ? &s->system_storage : &s->runtime_storage;
+                storage = server_current_storage(s);
 
         if (cache_space_refresh(s, storage) < 0)
                 return;
