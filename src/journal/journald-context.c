@@ -117,23 +117,24 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
         if (r < 0)
                 return r;
 
-        c = new0(ClientContext, 1);
+        c = new(ClientContext, 1);
         if (!c)
                 return -ENOMEM;
 
-        c->pid = pid;
-
-        c->uid = UID_INVALID;
-        c->gid = GID_INVALID;
-        c->auditid = AUDIT_SESSION_INVALID;
-        c->loginuid = UID_INVALID;
-        c->owner_uid = UID_INVALID;
-        c->lru_index = PRIOQ_IDX_NULL;
-        c->timestamp = USEC_INFINITY;
-        c->extra_fields_mtime = NSEC_INFINITY;
-        c->log_level_max = -1;
-        c->log_ratelimit_interval = s->ratelimit_interval;
-        c->log_ratelimit_burst = s->ratelimit_burst;
+        *c = (ClientContext) {
+                .pid = pid,
+                .uid = UID_INVALID,
+                .gid = GID_INVALID,
+                .auditid = AUDIT_SESSION_INVALID,
+                .loginuid = UID_INVALID,
+                .owner_uid = UID_INVALID,
+                .lru_index = PRIOQ_IDX_NULL,
+                .timestamp = USEC_INFINITY,
+                .extra_fields_mtime = NSEC_INFINITY,
+                .log_level_max = -1,
+                .log_ratelimit_interval = s->ratelimit_interval,
+                .log_ratelimit_burst = s->ratelimit_burst,
+        };
 
         r = hashmap_put(s->client_contexts, PID_TO_PTR(pid), c);
         if (r < 0) {
