@@ -17,6 +17,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "journald-console.h"
 #include "journald-context.h"
@@ -139,7 +140,7 @@ void stdout_stream_destroy(StdoutStream *s) {
 }
 
 static int stdout_stream_save(StdoutStream *s) {
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -214,6 +215,8 @@ static int stdout_stream_save(StdoutStream *s) {
                 goto fail;
         }
 
+        temp_path = mfree(temp_path);
+
         if (!s->fdstore && !s->in_notify_queue) {
                 LIST_PREPEND(stdout_stream_notify_queue, s->server->stdout_streams_notify_queue, s);
                 s->in_notify_queue = true;
@@ -229,10 +232,6 @@ static int stdout_stream_save(StdoutStream *s) {
 
 fail:
         (void) unlink(s->state_file);
-
-        if (temp_path)
-                (void) unlink(temp_path);
-
         return log_error_errno(r, "Failed to save stream data %s: %m", s->state_file);
 }
 
