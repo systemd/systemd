@@ -221,8 +221,19 @@ static int parse_line(
                         return -ENOMEM;
 
                 if (sections && !nulstr_contains(sections, n)) {
+                        bool ignore = flags & CONFIG_PARSE_RELAXED;
+                        const char *t;
 
-                        if (!(flags & CONFIG_PARSE_RELAXED) && !startswith(n, "X-"))
+                        ignore = ignore || startswith(n, "X-");
+
+                        if (!ignore)
+                                NULSTR_FOREACH(t, sections)
+                                        if (streq_ptr(n, startswith(t, "-"))) {
+                                                ignore = true;
+                                                break;
+                                        }
+
+                        if (!ignore)
                                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown section '%s'. Ignoring.", n);
 
                         free(n);
