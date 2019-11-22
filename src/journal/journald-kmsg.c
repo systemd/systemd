@@ -416,15 +416,17 @@ fail:
 }
 
 int server_open_kernel_seqnum(Server *s) {
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
         uint64_t *p;
         int r;
 
         assert(s);
 
-        /* We store the seqnum we last read in an mmaped file. That
-         * way we can just use it like a variable, but it is
-         * persistent and automatically flushed at reboot. */
+        /* We store the seqnum we last read in an mmaped file. That way we can just use it like a variable,
+         * but it is persistent and automatically flushed at reboot. */
+
+        if (!s->read_kmsg)
+                return 0;
 
         fd = open("/run/systemd/journal/kernel-seqnum", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
         if (fd < 0) {
