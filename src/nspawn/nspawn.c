@@ -492,6 +492,46 @@ static int detect_unified_cgroup_hierarchy_from_image(const char *directory) {
         return 0;
 }
 
+static int parse_capability_spec(const char *spec, uint64_t *ret_mask) {
+        uint64_t mask = 0;
+        int r;
+
+        for (;;) {
+                _cleanup_free_ char *t = NULL;
+
+                r = extract_first_word(&spec, &t, ",", 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse capability %s.", t);
+                if (r == 0)
+                        break;
+
+                if (streq(t, "help")) {
+                        for (int i = 0; i < capability_list_length(); i++) {
+                                const char *name;
+
+                                name = capability_to_name(i);
+                                if (name)
+                                        puts(name);
+                        }
+
+                        return 0; /* quit */
+                }
+
+                if (streq(t, "all"))
+                        mask = (uint64_t) -1;
+                else {
+                        r = capability_from_name(t);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse capability %s.", t);
+
+                        mask |= 1ULL << r;
+                }
+        }
+
+        *ret_mask = mask;
+        return 1; /* continue */
+}
+
 static int parse_share_ns_env(const char *name, unsigned long ns_flag) {
         int r;
 
@@ -695,7 +735,6 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int c, r;
-        const char *p;
         uint64_t plus = 0, minus = 0;
         bool mask_all_settings = false, mask_no_settings = false;
 
@@ -937,37 +976,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CAPABILITY:
                 case ARG_DROP_CAPABILITY: {
-                        p = optarg;
-                        for (;;) {
-                                _cleanup_free_ char *t = NULL;
+                        uint64_t m;
+                        r = parse_capability_spec(optarg, &m);
+                        if (r <= 0)
+                                return r;
 
-                                r = extract_first_word(&p, &t, ",", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse capability %s.", t);
-                                if (r == 0)
-                                        break;
-
-                                if (streq(t, "all")) {
-                                        if (c == ARG_CAPABILITY)
-                                                plus = (uint64_t) -1;
-                                        else
-                                                minus = (uint64_t) -1;
-                                } else {
-                                        r = capability_from_name(t);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to parse capability %s.", t);
-
-                                        if (c == ARG_CAPABILITY)
-                                                plus |= 1ULL << r;
-                                        else
-                                                minus |= 1ULL << r;
-                                }
-                        }
-
+                        if (c == ARG_CAPABILITY)
+                                plus |= m;
+                        else
+                                minus |= m;
                         arg_settings_mask |= SETTING_CAPABILITY;
                         break;
                 }
-
                 case ARG_NO_NEW_PRIVILEGES:
                         r = parse_boolean(optarg);
                         if (r < 0)

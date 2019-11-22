@@ -754,7 +754,7 @@
         container, with the exception of the loopback device and those
         specified with <option>--network-interface=</option> and
         configured with <option>--network-veth</option>. If this
-        option is specified, the CAP_NET_ADMIN capability will be
+        option is specified, the <constant>CAP_NET_ADMIN</constant> capability will be
         added to the set of capabilities the container retains. The
         latter may be disabled by using <option>--drop-capability=</option>.
         If this option is not specified (or implied by one of the options
@@ -943,17 +943,27 @@
       <varlistentry>
         <term><option>--capability=</option></term>
 
-        <listitem><para>List one or more additional capabilities to grant the container.
-        Takes a comma-separated list of capability names, see
-        <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <listitem><para>List one or more additional capabilities to grant the container.  Takes a
+        comma-separated list of capability names, see <citerefentry
+        project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for more information. Note that the following capabilities will be granted in any way:
-        CAP_AUDIT_CONTROL, CAP_AUDIT_WRITE, CAP_CHOWN, CAP_DAC_OVERRIDE, CAP_DAC_READ_SEARCH,
-        CAP_FOWNER, CAP_FSETID, CAP_IPC_OWNER, CAP_KILL, CAP_LEASE, CAP_LINUX_IMMUTABLE,
-        CAP_MKNOD, CAP_NET_BIND_SERVICE, CAP_NET_BROADCAST, CAP_NET_RAW, CAP_SETFCAP,
-        CAP_SETGID, CAP_SETPCAP, CAP_SETUID, CAP_SYS_ADMIN, CAP_SYS_BOOT, CAP_SYS_CHROOT,
-        CAP_SYS_NICE, CAP_SYS_PTRACE, CAP_SYS_RESOURCE, CAP_SYS_TTY_CONFIG. Also CAP_NET_ADMIN
-        is retained if <option>--private-network</option> is specified.  If the special value
-        <literal>all</literal> is passed, all capabilities are retained.</para></listitem>
+        <constant>CAP_AUDIT_CONTROL</constant>, <constant>CAP_AUDIT_WRITE</constant>,
+        <constant>CAP_CHOWN</constant>, <constant>CAP_DAC_OVERRIDE</constant>,
+        <constant>CAP_DAC_READ_SEARCH</constant>, <constant>CAP_FOWNER</constant>,
+        <constant>CAP_FSETID</constant>, <constant>CAP_IPC_OWNER</constant>, <constant>CAP_KILL</constant>,
+        <constant>CAP_LEASE</constant>, <constant>CAP_LINUX_IMMUTABLE</constant>,
+        <constant>CAP_MKNOD</constant>, <constant>CAP_NET_BIND_SERVICE</constant>,
+        <constant>CAP_NET_BROADCAST</constant>, <constant>CAP_NET_RAW</constant>,
+        <constant>CAP_SETFCAP</constant>, <constant>CAP_SETGID</constant>, <constant>CAP_SETPCAP</constant>,
+        <constant>CAP_SETUID</constant>, <constant>CAP_SYS_ADMIN</constant>,
+        <constant>CAP_SYS_BOOT</constant>, <constant>CAP_SYS_CHROOT</constant>,
+        <constant>CAP_SYS_NICE</constant>, <constant>CAP_SYS_PTRACE</constant>,
+        <constant>CAP_SYS_RESOURCE</constant>, <constant>CAP_SYS_TTY_CONFIG</constant>. Also
+        <constant>CAP_NET_ADMIN</constant> is retained if <option>--private-network</option> is specified.
+        If the special value <literal>all</literal> is passed, all capabilities are retained.</para>
+
+        <para>If the special value of <literal>help</literal> is passed, the program will print known
+        capability names and exit.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -962,7 +972,10 @@
         <listitem><para>Specify one or more additional capabilities to
         drop for the container. This allows running the container with
         fewer capabilities than the default (see
-        above).</para></listitem>
+        above).</para>
+
+        <para>If the special value of <literal>help</literal> is passed, the program will print known
+        capability names and exit.</para></listitem>
       </varlistentry>
 
       <varlistentry>

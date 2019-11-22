@@ -330,36 +330,107 @@ int machine_load(Machine *m) {
         return r;
 }
 
-static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
+static int machine_start_scope(
+                Machine *machine,
+                sd_bus_message *more_properties,
+                sd_bus_error *error) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_free_ char *escaped = NULL, *unit = NULL;
+        const char *description;
+        int r;
+
+        assert(machine);
+        assert(machine->leader > 0);
+        assert(!machine->unit);
+
+        escaped = unit_name_escape(machine->name);
+        if (!escaped)
+                return log_oom();
+
+        unit = strjoin("machine-", escaped, ".scope");
+        if (!unit)
+                return log_oom();
+
+        r = sd_bus_message_new_method_call(
+                        machine->manager->bus,
+                        &m,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartTransientUnit");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "ss", unit, "fail");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "(sv)", "Slice", "s", SPECIAL_MACHINE_SLICE);
+        if (r < 0)
+                return r;
+
+        description = strjoina(machine->class == MACHINE_VM ? "Virtual Machine " : "Container ", machine->name);
+        r = sd_bus_message_append(m, "(sv)", "Description", "s", description);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
+                                  "PIDs", "au", 1, machine->leader,
+                                  "Delegate", "b", 1,
+                                  "CollectMode", "s", "inactive-or-failed",
+                                  "AddRef", "b", 1,
+                                  "TasksMax", "t", UINT64_C(16384));
+        if (r < 0)
+                return r;
+
+        if (more_properties) {
+                r = sd_bus_message_copy(m, more_properties, true);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "a(sa(sv))", 0);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call(NULL, m, 0, error, &reply);
+        if (r < 0)
+                return r;
+
+        machine->unit = TAKE_PTR(unit);
+        machine->referenced = true;
+
+        const char *job;
+        r = sd_bus_message_read(reply, "o", &job);
+        if (r < 0)
+                return r;
+
+        return free_and_strdup(&machine->scope_job, job);
+}
+
+static int machine_ensure_scope(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
+        int r;
+
         assert(m);
         assert(m->class != MACHINE_HOST);
 
         if (!m->unit) {
-                _cleanup_free_ char *escaped = NULL, *scope = NULL;
-                char *description, *job = NULL;
-                int r;
-
-                escaped = unit_name_escape(m->name);
-                if (!escaped)
-                        return log_oom();
-
-                scope = strjoin("machine-", escaped, ".scope");
-                if (!scope)
-                        return log_oom();
-
-                description = strjoina(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
-
-                r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
+                r = machine_start_scope(m, properties, error);
                 if (r < 0)
                         return log_error_errno(r, "Failed to start machine scope: %s", bus_error_message(error, r));
-
-                m->unit = TAKE_PTR(scope);
-                m->referenced = true;
-                free_and_replace(m->scope_job, job);
         }
 
-        if (m->unit)
-                hashmap_put(m->manager->machine_units, m->unit, m);
+        assert(m->unit);
+        hashmap_put(m->manager->machine_units, m->unit, m);
 
         return 0;
 }
@@ -380,7 +451,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
                 return r;
 
         /* Create cgroup */
-        r = machine_start_scope(m, properties, error);
+        r = machine_ensure_scope(m, properties, error);
         if (r < 0)
                 return r;
 
@@ -404,49 +475,31 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         return 0;
 }
 
-static int machine_stop_scope(Machine *m) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char *job = NULL;
-        int r, q;
-
-        assert(m);
-        assert(m->class != MACHINE_HOST);
-
-        if (!m->unit)
-                return 0;
-
-        r = manager_stop_unit(m->manager, m->unit, &error, &job);
-        if (r < 0) {
-                log_error_errno(r, "Failed to stop machine scope: %s", bus_error_message(&error, r));
-                sd_bus_error_free(&error);
-        } else
-                free_and_replace(m->scope_job, job);
-
-        if (m->referenced) {
-                q = manager_unref_unit(m->manager, m->unit, &error);
-                if (q < 0)
-                        log_warning_errno(q, "Failed to drop reference to machine scope, ignoring: %s", bus_error_message(&error, r));
-                m->referenced = false;
-        }
-
-        return r;
-}
-
 int machine_stop(Machine *m) {
         int r;
+
         assert(m);
 
         if (!IN_SET(m->class, MACHINE_CONTAINER, MACHINE_VM))
                 return -EOPNOTSUPP;
 
-        r = machine_stop_scope(m);
+        if (m->unit) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                char *job = NULL;
+
+                r = manager_stop_unit(m->manager, m->unit, &error, &job);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to stop machine scope: %s", bus_error_message(&error, r));
+
+                free_and_replace(m->scope_job, job);
+        }
 
         m->stopping = true;
 
         machine_save(m);
         (void) manager_enqueue_nscd_cache_flush(m->manager);
 
-        return r;
+        return 0;
 }
 
 int machine_finalize(Machine *m) {
@@ -582,6 +635,18 @@ void machine_release_unit(Machine *m) {
 
         if (!m->unit)
                 return;
+
+        if (m->referenced) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                int r;
+
+                r = manager_unref_unit(m->manager, m->unit, &error);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to drop reference to machine scope, ignoring: %s",
+                                          bus_error_message(&error, r));
+
+                m->referenced = false;
+        }
 
         (void) hashmap_remove(m->manager->machine_units, m->unit);
         m->unit = mfree(m->unit);
