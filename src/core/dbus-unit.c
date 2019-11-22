@@ -3,7 +3,6 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "bpf-firewall.h"
 #include "bus-common-errors.h"
 #include "cgroup-util.h"
 #include "condition.h"

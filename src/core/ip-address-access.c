@@ -4,7 +4,6 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
-#include "bpf-firewall.h"
 #include "extract-word.h"
 #include "hostname-util.h"
 #include "ip-address-access.h"
