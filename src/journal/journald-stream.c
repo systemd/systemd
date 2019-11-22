@@ -631,8 +631,7 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         if (ret)
                 *ret = stream;
 
-        stream = NULL;
-
+        TAKE_PTR(stream);
         return 0;
 }
 
@@ -675,7 +674,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
         if (r < 0)
                 return r;
 
-        fd = -1;
+        TAKE_FD(fd);
         return 0;
 }
 
