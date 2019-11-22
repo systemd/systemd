@@ -17,7 +17,6 @@ typedef enum ConfigParseFlags {
         CONFIG_PARSE_RELAXED       = 1 << 0,
         CONFIG_PARSE_ALLOW_INCLUDE = 1 << 1,
         CONFIG_PARSE_WARN          = 1 << 2,
-        CONFIG_PARSE_REFUSE_BOM    = 1 << 3,
 } ConfigParseFlags;
 
 /* Argument list for parsers of specific configuration settings. */
