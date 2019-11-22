@@ -4,7 +4,7 @@
 
 const NetDevVTable netdevsim_vtable = {
         .object_size = sizeof(NetDevSim),
-        .sections = "Match\0NetDev\0",
+        .sections = NETDEV_COMMON_SECTIONS,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .generate_mac = true,
 };

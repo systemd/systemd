@@ -85,7 +85,7 @@ static void veth_done(NetDev *n) {
 
 const NetDevVTable veth_vtable = {
         .object_size = sizeof(Veth),
-        .sections = "Match\0NetDev\0Peer\0",
+        .sections = NETDEV_COMMON_SECTIONS "Peer\0",
         .done = veth_done,
         .fill_message_create = netdev_veth_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,

@@ -262,7 +262,7 @@ static void fou_tunnel_init(NetDev *netdev) {
 const NetDevVTable foutnl_vtable = {
         .object_size = sizeof(FouTunnel),
         .init = fou_tunnel_init,
-        .sections = "Match\0NetDev\0FooOverUDP\0",
+        .sections = NETDEV_COMMON_SECTIONS "FooOverUDP\0",
         .create = netdev_fou_tunnel_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_fou_tunnel_verify,

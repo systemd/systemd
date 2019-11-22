@@ -27,7 +27,7 @@ static int xfrm_fill_message_create(NetDev *netdev, Link *link, sd_netlink_messa
 
 const NetDevVTable xfrm_vtable = {
         .object_size = sizeof(Xfrm),
-        .sections = "Match\0NetDev\0Xfrm\0",
+        .sections = NETDEV_COMMON_SECTIONS "Xfrm\0",
         .fill_message_create = xfrm_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED
 };

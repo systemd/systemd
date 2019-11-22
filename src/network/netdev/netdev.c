@@ -682,9 +682,9 @@ int netdev_load_one(Manager *manager, const char *filename) {
 
         dropin_dirname = strjoina(basename(filename), ".d");
         r = config_parse_many(filename, NETWORK_DIRS, dropin_dirname,
-                              "Match\0NetDev\0",
+                              NETDEV_COMMON_SECTIONS NETDEV_OTHER_SECTIONS,
                               config_item_perf_lookup, network_netdev_gperf_lookup,
-                              CONFIG_PARSE_WARN|CONFIG_PARSE_RELAXED, netdev_raw);
+                              CONFIG_PARSE_WARN, netdev_raw);
         if (r < 0)
                 return r;
 

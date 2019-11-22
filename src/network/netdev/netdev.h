@@ -8,6 +8,35 @@
 #include "networkd-link.h"
 #include "time-util.h"
 
+#define NETDEV_COMMON_SECTIONS "Match\0NetDev\0"
+/* This is the list of known sections. We need to ignore them in the initial parsing phase. */
+#define NETDEV_OTHER_SECTIONS                     \
+        "-Bond\0"                                 \
+        "-Bridge\0"                               \
+        "-FooOverUDP\0"                           \
+        "-GENEVE\0"                               \
+        "-IPVLAN\0"                               \
+        "-IPVTAP\0"                               \
+        "-L2TP\0"                                 \
+        "-L2TPSession\0"                          \
+        "-MACsec\0"                               \
+        "-MACsecReceiveChannel\0"                 \
+        "-MACsecTransmitAssociation\0"            \
+        "-MACsecReceiveAssociation\0"             \
+        "-MACVTAP\0"                              \
+        "-MACVLAN\0"                              \
+        "-Tunnel\0"                               \
+        "-Tun\0"                                  \
+        "-Tap\0"                                  \
+        "-Peer\0"                                 \
+        "-VLAN\0"                                 \
+        "-VRF\0"                                  \
+        "-VXCAN\0"                                \
+        "-VXLAN\0"                                \
+        "-WireGuard\0"                            \
+        "-WireGuardPeer\0"                        \
+        "-Xfrm\0"
+
 typedef struct netdev_join_callback netdev_join_callback;
 
 struct netdev_join_callback {
