@@ -24,11 +24,11 @@
 #include "string-util.h"
 
 void server_forward_kmsg(
-        Server *s,
-        int priority,
-        const char *identifier,
-        const char *message,
-        const struct ucred *ucred) {
+                Server *s,
+                int priority,
+                const char *identifier,
+                const char *message,
+                const struct ucred *ucred) {
 
         _cleanup_free_ char *ident_buf = NULL;
         struct iovec iovec[5];
