@@ -88,7 +88,7 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
 int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
         const char *etc_machine_id, *run_machine_id;
         _cleanup_close_ int fd = -1;
-        bool writable;
+        bool writable, readable;
         int r;
 
         etc_machine_id = prefix_roota(root, "/etc/machine-id");
@@ -107,26 +107,32 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
                         fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                         if (fd < 0) {
                                 if (old_errno == EROFS && errno == ENOENT)
-                                        return log_error_errno(errno,
-                                                  "System cannot boot: Missing /etc/machine-id and /etc is mounted read-only.\n"
-                                                  "Booting up is supported only when:\n"
-                                                  "1) /etc/machine-id exists and is populated.\n"
-                                                  "2) /etc/machine-id exists and is empty.\n"
-                                                  "3) /etc/machine-id is missing and /etc is writable.\n");
+                                        log_error_errno(errno,
+                                                        "System cannot boot correctly: /etc/machine-id is not properly configured\n\n"
+                                                        "Booting up is supported only when:\n"
+                                                        "1) /etc/machine-id exists and is populated.\n"
+                                                        "2) /etc/machine-id exists and is empty.\n"
+                                                        "3) /etc/machine-id is missing and /etc is writable.\n"
+                                                        "4) /etc/machine-id is a symlink to a file that is writable during early boot");
                                 else
-                                        return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
+                                        log_error_errno(errno, "Cannot find %s: %m", etc_machine_id);
+                                writable = false;
+                                readable = false;
+                        } else {
+                                writable = false;
+                                readable = true;
                         }
-
-                        writable = false;
-                } else
+                } else {
                         writable = true;
+                        readable = true;
+                }
         }
 
         /* A we got a valid machine ID argument, that's what counts */
         if (sd_id128_is_null(machine_id)) {
 
                 /* Try to read any existing machine ID */
-                if (id128_read_fd(fd, ID128_PLAIN, ret) >= 0)
+                if (readable && id128_read_fd(fd, ID128_PLAIN, ret) >= 0)
                         return 0;
 
                 /* Hmm, so, the id currently stored is not useful, then let's generate one */
@@ -160,10 +166,11 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
         }
 
         /* And now, let's mount it over */
-        if (mount(run_machine_id, etc_machine_id, NULL, MS_BIND, NULL) < 0) {
-                (void) unlink_noerrno(run_machine_id);
+        if (mount(run_machine_id, etc_machine_id, NULL, MS_BIND, NULL) < 0)
+                /* We failed to mount over /etc/machine-id, but let's leave /run/machine-id
+                 * so we can commit it later if /etc/machine-id becomes writable
+                 * (this will be done by systemd-machine-id-commit.service) */
                 return log_error_errno(errno, "Failed to mount %s: %m", etc_machine_id);
-        }
 
         log_info("Installed transient %s file.", etc_machine_id);
 
@@ -180,68 +187,99 @@ finish:
 
 int machine_id_commit(const char *root) {
         _cleanup_close_ int fd = -1, initial_mntns_fd = -1;
-        const char *etc_machine_id;
+        const char *etc_machine_id, *run_machine_id;
         sd_id128_t id;
         int r;
 
-        /* Replaces a tmpfs bind mount of /etc/machine-id by a proper file, atomically. For this, the umount is removed
-         * in a mount namespace, a new file is created at the right place. Afterwards the mount is also removed in the
-         * original mount namespace, thus revealing the file that was just created. */
-
         etc_machine_id = prefix_roota(root, "/etc/machine-id");
+        run_machine_id = prefix_roota(root, "/run/machine-id");
 
         r = path_is_mount_point(etc_machine_id, NULL, 0);
-        if (r < 0)
+        if (r < 0 && errno != ENOENT)
                 return log_error_errno(r, "Failed to determine whether %s is a mount point: %m", etc_machine_id);
-        if (r == 0) {
-                log_debug("%s is not a mount point. Nothing to do.", etc_machine_id);
+        if (r > 0) {
+                /* Replaces a tmpfs bind mount of /etc/machine-id by a proper file, atomically. For this, the umount is removed
+                 * in a mount namespace and a new file is created at the right place. Afterwards the mount is also removed in the
+                 * original mount namespace, thus revealing the file that was just created. */
+
+
+                /* Read existing machine-id */
+                fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0)
+                        return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
+
+                r = fd_is_temporary_fs(fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether %s is on a temporary file system: %m", etc_machine_id);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                        "%s is not on a temporary file system.",
+                                        etc_machine_id);
+
+                r = id128_read_fd(fd, ID128_PLAIN, &id);
+                if (r < 0)
+                        return log_error_errno(r, "We didn't find a valid machine ID in %s: %m", etc_machine_id);
+
+                fd = safe_close(fd);
+
+                /* Store current mount namespace */
+                r = namespace_open(0, NULL, &initial_mntns_fd, NULL, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Can't fetch current mount namespace: %m");
+
+                /* Switch to a new mount namespace, isolate ourself and unmount etc_machine_id in our new namespace */
+                r = detach_mount_namespace();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set up new mount namespace: %m");
+
+                if (umount(etc_machine_id) < 0)
+                        return log_error_errno(errno, "Failed to unmount transient %s file in our private namespace: %m", etc_machine_id);
+
+                /* Update a persistent version of etc_machine_id */
+                r = id128_write(etc_machine_id, ID128_PLAIN, id, true);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot write %s. This is mandatory to get a persistent machine ID: %m", etc_machine_id);
+
+                /* Return to initial namespace and proceed a lazy tmpfs unmount */
+                r = namespace_enter(-1, initial_mntns_fd, -1, -1, -1);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to switch back to initial mount namespace: %m.\nWe'll keep transient %s file until next reboot.", etc_machine_id);
+
+                if (umount2(etc_machine_id, MNT_DETACH) < 0)
+                        return log_warning_errno(errno, "Failed to unmount transient %s file: %m.\nWe keep that mount until next reboot.", etc_machine_id);
+
+                return 0;
+        } else {
+                /* File does not exist or is not a mountpoint
+                 *
+                 * We read the existing machine-id  in /etc */
+                fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd > 0) {
+                        r = id128_read_fd(fd, ID128_PLAIN, &id);
+                        fd = safe_close(fd);
+                        if (r == 0)
+                                /* /etc/machine-id already contains a valid machine-id, don't do anything */
+                                return 0;
+                }
+                if (fd < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
+
+
+                /* Read existing machine-id in /run */
+                fd = open(run_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0)
+                        return log_error_errno(errno, "Cannot open %s: %m", run_machine_id);
+
+                r = id128_read_fd(fd, ID128_PLAIN, &id);
+                if (r < 0)
+                        return log_error_errno(r, "We didn't find a valid machine ID in %s: %m", etc_machine_id);
+                fd = safe_close(fd);
+
+                /* Update a persistent version of etc_machine_id */
+                r = id128_write(etc_machine_id, ID128_PLAIN, id, true);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot write %s. This is mandatory to get a persistent machine ID: %m", etc_machine_id);
+
                 return 0;
         }
-
-        /* Read existing machine-id */
-        fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
-
-        r = fd_is_temporary_fs(fd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether %s is on a temporary file system: %m", etc_machine_id);
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
-                                       "%s is not on a temporary file system.",
-                                       etc_machine_id);
-
-        r = id128_read_fd(fd, ID128_PLAIN, &id);
-        if (r < 0)
-                return log_error_errno(r, "We didn't find a valid machine ID in %s: %m", etc_machine_id);
-
-        fd = safe_close(fd);
-
-        /* Store current mount namespace */
-        r = namespace_open(0, NULL, &initial_mntns_fd, NULL, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Can't fetch current mount namespace: %m");
-
-        /* Switch to a new mount namespace, isolate ourself and unmount etc_machine_id in our new namespace */
-        r = detach_mount_namespace();
-        if (r < 0)
-                return log_error_errno(r, "Failed to set up new mount namespace: %m");
-
-        if (umount(etc_machine_id) < 0)
-                return log_error_errno(errno, "Failed to unmount transient %s file in our private namespace: %m", etc_machine_id);
-
-        /* Update a persistent version of etc_machine_id */
-        r = id128_write(etc_machine_id, ID128_PLAIN, id, true);
-        if (r < 0)
-                return log_error_errno(r, "Cannot write %s. This is mandatory to get a persistent machine ID: %m", etc_machine_id);
-
-        /* Return to initial namespace and proceed a lazy tmpfs unmount */
-        r = namespace_enter(-1, initial_mntns_fd, -1, -1, -1);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to switch back to initial mount namespace: %m.\nWe'll keep transient %s file until next reboot.", etc_machine_id);
-
-        if (umount2(etc_machine_id, MNT_DETACH) < 0)
-                return log_warning_errno(errno, "Failed to unmount transient %s file: %m.\nWe keep that mount until next reboot.", etc_machine_id);
-
-        return 0;
 }
