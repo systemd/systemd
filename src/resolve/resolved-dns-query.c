@@ -212,31 +212,6 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
         return state;
 }
 
-static bool dns_query_candidate_is_routable(DnsQueryCandidate *c, uint16_t type) {
-        int family;
-
-        assert(c);
-
-        /* Checks whether the specified RR type matches an address family that is routable on the link(s) the scope of
-         * this candidate belongs to. Specifically, whether there's a routable IPv4 address on it if we query an A RR,
-         * or a routable IPv6 address if we query an AAAA RR. */
-
-        if (!c->query->suppress_unroutable_family)
-                return true;
-
-        if (c->scope->protocol != DNS_PROTOCOL_DNS)
-                return true;
-
-        family = dns_type_to_af(type);
-        if (family < 0)
-                return true;
-
-        if (c->scope->link)
-                return link_relevant(c->scope->link, family, false);
-        else
-                return manager_routable(c->scope->manager, family);
-}
-
 static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
         DnsQuestion *question;
         DnsResourceKey *key;
@@ -252,9 +227,6 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
         DNS_QUESTION_FOREACH(key, question) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *new_key = NULL;
                 DnsResourceKey *qkey;
-
-                if (!dns_query_candidate_is_routable(c, key->type))
-                        continue;
 
                 if (c->search_domain) {
                         r = dns_resource_key_new_append_suffix(&new_key, key, c->search_domain->name);
