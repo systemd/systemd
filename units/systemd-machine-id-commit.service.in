@@ -14,8 +14,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 Before=sysinit.target shutdown.target
 After=local-fs.target
-ConditionPathIsReadWrite=/etc
-ConditionPathIsMountPoint=/etc/machine-id
+ConditionFileNotEmpty=/run/machine-id
 
 [Service]
 Type=oneshot
