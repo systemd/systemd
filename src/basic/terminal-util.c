@@ -1206,6 +1206,11 @@ bool colors_enabled(void) {
                 val = getenv_bool("SYSTEMD_COLORS");
                 if (val >= 0)
                         cached_colors_enabled = val;
+
+                else if (getenv("NO_COLOR"))
+                        /* We only check for the presence of the variable; value is ignored. */
+                        cached_colors_enabled = false;
+
                 else if (getpid_cached() == 1)
                         /* PID1 outputs to the console without holding it open all the time */
                         cached_colors_enabled = !getenv_terminal_is_dumb();
@@ -1230,6 +1235,9 @@ bool dev_console_colors_enabled(void) {
         b = getenv_bool("SYSTEMD_COLORS");
         if (b >= 0)
                 return b;
+
+        if (getenv("NO_COLOR"))
+                return false;
 
         if (getenv_for_pid(1, "TERM", &s) <= 0)
                 (void) proc_cmdline_get_key("TERM", 0, &s);
