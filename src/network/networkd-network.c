@@ -154,6 +154,8 @@ int network_verify(Network *network) {
         Prefix *prefix, *prefix_next;
         Route *route, *route_next;
         FdbEntry *fdb, *fdb_next;
+        QDiscs *qdisc;
+        Iterator i;
 
         assert(network);
         assert(network->filename);
@@ -312,6 +314,11 @@ int network_verify(Network *network) {
         LIST_FOREACH_SAFE(rules, rule, rule_next, network->rules)
                 if (routing_policy_rule_section_verify(rule) < 0)
                         routing_policy_rule_free(rule);
+
+        bool has_root = false, has_clsact = false;
+        ORDERED_HASHMAP_FOREACH(qdisc, network->qdiscs_by_section, i)
+                if (qdisc_section_verify(qdisc, &has_root, &has_clsact) < 0)
+                        qdisc_free(qdisc);
 
         return 0;
 }
