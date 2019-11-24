@@ -32,6 +32,8 @@ int qdisc_new_static(Network *network, const char *filename, unsigned section_li
 
 int qdisc_configure(Link *link, QDiscs *qdisc);
 
+int qdisc_section_verify(QDiscs *qdisc, bool *has_root, bool *has_clsact);
+
 DEFINE_NETWORK_SECTION_FUNCTIONS(QDiscs, qdisc_free);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_tc_qdiscs_parent);

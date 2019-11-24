@@ -178,6 +178,39 @@ int qdisc_configure(Link *link, QDiscs *qdisc) {
         return 0;
 }
 
+int qdisc_section_verify(QDiscs *qdisc, bool *has_root, bool *has_clsact) {
+        assert(qdisc);
+        assert(has_root);
+        assert(has_clsact);
+
+        if (section_is_invalid(qdisc->section))
+                return -EINVAL;
+
+        if (qdisc->has_network_emulator && qdisc->has_token_buffer_filter)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: TrafficControlQueueingDiscipline section has both NetworkEmulator and TokenBufferFilter settings. "
+                                         "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
+                                         qdisc->section->filename, qdisc->section->line);
+
+        if (qdisc->parent == TC_H_ROOT) {
+                if (*has_root)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: More than one root TrafficControlQueueingDiscipline sections are defined. "
+                                                 "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
+                                                 qdisc->section->filename, qdisc->section->line);
+                *has_root = true;
+        } else if (qdisc->parent == TC_H_CLSACT) {
+                if (*has_clsact)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: More than one clsact TrafficControlQueueingDiscipline sections are defined. "
+                                                 "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
+                                                 qdisc->section->filename, qdisc->section->line);
+                *has_clsact = true;
+        }
+
+        return 0;
+}
+
 int config_parse_tc_qdiscs_parent(
                 const char *unit,
                 const char *filename,
