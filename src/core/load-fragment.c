@@ -3011,7 +3011,7 @@ int config_parse_cpu_quota(
         return 0;
 }
 
-int config_parse_cpuset_cpus(
+int config_parse_allowed_cpus(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -3030,7 +3030,7 @@ int config_parse_cpuset_cpus(
         return 0;
 }
 
-int config_parse_cpuset_mems(
+int config_parse_allowed_mems(
                 const char *unit,
                 const char *filename,
                 unsigned line,
