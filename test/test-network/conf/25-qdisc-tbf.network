@@ -1,0 +1,12 @@
+[Match]
+Name=test1
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.4/16
+
+[TrafficControlQueueingDiscipline]
+Parent=root
+TokenBufferFilterRate=0.5M
+TokenBufferFilterBurst=5K
+TokenBufferFilterLatencySec=70msec
