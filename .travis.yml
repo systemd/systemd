@@ -126,7 +126,7 @@ jobs:
               - DOCKER_RUN="docker run -v $TOOL_BASE:$TOOL_BASE:rw --env-file .cov-env"
               # Coverity env variables
               - PLATFORM="$(uname)"
-              - TOOL_ARCHIVE="/var/tmp/cov-analysis-$PLATFORM.tgz
+              - TOOL_ARCHIVE="/var/tmp/cov-analysis-$PLATFORM.tgz"
               - SCAN_URL="https://scan.coverity.com"
               - UPLOAD_URL="https://scan.coverity.com/builds"
               - COVERITY_SCAN_PROJECT_NAME="$TRAVIS_REPO_SLUG"
