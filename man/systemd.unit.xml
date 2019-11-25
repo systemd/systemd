@@ -1113,7 +1113,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>ConditionArchitecture=</varname></term>
+          <term><varname>ConditionVirtualization=</varname></term>
 
           <listitem><para>Check whether the system is executed in a virtualized environment and optionally
           test whether it is a specific implementation. Takes either boolean value to check if being executed
