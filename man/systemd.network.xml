@@ -1263,9 +1263,12 @@
         <varlistentry>
           <term><varname>Scope=</varname></term>
           <listitem>
-            <para>The scope of the route, which can be <literal>global</literal>,
-            <literal>link</literal> or <literal>host</literal>. Defaults to
-            <literal>global</literal>.</para>
+            <para>The scope of the route, which can be <literal>global</literal>, <literal>site</literal>,
+            <literal>link</literal>, <literal>host</literal>, or <literal>nowhere</literal>. For IPv4 route,
+            defaults to <literal>host</literal> if <varname>Type=</varname> is <literal>local</literal>
+            or <literal>nat</literal>, and <literal>link</literal> if <varname>Type=</varname> is
+            <literal>broadcast</literal>, <literal>multicast</literal>, or <literal>anycast</literal>.
+            In other cases, defaults to <literal>global</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1277,10 +1280,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>Table=<replaceable>num</replaceable></varname></term>
+          <term><varname>Table=</varname></term>
           <listitem>
-          <para>The table identifier for the route (a number between 1 and 4294967295, or 0 to unset).
-          The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
+            <para>The table identifier for the route. Takes <literal>default</literal>,
+            <literal>main</literal>, <literal>local</literal> or a number between 1 and 4294967295.
+            The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
+            If unset and <varname>Type=</varname> is <literal>local</literal>, <literal>broadcast</literal>,
+            <literal>anycast</literal>, or <literal>nat</literal>, then <literal>local</literal> is used.
+            In other cases, defaults to <literal>main</literal>.
           </para>
           </listitem>
         </varlistentry>
