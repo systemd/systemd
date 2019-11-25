@@ -306,14 +306,12 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
             (flush_requested || flushed_flag_is_set()) &&
             !relinquish_requested) {
 
-                /* If in auto mode: first try to create the machine
-                 * path, but not the prefix.
+                /* If in auto mode: first try to create the machine path, but not the prefix.
                  *
-                 * If in persistent mode: create /var/log/journal and
-                 * the machine path */
+                 * If in persistent mode: create /var/log/journal and the machine path */
 
                 if (s->storage == STORAGE_PERSISTENT)
-                        (void) mkdir_p("/var/log/journal/", 0755);
+                        (void) mkdir_parents(s->system_storage.path, 0755);
 
                 (void) mkdir(s->system_storage.path, 0755);
 
@@ -330,12 +328,11 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                         r = 0;
                 }
 
-                /* If the runtime journal is open, and we're post-flush, we're
-                 * recovering from a failed system journal rotate (ENOSPC)
-                 * for which the runtime journal was reopened.
+                /* If the runtime journal is open, and we're post-flush, we're recovering from a failed
+                 * system journal rotate (ENOSPC) for which the runtime journal was reopened.
                  *
-                 * Perform an implicit flush to var, leaving the runtime
-                 * journal closed, now that the system journal is back.
+                 * Perform an implicit flush to var, leaving the runtime journal closed, now that the system
+                 * journal is back.
                  */
                 if (!flush_requested)
                         (void) server_flush_to_var(s, true);
@@ -362,12 +359,10 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
 
                 } else {
 
-                        /* OK, we really need the runtime journal, so create
-                         * it if necessary. */
+                        /* OK, we really need the runtime journal, so create it if necessary. */
 
-                        (void) mkdir("/run/log", 0755);
-                        (void) mkdir("/run/log/journal", 0755);
-                        (void) mkdir_parents(fn, 0750);
+                        (void) mkdir_parents(s->runtime_storage.path, 0755);
+                        (void) mkdir(s->runtime_storage.path, 0750);
 
                         r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_storage.metrics, &s->runtime_journal);
                         if (r < 0)
@@ -461,7 +456,6 @@ static int do_rotate(
         }
 
         server_add_acls(*f, uid);
-
         return r;
 }
 
