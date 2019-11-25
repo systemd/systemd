@@ -34,33 +34,33 @@ int network_emulator_new(NetworkEmulator **ret) {
         return 0;
 }
 
-int network_emulator_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
+int network_emulator_fill_message(Link *link, const NetworkEmulator *ne, sd_netlink_message *req) {
         struct tc_netem_qopt opt = {
                .limit = 1000,
         };
         int r;
 
         assert(link);
-        assert(qdisc);
+        assert(ne);
         assert(req);
 
-        if (qdisc->ne.limit > 0)
-                opt.limit = qdisc->ne.limit;
+        if (ne->limit > 0)
+                opt.limit = ne->limit;
 
-        if (qdisc->ne.loss > 0)
-                opt.loss = qdisc->ne.loss;
+        if (ne->loss > 0)
+                opt.loss = ne->loss;
 
-        if (qdisc->ne.duplicate > 0)
-                opt.duplicate = qdisc->ne.duplicate;
+        if (ne->duplicate > 0)
+                opt.duplicate = ne->duplicate;
 
-        if (qdisc->ne.delay != USEC_INFINITY) {
-                r = tc_time_to_tick(qdisc->ne.delay, &opt.latency);
+        if (ne->delay != USEC_INFINITY) {
+                r = tc_time_to_tick(ne->delay, &opt.latency);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to calculate latency in TCA_OPTION: %m");
         }
 
-        if (qdisc->ne.jitter != USEC_INFINITY) {
-                r = tc_time_to_tick(qdisc->ne.jitter, &opt.jitter);
+        if (ne->jitter != USEC_INFINITY) {
+                r = tc_time_to_tick(ne->jitter, &opt.jitter);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to calculate jitter in TCA_OPTION: %m");
         }

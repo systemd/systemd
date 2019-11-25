@@ -147,7 +147,7 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
                 if (r < 0)
                         return log_oom();
 
-                r = network_emulator_fill_message(link, qdisc, req);
+                r = network_emulator_fill_message(link, &qdisc->ne, req);
                 if (r < 0)
                         return r;
         }
