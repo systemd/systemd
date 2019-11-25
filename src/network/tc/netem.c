@@ -2,12 +2,9 @@
  * Copyright © 2019 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
-#include <math.h>
 
 #include "alloc-util.h"
 #include "conf-parser.h"
-#include "hashmap.h"
-#include "in-addr-util.h"
 #include "netem.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
@@ -15,7 +12,6 @@
 #include "qdisc.h"
 #include "string-util.h"
 #include "tc-util.h"
-#include "util.h"
 
 int network_emulator_new(NetworkEmulator **ret) {
         NetworkEmulator *ne = NULL;

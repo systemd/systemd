@@ -12,7 +12,6 @@
 #include "qdisc.h"
 #include "set.h"
 #include "string-util.h"
-#include "util.h"
 
 static int qdisc_new(QDisc **ret) {
         QDisc *qdisc;
