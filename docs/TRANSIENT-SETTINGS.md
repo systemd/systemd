@@ -348,7 +348,7 @@ Most timer unit settings are available to transient units.
 ✓ OnCalendar=
 ✓ OnClockChange=
 ✓ OnStartupSec=
-✓ OnTimezoneChange
+✓ OnTimezoneChange=
 ✓ OnUnitActiveSec=
 ✓ OnUnitInactiveSec=
 ✓ Persistent=
