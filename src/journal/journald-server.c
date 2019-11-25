@@ -76,11 +76,18 @@
 
 #define DEFERRED_CLOSES_MAX (4096)
 
-static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used, uint64_t *ret_free) {
+static int determine_path_usage(
+                Server *s,
+                const char *path,
+                uint64_t *ret_used,
+                uint64_t *ret_free) {
+
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         struct statvfs ss;
 
+        assert(s);
+        assert(path);
         assert(ret_used);
         assert(ret_free);
 
