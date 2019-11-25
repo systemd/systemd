@@ -1115,7 +1115,6 @@ void server_dispatch_message(
 }
 
 int server_flush_to_var(Server *s, bool require_flag_file) {
-        sd_id128_t machine;
         sd_journal *j = NULL;
         char ts[FORMAT_TIMESPAN_MAX];
         usec_t start;
@@ -1141,10 +1140,6 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         log_debug("Flushing to /var...");
 
         start = now(CLOCK_MONOTONIC);
-
-        r = sd_id128_get_machine(&machine);
-        if (r < 0)
-                return r;
 
         r = sd_journal_open(&j, SD_JOURNAL_RUNTIME_ONLY);
         if (r < 0)
