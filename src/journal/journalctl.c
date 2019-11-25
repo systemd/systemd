@@ -70,35 +70,7 @@
 #include "varlink.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
-
 #define PROCESS_INOTIFY_INTERVAL 1024   /* Every 1,024 messages processed */
-
-#if HAVE_PCRE2
-DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data*, pcre2_match_data_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_code*, pcre2_code_free);
-
-static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
-        int errorcode, r;
-        PCRE2_SIZE erroroffset;
-        pcre2_code *p;
-
-        p = pcre2_compile((PCRE2_SPTR8) pattern,
-                          PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
-        if (!p) {
-                unsigned char buf[LINE_MAX];
-
-                r = pcre2_get_error_message(errorcode, buf, sizeof buf);
-
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Bad pattern \"%s\": %s", pattern,
-                                       r < 0 ? "unknown error" : (char *)buf);
-        }
-
-        *out = p;
-        return 0;
-}
-
-#endif
 
 enum {
         /* Special values for arg_lines */
@@ -149,7 +121,6 @@ static uint64_t arg_vacuum_size = 0;
 static uint64_t arg_vacuum_n_files = 0;
 static usec_t arg_vacuum_time = 0;
 static char **arg_output_fields = NULL;
-
 #if HAVE_PCRE2
 static const char *arg_pattern = NULL;
 static pcre2_code *arg_compiled_pattern = NULL;
@@ -183,6 +154,33 @@ typedef struct BootId {
         uint64_t last;
         LIST_FIELDS(struct BootId, boot_list);
 } BootId;
+
+#if HAVE_PCRE2
+DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data*, pcre2_match_data_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_code*, pcre2_code_free);
+
+static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
+        int errorcode, r;
+        PCRE2_SIZE erroroffset;
+        pcre2_code *p;
+
+        p = pcre2_compile((PCRE2_SPTR8) pattern,
+                          PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
+        if (!p) {
+                unsigned char buf[LINE_MAX];
+
+                r = pcre2_get_error_message(errorcode, buf, sizeof buf);
+
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Bad pattern \"%s\": %s", pattern,
+                                       r < 0 ? "unknown error" : (char *)buf);
+        }
+
+        *out = p;
+        return 0;
+}
+
+#endif
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
