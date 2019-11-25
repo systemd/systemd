@@ -767,7 +767,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         dots = strstr(optarg, "..");
                         if (dots) {
-                                char *a;
+                                _cleanup_free_ char *a = NULL;
                                 int from, to, i;
 
                                 /* a range */
@@ -777,7 +777,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 from = log_level_from_string(a);
                                 to = log_level_from_string(dots + 2);
-                                free(a);
 
                                 if (from < 0 || to < 0)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
