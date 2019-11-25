@@ -52,12 +52,16 @@
 #define COMM_MAX_LEN 128
 
 static int get_process_state(pid_t pid) {
+        _cleanup_free_ char *line = NULL;
         const char *p;
         char state;
         int r;
-        _cleanup_free_ char *line = NULL;
 
         assert(pid >= 0);
+
+        /* Shortcut: if we are enquired about our own state, we are obviously running */
+        if (pid == 0 || pid == getpid_cached())
+                return (unsigned char) 'R';
 
         p = procfs_file_alloca(pid, "stat");
 
