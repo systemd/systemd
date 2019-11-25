@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -639,14 +640,18 @@ static void test_fgetc(void) {
         f = fmemopen_unlocked((void*) chars, sizeof(chars), "re");
         assert_se(f);
 
-        for (unsigned i = 0; i < sizeof(chars); i++) {
+        for (size_t i = 0; i < sizeof(chars); i++) {
                 assert_se(safe_fgetc(f, &c) == 1);
                 assert_se(c == chars[i]);
 
-                /* EOF is -1, and hence we can't push value 255 in this way if char is signed */
-                assert_se(ungetc(c, f) != EOF || c == EOF);
-                assert_se(c == EOF || safe_fgetc(f, &c) == 1);
-                assert_se(c == chars[i]);
+                if (ungetc(c, f) == EOF) {
+                        /* EOF is -1, and hence we can't push value 255 in this way – if char is signed */
+                        assert_se(c == (char) EOF);
+                        assert_se(CHAR_MIN == -128); /* verify that char is signed on this platform */
+                } else {
+                        assert_se(safe_fgetc(f, &c) == 1);
+                        assert_se(c == chars[i]);
+                }
 
                 /* But it works when we push it properly cast */
                 assert_se(ungetc((unsigned char) c, f) != EOF);
