@@ -173,6 +173,7 @@ static void test_proc_cmdline_get_bool(void) {
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=") == 0);
         assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=foo_bar bar-waldo=1 x_y-z=0 quux=miep\nda=yes\nthe=1") == 0);
 
+#if ENABLE_EFI
         assert_se(proc_cmdline_get_bool("", &value) == -EINVAL);
         assert_se(proc_cmdline_get_bool("abc", &value) == 0 && value == false);
         assert_se(proc_cmdline_get_bool("foo_bar", &value) > 0 && value == true);
@@ -186,6 +187,7 @@ static void test_proc_cmdline_get_bool(void) {
         assert_se(proc_cmdline_get_bool("quux", &value) == -EINVAL && value == false);
         assert_se(proc_cmdline_get_bool("da", &value) > 0 && value == true);
         assert_se(proc_cmdline_get_bool("the", &value) > 0 && value == true);
+#endif
 }
 
 static void test_proc_cmdline_get_key_many(void) {
