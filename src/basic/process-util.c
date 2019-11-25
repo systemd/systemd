@@ -81,23 +81,34 @@ static int get_process_state(pid_t pid) {
 
 int get_process_comm(pid_t pid, char **ret) {
         _cleanup_free_ char *escaped = NULL, *comm = NULL;
-        const char *p;
         int r;
 
         assert(ret);
         assert(pid >= 0);
 
+        if (pid == 0 || pid == getpid_cached()) {
+                comm = new0(char, TASK_COMM_LEN + 1); /* Must fit in 16 byte according to prctl(2) */
+                if (!comm)
+                        return -ENOMEM;
+
+                if (prctl(PR_GET_NAME, comm) < 0)
+                        return -errno;
+        } else {
+                const char *p;
+
+                p = procfs_file_alloca(pid, "comm");
+
+                /* Note that process names of kernel threads can be much longer than TASK_COMM_LEN */
+                r = read_one_line_file(p, &comm);
+                if (r == -ENOENT)
+                        return -ESRCH;
+                if (r < 0)
+                        return r;
+        }
+
         escaped = new(char, COMM_MAX_LEN);
         if (!escaped)
                 return -ENOMEM;
-
-        p = procfs_file_alloca(pid, "comm");
-
-        r = read_one_line_file(p, &comm);
-        if (r == -ENOENT)
-                return -ESRCH;
-        if (r < 0)
-                return r;
 
         /* Escape unprintable characters, just in case, but don't grow the string beyond the underlying size */
         cellescape(escaped, COMM_MAX_LEN, comm);
