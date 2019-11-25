@@ -844,7 +844,7 @@ static int parse_argv(int argc, char *argv[]) {
 #else
                 case 'g':
                 case ARG_CASE_SENSITIVE:
-                        return log_error("Compiled without pattern matching support");
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without pattern matching support");
 #endif
 
                 case 'S':
