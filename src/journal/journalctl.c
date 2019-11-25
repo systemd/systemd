@@ -531,10 +531,8 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_output = output_mode_from_string(optarg);
-                        if (arg_output < 0) {
-                                log_error("Unknown output format '%s'.", optarg);
-                                return -EINVAL;
-                        }
+                        if (arg_output < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown output format '%s'.", optarg);
 
                         if (IN_SET(arg_output, OUTPUT_EXPORT, OUTPUT_JSON, OUTPUT_JSON_PRETTY, OUTPUT_JSON_SSE, OUTPUT_JSON_SEQ, OUTPUT_CAT))
                                 arg_quiet = true;
@@ -559,10 +557,8 @@ static int parse_argv(int argc, char *argv[]) {
                                         arg_lines = ARG_LINES_ALL;
                                 else {
                                         r = safe_atoi(optarg, &arg_lines);
-                                        if (r < 0 || arg_lines < 0) {
-                                                log_error("Failed to parse lines '%s'", optarg);
-                                                return -EINVAL;
-                                        }
+                                        if (r < 0 || arg_lines < 0)
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse lines '%s'", optarg);
                                 }
                         } else {
                                 arg_lines = 10;
@@ -708,30 +704,24 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VACUUM_SIZE:
                         r = parse_size(optarg, 1024, &arg_vacuum_size);
-                        if (r < 0) {
-                                log_error("Failed to parse vacuum size: %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse vacuum size: %s", optarg);
 
                         arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
                         break;
 
                 case ARG_VACUUM_FILES:
                         r = safe_atou64(optarg, &arg_vacuum_n_files);
-                        if (r < 0) {
-                                log_error("Failed to parse vacuum files: %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse vacuum files: %s", optarg);
 
                         arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
                         break;
 
                 case ARG_VACUUM_TIME:
                         r = parse_sec(optarg, &arg_vacuum_time);
-                        if (r < 0) {
-                                log_error("Failed to parse vacuum time: %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse vacuum time: %s", optarg);
 
                         arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
                         break;
@@ -746,7 +736,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERIFY_KEY:
-                        arg_action = ACTION_VERIFY;
                         r = free_and_strdup(&arg_verify_key, optarg);
                         if (r < 0)
                                 return r;
@@ -754,23 +743,23 @@ static int parse_argv(int argc, char *argv[]) {
                          * in ps or htop output. */
                         memset(optarg, 'x', strlen(optarg));
 
+                        arg_action = ACTION_VERIFY;
                         arg_merge = false;
                         break;
 
                 case ARG_INTERVAL:
                         r = parse_sec(optarg, &arg_interval);
-                        if (r < 0 || arg_interval <= 0) {
-                                log_error("Failed to parse sealing key change interval: %s", optarg);
-                                return -EINVAL;
-                        }
+                        if (r < 0 || arg_interval <= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse sealing key change interval: %s", optarg);
                         break;
 #else
                 case ARG_SETUP_KEYS:
                 case ARG_VERIFY_KEY:
                 case ARG_INTERVAL:
                 case ARG_FORCE:
-                        log_error("Compiled without forward-secure sealing support.");
-                        return -EOPNOTSUPP;
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Compiled without forward-secure sealing support.");
 #endif
 
                 case 'p': {
@@ -790,10 +779,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 to = log_level_from_string(dots + 2);
                                 free(a);
 
-                                if (from < 0 || to < 0) {
-                                        log_error("Failed to parse log level range %s", optarg);
-                                        return -EINVAL;
-                                }
+                                if (from < 0 || to < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Failed to parse log level range %s", optarg);
 
                                 arg_priorities = 0;
 
@@ -809,10 +797,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 int p, i;
 
                                 p = log_level_from_string(optarg);
-                                if (p < 0) {
-                                        log_error("Unknown log level %s", optarg);
-                                        return -EINVAL;
-                                }
+                                if (p < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unknown log level %s", optarg);
 
                                 arg_priorities = 0;
 
@@ -846,19 +833,17 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'S':
                         r = parse_timestamp(optarg, &arg_since);
-                        if (r < 0) {
-                                log_error("Failed to parse timestamp: %s", optarg);
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse timestamp: %s", optarg);
                         arg_since_set = true;
                         break;
 
                 case 'U':
                         r = parse_timestamp(optarg, &arg_until);
-                        if (r < 0) {
-                                log_error("Failed to parse timestamp: %s", optarg);
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse timestamp: %s", optarg);
                         arg_until_set = true;
                         break;
 
@@ -2134,8 +2119,7 @@ int main(int argc, char *argv[]) {
                 if (geteuid() != 0) {
                         /* The file descriptor returned by OpenMachineRootDirectory() will be owned by users/groups of
                          * the container, thus we need root privileges to override them. */
-                        log_error("Using the --machine= switch requires root privileges.");
-                        r = -EPERM;
+                        r = log_error_errno(SYNTHETIC_ERRNO(EPERM), "Using the --machine= switch requires root privileges.");
                         goto finish;
                 }
 
