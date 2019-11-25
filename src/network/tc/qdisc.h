@@ -9,7 +9,7 @@
 #include "networkd-util.h"
 #include "tbf.h"
 
-typedef struct QDiscs {
+typedef struct QDisc {
         NetworkConfigSection *section;
         Network *network;
 
@@ -25,15 +25,15 @@ typedef struct QDiscs {
 
         NetworkEmulator ne;
         TokenBufferFilter tbf;
-} QDiscs;
+} QDisc;
 
-void qdisc_free(QDiscs *qdisc);
-int qdisc_new_static(Network *network, const char *filename, unsigned section_line, QDiscs **ret);
+void qdisc_free(QDisc *qdisc);
+int qdisc_new_static(Network *network, const char *filename, unsigned section_line, QDisc **ret);
 
-int qdisc_configure(Link *link, QDiscs *qdisc);
+int qdisc_configure(Link *link, QDisc *qdisc);
 
-int qdisc_section_verify(QDiscs *qdisc, bool *has_root, bool *has_clsact);
+int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact);
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(QDiscs, qdisc_free);
+DEFINE_NETWORK_SECTION_FUNCTIONS(QDisc, qdisc_free);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_tc_qdiscs_parent);

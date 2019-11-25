@@ -74,7 +74,7 @@ int config_parse_tc_token_buffer_filter_size(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDiscs *qdisc = NULL;
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
         uint64_t k;
         int r;
@@ -129,7 +129,7 @@ int config_parse_tc_token_buffer_filter_latency(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDiscs *qdisc = NULL;
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
         usec_t u;
         int r;
