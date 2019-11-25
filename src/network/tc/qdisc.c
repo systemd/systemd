@@ -14,14 +14,14 @@
 #include "string-util.h"
 #include "util.h"
 
-static int qdisc_new(QDiscs **ret) {
-        QDiscs *qdisc;
+static int qdisc_new(QDisc **ret) {
+        QDisc *qdisc;
 
-        qdisc = new(QDiscs, 1);
+        qdisc = new(QDisc, 1);
         if (!qdisc)
                 return -ENOMEM;
 
-        *qdisc = (QDiscs) {
+        *qdisc = (QDisc) {
                 .family = AF_UNSPEC,
                 .parent = TC_H_ROOT,
         };
@@ -31,9 +31,9 @@ static int qdisc_new(QDiscs **ret) {
         return 0;
 }
 
-int qdisc_new_static(Network *network, const char *filename, unsigned section_line, QDiscs **ret) {
+int qdisc_new_static(Network *network, const char *filename, unsigned section_line, QDisc **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
-        _cleanup_(qdisc_freep) QDiscs *qdisc = NULL;
+        _cleanup_(qdisc_freep) QDisc *qdisc = NULL;
         int r;
 
         assert(network);
@@ -76,7 +76,7 @@ int qdisc_new_static(Network *network, const char *filename, unsigned section_li
         return 0;
 }
 
-void qdisc_free(QDiscs *qdisc) {
+void qdisc_free(QDisc *qdisc) {
         if (!qdisc)
                 return;
 
@@ -106,7 +106,7 @@ static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         }
 
         if (link->route_messages == 0) {
-                log_link_debug(link, "QDiscs configured");
+                log_link_debug(link, "QDisc configured");
                 link->qdiscs_configured = true;
                 link_check_ready(link);
         }
@@ -114,7 +114,7 @@ static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return 1;
 }
 
-int qdisc_configure(Link *link, QDiscs *qdisc) {
+int qdisc_configure(Link *link, QDisc *qdisc) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_free_ char *tca_kind = NULL;
         int r;
@@ -178,7 +178,7 @@ int qdisc_configure(Link *link, QDiscs *qdisc) {
         return 0;
 }
 
-int qdisc_section_verify(QDiscs *qdisc, bool *has_root, bool *has_clsact) {
+int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact) {
         assert(qdisc);
         assert(has_root);
         assert(has_clsact);
@@ -223,7 +223,7 @@ int config_parse_tc_qdiscs_parent(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDiscs *qdisc = NULL;
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
         int r;
 

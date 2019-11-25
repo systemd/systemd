@@ -154,7 +154,7 @@ int network_verify(Network *network) {
         Prefix *prefix, *prefix_next;
         Route *route, *route_next;
         FdbEntry *fdb, *fdb_next;
-        QDiscs *qdisc;
+        QDisc *qdisc;
         Iterator i;
 
         assert(network);

@@ -34,7 +34,7 @@ int network_emulator_new(NetworkEmulator **ret) {
         return 0;
 }
 
-int network_emulator_fill_message(Link *link, QDiscs *qdisc, sd_netlink_message *req) {
+int network_emulator_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         struct tc_netem_qopt opt = {
                .limit = 1000,
         };
@@ -84,7 +84,7 @@ int config_parse_tc_network_emulator_delay(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDiscs *qdisc = NULL;
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
         usec_t u;
         int r;
@@ -139,7 +139,7 @@ int config_parse_tc_network_emulator_rate(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDiscs *qdisc = NULL;
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
         uint32_t rate;
         int r;
@@ -189,7 +189,7 @@ int config_parse_tc_network_emulator_packet_limit(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDiscs *qdisc = NULL;
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
         int r;
 
