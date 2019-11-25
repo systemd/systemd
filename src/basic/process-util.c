@@ -21,8 +21,8 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
-#include "escape.h"
 #include "env-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -34,6 +34,7 @@
 #include "missing_sched.h"
 #include "missing_syscall.h"
 #include "namespace-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
@@ -499,6 +500,9 @@ int get_process_cwd(pid_t pid, char **cwd) {
         const char *p;
 
         assert(pid >= 0);
+
+        if (pid == 0 || pid == getpid_cached())
+                return safe_getcwd(cwd);
 
         p = procfs_file_alloca(pid, "cwd");
 
