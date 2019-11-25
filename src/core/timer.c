@@ -217,7 +217,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sAccuracy: %s\n"
                 "%sRemainAfterElapse: %s\n"
                 "%sOnClockChange: %s\n"
-                "%sOnTimeZoneChange %s\n",
+                "%sOnTimeZoneChange: %s\n",
                 prefix, timer_state_to_string(t->state),
                 prefix, timer_result_to_string(t->result),
                 prefix, trigger ? trigger->id : "n/a",
