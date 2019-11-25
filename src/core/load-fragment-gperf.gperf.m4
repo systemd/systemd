@@ -119,6 +119,7 @@ $1.ProtectKernelLogs,            config_parse_bool,                  0,         
 $1.ProtectClock,                 config_parse_bool,                  0,                             offsetof($1, exec_context.protect_clock)
 $1.ProtectControlGroups,         config_parse_bool,                  0,                             offsetof($1, exec_context.protect_control_groups)
 $1.NetworkNamespacePath,         config_parse_unit_path_printf,      0,                             offsetof($1, exec_context.network_namespace_path)
+$1.LogNamespace,                 config_parse_log_namespace,         0,                             offsetof($1, exec_context)
 $1.PrivateNetwork,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_network)
 $1.PrivateUsers,                 config_parse_bool,                  0,                             offsetof($1, exec_context.private_users)
 $1.PrivateMounts,                config_parse_bool,                  0,                             offsetof($1, exec_context.private_mounts)

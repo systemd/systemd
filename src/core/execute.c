@@ -265,14 +265,26 @@ static int open_null_as(int flags, int nfd) {
         return move_fd(fd, nfd, false);
 }
 
-static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
-        static const union sockaddr_union sa = {
+static int connect_journal_socket(
+                int fd,
+                const char *log_namespace,
+                uid_t uid,
+                gid_t gid) {
+
+        union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/journal/stdout",
         };
         uid_t olduid = UID_INVALID;
         gid_t oldgid = GID_INVALID;
+        const char *j;
         int r;
+
+        j = log_namespace ?
+                strjoina("/run/systemd/journal.", log_namespace, "/stdout") :
+                "/run/systemd/journal/stdout";
+        r = sockaddr_un_set_path(&sa.un, j);
+        if (r < 0)
+                return r;
 
         if (gid_is_valid(gid)) {
                 oldgid = getgid();
@@ -328,7 +340,7 @@ static int connect_logger_as(
         if (fd < 0)
                 return -errno;
 
-        r = connect_journal_socket(fd, uid, gid);
+        r = connect_journal_socket(fd, context->log_namespace, uid, gid);
         if (r < 0)
                 return r;
 
@@ -1686,7 +1698,7 @@ static int build_environment(
         assert(p);
         assert(ret);
 
-        our_env = new0(char*, 14 + _EXEC_DIRECTORY_TYPE_MAX);
+        our_env = new0(char*, 15 + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1790,6 +1802,14 @@ static int build_environment(
 
         if (journal_stream_dev != 0 && journal_stream_ino != 0) {
                 if (asprintf(&x, "JOURNAL_STREAM=" DEV_FMT ":" INO_FMT, journal_stream_dev, journal_stream_ino) < 0)
+                        return -ENOMEM;
+
+                our_env[n_env++] = x;
+        }
+
+        if (c->log_namespace) {
+                x = strjoin("LOG_NAMESPACE=", c->log_namespace);
+                if (!x)
                         return -ENOMEM;
 
                 our_env[n_env++] = x;
@@ -1917,6 +1937,9 @@ static bool exec_needs_mount_namespace(
             (!strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
              !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
              !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths)))
+                return true;
+
+        if (context->log_namespace)
                 return true;
 
         return false;
@@ -2517,6 +2540,9 @@ static bool insist_on_sandboxing(
                 if (!path_equal(bind_mounts[i].source, bind_mounts[i].destination))
                         return true;
 
+        if (context->log_namespace)
+                return true;
+
         return false;
 }
 
@@ -2600,6 +2626,7 @@ static int apply_mount_namespace(
                             context->n_temporary_filesystems,
                             tmp,
                             var,
+                            context->log_namespace,
                             needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
                             needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                             context->mount_flags,
@@ -4140,6 +4167,8 @@ void exec_context_done(ExecContext *c) {
         c->stdin_data_size = 0;
 
         c->network_namespace_path = mfree(c->network_namespace_path);
+
+        c->log_namespace = mfree(c->log_namespace);
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
@@ -4674,6 +4703,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         fputc('\n', f);
                 }
         }
+
+        if (c->log_namespace)
+                fprintf(f, "%sLogNamespace: %s\n", prefix, c->log_namespace);
 
         if (c->secure_bits) {
                 _cleanup_free_ char *str = NULL;
