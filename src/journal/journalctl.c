@@ -115,8 +115,10 @@ static const char *arg_field = NULL;
 static bool arg_catalog = false;
 static bool arg_reverse = false;
 static int arg_journal_type = 0;
+static int arg_namespace_flags = 0;
 static char *arg_root = NULL;
 static const char *arg_machine = NULL;
+static const char *arg_namespace = NULL;
 static uint64_t arg_vacuum_size = 0;
 static uint64_t arg_vacuum_n_files = 0;
 static usec_t arg_vacuum_time = 0;
@@ -354,6 +356,7 @@ static int help(void) {
                "  -D --directory=PATH        Show journal files from directory\n"
                "     --file=PATH             Show journal file\n"
                "     --root=ROOT             Operate on files below a root directory\n"
+               "     --namespace=NAMESPACE   Show journal data from specified namespace\n"
                "     --interval=TIME         Time interval for changing the FSS sealing key\n"
                "     --verify-key=KEY        Specify FSS verification key\n"
                "     --force                 Override of the FSS key pair with --setup-keys\n"
@@ -426,6 +429,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VACUUM_TIME,
                 ARG_NO_HOSTNAME,
                 ARG_OUTPUT_FIELDS,
+                ARG_NAMESPACE,
         };
 
         static const struct option options[] = {
@@ -490,6 +494,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "vacuum-time",          required_argument, NULL, ARG_VACUUM_TIME          },
                 { "no-hostname",          no_argument,       NULL, ARG_NO_HOSTNAME          },
                 { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
+                { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
                 {}
         };
 
@@ -648,6 +653,23 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'M':
                         arg_machine = optarg;
+                        break;
+
+                case ARG_NAMESPACE:
+                        if (streq(optarg, "*")) {
+                                arg_namespace_flags = SD_JOURNAL_ALL_NAMESPACES;
+                                arg_namespace = NULL;
+                        } else if (startswith(optarg, "+")) {
+                                arg_namespace_flags = SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE;
+                                arg_namespace = optarg + 1;
+                        } else if (isempty(optarg)) {
+                                arg_namespace_flags = 0;
+                                arg_namespace = NULL;
+                        } else {
+                                arg_namespace_flags = 0;
+                                arg_namespace = optarg;
+                        }
+
                         break;
 
                 case 'D':
@@ -1926,15 +1948,19 @@ static int verify(sd_journal *j) {
 
 static int simple_varlink_call(const char *option, const char *method) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
-        const char *error;
+        const char *error, *fn;
         int r;
 
         if (arg_machine)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "%s is not supported in conjunction with --machine=.", option);
 
-        r = varlink_connect_address(&link, "/run/systemd/journal/io.systemd.journal");
+        fn = arg_namespace ?
+                strjoina("/run/systemd/journal.", arg_namespace, "/io.systemd.journal") :
+                "/run/systemd/journal/io.systemd.journal";
+
+        r = varlink_connect_address(&link, fn);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to /run/systemd/journal/io.systemd.journal: %m");
+                return log_error_errno(r, "Failed to connect to %s: %m", fn);
 
         (void) varlink_set_description(link, "journal");
         (void) varlink_set_relative_timeout(link, USEC_INFINITY);
@@ -2157,7 +2183,11 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         safe_close(fd);
         } else
-                r = sd_journal_open(&j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
+                r = sd_journal_open_namespace(
+                                &j,
+                                arg_namespace,
+                                (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) |
+                                arg_namespace_flags | arg_journal_type);
         if (r < 0) {
                 log_error_errno(r, "Failed to open %s: %m", arg_directory ?: arg_file ? "files" : "journal");
                 goto finish;
