@@ -32,9 +32,8 @@ static void forward_syslog_iovec(
                 const struct ucred *ucred,
                 const struct timeval *tv) {
 
-        static const union sockaddr_union sa = {
+        union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/journal/syslog",
         };
         struct msghdr msghdr = {
                 .msg_iov = (struct iovec *) iovec,
@@ -47,10 +46,19 @@ static void forward_syslog_iovec(
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
         } control;
+        const char *j;
+        int r;
 
         assert(s);
         assert(iovec);
         assert(n_iovec > 0);
+
+        j = strjoina(s->runtime_directory, "/syslog");
+        r = sockaddr_un_set_path(&sa.un, j);
+        if (r < 0) {
+                log_debug_errno(r, "Forwarding socket path %s too long for AF_UNIX, not forwarding: %m", j);
+                return;
+        }
 
         if (ucred) {
                 zero(control);
@@ -446,17 +454,21 @@ void server_process_syslog_message(
         server_dispatch_message(s, iovec, n, m, context, tv, priority, 0);
 }
 
-int server_open_syslog_socket(Server *s) {
-
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/journal/dev-log",
-        };
+int server_open_syslog_socket(Server *s, const char *syslog_socket) {
         int r;
 
         assert(s);
+        assert(syslog_socket);
 
         if (s->syslog_fd < 0) {
+                union sockaddr_union sa = {
+                        .un.sun_family = AF_UNIX,
+                };
+
+                r = sockaddr_un_set_path(&sa.un, syslog_socket);
+                if (r < 0)
+                        return log_error_errno(r, "Unable to use namespace path %s for AF_UNIX socket: %m", syslog_socket);
+
                 s->syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (s->syslog_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");

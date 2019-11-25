@@ -780,7 +780,9 @@ void client_context_acquire_default(Server *s) {
                         log_warning_errno(r, "Failed to acquire our own context, ignoring: %m");
         }
 
-        if (!s->pid1_context) {
+        if (!s->namespace && !s->pid1_context) {
+                /* Acquire PID1's context, but only if we are in non-namespaced mode, since PID 1 is only
+                 * going to log to the non-namespaced journal instance. */
 
                 r = client_context_acquire(s, 1, NULL, NULL, 0, NULL, &s->pid1_context);
                 if (r < 0)

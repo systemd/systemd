@@ -417,6 +417,7 @@ fail:
 
 int server_open_kernel_seqnum(Server *s) {
         _cleanup_close_ int fd = -1;
+        const char *fn;
         uint64_t *p;
         int r;
 
@@ -428,9 +429,10 @@ int server_open_kernel_seqnum(Server *s) {
         if (!s->read_kmsg)
                 return 0;
 
-        fd = open("/run/systemd/journal/kernel-seqnum", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
+        fn = strjoina(s->runtime_directory, "/kernel-seqnum");
+        fd = open(fn, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
         if (fd < 0) {
-                log_error_errno(errno, "Failed to open /run/systemd/journal/kernel-seqnum, ignoring: %m");
+                log_error_errno(errno, "Failed to open %s, ignoring: %m", fn);
                 return 0;
         }
 

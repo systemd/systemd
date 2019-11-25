@@ -60,6 +60,8 @@ typedef struct JournalStorage {
 } JournalStorage;
 
 struct Server {
+        char *namespace;
+
         int syslog_fd;
         int native_fd;
         int stdout_fd;
@@ -147,6 +149,8 @@ struct Server {
         char machine_id_field[sizeof("_MACHINE_ID=") + 32];
         char boot_id_field[sizeof("_BOOT_ID=") + 32];
         char *hostname_field;
+        char *namespace_field;
+        char *runtime_directory;
 
         /* Cached cgroup root, so that we don't have to query that all the time */
         char *cgroup_root;
@@ -172,7 +176,7 @@ struct Server {
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))
 
 /* Extra fields for any log messages */
-#define N_IOVEC_META_FIELDS 22
+#define N_IOVEC_META_FIELDS 23
 
 /* Extra fields for log messages that contain OBJECT_PID= (i.e. log about another process) */
 #define N_IOVEC_OBJECT_FIELDS 18
@@ -204,7 +208,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_split_mode);
 const char *split_mode_to_string(SplitMode s) _const_;
 SplitMode split_mode_from_string(const char *s) _pure_;
 
-int server_init(Server *s);
+int server_init(Server *s, const char *namespace);
 void server_done(Server *s);
 void server_sync(Server *s);
 int server_vacuum(Server *s, bool verbose);
