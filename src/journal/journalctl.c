@@ -2668,7 +2668,6 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
-        fflush(stdout);
         pager_close();
 
         strv_free(arg_file);
