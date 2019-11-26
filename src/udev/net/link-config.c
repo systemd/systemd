@@ -362,8 +362,8 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         }
                 }
 
-                if (config->duplex !=_DUP_INVALID)
-                        log_warning_errno(r, "Could not set duplex of %s to (%s): %m", old_name, duplex_to_string(config->duplex));
+                if (config->duplex != _DUP_INVALID)
+                        log_warning_errno(r, "Could not set duplex of %s to %s: %m", old_name, duplex_to_string(config->duplex));
         }
 
         r = ethtool_set_wol(&ctx->ethtool_fd, old_name, config->wol);

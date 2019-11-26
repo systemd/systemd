@@ -744,7 +744,7 @@ int ethtool_set_glinksettings(
         else
                 r = set_sset(*fd, &ifr, u);
         if (r < 0)
-                return log_warning_errno(r, "ethtool: Cannot set device settings for %s : %m", ifname);
+                return log_warning_errno(r, "ethtool: Cannot set device settings for %s: %m", ifname);
 
         return r;
 }
