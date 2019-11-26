@@ -293,8 +293,6 @@ static void manager_free(Manager *manager) {
         if (!manager)
                 return;
 
-        manager->monitor = sd_device_monitor_unref(manager->monitor);
-
         udev_builtin_exit();
 
         if (manager->pid == getpid_cached())
@@ -790,6 +788,8 @@ static void manager_exit(Manager *manager) {
 
         manager->inotify_event = sd_event_source_unref(manager->inotify_event);
         manager->fd_inotify = safe_close(manager->fd_inotify);
+
+        manager->monitor = sd_device_monitor_unref(manager->monitor);
 
         /* discard queued events and kill workers */
         event_queue_cleanup(manager, EVENT_QUEUED);
