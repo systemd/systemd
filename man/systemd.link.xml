@@ -655,7 +655,7 @@ MACAddress=00:a0:de:63:7a:e6
 Name=dmz0</programlisting>
 
       <para><varname>NamePolicy=</varname> is not set, so <varname>Name=</varname> takes effect. We use the
-      <literal>10-</literal> prefix to order this file early in the list. Note that it needs to before
+      <literal>10-</literal> prefix to order this file early in the list. Note that it needs to be before
       <literal>99-link</literal>, i.e. it needs a numerical prefix, to have any effect at all.</para>
     </example>
 
