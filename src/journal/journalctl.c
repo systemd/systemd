@@ -2104,10 +2104,9 @@ int main(int argc, char *argv[]) {
                 r = sd_journal_open_directory(&j, arg_directory, arg_journal_type);
         else if (arg_root)
                 r = sd_journal_open_directory(&j, arg_root, arg_journal_type | SD_JOURNAL_OS_ROOT);
-        else if (arg_file_stdin) {
-                int ifd = STDIN_FILENO;
-                r = sd_journal_open_files_fd(&j, &ifd, 1, 0);
-        } else if (arg_file)
+        else if (arg_file_stdin)
+                r = sd_journal_open_files_fd(&j, (int[]) { STDIN_FILENO }, 1, 0);
+        else if (arg_file)
                 r = sd_journal_open_files(&j, (const char**) arg_file, 0);
         else if (arg_machine) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
