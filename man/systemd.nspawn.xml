@@ -32,58 +32,32 @@
   <refsect1>
     <title>Description</title>
 
-    <para>An nspawn container settings file (suffix
-    <filename>.nspawn</filename>) encodes additional runtime
-    information about a local container, and is searched, read and
-    used by
-    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    when starting a container. Files of this type are named after the
-    containers they define settings for. They are optional, and only
-    required for containers whose execution environment shall differ
-    from the defaults. Files of this type mostly contain settings that
-    may also be set on the <command>systemd-nspawn</command> command
-    line, and make it easier to persistently attach specific settings
-    to specific containers. The syntax of these files is inspired by
-    <filename>.desktop</filename> files following the <ulink
-    url="http://standards.freedesktop.org/desktop-entry-spec/latest/">XDG
-    Desktop Entry Specification</ulink>, which in turn are inspired by
-    Microsoft Windows <filename>.ini</filename> files.</para>
-
-    <para>Boolean arguments used in these settings files can be
-    written in various formats. For positive settings, the strings
-    <option>1</option>, <option>yes</option>, <option>true</option>
-    and <option>on</option> are equivalent. For negative settings, the
-    strings <option>0</option>, <option>no</option>,
-    <option>false</option> and <option>off</option> are
-    equivalent.</para>
-
-    <para>Empty lines and lines starting with # or ; are
-    ignored. This may be used for commenting. Lines ending
-    in a backslash are concatenated with the following
-    line while reading and the backslash is replaced by a
-    space character. This may be used to wrap long lines.</para>
-
+    <para>An nspawn container settings file (suffix <filename>.nspawn</filename>) contains runtime
+    configuration for a local container, and is used used by
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    Files of this type are named after the containers they define settings for. They are optional, and only
+    required for containers whose execution environment shall differ from the defaults. Files of this type
+    mostly contain settings that may also be set on the <command>systemd-nspawn</command> command line, and
+    make it easier to persistently attach specific settings to specific containers. The syntax of these files
+    is inspired by <filename>.desktop</filename> files, similarly to other configuration files supported by
+    the systemd project. See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry> for an
+    overview.</para>
   </refsect1>
 
   <refsect1>
     <title><filename>.nspawn</filename> File Discovery</title>
 
-    <para>Files are searched by appending the
-    <filename>.nspawn</filename> suffix to the machine name of the
-    container, as specified with the <option>--machine=</option>
-    switch of <command>systemd-nspawn</command>, or derived from the
-    directory or image file name. This file is first searched in
-    <filename>/etc/systemd/nspawn/</filename> and
-    <filename>/run/systemd/nspawn/</filename>. If found in these
-    directories, its settings are read and all of them take full effect
-    (but are possibly overridden by corresponding command line
-    arguments). If not found, the file will then be searched next to
-    the image file or in the immediate parent of the root directory of
-    the container. If the file is found there, only a subset of the
-    settings will take effect however. All settings that possibly
-    elevate privileges or grant additional access to resources of the
-    host (such as files or directories) are ignored. To which options
-    this applies is documented below.</para>
+    <para>Files are searched for by appending the <filename>.nspawn</filename> suffix to the machine name of
+    the container, as specified with the <option>--machine=</option> switch of
+    <command>systemd-nspawn</command>, or derived from the directory or image file name. This file is first
+    searched for in <filename>/etc/systemd/nspawn/</filename> and
+    <filename>/run/systemd/nspawn/</filename>. If found there, the settings are read and all of them take
+    full effect (but may still be overridden by corresponding command line arguments). Otherwise, the file
+    will then be searched for next to the image file or in the immediate parent of the root directory of the
+    container. If the file is found there, only a subset of the settings will take effect however. All
+    settings that possibly elevate privileges or grant additional access to resources of the host (such as
+    files or directories) are ignored. To which options this applies is documented below.</para>
 
     <para>Persistent settings files created and maintained by the
     administrator (and thus trusted) should be placed in
