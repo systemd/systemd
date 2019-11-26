@@ -754,9 +754,13 @@ static int open_journal(sd_journal **j) {
                 r = sd_journal_open_directory(j, arg_directory, arg_journal_type);
         else if (arg_file)
                 r = sd_journal_open_files(j, (const char**) arg_file, 0);
-        else if (arg_machine)
+        else if (arg_machine) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+                /* FIXME: replace with D-Bus call OpenMachineRootDirectory() so that things also work with raw disk images */
                 r = sd_journal_open_container(j, arg_machine, 0);
-        else
+#pragma GCC diagnostic pop
+        } else
                 r = sd_journal_open(j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
         if (r < 0)
                 log_error_errno(r, "Failed to open %s: %m",
