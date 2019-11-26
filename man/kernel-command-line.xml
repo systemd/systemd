@@ -367,6 +367,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.cpu_affinity=</varname></term>
+
+        <listitem>
+          <para>Overrides the CPU affinity mask for the service manager and the default for all child
+          processes it forks. This takes precedence over <varname>CPUAffinity=</varname>, see
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>modules_load=</varname></term>
         <term><varname>rd.modules_load=</varname></term>
 

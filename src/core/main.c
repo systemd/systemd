@@ -472,6 +472,15 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (arg_default_timeout_start_usec <= 0)
                         arg_default_timeout_start_usec = USEC_INFINITY;
 
+        } else if (proc_cmdline_key_streq(key, "systemd.cpu_affinity")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = parse_cpu_set(value, &arg_cpu_affinity);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse CPU affinity mask '%s', ignoring: %m", value);
+
         } else if (proc_cmdline_key_streq(key, "systemd.watchdog_device")) {
 
                 if (proc_cmdline_value_missing(key, value))
