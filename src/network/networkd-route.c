@@ -1494,16 +1494,14 @@ int route_section_verify(Route *route, Network *network) {
                                          route->section->filename, route->section->line);
         }
 
-        if (route->family != AF_INET6) {
-                if (!route->table_set && IN_SET(route->type, RTN_LOCAL, RTN_BROADCAST, RTN_ANYCAST, RTN_NAT))
-                        route->table = RT_TABLE_LOCAL;
+        if (!route->table_set && IN_SET(route->type, RTN_LOCAL, RTN_BROADCAST, RTN_ANYCAST, RTN_NAT))
+                route->table = RT_TABLE_LOCAL;
 
-                if (!route->scope_set) {
-                        if (IN_SET(route->type, RTN_LOCAL, RTN_NAT))
-                                route->scope = RT_SCOPE_HOST;
-                        else if (IN_SET(route->type, RTN_BROADCAST, RTN_ANYCAST))
-                                route->scope = RT_SCOPE_LINK;
-                }
+        if (!route->scope_set && route->family != AF_INET6) {
+                if (IN_SET(route->type, RTN_LOCAL, RTN_NAT))
+                        route->scope = RT_SCOPE_HOST;
+                else if (IN_SET(route->type, RTN_BROADCAST, RTN_ANYCAST, RTN_MULTICAST))
+                        route->scope = RT_SCOPE_LINK;
         }
 
         if (network->n_static_addresses == 0 &&
