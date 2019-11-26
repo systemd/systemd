@@ -1335,10 +1335,12 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         device_delete_db(worker->event->dev);
                         device_tag_index(worker->event->dev, NULL, false);
 
-                        /* forward kernel event without amending it */
-                        r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
-                        if (r < 0)
-                                log_device_error_errno(worker->event->dev_kernel, r, "Failed to send back device to kernel: %m");
+                        if (manager->monitor) {
+                                /* forward kernel event without amending it */
+                                r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
+                                if (r < 0)
+                                        log_device_error_errno(worker->event->dev_kernel, r, "Failed to send back device to kernel: %m");
+                        }
                 }
 
                 worker_free(worker);
