@@ -142,6 +142,8 @@ def setUpModule():
             running_units.append(u)
 
     drop_in = [
+        '[Unit]',
+        'StartLimitIntervalSec=0',
         '[Service]',
         'Restart=no',
         'ExecStart=',
