@@ -1593,22 +1593,23 @@ int seccomp_memory_deny_write_execute(void) {
 
                 switch (arch) {
 
+                /* Note that on some architectures shmat() isn't available, and the call is multiplexed through ipc().
+                 * We ignore that here, which means there's still a way to get writable/executable
+                 * memory, if an IPC key is mapped like this. That's a pity, but no total loss. */
+
                 case SCMP_ARCH_X86:
                 case SCMP_ARCH_S390:
                         filter_syscall = SCMP_SYS(mmap2);
                         block_syscall = SCMP_SYS(mmap);
-                        shmat_syscall = SCMP_SYS(shmat);
+                        /* shmat multiplexed, see above */
                         break;
 
                 case SCMP_ARCH_PPC:
                 case SCMP_ARCH_PPC64:
                 case SCMP_ARCH_PPC64LE:
+                case SCMP_ARCH_S390X:
                         filter_syscall = SCMP_SYS(mmap);
-
-                        /* Note that shmat() isn't available, and the call is multiplexed through ipc().
-                         * We ignore that here, which means there's still a way to get writable/executable
-                         * memory, if an IPC key is mapped like this. That's a pity, but no total loss. */
-
+                        /* shmat multiplexed, see above */
                         break;
 
                 case SCMP_ARCH_ARM:
@@ -1619,8 +1620,7 @@ int seccomp_memory_deny_write_execute(void) {
                 case SCMP_ARCH_X86_64:
                 case SCMP_ARCH_X32:
                 case SCMP_ARCH_AARCH64:
-                case SCMP_ARCH_S390X:
-                        filter_syscall = SCMP_SYS(mmap); /* amd64, x32, s390x, and arm64 have only mmap */
+                        filter_syscall = SCMP_SYS(mmap); /* amd64, x32 and arm64 have only mmap */
                         shmat_syscall = SCMP_SYS(shmat);
                         break;
 
