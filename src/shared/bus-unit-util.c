@@ -421,18 +421,26 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
         if (STR_IN_SET(field, "DevicePolicy", "Slice"))
                 return bus_append_string(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "CPUAccounting", "MemoryAccounting", "IOAccounting", "BlockIOAccounting",
-                       "TasksAccounting", "IPAccounting"))
+        if (STR_IN_SET(field, "CPUAccounting",
+                              "MemoryAccounting",
+                              "IOAccounting",
+                              "BlockIOAccounting",
+                              "TasksAccounting",
+                              "IPAccounting"))
                 return bus_append_parse_boolean(m, field, eq);
 
-        if (STR_IN_SET(field, "CPUWeight", "StartupCPUWeight", "IOWeight", "StartupIOWeight"))
+        if (STR_IN_SET(field, "CPUWeight",
+                              "StartupCPUWeight",
+                              "IOWeight",
+                              "StartupIOWeight"))
                 return bus_append_cg_weight_parse(m, field, eq);
 
-        if (STR_IN_SET(field, "CPUShares", "StartupCPUShares"))
+        if (STR_IN_SET(field, "CPUShares",
+                              "StartupCPUShares"))
                 return bus_append_cg_cpu_shares_parse(m, field, eq);
 
-        if (STR_IN_SET(field, "AllowedCPUs", "AllowedMemoryNodes")) {
+        if (STR_IN_SET(field, "AllowedCPUs",
+                              "AllowedMemoryNodes")) {
                 _cleanup_(cpu_set_reset) CPUSet cpuset = {};
                 _cleanup_free_ uint8_t *array = NULL;
                 size_t allocated;
@@ -448,7 +456,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return bus_append_byte_array(m, field, array, allocated);
         }
 
-        if (STR_IN_SET(field, "BlockIOWeight", "StartupBlockIOWeight"))
+        if (STR_IN_SET(field, "BlockIOWeight",
+                              "StartupBlockIOWeight"))
                 return bus_append_cg_blkio_weight_parse(m, field, eq);
 
         if (streq(field, "DisableControllers"))
@@ -593,7 +602,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
-        if (STR_IN_SET(field, "IODeviceWeight", "BlockIODeviceWeight")) {
+        if (STR_IN_SET(field, "IODeviceWeight",
+                              "BlockIODeviceWeight")) {
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", field, "a(st)", 0);
                 else {
@@ -653,7 +663,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
-        if (STR_IN_SET(field, "IPAddressAllow", "IPAddressDeny")) {
+        if (STR_IN_SET(field, "IPAddressAllow",
+                              "IPAddressDeny")) {
                 unsigned char prefixlen;
                 union in_addr_union prefix = {};
                 int family;
@@ -773,7 +784,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
-        if (STR_IN_SET(field, "IPIngressFilterPath", "IPEgressFilterPath")) {
+        if (STR_IN_SET(field, "IPIngressFilterPath",
+                              "IPEgressFilterPath")) {
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", field, "as", 0);
                 else
@@ -805,31 +817,68 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         const char *suffix;
         int r;
 
-        if (STR_IN_SET(field,
-                       "User", "Group",
-                       "UtmpIdentifier", "UtmpMode", "PAMName", "TTYPath",
-                       "WorkingDirectory", "RootDirectory", "SyslogIdentifier",
-                       "ProtectSystem", "ProtectHome", "SELinuxContext", "RootImage",
-                       "RuntimeDirectoryPreserve", "Personality", "KeyringMode", "NetworkNamespacePath"))
+        if (STR_IN_SET(field, "User",
+                              "Group",
+                              "UtmpIdentifier",
+                              "UtmpMode",
+                              "PAMName",
+                              "TTYPath",
+                              "WorkingDirectory",
+                              "RootDirectory",
+                              "SyslogIdentifier",
+                              "ProtectSystem",
+                              "ProtectHome",
+                              "SELinuxContext",
+                              "RootImage",
+                              "RuntimeDirectoryPreserve",
+                              "Personality",
+                              "KeyringMode",
+                              "NetworkNamespacePath"))
                 return bus_append_string(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "TTYVTDisallocate", "PrivateTmp",
-                       "PrivateDevices", "PrivateNetwork", "PrivateUsers", "PrivateMounts",
-                       "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute", "RestrictRealtime",
-                       "DynamicUser", "RemoveIPC", "ProtectKernelTunables", "ProtectKernelModules",
-                       "ProtectKernelLogs", "ProtectControlGroups", "MountAPIVFS", "CPUSchedulingResetOnFork",
-                       "LockPersonality", "ProtectHostname", "RestrictSUIDSGID"))
+        if (STR_IN_SET(field, "IgnoreSIGPIPE",
+                              "TTYVHangup",
+                              "TTYReset",
+                              "TTYVTDisallocate",
+                              "PrivateTmp",
+                              "PrivateDevices",
+                              "PrivateNetwork",
+                              "PrivateUsers",
+                              "PrivateMounts",
+                              "NoNewPrivileges",
+                              "SyslogLevelPrefix",
+                              "MemoryDenyWriteExecute",
+                              "RestrictRealtime",
+                              "DynamicUser",
+                              "RemoveIPC",
+                              "ProtectKernelTunables",
+                              "ProtectKernelModules",
+                              "ProtectKernelLogs",
+                              "ProtectControlGroups",
+                              "MountAPIVFS",
+                              "CPUSchedulingResetOnFork",
+                              "LockPersonality",
+                              "ProtectHostname",
+                              "RestrictSUIDSGID"))
                 return bus_append_parse_boolean(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "ReadWriteDirectories", "ReadOnlyDirectories", "InaccessibleDirectories",
-                       "ReadWritePaths", "ReadOnlyPaths", "InaccessiblePaths",
-                       "RuntimeDirectory", "StateDirectory", "CacheDirectory", "LogsDirectory", "ConfigurationDirectory",
-                       "SupplementaryGroups", "SystemCallArchitectures"))
+        if (STR_IN_SET(field, "ReadWriteDirectories",
+                              "ReadOnlyDirectories",
+                              "InaccessibleDirectories",
+                              "ReadWritePaths",
+                              "ReadOnlyPaths",
+                              "InaccessiblePaths",
+                              "RuntimeDirectory",
+                              "StateDirectory",
+                              "CacheDirectory",
+                              "LogsDirectory",
+                              "ConfigurationDirectory",
+                              "SupplementaryGroups",
+                              "SystemCallArchitectures"))
                 return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
 
-        if (STR_IN_SET(field, "SyslogLevel", "LogLevelMax"))
+        if (STR_IN_SET(field, "SyslogLevel",
+                              "LogLevelMax"))
                 return bus_append_log_level_from_string(m, field, eq);
 
         if (streq(field, "SyslogFacility"))
@@ -841,7 +890,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (streq(field, "CPUSchedulingPolicy"))
                 return bus_append_sched_policy_from_string(m, field, eq);
 
-        if (STR_IN_SET(field, "CPUSchedulingPriority", "OOMScoreAdjust"))
+        if (STR_IN_SET(field, "CPUSchedulingPriority",
+                              "OOMScoreAdjust"))
                 return bus_append_safe_atoi(m, field, eq);
 
         if (streq(field, "Nice"))
@@ -856,9 +906,12 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (streq(field, "IOSchedulingPriority"))
                 return bus_append_ioprio_parse_priority(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "RuntimeDirectoryMode", "StateDirectoryMode", "CacheDirectoryMode",
-                       "LogsDirectoryMode", "ConfigurationDirectoryMode", "UMask"))
+        if (STR_IN_SET(field, "RuntimeDirectoryMode",
+                              "StateDirectoryMode",
+                              "CacheDirectoryMode",
+                              "LogsDirectoryMode",
+                              "ConfigurationDirectoryMode",
+                              "UMask"))
                 return bus_append_parse_mode(m, field, eq);
 
         if (streq(field, "TimerSlackNSec"))
@@ -873,7 +926,9 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (streq(field, "MountFlags"))
                 return bus_append_mount_propagation_flags_from_string(m, field, eq);
 
-        if (STR_IN_SET(field, "Environment", "UnsetEnvironment", "PassEnvironment"))
+        if (STR_IN_SET(field, "Environment",
+                              "UnsetEnvironment",
+                              "PassEnvironment"))
                 return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
 
         if (streq(field, "EnvironmentFile")) {
@@ -925,7 +980,9 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return 1;
         }
 
-        if (STR_IN_SET(field, "StandardInput", "StandardOutput", "StandardError")) {
+        if (STR_IN_SET(field, "StandardInput",
+                              "StandardOutput",
+                              "StandardError")) {
                 const char *n, *appended;
 
                 if ((n = startswith(eq, "fd:"))) {
@@ -997,7 +1054,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 }
         }
 
-        if (STR_IN_SET(field, "AppArmorProfile", "SmackProcessLabel")) {
+        if (STR_IN_SET(field, "AppArmorProfile",
+                              "SmackProcessLabel")) {
                 int ignore = 0;
                 const char *s = eq;
 
@@ -1013,7 +1071,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return 1;
         }
 
-        if (STR_IN_SET(field, "CapabilityBoundingSet", "AmbientCapabilities")) {
+        if (STR_IN_SET(field, "CapabilityBoundingSet",
+                              "AmbientCapabilities")) {
                 uint64_t sum = 0;
                 bool invert = false;
                 const char *p = eq;
@@ -1080,7 +1139,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return bus_append_byte_array(m, field, array, allocated);
         }
 
-        if (STR_IN_SET(field, "RestrictAddressFamilies", "SystemCallFilter")) {
+        if (STR_IN_SET(field, "RestrictAddressFamilies",
+                              "SystemCallFilter")) {
                 int whitelist = 1;
                 const char *p = eq;
 
@@ -1178,7 +1238,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return 1;
         }
 
-        if (STR_IN_SET(field, "BindPaths", "BindReadOnlyPaths")) {
+        if (STR_IN_SET(field, "BindPaths",
+                              "BindReadOnlyPaths")) {
                 const char *p = eq;
 
                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
@@ -1330,10 +1391,14 @@ static int bus_append_kill_property(sd_bus_message *m, const char *field, const 
         if (streq(field, "KillMode"))
                 return bus_append_string(m, field, eq);
 
-        if (STR_IN_SET(field, "SendSIGHUP", "SendSIGKILL"))
+        if (STR_IN_SET(field, "SendSIGHUP",
+                              "SendSIGKILL"))
                 return bus_append_parse_boolean(m, field, eq);
 
-        if (STR_IN_SET(field, "KillSignal", "RestartKillSignal", "FinalKillSignal", "WatchdogSignal"))
+        if (STR_IN_SET(field, "KillSignal",
+                              "RestartKillSignal",
+                              "FinalKillSignal",
+                              "WatchdogSignal"))
                 return bus_append_signal_from_string(m, field, eq);
 
         return 0;
@@ -1341,7 +1406,10 @@ static int bus_append_kill_property(sd_bus_message *m, const char *field, const 
 
 static int bus_append_mount_property(sd_bus_message *m, const char *field, const char *eq) {
 
-        if (STR_IN_SET(field, "What", "Where", "Options", "Type"))
+        if (STR_IN_SET(field, "What",
+                              "Where",
+                              "Options",
+                              "Type"))
                 return bus_append_string(m, field, eq);
 
         if (streq(field, "TimeoutSec"))
@@ -1350,7 +1418,9 @@ static int bus_append_mount_property(sd_bus_message *m, const char *field, const
         if (streq(field, "DirectoryMode"))
                 return bus_append_parse_mode(m, field, eq);
 
-        if (STR_IN_SET(field, "SloppyOptions", "LazyUnmount", "ForceUnmount"))
+        if (STR_IN_SET(field, "SloppyOptions",
+                              "LazyUnmount",
+                              "ForceUnmount"))
                 return bus_append_parse_boolean(m, field, eq);
 
         return 0;
@@ -1365,9 +1435,11 @@ static int bus_append_path_property(sd_bus_message *m, const char *field, const 
         if (streq(field, "DirectoryMode"))
                 return bus_append_parse_mode(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "PathExists", "PathExistsGlob", "PathChanged",
-                       "PathModified", "DirectoryNotEmpty")) {
+        if (STR_IN_SET(field, "PathExists",
+                              "PathExistsGlob",
+                              "PathChanged",
+                              "PathModified",
+                              "DirectoryNotEmpty")) {
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", "Paths", "a(ss)", 0);
                 else
@@ -1383,11 +1455,9 @@ static int bus_append_path_property(sd_bus_message *m, const char *field, const 
 
 static int bus_append_scope_property(sd_bus_message *m, const char *field, const char *eq) {
         if (streq(field, "RuntimeMaxSec"))
-
                 return bus_append_parse_sec_rename(m, field, eq);
 
         if (streq(field, "TimeoutStopSec"))
-
                 return bus_append_parse_sec_rename(m, field, eq);
 
         return 0;
@@ -1396,15 +1466,27 @@ static int bus_append_scope_property(sd_bus_message *m, const char *field, const
 static int bus_append_service_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
-        if (STR_IN_SET(field,
-                       "PIDFile", "Type", "Restart", "BusName", "NotifyAccess",
-                       "USBFunctionDescriptors", "USBFunctionStrings", "OOMPolicy"))
+        if (STR_IN_SET(field, "PIDFile",
+                              "Type",
+                              "Restart",
+                              "BusName",
+                              "NotifyAccess",
+                              "USBFunctionDescriptors",
+                              "USBFunctionStrings",
+                              "OOMPolicy"))
                 return bus_append_string(m, field, eq);
 
-        if (STR_IN_SET(field, "PermissionsStartOnly", "RootDirectoryStartOnly", "RemainAfterExit", "GuessMainPID"))
+        if (STR_IN_SET(field, "PermissionsStartOnly",
+                              "RootDirectoryStartOnly",
+                              "RemainAfterExit",
+                              "GuessMainPID"))
                 return bus_append_parse_boolean(m, field, eq);
 
-        if (STR_IN_SET(field, "RestartSec", "TimeoutStartSec", "TimeoutStopSec", "RuntimeMaxSec", "WatchdogSec"))
+        if (STR_IN_SET(field, "RestartSec",
+                              "TimeoutStartSec",
+                              "TimeoutStopSec",
+                              "RuntimeMaxSec",
+                              "WatchdogSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
         if (streq(field, "TimeoutSec")) {
@@ -1418,14 +1500,25 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
         if (streq(field, "FileDescriptorStoreMax"))
                 return bus_append_safe_atou(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "ExecCondition", "ExecStartPre", "ExecStart", "ExecStartPost",
-                       "ExecConditionEx", "ExecStartPreEx", "ExecStartEx", "ExecStartPostEx",
-                       "ExecReload", "ExecStop", "ExecStopPost",
-                       "ExecReloadEx", "ExecStopEx", "ExecStopPostEx"))
+        if (STR_IN_SET(field, "ExecCondition",
+                              "ExecStartPre",
+                              "ExecStart",
+                              "ExecStartPost",
+                              "ExecConditionEx",
+                              "ExecStartPreEx",
+                              "ExecStartEx",
+                              "ExecStartPostEx",
+                              "ExecReload",
+                              "ExecStop",
+                              "ExecStopPost",
+                              "ExecReloadEx",
+                              "ExecStopEx",
+                              "ExecStopPostEx"))
                 return bus_append_exec_command(m, field, eq);
 
-        if (STR_IN_SET(field, "RestartPreventExitStatus", "RestartForceExitStatus", "SuccessExitStatus")) {
+        if (STR_IN_SET(field, "RestartPreventExitStatus",
+                              "RestartForceExitStatus",
+                              "SuccessExitStatus")) {
                 _cleanup_free_ int *status = NULL, *signal = NULL;
                 size_t n_status = 0, n_signal = 0;
                 const char *p;
@@ -1512,39 +1605,70 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 static int bus_append_socket_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
-        if (STR_IN_SET(field,
-                       "Accept", "Writable", "KeepAlive", "NoDelay", "FreeBind", "Transparent", "Broadcast",
-                       "PassCredentials", "PassSecurity", "ReusePort", "RemoveOnStop", "SELinuxContextFromNet"))
+        if (STR_IN_SET(field, "Accept",
+                              "Writable",
+                              "KeepAlive",
+                              "NoDelay",
+                              "FreeBind",
+                              "Transparent",
+                              "Broadcast",
+                              "PassCredentials",
+                              "PassSecurity",
+                              "ReusePort",
+                              "RemoveOnStop",
+                              "SELinuxContextFromNet"))
                 return bus_append_parse_boolean(m, field, eq);
 
-        if (STR_IN_SET(field, "Priority", "IPTTL", "Mark"))
+        if (STR_IN_SET(field, "Priority",
+                              "IPTTL",
+                              "Mark"))
                 return bus_append_safe_atoi(m, field, eq);
 
         if (streq(field, "IPTOS"))
                 return bus_append_ip_tos_from_string(m, field, eq);
 
-        if (STR_IN_SET(field, "Backlog", "MaxConnections", "MaxConnectionsPerSource", "KeepAliveProbes", "TriggerLimitBurst"))
+        if (STR_IN_SET(field, "Backlog",
+                              "MaxConnections",
+                              "MaxConnectionsPerSource",
+                              "KeepAliveProbes",
+                              "TriggerLimitBurst"))
                 return bus_append_safe_atou(m, field, eq);
 
-        if (STR_IN_SET(field, "SocketMode", "DirectoryMode"))
+        if (STR_IN_SET(field, "SocketMode",
+                              "DirectoryMode"))
                 return bus_append_parse_mode(m, field, eq);
 
-        if (STR_IN_SET(field, "MessageQueueMaxMessages", "MessageQueueMessageSize"))
+        if (STR_IN_SET(field, "MessageQueueMaxMessages",
+                              "MessageQueueMessageSize"))
                 return bus_append_safe_atoi64(m, field, eq);
 
-        if (STR_IN_SET(field, "TimeoutSec", "KeepAliveTimeSec", "KeepAliveIntervalSec", "DeferAcceptSec", "TriggerLimitIntervalSec"))
+        if (STR_IN_SET(field, "TimeoutSec",
+                              "KeepAliveTimeSec",
+                              "KeepAliveIntervalSec",
+                              "DeferAcceptSec",
+                              "TriggerLimitIntervalSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
-        if (STR_IN_SET(field, "ReceiveBuffer", "SendBuffer", "PipeSize"))
+        if (STR_IN_SET(field, "ReceiveBuffer",
+                              "SendBuffer",
+                              "PipeSize"))
                 return bus_append_parse_size(m, field, eq, 1024);
 
-        if (STR_IN_SET(field, "ExecStartPre", "ExecStartPost", "ExecReload", "ExecStopPost"))
+        if (STR_IN_SET(field, "ExecStartPre",
+                              "ExecStartPost",
+                              "ExecReload",
+                              "ExecStopPost"))
                 return bus_append_exec_command(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "SmackLabel", "SmackLabelIPIn", "SmackLabelIPOut", "TCPCongestion",
-                       "BindToDevice", "BindIPv6Only", "FileDescriptorName",
-                       "SocketUser", "SocketGroup"))
+        if (STR_IN_SET(field, "SmackLabel",
+                              "SmackLabelIPIn",
+                              "SmackLabelIPOut",
+                              "TCPCongestion",
+                              "BindToDevice",
+                              "BindIPv6Only",
+                              "FileDescriptorName",
+                              "SocketUser",
+                              "SocketGroup"))
                 return bus_append_string(m, field, eq);
 
         if (streq(field, "Symlinks"))
@@ -1553,9 +1677,14 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
         if (streq(field, "SocketProtocol"))
                 return bus_append_parse_ip_protocol(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "ListenStream", "ListenDatagram", "ListenSequentialPacket", "ListenNetlink",
-                       "ListenSpecial", "ListenMessageQueue", "ListenFIFO", "ListenUSBFunction")) {
+        if (STR_IN_SET(field, "ListenStream",
+                              "ListenDatagram",
+                              "ListenSequentialPacket",
+                              "ListenNetlink",
+                              "ListenSpecial",
+                              "ListenMessageQueue",
+                              "ListenFIFO",
+                              "ListenUSBFunction")) {
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 0);
                 else
@@ -1571,16 +1700,22 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
 static int bus_append_timer_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
-        if (STR_IN_SET(field, "WakeSystem", "RemainAfterElapse", "Persistent",
-                       "OnTimezoneChange", "OnClockChange"))
+        if (STR_IN_SET(field, "WakeSystem",
+                              "RemainAfterElapse",
+                              "Persistent",
+                              "OnTimezoneChange",
+                              "OnClockChange"))
                 return bus_append_parse_boolean(m, field, eq);
 
-        if (STR_IN_SET(field, "AccuracySec", "RandomizedDelaySec"))
+        if (STR_IN_SET(field, "AccuracySec",
+                              "RandomizedDelaySec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "OnActiveSec", "OnBootSec", "OnStartupSec",
-                       "OnUnitActiveSec","OnUnitInactiveSec")) {
+        if (STR_IN_SET(field, "OnActiveSec",
+                              "OnBootSec",
+                              "OnStartupSec",
+                              "OnUnitActiveSec",
+                              "OnUnitInactiveSec")) {
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", "TimersMonotonic", "a(st)", 0);
                 else {
@@ -1616,25 +1751,36 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
         bool is_condition = false;
         int r;
 
-        if (STR_IN_SET(field,
-                       "Description", "SourcePath", "OnFailureJobMode",
-                       "JobTimeoutAction", "JobTimeoutRebootArgument",
-                       "StartLimitAction", "FailureAction", "SuccessAction",
-                       "RebootArgument", "CollectMode"))
+        if (STR_IN_SET(field, "Description",
+                              "SourcePath",
+                              "OnFailureJobMode",
+                              "JobTimeoutAction",
+                              "JobTimeoutRebootArgument",
+                              "StartLimitAction",
+                              "FailureAction",
+                              "SuccessAction",
+                              "RebootArgument",
+                              "CollectMode"))
                 return bus_append_string(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "StopWhenUnneeded", "RefuseManualStart", "RefuseManualStop",
-                       "AllowIsolate", "IgnoreOnIsolate", "DefaultDependencies"))
+        if (STR_IN_SET(field, "StopWhenUnneeded",
+                              "RefuseManualStart",
+                              "RefuseManualStop",
+                              "AllowIsolate",
+                              "IgnoreOnIsolate",
+                              "DefaultDependencies"))
                 return bus_append_parse_boolean(m, field, eq);
 
-        if (STR_IN_SET(field, "JobTimeoutSec", "JobRunningTimeoutSec", "StartLimitIntervalSec"))
+        if (STR_IN_SET(field, "JobTimeoutSec",
+                              "JobRunningTimeoutSec",
+                              "StartLimitIntervalSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
         if (streq(field, "StartLimitBurst"))
                 return bus_append_safe_atou(m, field, eq);
 
-        if (STR_IN_SET(field, "SuccessActionExitStatus", "FailureActionExitStatus")) {
+        if (STR_IN_SET(field, "SuccessActionExitStatus",
+                              "FailureActionExitStatus")) {
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", field, "i", -1);
                 else {
@@ -1653,7 +1799,8 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
         }
 
         if (unit_dependency_from_string(field) >= 0 ||
-            STR_IN_SET(field, "Documentation", "RequiresMountsFor"))
+            STR_IN_SET(field, "Documentation",
+                              "RequiresMountsFor"))
                 return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
 
         t = condition_type_from_string(field);
