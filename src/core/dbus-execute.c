@@ -1095,7 +1095,7 @@ int bus_set_transient_exec_command(
                 if (!f)
                         return -ENOMEM;
 
-                fputs("ExecStart=\n", f);
+                fprintf(f, "%s=\n", name);
 
                 LIST_FOREACH(command, c, *exec_command) {
                         _cleanup_free_ char *a = NULL, *t = NULL, *exec_chars = NULL;
