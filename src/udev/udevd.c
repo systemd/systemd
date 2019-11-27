@@ -293,8 +293,6 @@ static void manager_free(Manager *manager) {
         if (!manager)
                 return;
 
-        manager->monitor = sd_device_monitor_unref(manager->monitor);
-
         udev_builtin_exit();
 
         if (manager->pid == getpid_cached())
@@ -790,6 +788,8 @@ static void manager_exit(Manager *manager) {
 
         manager->inotify_event = sd_event_source_unref(manager->inotify_event);
         manager->fd_inotify = safe_close(manager->fd_inotify);
+
+        manager->monitor = sd_device_monitor_unref(manager->monitor);
 
         /* discard queued events and kill workers */
         event_queue_cleanup(manager, EVENT_QUEUED);
@@ -1311,10 +1311,12 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         device_delete_db(worker->event->dev);
                         device_tag_index(worker->event->dev, NULL, false);
 
-                        /* forward kernel event without amending it */
-                        r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
-                        if (r < 0)
-                                log_device_error_errno(worker->event->dev_kernel, r, "Failed to send back device to kernel: %m");
+                        if (manager->monitor) {
+                                /* forward kernel event without amending it */
+                                r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
+                                if (r < 0)
+                                        log_device_error_errno(worker->event->dev_kernel, r, "Failed to send back device to kernel: %m");
+                        }
                 }
 
                 worker_free(worker);
