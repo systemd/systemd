@@ -46,6 +46,7 @@ int add_matches_for_user_unit(
 int show_journal_by_unit(
                 FILE *f,
                 const char *unit,
+                const char *namespace,
                 OutputMode mode,
                 unsigned n_columns,
                 usec_t not_before,

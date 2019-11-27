@@ -576,6 +576,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
                         show_journal_by_unit(
                                         stdout,
                                         i.scope,
+                                        NULL,
                                         arg_output,
                                         0,
                                         i.timestamp.monotonic,
@@ -660,6 +661,7 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
                 show_journal_by_unit(
                                 stdout,
                                 i.slice,
+                                NULL,
                                 arg_output,
                                 0,
                                 i.timestamp.monotonic,

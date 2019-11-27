@@ -4007,6 +4007,8 @@ typedef struct UnitStatusInfo {
 
         int exit_code, exit_status;
 
+        const char *log_namespace;
+
         usec_t condition_timestamp;
         bool condition_result;
         LIST_HEAD(UnitCondition, conditions);
@@ -4545,6 +4547,7 @@ static void print_status_info(
                 show_journal_by_unit(
                                 stdout,
                                 i->id,
+                                i->log_namespace,
                                 arg_output,
                                 0,
                                 i->inactive_exit_timestamp_monotonic,
@@ -5491,6 +5494,7 @@ static int show_one(
                 { "ExecMainExitTimestamp",          "t",               NULL,           offsetof(UnitStatusInfo, exit_timestamp)                    },
                 { "ExecMainCode",                   "i",               NULL,           offsetof(UnitStatusInfo, exit_code)                         },
                 { "ExecMainStatus",                 "i",               NULL,           offsetof(UnitStatusInfo, exit_status)                       },
+                { "LogNamespace",                   "s",               NULL,           offsetof(UnitStatusInfo, log_namespace)                     },
                 { "ConditionTimestamp",             "t",               NULL,           offsetof(UnitStatusInfo, condition_timestamp)               },
                 { "ConditionResult",                "b",               NULL,           offsetof(UnitStatusInfo, condition_result)                  },
                 { "Conditions",                     "a(sbbsi)",        map_conditions, 0                                                           },
