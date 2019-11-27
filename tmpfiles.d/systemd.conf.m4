@@ -32,13 +32,16 @@ Z /run/log/journal/%m ~2750 root systemd-journal - -
 m4_ifdef(`HAVE_ACL',`m4_dnl
 m4_ifdef(`ENABLE_ADM_GROUP',`m4_dnl
 m4_ifdef(`ENABLE_WHEEL_GROUP',``
+a+ /run/log/journal    - - - - d:group::r-x,d:group:adm:r-x,d:group:wheel:r-x,group::r-x,group:adm:r-x,group:wheel:r-x
 a+ /run/log/journal/%m - - - - d:group:adm:r-x,d:group:wheel:r-x,group:adm:r-x,group:wheel:r-x
 a+ /run/log/journal/%m/*.journal* - - - - group:adm:r--,group:wheel:r--
 '',``
+a+ /run/log/journal    - - - - d:group::r-x,d:group:adm:r-x,group::r-x,group:adm:r-x
 a+ /run/log/journal/%m - - - - d:group:adm:r-x,group:adm:r-x
 a+ /run/log/journal/%m/*.journal* - - - - group:adm:r--
 '')',`m4_dnl
 m4_ifdef(`ENABLE_WHEEL_GROUP',``
+a+ /run/log/journal    - - - - d:group::r-x,d:group:wheel:r-x,group::r-x,group:wheel:r-x
 a+ /run/log/journal/%m - - - - d:group:wheel:r-x,group:wheel:r-x
 a+ /run/log/journal/%m/*.journal* - - - - group:wheel:r--
 '')')')m4_dnl
