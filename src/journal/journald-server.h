@@ -114,8 +114,6 @@ struct Server {
         unsigned n_forward_syslog_missed;
         usec_t last_warn_forward_syslog_missed;
 
-        uint64_t var_available_timestamp;
-
         usec_t max_retention_usec;
         usec_t max_file_usec;
         usec_t oldest_file_usec;
