@@ -590,12 +590,14 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate stream ID: %m");
 
-        stream = new0(StdoutStream, 1);
+        stream = new(StdoutStream, 1);
         if (!stream)
                 return log_oom();
 
-        stream->fd = -1;
-        stream->priority = LOG_INFO;
+        *stream = (StdoutStream) {
+                .fd = -1,
+                .priority = LOG_INFO,
+        };
 
         xsprintf(stream->id_field, "_STREAM_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(id));
 
