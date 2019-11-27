@@ -39,6 +39,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 
 #define JOURNAL_FILES_MAX 7168
 
@@ -1435,21 +1436,62 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
 
 static int dirname_is_machine_id(const char *fn) {
         sd_id128_t id, machine;
+        const char *e;
         int r;
+
+        /* Returns true if the specified directory name matches the local machine ID */
 
         r = sd_id128_get_machine(&machine);
         if (r < 0)
                 return r;
 
-        r = sd_id128_from_string(fn, &id);
+        e = strchr(fn, '.');
+        if (e) {
+                const char *k;
+
+                /* Looks like it has a namespace suffix. Verify that. */
+                if (!log_namespace_name_valid(e + 1))
+                        return false;
+
+                k = strndupa(fn, e - fn);
+                r = sd_id128_from_string(k, &id);
+        } else
+                r = sd_id128_from_string(fn, &id);
         if (r < 0)
                 return r;
 
         return sd_id128_equal(id, machine);
 }
 
+static int dirname_has_namespace(const char *fn, const char *namespace) {
+        const char *e;
+
+        /* Returns true if the specified directory name matches the specified namespace */
+
+        e = strchr(fn, '.');
+        if (e) {
+                const char *k;
+
+                if (!namespace)
+                        return false;
+
+                if (!streq(e + 1, namespace))
+                        return false;
+
+                k = strndupa(fn, e - fn);
+                return id128_is_valid(k);
+        }
+
+        if (namespace)
+                return false;
+
+        return id128_is_valid(fn);
+}
+
 static bool dirent_is_journal_file(const struct dirent *de) {
         assert(de);
+
+        /* Returns true if the specified directory entry looks like a journal file we might be interested in */
 
         if (!IN_SET(de->d_type, DT_REG, DT_LNK, DT_UNKNOWN))
                 return false;
@@ -1458,13 +1500,26 @@ static bool dirent_is_journal_file(const struct dirent *de) {
                 endswith(de->d_name, ".journal~");
 }
 
-static bool dirent_is_id128_subdir(const struct dirent *de) {
+static bool dirent_is_journal_subdir(const struct dirent *de) {
+        const char *e, *n;
         assert(de);
+
+        /* returns true if the specified directory entry looks like a directory that might contain journal
+         * files we might be interested in, i.e. is either a 128bit ID or a 128bit ID suffixed by a
+         * namespace. */
 
         if (!IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN))
                 return false;
 
-        return id128_is_valid(de->d_name);
+        e = strchr(de->d_name, '.');
+        if (!e)
+                return id128_is_valid(de->d_name); /* No namespace */
+
+        n = strndupa(de->d_name, e - de->d_name);
+        if (!id128_is_valid(n))
+                return false;
+
+        return log_namespace_name_valid(e + 1);
 }
 
 static int directory_open(sd_journal *j, const char *path, DIR **ret) {
@@ -1501,7 +1556,7 @@ static void directory_enumerate(sd_journal *j, Directory *m, DIR *d) {
                 if (dirent_is_journal_file(de))
                         (void) add_file_by_name(j, m->path, de->d_name);
 
-                if (m->is_root && dirent_is_id128_subdir(de))
+                if (m->is_root && dirent_is_journal_subdir(de))
                         (void) add_directory(j, m->path, de->d_name);
         }
 
@@ -1541,7 +1596,11 @@ static void directory_watch(sd_journal *j, Directory *m, int fd, uint32_t mask) 
         }
 }
 
-static int add_directory(sd_journal *j, const char *prefix, const char *dirname) {
+static int add_directory(
+                sd_journal *j,
+                const char *prefix,
+                const char *dirname) {
+
         _cleanup_free_ char *path = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         Directory *m;
@@ -1564,6 +1623,11 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
         /* We consider everything local that is in a directory for the local machine ID, or that is stored in /run */
         if ((j->flags & SD_JOURNAL_LOCAL_ONLY) &&
             !((dirname && dirname_is_machine_id(dirname) > 0) || path_has_prefix(j, path, "/run")))
+                return 0;
+
+        if (!(FLAGS_SET(j->flags, SD_JOURNAL_ALL_NAMESPACES) ||
+              dirname_has_namespace(dirname, j->namespace) > 0 ||
+              (FLAGS_SET(j->flags, SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE) && dirname_has_namespace(dirname, NULL) > 0)))
                 return 0;
 
         r = directory_open(j, path, &d);
@@ -1806,7 +1870,7 @@ static int allocate_inotify(sd_journal *j) {
         return hashmap_ensure_allocated(&j->directories_by_wd, NULL);
 }
 
-static sd_journal *journal_new(int flags, const char *path) {
+static sd_journal *journal_new(int flags, const char *path, const char *namespace) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
 
         j = new0(sd_journal, 1);
@@ -1832,6 +1896,12 @@ static sd_journal *journal_new(int flags, const char *path) {
                         j->path = t;
         }
 
+        if (namespace) {
+                j->namespace = strdup(namespace);
+                if (!j->namespace)
+                        return NULL;
+        }
+
         j->files = ordered_hashmap_new(&path_hash_ops);
         if (!j->files)
                 return NULL;
@@ -1848,16 +1918,19 @@ static sd_journal *journal_new(int flags, const char *path) {
 #define OPEN_ALLOWED_FLAGS                              \
         (SD_JOURNAL_LOCAL_ONLY |                        \
          SD_JOURNAL_RUNTIME_ONLY |                      \
-         SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER)
+         SD_JOURNAL_SYSTEM |                            \
+         SD_JOURNAL_CURRENT_USER |                      \
+         SD_JOURNAL_ALL_NAMESPACES |                    \
+         SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE)
 
-_public_ int sd_journal_open(sd_journal **ret, int flags) {
+_public_ int sd_journal_open_namespace(sd_journal **ret, const char *namespace, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
         assert_return((flags & ~OPEN_ALLOWED_FLAGS) == 0, -EINVAL);
 
-        j = journal_new(flags, NULL);
+        j = journal_new(flags, NULL, namespace);
         if (!j)
                 return -ENOMEM;
 
@@ -1867,6 +1940,10 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
 
         *ret = TAKE_PTR(j);
         return 0;
+}
+
+_public_ int sd_journal_open(sd_journal **ret, int flags) {
+        return sd_journal_open_namespace(ret, NULL, flags);
 }
 
 #define OPEN_CONTAINER_ALLOWED_FLAGS                    \
@@ -1900,7 +1977,7 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         if (!streq_ptr(class, "container"))
                 return -EIO;
 
-        j = journal_new(flags, root);
+        j = journal_new(flags, root, NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -1924,7 +2001,7 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
         assert_return(path, -EINVAL);
         assert_return((flags & ~OPEN_DIRECTORY_ALLOWED_FLAGS) == 0, -EINVAL);
 
-        j = journal_new(flags, path);
+        j = journal_new(flags, path, NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -1947,7 +2024,7 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
         assert_return(ret, -EINVAL);
         assert_return(flags == 0, -EINVAL);
 
-        j = journal_new(flags, NULL);
+        j = journal_new(flags, NULL, NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -1982,7 +2059,7 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         if (!S_ISDIR(st.st_mode))
                 return -EBADFD;
 
-        j = journal_new(flags, NULL);
+        j = journal_new(flags, NULL, NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -2010,7 +2087,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
         assert_return(n_fds > 0, -EBADF);
         assert_return(flags == 0, -EINVAL);
 
-        j = journal_new(flags, NULL);
+        j = journal_new(flags, NULL, NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -2082,6 +2159,7 @@ _public_ void sd_journal_close(sd_journal *j) {
 
         free(j->path);
         free(j->prefix);
+        free(j->namespace);
         free(j->unique_field);
         free(j->fields_buffer);
         free(j);
