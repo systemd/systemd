@@ -623,6 +623,12 @@ static uint32_t determine_flags(void) {
         if (arg_submit_from_crypt_cpus)
                 flags |= CRYPT_ACTIVATE_SUBMIT_FROM_CRYPT_CPUS;
 
+#ifdef CRYPT_ACTIVATE_SERIALIZE_MEMORY_HARD_PBKDF
+        /* Try to decrease the risk of OOM event if memory hard key derivation function is in use */
+        /* https://gitlab.com/cryptsetup/cryptsetup/issues/446/ */
+        flags |= CRYPT_ACTIVATE_SERIALIZE_MEMORY_HARD_PBKDF;
+#endif
+
         return flags;
 }
 
