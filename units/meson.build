@@ -115,6 +115,7 @@ units = [
         ['systemd-machine-id-commit.service',   '',
          'sysinit.target.wants/'],
         ['systemd-journald@.socket',            ''],
+        ['systemd-journald-varlink@.socket',    ''],
         ['systemd-networkd.socket',             'ENABLE_NETWORKD'],
         ['systemd-poweroff.service',            ''],
         ['systemd-reboot.service',              ''],

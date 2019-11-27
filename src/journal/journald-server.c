@@ -2036,8 +2036,7 @@ static void vl_disconnect(VarlinkServer *server, Varlink *link, void *userdata) 
         (void) server_start_or_stop_idle_timer(s); /* maybe we are idle now */
 }
 
-static int server_open_varlink(Server *s) {
-        const char *fn;
+static int server_open_varlink(Server *s, const char *socket, int fd) {
         int r;
 
         assert(s);
@@ -2065,9 +2064,10 @@ static int server_open_varlink(Server *s) {
         if (r < 0)
                 return r;
 
-        fn = strjoina(s->runtime_directory, "/io.systemd.journal");
-
-        r = varlink_server_listen_address(s->varlink_server, fn, 0600);
+        if (fd < 0)
+                r = varlink_server_listen_address(s->varlink_server, socket, 0600);
+        else
+                r = varlink_server_listen_fd(s->varlink_server, fd);
         if (r < 0)
                 return r;
 
@@ -2186,10 +2186,10 @@ static int set_namespace(Server *s, const char *namespace) {
 }
 
 int server_init(Server *s, const char *namespace) {
-        const char *native_socket, *syslog_socket, *stdout_socket, *e;
+        const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
         _cleanup_fdset_free_ FDSet *fds = NULL;
+        int n, r, fd, varlink_fd = -1;
         bool no_sockets;
-        int n, r, fd;
 
         assert(s);
 
@@ -2291,6 +2291,7 @@ int server_init(Server *s, const char *namespace) {
         native_socket = strjoina(s->runtime_directory, "/socket");
         stdout_socket = strjoina(s->runtime_directory, "/stdout");
         syslog_socket = strjoina(s->runtime_directory, "/dev-log");
+        varlink_socket = strjoina(s->runtime_directory, "/io.systemd.journal");
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
 
@@ -2318,6 +2319,13 @@ int server_init(Server *s, const char *namespace) {
 
                         s->syslog_fd = fd;
 
+                } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, varlink_socket, 0) > 0) {
+
+                        if (varlink_fd >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many varlink sockets passed.");
+
+                        varlink_fd = fd;
                 } else if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
 
                         if (s->audit_fd >= 0)
@@ -2348,7 +2356,7 @@ int server_init(Server *s, const char *namespace) {
                 fds = fdset_free(fds);
         }
 
-        no_sockets = s->native_fd < 0 && s->stdout_fd < 0 && s->syslog_fd < 0 && s->audit_fd < 0;
+        no_sockets = s->native_fd < 0 && s->stdout_fd < 0 && s->syslog_fd < 0 && s->audit_fd < 0 && varlink_fd < 0;
 
         /* always open stdout, syslog, native, and kmsg sockets */
 
@@ -2379,7 +2387,7 @@ int server_init(Server *s, const char *namespace) {
                         return r;
         }
 
-        r = server_open_varlink(s);
+        r = server_open_varlink(s, varlink_socket, varlink_fd);
         if (r < 0)
                 return r;
 
