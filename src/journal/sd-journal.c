@@ -204,16 +204,17 @@ static bool same_field(const void *_a, size_t s, const void *_b, size_t t) {
 static Match *match_new(Match *p, MatchType t) {
         Match *m;
 
-        m = new0(Match, 1);
+        m = new(Match, 1);
         if (!m)
                 return NULL;
 
-        m->type = t;
+        *m = (Match) {
+                .type = t,
+                .parent = p,
+        };
 
-        if (p) {
-                m->parent = p;
+        if (p)
                 LIST_PREPEND(matches, p->matches, m);
-        }
 
         return m;
 }
@@ -1573,14 +1574,16 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
 
         m = hashmap_get(j->directories_by_path, path);
         if (!m) {
-                m = new0(Directory, 1);
+                m = new(Directory, 1);
                 if (!m) {
                         r = -ENOMEM;
                         goto fail;
                 }
 
-                m->is_root = false;
-                m->path = path;
+                *m = (Directory) {
+                        .is_root = false,
+                        .path = path,
+                };
 
                 if (hashmap_put(j->directories_by_path, m->path, m) < 0) {
                         free(m);
