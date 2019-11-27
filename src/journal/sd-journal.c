@@ -2561,7 +2561,7 @@ static void process_q_overflow(sd_journal *j) {
         log_debug("Reiteration complete.");
 }
 
-static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
+static void process_inotify_event(sd_journal *j, const struct inotify_event *e) {
         Directory *d;
 
         assert(j);
