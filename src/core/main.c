@@ -1682,6 +1682,8 @@ static int invoke_main_loop(
                         saved_log_level = m->log_level_overridden ? log_get_max_level() : -1;
                         saved_log_target = m->log_target_overridden ? log_get_target() : _LOG_TARGET_INVALID;
 
+                        mac_selinux_reload();
+
                         (void) parse_configuration(saved_rlimit_nofile, saved_rlimit_memlock);
 
                         set_manager_defaults(m);

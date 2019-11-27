@@ -105,6 +105,26 @@ void mac_selinux_finish(void) {
 #endif
 }
 
+void mac_selinux_reload(void) {
+
+#if HAVE_SELINUX
+        struct selabel_handle *backup_label_hnd;
+
+        if (!label_hnd)
+                return;
+
+        backup_label_hnd = TAKE_PTR(label_hnd);
+
+        /* try to initialize new handle
+         *    on success close backup
+         *    on failure restore backup */
+        if (mac_selinux_init() == 0)
+                selabel_close(backup_label_hnd);
+        else
+                label_hnd = backup_label_hnd;
+#endif
+}
+
 int mac_selinux_fix(const char *path, LabelFixFlags flags) {
 
 #if HAVE_SELINUX
