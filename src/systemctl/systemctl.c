@@ -4576,7 +4576,7 @@ static void print_status_info(
 
         if (i->control_group) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                static const char prefix[] = "           ";
+                static const char prefix[] = "             ";
                 unsigned c;
 
                 printf("     CGroup: %s\n", i->control_group);
