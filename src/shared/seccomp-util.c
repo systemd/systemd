@@ -1584,6 +1584,7 @@ assert_cc(SCMP_SYS(shmdt) > 0);
 int seccomp_memory_deny_write_execute(void) {
         uint32_t arch;
         int r;
+        int loaded = 0;
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
@@ -1678,9 +1679,13 @@ int seccomp_memory_deny_write_execute(void) {
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to install MemoryDenyWriteExecute= rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                loaded++;
         }
 
-        return 0;
+        if (loaded == 0)
+                log_debug_errno(r, "Failed to install any seccomp rules for MemoryDenyWriteExecute=");
+
+        return loaded;
 }
 
 int seccomp_restrict_archs(Set *archs) {
