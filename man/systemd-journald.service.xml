@@ -136,36 +136,30 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
       <varlistentry>
         <term>SIGUSR1</term>
 
-        <listitem><para>Request that journal data from
-        <filename>/run/</filename> is flushed to
-        <filename>/var/</filename> in order to make it persistent (if
-        this is enabled). This must be used after
-        <filename>/var/</filename> is mounted, as otherwise log data
-        from <filename>/run</filename> is never flushed to
-        <filename>/var</filename> regardless of the configuration. The
-        <command>journalctl --flush</command> command uses this signal
-        to request flushing of the journal files, and then waits for
+        <listitem><para>Request that journal data from <filename>/run/</filename> is flushed to
+        <filename>/var/</filename> in order to make it persistent (if this is enabled). This must be used
+        after <filename>/var/</filename> is mounted, as otherwise log data from <filename>/run</filename> is
+        never flushed to <filename>/var</filename> regardless of the configuration. Use the
+        <command>journalctl --flush</command> command to request flushing of the journal files, and wait for
         the operation to complete. See
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        for details.</para></listitem>
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>SIGUSR2</term>
 
-        <listitem><para>Request immediate rotation of the journal
-        files. The <command>journalctl --rotate</command> command uses
-        this signal to request journal file
-        rotation.</para></listitem>
+        <listitem><para>Request immediate rotation of the journal files. Use the <command>journalctl
+        --rotate</command> command to request journal file rotation, and wait for the operation to
+        complete.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>SIGRTMIN+1</term>
 
-        <listitem><para>Request that all unwritten log data is written
-        to disk. The <command>journalctl --sync</command> command uses
-        this signal to trigger journal synchronization, and then waits
-        for the operation to complete.</para></listitem>
+        <listitem><para>Request that all unwritten log data is written to disk. Use the <command>journalctl
+        --sync</command> command to trigger journal synchronization, and wait for the operation to
+        complete.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
