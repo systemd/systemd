@@ -614,7 +614,6 @@ int config_parse_exec(
         assert(e);
 
         e += ltype;
-        rvalue += strspn(rvalue, WHITESPACE);
 
         if (isempty(rvalue)) {
                 /* An empty assignment resets the list */
@@ -1951,7 +1950,6 @@ int config_parse_service_timeout_abort(
         assert(rvalue);
         assert(s);
 
-        rvalue += strspn(rvalue, WHITESPACE);
         if (isempty(rvalue)) {
                 s->timeout_abort_set = false;
                 return 0;
@@ -5002,7 +5000,6 @@ int config_parse_timeout_abort(
         assert(rvalue);
         assert(timeout_usec);
 
-        rvalue += strspn(rvalue, WHITESPACE);
         if (isempty(rvalue)) {
                 *timeout_usec = false;
                 return 0;

@@ -146,7 +146,7 @@ static void test_config_parse_exec(void) {
 
         log_info("/* no command, whitespace only, reset */");
         r = config_parse_exec(NULL, "fake", 3, "section", 1,
-                              "LValue", 0, "    ",
+                              "LValue", 0, "",
                               &c, u);
         assert_se(r == 0);
         assert_se(c == NULL);
