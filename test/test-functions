@@ -536,7 +536,13 @@ install_systemd() {
 
 get_ldpath() {
     local _bin="$1"
-    objdump -p "$_bin" 2>/dev/null | awk "/R(UN)?PATH/ { print \"$initdir\" \$2 }" | paste -sd :
+    local rpath=$(objdump -p "$_bin" 2>/dev/null | awk "/R(UN)?PATH/ { print \"$initdir\" \$2 }" | paste -sd :)
+
+    if [ -z "$rpath" ] ; then
+        echo $BUILD_DIR
+    else
+        echo $rpath
+    fi
 }
 
 install_missing_libraries() {
