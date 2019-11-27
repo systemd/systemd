@@ -24,7 +24,7 @@ manpages = [
  ['journal-remote.conf', '5', ['journal-remote.conf.d'], 'HAVE_MICROHTTPD'],
  ['journal-upload.conf', '5', ['journal-upload.conf.d'], 'HAVE_MICROHTTPD'],
  ['journalctl', '1', [], ''],
- ['journald.conf', '5', ['journald.conf.d'], ''],
+ ['journald.conf', '5', ['journald.conf.d', 'journald@.conf'], ''],
  ['kernel-command-line', '7', [], ''],
  ['kernel-install', '8', [], ''],
  ['libudev', '3', [], ''],
