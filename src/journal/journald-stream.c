@@ -110,6 +110,8 @@ void stdout_stream_free(StdoutStream *s) {
 
                 if (s->in_notify_queue)
                         LIST_REMOVE(stdout_stream_notify_queue, s->server->stdout_streams_notify_queue, s);
+
+                (void) server_start_or_stop_idle_timer(s->server); /* Maybe we are idle now? */
         }
 
         if (s->event_source) {
@@ -630,6 +632,8 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         stream->server = s;
         LIST_PREPEND(stdout_stream, s->stdout_streams, stream);
         s->n_stdout_streams++;
+
+        (void) server_start_or_stop_idle_timer(s); /* Maybe no longer idle? */
 
         if (ret)
                 *ret = stream;

@@ -77,6 +77,8 @@
 
 #define DEFERRED_CLOSES_MAX (4096)
 
+#define IDLE_TIMEOUT_USEC (30*USEC_PER_SEC)
+
 static int determine_path_usage(
                 Server *s,
                 const char *path,
@@ -1216,6 +1218,7 @@ finish:
         if (k < 0)
                 log_warning_errno(k, "Failed to touch %s, ignoring: %m", fn);
 
+        server_refresh_idle_timer(s);
         return r;
 }
 
@@ -1244,10 +1247,16 @@ static int server_relinquish_var(Server *s) {
         if (unlink(fn) < 0 && errno != ENOENT)
                 log_warning_errno(errno, "Failed to unlink %s, ignoring: %m", fn);
 
+        server_refresh_idle_timer(s);
         return 0;
 }
 
-int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+int server_process_datagram(
+                sd_event_source *es,
+                int fd,
+                uint32_t revents,
+                void *userdata) {
+
         Server *s = userdata;
         struct ucred *ucred = NULL;
         struct timeval *tv = NULL;
@@ -1362,6 +1371,8 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
         }
 
         close_many(fds, n_fds);
+
+        server_refresh_idle_timer(s);
         return 0;
 }
 
@@ -1373,6 +1384,8 @@ static void server_full_flush(Server *s) {
         server_vacuum(s, false);
 
         server_space_usage_message(s, NULL);
+
+        server_refresh_idle_timer(s);
 }
 
 static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
@@ -2001,6 +2014,28 @@ static int vl_method_relinquish_var(Varlink *link, JsonVariant *parameters, Varl
         return varlink_reply(link, NULL);
 }
 
+static int vl_connect(VarlinkServer *server, Varlink *link, void *userdata) {
+        Server *s = userdata;
+
+        assert(server);
+        assert(link);
+        assert(s);
+
+        (void) server_start_or_stop_idle_timer(s); /* maybe we are no longer idle */
+
+        return 0;
+}
+
+static void vl_disconnect(VarlinkServer *server, Varlink *link, void *userdata) {
+        Server *s = userdata;
+
+        assert(server);
+        assert(link);
+        assert(s);
+
+        (void) server_start_or_stop_idle_timer(s); /* maybe we are idle now */
+}
+
 static int server_open_varlink(Server *s) {
         const char *fn;
         int r;
@@ -2022,6 +2057,14 @@ static int server_open_varlink(Server *s) {
         if (r < 0)
                 return r;
 
+        r = varlink_server_bind_connect(s->varlink_server, vl_connect);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_bind_disconnect(s->varlink_server, vl_disconnect);
+        if (r < 0)
+                return r;
+
         fn = strjoina(s->runtime_directory, "/io.systemd.journal");
 
         r = varlink_server_listen_address(s->varlink_server, fn, 0600);
@@ -2033,6 +2076,93 @@ static int server_open_varlink(Server *s) {
                 return r;
 
         return 0;
+}
+
+static bool server_is_idle(Server *s) {
+        assert(s);
+
+        /* The server for the main namespace is never idle */
+        if (!s->namespace)
+                return false;
+
+        /* If a retention maximum is set larger than the idle time we need to be running to enforce it, hence
+         * turn off the idle logic. */
+        if (s->max_retention_usec > IDLE_TIMEOUT_USEC)
+                return false;
+
+        /* We aren't idle if we have a varlink client */
+        if (varlink_server_current_connections(s->varlink_server) > 0)
+                return false;
+
+        /* If we have stdout streams we aren't idle */
+        if (s->n_stdout_streams > 0)
+                return false;
+
+        return true;
+}
+
+static int server_idle_handler(sd_event_source *source, uint64_t usec, void *userdata) {
+        Server *s = userdata;
+
+        assert(source);
+        assert(s);
+
+        log_debug("Server is idle, exiting.");
+        sd_event_exit(s->event, 0);
+        return 0;
+}
+
+int server_start_or_stop_idle_timer(Server *s) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+        usec_t when;
+        int r;
+
+        assert(s);
+
+        if (!server_is_idle(s)) {
+                s->idle_event_source = sd_event_source_disable_unref(s->idle_event_source);
+                return 0;
+        }
+
+        if (s->idle_event_source)
+                return 1;
+
+        r = sd_event_now(s->event, CLOCK_MONOTONIC, &when);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine current time: %m");
+
+        r = sd_event_add_time(s->event, &source, CLOCK_MONOTONIC, usec_add(when, IDLE_TIMEOUT_USEC), 0, server_idle_handler, s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate idle timer: %m");
+
+        r = sd_event_source_set_priority(source, SD_EVENT_PRIORITY_IDLE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set idle timer priority: %m");
+
+        (void) sd_event_source_set_description(source, "idle-timer");
+
+        s->idle_event_source = TAKE_PTR(source);
+        return 1;
+}
+
+int server_refresh_idle_timer(Server *s) {
+        usec_t when;
+        int r;
+
+        assert(s);
+
+        if (!s->idle_event_source)
+                return 0;
+
+        r = sd_event_now(s->event, CLOCK_MONOTONIC, &when);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine current time: %m");
+
+        r = sd_event_source_set_time(s->idle_event_source, usec_add(when, IDLE_TIMEOUT_USEC));
+        if (r < 0)
+                return log_error_errno(r, "Failed to refresh idle timer: %m");
+
+        return 1;
 }
 
 static int set_namespace(Server *s, const char *namespace) {
@@ -2298,7 +2428,12 @@ int server_init(Server *s, const char *namespace) {
 
         (void) client_context_acquire_default(s);
 
-        return system_journal_open(s, false, false);
+        r = system_journal_open(s, false, false);
+        if (r < 0)
+                return r;
+
+        server_start_or_stop_idle_timer(s);
+        return 0;
 }
 
 void server_maybe_append_tags(Server *s) {
@@ -2351,6 +2486,7 @@ void server_done(Server *s) {
         sd_event_source_unref(s->hostname_event_source);
         sd_event_source_unref(s->notify_event_source);
         sd_event_source_unref(s->watchdog_event_source);
+        sd_event_source_unref(s->idle_event_source);
         sd_event_unref(s->event);
 
         safe_close(s->syslog_fd);

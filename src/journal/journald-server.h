@@ -86,6 +86,7 @@ struct Server {
         sd_event_source *hostname_event_source;
         sd_event_source *notify_event_source;
         sd_event_source *watchdog_event_source;
+        sd_event_source *idle_event_source;
 
         JournalFile *runtime_journal;
         JournalFile *system_journal;
@@ -218,3 +219,6 @@ int server_flush_to_var(Server *s, bool require_flag_file);
 void server_maybe_append_tags(Server *s);
 int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata);
 void server_space_usage_message(Server *s, JournalStorage *storage);
+
+int server_start_or_stop_idle_timer(Server *s);
+int server_refresh_idle_timer(Server *s);
