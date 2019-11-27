@@ -21,8 +21,8 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
-#include "escape.h"
 #include "env-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -34,6 +34,7 @@
 #include "missing_sched.h"
 #include "missing_syscall.h"
 #include "namespace-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
@@ -51,12 +52,16 @@
 #define COMM_MAX_LEN 128
 
 static int get_process_state(pid_t pid) {
+        _cleanup_free_ char *line = NULL;
         const char *p;
         char state;
         int r;
-        _cleanup_free_ char *line = NULL;
 
         assert(pid >= 0);
+
+        /* Shortcut: if we are enquired about our own state, we are obviously running */
+        if (pid == 0 || pid == getpid_cached())
+                return (unsigned char) 'R';
 
         p = procfs_file_alloca(pid, "stat");
 
@@ -80,23 +85,34 @@ static int get_process_state(pid_t pid) {
 
 int get_process_comm(pid_t pid, char **ret) {
         _cleanup_free_ char *escaped = NULL, *comm = NULL;
-        const char *p;
         int r;
 
         assert(ret);
         assert(pid >= 0);
 
+        if (pid == 0 || pid == getpid_cached()) {
+                comm = new0(char, TASK_COMM_LEN + 1); /* Must fit in 16 byte according to prctl(2) */
+                if (!comm)
+                        return -ENOMEM;
+
+                if (prctl(PR_GET_NAME, comm) < 0)
+                        return -errno;
+        } else {
+                const char *p;
+
+                p = procfs_file_alloca(pid, "comm");
+
+                /* Note that process names of kernel threads can be much longer than TASK_COMM_LEN */
+                r = read_one_line_file(p, &comm);
+                if (r == -ENOENT)
+                        return -ESRCH;
+                if (r < 0)
+                        return r;
+        }
+
         escaped = new(char, COMM_MAX_LEN);
         if (!escaped)
                 return -ENOMEM;
-
-        p = procfs_file_alloca(pid, "comm");
-
-        r = read_one_line_file(p, &comm);
-        if (r == -ENOENT)
-                return -ESRCH;
-        if (r < 0)
-                return r;
 
         /* Escape unprintable characters, just in case, but don't grow the string beyond the underlying size */
         cellescape(escaped, COMM_MAX_LEN, comm);
@@ -499,6 +515,9 @@ int get_process_cwd(pid_t pid, char **cwd) {
         const char *p;
 
         assert(pid >= 0);
+
+        if (pid == 0 || pid == getpid_cached())
+                return safe_getcwd(cwd);
 
         p = procfs_file_alloca(pid, "cwd");
 
