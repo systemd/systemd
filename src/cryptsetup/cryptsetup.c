@@ -656,6 +656,12 @@ int main(int argc, char *argv[]) {
                 if (arg_discards)
                         flags |= CRYPT_ACTIVATE_ALLOW_DISCARDS;
 
+#ifdef CRYPT_ACTIVATE_SERIALIZE_MEMORY_HARD_PBKDF
+                /* Try to decrease the risk of OOM event if memory hard key derivation function is in use */
+                /* https://gitlab.com/cryptsetup/cryptsetup/issues/446/ */
+                flags |= CRYPT_ACTIVATE_SERIALIZE_MEMORY_HARD_PBKDF;
+#endif
+
                 if (arg_timeout == USEC_INFINITY)
                         until = 0;
                 else
