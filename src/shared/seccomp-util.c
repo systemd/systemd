@@ -1667,7 +1667,7 @@ int seccomp_memory_deny_write_execute(void) {
 #endif
 
                 if (shmat_syscall > 0) {
-                        r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(shmat),
+                        r = add_seccomp_syscall_filter(seccomp, arch, shmat_syscall,
                                                        1,
                                                        SCMP_A2(SCMP_CMP_MASKED_EQ, SHM_EXEC, SHM_EXEC));
                         if (r < 0)
