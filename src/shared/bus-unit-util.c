@@ -1415,8 +1415,12 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 
                 return bus_append_parse_boolean(m, field, eq);
 
-        if (STR_IN_SET(field, "RestartSec", "TimeoutStartSec", "TimeoutStopSec", "RuntimeMaxSec", "WatchdogSec"))
-
+        if (STR_IN_SET(field, "RestartSec",
+                              "TimeoutStartSec",
+                              "TimeoutStopSec",
+                              "TimeoutAbortSec",
+                              "RuntimeMaxSec",
+                              "WatchdogSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
         if (streq(field, "TimeoutSec")) {

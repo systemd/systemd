@@ -305,6 +305,13 @@ static int bus_service_set_transient_property(
         if (streq(name, "TimeoutStopUSec"))
                 return bus_set_transient_usec(u, name, &s->timeout_stop_usec, message, flags, error);
 
+        if (streq(name, "TimeoutAbortUSec")) {
+                r = bus_set_transient_usec(u, name, &s->timeout_abort_usec, message, flags, error);
+                if (r >= 0 && !UNIT_WRITE_FLAGS_NOOP(flags))
+                        s->timeout_abort_set = true;
+                return r;
+        }
+
         if (streq(name, "RuntimeMaxUSec"))
                 return bus_set_transient_usec(u, name, &s->runtime_max_usec, message, flags, error);
 
