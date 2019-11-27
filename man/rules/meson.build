@@ -437,6 +437,7 @@ manpages = [
    'SD_EVENT_ONESHOT',
    'sd_event_source_get_enabled'],
   ''],
+ ['sd_event_source_set_floating', '3', ['sd_event_source_get_floating'], ''],
  ['sd_event_source_set_prepare', '3', [], ''],
  ['sd_event_source_set_priority',
   '3',
