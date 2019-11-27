@@ -109,6 +109,8 @@ sources = files('''
         tc/netem.h
         tc/qdisc.c
         tc/qdisc.h
+        tc/sfq.c
+        tc/sfq.h
         tc/tbf.c
         tc/tbf.h
         tc/tc-util.c

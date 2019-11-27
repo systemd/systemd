@@ -2395,6 +2395,13 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>StochasticFairnessQueueingPerturbPeriodSec=</varname></term>
+        <listitem>
+          <para>Specifies the interval in seconds for queue algorithm perturbation. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

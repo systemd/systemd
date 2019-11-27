@@ -7,6 +7,7 @@
 #include "networkd-link.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
+#include "sfq.h"
 #include "tbf.h"
 
 typedef struct QDisc {
@@ -22,9 +23,11 @@ typedef struct QDisc {
 
         bool has_network_emulator:1;
         bool has_token_buffer_filter:1;
+        bool has_stochastic_fairness_queueing:1;
 
         NetworkEmulator ne;
         TokenBufferFilter tbf;
+        StochasticFairnessQueueing sfq;
 } QDisc;
 
 void qdisc_free(QDisc *qdisc);

@@ -161,6 +161,16 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
                         return r;
         }
 
+        if (qdisc->has_stochastic_fairness_queueing) {
+                r = free_and_strdup(&tca_kind, "sfq");
+                if (r < 0)
+                        return log_oom();
+
+                r = stochastic_fairness_queueing_fill_message(link, &qdisc->sfq, req);
+                if (r < 0)
+                        return r;
+        }
+
         if (tca_kind) {
                 r = sd_netlink_message_append_string(req, TCA_KIND, tca_kind);
                 if (r < 0)
