@@ -1098,22 +1098,28 @@ int bus_set_transient_exec_command(
                 fprintf(f, "%s=\n", name);
 
                 LIST_FOREACH(command, c, *exec_command) {
-                        _cleanup_free_ char *a = NULL, *t = NULL, *exec_chars = NULL;
-                        const char *p;
+                        _cleanup_free_ char *a = NULL, *exec_chars = NULL;
 
-                        p = unit_escape_setting(c->path, UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS, &t);
-                        if (!p)
+                        exec_chars = exec_command_flags_to_exec_chars(c->flags);
+                        if (!exec_chars)
                                 return -ENOMEM;
 
                         a = unit_concat_strv(c->argv, UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS);
                         if (!a)
                                 return -ENOMEM;
 
-                        exec_chars = exec_command_flags_to_exec_chars(c->flags);
-                        if (!exec_chars)
-                                return -ENOMEM;
+                        if (streq_ptr(c->path, c->argv ? c->argv[0] : NULL))
+                                fprintf(f, "%s=%s%s\n", name, exec_chars, a);
+                        else {
+                                _cleanup_free_ char *t = NULL;
+                                const char *p;
 
-                        fprintf(f, "%s=%s@%s %s\n", name, exec_chars, p, a);
+                                p = unit_escape_setting(c->path, UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS, &t);
+                                if (!p)
+                                        return -ENOMEM;
+
+                                fprintf(f, "%s=%s@%s %s\n", name, exec_chars, p, a);
+                        }
                 }
 
                 r = fflush_and_check(f);
