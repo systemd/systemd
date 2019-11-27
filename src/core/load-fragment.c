@@ -1934,6 +1934,41 @@ int config_parse_service_timeout(
         return 0;
 }
 
+int config_parse_timeout_abort(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t *ret = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(ret);
+
+        /* Note: apart from setting the arg, this returns an extra bit of information in the return value. */
+
+        rvalue += strspn(rvalue, WHITESPACE);
+        if (isempty(rvalue)) {
+                *ret = 0;
+                return 0; /* "not set" */
+        }
+
+        r = parse_sec(rvalue, ret);
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s= setting, ignoring: %s", lvalue, rvalue);
+
+        return 1; /* "set" */
+}
+
 int config_parse_service_timeout_abort(
                 const char *unit,
                 const char *filename,
@@ -1949,24 +1984,12 @@ int config_parse_service_timeout_abort(
         Service *s = userdata;
         int r;
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
         assert(s);
 
-        rvalue += strspn(rvalue, WHITESPACE);
-        if (isempty(rvalue)) {
-                s->timeout_abort_set = false;
-                return 0;
-        }
-
-        r = parse_sec(rvalue, &s->timeout_abort_usec);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse TimeoutAbortSec= setting, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        s->timeout_abort_set = true;
+        r = config_parse_timeout_abort(unit, filename, line, section, section_line, lvalue, ltype, rvalue,
+                                       &s->timeout_abort_usec, s);
+        if (r >= 0)
+                s->timeout_abort_set = r;
         return 0;
 }
 
@@ -4941,41 +4964,5 @@ int config_parse_crash_chvt(
                 return 0;
         }
 
-        return 0;
-}
-
-int config_parse_timeout_abort(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        usec_t *timeout_usec = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(timeout_usec);
-
-        rvalue += strspn(rvalue, WHITESPACE);
-        if (isempty(rvalue)) {
-                *timeout_usec = false;
-                return 0;
-        }
-
-        r = parse_sec(rvalue, timeout_usec);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse DefaultTimeoutAbortSec= setting, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *timeout_usec = true;
         return 0;
 }
