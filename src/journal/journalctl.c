@@ -1421,7 +1421,6 @@ static int add_boot(sd_journal *j) {
          * so take the slow path if log location is specified. */
         if (arg_boot_offset == 0 && sd_id128_is_null(arg_boot_id) &&
             !arg_directory && !arg_file && !arg_root)
-
                 return add_match_this_boot(j, arg_machine);
 
         boot_id = arg_boot_id;
