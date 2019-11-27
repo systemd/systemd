@@ -62,8 +62,10 @@ int main(int argc, char *argv[]) {
                 usec_t t = USEC_INFINITY, n;
 
                 r = sd_event_get_state(server.event);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to get event loop state: %m");
                         goto finish;
+                }
                 if (r == SD_EVENT_FINISHED)
                         break;
 
