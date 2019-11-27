@@ -168,6 +168,7 @@ struct VarlinkServer {
 
         Hashmap *methods;
         VarlinkConnect connect_callback;
+        VarlinkDisconnect disconnect_callback;
 
         sd_event *event;
         int64_t event_priority;
@@ -1146,6 +1147,7 @@ int varlink_flush(Varlink *v) {
 }
 
 static void varlink_detach_server(Varlink *v) {
+        VarlinkServer *saved_server;
         assert(v);
 
         if (!v->server)
@@ -1169,8 +1171,15 @@ static void varlink_detach_server(Varlink *v) {
         v->server->n_connections--;
 
         /* If this is a connection associated to a server, then let's disconnect the server and the
-         * connection from each other. This drops the dangling reference that connect_callback() set up. */
-        v->server = varlink_server_unref(v->server);
+         * connection from each other. This drops the dangling reference that connect_callback() set up. But
+         * before we release the references, let's call the disconnection callback if it is defined. */
+
+        saved_server = TAKE_PTR(v->server);
+
+        if (saved_server->disconnect_callback)
+                saved_server->disconnect_callback(saved_server, v, saved_server->userdata);
+
+        varlink_server_unref(saved_server);
         varlink_unref(v);
 }
 
@@ -2410,6 +2419,16 @@ int varlink_server_bind_connect(VarlinkServer *s, VarlinkConnect callback) {
                 return -EBUSY;
 
         s->connect_callback = callback;
+        return 0;
+}
+
+int varlink_server_bind_disconnect(VarlinkServer *s, VarlinkDisconnect callback) {
+        assert_return(s, -EINVAL);
+
+        if (callback && s->disconnect_callback && callback != s->disconnect_callback)
+                return -EBUSY;
+
+        s->disconnect_callback = callback;
         return 0;
 }
 

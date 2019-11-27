@@ -51,6 +51,7 @@ typedef enum VarlinkServerFlags {
 typedef int (*VarlinkMethod)(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata);
 typedef int (*VarlinkReply)(Varlink *link, JsonVariant *parameters, const char *error_id, VarlinkReplyFlags flags, void *userdata);
 typedef int (*VarlinkConnect)(VarlinkServer *server, Varlink *link, void *userdata);
+typedef void (*VarlinkDisconnect)(VarlinkServer *server, Varlink *link, void *userdata);
 
 int varlink_connect_address(Varlink **ret, const char *address);
 int varlink_connect_fd(Varlink **ret, int fd);
@@ -134,6 +135,7 @@ int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMeth
 int varlink_server_bind_method_many_internal(VarlinkServer *s, ...);
 #define varlink_server_bind_method_many(s, ...) varlink_server_bind_method_many_internal(s, __VA_ARGS__, NULL)
 int varlink_server_bind_connect(VarlinkServer *s, VarlinkConnect connect);
+int varlink_server_bind_disconnect(VarlinkServer *s, VarlinkDisconnect disconnect);
 
 void* varlink_server_set_userdata(VarlinkServer *s, void *userdata);
 void* varlink_server_get_userdata(VarlinkServer *s);
