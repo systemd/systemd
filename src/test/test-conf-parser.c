@@ -227,8 +227,8 @@ static const char* const config_file[] = {
         "[Section]\n"
         "[Section]\n"
         "setting1=1\n"
-        "setting1=2\n"
-        "setting1=1\n",      /* repeated settings */
+        "setting1=    2 \t\n"
+        "setting1=    1\n",  /* repeated settings */
 
         "[Section]\n"
         "[Section]\n"
