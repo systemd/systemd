@@ -1967,20 +1967,36 @@ static int do_queue_default_job(
                 const char **ret_error_message) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char* default_unit;
         Job *default_unit_job;
         Unit *target = NULL;
         int r;
 
-        log_debug("Activating default unit: %s", arg_default_unit);
+        if (arg_default_unit)
+                default_unit = arg_default_unit;
+        else if (in_initrd())
+                default_unit = SPECIAL_INITRD_TARGET;
+        else
+                default_unit = SPECIAL_DEFAULT_TARGET;
 
-        r = manager_load_startable_unit_or_warn(m, arg_default_unit, NULL, &target);
+        log_debug("Activating default unit: %s", default_unit);
+
+        r = manager_load_startable_unit_or_warn(m, default_unit, NULL, &target);
+        if (r < 0 && in_initrd() && !arg_default_unit) {
+                /* Fall back to default.target, which we used to always use by default. Only do this if no
+                 * explicit configuration was given. */
+
+                log_info("Falling back to " SPECIAL_DEFAULT_TARGET ".");
+
+                r = manager_load_startable_unit_or_warn(m, SPECIAL_DEFAULT_TARGET, NULL, &target);
+        }
         if (r < 0) {
-                log_info("Falling back to rescue target: " SPECIAL_RESCUE_TARGET);
+                log_info("Falling back to " SPECIAL_RESCUE_TARGET ".");
 
                 r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, &target);
                 if (r < 0) {
-                        *ret_error_message = r == -ERFKILL ? "Rescue target masked"
-                                                           : "Failed to load rescue target";
+                        *ret_error_message = r == -ERFKILL ? SPECIAL_RESCUE_TARGET " masked"
+                                                           : "Failed to load " SPECIAL_RESCUE_TARGET;
                         return r;
                 }
         }
@@ -2190,15 +2206,6 @@ static int load_configuration(
         if (r < 0) {
                 *ret_error_message = "Failed to parse commandline arguments";
                 return r;
-        }
-
-        /* Initialize default unit */
-        if (!arg_default_unit) {
-                arg_default_unit = strdup(SPECIAL_DEFAULT_TARGET);
-                if (!arg_default_unit) {
-                        *ret_error_message = "Failed to set default unit";
-                        return log_oom();
-                }
         }
 
         /* Initialize the show status setting if it hasn't been set explicitly yet */

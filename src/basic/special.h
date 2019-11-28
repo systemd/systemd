@@ -2,6 +2,7 @@
 #pragma once
 
 #define SPECIAL_DEFAULT_TARGET "default.target"
+#define SPECIAL_INITRD_TARGET "initrd.target"
 
 /* Shutdown targets */
 #define SPECIAL_UMOUNT_TARGET "umount.target"
