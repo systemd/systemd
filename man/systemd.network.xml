@@ -1380,6 +1380,16 @@
             service type to CS6 (network control) or CS4 (Realtime). Defaults to CS6.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>MultiPathRoute=<replaceable>address</replaceable>[@<replaceable>name</replaceable>] [<replaceable>weight</replaceable>]</varname></term>
+          <listitem>
+            <para>Configures multipath route. Multipath routing is the technique of using multiple
+            alternative paths through a network. Takes gateway address. Optionally, takes a network
+            interface name or index separated with <literal>@</literal>, and a weight in 1..256 for
+            this multipath route separated with whitespace. This setting can be specified multiple
+            times. If an empty string is assigned, then the all previous assignments are cleared.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
