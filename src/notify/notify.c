@@ -17,6 +17,7 @@
 #include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -35,8 +36,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [VARIABLE=VALUE...]\n\n"
-               "Notify the init system about service status updates.\n\n"
+        printf("%s [OPTIONS...] [VARIABLE=VALUE...]\n"
+               "\n%sNotify the init system about service status updates.%s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
                "     --ready           Inform the init system about service start-up completion\n"
@@ -46,6 +47,7 @@ static int help(void) {
                "     --booted          Check if the system was booted up with systemd\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 
