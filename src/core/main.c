@@ -2026,7 +2026,7 @@ static void reset_arguments(void) {
 
         /* arg_serialization — ignore */
 
-        arg_default_cpu_accounting = -1;
+        arg_default_cpu_accounting = 0;
         arg_default_io_accounting = false;
         arg_default_ip_accounting = false;
         arg_default_blockio_accounting = false;
