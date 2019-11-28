@@ -225,7 +225,7 @@ static int add_mount(
         assert(where);
         assert(description);
 
-        log_debug("Adding %s: %s %s", where, what, strna(fstype));
+        log_debug("Adding %s: %s fstype=%s", where, what, fstype ?: "(any)");
 
         if (streq_ptr(fstype, "crypto_LUKS")) {
 
@@ -765,7 +765,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 /* Disable root disk logic if there's a root= value
                  * specified (unless it happens to be "gpt-auto") */
 
-                arg_root_enabled = streq(value, "gpt-auto");
+                if (!streq(value, "gpt-auto")) {
+                        arg_root_enabled = false;
+                        log_debug("Disabling root partition auto-detection, root= is defined.");
+                }
 
         } else if (proc_cmdline_key_streq(key, "roothash")) {
 
