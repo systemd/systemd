@@ -290,7 +290,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
-               "Spawn a command or OS in a light-weight container.\n\n"
+               "%5$sSpawn a command or OS in a light-weight container.%6$s\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Print version string\n"
                "  -q --quiet                Do not show status information\n"
@@ -405,7 +405,9 @@ static int help(void) {
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
-               , ansi_underline(), ansi_normal());
+               , ansi_underline(), ansi_normal()
+               , ansi_highlight(), ansi_normal()
+        );
 
         return 0;
 }
