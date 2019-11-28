@@ -894,11 +894,6 @@ Features:
   - journald: when we drop syslog messages because the syslog socket is
     full, make sure to write how many messages are lost as first thing
     to syslog when it works again.
-  - change systemd-journal-flush into a service that stays around during
-    boot, and causes the journal to be moved back to /run on shutdown,
-    so that we do not keep /var busy. This needs to happen synchronously,
-    hence doing this via signals is not going to work.
-  - optionally support running journald from the command line for testing purposes in external projects
   - journald: allow per-priority and per-service retention times when rotating/vacuuming
   - journald: make use of uid-range.h to managed uid ranges to split
     journals in.
