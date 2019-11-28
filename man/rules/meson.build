@@ -735,7 +735,7 @@ manpages = [
   ['systemd-growfs',
    'systemd-growfs@.service',
    'systemd-makefs',
-   'systemd-makeswap@.service'],
+   'systemd-mkswap@.service'],
   ''],
  ['systemd-modules-load.service', '8', ['systemd-modules-load'], 'HAVE_KMOD'],
  ['systemd-mount', '1', ['systemd-umount'], ''],
