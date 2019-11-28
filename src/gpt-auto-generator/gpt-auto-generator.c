@@ -39,6 +39,69 @@ static bool arg_enabled = true;
 static bool arg_root_enabled = true;
 static int arg_root_rw = -1;
 
+static int open_parent_devno(dev_t devnum, int *ret) {
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        const char *name, *devtype, *node;
+        sd_device *parent;
+        dev_t pn;
+        int fd, r;
+
+        assert(ret);
+
+        r = sd_device_new_from_devnum(&d, 'b', devnum);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open device: %m");
+
+        if (sd_device_get_devname(d, &name) < 0) {
+                r = sd_device_get_syspath(d, &name);
+                if (r < 0) {
+                        log_device_debug_errno(d, r, "Device %u:%u does not have a name, ignoring: %m", major(devnum), minor(devnum));
+                        return 0;
+                }
+        }
+
+        r = sd_device_get_parent(d, &parent);
+        if (r < 0) {
+                log_device_debug_errno(d, r, "Not a partitioned device, ignoring: %m");
+                return 0;
+        }
+
+        /* Does it have a devtype? */
+        r = sd_device_get_devtype(parent, &devtype);
+        if (r < 0) {
+                log_device_debug_errno(parent, r, "Parent doesn't have a device type, ignoring: %m");
+                return 0;
+        }
+
+        /* Is this a disk or a partition? We only care for disks... */
+        if (!streq(devtype, "disk")) {
+                log_device_debug(parent, "Parent isn't a raw disk, ignoring.");
+                return 0;
+        }
+
+        /* Does it have a device node? */
+        r = sd_device_get_devname(parent, &node);
+        if (r < 0) {
+                log_device_debug_errno(parent, r, "Parent device does not have device node, ignoring: %m");
+                return 0;
+        }
+
+        log_device_debug(d, "Root device %s.", node);
+
+        r = sd_device_get_devnum(parent, &pn);
+        if (r < 0) {
+                log_device_debug_errno(parent, r, "Parent device is not a proper block device, ignoring: %m");
+                return 0;
+        }
+
+        fd = open(node, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open %s: %m", node);
+
+        *ret = fd;
+        return 1;
+}
+
 static int add_cryptsetup(const char *id, const char *what, bool rw, bool require, char **device) {
         _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL, *id_escaped = NULL, *what_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -530,67 +593,61 @@ static int add_root_rw(DissectedPartition *p) {
         return 0;
 }
 
-static int open_parent_devno(dev_t devnum, int *ret) {
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        const char *name, *devtype, *node;
-        sd_device *parent;
-        dev_t pn;
-        int fd, r;
+#if ENABLE_EFI
+static int add_root_cryptsetup(void) {
 
-        assert(ret);
+        /* If a device /dev/gpt-auto-root-luks appears, then make it pull in systemd-cryptsetup-root.service, which
+         * sets it up, and causes /dev/gpt-auto-root to appear which is all we are looking for. */
 
-        r = sd_device_new_from_devnum(&d, 'b', devnum);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open device: %m");
+        return add_cryptsetup("root", "/dev/gpt-auto-root-luks", true, false, NULL);
+}
+#endif
 
-        if (sd_device_get_devname(d, &name) < 0) {
-                r = sd_device_get_syspath(d, &name);
-                if (r < 0) {
-                        log_device_debug_errno(d, r, "Device %u:%u does not have a name, ignoring: %m", major(devnum), minor(devnum));
+static int add_root_mount(void) {
+#if ENABLE_EFI
+        int r;
+
+        if (!is_efi_boot()) {
+                log_debug("Not a EFI boot, not creating root mount.");
+                return 0;
+        }
+
+        r = efi_loader_get_device_part_uuid(NULL);
+        if (r == -ENOENT) {
+                log_debug("EFI loader partition unknown, exiting.");
+                return 0;
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to read ESP partition UUID: %m");
+
+        /* OK, we have an ESP partition, this is fantastic, so let's
+         * wait for a root device to show up. A udev rule will create
+         * the link for us under the right name. */
+
+        if (in_initrd()) {
+                r = generator_write_initrd_root_device_deps(arg_dest, "/dev/gpt-auto-root");
+                if (r < 0)
                         return 0;
-                }
+
+                r = add_root_cryptsetup();
+                if (r < 0)
+                        return r;
         }
 
-        r = sd_device_get_parent(d, &parent);
-        if (r < 0) {
-                log_device_debug_errno(d, r, "Not a partitioned device, ignoring: %m");
-                return 0;
-        }
+        /* Note that we do not need to enable systemd-remount-fs.service here. If
+         * /etc/fstab exists, systemd-fstab-generator will pull it in for us. */
 
-        /* Does it have a devtype? */
-        r = sd_device_get_devtype(parent, &devtype);
-        if (r < 0) {
-                log_device_debug_errno(parent, r, "Parent doesn't have a device type, ignoring: %m");
-                return 0;
-        }
-
-        /* Is this a disk or a partition? We only care for disks... */
-        if (!streq(devtype, "disk")) {
-                log_device_debug(parent, "Parent isn't a raw disk, ignoring.");
-                return 0;
-        }
-
-        /* Does it have a device node? */
-        r = sd_device_get_devname(parent, &node);
-        if (r < 0) {
-                log_device_debug_errno(parent, r, "Parent device does not have device node, ignoring: %m");
-                return 0;
-        }
-
-        log_device_debug(d, "Root device %s.", node);
-
-        r = sd_device_get_devnum(parent, &pn);
-        if (r < 0) {
-                log_device_debug_errno(parent, r, "Parent device is not a proper block device, ignoring: %m");
-                return 0;
-        }
-
-        fd = open(node, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", node);
-
-        *ret = fd;
-        return 1;
+        return add_mount(
+                        "root",
+                        "/dev/gpt-auto-root",
+                        in_initrd() ? "/sysroot" : "/",
+                        NULL,
+                        arg_root_rw > 0,
+                        NULL,
+                        "Root Partition",
+                        in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
+#else
+        return 0;
+#endif
 }
 
 static int enumerate_partitions(dev_t devnum) {
@@ -649,6 +706,43 @@ static int enumerate_partitions(dev_t devnum) {
         return r;
 }
 
+static int add_mounts(void) {
+        dev_t devno;
+        int r;
+
+        r = get_block_device_harder("/", &devno);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine block device of root file system: %m");
+        if (r == 0) {
+                r = get_block_device_harder("/usr", &devno);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine block device of /usr file system: %m");
+                if (r == 0) {
+                        _cleanup_free_ char *p = NULL;
+                        mode_t m;
+
+                        /* If the root mount has been replaced by some form of volatile file system (overlayfs), the
+                         * original root block device node is symlinked in /run/systemd/volatile-root. Let's read that
+                         * here. */
+                        r = readlink_malloc("/run/systemd/volatile-root", &p);
+                        if (r == -ENOENT) {
+                                log_debug("Neither root nor /usr file system are on a (single) block device.");
+                                return 0;
+                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read symlink /run/systemd/volatile-root: %m");
+
+                        r = device_path_parse_major_minor(p, &m, &devno);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse major/minor device node: %m");
+                        if (!S_ISBLK(m))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Volatile root device is of wrong type.");
+                }
+        }
+
+        return enumerate_partitions(devno);
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
@@ -688,101 +782,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 arg_root_rw = false;
 
         return 0;
-}
-
-#if ENABLE_EFI
-static int add_root_cryptsetup(void) {
-
-        /* If a device /dev/gpt-auto-root-luks appears, then make it pull in systemd-cryptsetup-root.service, which
-         * sets it up, and causes /dev/gpt-auto-root to appear which is all we are looking for. */
-
-        return add_cryptsetup("root", "/dev/gpt-auto-root-luks", true, false, NULL);
-}
-#endif
-
-static int add_root_mount(void) {
-
-#if ENABLE_EFI
-        int r;
-
-        if (!is_efi_boot()) {
-                log_debug("Not a EFI boot, not creating root mount.");
-                return 0;
-        }
-
-        r = efi_loader_get_device_part_uuid(NULL);
-        if (r == -ENOENT) {
-                log_debug("EFI loader partition unknown, exiting.");
-                return 0;
-        } else if (r < 0)
-                return log_error_errno(r, "Failed to read ESP partition UUID: %m");
-
-        /* OK, we have an ESP partition, this is fantastic, so let's
-         * wait for a root device to show up. A udev rule will create
-         * the link for us under the right name. */
-
-        if (in_initrd()) {
-                r = generator_write_initrd_root_device_deps(arg_dest, "/dev/gpt-auto-root");
-                if (r < 0)
-                        return 0;
-
-                r = add_root_cryptsetup();
-                if (r < 0)
-                        return r;
-        }
-
-        /* Note that we do not need to enable systemd-remount-fs.service here. If
-         * /etc/fstab exists, systemd-fstab-generator will pull it in for us. */
-
-        return add_mount(
-                        "root",
-                        "/dev/gpt-auto-root",
-                        in_initrd() ? "/sysroot" : "/",
-                        NULL,
-                        arg_root_rw > 0,
-                        NULL,
-                        "Root Partition",
-                        in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
-#else
-        return 0;
-#endif
-}
-
-static int add_mounts(void) {
-        dev_t devno;
-        int r;
-
-        r = get_block_device_harder("/", &devno);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine block device of root file system: %m");
-        if (r == 0) {
-                r = get_block_device_harder("/usr", &devno);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine block device of /usr file system: %m");
-                if (r == 0) {
-                        _cleanup_free_ char *p = NULL;
-                        mode_t m;
-
-                        /* If the root mount has been replaced by some form of volatile file system (overlayfs), the
-                         * original root block device node is symlinked in /run/systemd/volatile-root. Let's read that
-                         * here. */
-                        r = readlink_malloc("/run/systemd/volatile-root", &p);
-                        if (r == -ENOENT) {
-                                log_debug("Neither root nor /usr file system are on a (single) block device.");
-                                return 0;
-                        }
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to read symlink /run/systemd/volatile-root: %m");
-
-                        r = device_path_parse_major_minor(p, &m, &devno);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse major/minor device node: %m");
-                        if (!S_ISBLK(m))
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Volatile root device is of wrong type.");
-                }
-        }
-
-        return enumerate_partitions(devno);
 }
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
