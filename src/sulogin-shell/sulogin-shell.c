@@ -6,13 +6,14 @@
 #include <errno.h>
 #include <sys/prctl.h>
 
+#include "sd-bus.h"
+
 #include "bus-util.h"
 #include "bus-error.h"
 #include "def.h"
 #include "env-util.h"
 #include "log.h"
 #include "process-util.h"
-#include "sd-bus.h"
 #include "signal-util.h"
 #include "special.h"
 

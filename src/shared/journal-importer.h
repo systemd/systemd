@@ -6,8 +6,9 @@
 #include <stdbool.h>
 #include <sys/uio.h>
 
-#include "io-util.h"
 #include "sd-id128.h"
+
+#include "io-util.h"
 #include "time-util.h"
 
 /* Make sure not to make this smaller than the maximum coredump size.
