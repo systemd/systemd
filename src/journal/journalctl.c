@@ -313,9 +313,9 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [MATCHES...]\n\n"
-               "%sQuery the journal.%s\n\n"
-               "Options:\n"
+        printf("%1$s [OPTIONS...] [MATCHES...]\n\n"
+               "%5$sQuery the journal.%6$s\n\n"
+               "%3$sOptions:%4$s\n"
                "     --system                Show the system journal\n"
                "     --user                  Show the user journal for the current user\n"
                "  -M --machine=CONTAINER     Operate on local container\n"
@@ -360,7 +360,7 @@ static int help(void) {
                "     --interval=TIME         Time interval for changing the FSS sealing key\n"
                "     --verify-key=KEY        Specify FSS verification key\n"
                "     --force                 Override of the FSS key pair with --setup-keys\n"
-               "\nCommands:\n"
+               "\n%3$sCommands:%4$s\n"
                "  -h --help                  Show this help text\n"
                "     --version               Show package version\n"
                "  -N --fields                List all field names currently used\n"
@@ -380,10 +380,11 @@ static int help(void) {
                "     --dump-catalog          Show entries in the message catalog\n"
                "     --update-catalog        Update the message catalog database\n"
                "     --setup-keys            Generate a new FSS key pair\n"
-               "\nSee the %s for details.\n"
+               "\nSee the %2$s for details.\n"
                , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
                , link
+               , ansi_underline(), ansi_normal()
+               , ansi_highlight(), ansi_normal()
         );
 
         return 0;
