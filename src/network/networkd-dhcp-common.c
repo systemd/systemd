@@ -322,7 +322,7 @@ int config_parse_dhcp_send_option(
                 return 0;
         }
 
-        free(word);
+        word = mfree(word);
         r = extract_first_word(&p, &word, ":", 0);
         if (r == -ENOMEM)
                 return log_oom();
