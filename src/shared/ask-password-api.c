@@ -80,7 +80,7 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
                 n = keyctl(KEYCTL_READ, (unsigned long) serial, (unsigned long) p, (unsigned long) m, 0);
                 if (n < 0)
                         return -errno;
-                if ((size_t) n < m) {
+                if ((size_t) n <= m) {
                         nfinal = (size_t) n;
                         pfinal = TAKE_PTR(p);
                         break;
