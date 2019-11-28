@@ -1373,8 +1373,8 @@
         <varlistentry>
           <term><varname>IPServiceType=</varname></term>
           <listitem>
-            <para>Takes string; "CS6" or "CS4". Used to set IP service type to CS6 (network control)
-            or CS4 (Realtime). IPServiceType defaults to CS6 if nothing is specified.</para>
+            <para>Takes string; <literal>CS6</literal> or <literal>CS4</literal>. Used to set IP
+            service type to CS6 (network control) or CS4 (Realtime). Defaults to CS6.</para>
           </listitem>
         </varlistentry>
       </variablelist>
