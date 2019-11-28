@@ -2041,7 +2041,7 @@ SystemCallErrorNumber=EPERM</programlisting>
       <varlistentry>
         <term><varname>StandardOutput=</varname></term>
 
-        <listitem><para>Controls where file descriptor 1 (STDOUT) of the executed processes is connected
+        <listitem><para>Controls where file descriptor 1 (stdout) of the executed processes is connected
         to. Takes one of <option>inherit</option>, <option>null</option>, <option>tty</option>,
         <option>journal</option>, <option>kmsg</option>, <option>journal+console</option>,
         <option>kmsg+console</option>, <option>file:<replaceable>path</replaceable></option>,
@@ -2117,7 +2117,7 @@ SystemCallErrorNumber=EPERM</programlisting>
       <varlistentry>
         <term><varname>StandardError=</varname></term>
 
-        <listitem><para>Controls where file descriptor 2 (STDERR) of the executed processes is connected to. The
+        <listitem><para>Controls where file descriptor 2 (stderr) of the executed processes is connected to. The
         available options are identical to those of <varname>StandardOutput=</varname>, with some exceptions: if set to
         <option>inherit</option> the file descriptor used for standard output is duplicated for standard error, while
         <option>fd:<replaceable>name</replaceable></option> will use a default file descriptor name of
