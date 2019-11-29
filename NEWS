@@ -201,28 +201,30 @@ CHANGES WITH 244:
           kernel log buffer, which are probably almost all.
 
         Contributions from: Aaron Plattner, Alcaro, Anita Zhang, Balint Reczey,
-        Bastien Nocera, Baybal Ni, Benjamin Bouvier, Benjamin Gilbert, cbzxt,
-        Chen Qi, Chris Down, Christian Rebischke, Claudio Zumbo, ClydeByrdIII,
-        crashfistfight, Cyprien Laplace, Daniel Gorbea, Daniel Edgecumbe,
-        Daniel Rusek, Daniel Stuart, Dan Streetman, David Pedersen, David
-        Tardon, Dimitri John Ledkov, Dominique Martinet, Donald A. Cupp Jr,
-        Evgeny Vereshchagin, Fabian Henneke, Filipe Brandenburger, Franck Bui,
-        Frantisek Sumsal, Georg Müller, Hans de Goede, HATAYAMA Daisuke, Iwan
-        Timmer, Jan Janssen, Jan Kundrát, Jan Synacek, Jay Strict, Jérémy
-        Rosen, Jóhann B. Guðmundsson, Jonas Jelten, Jonas Thelemann, Justin
-        Trudell, Kai-Heng Feng, Kenneth D'souza, Kevin Kuehler, Kevin Becker,
-        Lennart Poettering, Léonard Gérard, Lorenz Bauer, Luca Boccassi, Maciej
-        Stanczew, Mario Limonciello, Marko Myllynen, Mark Stosberg, Martin
-        Wilck, matthiasroos, Michael Biebl, Michael Olbrich, Michael Tretter,
-        Michal Sekletar, Michal Suchanek, Mike Kazantsev, Nicolas Douma,
-        Norbert Lange, pan93412, Pavel Hrdina, Peter Wu, Philip Withnall, Piotr
-        Drąg, Rafael Fontenelle, Renaud Métrich, Riccardo Schirone,
-        RoadrunnerWMC, Ronan Pigott, Ryan Attard, Sebastian Wick, Serge,
-        Siddharth Chandrasekara, Steve Traylen, Susant Sahani, Thibault Nélis,
-        Tim Teichmann, Tom Fitzhenry, Tommy J, Torsten Hilbrich, Vito Caputo,
-        ypf791, Yu Watanabe, Zach Smith, Zbigniew Jędrzejewski-Szmek
+        Bastien Nocera, Baybal Ni, Benjamin Bouvier, Benjamin Gilbert, Carlo
+        Teubner, cbzxt, Chen Qi, Chris Down, Christian Rebischke, Claudio
+        Zumbo, ClydeByrdIII, crashfistfight, Cyprien Laplace, Daniel Edgecumbe,
+        Daniel Gorbea, Daniel Rusek, Daniel Stuart, Dan Streetman, David
+        Pedersen, David Tardon, Dimitri John Ledkov, Dominique Martinet, Donald
+        A. Cupp Jr, Evgeny Vereshchagin, Fabian Henneke, Filipe Brandenburger,
+        Franck Bui, Frantisek Sumsal, Georg Müller, Hans de Goede, Haochen
+        Tong, HATAYAMA Daisuke, Iwan Timmer, Jan Janssen, Jan Kundrát, Jan
+        Synacek, Jan Tojnar, Jay Strict, Jérémy Rosen, Jóhann B. Guðmundsson,
+        Jonas Jelten, Jonas Thelemann, Justin Trudell, J. Xing, Kai-Heng Feng,
+        Kenneth D'souza, Kevin Becker, Kevin Kuehler, Lennart Poettering,
+        Léonard Gérard, Lorenz Bauer, Luca Boccassi, Maciej Stanczew, Mario
+        Limonciello, Marko Myllynen, Mark Stosberg, Martin Wilck, matthiasroos,
+        Michael Biebl, Michael Olbrich, Michael Tretter, Michal Sekletar,
+        Michal Sekletár, Michal Suchanek, Mike Gilbert, Mike Kazantsev, Nicolas
+        Douma, nikolas, Norbert Lange, pan93412, Pascal de Bruijn, Paul Menzel,
+        Pavel Hrdina, Peter Wu, Philip Withnall, Piotr Drąg, Rafael Fontenelle,
+        Renaud Métrich, Riccardo Schirone, RoadrunnerWMC, Ronan Pigott, Ryan
+        Attard, Sebastian Wick, Serge, Siddharth Chandrasekara, Steve Ramage,
+        Steve Traylen, Susant Sahani, Thibault Nélis, Tim Teichmann, Tom
+        Fitzhenry, Tommy J, Torsten Hilbrich, Vito Caputo, ypf791, Yu Watanabe,
+        Zach Smith, Zbigniew Jędrzejewski-Szmek
 
-        – Somewhere, 2019-11-22
+        – Warsaw, 2019-11-29
 
 CHANGES WITH 243:
 
