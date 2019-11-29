@@ -1,6 +1,6 @@
 # systemd - System and Service Manager
 
-![systemd logo](https://avatars0.githubusercontent.com/u/1918868?s=200&v=4)
+![systemd logo](http://brand.systemd.io/assets/page-logo.png)
 
 <a href="https://in.waw.pl/systemd-github-state/systemd-systemd-issues.svg"><img align="right" src="https://in.waw.pl/systemd-github-state/systemd-systemd-issues-small.svg" alt="Count of open issues over time"></a>
 <a href="https://in.waw.pl/systemd-github-state/systemd-systemd-pull-requests.svg"><img align="right" src="https://in.waw.pl/systemd-github-state/systemd-systemd-pull-requests-small.svg" alt="Count of open pull requests over time"></a>
