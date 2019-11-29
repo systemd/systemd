@@ -275,13 +275,17 @@ int config_parse_capability(
                 if (r == 0)
                         break;
 
-                r = capability_from_name(word);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse capability, ignoring: %s", word);
-                        continue;
-                }
+                if (streq(word, "all"))
+                        u = (uint64_t) -1;
+                else {
+                        r = capability_from_name(word);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse capability, ignoring: %s", word);
+                                continue;
+                        }
 
-                u |= UINT64_C(1) << r;
+                        u |= UINT64_C(1) << r;
+                }
         }
 
         if (u == 0)
