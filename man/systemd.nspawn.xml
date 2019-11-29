@@ -189,7 +189,8 @@
         <filename>/etc/systemd/nspawn/</filename> and
         <filename>/run/system/nspawn/</filename> (see above). On the
         other hand, <varname>DropCapability=</varname> takes effect in
-        all cases.</para></listitem>
+        all cases. If the special value <literal>all</literal> is passed, all
+        capabilities are retained (or dropped).</para></listitem>
       </varlistentry>
 
       <varlistentry>
