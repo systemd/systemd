@@ -471,7 +471,7 @@ mouse:usb:v046dp4069:name:Logitech MX Master 2s:
 # Logitech MX Master 2S (via Bluetooth)
 # Horiz wheel has 14 stops, angle is rounded up
 mouse:bluetooth:v046dpb019:name:MX Master 2S Mouse:
- MOUSE_DPI=2000@2000
+ MOUSE_DPI=1000@2000
  MOUSE_WHEEL_CLICK_ANGLE=15
  MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
  MOUSE_WHEEL_CLICK_COUNT=24
