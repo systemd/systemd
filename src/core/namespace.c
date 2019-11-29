@@ -29,6 +29,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
 
@@ -1640,6 +1641,44 @@ int temporary_filesystem_add(
         return 0;
 }
 
+static int make_tmp_prefix(const char *prefix) {
+        _cleanup_free_ char *t = NULL;
+        int r;
+
+        /* Don't do anything unless we know the dir is actually missing */
+        r = access(prefix, F_OK);
+        if (r >= 0)
+                return 0;
+        if (errno != ENOENT)
+                return -errno;
+
+        r = mkdir_parents(prefix, 0755);
+        if (r < 0)
+                return r;
+
+        r = tempfn_random(prefix, NULL, &t);
+        if (r < 0)
+                return r;
+
+        if (mkdir(t, 0777) < 0)
+                return -errno;
+
+        if (chmod(t, 01777) < 0) {
+                r = -errno;
+                (void) rmdir(t);
+                return r;
+        }
+
+        if (rename(t, prefix) < 0) {
+                r = -errno;
+                (void) rmdir(t);
+                return r == -EEXIST ? 0 : r; /* it's fine if someone else created the dir by now */
+        }
+
+        return 0;
+
+}
+
 static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
         _cleanup_free_ char *x = NULL;
         char bid[SD_ID128_STRING_MAX];
@@ -1660,6 +1699,10 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
         x = strjoin(prefix, "/systemd-private-", sd_id128_to_string(boot_id, bid), "-", id, "-XXXXXX");
         if (!x)
                 return -ENOMEM;
+
+        r = make_tmp_prefix(prefix);
+        if (r < 0)
+                return r;
 
         RUN_WITH_UMASK(0077)
                 if (!mkdtemp(x))
