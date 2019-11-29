@@ -28,6 +28,33 @@ Features:
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then actviate app thorugh that passing socket oveer
 
+* move discoverable partitions spec into markdown and our tree
+
+* sd-event: add native support for P_ALL waitid() watching, then move PID 1 to
+  it fo reaping assigned but unknown children. This needs to some special care
+  to operate somewhat sensibly in light of priorities: P_ALL will return
+  arbitrary processes, regardless of the priority we want to watch them with,
+  hence on each event loop iteration check all processes which we shall watch
+  with higher prio explicitly, and then watch the entire rest with P_ALL.
+
+* tweak sd-event's child watching: keep a prioq of children to watch and use
+  waitid() only on the children with the highest priority until one is waitable
+  and ignore all lower-prio ones from that point on
+
+* sd-event: drop stack allocated epoll_event buffer in sd_event_wait()
+
+* maybe introduce xattrs that can be set on the root dir of the root fs
+  partition that declare the volatility mode to use the image in. Previously I
+  thought marking this via GPT partition flags but that's not ideal since
+  that's outside of the LUKS encryption/verity verification, and we probably
+  shouldn't operate in a volatile mode unless we got told so from a trusted
+  source.
+
+* look for /var/tmp automatically via gpt auto discovery
+
+* figure out automatic partition discovery when combining writable root dir
+  with immutable /usr
+
 * coredump: maybe when coredumping read a new xattr from /proc/$PID/exe that
   may be used to mark a whole binary as non-coredumpable. Would fix:
   https://bugs.freedesktop.org/show_bug.cgi?id=69447
