@@ -1661,6 +1661,10 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
         if (!x)
                 return -ENOMEM;
 
+        r = mkdir_p(prefix,0777);
+        if (r < 0)
+                return r;
+
         RUN_WITH_UMASK(0077)
                 if (!mkdtemp(x))
                         return -errno;
