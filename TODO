@@ -28,6 +28,8 @@ Features:
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then actviate app thorugh that passing socket oveer
 
+* kill zenata, all hail weblate?
+
 * move discoverable partitions spec into markdown and our tree
 
 * sd-event: add native support for P_ALL waitid() watching, then move PID 1 to
