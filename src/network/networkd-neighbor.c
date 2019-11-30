@@ -102,7 +102,7 @@ static int neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, L
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
                 /* Neighbor may not exist yet. So, do not enter failed state here. */
-                log_link_warning_errno(link, r, "Could not set neighbor, ignoring: %m");
+                log_link_message_warning_errno(link, m, r, "Could not set neighbor, ignoring");
 
         if (link->neighbor_messages == 0) {
                 log_link_debug(link, "Neighbors set");
@@ -171,7 +171,7 @@ static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -ESRCH)
                 /* Neighbor may not exist because it already got deleted, ignore that. */
-                log_link_warning_errno(link, r, "Could not remove neighbor: %m");
+                log_link_message_warning_errno(link, m, r, "Could not remove neighbor");
 
         return 1;
 }

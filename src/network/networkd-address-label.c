@@ -95,7 +95,7 @@ static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_warning_errno(link, r, "could not set address label: %m");
+                log_link_message_warning_errno(link, m, r, "Could not set address label");
                 link_enter_failed(link);
                 return 1;
         } else if (r >= 0)

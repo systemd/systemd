@@ -51,7 +51,7 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "could not set ipv4ll address: %m");
+                log_link_message_warning_errno(link, m, r, "could not set ipv4ll address");
                 link_enter_failed(link);
                 return 1;
         } else if (r >= 0)

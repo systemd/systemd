@@ -41,6 +41,13 @@
 /* use 8 MB for receive socket kernel queue. */
 #define RCVBUF_SIZE    (8*1024*1024)
 
+static int log_message_warning_errno(sd_netlink_message *m, int err, const char *msg) {
+        const char *err_msg = NULL;
+
+        (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
+        return log_warning_errno(err, "%s: %s%s%m", msg, strempty(err_msg), err_msg ? " " : "");
+}
+
 static int setup_default_address_pool(Manager *m) {
         AddressPool *p;
         int r;
@@ -283,7 +290,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: failed to receive route message, ignoring: %m");
+                        log_message_warning_errno(message, r, "rtnl: failed to receive route message, ignoring");
 
                 return 0;
         }
@@ -576,7 +583,7 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: failed to receive neighbor message, ignoring: %m");
+                        log_message_warning_errno(message, r, "rtnl: failed to receive neighbor message, ignoring");
 
                 return 0;
         }
@@ -714,7 +721,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: failed to receive address message, ignoring: %m");
+                        log_message_warning_errno(message, r, "rtnl: failed to receive address message, ignoring");
 
                 return 0;
         }
@@ -867,7 +874,7 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: Could not receive link message, ignoring: %m");
+                        log_message_warning_errno(message, r, "rtnl: Could not receive link message, ignoring");
 
                 return 0;
         }
@@ -957,7 +964,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: failed to receive rule message, ignoring: %m");
+                        log_message_warning_errno(message, r, "rtnl: failed to receive rule message, ignoring");
 
                 return 0;
         }
@@ -1170,7 +1177,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: failed to receive rule message, ignoring: %m");
+                        log_message_warning_errno(message, r, "rtnl: failed to receive rule message, ignoring");
 
                 return 0;
         }

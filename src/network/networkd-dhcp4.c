@@ -65,11 +65,11 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
                 /* It seems kernel does not support that the prefix route cannot be configured with
                  * route table. Let's once drop the config and reconfigure them later. */
 
-                log_link_debug_errno(link, r, "Could not set DHCPv4 route, retrying later: %m");
+                log_link_message_debug_errno(link, m, r, "Could not set DHCPv4 route, retrying later: %m");
                 link->dhcp4_route_failed = true;
                 link->manager->dhcp4_prefix_root_cannot_set_table = true;
         } else if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "Could not set DHCPv4 route: %m");
+                log_link_message_warning_errno(link, m, r, "Could not set DHCPv4 route: %m");
                 link_enter_failed(link);
                 return 1;
         }
@@ -543,7 +543,7 @@ static int dhcp_remove_address_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_debug_errno(link, r, "Failed to remove DHCPv4 address, ignoring: %m");
+                log_link_message_warning_errno(link, m, r, "Failed to remove DHCPv4 address, ignoring");
         else
                 (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
@@ -665,7 +665,7 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "Could not set DHCPv4 address: %m");
+                log_link_message_warning_errno(link, m, r, "Could not set DHCPv4 address");
                 link_enter_failed(link);
                 return 1;
         } else if (r >= 0)

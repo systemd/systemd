@@ -32,7 +32,7 @@ static int ndisc_netlink_route_message_handler(sd_netlink *rtnl, sd_netlink_mess
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "Could not set NDisc route or address: %m");
+                log_link_message_error_errno(link, m, r, "Could not set NDisc route or address");
                 link_enter_failed(link);
                 return 1;
         }
@@ -63,7 +63,7 @@ static int ndisc_netlink_address_message_handler(sd_netlink *rtnl, sd_netlink_me
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "Could not set NDisc route or address: %m");
+                log_link_message_error_errno(link, m, r, "Could not set NDisc route or address");
                 link_enter_failed(link);
                 return 1;
         } else if (r >= 0)

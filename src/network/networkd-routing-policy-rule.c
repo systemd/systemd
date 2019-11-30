@@ -317,7 +317,7 @@ static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_messa
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_warning_errno(link, r, "Could not drop routing policy rule: %m");
+                log_link_message_warning_errno(link, m, r, "Could not drop routing policy rule");
 
         return 1;
 }
@@ -431,7 +431,7 @@ static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_warning_errno(link, r, "Could not add routing policy rule: %m");
+                log_link_message_warning_errno(link, m, r, "Could not add routing policy rule");
                 link_enter_failed(link);
                 return 1;
         }
