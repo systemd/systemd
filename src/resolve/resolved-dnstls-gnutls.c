@@ -67,6 +67,12 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
                 gnutls_session_set_verify_cert2(gs, &stream->dnstls_data.validation, 1, 0);
         }
 
+        if (server->server_name) {
+                r = gnutls_server_name_set(gs, GNUTLS_NAME_DNS, server->server_name, strlen(server->server_name));
+                if (r < 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set server name: %s", gnutls_strerror(r));
+        }
+
         gnutls_handshake_set_timeout(gs, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
 
         gnutls_transport_set_ptr2(gs, (gnutls_transport_ptr_t) (long) stream->fd, stream);

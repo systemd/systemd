@@ -25,8 +25,10 @@ int dns_server_new(
                 Link *l,
                 int family,
                 const union in_addr_union *in_addr,
-                int ifindex) {
+                int ifindex,
+                const char *server_name) {
 
+        _cleanup_free_ char *name = NULL;
         DnsServer *s;
 
         assert(m);
@@ -44,6 +46,12 @@ int dns_server_new(
                         return -E2BIG;
         }
 
+        if (server_name) {
+                name = strdup(server_name);
+                if (!name)
+                        return -ENOMEM;
+        }
+
         s = new(DnsServer, 1);
         if (!s)
                 return -ENOMEM;
@@ -55,6 +63,7 @@ int dns_server_new(
                 .family = family,
                 .address = *in_addr,
                 .ifindex = ifindex,
+                .server_name = TAKE_PTR(name),
         };
 
         dns_server_reset_features(s);
@@ -107,6 +116,7 @@ static DnsServer* dns_server_free(DnsServer *s)  {
 #endif
 
         free(s->server_string);
+        free(s->server_name);
         return mfree(s);
 }
 

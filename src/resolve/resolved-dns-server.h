@@ -53,6 +53,8 @@ struct DnsServer {
 
         char *server_string;
 
+        char *server_name;
+
         /* The long-lived stream towards this server. */
         DnsStream *stream;
 
@@ -94,7 +96,8 @@ int dns_server_new(
                 Link *link,
                 int family,
                 const union in_addr_union *address,
-                int ifindex);
+                int ifindex,
+                const char *server_string);
 
 DnsServer* dns_server_ref(DnsServer *s);
 DnsServer* dns_server_unref(DnsServer *s);
