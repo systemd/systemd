@@ -40,14 +40,14 @@ static bool arg_enabled = true;
 static bool arg_root_enabled = true;
 static int arg_root_rw = -1;
 
-static int open_parent_devno(dev_t devnum, int *ret) {
+static int open_parent_block_device(dev_t devnum, int *ret_fd) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         const char *name, *devtype, *node;
         sd_device *parent;
         dev_t pn;
         int fd, r;
 
-        assert(ret);
+        assert(ret_fd);
 
         r = sd_device_new_from_devnum(&d, 'b', devnum);
         if (r < 0)
@@ -56,7 +56,8 @@ static int open_parent_devno(dev_t devnum, int *ret) {
         if (sd_device_get_devname(d, &name) < 0) {
                 r = sd_device_get_syspath(d, &name);
                 if (r < 0) {
-                        log_device_debug_errno(d, r, "Device %u:%u does not have a name, ignoring: %m", major(devnum), minor(devnum));
+                        log_device_debug_errno(d, r, "Device %u:%u does not have a name, ignoring: %m",
+                                               major(devnum), minor(devnum));
                         return 0;
                 }
         }
@@ -99,7 +100,7 @@ static int open_parent_devno(dev_t devnum, int *ret) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open %s: %m", node);
 
-        *ret = fd;
+        *ret_fd = fd;
         return 1;
 }
 
@@ -654,7 +655,7 @@ static int enumerate_partitions(dev_t devnum) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         int r, k;
 
-        r = open_parent_devno(devnum, &fd);
+        r = open_parent_block_device(devnum, &fd);
         if (r <= 0)
                 return r;
 
