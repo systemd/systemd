@@ -745,9 +745,19 @@ static const NLTypeSystem rtnl_qdisc_type_system = {
         .types = rtnl_qdisc_types,
 };
 
+static const NLType error_types[] = {
+        [NLMSGERR_ATTR_MSG]  = { .type = NETLINK_TYPE_STRING },
+        [NLMSGERR_ATTR_OFFS] = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem error_type_system = {
+        .count = ELEMENTSOF(error_types),
+        .types = error_types,
+};
+
 static const NLType rtnl_types[] = {
         [NLMSG_DONE]       = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = 0 },
-        [NLMSG_ERROR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = sizeof(struct nlmsgerr) },
+        [NLMSG_ERROR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
         [RTM_NEWLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
         [RTM_DELLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
         [RTM_GETLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
@@ -1052,7 +1062,7 @@ const NLTypeSystem genl_family_type_system_root = {
 };
 
 static const NLType genl_types[] = {
-        [SD_GENL_ERROR]   = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = sizeof(struct nlmsgerr) },
+        [SD_GENL_ERROR]   = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
         [SD_GENL_DONE]    = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system },
         [SD_GENL_ID_CTRL] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_get_family_type_system, .size = sizeof(struct genlmsghdr) },
         [SD_GENL_NL80211] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_type_system, .size = sizeof(struct genlmsghdr) },

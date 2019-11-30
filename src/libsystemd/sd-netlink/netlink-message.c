@@ -575,7 +575,9 @@ static int netlink_message_read_internal(sd_netlink_message *m, unsigned short t
         assert_return(data, -EINVAL);
 
         assert(m->n_containers < RTNL_CONTAINER_DEPTH);
-        assert(m->containers[m->n_containers].attributes);
+
+        if (!m->containers[m->n_containers].attributes)
+                return -ENODATA;
 
         if (type >= m->containers[m->n_containers].n_attributes)
                 return -ENODATA;
@@ -1021,6 +1023,27 @@ int sd_netlink_message_get_errno(const sd_netlink_message *m) {
         return err->error;
 }
 
+static int netlink_message_parse_error(sd_netlink_message *m) {
+        struct nlmsgerr *err = NLMSG_DATA(m->hdr);
+        size_t hlen = sizeof(struct nlmsgerr);
+
+        /* no TLVs, nothing to do here */
+        if (!(m->hdr->nlmsg_flags & NLM_F_ACK_TLVS))
+                return 0;
+
+        /* if NLM_F_CAPPED is set then the inner err msg was capped */
+        if (!(m->hdr->nlmsg_flags & NLM_F_CAPPED))
+                hlen += err->msg.nlmsg_len - sizeof(struct nlmsghdr);
+
+        if (m->hdr->nlmsg_len <= NLMSG_SPACE(hlen))
+                return 0;
+
+        return netlink_container_parse(m,
+                                       &m->containers[m->n_containers],
+                                       (struct rtattr*)((uint8_t*) NLMSG_DATA(m->hdr) + hlen),
+                                       NLMSG_PAYLOAD(m->hdr, hlen));
+}
+
 int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl) {
         const NLType *nl_type;
         uint16_t type;
@@ -1060,10 +1083,13 @@ int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl) {
 
                 m->containers[0].type_system = type_system;
 
-                r = netlink_container_parse(m,
-                                            &m->containers[m->n_containers],
-                                            (struct rtattr*)((uint8_t*)NLMSG_DATA(m->hdr) + NLMSG_ALIGN(size)),
-                                            NLMSG_PAYLOAD(m->hdr, size));
+                if (sd_netlink_message_is_error(m))
+                        r = netlink_message_parse_error(m);
+                else
+                        r = netlink_container_parse(m,
+                                                    &m->containers[m->n_containers],
+                                                    (struct rtattr*)((uint8_t*) NLMSG_DATA(m->hdr) + NLMSG_ALIGN(size)),
+                                                    NLMSG_PAYLOAD(m->hdr, size));
                 if (r < 0)
                         return r;
         }
