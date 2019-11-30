@@ -211,7 +211,7 @@ Features:
   1. add resume_offset support to the resume code (i.e. support swap files
      properly)
   2. check if swap is on weird storage and refuse if so
-  3. add autodetection of hibernation images
+  3. add auto-detection of hibernation images
 
 * cgroups: use inotify to get notified when somebody else modifies cgroups
   owned by us, then log a friendly warning.
