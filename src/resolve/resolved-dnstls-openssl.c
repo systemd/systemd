@@ -87,6 +87,17 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
                         return -ECONNREFUSED;
         }
 
+        if (server->server_name) {
+                r = SSL_set_tlsext_host_name(s, server->server_name);
+                if (r <= 0) {
+                        char errbuf[256];
+
+                        error = ERR_get_error();
+                        ERR_error_string_n(error, errbuf, sizeof(errbuf));
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set server name: %s", errbuf);
+                }
+        }
+
         ERR_clear_error();
         stream->dnstls_data.handshake = SSL_do_handshake(s);
         if (stream->dnstls_data.handshake <= 0) {

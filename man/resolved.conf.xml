@@ -214,6 +214,9 @@
         resolver is not capable of authenticating the server, so it is
         vulnerable to "man-in-the-middle" attacks.</para>
 
+        <para>Server Name Indication (SNI) can be used when opening a TLS connection.
+        Entries in <varname>DNS=</varname> should be in format <literal>address#server_name</literal>.</para>
+
         <para>In addition to this global DNSOverTLS setting
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         also maintains per-link DNSOverTLS settings. For system DNS
