@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "macro.h"
 
@@ -21,6 +22,17 @@ typedef void (*free_func_t)(void *p);
 #define new(t, n) ((t*) malloc_multiply(sizeof(t), (n)))
 
 #define new0(t, n) ((t*) calloc((n) ?: 1, sizeof(t)))
+
+/* Note to caller: errno can only be ENOMEM since we are using the system's page size as alignment. */
+#define new_aligned(t, n) ((t*) memalign_multiply(sizeof(t), (n)))
+
+#define new_aligned0(t, n)                                              \
+        ({                                                              \
+                t* _p_;                                                 \
+                size_t _len_ = n;                                       \
+                _p_ = new_aligned(t, _len_);                            \
+                _p_ ? (t*) memset(_p_, 0, _len_ * sizeof(t)) : NULL;    \
+        })                                                              \
 
 #define newa(t, n)                                                      \
         ({                                                              \
@@ -94,6 +106,18 @@ _malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t size, size_t 
                 return NULL;
 
         return malloc(size * need ?: 1);
+}
+
+_alloc_(1, 2) static inline void *memalign_multiply(size_t size, size_t need) {
+        void *ptr;
+
+        if (size_multiply_overflow(size, need))
+                return NULL;
+
+        if (posix_memalign(&ptr, (size_t) sysconf(_SC_PAGESIZE), size * need ?: 1) != 0)
+                return NULL;
+
+        return ptr;
 }
 
 #if !HAVE_REALLOCARRAY
