@@ -1030,6 +1030,66 @@ int strv_to_password(char **l, char **p, size_t *q) {
         return 0;
 }
 
+/* The equivalent of strv_extend_strv, but for sensitive data. */
+int strv_extend_password(char ***a, char **b, bool filter_duplicates) {
+        char **s, **t;
+        size_t p, q, i = 0, j;
+        int r;
+
+        assert(a);
+
+        if (strv_isempty(b))
+                return 0;
+
+        p = strv_length(*a);
+        q = strv_length(b);
+
+        t = reallocarray(*a, p + q + 1, sizeof(char *));
+        if (!t)
+                return -ENOMEM;
+
+        t[p] = NULL;
+        *a = t;
+
+        STRV_FOREACH(s, b) {
+                size_t z;
+                _cleanup_(erase_freep_and_unlock) char *m;
+
+                if (filter_duplicates && strv_contains(t, *s))
+                        continue;
+
+                z = strlen(*s);
+                m = new_aligned0(char, z + 1);
+                if (!m) {
+                        r = -errno;
+                        goto rollback;
+                }
+
+                if (lock_mem(m) < 0) {
+                        r = -errno;
+                        goto rollback;
+                }
+
+                memcpy(m, *s, z + 1);
+                t[p+i] = TAKE_PTR(m);
+
+                i++;
+                t[p+i] = NULL;
+        }
+
+        assert(i <= q);
+
+        return (int) i;
+
+rollback:
+        for (j = 0; j < i; j++)
+                erase_freep_and_unlock(t[p + j]);
+
+        t[p] = NULL;
+        return r;
+}
+
+
 int string_strv_hashmap_put(Hashmap **h, const char *key, const char *value) {
         int r;
 
