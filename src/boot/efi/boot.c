@@ -2453,6 +2453,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 UINT64 key;
 
                 err = console_key_read(&key, FALSE);
+
+                if (err == EFI_NOT_READY) {
+                        uefi_call_wrapper(BS->Stall, 1, 100 * 1000);
+                        err = console_key_read(&key, FALSE);
+                }
+
                 if (!EFI_ERROR(err)) {
                         INT16 idx;
 
