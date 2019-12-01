@@ -63,17 +63,21 @@ static int lookup_key(const char *keyname, key_serial_t *ret) {
 static int retrieve_key(key_serial_t serial, char ***ret) {
         size_t nfinal, m = 100;
         char **l;
-        _cleanup_(erase_and_freep) char *pfinal = NULL;
+        _cleanup_(erase_freep_and_unlock) char *pfinal = NULL;
 
         assert(ret);
 
         for (;;) {
-                _cleanup_(erase_and_freep) char *p = NULL;
+                _cleanup_(erase_freep_and_unlock) char *p = NULL;
                 long n;
 
-                p = new(char, m);
+                p = new_aligned(char, m);
                 if (!p)
                         return -ENOMEM;
+
+                n = lock_mem(p);
+                if (n < 0)
+                        return -errno;
 
                 n = keyctl(KEYCTL_READ, (unsigned long) serial, (unsigned long) p, (unsigned long) m, 0);
                 if (n < 0)
@@ -89,7 +93,7 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
                 m *= 2;
         }
 
-        l = strv_parse_nulstr(pfinal, nfinal);
+        l = strv_parse_password(pfinal, nfinal);
         if (!l)
                 return -ENOMEM;
 
@@ -98,8 +102,8 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
 }
 
 static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **passwords) {
-        _cleanup_strv_free_erase_ char **l = NULL;
-        _cleanup_(erase_and_freep) char *p = NULL;
+        _cleanup_strv_free_erase_unlock_ char **l = NULL;
+        _cleanup_(erase_freep_and_unlock) char *p = NULL;
         key_serial_t serial;
         size_t n;
         int r;
@@ -119,11 +123,11 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
         } else if (r != -ENOKEY)
                 return r;
 
-        r = strv_extend_strv(&l, passwords, true);
+        r = strv_extend_password(&l, passwords, true);
         if (r <= 0)
                 return r;
 
-        r = strv_make_nulstr(l, &p, &n);
+        r = strv_to_password(l, &p, &n);
         if (r < 0)
                 return r;
 
@@ -227,7 +231,7 @@ int ask_password_plymouth(
         ssize_t k;
         int r, n;
         struct pollfd pollfd[2] = {};
-        char buffer[LINE_MAX];
+        _cleanup_(erase_freep_and_unlock) char *buffer = NULL;
         size_t p = 0;
         enum {
                 POLL_SOCKET,
@@ -271,6 +275,13 @@ int ask_password_plymouth(
         pollfd[POLL_INOTIFY].fd = notify;
         pollfd[POLL_INOTIFY].events = POLLIN;
 
+        buffer = new_aligned0(char, LINE_MAX);
+        if (!buffer)
+                return -ENOMEM;
+
+        if (lock_mem(buffer) < 0)
+                return -errno;
+
         for (;;) {
                 int sleep_for = -1, j;
 
@@ -279,30 +290,23 @@ int ask_password_plymouth(
 
                         y = now(CLOCK_MONOTONIC);
 
-                        if (y > until) {
-                                r = -ETIME;
-                                goto finish;
-                        }
+                        if (y > until)
+                                return -ETIME;
 
                         sleep_for = (int) ((until - y) / USEC_PER_MSEC);
                 }
 
-                if (flag_file && access(flag_file, F_OK) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (flag_file && access(flag_file, F_OK) < 0)
+                        return -errno;
 
                 j = poll(pollfd, notify >= 0 ? 2 : 1, sleep_for);
                 if (j < 0) {
                         if (errno == EINTR)
                                 continue;
 
-                        r = -errno;
-                        goto finish;
-                } else if (j == 0) {
-                        r = -ETIME;
-                        goto finish;
-                }
+                        return -errno;
+                } else if (j == 0)
+                        return -ETIME;
 
                 if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0)
                         (void) flush_fd(notify);
@@ -310,17 +314,14 @@ int ask_password_plymouth(
                 if (pollfd[POLL_SOCKET].revents == 0)
                         continue;
 
-                k = read(fd, buffer + p, sizeof(buffer) - p);
+                k = read(fd, buffer + p, LINE_MAX - p);
                 if (k < 0) {
                         if (IN_SET(errno, EINTR, EAGAIN))
                                 continue;
 
-                        r = -errno;
-                        goto finish;
-                } else if (k == 0) {
-                        r = -EIO;
-                        goto finish;
-                }
+                        return -errno;
+                } else if (k == 0)
+                        return -EIO;
 
                 p += k;
 
@@ -335,14 +336,12 @@ int ask_password_plymouth(
                                  * with a normal password request */
                                 packet = mfree(packet);
 
-                                if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0) {
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
+                                if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0)
+                                        return -ENOMEM;
 
                                 r = loop_write(fd, packet, n+1, true);
                                 if (r < 0)
-                                        goto finish;
+                                        return r;
 
                                 flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
                                 p = 0;
@@ -350,8 +349,7 @@ int ask_password_plymouth(
                         }
 
                         /* No password, because UI not shown */
-                        r = -ENOENT;
-                        goto finish;
+                        return -ENOENT;
 
                 } else if (IN_SET(buffer[0], 2, 9)) {
                         uint32_t size;
@@ -363,35 +361,24 @@ int ask_password_plymouth(
 
                         memcpy(&size, buffer+1, sizeof(size));
                         size = le32toh(size);
-                        if (size + 5 > sizeof(buffer)) {
-                                r = -EIO;
-                                goto finish;
-                        }
+                        if (size + 5 > LINE_MAX)
+                                return -EIO;
 
                         if (p-5 < size)
                                 continue;
 
-                        l = strv_parse_nulstr(buffer + 5, size);
-                        if (!l) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        l = strv_parse_password(buffer + 5, size);
+                        if (!l)
+                                return -errno;
 
                         *ret = l;
                         break;
 
-                } else {
-                        /* Unknown packet */
-                        r = -EIO;
-                        goto finish;
-                }
+                } else /* Unknown packet */
+                        return -EIO;
         }
 
-        r = 0;
-
-finish:
-        explicit_bzero_safe(buffer, sizeof(buffer));
-        return r;
+        return 0;
 }
 
 int ask_password_tty(
@@ -412,8 +399,9 @@ int ask_password_tty(
         bool reset_tty = false, dirty = false, use_color = false;
         _cleanup_close_ int cttyfd = -1, notify = -1;
         struct termios old_termios, new_termios;
-        char passphrase[LINE_MAX + 1] = {}, *x;
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(erase_freep_and_unlock) char *c = NULL;
+        _cleanup_strv_free_erase_unlock_ char **l = NULL;
+        char *passphrase = NULL; /* NOTE: Will be appended to strv and freed by caller */
         struct pollfd pollfd[_POLL_MAX];
         size_t p = 0, codepoint = 0;
         int r;
@@ -490,8 +478,31 @@ int ask_password_tty(
                 .events = POLLIN,
         };
 
+        passphrase = new_aligned0(char, LINE_MAX + 1);
+        if (!passphrase) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (lock_mem(passphrase) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        c = new_aligned0(char, 1);
+        if (!c) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (lock_mem(c) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
         for (;;) {
-                _cleanup_(erase_char) char c;
+                erase_char(c);
+
                 int sleep_for = -1, k;
                 ssize_t n;
 
@@ -540,7 +551,7 @@ int ask_password_tty(
                 if (pollfd[POLL_TTY].revents == 0)
                         continue;
 
-                n = read(ttyfd >= 0 ? ttyfd : STDIN_FILENO, &c, 1);
+                n = read(ttyfd >= 0 ? ttyfd : STDIN_FILENO, c, 1);
                 if (n < 0) {
                         if (IN_SET(errno, EINTR, EAGAIN))
                                 continue;
@@ -551,25 +562,25 @@ int ask_password_tty(
                 }
 
                 /* We treat EOF, newline and NUL byte all as valid end markers */
-                if (n == 0 || c == '\n' || c == 0)
+                if (n == 0 || *c == '\n' || *c == 0)
                         break;
 
-                if (c == 4) { /* C-d also known as EOT */
+                if (*c == 4) { /* C-d also known as EOT */
                         if (ttyfd >= 0)
                                 (void) loop_write(ttyfd, "(skipped)", 9, false);
 
                         goto skipped;
                 }
 
-                if (c == 21) { /* C-u */
+                if (*c == 21) { /* C-u */
 
                         if (!(flags & ASK_PASSWORD_SILENT))
                                 (void) backspace_string(ttyfd, passphrase);
 
-                        explicit_bzero_safe(passphrase, sizeof(passphrase));
+                        explicit_bzero_safe(passphrase, LINE_MAX+1);
                         p = codepoint = 0;
 
-                } else if (IN_SET(c, '\b', 127)) {
+                } else if (IN_SET(*c, '\b', 127)) {
 
                         if (p > 0) {
                                 size_t q;
@@ -596,7 +607,7 @@ int ask_password_tty(
                                 }
 
                                 p = codepoint = q == (size_t) -1 ? p - 1 : q;
-                                explicit_bzero_safe(passphrase + p, sizeof(passphrase) - p);
+                                explicit_bzero_safe(passphrase + p, LINE_MAX - p);
 
                         } else if (!dirty && !(flags & ASK_PASSWORD_SILENT)) {
 
@@ -611,7 +622,7 @@ int ask_password_tty(
                         } else if (ttyfd >= 0)
                                 (void) loop_write(ttyfd, "\a", 1, false);
 
-                } else if (c == '\t' && !(flags & ASK_PASSWORD_SILENT)) {
+                } else if (*c == '\t' && !(flags & ASK_PASSWORD_SILENT)) {
 
                         (void) backspace_string(ttyfd, passphrase);
                         flags |= ASK_PASSWORD_SILENT;
@@ -621,14 +632,14 @@ int ask_password_tty(
                         if (ttyfd >= 0)
                                 (void) loop_write(ttyfd, "(no echo) ", 10, false);
 
-                } else if (p >= sizeof(passphrase)-1) {
+                } else if (p >= LINE_MAX) {
 
                         /* Reached the size limit */
                         if (ttyfd >= 0)
                                 (void) loop_write(ttyfd, "\a", 1, false);
 
                 } else {
-                        passphrase[p++] = c;
+                        passphrase[p++] = *c;
 
                         if (!(flags & ASK_PASSWORD_SILENT) && ttyfd >= 0) {
                                 /* Check if we got a complete UTF-8 character now. If so, let's output one '*'. */
@@ -646,14 +657,7 @@ int ask_password_tty(
                 }
         }
 
-        x = strndup(passphrase, p);
-        explicit_bzero_safe(passphrase, sizeof(passphrase));
-        if (!x) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        r = strv_consume(&l, x);
+        r = strv_consume_password(&l, passphrase);
         if (r < 0)
                 goto finish;
 
@@ -725,7 +729,8 @@ int ask_password_agent(
         char temp[] = "/run/systemd/ask-password/tmp.XXXXXX";
         char final[sizeof(temp)] = "";
         _cleanup_free_ char *socket_name = NULL;
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_strv_free_erase_unlock_ char **l = NULL;
+        _cleanup_(erase_freep_and_unlock) char *passphrase = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct pollfd pollfd[_FD_MAX];
         sigset_t mask, oldmask;
@@ -834,8 +839,18 @@ int ask_password_agent(
         pollfd[FD_INOTIFY].fd = notify;
         pollfd[FD_INOTIFY].events = POLLIN;
 
+        passphrase = new_aligned(char, LINE_MAX+1);
+        if (!passphrase) {
+                r =  -ENOMEM;
+                goto finish;
+        }
+
+        if (lock_mem(passphrase) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
         for (;;) {
-                char passphrase[LINE_MAX+1];
                 struct msghdr msghdr;
                 struct iovec iovec;
                 struct ucred *ucred;
@@ -847,6 +862,7 @@ int ask_password_agent(
                 int k;
                 usec_t t;
 
+                explicit_bzero_safe(passphrase, LINE_MAX+1);
                 t = now(CLOCK_MONOTONIC);
 
                 if (until > 0 && until <= t) {
@@ -892,7 +908,7 @@ int ask_password_agent(
                         goto finish;
                 }
 
-                iovec = IOVEC_MAKE(passphrase, sizeof(passphrase));
+                iovec = IOVEC_MAKE(passphrase, LINE_MAX+1);
 
                 zero(control);
                 zero(msghdr);
@@ -936,7 +952,7 @@ int ask_password_agent(
                         if (n == 1)
                                 l = strv_new("");
                         else
-                                l = strv_parse_nulstr(passphrase+1, n-1);
+                                l = strv_parse_password(passphrase+1, n-1);
                         explicit_bzero_safe(passphrase, n);
                         if (!l) {
                                 r = -ENOMEM;
