@@ -873,7 +873,7 @@ static void test_strv_extend_n(void) {
         assert_se(v[1] == NULL);
 }
 
-static void test_strv_make_nulstr_one(char **l) {
+static void test_strv_make_one(int (*test_function)(char**, char**, size_t*), char **l) {
         _cleanup_free_ char *b = NULL, *c = NULL;
         _cleanup_strv_free_ char **q = NULL;
         const char *s = NULL;
@@ -882,11 +882,11 @@ static void test_strv_make_nulstr_one(char **l) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(strv_make_nulstr(l, &b, &n) >= 0);
+        assert_se(test_function(l, &b, &n) >= 0);
         assert_se(q = strv_parse_nulstr(b, n));
         assert_se(strv_equal(l, q));
 
-        assert_se(strv_make_nulstr(q, &c, &m) >= 0);
+        assert_se(test_function(q, &c, &m) >= 0);
         assert_se(m == n);
         assert_se(memcmp(b, c, m) == 0);
 
@@ -895,14 +895,32 @@ static void test_strv_make_nulstr_one(char **l) {
         assert_se(i == strv_length(l));
 }
 
+static void test_strv_make(int (*test_function)(char**, char**, size_t*)) {
+        log_info("/* %s */", __func__);
+
+        test_strv_make_one(test_function, NULL);
+        test_strv_make_one(test_function, STRV_MAKE(NULL));
+        test_strv_make_one(test_function, STRV_MAKE("foo"));
+        test_strv_make_one(test_function, STRV_MAKE("foo", "bar"));
+        test_strv_make_one(test_function, STRV_MAKE("foo", "bar", "quuux"));
+}
+
 static void test_strv_make_nulstr(void) {
         log_info("/* %s */", __func__);
 
-        test_strv_make_nulstr_one(NULL);
-        test_strv_make_nulstr_one(STRV_MAKE(NULL));
-        test_strv_make_nulstr_one(STRV_MAKE("foo"));
-        test_strv_make_nulstr_one(STRV_MAKE("foo", "bar"));
-        test_strv_make_nulstr_one(STRV_MAKE("foo", "bar", "quuux"));
+        test_strv_make(strv_make_nulstr);
+}
+
+static void test_strv_to_password(void) {
+        log_info("/* %s */", __func__);
+
+        /* We will get EPERM locking memory in a container. */
+        if (detect_container() > 0) {
+                log_notice("Testing in container, skipping %s", __func__);
+                return;
+        }
+
+        test_strv_make(strv_to_password);
 }
 
 static void test_strv_free_free(void) {
@@ -1013,6 +1031,7 @@ int main(int argc, char *argv[]) {
         test_strv_skip();
         test_strv_extend_n();
         test_strv_make_nulstr();
+        test_strv_to_password();
         test_strv_free_free();
 
         test_foreach_string();

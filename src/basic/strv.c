@@ -994,6 +994,42 @@ char **strv_parse_password(const char *s, size_t l) {
         return v;
 }
 
+/* The equivalent of strv_make_nulstr, but for sensitive data. */
+int strv_to_password(char **l, char **p, size_t *q) {
+        size_t n = 0;
+        _cleanup_(erase_freep_and_unlock) char *m = NULL;
+        char *w;
+        char **i;
+
+        assert(p);
+        assert(q);
+
+        STRV_FOREACH(i, l)
+                n += strlen(*i) + 1;
+
+        /* The length of all strings and the extra NUL byte at the end */
+        m = new_aligned0(char, n + 1);
+        if (!m || lock_mem(m) < 0)
+                return -errno;
+
+        w = m;
+
+        STRV_FOREACH(i, l) {
+                size_t z;
+
+                z = strlen(*i);
+
+                memcpy(w, *i, z + 1);
+                w += z + 1;
+        }
+
+        *w = '\0';
+        *p = TAKE_PTR(m);
+        *q = w == m ? 1 : n;
+
+        return 0;
+}
+
 int string_strv_hashmap_put(Hashmap **h, const char *key, const char *value) {
         int r;
 

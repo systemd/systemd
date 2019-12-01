@@ -43,6 +43,7 @@ int strv_push_pair(char ***l, char *a, char *b);
 int strv_insert(char ***l, size_t position, char *value);
 
 char **strv_parse_password(const char *s, size_t l);
+int strv_to_password(char **l, char **p, size_t *q);
 
 static inline int strv_push_prepend(char ***l, char *value) {
         return strv_insert(l, 0, value);
